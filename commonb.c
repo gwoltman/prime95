@@ -11940,10 +11940,13 @@ begin:	N = exp = NULL;
 /* The next easiest case is double-the-work error-checking comparing residues at specified intervals */
 
 		if (ps.error_check_type == PRP_ERRCHK_DBLCHK) {
+			int	compare_interval = IniGetInt (INI_FILE, "PRPDoublecheckCompareInterval", 100000);
+			int	iters_left = final_counter;
+			iters_left = one_based_modulo (iters_left, proof_residue_frequency << ps.proof_power);	// End partial proofs on a DCHK verified iter
+			if (compare_interval > iters_left) compare_interval = iters_left;
 			ps.state = PRP_STATE_DCHK_PASS1;
 			ps.start_counter = 0;
-			ps.end_counter = IniGetInt (INI_FILE, "PRPDoublecheckCompareInterval", 100000);
-			if (ps.end_counter > final_counter) ps.end_counter = final_counter;
+			ps.end_counter = compare_interval;
 			if (ps.units_bit == 0) {
 				gwcopy (&gwdata, ps.x, ps.alt_x);
 				ps.alt_units_bit = 0;
@@ -12013,11 +12016,14 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 
 		if (ps.state == PRP_STATE_GERB_START_BLOCK) {
 			int	iters_left = final_counter - ps.counter;
+			iters_left = one_based_modulo (iters_left, proof_residue_frequency << ps.proof_power);	// End partial proofs on a Gerbicz verified iter
 			if (iters_left < 49) {
 				ps.state = PRP_STATE_DCHK_PASS1;
 				ps.start_counter = ps.counter;
-				ps.end_counter = final_counter;
-				if (ps.alt_units_bit) {		// Only Mersennes support shift counts
+				ps.end_counter = ps.counter + iters_left;
+				// Only Mersennes support shift counts.  Alt_x cannot have a different shift count when
+				// DCHK ends and GERBICZ resumes.
+				if (ps.alt_units_bit && ps.end_counter == final_counter) {
 					gwadd3 (&gwdata, ps.alt_x, ps.alt_x, ps.alt_x);
 					ps.alt_units_bit = ps.alt_units_bit + 1;
 					if (ps.alt_units_bit >= w->n) ps.alt_units_bit -= w->n;
@@ -12359,7 +12365,6 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* Output a PRP proof residue every (n+excess_squarings)/(proof_power_mult*2^proof_power) iterations. */
 
 		if (proof_residue) {
-			int	residue_number = (ps.counter - initial_log2k_iters) / proof_residue_frequency;
 			tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
 			if (gwtogiant (&gwdata, x, tmp) || tmp->sign <= 0) {
 				pushg (&gwdata.gdata, 1);
@@ -12371,13 +12376,8 @@ OutputStr (thread_num, "Iteration failed.\n");
 				goto restart;
 			}
 			rotateg (tmp, w->n, *units_bit, &gwdata.gdata);
-			outputProofResidue (&gwdata, &ps, residue_number, tmp);
+			outputProofResidue (&gwdata, &ps, (ps.counter - initial_log2k_iters) / proof_residue_frequency, tmp);
 			pushg (&gwdata.gdata, 1);
-			// Output a partial proof
-			if (is_multiple_of (residue_number, 1 << ps.proof_power) && residue_number != (ps.proof_power_mult << ps.proof_power)) {
-				stop_reason = generateProofFile (&gwdata, &ps, w, residue_number >> ps.proof_power, proof_residue_frequency, proof_hash);
-				if (stop_reason) goto exit;
-			}
 		}
 
 /* See if we found a probable prime, generate final residue for composites */
@@ -12463,7 +12463,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 		}
 		if (ps.state == PRP_STATE_DCHK_PASS2) {
 			if (ps.counter < ps.end_counter);		// Do next iteration
-			else if (ps.counter == ps.end_counter) {	// Switch to alt_x computations
+			else if (ps.counter == ps.end_counter) {	// Switch back to x computations
 				if (!areTwoPRPValsEqual (&gwdata, w->n, ps.x, ps.units_bit, ps.alt_x, ps.alt_units_bit)) {
 					sprintf (buf, ERRMSG6, ps.start_counter);
 					OutputBoth (thread_num, buf);
@@ -12474,13 +12474,16 @@ OutputStr (thread_num, "Iteration failed.\n");
 				}
 				/* If doing a full double-check, start next block of iterations */
 				if (ps.error_check_type == PRP_ERRCHK_DBLCHK) {
+					int	compare_interval = IniGetInt (INI_FILE, "PRPDoublecheckCompareInterval", 100000);
+					int	iters_left = final_counter - ps.counter;
+					iters_left = one_based_modulo (iters_left, proof_residue_frequency << ps.proof_power);	// End partial proofs on a DCHK verified iter
+					if (compare_interval > iters_left) compare_interval = iters_left;
 					ps.state = PRP_STATE_DCHK_PASS1;
 					ps.start_counter = ps.counter;
-					ps.end_counter = ps.start_counter + IniGetInt (INI_FILE, "PRPDoublecheckCompareInterval", 100000);
-					if (ps.end_counter > final_counter) ps.end_counter = final_counter;
+					ps.end_counter = ps.start_counter + compare_interval;
 				}
-				/* Otherwise, we're doing the first or last few iterations of a Gerbicz error-check. */
-				/* Set state to start next Gerbicz block (in case we just computed prp_base^k). */
+				/* Otherwise, we're doing the first or last few iterations of a Gerbicz error-check.  Set state to */
+				/* start next Gerbicz block (in case we just computed prp_base^k or ended a partial proof iteration). */
 				else {
 					ps.state = PRP_STATE_GERB_START_BLOCK;
 				}
@@ -12606,6 +12609,16 @@ OutputStr (thread_num, "Iteration failed.\n");
 				saving = TRUE;
 				saving_highly_reliable = TRUE;
 			}
+		}
+
+/* If we just verified the last iteration in a partial proof, then output the partial proof */
+
+		if ((ps.state == PRP_STATE_NORMAL || ps.state == PRP_STATE_DCHK_PASS1 || ps.state == PRP_STATE_GERB_START_BLOCK) &&
+		    ps.counter != final_counter &&
+		    (final_counter - ps.counter) % (proof_residue_frequency << ps.proof_power) == 0) {
+			int proof_number = (ps.counter - initial_log2k_iters) / (proof_residue_frequency << ps.proof_power);
+			stop_reason = generateProofFile (&gwdata, &ps, w, proof_number, proof_residue_frequency, proof_hash);
+			if (stop_reason) goto exit;
 		}
 
 /* Write results to a file every DISK_WRITE_TIME minutes */

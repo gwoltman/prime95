@@ -53,6 +53,7 @@
 #define round_up_to_multiple_of(a,b)	(divide_rounding_up (a, b) * (b))
 #define round_down_to_multiple_of(a,b)	(divide_rounding_down (a, b) * (b))
 #define is_multiple_of(a,b)		((a) % (b) == 0)
+#define one_based_modulo(a,b)		((((a) - 1) % (b)) + 1)					// Return value between 1 and b
 #define _intmin(a,b)			(((int)(a) < (int)(b)) ? (int)(a) : (int)(b))
 #define _intmax(a,b)			(((int)(a) > (int)(b)) ? (int)(a) : (int)(b))
 
