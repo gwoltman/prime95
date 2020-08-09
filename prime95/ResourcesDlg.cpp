@@ -42,7 +42,7 @@ void CResourcesDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_UPLOAD_END, m_upload_end);
 	DDV_MaxChars(pDX, m_upload_end, 8);
 	DDX_Text(pDX, IDC_DOWNLOAD_MB, m_download_mb);
-	DDV_MinMaxUInt(pDX, m_download_mb, 0, 100);
+	DDV_MinMaxUInt(pDX, m_download_mb, 0, 999999);
 	DDX_Control(pDX, IDC_UPLOAD_BANDWIDTH_TEXT, c_upload_bandwidth_text);
 	DDX_Control(pDX, IDC_UPLOAD_BANDWIDTH, c_upload_bandwidth);
 	DDX_Control(pDX, IDC_UPLOAD_START_TEXT, c_upload_start_text);

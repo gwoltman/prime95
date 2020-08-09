@@ -905,7 +905,7 @@ void options_resources (void)
 		askStr ("Upload large files time period start", m_upload_start, 8);
 		askStr ("Upload large files time period end", m_upload_end, 8);
 	}
-	askNum ("Download limit for certification work in MB/day", &m_download_mb, 0, 100);
+	askNum ("Download limit for certification work in MB/day", &m_download_mb, 0, 999999);
 
 	outputLongLine ("Skip advanced resource settings");
 	if (!askYesNo ('Y')) {
