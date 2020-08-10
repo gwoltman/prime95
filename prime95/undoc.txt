@@ -287,7 +287,7 @@ the program to delete save files by adding this line to prime.txt:
 	KeepPminus1SaveFiles=0
 
 You can force the program to skip the trial factoring step prior to
-running a Lucas-Lehmer test.  In prime.txt add this line:
+running a Lucas-Lehmer or PRP primality test.  In prime.txt add this line:
 	SkipTrialFactoring=1
 
 You can do "optimal" P-1 factoring of k*b^n+c by adding lines to worktodo.txt:
