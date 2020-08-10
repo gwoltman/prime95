@@ -12625,7 +12625,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* If we just verified the last iteration in a partial proof, then output the partial proof */
 
 		if ((ps.state == PRP_STATE_NORMAL || ps.state == PRP_STATE_DCHK_PASS1 || ps.state == PRP_STATE_GERB_START_BLOCK) &&
-		    ps.counter != final_counter &&
+		    ps.proof_power && ps.counter != final_counter &&
 		    (final_counter - ps.counter) % (proof_residue_frequency << ps.proof_power) == 0) {
 			int proof_number = (ps.counter - initial_log2k_iters) / (proof_residue_frequency << ps.proof_power);
 			stop_reason = generateProofFile (&gwdata, &ps, w, proof_number, proof_residue_frequency, proof_hash);
