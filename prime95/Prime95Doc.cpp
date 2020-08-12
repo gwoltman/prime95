@@ -1176,6 +1176,8 @@ void flashWindowAndBeep ()
 #endif
 #include "cJSON.h"
 #include "cJSON.c"
+#include "pm1prob.h"
+#include "pm1prob.c"
 #include "md5.c"
 #include "comm95b.c"
 #include "comm95c.c"
