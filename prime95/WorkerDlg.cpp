@@ -34,6 +34,8 @@ CWorkerDlg::CWorkerDlg(CWnd* pParent /*=NULL*/)
 	//{{AFX_DATA_INIT(CWorkerDlg)
 	m_num_thread = 1;
 	thread_num = 0;
+	memset (m_work_pref, 0, sizeof (m_work_pref));
+	memset (m_numcpus, 0, sizeof (m_numcpus));
 	//}}AFX_DATA_INIT
 }
 
@@ -189,7 +191,7 @@ void CWorkerDlg::InitComboBoxText (void)
 // Populate the work type combo box
 
 	c_work_pref.ResetContent ();
-	if (thread_num)
+	if (thread_num > 0)
 		sel = map_work_pref_to_sel (m_work_pref[thread_num-1]);
 	else if (AreAllTheSame (m_work_pref))
 		sel = map_work_pref_to_sel (m_work_pref[0]);
@@ -215,7 +217,7 @@ void CWorkerDlg::InitComboBoxText (void)
 
 // Populate the num cpus edit box.
 
-	if (thread_num) {
+	if (thread_num > 0) {
 		sprintf (buf, "%d", m_numcpus[thread_num-1]);
 		c_numcpus.SetWindowText (buf);
 	} else if (AreAllTheSame (m_numcpus)) {
