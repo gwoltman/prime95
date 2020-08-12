@@ -218,7 +218,7 @@ void ProofUpload (char *filename)
 
 /* Give curl library the HTTP string to send */
 
-	sprintf (url, "http://mersenne.org/proof_upload/?UserID=%s&Exponent=%d&FileSize=%" PRIu64 "&FileMD5=%s", USERID, exponent, filesize, fileMD5);
+	sprintf (url, "http://www.mersenne.org/proof_upload/?UserID=%s&Exponent=%d&FileSize=%" PRIu64 "&FileMD5=%s", USERID, exponent, filesize, fileMD5);
 	curl_easy_setopt (curl, CURLOPT_URL, url);
 	curl_easy_setopt (curl, CURLOPT_SSL_VERIFYPEER, FALSE);
 	if (debug) {
