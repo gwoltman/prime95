@@ -2596,22 +2596,23 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 /* Handle Test= and DoubleCheck= lines.					*/
 /*	Test=exponent,how_far_factored,has_been_pminus1ed		*/
 /*	DoubleCheck=exponent,how_far_factored,has_been_pminus1ed	*/
+/* New in 30.4, for consistency with PRP worktodo lines assume no TF or P-1 needed if those fields are left out */
 
 	    if (_stricmp (keyword, "Test") == 0) {
 		float	sieve_depth;
 		w->work_type = WORK_TEST;
-		sieve_depth = 0.0;
-		sscanf (value, "%lu,%f,%d",
-				&w->n, &sieve_depth, &w->pminus1ed);
+		sieve_depth = 99.0;
+		w->pminus1ed = 1;
+		sscanf (value, "%lu,%f,%d", &w->n, &sieve_depth, &w->pminus1ed);
 		w->sieve_depth = sieve_depth;
 		w->tests_saved = 2.0;
 	    }
 	    else if (_stricmp (keyword, "DoubleCheck") == 0) {
 		float	sieve_depth;
 		w->work_type = WORK_DBLCHK;
-		sieve_depth = 0.0;
-		sscanf (value, "%lu,%f,%d",
-				&w->n, &sieve_depth, &w->pminus1ed);
+		sieve_depth = 99.0;
+		w->pminus1ed = 1;
+		sscanf (value, "%lu,%f,%d", &w->n, &sieve_depth, &w->pminus1ed);
 		w->sieve_depth = sieve_depth;
 		w->tests_saved = 1.0;
 	    }
@@ -3153,11 +3154,17 @@ int writeWorkToDoFile (
 			break;
 
 		case WORK_TEST:
-			sprintf (buf, "Test=%s%lu,%.0f,%d", idbuf, w->n, w->sieve_depth, w->pminus1ed);
+			if (w->sieve_depth != 99.0 || w->pminus1ed != 1)
+				sprintf (buf, "Test=%s%lu,%.0f,%d", idbuf, w->n, w->sieve_depth, w->pminus1ed);
+			else
+				sprintf (buf, "Test=%s%lu", idbuf, w->n);
 			break;
 
 		case WORK_DBLCHK:
-			sprintf (buf, "DoubleCheck=%s%lu,%.0f,%d", idbuf, w->n, w->sieve_depth, w->pminus1ed);
+			if (w->sieve_depth != 99.0 || w->pminus1ed != 1)
+				sprintf (buf, "DoubleCheck=%s%lu,%.0f,%d", idbuf, w->n, w->sieve_depth, w->pminus1ed);
+			else
+				sprintf (buf, "DoubleCheck=%s%lu", idbuf, w->n);
 			break;
 
 		case WORK_ADVANCEDTEST:
@@ -3194,7 +3201,7 @@ int writeWorkToDoFile (
 
 		case WORK_PRP:
 			sprintf (buf, "PRP%s=%s%.0f,%lu,%lu,%ld", w->prp_dblchk ? "DC" : "", idbuf, w->k, w->b, w->n, w->c);
-			if (w->sieve_depth || w->tests_saved > 0.0 || w->prp_base || w->prp_residue_type) {
+			if (w->sieve_depth != 99.0 || w->tests_saved > 0.0 || w->prp_base || w->prp_residue_type) {
 				sprintf (buf + strlen (buf), ",%g,%g", w->sieve_depth, w->tests_saved);
 				if (w->prp_base || w->prp_residue_type)
 					sprintf (buf + strlen (buf), ",%u,%d", w->prp_base, w->prp_residue_type);
