@@ -997,12 +997,12 @@ int read_memory_settings (
 
 /* Set up some default values */
 
-	*day_memory = 8;
-	*night_memory = 8;
+	*day_memory = 256;
+	*night_memory = 256;
 	*day_start_time = 450;
 	*day_end_time = 1410;
 
-/* Get the memory settings.  If not found, return some defaults */
+/* Get the memory settings.  If not found, return the defaults */
 
 	p = IniSectionGetStringRaw (LOCALINI_FILE, NULL, "Memory");
 	if (p == NULL) return (TRUE);
