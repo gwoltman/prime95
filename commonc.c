@@ -2812,8 +2812,8 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 			if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
 		q = strchr (q+1, ',');
 
-		w->sieve_depth = 0.0;
-		w->tests_saved = 0.0;
+		w->sieve_depth = 99.0;		// Default to "no TF needed"
+		w->tests_saved = 0.0;		// Default to "no P-1 needed"
 		w->prp_base = 0;
 		w->prp_residue_type = 0;
 		if (q != NULL && q[1] != '"') {
