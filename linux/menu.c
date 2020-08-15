@@ -341,7 +341,7 @@ void test_primenet (void)
 		m_proxy_host[0] = 0;
 	}
  
-	askNum ("Output debug info to prime.log (0=none, 1=some, 2=lots)", &m_debug, 0, 2);
+	askNum ("Output debug info to prime.log (0=none, 1=some, 2=too much)", &m_debug, 0, 2);
 
 done:	if (askOkCancel ()) {
 		DIAL_UP = m_dialup;
