@@ -5884,7 +5884,7 @@ retry:
 /* Thus, it is priority work.  Some options turn off priority work which precludes getting certification work. */
 /* We are only allowed one certification assignment at a time (part of our spread the load amongst many users philosophy). */
 
-	can_get_cert_work = TRUE;
+	can_get_cert_work = IniGetInt (LOCALINI_FILE, "CertWork", 1);
 	if (WELL_BEHAVED_WORK || SEQUENTIAL_WORK == 1) can_get_cert_work = FALSE;
 	for (tnum = 0; tnum < NUM_WORKER_THREADS; tnum++) {
 		struct work_unit *w;

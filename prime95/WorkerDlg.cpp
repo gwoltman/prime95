@@ -36,6 +36,7 @@ CWorkerDlg::CWorkerDlg(CWnd* pParent /*=NULL*/)
 	thread_num = 0;
 	memset (m_work_pref, 0, sizeof (m_work_pref));
 	memset (m_numcpus, 0, sizeof (m_numcpus));
+	m_cert_work = 1;
 	//}}AFX_DATA_INIT
 }
 
@@ -59,6 +60,8 @@ void CWorkerDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_NUMCPUS_TEXT, c_numcpus_text);
 	DDX_Control(pDX, IDC_NUMCPUS, c_numcpus);
 
+	DDX_Control(pDX, IDC_CERT, c_cert_work);
+	DDX_Check(pDX, IDC_CERT, m_cert_work);
 	//}}AFX_DATA_MAP
 	c_num_thread_text.EnableWindow (max_num_workers () > 1);
 	c_num_thread.EnableWindow (max_num_workers () > 1);
@@ -69,6 +72,7 @@ void CWorkerDlg::DoDataExchange(CDataExchange* pDX)
 	c_work_pref.EnableWindow (USE_PRIMENET);
 	c_numcpus_text.EnableWindow (m_num_thread < NUM_CPUS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
 	c_numcpus.EnableWindow (m_num_thread < NUM_CPUS || !AreAllTheSame (m_numcpus) || m_numcpus[0] != 1);
+	c_cert_work.EnableWindow (USE_PRIMENET);
 }
 
 

@@ -324,6 +324,7 @@ void CPrime95Doc::OnWorkerThreads()
 		dlg.m_work_pref[i] = WORK_PREFERENCE[i];
 		dlg.m_numcpus[i] = CORES_PER_TEST[i];
 	}
+	dlg.m_cert_work = IniGetInt (LOCALINI_FILE, "CertWork", 1);
 
 again:	if (dlg.DoModal () == IDOK) {
 		int	restart = FALSE;
@@ -398,6 +399,10 @@ again:	if (dlg.DoModal () == IDOK) {
 			PTOSetAll (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, dlg.m_numcpus[0]);
 		else for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
 			PTOSetOne (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, dlg.m_numcpus[i]);
+
+/* Write the new CertWork setting */
+
+		IniWriteInt (LOCALINI_FILE, "CertWork", dlg.m_cert_work);
 
 /* Send new settings to the server */
 

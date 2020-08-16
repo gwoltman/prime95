@@ -223,10 +223,13 @@ network traffic is light.
 Download limit for certification work
 -------------------------------------
 
-This controls the number of MB that can be downloaded in a day for certification work.  It is highly
-unlikely there will be enough certification work available to satisfy the default setting of 40MB / day.
-If you are on a metered connection or do not wish to devote any CPU time to certification work
-then you can set this to zero and you will not be assigned certification work.
+This controls the number of MB that can be downloaded to your machine each day for certification work.
+It is highly unlikely there will be enough certification work available to satisfy the default setting
+of 40MB / day.  If you are on a metered connection or do not wish to devote any CPU time to certification
+work then you can set this to zero and you will not be assigned certification work.  You can also use
+this setting to control how often you get certification assignments.  For example, with exponents around
+100,000,000 requiring a 12MB download, setting the download limit to 4MB would mean getting at most one
+100,000,000 certification every 3 days.
 
  
 ADVANCED RESOURCE USAGE
