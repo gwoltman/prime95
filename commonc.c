@@ -6088,11 +6088,11 @@ retry:
 		!USE_PRIMENET)
 		    continue;
 
-/* Occasionally get certification work from the server.  P-1 and ECM stage 2 may have significant costs */
-/* with an interruption to do priority work.  Also, lots of work_units is not a typical setup -- may indicate */
-/* a large worktodo.txt file with high costs reading and writing it. */
+/* Occasionally get certification work from the server.  P-1 and ECM stage 2 may have significant costs with an interruption */
+/* to do priority work.  Also, lots of work_units is not a typical setup -- may indicate a large worktodo.txt file with high */
+/* costs reading and writing it.  Also, provide a method of limiting CERT work to one specific worker. */
 
-	    if (can_get_cert_work && first_work_unit_interruptable && num_work_units < 10) {
+	    if (can_get_cert_work && first_work_unit_interruptable && num_work_units < 10 && IniGetInt (LOCALINI_FILE, "CertWorker", tnum+1) == tnum+1) {
 		struct primenetGetAssignment pkt1;
 		struct work_unit w;
 
@@ -6104,6 +6104,8 @@ retry:
 		strcpy (pkt1.computer_guid, COMPUTER_GUID);
 		pkt1.cpu_num = tnum;
 		pkt1.get_cert_work = IniGetFloat (LOCALINI_FILE, "CertDailyCPULimit", 10.0); // Helps server decide cert exponent size
+		pkt1.min_exp = IniGetInt (LOCALINI_FILE, "CertMinExponent", 0);
+		pkt1.max_exp = IniGetInt (LOCALINI_FILE, "CertMaxExponent", 0);
 		LOCKED_WORK_UNIT = NULL;
 		rc = sendMessage (PRIMENET_GET_ASSIGNMENT, &pkt1);
 		// Ignore errors, we expect this work to only be available sometimes
@@ -6164,6 +6166,8 @@ retry:
 		strcpy (pkt1.computer_guid, COMPUTER_GUID);
 		pkt1.cpu_num = tnum;
 		pkt1.temp_disk_space = CPU_WORKER_DISK_SPACE;
+		pkt1.min_exp = IniGetInt (LOCALINI_FILE, "GetMinExponent", 0);
+		pkt1.max_exp = IniGetInt (LOCALINI_FILE, "GetMaxExponent", 0);
 		LOCKED_WORK_UNIT = NULL;
 		rc = sendMessage (PRIMENET_GET_ASSIGNMENT, &pkt1);
 		if (rc) goto error_exit;

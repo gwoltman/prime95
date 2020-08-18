@@ -1,4 +1,4 @@
-This file lists the undocumented features available in the program.
+This file lists previously undocumented features available in the program.
 These features may change or be discontinued at any time.  Their use is
 totally unsupported.
 
@@ -69,6 +69,13 @@ to disable creating larger proof files to simulate a higher proof power.  Howeve
 if temporary disk space resources, proof file size resources, and upload bandwidth
 resources are this limited it is strongly recommended switching to less demanding
 work, such as double-checking.
+
+There are also some options for controlling certification work.  In local.txt, add
+	CertWorker=n
+	CertMinExponent=x
+	CertMaxExponent=y
+This let's you do certifications only on the specified worker number n.  You can
+also control the range of exponents you are willing to do certifications for.
 
 You can control whether the program does extra error checking on every
 iteration of a primality test.  This runs a little bit slower.  Windows
@@ -293,6 +300,11 @@ running a Lucas-Lehmer or PRP primality test.  In prime.txt add this line:
 You can do "optimal" P-1 factoring of k*b^n+c by adding lines to worktodo.txt:
 	Pfactor=k,b,n,c,how_far_factored,num_primality_tests_saved
 For example, Pfactor=1,2,10000157,-1,64,2.0
+
+You can limit which exponents PrimeNet will assign to you.  In local.ini, add
+	GetMinExponent=x
+	GetMaxExponent=y
+Assignments from PrimeNet will be on exponents between x and y.
 
 You can reduce the number of times worktodo.txt is read and written by
 setting in prime.txt:
