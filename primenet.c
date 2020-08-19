@@ -194,7 +194,7 @@ int curl_trace (
 {
 	char	*text;
 	char	buf[4096];
-	int	len;
+	int	len, i, binary_data;
 
 	switch (type) {
 	case CURLINFO_TEXT:
@@ -228,12 +228,29 @@ int curl_trace (
 	strcat (buf, ": ");
 	len = (int) strlen (buf);
 	size = _intmin (size, sizeof (buf) - len - 2);
-	memcpy (buf + len, data, size);
-	if (data[size-1] != '\n') {
-		buf[len + size] = '\n';
-		buf[len + size + 1] = 0;
-	} else
-		buf[len + size] = 0;
+
+	// Is data all printable ascii?
+	binary_data = FALSE;
+	for (i = 0; i < size; i++) {
+		if ((data[i] <= 0x1F && data[i] != '\t' && data[i] != '\r' && data[i] != '\n') || data[i] == (char) 0xFF)  {
+			binary_data = TRUE;
+			break;
+		}
+	}
+
+	// Copy "<binary>" or the data to the message buffer
+	if (binary_data) {
+		strcpy (buf + len, "<binary>\n");
+	} else {
+		memcpy (buf + len, data, size);
+		if (data[size-1] != '\n') {
+			buf[len + size] = '\n';
+			buf[len + size + 1] = 0;
+		} else
+			buf[len + size] = 0;
+	}
+
+	// Log the message
 	LogMsg (buf);
 
 	return 0;
