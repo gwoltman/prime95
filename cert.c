@@ -558,7 +558,7 @@ retry_work:
 /* Abandon work and exit */
 
 abandon_work:
-	sprintf (buf, "Abandoning certification of M%u.\n", w->n);
+	sprintf (buf, "Abandoning certification of M%lu.\n", w->n);
 	OutputBoth (thread_num, buf);
 	unreserve (w->n);
 	goto work_complete;

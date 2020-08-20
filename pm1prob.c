@@ -88,7 +88,9 @@ double integral(double a, double b, double caller_arg, double (*f)(double, doubl
   if (w == 0) { return 0; }
   double step = w / STEPS;
   double sum = 0;
-  for (double x = a + step * .5; x < b; x += step) { sum += (*f)(x, caller_arg); }
+  double x;
+
+  for (x = a + step * .5; x < b; x += step) { sum += (*f)(x, caller_arg); }
   return sum * step;
 }
 
@@ -116,7 +118,7 @@ double pm1prob(unsigned exponent, int isMersenne, unsigned factoredUpTo, double 
   double takeAwayBits = isMersenne ? log2(exponent) + 1 : 0;
 
   // We split the bit-range starting from "factoredUpTo" up in slices each SLICE_WIDTH bits wide.
-  constexpr double SLICE_WIDTH = 0.25;
+  const double SLICE_WIDTH = 0.25;
 
   // The middle point of the slice is (2^n + 2^(n+SLICE_WIDTH))/2,
   // so log2(middle) is n + log2(1 + 2^SLICE_WIDTH) - 1.
@@ -132,11 +134,12 @@ double pm1prob(unsigned exponent, int isMersenne, unsigned factoredUpTo, double 
   double beta  = bitsB2 / bitsB1;
   
   // When the per-slice probability increment gets below EPSILON we ignore the remaining slices as insignificant.
-  constexpr double EPSILON = 1e-7;
+  const double EPSILON = 1e-7;
 
   double sum = 0;
 
-  for (double p = 1, nSlice = factoredUpTo / SLICE_WIDTH + 0.5; p >= EPSILON; alpha += SLICE_WIDTH / bitsB1, nSlice += 1) {
+  double p, nSlice;
+  for (p = 1, nSlice = factoredUpTo / SLICE_WIDTH + 0.5; p >= EPSILON; alpha += SLICE_WIDTH / bitsB1, nSlice += 1) {
     double pm1Prob = miu(alpha, beta);
 
     // The probability of "at least one" factor in the slice is p = SLICE_WIDTH/(n + SLICE_WIDTH).
