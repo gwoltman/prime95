@@ -231,7 +231,7 @@ int curl_trace (
 
 	// Is data all printable ascii?
 	binary_data = FALSE;
-	for (i = 0; i < size; i++) {
+	for (i = 0; i < (int) size; i++) {
 		if ((data[i] <= 0x1F && data[i] != '\t' && data[i] != '\r' && data[i] != '\n') || data[i] == (char) 0xFF)  {
 			binary_data = TRUE;
 			break;
