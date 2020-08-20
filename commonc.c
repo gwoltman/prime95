@@ -1970,7 +1970,7 @@ void OutputBothErrno (
 	int	thread_num)
 {
 	char	buf[1024];
-#if WIN32
+#ifdef WIN32
 	int	errnum;
 	unsigned long dos_errnum;
 	char	errtxt[512];

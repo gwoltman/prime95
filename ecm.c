@@ -2109,7 +2109,7 @@ int ecm_restore (			/* For version 25 save files */
 /* Open the intermediate file */
 
 	fd = _open (filename, _O_BINARY | _O_RDONLY);
-	if (fd < 0) goto error;
+	if (fd < 0) goto err;
 
 /* Read the file header */
 
@@ -2147,7 +2147,7 @@ int ecm_restore (			/* For version 25 save files */
 
 readerr:
 	_close (fd);
-error:
+err:
 	return (FALSE);
 }
 
@@ -2724,7 +2724,7 @@ restart1:
 
 /* Check for errors */
 
-		if (gw_test_for_error (&ecmdata.gwdata)) goto error;
+		if (gw_test_for_error (&ecmdata.gwdata)) goto err;
 
 /* Write a save file when the user interrupts the calculation and */
 /* every DISK_WRITE_TIME minutes. */
@@ -2923,7 +2923,7 @@ restart3:
 		ell_add_special2 (&ecmdata, Qiminus2x, Qiminus2z, Q2x, Q2z, Qdiffx, Qdiffz);
 		gwswap (Qdiffx, Qdiffz);
 
-		if (gw_test_for_error (&ecmdata.gwdata)) goto error;
+		if (gw_test_for_error (&ecmdata.gwdata)) goto err;
 
 		stop_reason = stopCheck (thread_num);
 		if (stop_reason) {
@@ -3154,7 +3154,7 @@ restart3:
 
 /* Check for errors */
 
-		if (gw_test_for_error (&ecmdata.gwdata)) goto error;
+		if (gw_test_for_error (&ecmdata.gwdata)) goto err;
 
 /* Write a save file when the user interrupts the calculation and */
 /* every DISK_WRITE_TIME minutes. */
@@ -3425,7 +3425,7 @@ bad_factor_recovery:
 
 /* Output a message saying we are restarting */
 
-error:	OutputBoth (thread_num, "SUMOUT error occurred.\n");
+err:	OutputBoth (thread_num, "SUMOUT error occurred.\n");
 
 /* Sleep five minutes before restarting */
 
@@ -3835,7 +3835,7 @@ int pm1_restore (			/* For version 25 and later save files */
 /* Open the intermediate file */
 
 	fd = _open (filename, _O_BINARY | _O_RDONLY);
-	if (fd < 0) goto error;
+	if (fd < 0) goto err;
 
 /* Read the file header */
 
@@ -3900,7 +3900,7 @@ int pm1_restore (			/* For version 25 and later save files */
 
 readerr:
 	_close (fd);
-error:
+err:
 	return (FALSE);
 }
 
@@ -4812,7 +4812,7 @@ restart0:
 
 /* Test for an error */
 
-		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) goto error;
+		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) goto err;
 		bit_number++;
 
 /* Calculate our stage 1 percentage complete */
@@ -4935,7 +4935,7 @@ restart1:
 
 /* Test for an error */
 
-		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) goto error;
+		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) goto err;
 
 /* Calculate our stage 1 percentage complete */
 
@@ -5191,7 +5191,7 @@ replan:	stop_reason = choose_pminus1_implementation (&pm1data, w, &using_t3);
 		if (i >= pm1data.D) break;
 		if (numrels == pm1data.rels_this_pass) break;
 		fd_next (&pm1data);
-		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) goto error;
+		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) goto err;
 		stop_reason = stopCheck (thread_num);
 		if (stop_reason) {
 			fd_term (&pm1data);
@@ -5323,7 +5323,7 @@ found_a_bit:;
 
 /* Test for errors */
 
-errchk:		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) goto error;
+errchk:		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) goto err;
 
 /* Output the title every so often */
 
@@ -5703,7 +5703,7 @@ bingo:	if (stage == 1)
 /* Output an error message saying we are restarting. */
 /* Sleep five minutes before restarting from last save file. */
 
-error:	if (gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) {
+err:	if (gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) {
 		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file.\n", gw_get_maxerr (&pm1data.gwdata));
 		OutputStr (thread_num, buf);
 	} else {
