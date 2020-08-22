@@ -922,6 +922,15 @@ void strupper (
 	for ( ; *p; p++) if (*p >= 'a' && *p <= 'z') *p = *p - 'a' + 'A';
 }
 
+/* Return true if string contains all hex characters */
+
+int isHex (
+	const char *p)
+{
+	for ( ; *p; p++) if (!(*p >= '0' && *p <= '9') && !(*p >= 'a' && *p <= 'f') && !(*p >= 'A' && *p <= 'F')) return (FALSE);
+	return (TRUE);
+}
+
 /* Convert a string (e.g "11:30 AM") to minutes since midnight */
 /* The result is from 0 to 1440 inclusive.  This allow specifying 00:00 - 24:00 to mean "all day" */
 

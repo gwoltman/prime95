@@ -401,6 +401,7 @@ void guess_pminus1_bounds (int, double, unsigned long, unsigned long, signed lon
 			   unsigned long *, unsigned long *, double *);
 
 void strupper (char *);
+int isHex (const char *);
 void tempFileName (struct work_unit *, char *);
 int fileExists (const char *);
 void DirPlusFilename (char *, const char *);
