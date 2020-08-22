@@ -1873,10 +1873,9 @@ int isPriorityWork (
 	if (w->work_type == WORK_CERT) return (TRUE);
 	if (w->work_type == WORK_ADVANCEDTEST) return (TRUE);
 	if (SEQUENTIAL_WORK == 0) {
-		if ((w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK || w->work_type == WORK_PRP) &&
-		    (w->sieve_depth < w->factor_to || !w->pminus1ed))
+		if ((w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK) && (w->sieve_depth < w->factor_to || !w->pminus1ed))
 			return (TRUE);
-		if (w->work_type == WORK_PRP && w->tests_saved > 0.0)
+		if (w->work_type == WORK_PRP && (w->sieve_depth < w->factor_to || w->tests_saved > 0.0))
 			return (TRUE);
 	}
 	return (FALSE);
@@ -9687,7 +9686,7 @@ void autoBench (void)
 
 		w = getNextWorkToDoLine (tnum, w, SHORT_TERM_USE);
 		if (w == NULL) break;
-		if (w->work_type == WORK_NONE) continue;
+		if (w->work_type == WORK_NONE || w->work_type == WORK_CERT) continue;
 
 /* Ignore any worktodo entries that will not begin within the next 7 days.  No particular reason for this. */
 /* This reduces the likelihood of an excessively long autobench.  The worktodo entry might be deleted before */
