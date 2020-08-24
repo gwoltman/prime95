@@ -122,7 +122,7 @@ void exponentiate_array (gwhandle *gwdata, gwnum x, uint64_t *power, int arrayle
 				gwfftmul (gwdata, x3, x);
 				current_bit -= 1;
 			} else {				// Apply x^1
-				gwstartnextfft (gwdata, current_bit != 1);
+				gwstartnextfft (gwdata, current_bit != 0);
 				gwfftmul (gwdata, x1, x);
 			}
 		}
