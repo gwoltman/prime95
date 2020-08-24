@@ -1084,7 +1084,7 @@ int gcd (
 /* If a factor was found, save it in FAC */
 
 	if (mpz_cmp_ui (a, 1) && mpz_cmp (a, b)) {
-		*factor = allocgiant ((int) mpz_sizeinbase (a, 32));
+		*factor = allocgiant ((int) divide_rounding_up (mpz_sizeinbase (a, 2), 32));
 		if (*factor == NULL) goto oom;
 		mpztog (a, *factor);
 	}
@@ -1175,7 +1175,7 @@ int ecm_modinv (
 /* If a factor was found (gcd != 1 && gcd != N), save it in FAC */
 
 	if (mpz_cmp_ui (__gcd, 1) && mpz_cmp (__gcd, __N)) {
-		*factor = allocgiant ((int) mpz_sizeinbase (__gcd, 32));
+		*factor = allocgiant ((int) divide_rounding_up (mpz_sizeinbase (__gcd, 2), 32));
 		if (*factor == NULL) goto oom;
 		mpztog (__gcd, *factor);
 	}
