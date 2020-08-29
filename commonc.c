@@ -6696,6 +6696,7 @@ void timed_events_scheduler (void *arg)
 		time (&this_time);
 		for (i = 0; i < MAX_TIMED_EVENTS; i++) {
 			int	fire;
+			float	cert_freq;
 			gwmutex_lock (&TIMED_EVENTS_MUTEX);
 			fire = (timed_events[i].active && this_time >= timed_events[i].time_to_fire);
 			gwmutex_unlock (&TIMED_EVENTS_MUTEX);
@@ -6710,7 +6711,6 @@ void timed_events_scheduler (void *arg)
 				checkPauseWhileRunning ();
 				break;
 			case TE_WORK_QUEUE_CHECK:	/* Check for CERT work (and regular work) event */
-				float	cert_freq;
 				// Make more powerful computers check for CERT work more frequently (their fair share)
 				cert_freq = (float) (NUM_CPUS >= 20 ? 3.0 :		/* 20+ cores = 3 hours */
 						     NUM_CPUS >= 12 ? 4.0 :		/* 12-19 cores = 4 hours */
