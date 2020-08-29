@@ -106,7 +106,7 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
 -------------------------------------
 
 1)  Connect to the Internet.  Create an account at https://mersenne.org
-2)  Run prime95.exe.  You will see 4 dialog boxes:
+2)  Run prime95.exe on Windows or "mprime -m" on Linux.  You will see 5 dialog boxes:
 2a) In the welcome dialog box, choose "Join GIMPS!".
 2b) In the second dialog box, enter your user id and optional computer name.
     If you are using several computers, use the same user ID but a unique computer
@@ -114,7 +114,9 @@ INSTRUCTIONS FOR THE AUTOMATIC METHOD
     plan to visit the PrimeNet server's web page to view reports on your progress.
 2c) In the third dialog box, fill in roughly how many hours a day you leave
     your computer running.  Click OK (just close the dialog box on a Mac).
-2d) In the fourth dialog box, choose the number of workers you want to
+2d) In the fourth dialog box, place constraints on the resources the program
+    is allowed to use.
+2e) In the fifth dialog box, choose the number of workers you want to
     run.  Choose the type of work you want each worker to perform.
 3a) If a proxy server is the causing connection troubles, see the
     later section on "SETTING UP A PROXY SERVER".
@@ -130,14 +132,16 @@ MANUAL METHOD INSTRUCTIONS
 1)  Visit https://mersenne.org/update/ to create a userid for yourself and
     https://mersenne.org/manual_assignment/ to get an exponent or two to
     work on.  Copy these exponents to a file called worktodo.txt.
-2)  Run prime95.exe or mprime.  You will see 2 dialog boxes:
+2)  Run prime95.exe on Windows or "mprime -m" on Linux.  You will see 3 dialog boxes:
 2a) In the welcome dialog box, choose "Join GIMPS!".
 2b) In the second dialog box, uncheck "Use PrimeNet to get work and report
     results", click OK.
+2c) In the third dialog box, place constraints on the resources the program
+    is allowed to use.
 3)  Disable screen savers or use the "blank screen" screen saver.  If this
     is not practical, consider raising the program's priority to 4 or 5.
 4)  When done with your exponents, use the web pages again to send the
-    file "results.txt" to the PrimeNet server and get more work.
+    file "results.json.txt" to the PrimeNet server and get more work.
 
 
 WARNINGS and NOTES
