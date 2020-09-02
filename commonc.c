@@ -5939,7 +5939,7 @@ retry:
 		daily_MB_limit_remaining += days_since_last_update * max_daily_MB_limit;
 		if (daily_MB_limit_remaining > max_daily_MB_limit) daily_MB_limit_remaining = max_daily_MB_limit;
 		daily_CPU_limit_remaining += days_since_last_update * max_daily_CPU_limit;
-		if (daily_CPU_limit_remaining > max_daily_MB_limit) daily_CPU_limit_remaining = max_daily_CPU_limit;
+		if (daily_CPU_limit_remaining > max_daily_CPU_limit) daily_CPU_limit_remaining = max_daily_CPU_limit;
 
 		// Save the updated quotas
 		IniWriteFloat (LOCALINI_FILE, "CertDailyMBRemaining", daily_MB_limit_remaining);
@@ -6004,7 +6004,8 @@ retry:
 /* be completed ASAP to free up the temp disk space they are using.  Actually, any work that is near done, the user might */
 /* be watching with anticipation for its completion. */
 
-		if (est == 0.0 && (w->work_type == WORK_PMINUS1 || w->work_type == WORK_ECM || w->pct_complete > 0.85))
+		if (est == 0.0 && IniGetInt (LOCALINI_FILE, "CertDailyCPULimit", 10) < 50 &&
+		    (w->work_type == WORK_PMINUS1 || w->work_type == WORK_PFACTOR || w->work_type == WORK_ECM || w->pct_complete > 0.85))
 			first_work_unit_interruptable = FALSE;
 
 /* Adjust our time estimate */
