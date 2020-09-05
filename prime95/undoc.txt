@@ -630,6 +630,11 @@ You can set MaxHighMemWorkers=n in local.txt.  This tells the program how
 wany workers are allowed to use lots of memory.  This occurs doing stage 2
 of P-1 or ECM on medium-to-large numbers.  Default is available memory / 200MB.
 
+You can set a threshold for what is considered lots of memory in MaxHighMemWorkers
+calculations.  In local.txt, set:
+	HighMemThreshold=n		(default is 50)
+The value n is in MB.
+
 You can change the amount of information the program outputs while setting affinities.
 	AffinityVerbosity=0 or 1	(default is 1)
 	AffinityVerbosityTorture=0 or 1	(default is 0)
