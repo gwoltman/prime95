@@ -6842,6 +6842,13 @@ void proofUploader (void *arg)
 
 	for ( ; ; ) {
 
+/* If we are not using Primenet, wait one hour in case user changes settings from dialog box) */
+
+		if (!USE_PRIMENET) {
+			Sleep (60 * 60 * 1000);
+			continue;
+		}
+
 /* If we are not in the upload time window, pause until we are (or one hour, in case user changes time window from dialog box) */
 
 		if (!inUploadWindow (&minutes_to_start)) {
