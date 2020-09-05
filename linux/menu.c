@@ -48,6 +48,18 @@ unsigned long get_number (
 	return (atol (line));
 }
 
+unsigned long get_number_or_quit (
+	unsigned long dflt,
+	unsigned long quit_value)
+{
+	char	line[80];
+	unsigned long i;
+	get_line (line);
+	if (line[0] == 0) return (dflt);
+	if (_stricmp (line, "q") == 0 || _stricmp (line, "quit") == 0) return (quit_value);
+	return (atol (line));
+}
+
 /* Ask a Yes/No question */
 
 void askYN (
@@ -1368,7 +1380,7 @@ void main_menu (void)
 	printf ("\t18.  Help/About\n");
 	printf ("\t19.  Help/About PrimeNet Server\n");
 	printf ("Your choice: ");
-	choice = get_number (0);
+	choice = get_number_or_quit (0, 5);
 	if (choice <= 0 || choice >= 20) {
 		printf ("\n\t     Invalid choice\n\n");
 		continue;
