@@ -1214,7 +1214,7 @@ int are_threads_using_lots_of_memory (
 	for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
 		if (i != thread_num &&
 		    (MEM_FLAGS[i] & MEM_VARIABLE_USAGE || MEM_FLAGS[i] & MEM_WILL_BE_VARIABLE_USAGE) &&
-		    MEM_IN_USE[i] >= IniGetInt (LOCALINI_FILE, "HighMemThreshold", 50)) {
+		    MEM_IN_USE[i] >= (unsigned int) IniGetInt (LOCALINI_FILE, "HighMemThreshold", 50)) {
 			max_high_mem--;
 			if (max_high_mem == 0) return (TRUE);
 		}
