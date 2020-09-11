@@ -9097,6 +9097,9 @@ void raw_gwfftmul (
 
 	ASSERTG (((uint32_t *) s)[-1] >= 1);
 	ASSERTG (((uint32_t *) d)[-1] >= 1);
+	ASSERTG (((uint32_t *) s)[-7] == 3);	// Make sure input has been completely FFTed
+	ASSERTG (((uint32_t *) d)[-7] != 3);	// Make sure input has not been completely FFTed
+	ASSERTG (((uint32_t *) s)[-1] + ((uint32_t *) d)[-1] <= 3 + 2 * gwdata->EXTRA_BITS);  // Make sure not too many unnormalized adds prior to multiplication
 
 /* Get the unnormalized add count for later use */
 
