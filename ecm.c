@@ -290,7 +290,7 @@ int ell_add_special2 (
 	if (t1 == NULL) goto oom;
 	t2 = gwalloc (&ecmdata->gwdata);
 	if (t2 == NULL) goto oom;
-	gwfftaddsub4 (&ecmdata->gwdata, x1, z1, t1, t2);/* Calc (x1 + z1) and (z1 - z1) */
+	gwfftaddsub4 (&ecmdata->gwdata, x1, z1, t1, t2);/* Calc (x1 + z1) and (x1 - z1) */
 	gwfftfftmul (&ecmdata->gwdata, z2, t1, t1);	/* t1 = (x1 + z1)(x2 - z2) */
 	gwfftfftmul (&ecmdata->gwdata, x2, t2, t2);	/* t2 = (x1 - z1)(x2 + z2) */
 	gwaddsub (&ecmdata->gwdata, t2, t1);		/* Calc t2 + t1 and t2 - t1 */
@@ -333,7 +333,7 @@ int ell_add_special3 (
 	if (t1 == NULL) goto oom;
 	t2 = gwalloc (&ecmdata->gwdata);
 	if (t2 == NULL) goto oom;
-	gwfftaddsub4 (&ecmdata->gwdata, x1, z1, t1, t2);/* Calc (x1 + z1) and (z1 - z1) */
+	gwfftaddsub4 (&ecmdata->gwdata, x1, z1, t1, t2);/* Calc (x1 + z1) and (x1 - z1) */
 	gwfftfftmul (&ecmdata->gwdata, z2, t1, t1);	/* t1 = (x1 + z1)(x2 - z2) */
 	gwfftfftmul (&ecmdata->gwdata, x2, t2, t2);	/* t2 = (x1 - z1)(x2 + z2) */
 	gwaddsub (&ecmdata->gwdata, t2, t1);		/* Calc t2 + t1 and t2 - t1 */
@@ -439,26 +439,18 @@ int ell_add_fft (
 	if (t1 == NULL) goto oom;
 	t2 = gwalloc (&ecmdata->gwdata);
 	if (t2 == NULL) goto oom;
-	gwfftfftmul (&ecmdata->gwdata, x1, z2, t1);
-					/* t1 = (x1 + z1)(x2 - z2) */
-	gwfftfftmul (&ecmdata->gwdata, x2, z1, t2);
-					/* t2 = (x1 - z1)(x2 + z2) */
+	gwfftfftmul (&ecmdata->gwdata, x1, z2, t1);			/* t1 = (x1 + z1)(x2 - z2) */
+	gwfftfftmul (&ecmdata->gwdata, x2, z1, t2);			/* t2 = (x1 - z1)(x2 + z2) */
 	gwaddsub (&ecmdata->gwdata, t2, t1);
 	gwstartnextfft (&ecmdata->gwdata, TRUE);
-	gwsquare (&ecmdata->gwdata, t2);
-					/* t2 = (t2 + t1)^2 (will become x3) */
-	gwsquare (&ecmdata->gwdata, t1);
-					/* t1 = (t2 - t1)^2 (will become z3) */
+	gwsquare (&ecmdata->gwdata, t2);				/* t2 = (t2 + t1)^2 (will become x3) */
+	gwsquare (&ecmdata->gwdata, t1);				/* t1 = (t2 - t1)^2 (will become z3) */
 	gwstartnextfft (&ecmdata->gwdata, FALSE);
-	gwfftaddsub4 (&ecmdata->gwdata, xdiff, zdiff, x3, z3);
-					/* x3 = xdiff = (xdiff + zdiff) */
-					/* z3 = zdiff = (xdiff - zdiff) */
-	gwfftmul (&ecmdata->gwdata, z3, t2);
-					/* t2 = t2 * zdiff (new x3) */
-	gwfftmul (&ecmdata->gwdata, x3, t1);
-					/* t1 = t1 * xdiff (new z3) */
-	gwaddsub (&ecmdata->gwdata, t2, t1);
-					/* t2 = x3 + z3, t1 = x3 - z3 */
+	gwfftaddsub4 (&ecmdata->gwdata, xdiff, zdiff, x3, z3);		/* x3 = xdiff = (xdiff + zdiff) */
+									/* z3 = zdiff = (xdiff - zdiff) */
+	gwfftmul (&ecmdata->gwdata, z3, t2);				/* t2 = t2 * zdiff (new x3) */
+	gwfftmul (&ecmdata->gwdata, x3, t1);				/* t1 = t1 * xdiff (new z3) */
+	gwaddsub (&ecmdata->gwdata, t2, t1);				/* t2 = x3 + z3, t1 = x3 - z3 */
 	gwfft (&ecmdata->gwdata, t2, x3);
 	gwfft (&ecmdata->gwdata, t1, z3);
 	gwfree (&ecmdata->gwdata, t1);
@@ -488,25 +480,18 @@ int ell_add_fft_last (
 	if (t1 == NULL) goto oom;
 	t2 = gwalloc (&ecmdata->gwdata);
 	if (t2 == NULL) goto oom;
-	gwfftfftmul (&ecmdata->gwdata, x1, z2, t1);
-					/* t1 = (x1 + z1)(x2 - z2) */
-	gwfftfftmul (&ecmdata->gwdata, x2, z1, t2);
-					/* t2 = (x1 - z1)(x2 + z2) */
+	gwfftfftmul (&ecmdata->gwdata, x1, z2, t1);			/* t1 = (x1 + z1)(x2 - z2) */
+	gwfftfftmul (&ecmdata->gwdata, x2, z1, t2);			/* t2 = (x1 - z1)(x2 + z2) */
 	if (xdiff != x3) {
 		gwaddsub4 (&ecmdata->gwdata, t2, t1, x3, z3);
 		gwstartnextfft (&ecmdata->gwdata, TRUE);
-		gwsquare (&ecmdata->gwdata, x3);
-					/* x3 = (t2 + t1)^2 */
-		gwsquare (&ecmdata->gwdata, z3);
-					/* z3 = (t2 - t1)^2 */
+		gwsquare (&ecmdata->gwdata, x3);			/* x3 = (t2 + t1)^2 */
+		gwsquare (&ecmdata->gwdata, z3);			/* z3 = (t2 - t1)^2 */
 		gwstartnextfft (&ecmdata->gwdata, FALSE);
-		gwfftaddsub4 (&ecmdata->gwdata, xdiff, zdiff, t1, t2);
-					/* t1 = xdiff = (xdiff + zdiff) */
-					/* t2 = zdiff = (xdiff - zdiff) */
-		gwfftmul (&ecmdata->gwdata, t2, x3);
-					/* x3 = x3 * zdiff */
-		gwfftmul (&ecmdata->gwdata, t1, z3);
-					/* z3 = z3 * xdiff */
+		gwfftaddsub4 (&ecmdata->gwdata, xdiff, zdiff, t1, t2);	/* t1 = xdiff = (xdiff + zdiff) */
+									/* t2 = zdiff = (xdiff - zdiff) */
+		gwfftmul (&ecmdata->gwdata, t2, x3);			/* x3 = x3 * zdiff */
+		gwfftmul (&ecmdata->gwdata, t1, z3);			/* z3 = z3 * xdiff */
 	} else {
 		gwaddsub (&ecmdata->gwdata, t2, t1);
 		gwstartnextfft (&ecmdata->gwdata, TRUE);
