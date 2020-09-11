@@ -9253,6 +9253,7 @@ void gwsquare2 (		/* Square a number */
 
 	ASSERTG (((uint32_t *) s)[-1] >= 1);
 	ASSERTG (((uint32_t *) s)[-7] != 3);	// Make sure input has not already been completely FFTed (we could turn this into a gwfftfftmul)
+	ASSERTG (((uint32_t *) s)[-1] + ((uint32_t *) s)[-1] <= 3);  // Make sure not too many unnormalized adds prior to multiplication
 
 /* If we are converting gwsquare calls into gwsquare_carefully calls */
 /* do so now.  Turn off option to do a partial forward FFT on the result. */
@@ -9328,6 +9329,7 @@ void gwfftmul (			/* Multiply already FFTed source with dest */
 	ASSERTG (((uint32_t *) d)[-1] >= 1);
 	ASSERTG (((uint32_t *) s)[-7] == 3);	// Make sure input has been completely FFTed
 	ASSERTG (((uint32_t *) d)[-7] != 3);	// Make sure input has not already been completely FFTed (we could turn this into a gwfftfftmul)
+	ASSERTG (((uint32_t *) s)[-1] + ((uint32_t *) d)[-1] <= 3);  // Make sure not too many unnormalized adds prior to multiplication
 
 /* Call the assembly code */
 
@@ -9354,6 +9356,7 @@ void gwfftfftmul (		/* Multiply two already FFTed sources */
 	ASSERTG (((uint32_t *) s2)[-1] >= 1);
 	ASSERTG (((uint32_t *) s)[-7] == 3);	// Make sure input has been completely FFTed
 	ASSERTG (((uint32_t *) s2)[-7] == 3);	// Make sure input has been completely FFTed
+	ASSERTG (((uint32_t *) s)[-1] + ((uint32_t *) d)[-1] <= 3);  // Make sure not too many unnormalized adds prior to multiplication
 
 /* Get the unnormalized add count for later use */
 
