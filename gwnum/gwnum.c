@@ -9127,7 +9127,7 @@ void raw_gwfftmul (
 /* could trigger a spurious MAXDIFF warning.  Shrink the two SUMS to */
 /* compensate. */
 
-	if (norm_count1 != 1 || norm_count2 != 1) {
+	if (gwdata->sum_inputs_checking && (norm_count1 != 1 || norm_count2 != 1)) {
 		double	adjustment;
 		adjustment = 1.0 / ((double)norm_count1 * (double)norm_count2);
 		gwsuminp (gwdata, d) *= adjustment;
@@ -9297,7 +9297,7 @@ void gwsquare2 (		/* Square a number */
 /* is more than one, then the sums will be larger than normal.  This */
 /* could trigger a spurious MAXDIFF warning.  Shrink the two SUMS to compensate. */
 
-	if (norm_count != 1) {
+	if (gwdata->sum_inputs_checking && norm_count != 1) {
 		double	adjustment;
 		adjustment = 1.0 / ((double) norm_count * (double) norm_count);
 		gwsuminp (gwdata, d) *= adjustment;
@@ -9389,7 +9389,7 @@ void gwfftfftmul (		/* Multiply two already FFTed sources */
 /* is more than one, then the sums will be larger than normal.  This */
 /* could trigger a spurious MAXDIFF warning.  Shrink the two SUMS to compensate. */
 
-	if (norm_count1 != 1 || norm_count2 != 1) {
+	if (gwdata->sum_inputs_checking && (norm_count1 != 1 || norm_count2 != 1)) {
 		double	adjustment;
 		adjustment = 1.0 / ((double)norm_count1 * (double)norm_count2);
 		gwsuminp (gwdata, d) *= adjustment;
