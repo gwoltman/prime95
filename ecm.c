@@ -383,11 +383,11 @@ void ell_begin_fft (
 
 int ell_dbl_fft (
 	ecmhandle *ecmdata,
-	gwnum	x1,
-	gwnum	z1,
+	const gwnum x1,
+	const gwnum z1,
 	gwnum	x2,
 	gwnum	z2,
-	gwnum	Ad4)
+	const gwnum Ad4)
 {					/* 10 FFTs, 4 adds */
 	gwnum	t1, t3;
 	t1 = gwalloc (&ecmdata->gwdata);
