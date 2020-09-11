@@ -1589,10 +1589,8 @@ int choose12 (
 	dbltogw (&ecmdata->gwdata, curve, zs);
 	gwcopy (&ecmdata->gwdata, zs, xs);
 	gwsquare (&ecmdata->gwdata, xs);	/* s^2 */
-	dbltogw (&ecmdata->gwdata, 5.0, t1);
-	gwsub (&ecmdata->gwdata, t1, xs);	/* u = s^2 - 5 */
-	dbltogw (&ecmdata->gwdata, 4.0, t1);
-	gwmul (&ecmdata->gwdata, t1, zs);	/* v = 4*s */
+	gwsmalladd (&ecmdata->gwdata, -5.0, xs);/* u = s^2 - 5 */
+	gwsmallmul (&ecmdata->gwdata, 4.0, zs);	/* v = 4*s */
 	gwcopy (&ecmdata->gwdata, xs, x);
 	gwsquare (&ecmdata->gwdata, x);
 	gwsafemul (&ecmdata->gwdata, xs, x);	/* x = u^3 */
