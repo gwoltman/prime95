@@ -10741,14 +10741,16 @@ int generateProofFile (
 		}
 		gwfree_internal_memory (gwdata);
 
-// Open the PRP residues file, create or open the PRP proof file
+// Open the PRP residues file unless all residues are in emergency memory, create or open the PRP proof file
 
-		fd = _open (ps->residues_filename, _O_BINARY | _O_RDONLY);
-		if (fd < 0) {
-			sprintf (buf, "Cannot open PRP proof interim residues file: %s\n", ps->residues_filename);
-			OutputBoth (ps->thread_num, buf);
-			OutputBothErrno (ps->thread_num);
-			goto pfail;
+		if (ps->num_emergency_allocs == 0 || ps->first_emergency_residue_number != 1) {
+			fd = _open (ps->residues_filename, _O_BINARY | _O_RDONLY);
+			if (fd < 0) {
+				sprintf (buf, "Cannot open PRP proof interim residues file: %s\n", ps->residues_filename);
+				OutputBoth (ps->thread_num, buf);
+				OutputBothErrno (ps->thread_num);
+				goto pfail;
+			}
 		}
 		tempFileName (w, filename);
 		sprintf (proof_filename, "%s.proof", filename);
@@ -10871,8 +10873,8 @@ int generateProofFile (
 
 // Close input and output files, free memory
 
-		_close (fd); fd = -1;
-		_close (fdout); fdout = -1;
+		if (fd >= 0) _close (fd), fd = -1;
+		if (fdout >= 0) _close (fdout), fdout = -1;
 		gwfree (gwdata, M); M = NULL;
 
 // Generate an MD5 hash of the bytes just written to the proof file.  This will be a unique identifier to thwart a bad actor from uploading a counterfeit proof file.
@@ -10922,6 +10924,8 @@ int generateProofFile (
 		else if (!IniGetInt (LOCALINI_FILE, "PreallocateDisk", 1)) {
 			_unlink (ps->residues_filename);
 		}
+		for (i = 0; i < ps->num_emergency_allocs; i++) free (ps->emergency_allocs[i]);
+		ps->num_emergency_allocs = 0;
 		break;
 
 // Cleanup after a proof failure, close and delete/truncate proof file
@@ -10943,6 +10947,8 @@ pfail:		if (fd >= 0) _close (fd);
 		if (proofgen_waits == 0) {		// We've run out of 5 minute waits.  Give up on trying to generate the proof file.
 			OutputBoth (ps->thread_num, "Proof generation failed.\n");
 			ps->proof_power = 0;		// Clear proof power so that JSON will report no proof file generated
+			for (i = 0; i < ps->num_emergency_allocs; i++) free (ps->emergency_allocs[i]);
+			ps->num_emergency_allocs = 0;
 			_unlink (ps->residues_filename);
 			break;
 		}
