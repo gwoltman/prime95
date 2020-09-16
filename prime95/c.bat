@@ -21,6 +21,6 @@ REM goto makeit
 REM :x64_8
 call "c:\program files (x86)\microsoft visual studio\2019\Professional\VC\Auxiliary\build\vcvarsall" x86
 :makeit
-@set path=c:\uasm_248;%path%
+@set path=c:\uasm_249;%path%
 nmake /f compile
 endlocal

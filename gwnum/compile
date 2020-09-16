@@ -6,9 +6,9 @@
 # objconv comes courtesy of Agner Fog.  Download available at
 # http://www.agner.org/optimize/#objconv
 
-masm=uasm64 /c -coff
-#masm=uasm64 /c -Fl -coff
-#masm=uasm64 /c -Fl -Sf -Sa -Sg -coff
+masm=uasm64 /c -coff -safeseh
+#masm=uasm64 /c -Fl -coff -safeseh
+#masm=uasm64 /c -Fl -Sf -Sa -Sg -coff -safeseh
 #masm=ml /c /coff
 #masm=ml /c /coff /Fl /Sf /Sa
 
