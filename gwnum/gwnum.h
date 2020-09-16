@@ -60,9 +60,9 @@ typedef double *gwnum;
 /* gwsetup verifies that the version numbers match.  This prevents bugs */
 /* from accidentally linking in the wrong gwnum library. */
 
-#define GWNUM_VERSION		"29.8"
-#define GWNUM_MAJOR_VERSION	29
-#define GWNUM_MINOR_VERSION	8
+#define GWNUM_VERSION		"30.4"
+#define GWNUM_MAJOR_VERSION	30
+#define GWNUM_MINOR_VERSION	4
 
 /* Error codes returned by the three gwsetup routines */
 
@@ -382,59 +382,61 @@ void gw_random_number (
 /* Not Legal:	gwaddquick (h, t1, t2); gwaddquick (h, y, x); gwmul (h, t2, x); */
 /* Not Legal:	gwfft (h, t1, t1); gwfftadd (h, t1, t1); gwfftfftmul (h, t1, t1, t2); */
 
-/* A brief description of each of the "gw" routines: */
-/* gwswap	Quickly swaps two gw numbers */
-/* gwcopy(s,d)	Copies gwnum s to d */
-/* gwadd	Adds two numbers and normalizes result if necessary */
-/* gwsub	Subtracts first number from second number and normalizes result if necessary */
-/* gwadd3quick	Adds two numbers WITHOUT normalizing */
-/* gwsub3quick	Subtracts second number from first WITHOUT normalizing */
-/* gwadd3	Adds two numbers and normalizes them if necessary */
-/* gwsub3	Subtracts second number from first number and normalizes result if necessary */
-/* gwaddsub	Adds and subtracts 2 numbers (first+second and first-second) normalizes the results if necessary */
-/* gwaddsub4	Like, gwaddsub but can store results in separate variables */
-/* gwaddsub4quick Like, gwaddsub4 but will not do a normalize */
-/* gwfft	Perform the forward Fourier transform on a number */
-/* gwsquare	Multiplies a number by itself */
-/* gwsquare2	Multiplies a number by itself, takes a source and destination */
-/* gwsquare_carefully  Like gwsquare but uses a slower method that will */
-/*		have a lower roundoff error even if input is non-random data */
-/*		NOTE: Unlike gwsquare, input cannot have been partially FFTed */
-/* gwsquare2_carefully  Like gwsquare_carefully but takes a source and destination */
-/* gwmul(s,d)	Computes d=s*d.  NOTE: s is replaced by its FFT */
-/* gwsafemul(s,d) Like gwmul but s is not replaced with its FFT */
-/* gwfftmul(s,d) Computes d=s*d.  NOTE: s must have been previously FFTed */
-/* gwfftfftmul(s1,s2,d) Computes d=s1*s2.  Both s1 and s2 must have been previously FFTed */
-/* gwmul_carefully(s,d)  Like gwsafemul but uses a slower method that will */
-/*		have a lower roundoff error even if input is non-random data */
-/*		NOTE: Unlike gwsafemul, inputs cannot have been partially FFTed */
+/* A brief description of each of the commonly used "gw" routines.  The gwhandle argument is omitted. */
+/* gwswap(a,b)			Quickly swaps two gw numbers */
+/* gwcopy(s,d)			Copies gwnum s to d */
+/* gwadd3(s1,s2,d)		Adds two numbers and normalizes them if necessary */
+/* gwsub3(s1,s2,d)		Subtracts second number from first number and normalizes result if necessary */
+/* gwaddsub4(s1,s2,d1,d2)	Adds and subtracts 2 numbers (first+second and first-second) normalizes the results if necessary */
+/* gwadd3quick(s1,s2,d)		Adds two numbers WITHOUT normalizing */
+/* gwsub3quick(s1,s2,d)		Subtracts second number from first WITHOUT normalizing */
+/* gwaddsub4quick(s1,s2,d1,d2)	Like gwaddsub4 but WITHOUT normalizing */
+/* gwfft(s,d)			Perform the forward Fourier transform on a number */
+/* gwsquare2(s,d)		Computes d=s*s */
+/* gwmul3(s1,s2,d)		Computes d=s1*s2 with many options available */
+/* gwmul3_carefully(s1,s2,d)	Like gwmul3 but uses a slower method that will have a lower roundoff error even if input is non-random. */
+/* gwfftadd3(s1,s2,d)		Adds two FFTed numbers */
+/* gwfftsub3(s1,s2,d)		Subtracts second FFTed number from first FFTed number */
+/* gwfftaddsub4(s1,s2,d1,d2)	Like, gwfftaddsub but stores results in separate variables */
 
-/* The routines below operate on numbers that have already been FFTed. */
+/* Shortcuts */
 
-/* gwfftadd	Adds two FFTed numbers */
-/* gwfftsub	Subtracts first FFTed number from second FFTed number */
-/* gwfftadd3	Adds two FFTed numbers */
-/* gwfftsub3	Subtracts second FFTed number from first FFTed number */
-/* gwfftaddsub	Adds and subtracts 2 FFTed numbers */
-/* gwfftaddsub4	Like, gwfftaddsub but stores results in separate variables */
+/* gwsquare(x)			Shortcut for gwsquare2(x,x) */
 
-#define gwswap(s,d)	{gwnum t; t = s; s = d; d = t;}
-#define gwsquare(h,s)	gwsquare2 (h,s,s)
-#define gwsquare_carefully(h,s)	gwsquare2_carefully (h,s,s)
-#define gwaddquick(h,s,d) gwadd3quick (h,s,d,d)
-#define gwsubquick(h,s,d) gwsub3quick (h,d,s,d)
-#define gwadd(h,s,d)	gwadd3 (h,s,d,d)
-#define gwsub(h,s,d)	gwsub3 (h,d,s,d)
-#define gwaddsub(h,a,b)	gwaddsub4 (h,a,b,a,b)
-#define gwaddsubquick(h,a,b) gwaddsub4quick (h,a,b,a,b)
-#define gwtouch(h,s)	gwcopy (h,s,s)
-#define gwfftadd(h,s,d)	gwfftadd3 (h,s,d,d)
-#define gwfftsub(h,s,d)	gwfftsub3 (h,d,s,d)
-#define gwfftaddsub(h,a,b) gwfftaddsub4 (h,a,b,a,b)
+/* Older interface */
 
-/* Set the constant which the results of a multiplication should be */
-/* multiplied by.  Use this macro in conjunction with the c argument of */
-/* gwsetnormroutine. */
+/* gwadd(s,d)			DEPRECATED - use gwadd3.  Adds two numbers and normalizes result if necessary */
+/* gwsub(s,d)			DEPRECATED - use gwsub3.  Subtracts first number from second number and normalizes result if necessary */
+/* gwaddsub(x,y)		DEPRECATED - use gwaddsub4.  Adds and subtracts 2 numbers (x+y and x-y) normalizes the results if necessary */
+/* gwmul(s,d)			DEPRECATED - use gwmul3.  Computes d=s*d.  NOTE: s is replaced by its FFT */
+/* gwsafemul(s,d)		DEPRECATED - use gwmul3.  Like gwmul but s is not replaced with its FFT */
+/* gwfftmul(s,d)		DEPRECATED - use gwmul3.  Computes d=s*d.  NOTE: s must have been previously FFTed */
+/* gwfftfftmul(s1,s2,d)		DEPRECATED - use gwmul3.  Computes d=s1*s2.  Both s1 and s2 must have been previously FFTed */
+/* gwfftadd(s,d)		DEPRECATED - use gwfftadd3.  Adds two FFTed numbers */
+/* gwfftsub(s,d)		DEPRECATED - use gwfftsub3.  Subtracts first FFTed number from second FFTed number */
+/* gwfftaddsub(x,y)		DEPRECATED - use gwfftaddsub4.  Adds and subtracts 2 FFTed numbers */
+/* gwsquare_carefully(x)	DEPRECATED - use gwmul3_carefully */
+/* gwsquare2_carefully(s,d)	DEPRECATED - use gwmul3_carefully */
+/* gwmul_carefully(s,d)		DEPRECATED - use gwmul3_carefully */
+
+/* Macros to do easy work */
+
+#define gwswap(s,d)		{gwnum t; t = s; s = d; d = t;}
+#define gwsquare(h,s)		gwsquare2 (h,s,s)
+#define gwsquare2(h,s,d)	gwmul3 (h,s,s,d,0)
+#define gwaddquick(h,s,d)	gwadd3quick (h,s,d,d)
+#define gwsubquick(h,s,d)	gwsub3quick (h,d,s,d)
+#define gwadd(h,s,d)		gwadd3 (h,s,d,d)
+#define gwsub(h,s,d)		gwsub3 (h,d,s,d)
+#define gwaddsub(h,a,b)		gwaddsub4 (h,a,b,a,b)
+#define gwaddsubquick(h,a,b)	gwaddsub4quick (h,a,b,a,b)
+#define gwtouch(h,s)		gwcopy (h,s,s)
+#define gwfftadd(h,s,d)		gwfftadd3 (h,s,d,d)
+#define gwfftsub(h,s,d)		gwfftsub3 (h,d,s,d)
+#define gwfftaddsub(h,a,b)	gwfftaddsub4 (h,a,b,a,b)
+
+/* Set the small constant which the results of a multiplication can be multiplied by. */
+/* Use this routine in conjunction with the c argument of gwsetnormroutine. */
 
 #define GWMULBYCONST_MAX	255		/* I think this is right */
 void gwsetmulbyconst (gwhandle *gwdata, long s);
@@ -448,12 +450,9 @@ void gwsetmulbyconst (gwhandle *gwdata, long s);
 
 #define gwsetnormroutine(h,z,e,c) {(h)->NORMNUM=((c)?2:0)+((e)?1:0);}
 
-/* If you know the result of a multiplication will be the input to another */
-/* multiplication (but not gwsquare_carefully), then a small performance */
-/* gain can be had in larger FFTs by doing some of the next forward FFT at */
-/* the end of the multiplication.  Call this macro to tell the */
-/* multiplication code whether or not it can start the forward FFT on */
-/* the result. */
+/* If you know the result of a multiplication will be the input to another multiplication (but not gwsquare_carefully), */
+/* then a small performance gain can be had in larger FFTs by doing some of the next forward FFT at the end of the multiplication. */
+/* Use this routine to tell the multiplication code whether or not it can start the forward FFT on the result. */
 
 void gwstartnextfft (gwhandle *gwdata, int state);
 
@@ -464,28 +463,25 @@ void gwcopy (			/* Copy a gwnum */
 void gwfft (			/* Forward FFT */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	s,		/* Source number */
-	gwnum	d);		/* Destination (can overlap source) */
-void gwsquare2 (		/* Square a number */
+	gwnum	d);		/* Destination (can be same as source) */
+/* Options for gwmul3 routine */
+#define GWMUL3_FFT_S1		0x0001
+#define GWMUL3_PRESERVE_S1	0x0002
+#define GWMUL3_FFT_S2		0x0004
+#define GWMUL3_PRESERVE_S2	0x0008
+// echk?  mul-by-const?  postfft?
+void gwmul3 (			/* Multiply two gwnums */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s,		/* Source */
-	gwnum	d);		/* Destination */
-void gwmul (			/* Multiply source with dest */
+	gwnum	s1,		/* First source, contents will be replaced with FFT(s1) */
+	gwnum	s2,		/* Second source.  Contents will not be changed. */
+	gwnum	d,		/* Non-FFTed source. Also destination */
+	int	options);
+void gwmul3_carefully (		/* Multiply two gwnums where inputs may not be random data */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s,		/* Source number (changed to FFTed source!) */
-	gwnum	d);		/* Source and destination */
-void gwsafemul (		/* Multiply source with dest */
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s,		/* Source number (not changed) */
-	gwnum	d);		/* Source and destination */
-void gwfftmul (			/* Multiply already FFTed source with dest */
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s,		/* Already FFTed source number */
-	gwnum	d);		/* Non-FFTed source. Also destination */
-void gwfftfftmul (		/* Multiply two already FFTed sources */
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s,		/* Already FFTed source number */
-	gwnum	s2,		/* Already FFTed source number */
-	gwnum	d);		/* Destination (can overlap sources) */
+	gwnum	s1,		/* First source, contents will be replaced with FFT(s1) */
+	gwnum	s2,		/* Second source.  Contents will not be changed. */
+	gwnum	d,		/* Non-FFTed source. Also destination */
+	int	options);
 void gwadd3quick (		/* Add two numbers without normalizing */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	s1,		/* Source #1 */
@@ -535,37 +531,28 @@ void gwfftaddsub4 (		/* Add & sub two FFTed numbers */
 	gwnum	d1,		/* Destination #1 */
 	gwnum	d2);		/* Destination #2 */
 
-/* The FFT selection code assumes FFT data will essentially be random data */
-/* yielding pretty well understood maximum round off errors.  When working */
-/* with some numbers, especially at the start of a PRP exponentiation, the */
-/* FFT data is decidedly not random, leading to much larger than expected */
-/* roundoff errors.  In my own PRP code, I call gwsquare_carefully for the */
-/* first 30 iterations.  To make this easier (and code more readable) you */
-/* can call this routine and the next n gwsquare calls will be replaced by */
-/* gwsquare_carefully calls.  If you pass an n of -1, the gwnum code will */
-/* use a default value for n that should be suitable for getting a PRP */
-/* exponentiation into a "random data state".  This routine can be called */
-/* before gwsetup is called. */
+/* Macros to implement deprecated routines */
 
-void gwset_square_carefully_count (
+#define gwmul(h,s,d)			gwmul3(h,s,d,d,GWMUL3_FFT_S1)
+#define gwsafemul(h,s,d)		gwmul3(h,s,d,d,GWMUL3_PRESERVE_S1)
+#define gwfftmul(h,s,d)			gwmul3(h,s,d,d,0)
+#define gwfftfftmul(h,s1,s2,d)		gwmul3(h,s1,s2,d,0)
+#define gwsquare_carefully(h,x)		gwmul3_carefully(h,x,x,x,0)
+#define gwsquare2_carefully(h,s,d)	gwmul3_carefully(h,s,s,d,GWMUL3_PRESERVE_S1 | GWMUL3_PRESERVE_S2)
+#define gwmul_carefully(h,s,d)		gwmul3_carefully(h,s,d,d,GWMUL3_PRESERVE_S1)
+
+/* The FFT selection code assumes FFT data will essentially be random data2 yielding pretty well understood maximum */
+/* round off errors.  When working  with some numbers, especially at the start of a PRP exponentiation, the FFT data */
+/* is decidedly not random, leading to much larger than expected roundoff errors.  In my own PRP code, I call */
+/* gwsquare_carefully for the first 30 iterations.  To make this easier (and code more readable) you can call this */
+/* routine and the next n gwsquare or gwmul3 calls will be replaced by gwmul3_carefully calls.  If you pass an n of -1, */
+/* the gwnum code will use a default value for n that should be suitable for getting a PRP exponentiation into a */
+/* "random data state".  This routine can be called before gwsetup is called. */
+
+void gwset_carefully_count (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	int	n);		/* Number of gwsquare calls to do carefully. */
-				/* If n is -1, a default value is used */
-
-/* Square or multiply numbers using a slower method that will have reduced */
-/* round-off error on non-random input data.  Caller must make sure the */
-/* input number has not been partially (via gwstartnextfft) or fully FFTed. */
-
-void gwsquare2_carefully (
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s,		/* Source */
-	gwnum	d);		/* Destination */
-
-void gwmul_carefully (
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s,		/* Source -- preserved */
-	gwnum	t);		/* Source and destination */
-
+	int	n);		/* Number of squarings and multiplications to do carefully. */
+				/* If n is -1, a suitable default value is used */
 
 /* These routines can be used to add a constant to the result of a */
 /* multiplication at virtually no cost.  Prime95 uses these routines to */
@@ -590,13 +577,13 @@ void gwsmalladd (gwhandle *gwdata, double addin, gwnum g);
 #define GWSMALLMUL_MAX		67108864.0		/* May allow more at a later date */
 void gwsmallmul (gwhandle *gwdata, double mult, gwnum g);
 
-
 /* DEPRECATED!!! These routines were deprecated because unlike all other gwnum routines */
 /* the destination argument appeared before the source argument. */
 #define gwaddsmall(h,g,a) gwsmalladd(h,a,g)	
 #define gwmulsmall(h,g,m) gwsmallmul(h,m,g)
 /* Replaced by better named gwsetaddinatpowerofb */
 #define gwsetaddinatbit(h,v,b)	gwsetaddinatpowerofb(h,v,b)
+/* gwset_square_carefully_count(h,n)	DEPRECATED - use gwset_carefully_count to be careful on both squarings and multiplications */
 
 /*-----------------------------------------------------------------+
 |                      GWNUM COMPARISON ROUTINES                   |
@@ -1008,7 +995,7 @@ struct gwhandle_struct {
 					/* code uses this to compare results from one FFT implementation to the (should */
 					/* be identical) results of another FFT implementation. */
 	int	qa_picked_nth_fft;	/* Internal hack returning which FFT was picked */
-	int	square_carefully_count; /* Count of gwsquare calls to convert into gwsquare_carefully calls */
+	int	careful_count;		/* Count of gwsquare and gwmul3 calls to convert into gwmul3_carefully calls */
 	double	ZPAD_COPY7_ADJUST[7];	/* Adjustments for copying the 7 words around the halfway point of a zero pad FFT. */
 	double	ZPAD_0_6_ADJUST[7];	/* Adjustments for ZPAD0_6 in a r4dwpn FFT */
 	unsigned long wpn_count;	/* Count of r4dwpn pass 1 blocks that use the same ttp/ttmp grp multipliers */
