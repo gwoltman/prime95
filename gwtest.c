@@ -435,6 +435,20 @@ void test_it_all (
 		diff = fabs (gwsuminp (&gwdata, x) - gwsumout (&gwdata, x));
 		if (diff > maxdiff) maxdiff = diff;
 
+/* Test gwmul4 routines */
+
+		gwsquare2 (&gwdata, x, x2);
+		gwsquare2 (&gwdata, x2, x3);
+		gwaddmul4 (&gwdata, x2, x3, x, x, 0);
+	
+		gwsubmul4 (&gwdata, x2, x3, x, x, 0);
+
+		gwfft (&gwdata, x, x);
+		gwaddmul4 (&gwdata, x2, x3, x, x, 0);
+
+		gwfft (&gwdata, x, x);
+		gwsubmul4 (&gwdata, x2, x3, x, x, 0);
+
 /* Print final stats */
 
 		if (gwdata.GWERROR) OutputBoth (thread_num, "GWERROR set during calculations.\n");
@@ -863,6 +877,24 @@ void test_it (
 	if (diff > maxdiff) maxdiff = diff;
 	mulgi (&gwdata->gdata, g3, g); specialmodg (gwdata, g);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "smallmul5");
+
+/* Test gwmul4 routines */
+
+	gwsquare2 (gwdata, x, x2); gtog (g, g2); squaregi (&gwdata->gdata, g2); specialmodg (gwdata, g2);
+	gwsquare2 (gwdata, x2, x3); gtog (g2, g3); squaregi (&gwdata->gdata, g3); specialmodg (gwdata, g3);
+	gwaddmul4 (gwdata, x2, x3, x, x, 0); gtog (g2, g4); addg (g3, g4); mulg (g4, g); specialmodg (gwdata, g);
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "addmul4");
+	
+	gwsubmul4 (gwdata, x2, x3, x, x, 0); gtog (g2, g4); subg (g3, g4); mulg (g4, g); specialmodg (gwdata, g);
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "submul4");
+
+	gwfft (gwdata, x, x);
+	gwaddmul4 (gwdata, x2, x3, x, x, 0); gtog (g2, g4); addg (g3, g4); mulg (g4, g); specialmodg (gwdata, g);
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "addmul4fft");
+
+	gwfft (gwdata, x, x);
+	gwsubmul4 (gwdata, x2, x3, x, x, 0); gtog (g2, g4); subg (g3, g4); mulg (g4, g); specialmodg (gwdata, g);
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "submul4fft");
 
 /* Do the final compare */
 

@@ -1,4 +1,4 @@
-; Copyright 2011-2018 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2020 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -90,8 +90,9 @@ zpass2_64_real_4:
 	mov	rbp, DIST_TO_MULSRCARG
 	mov	rdx, sincos3		;; Load sin/cos pointer
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 
 zpass2_64_real_unfft:
 zpass2_64_real_done:
@@ -237,8 +238,9 @@ b1b:	zr5f_2sc_ten_reals_fft rsi, 128, 8*128, rdx, ZMM_SCD2, rdi, ZMM_SCD2, 8
 	jg	zpass2_320_real_3
 
 zpass2_320_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 4			;; 4 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 32 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -247,8 +249,9 @@ b2a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_320_real_unfft
 
 zpass2_320_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 4			;; 4 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 32 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -258,8 +261,9 @@ b2b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_320_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 4			;; 4 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 32 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -273,8 +277,9 @@ zpass2_320_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 8*ZMM_SCD2
 	bump	rdi, 8*ZMM_SCD2
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 4			;; 4 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 32 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -519,8 +524,9 @@ b1b:	zr6f_2sc_twelve_reals_fft rsi, 128, 8*128, rdx, ZMM_SCD3, rdi, ZMM_SCD3, 8
 	jg	zpass2_384_real_3
 
 zpass2_384_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 5			;; 5 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 40 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -529,8 +535,9 @@ b2a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_384_real_unfft
 
 zpass2_384_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 5			;; 5 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 40 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -540,8 +547,9 @@ b2b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_384_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 5			;; 5 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 40 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -555,8 +563,9 @@ zpass2_384_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 8*ZMM_SCD3
 	bump	rdi, 8*ZMM_SCD3
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 5			;; 5 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 40 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -800,8 +809,9 @@ b1b:	zr7f_2sc_fourteen_reals_fft rsi, 128, 8*128, rdx, ZMM_SCD3, rdi, ZMM_SCD3, 
 	jg	zpass2_448_real_3
 
 zpass2_448_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 6			;; 6 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 48 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -810,8 +820,9 @@ b2a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_448_real_unfft
 
 zpass2_448_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 6			;; 6 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 48 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -821,8 +832,9 @@ b2b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_448_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 6			;; 6 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 48 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -836,8 +848,9 @@ zpass2_448_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 8*ZMM_SCD3
 	bump	rdi, 8*ZMM_SCD3
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 6			;; 6 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 48 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -1081,8 +1094,9 @@ b1b:	zr8f_2sc_sixteen_reals_fft rsi, 128, 8*128, 16*128, 32*128, rdx, ZMM_SCD4, 
 	jg	zpass2_512_real_3
 
 zpass2_512_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 8, 1, 8		;; 7 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 56 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -1091,8 +1105,9 @@ b2a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_512_real_unfft
 
 zpass2_512_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 8, 1, 8		;; 7 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 56 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -1102,8 +1117,9 @@ b2b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_512_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 8, 1, 8		;; 7 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 56 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -1117,8 +1133,9 @@ zpass2_512_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 8*ZMM_SCD4
 	bump	rdi, 8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 8, 1, 8		;; 7 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 56 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -1362,8 +1379,9 @@ b1b:	zr10f_2sc_twenty_reals_fft rsi, 128, 8*128, rdx, ZMM_SCD5, rdi, ZMM_SCD5, 8
 	jg	zpass2_640_real_3
 
 zpass2_640_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 9			;; 9 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 72 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -1372,8 +1390,9 @@ b2a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_640_real_unfft
 
 zpass2_640_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 9			;; 9 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 72 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -1383,8 +1402,9 @@ b2b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_640_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 9			;; 9 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 72 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -1398,8 +1418,9 @@ zpass2_640_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 8*ZMM_SCD5
 	bump	rdi, 8*ZMM_SCD5
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 9			;; 9 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 72 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -1644,8 +1665,9 @@ b1b:	zr12f_2sc_twentyfour_reals_fft rsi, 128, 8*128, 16*128, 32*128, rdx, ZMM_SC
 	jg	zpass2_768_real_3
 
 zpass2_768_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 11			;; 11 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 88 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -1654,8 +1676,9 @@ b2a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_768_real_unfft
 
 zpass2_768_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 11			;; 11 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 88 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -1665,8 +1688,9 @@ b2b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_768_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 11			;; 11 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 88 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -1680,8 +1704,9 @@ zpass2_768_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 8*ZMM_SCD6
 	bump	rdi, 8*ZMM_SCD6
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 11			;; 11 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 88 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -1925,8 +1950,9 @@ b1b:	zr16f_2sc_thirtytwo_reals_fft rsi, 128, 8*128, 16*128, 32*128, 64*128, rdx,
 	jg	zpass2_1024_real_3
 
 zpass2_1024_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 15			;; 15 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 120 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -1935,8 +1961,9 @@ b2a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_1024_real_unfft
 
 zpass2_1024_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 15			;; 15 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 120 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -1946,8 +1973,9 @@ b2b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_1024_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 15			;; 15 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 120 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -1961,8 +1989,9 @@ zpass2_1024_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 8*ZMM_SCD8
 	bump	rdi, 8*ZMM_SCD8
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 15			;; 15 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 120 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -2244,8 +2273,9 @@ pfing	bump	rcx, -16*64		;; We will prefetch 16 cache lines too many
 	jg	zpass2_1600_real_3
 
 zpass2_1600_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 24			;; 24 more iterations
 	zloop_set_rw_prefetch ZQUAD	;; Prefetch 96 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -2254,8 +2284,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_1600_real_unfft
 
 zpass2_1600_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 24			;; 24 more iterations
 	zloop_set_rw_prefetch ZQUAD	;; Prefetch 96 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -2265,8 +2296,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_1600_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 24			;; 24 more iterations
 	zloop_set_rw_prefetch ZQUAD	;; Prefetch 96 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -2280,8 +2312,9 @@ zpass2_1600_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 40*ZMM_SCD2+8*ZMM_SCD2
 	bump	rdi, 40*ZMM_SCD2+8*ZMM_SCD2
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 24			;; 24 more iterations
 	zloop_set_rw_prefetch ZQUAD	;; Prefetch 96 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -2653,8 +2686,9 @@ pfing	bump	rcx, -17*64		;; We will prefetch 17 cache lines too many
 	jg	zpass2_1920_real_3
 
 zpass2_1920_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 29			;; 29 more iterations
 	zloop_set_rw_prefetch ZQUINT	;; Prefetch 145 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -2663,8 +2697,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_1920_real_unfft
 
 zpass2_1920_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 29			;; 29 more iterations
 	zloop_set_rw_prefetch ZQUINT	;; Prefetch 145 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -2674,8 +2709,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_1920_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 29			;; 29 more iterations
 	zloop_set_rw_prefetch ZQUINT	;; Prefetch 145 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -2689,8 +2725,9 @@ zpass2_1920_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 48*ZMM_SCD2+8*ZMM_SCD3
 	bump	rdi, 48*ZMM_SCD2+8*ZMM_SCD3
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 29			;; 29 more iterations
 	zloop_set_rw_prefetch ZQUINT	;; Prefetch 145 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -3061,8 +3098,9 @@ pfing	bump	rcx, -4*64		;; We will prefetch 4 cache lines too many
 	jg	zpass2_2240_real_3
 
 zpass2_2240_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 34			;; 34 more iterations
 	zloop_set_rw_prefetch ZQUINT	;; Prefetch 170 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -3071,8 +3109,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_2240_real_unfft
 
 zpass2_2240_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 34			;; 34 more iterations
 	zloop_set_rw_prefetch ZQUINT	;; Prefetch 170 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -3082,8 +3121,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_2240_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 34			;; 34 more iterations
 	zloop_set_rw_prefetch ZQUINT	;; Prefetch 170 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -3097,8 +3137,9 @@ zpass2_2240_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 56*ZMM_SCD2+8*ZMM_SCD3
 	bump	rdi, 56*ZMM_SCD2+8*ZMM_SCD3
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 34			;; 34 more iterations
 	zloop_set_rw_prefetch ZQUINT	;; Prefetch 170 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -3469,8 +3510,9 @@ pfing	bump	rcx, -18*64		;; We will prefetch 18 cache lines too many
 	jg	zpass2_2304_real_3
 
 zpass2_2304_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 35			;; 35 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 210 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -3479,8 +3521,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_2304_real_unfft
 
 zpass2_2304_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 35			;; 35 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 210 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -3490,8 +3533,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_2304_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 35			;; 35 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 210 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -3505,8 +3549,9 @@ zpass2_2304_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 48*ZMM_SCD3+8*ZMM_SCD3
 	bump	rdi, 48*ZMM_SCD3+8*ZMM_SCD3
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 35			;; 35 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 210 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -3878,8 +3923,9 @@ pfing	bump	rcx, -10*64		;; We will prefetch 10 cache lines too many
 	jg	zpass2_2560_real_3
 
 zpass2_2560_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 40;, 1, 40		;; 39 more iterations
 	zloop_adjust 1
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 240 cache lines
@@ -3889,8 +3935,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_2560_real_unfft
 
 zpass2_2560_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 40;, 1, 40		;; 39 more iterations
 	zloop_adjust 1
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 240 cache lines
@@ -3901,8 +3948,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_2560_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 40;, 1, 40		;; 39 more iterations
 	zloop_adjust 1
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 240 cache lines
@@ -3917,8 +3965,9 @@ zpass2_2560_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 64*ZMM_SCD2+8*ZMM_SCD4
 	bump	rdi, 64*ZMM_SCD2+8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 40;, 1, 40		;; 39 more iterations
 	zloop_adjust 1
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 240 cache lines
@@ -4290,8 +4339,9 @@ b2b:	zr6_six_complex_djbfft rsi, 128, 8*128, rdi, ZMM_SCD3, 8
 	jg	zpass2_2688_real_3
 
 zpass2_2688_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 41			;; 41 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 246 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -4300,8 +4350,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_2688_real_unfft
 
 zpass2_2688_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 41			;; 41 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 246 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -4311,8 +4362,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_2688_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 41			;; 41 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 246 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -4326,8 +4378,9 @@ zpass2_2688_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 48*ZMM_SCD3+8*ZMM_SCD3
 	bump	rdi, 48*ZMM_SCD3+8*ZMM_SCD3
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 41			;; 41 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 246 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -4699,8 +4752,9 @@ b2b:	zr8_eight_complex_djbfft rsi, 128, 8*128, 16*128, dist32, rdi, ZMM_SCD4, 8
 	jg	zpass2_3072_real_3
 
 zpass2_3072_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 48, 1, 4		;; 47 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 329 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -4710,8 +4764,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_3072_real_unfft
 
 zpass2_3072_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 48, 1, 4		;; 47 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 329 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -4722,8 +4777,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_3072_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 48, 1, 4		;; 47 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 329 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -4738,8 +4794,9 @@ zpass2_3072_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 64*ZMM_SCD3+8*ZMM_SCD4
 	bump	rdi, 64*ZMM_SCD3+8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 48, 1, 4		;; 47 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 329 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -5118,8 +5175,9 @@ b2b:	zr7_seven_complex_djbfft rsi, 128, 8*128, rdi, ZMM_SCD3, 8
 	jg	zpass2_3136_real_3
 
 zpass2_3136_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 48			;; 48 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 336 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -5128,8 +5186,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_3136_real_unfft
 
 zpass2_3136_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 48			;; 48 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 336 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -5139,8 +5198,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_3136_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 48			;; 48 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 336 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -5154,8 +5214,9 @@ zpass2_3136_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 56*ZMM_SCD3+8*ZMM_SCD3
 	bump	rdi, 56*ZMM_SCD3+8*ZMM_SCD3
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 48			;; 48 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 336 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -5526,8 +5587,9 @@ pfing	bump	rcx, -23*64		;; We will prefetch 23 cache lines too many
 	jg	zpass2_3200_real_3
 
 zpass2_3200_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 49			;; 49 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 343 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -5536,8 +5598,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_3200_real_unfft
 
 zpass2_3200_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 49			;; 49 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 343 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -5547,8 +5610,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_3200_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 49			;; 49 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 343 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -5562,8 +5626,9 @@ zpass2_3200_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 80*ZMM_SCD2+8*ZMM_SCD5
 	bump	rdi, 80*ZMM_SCD2+8*ZMM_SCD5
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 49			;; 49 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 343 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -5935,8 +6000,9 @@ pfing	bump	rcx, -11*64		;; We will prefetch 11 cache lines too many
 	jg	zpass2_3584_real_3
 
 zpass2_3584_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 56, 1, 4		;; 55 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 440 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -5946,8 +6012,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_3584_real_unfft
 
 zpass2_3584_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 56, 1, 4		;; 55 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 440 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -5958,8 +6025,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_3584_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 56, 1, 4		;; 55 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 440 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -5974,8 +6042,9 @@ zpass2_3584_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 64*ZMM_SCD3+8*ZMM_SCD4
 	bump	rdi, 64*ZMM_SCD3+8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 56, 1, 4		;; 55 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 440 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -6355,8 +6424,9 @@ pfing	bump	rcx, -7*64		;; We will prefetch 7 cache lines too many
 	jg	zpass2_3840_real_3
 
 zpass2_3840_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 60, 1, 4		;; 59 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 413 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -6366,8 +6436,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_3840_real_unfft
 
 zpass2_3840_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 60, 1, 4		;; 59 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 413 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -6378,8 +6449,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_3840_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 60, 1, 4		;; 59 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 413 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -6394,8 +6466,9 @@ zpass2_3840_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 96*ZMM_SCD2+8*ZMM_SCD6
 	bump	rdi, 96*ZMM_SCD2+8*ZMM_SCD6
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 60, 1, 4		;; 59 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 413 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -6775,8 +6848,9 @@ pfing	bump	rcx, -41*64		;; We will prefetch 41 cache lines too many
 	jg	zpass2_4096_real_3
 
 zpass2_4096_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 64, 1, 4		;; 63 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 504 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -6786,8 +6860,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_4096_real_unfft
 
 zpass2_4096_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 64, 1, 4		;; 63 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 504 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -6798,8 +6873,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_4096_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 64, 1, 4		;; 63 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 504 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -6814,8 +6890,9 @@ zpass2_4096_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 64*ZMM_SCD4+8*ZMM_SCD4
 	bump	rdi, 64*ZMM_SCD4+8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 64, 1, 4		;; 63 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 504 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -7194,8 +7271,9 @@ pfing	bump	rcx, -32*64		;; We will prefetch 32 cache lines too many
 	jg	zpass2_4480_real_3
 
 zpass2_4480_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 69			;; 69 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 552 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -7204,8 +7282,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_4480_real_unfft
 
 zpass2_4480_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 69			;; 69 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 552 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -7215,8 +7294,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_4480_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 69			;; 69 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 552 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -7230,8 +7310,9 @@ zpass2_4480_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 80*ZMM_SCD3+8*ZMM_SCD5
 	bump	rdi, 80*ZMM_SCD3+8*ZMM_SCD5
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 69			;; 69 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 552 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -7601,8 +7682,9 @@ b2b:	zr6_six_complex_djbfft rsi, 128, 8*128, rdi, ZMM_SCD3, 8
 	jg	zpass2_4608_real_3
 
 zpass2_4608_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 71			;; 71 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 568 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -7611,8 +7693,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_4608_real_unfft
 
 zpass2_4608_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 71			;; 71 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 568 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -7622,8 +7705,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_4608_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 71			;; 71 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 568 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -7637,8 +7721,9 @@ zpass2_4608_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 48*ZMM_SCD6+8*ZMM_SCD3
 	bump	rdi, 48*ZMM_SCD6+8*ZMM_SCD3
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 71			;; 71 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 568 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -8009,8 +8094,9 @@ pfing	bump	rcx, -29*64		;; We will prefetch 29 cache lines too many
 	jg	zpass2_5120_levels_real_3
 
 zpass2_5120_levels_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 80, 1, 4		;; 79 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 632 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -8020,8 +8106,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_5120_levels_real_unfft
 
 zpass2_5120_levels_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 80, 1, 4		;; 79 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 632 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -8032,8 +8119,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_5120_levels_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 80, 1, 4		;; 79 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 632 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -8048,8 +8136,9 @@ zpass2_5120_levels_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 128*ZMM_SCD2+8*ZMM_SCD8
 	bump	rdi, 128*ZMM_SCD2+8*ZMM_SCD8
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 80, 1, 4		;; 79 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 632 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -8429,8 +8518,9 @@ pfing	bump	rcx, -20*64		;; We will prefetch 20 cache lines too many
 	jg	zpass2_5376_real_3
 
 zpass2_5376_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 84, 1, 4		;; 83 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 664 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -8440,8 +8530,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_5376_real_unfft
 
 zpass2_5376_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 84, 1, 4		;; 83 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 664 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -8452,8 +8543,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_5376_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 84, 1, 4		;; 83 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 664 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -8468,8 +8560,9 @@ zpass2_5376_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 96*ZMM_SCD3+8*ZMM_SCD6
 	bump	rdi, 96*ZMM_SCD3+8*ZMM_SCD6
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 84, 1, 4		;; 83 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 664 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -8849,8 +8942,9 @@ pfing	bump	rcx, -33*64		;; We will prefetch 33 cache lines too many
 	jg	zpass2_6144_real_3
 
 zpass2_6144_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 96, 1, 4		;; 95 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 760 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -8860,8 +8954,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_6144_real_unfft
 
 zpass2_6144_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 96, 1, 4		;; 95 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 760 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -8872,8 +8967,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_6144_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 96, 1, 4		;; 95 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 760 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -8888,8 +8984,9 @@ zpass2_6144_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 64*ZMM_SCD6+8*ZMM_SCD4
 	bump	rdi, 64*ZMM_SCD6+8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 96, 1, 4		;; 95 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 760 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -9267,8 +9364,9 @@ b2b:	zr10_ten_complex_djbfft rsi, 128, 8*128, rdi, ZMM_SCD5, 8
 	jg	zpass2_6400_real_3
 
 zpass2_6400_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 99			;; 99 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 792 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -9277,8 +9375,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_6400_real_unfft
 
 zpass2_6400_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 99			;; 99 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 792 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -9288,8 +9387,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_6400_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 99			;; 99 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 792 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -9303,8 +9403,9 @@ zpass2_6400_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 80*ZMM_SCD5+8*ZMM_SCD5
 	bump	rdi, 80*ZMM_SCD5+8*ZMM_SCD5
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 99			;; 99 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 792 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -9675,8 +9776,9 @@ pfing	bump	rcx, -29*64		;; We will prefetch 29 cache lines too many
 	jg	zpass2_7168_levels_real_3
 
 zpass2_7168_levels_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 112, 1, 4		;; 111 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 888 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -9686,8 +9788,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_7168_levels_real_unfft
 
 zpass2_7168_levels_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 112, 1, 4		;; 111 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 888 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -9698,8 +9801,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_7168_levels_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 112, 1, 4		;; 111 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 888 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -9714,8 +9818,9 @@ zpass2_7168_levels_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 128*ZMM_SCD3+8*ZMM_SCD8
 	bump	rdi, 128*ZMM_SCD3+8*ZMM_SCD8
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 112, 1, 4		;; 111 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 888 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -10095,8 +10200,9 @@ b2b:	zr12_twelve_complex_djbfft rsi, 128, 8*128, 16*128, dist32, rdi, ZMM_SCD6, 
 	jg	zpass2_7680_real_3
 
 zpass2_7680_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 120, 1, 4		;; 119 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 714 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -10106,8 +10212,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_7680_real_unfft
 
 zpass2_7680_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 120, 1, 4		;; 119 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 714 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -10118,8 +10225,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_7680_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 120, 1, 4		;; 119 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 714 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -10134,8 +10242,9 @@ zpass2_7680_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 96*ZMM_SCD5+8*ZMM_SCD6
 	bump	rdi, 96*ZMM_SCD5+8*ZMM_SCD6
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 120, 1, 4		;; 119 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 714 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -10515,8 +10624,9 @@ pfing	bump	rcx, -25*64		;; We will prefetch 25 cache lines too many
 	jg	zpass2_8192_levels_real_3
 
 zpass2_8192_levels_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 128, 1, 4		;; 127 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 1016 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -10526,8 +10636,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_8192_levels_real_unfft
 
 zpass2_8192_levels_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 128, 1, 4		;; 127 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 1016 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -10538,8 +10649,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_8192_levels_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 128, 1, 4		;; 127 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 1016 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -10554,8 +10666,9 @@ zpass2_8192_levels_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 64*ZMM_SCD8+8*ZMM_SCD4
 	bump	rdi, 64*ZMM_SCD8+8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 128, 1, 4		;; 127 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 1016 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -10935,8 +11048,9 @@ pfing	bump	rcx, -8*64		;; We will prefetch 8 cache lines too many
 	jg	zpass2_9216_real_3
 
 zpass2_9216_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 144, 1, 4		;; 143 more iterations
 	zloop_set_rw_prefetch ZQUINT	;; Prefetch 715 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -10946,8 +11060,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_9216_real_unfft
 
 zpass2_9216_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 144, 1, 4		;; 143 more iterations
 	zloop_set_rw_prefetch ZQUINT	;; Prefetch 715 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -10958,8 +11073,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_9216_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 144, 1, 4		;; 143 more iterations
 	zloop_set_rw_prefetch ZQUINT	;; Prefetch 715 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -10974,8 +11090,9 @@ zpass2_9216_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 96*ZMM_SCD6+8*ZMM_SCD6
 	bump	rdi, 96*ZMM_SCD6+8*ZMM_SCD6
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 144, 1, 4		;; 143 more iterations
 	zloop_set_rw_prefetch ZQUINT	;; Prefetch 715 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -11355,8 +11472,9 @@ pfing	bump	rcx, -1*64		;; We will prefetch 1 cache lines too many
 	jg	zpass2_10240_levels_real_3
 
 zpass2_10240_levels_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 160, 1, 4		;; 159 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 1272 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -11366,8 +11484,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_10240_levels_real_unfft
 
 zpass2_10240_levels_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 160, 1, 4		;; 159 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 1272 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -11378,8 +11497,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_10240_levels_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 160, 1, 4		;; 159 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 1272 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -11394,8 +11514,9 @@ zpass2_10240_levels_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 128*ZMM_SCD5+8*ZMM_SCD8
 	bump	rdi, 128*ZMM_SCD5+8*ZMM_SCD8
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 160, 1, 4		;; 159 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 1272 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -11775,8 +11896,9 @@ pfing	bump	rcx, -41*64		;; We will prefetch 41 cache lines too many
 	jg	zpass2_12288_levels_real_3
 
 zpass2_12288_levels_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 192, 1, 4		;; 191 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 1528 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -11786,8 +11908,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_12288_levels_real_unfft
 
 zpass2_12288_levels_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 192, 1, 4		;; 191 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 1528 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -11798,8 +11921,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_12288_levels_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 192, 1, 4		;; 191 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 1528 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -11814,8 +11938,9 @@ zpass2_12288_levels_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 128*ZMM_SCD6+8*ZMM_SCD8
 	bump	rdi, 128*ZMM_SCD6+8*ZMM_SCD8
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 192, 1, 4		;; 191 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 1528 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -12200,8 +12325,9 @@ pfing	bump	rcx, -57*64		;; We will prefetch 57 cache lines too many
 	jg	zpass2_16384_levels_real_3
 
 zpass2_16384_levels_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 256, 1, 4		;; 255 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 2040 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -12211,8 +12337,9 @@ b3a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_16384_levels_real_unfft
 
 zpass2_16384_levels_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 256, 1, 4		;; 255 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 2040 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -12223,8 +12350,9 @@ b3b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_16384_levels_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 256, 1, 4		;; 255 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 2040 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -12239,8 +12367,9 @@ zpass2_16384_levels_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 128*ZMM_SCD8+8*ZMM_SCD8
 	bump	rdi, 128*ZMM_SCD8+8*ZMM_SCD8
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 256, 1, 4		;; 255 more iterations
 	zloop_set_rw_prefetch ZOCT	;; Prefetch 2040 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -12664,8 +12793,9 @@ pfing	bump	rcx, -25*64		;; We will prefetch 25 cache lines too many
 	jg	zpass2_12800_real_3
 
 zpass2_12800_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 200, 1, 4		;; 199 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 1194 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -12675,8 +12805,9 @@ b4a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_12800_real_unfft
 
 zpass2_12800_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 200, 1, 4		;; 199 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 1194 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -12687,8 +12818,9 @@ b4b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_12800_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 200, 1, 4		;; 199 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 1194 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -12703,8 +12835,9 @@ zpass2_12800_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 320*ZMM_SCD2+64*ZMM_SCD2+8*ZMM_SCD4
 	bump	rdi, 320*ZMM_SCD2+64*ZMM_SCD2+8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 200, 1, 4		;; 199 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 1194 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -13215,8 +13348,9 @@ pfing	bump	rcx, -142*64		;; We will prefetch 142 cache lines too many
 	jg	zpass2_15360_real_3
 
 zpass2_15360_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 240, 1, 4		;; 239 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 1673 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -13226,8 +13360,9 @@ b4a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_15360_real_unfft
 
 zpass2_15360_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 240, 1, 4		;; 239 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 1673 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -13238,8 +13373,9 @@ b4b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_15360_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 240, 1, 4		;; 239 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 1673 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -13254,8 +13390,9 @@ zpass2_15360_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 384*ZMM_SCD2+64*ZMM_SCD3+8*ZMM_SCD4
 	bump	rdi, 384*ZMM_SCD2+64*ZMM_SCD3+8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 240, 1, 4		;; 239 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 1673 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -13766,8 +13903,9 @@ pfing	bump	rcx, -60*64		;; We will prefetch 60 cache lines too many
 	jg	zpass2_17920_real_3
 
 zpass2_17920_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 280, 1, 4		;; 279 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 1953 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -13777,8 +13915,9 @@ b4a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_17920_real_unfft
 
 zpass2_17920_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 280, 1, 4		;; 279 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 1953 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -13789,8 +13928,9 @@ b4b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_17920_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 280, 1, 4		;; 279 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 1953 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -13805,8 +13945,9 @@ zpass2_17920_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 448*ZMM_SCD2+64*ZMM_SCD3+8*ZMM_SCD4
 	bump	rdi, 448*ZMM_SCD2+64*ZMM_SCD3+8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 280, 1, 4		;; 279 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 1953 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -14317,8 +14458,9 @@ pfing	bump	rcx, -18*64		;; We will prefetch 18 cache lines too many
 	jg	zpass2_18432_real_3
 
 zpass2_18432_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 288, 1, 4		;; 287 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 2009 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -14328,8 +14470,9 @@ b4a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_18432_real_unfft
 
 zpass2_18432_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 288, 1, 4		;; 287 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 2009 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -14340,8 +14483,9 @@ b4b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_18432_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 288, 1, 4		;; 287 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 2009 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -14356,8 +14500,9 @@ zpass2_18432_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 384*ZMM_SCD3+64*ZMM_SCD3+8*ZMM_SCD4
 	bump	rdi, 384*ZMM_SCD3+64*ZMM_SCD3+8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 288, 1, 4		;; 287 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 2009 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -14868,8 +15013,9 @@ pfing	bump	rcx, -299*64		;; We will prefetch 299 cache lines too many
 	jg	zpass2_20480_real_3
 
 zpass2_20480_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 320, 1, 4		;; 319 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 1914 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -14879,8 +15025,9 @@ b4a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_20480_real_unfft
 
 zpass2_20480_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 320, 1, 4		;; 319 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 1914 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -14891,8 +15038,9 @@ b4b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_20480_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 320, 1, 4		;; 319 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 1914 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -14907,8 +15055,9 @@ zpass2_20480_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 512*ZMM_SCD2+64*ZMM_SCD4+8*ZMM_SCD4
 	bump	rdi, 512*ZMM_SCD2+64*ZMM_SCD4+8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 320, 1, 4		;; 319 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 1914 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -15419,8 +15568,9 @@ pfing	bump	rcx, -7*64		;; We will prefetch 7 cache lines too many
 	jg	zpass2_21504_real_3
 
 zpass2_21504_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 336, 1, 4		;; 335 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2010 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -15430,8 +15580,9 @@ b4a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_21504_real_unfft
 
 zpass2_21504_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 336, 1, 4		;; 335 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2010 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -15442,8 +15593,9 @@ b4b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_21504_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 336, 1, 4		;; 335 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2010 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -15458,8 +15610,9 @@ zpass2_21504_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 384*ZMM_SCD3+64*ZMM_SCD3+8*ZMM_SCD4
 	bump	rdi, 384*ZMM_SCD3+64*ZMM_SCD3+8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 336, 1, 4		;; 335 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2010 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -15970,8 +16123,9 @@ pfing	bump	rcx, -155*64		;; We will prefetch 155 cache lines too many
 	jg	zpass2_24576_real_3
 
 zpass2_24576_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 384, 1, 4		;; 383 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2298 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -15981,8 +16135,9 @@ b4a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_24576_real_unfft
 
 zpass2_24576_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 384, 1, 4		;; 383 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2298 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -15993,8 +16148,9 @@ b4b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_24576_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 384, 1, 4		;; 383 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2298 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -16009,8 +16165,9 @@ zpass2_24576_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 512*ZMM_SCD3+64*ZMM_SCD4+8*ZMM_SCD4
 	bump	rdi, 512*ZMM_SCD3+64*ZMM_SCD4+8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 384, 1, 4		;; 383 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2298 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -16521,8 +16678,9 @@ pfing	bump	rcx, -233*64		;; We will prefetch 233 cache lines too many
 	jg	zpass2_25088_real_3
 
 zpass2_25088_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 392, 1, 4		;; 391 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2352 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -16532,8 +16690,9 @@ b4a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_25088_real_unfft
 
 zpass2_25088_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 392, 1, 4		;; 391 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2352 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -16544,8 +16703,9 @@ b4b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_25088_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 392, 1, 4		;; 391 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2352 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -16560,8 +16720,9 @@ zpass2_25088_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 448*ZMM_SCD3+64*ZMM_SCD3+8*ZMM_SCD4
 	bump	rdi, 448*ZMM_SCD3+64*ZMM_SCD3+8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 392, 1, 4		;; 391 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2352 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -17072,8 +17233,9 @@ pfing	bump	rcx, -11*64		;; We will prefetch 11 cache lines too many
 	jg	zpass2_28672_real_3
 
 zpass2_28672_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 448, 1, 4		;; 447 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2682 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -17083,8 +17245,9 @@ b4a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_28672_real_unfft
 
 zpass2_28672_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 448, 1, 4		;; 447 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2682 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -17095,8 +17258,9 @@ b4b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_28672_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 448, 1, 4		;; 447 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2682 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -17111,8 +17275,9 @@ zpass2_28672_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 512*ZMM_SCD3+64*ZMM_SCD4+8*ZMM_SCD4
 	bump	rdi, 512*ZMM_SCD3+64*ZMM_SCD4+8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 448, 1, 4		;; 447 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2682 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -17623,8 +17788,9 @@ pfing	bump	rcx, -131*64		;; We will prefetch 131 cache lines too many
 	jg	zpass2_30720_real_3
 
 zpass2_30720_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 480, 1, 4		;; 479 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2874 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -17634,8 +17800,9 @@ b4a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_30720_real_unfft
 
 zpass2_30720_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 480, 1, 4		;; 479 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2874 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -17646,8 +17813,9 @@ b4b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_30720_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 480, 1, 4		;; 479 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2874 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -17662,8 +17830,9 @@ zpass2_30720_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 768*ZMM_SCD2+64*ZMM_SCD6+8*ZMM_SCD4
 	bump	rdi, 768*ZMM_SCD2+64*ZMM_SCD6+8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 480, 1, 4		;; 479 more iterations
 	zloop_set_rw_prefetch ZSEXT	;; Prefetch 2874 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload
@@ -18174,8 +18343,9 @@ pfing	bump	rcx, -378*64		;; We will prefetch 378 cache lines too many
 	jg	zpass2_32768_real_3
 
 zpass2_32768_real_2:
-	zr64_hundredtwentyeight_real_with_square_preload
-	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_square_preload
+;;	zr64_hundredtwentyeight_real_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_square
 	zloop_init 512, 1, 4		;; 511 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 3577 cache lines
 	zr64_sixtyfour_complex_with_square_preload
@@ -18185,8 +18355,9 @@ b4a:	zr64_sixtyfour_complex_with_square rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*
 	jmp	zpass2_32768_real_unfft
 
 zpass2_32768_real_1:
-	zr64_hundredtwentyeight_real_fft_final_preload
-	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_fft_final_preload
+;;	zr64_hundredtwentyeight_real_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_fft_final
 	zloop_init 512, 1, 4		;; 511 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 3577 cache lines
 	zr64_sixtyfour_complex_fft_final_preload
@@ -18197,8 +18368,9 @@ b4b:	zr64_sixtyfour_complex_fft_final rsi, 8*128, 1*128, 2*128, 4*128, rdi, 0*ZM
 
 zpass2_32768_real_3:
 	mov	rbp, DIST_TO_MULSRCARG
-	zr64_hundredtwentyeight_real_with_mult_preload
-	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64_hundredtwentyeight_real_with_mult_preload
+;;	zr64_hundredtwentyeight_real_with_mult rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mult
 	zloop_init 512, 1, 4		;; 511 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 3577 cache lines
 	zr64_sixtyfour_complex_with_mult_preload
@@ -18213,8 +18385,9 @@ zpass2_32768_real_4:
 	mov	rdi, xsincos_complex	;; Complex sin/cos data
 	bump	rdx, 512*ZMM_SCD4+64*ZMM_SCD4+8*ZMM_SCD4
 	bump	rdi, 512*ZMM_SCD4+64*ZMM_SCD4+8*ZMM_SCD4
-	zr64f_hundredtwentyeight_real_with_mulf_preload
-	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+;;	zr64f_hundredtwentyeight_real_with_mulf_preload
+;;	zr64f_hundredtwentyeight_real_with_mulf rsi, 8*128, 1*128, 2*128, 4*128, rdx, 0*ZMM_SCD4, rdi, 0*ZMM_SCD4, 1
+	CALLP	zreal_mulf
 	zloop_init 512, 1, 4		;; 511 more iterations
 	zloop_set_rw_prefetch ZSEPT	;; Prefetch 3577 cache lines
 	zr64f_sixtyfour_complex_with_mulf_preload

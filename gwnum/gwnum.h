@@ -395,6 +395,8 @@ void gw_random_number (
 /* gwsquare2(s,d)		Computes d=s*s */
 /* gwmul3(s1,s2,d)		Computes d=s1*s2 with many options available */
 /* gwmul3_carefully(s1,s2,d)	Like gwmul3 but uses a slower method that will have a lower roundoff error even if input is non-random. */
+/* gwaddmul3(s1,s2,s3,d)	Computes d=(s1+s2)*s3 with many options available */
+/* gwsubmul3(s1,s2,s3,d)	Computes d=(s1-s2)*s3 with many options available */
 /* gwfftadd3(s1,s2,d)		Adds two FFTed numbers */
 /* gwfftsub3(s1,s2,d)		Subtracts second FFTed number from first FFTed number */
 /* gwfftaddsub4(s1,s2,d1,d2)	Like, gwfftaddsub but stores results in separate variables */
@@ -464,23 +466,39 @@ void gwfft (			/* Forward FFT */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	s,		/* Source number */
 	gwnum	d);		/* Destination (can be same as source) */
-/* Options for gwmul3 routine */
-#define GWMUL3_FFT_S1		0x0001
-#define GWMUL3_PRESERVE_S1	0x0002
-#define GWMUL3_FFT_S2		0x0004
-#define GWMUL3_PRESERVE_S2	0x0008
+/* Options for gwmul3, gwaddmul4, gwsubmul4 routines */
+#define GWMUL_FFT_S1		0x0001
+#define GWMUL_PRESERVE_S1	0x0002
+#define GWMUL_FFT_S2		0x0004
+#define GWMUL_PRESERVE_S2	0x0008
+#define GWMUL_FFT_S3		0x0010
+#define GWMUL_PRESERVE_S3	0x0020
 // echk?  mul-by-const?  postfft?
 void gwmul3 (			/* Multiply two gwnums */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s1,		/* First source, contents will be replaced with FFT(s1) */
-	gwnum	s2,		/* Second source.  Contents will not be changed. */
-	gwnum	d,		/* Non-FFTed source. Also destination */
+	gwnum	s1,		/* First source */
+	gwnum	s2,		/* Second source */
+	gwnum	d,		/* Destination */
 	int	options);
 void gwmul3_carefully (		/* Multiply two gwnums where inputs may not be random data */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s1,		/* First source, contents will be replaced with FFT(s1) */
-	gwnum	s2,		/* Second source.  Contents will not be changed. */
-	gwnum	d,		/* Non-FFTed source. Also destination */
+	gwnum	s1,		/* First source */
+	gwnum	s2,		/* Second source */
+	gwnum	d,		/* Destination */
+	int	options);
+void gwaddmul4 (		/* (s1+s2)*s3 */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	s1,		/* First source */
+	gwnum	s2,		/* Second source */
+	gwnum	s3,		/* Third source */
+	gwnum	d,		/* Destination */
+	int	options);
+void gwsubmul4 (		/* (s1-s2)*s3 */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	s1,		/* First source */
+	gwnum	s2,		/* Second source */
+	gwnum	s3,		/* Third source */
+	gwnum	d,		/* Destination */
 	int	options);
 void gwadd3quick (		/* Add two numbers without normalizing */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -533,13 +551,13 @@ void gwfftaddsub4 (		/* Add & sub two FFTed numbers */
 
 /* Macros to implement deprecated routines */
 
-#define gwmul(h,s,d)			gwmul3(h,s,d,d,GWMUL3_FFT_S1)
-#define gwsafemul(h,s,d)		gwmul3(h,s,d,d,GWMUL3_PRESERVE_S1)
+#define gwmul(h,s,d)			gwmul3(h,s,d,d,GWMUL_FFT_S1)
+#define gwsafemul(h,s,d)		gwmul3(h,s,d,d,GWMUL_PRESERVE_S1)
 #define gwfftmul(h,s,d)			gwmul3(h,s,d,d,0)
 #define gwfftfftmul(h,s1,s2,d)		gwmul3(h,s1,s2,d,0)
 #define gwsquare_carefully(h,x)		gwmul3_carefully(h,x,x,x,0)
-#define gwsquare2_carefully(h,s,d)	gwmul3_carefully(h,s,s,d,GWMUL3_PRESERVE_S1 | GWMUL3_PRESERVE_S2)
-#define gwmul_carefully(h,s,d)		gwmul3_carefully(h,s,d,d,GWMUL3_PRESERVE_S1)
+#define gwsquare2_carefully(h,s,d)	gwmul3_carefully(h,s,s,d,GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2)
+#define gwmul_carefully(h,s,d)		gwmul3_carefully(h,s,d,d,GWMUL_PRESERVE_S1)
 
 /* The FFT selection code assumes FFT data will essentially be random data2 yielding pretty well understood maximum */
 /* round off errors.  When working  with some numbers, especially at the start of a PRP exponentiation, the FFT data */

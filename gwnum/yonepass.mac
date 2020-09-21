@@ -1,4 +1,4 @@
-; Copyright 2011-2017 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2020 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -187,24 +187,32 @@ yfft32 MACRO type
 	ja	ymid3
 
 	start_timer 5
-	yr4_4cl_eight_reals_four_complex_fft_final rsi, 0, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_fft_final rsi, 0, 64, 2*64
+	yr4_dispatch call, yreal_fft_final, 64, 2*64
+	bump	rsi, -4*64
 	end_timer 5
 	yfft_1_ret
 
 ymid2:	start_timer 5
-	yr4_4cl_eight_reals_four_complex_with_square rsi, 0, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_square rsi, 0, 64, 2*64
+	yr4_dispatch call, yreal_square, 64, 2*64
+	bump	rsi, -4*64
 	end_timer 5
 	jmp	yfinish_unfft
 
 ymid3:	start_timer 5
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mult rsi, 0, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mult rsi, 0, 64, 2*64
+	yr4_dispatch call, yreal_mult, 64, 2*64
+	bump	rsi, -4*64
 	end_timer 5
 	jmp	yfinish_unfft
 
 ymid4:	start_timer 5
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 0, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 0, 64, 2*64
+	yr4_dispatch call, yreal_mulf, 64, 2*64
+	bump	rsi, -4*64
 	end_timer 5
 
 yfinish_unfft:
@@ -409,24 +417,32 @@ b1b:	yr4_fs4cl_eight_reals_fft rsi, 64, 2*64, 4*64, rdi, YMM_SCD3, 2
 	ja	ymid3
 
 	start_timer 5
-	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 0, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 0, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_fft_final, 64, 2*64, 4*64
+	bump	rsi, -8*64
 	end_timer 5
 	yfft_1_ret
 
 ymid2:	start_timer 5
-	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 0, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 0, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_square, 64, 2*64, 4*64
+	bump	rsi, -8*64
 	end_timer 5
 	jmp	yfinish_unfft
 
 ymid3:	start_timer 5
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 0, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 0, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mult, 64, 2*64, 4*64
+	bump	rsi, -8*64
 	end_timer 5
 	jmp	yfinish_unfft
 
 ymid4:	start_timer 5
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 0, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 0, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mulf, 64, 2*64, 4*64
+	bump	rsi, -8*64
 	end_timer 5
 
 yfinish_unfft:
@@ -674,7 +690,8 @@ b2b:	yr3_3cl_six_reals_three_complex_djbfft rsi, 64, 4*64, rdi, YMM_SCD2, 4
 	ja	ymid3
 
 	start_timer 6
-	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_fft_final, 64, 2*64
 	yloop_init  2			;; 2 more iterations
 b3a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yloop	2, b3a			;; Test loop counter
@@ -682,7 +699,8 @@ b3a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yfft_1_ret
 
 ymid2:	start_timer 6
-	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_square, 64, 2*64
 	yloop_init  2			;; 2 more iterations
 	yr4_4cl_four_complex_with_square_preload
 b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 2
@@ -692,7 +710,8 @@ b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 2
 
 ymid3:	start_timer 6
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mult, 64, 2*64
 	yloop_init  2			;; 2 more iterations
 b3c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	yloop	2, b3c			;; Test loop counter
@@ -701,7 +720,8 @@ b3c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 
 ymid4:	start_timer 6
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mulf, 64, 2*64
 	yloop_init  2			;; 2 more iterations
 b3d:	yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	yloop	2, b3d			;; Test loop counter
@@ -1053,7 +1073,8 @@ b2b:	yr4_4cl_eight_reals_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, YMM_SCD3,
 	ja	ymid3
 
 	start_timer 6
-	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_fft_final, 64, 2*64
 	yloop_init  4, 1, 4		;; 3 more iterations
 b3a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yloop	4, b3a			;; Test loop counter
@@ -1061,7 +1082,8 @@ b3a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yfft_1_ret
 
 ymid2:	start_timer 6
-	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_square, 64, 2*64
 	yloop_init  4, 1, 4		;; 3 more iterations
 	yr4_4cl_four_complex_with_square_preload
 b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
@@ -1071,7 +1093,8 @@ b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 
 ymid3:	start_timer 6
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mult, 64, 2*64
 	yloop_init  4, 1, 4		;; 3 more iterations
 b3c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	yloop	4, b3c			;; Test loop counter
@@ -1080,7 +1103,8 @@ b3c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 
 ymid4:	start_timer 6
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mulf, 64, 2*64
 	yloop_init  4, 1, 4		;; 3 more iterations
 b3d:	yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	yloop	4, b3d			;; Test loop counter
@@ -1442,7 +1466,8 @@ b2b:	yr5_5cl_ten_reals_five_complex_djbfft rsi, 64, 4*64, rdi, YMM_SCD4, 4
 	ja	ymid3
 
 	start_timer 6
-	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_fft_final, 64, 2*64
 	yloop_init  4			;; 4 more iterations
 b3a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yloop	4, b3a			;; Test loop counter
@@ -1450,7 +1475,8 @@ b3a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yfft_1_ret
 
 ymid2:	start_timer 6
-	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_square, 64, 2*64
 	yloop_init  4			;; 4 more iterations
 	yr4_4cl_four_complex_with_square_preload
 b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 4
@@ -1460,7 +1486,8 @@ b3b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 4
 
 ymid3:	start_timer 6
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mult, 64, 2*64
 	yloop_init  4			;; 4 more iterations
 b3c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	yloop	4, b3c			;; Test loop counter
@@ -1469,7 +1496,8 @@ b3c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 
 ymid4:	start_timer 6
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mulf, 64, 2*64
 	yloop_init  4			;; 4 more iterations
 b3d:	yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	yloop	4, b3d			;; Test loop counter
@@ -1829,7 +1857,8 @@ b2b:	yr3_3cl_six_reals_three_complex_djbfft rsi, 64, 8*64, rdi, YMM_SCD2, 8
 	ja	ymid3
 
 	start_timer 6
-	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_fft_final, 64, 2*64, 4*64
 	yloop_init  2			;; 2 more iterations
 b3a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yloop	2, b3a			;; Test loop counter
@@ -1837,7 +1866,8 @@ b3a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yfft_1_ret
 
 ymid2:	start_timer 6
-	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_square, 64, 2*64, 4*64
 	yloop_init  2			;; 2 more iterations
 b3b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 	yloop	2, b3b			;; Test loop counter
@@ -1846,7 +1876,8 @@ b3b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 
 ymid3:	start_timer 6
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mult, 64, 2*64, 4*64
 	yloop_init  2			;; 2 more iterations
 b3c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 	yloop	2, b3c			;; Test loop counter
@@ -1855,7 +1886,8 @@ b3c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 
 ymid4:	start_timer 6
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mulf, 64, 2*64, 4*64
 	yloop_init  2			;; 2 more iterations
 b3d:	yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 	yloop	2, b3d			;; Test loop counter
@@ -2212,7 +2244,8 @@ b2b:	yr4_4cl_eight_reals_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD3
 	ja	ymid3
 
 	start_timer 6
-	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_fft_final, 64, 2*64, 4*64
 	yloop_init  4, 1, 4		;; 3 more iterations
 b3a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b3a			;; Test loop counter
@@ -2220,7 +2253,8 @@ b3a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yfft_1_ret
 
 ymid2:	start_timer 6
-	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_square, 64, 2*64, 4*64
 	yloop_init  4, 1, 4		;; 3 more iterations
 b3b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b3b			;; Test loop counter
@@ -2229,7 +2263,8 @@ b3b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 
 ymid3:	start_timer 6
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mult, 64, 2*64, 4*64
 	yloop_init  4, 1, 4		;; 3 more iterations
 b3c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b3c			;; Test loop counter
@@ -2238,7 +2273,8 @@ b3c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 
 ymid4:	start_timer 6
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mulf, 64, 2*64, 4*64
 	yloop_init  4, 1, 4		;; 3 more iterations
 b3d:	yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b3d			;; Test loop counter
@@ -2599,7 +2635,8 @@ b2b:	yr5_5cl_ten_reals_five_complex_djbfft rsi, 64, 8*64, rdi, YMM_SCD4, 8
 	ja	ymid3
 
 	start_timer 6
-	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_fft_final, 64, 2*64, 4*64
 	yloop_init  4			;; 4 more iterations
 b3a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b3a			;; Test loop counter
@@ -2607,7 +2644,8 @@ b3a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yfft_1_ret
 
 ymid2:	start_timer 6
-	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_square, 64, 2*64, 4*64
 	yloop_init  4			;; 4 more iterations
 b3b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b3b			;; Test loop counter
@@ -2616,7 +2654,8 @@ b3b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 
 ymid3:	start_timer 6
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mult, 64, 2*64, 4*64
 	yloop_init  4			;; 4 more iterations
 b3c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b3c			;; Test loop counter
@@ -2625,7 +2664,8 @@ b3c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 
 ymid4:	start_timer 6
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mulf, 64, 2*64, 4*64
 	yloop_init  4			;; 4 more iterations
 b3d:	yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b3d			;; Test loop counter
@@ -3021,7 +3061,8 @@ b3b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, YMM_SCD3, 4
 	ja	ymid3
 
 	start_timer 7
-	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_fft_final, 64, 2*64
 	yloop_init  11			;; 11 more iterations
 b4a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yloop	11, b4a			;; Test loop counter
@@ -3029,7 +3070,8 @@ b4a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yfft_1_ret
 
 ymid2:	start_timer 7
-	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_square, 64, 2*64
 	yloop_init  11			;; 11 more iterations
 	yr4_4cl_four_complex_with_square_preload
 b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 11
@@ -3039,7 +3081,8 @@ b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 11
 
 ymid3:	start_timer 7
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mult, 64, 2*64
 	yloop_init  11			;; 11 more iterations
 b4c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	yloop	11, b4c			;; Test loop counter
@@ -3048,7 +3091,8 @@ b4c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 
 ymid4:	start_timer 7
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mulf, 64, 2*64
 	yloop_init  11			;; 11 more iterations
 b4d:	yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	yloop	11, b4d			;; Test loop counter
@@ -3539,7 +3583,8 @@ b3b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD3, 4
 	ja	ymid3
 
 	start_timer 7
-	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_fft_final, 64, 2*64
 	yloop_init  16, 1, 16		;; 15 more iterations
 b4a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yloop	16, b4a			;; Test loop counter
@@ -3547,7 +3592,8 @@ b4a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yfft_1_ret
 
 ymid2:	start_timer 7
-	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_square, 64, 2*64
 	yloop_init  16, 1, 16		;; 15 more iterations
 	yr4_4cl_four_complex_with_square_preload
 b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
@@ -3557,7 +3603,8 @@ b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 
 ymid3:	start_timer 7
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mult, 64, 2*64
 	yloop_init  16, 1, 16		;; 15 more iterations
 b4c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	yloop	16, b4c			;; Test loop counter
@@ -3566,7 +3613,8 @@ b4c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 
 ymid4:	start_timer 7
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mulf, 64, 2*64
 	yloop_init  16, 1, 16		;; 15 more iterations
 b4d:	yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	yloop	16, b4d			;; Test loop counter
@@ -4061,7 +4109,8 @@ b3b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, YMM_SCD3, 4
 	ja	ymid3
 
 	start_timer 7
-	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_fft_final, 64, 2*64
 	yloop_init  19			;; 19 more iterations
 b4a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yloop	19, b4a			;; Test loop counter
@@ -4069,7 +4118,8 @@ b4a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yfft_1_ret
 
 ymid2:	start_timer 7
-	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_square, 64, 2*64
 	yloop_init  19			;; 19 more iterations
 	yr4_4cl_four_complex_with_square_preload
 b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 19
@@ -4079,7 +4129,8 @@ b4b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 19
 
 ymid3:	start_timer 7
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mult, 64, 2*64
 	yloop_init  19			;; 19 more iterations
 b4c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	yloop	19, b4c			;; Test loop counter
@@ -4088,7 +4139,8 @@ b4c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 
 ymid4:	start_timer 7
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mulf, 64, 2*64
 	yloop_init  19			;; 19 more iterations
 b4d:	yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	yloop	19, b4d			;; Test loop counter
@@ -4584,7 +4636,8 @@ b3b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD3, 8
 	ja	ymid3
 
 	start_timer 7
-	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_fft_final, 64, 2*64, 4*64
 	yloop_init  11			;; 11 more iterations
 b4a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yloop	11, b4a			;; Test loop counter
@@ -4592,7 +4645,8 @@ b4a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yfft_1_ret
 
 ymid2:	start_timer 7
-	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_square, 64, 2*64, 4*64
 	yloop_init  11			;; 11 more iterations
 b4b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 	yloop	11, b4b			;; Test loop counter
@@ -4601,7 +4655,8 @@ b4b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 
 ymid3:	start_timer 7
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mult, 64, 2*64, 4*64
 	yloop_init  11			;; 11 more iterations
 b4c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 	yloop	11, b4c			;; Test loop counter
@@ -4610,7 +4665,8 @@ b4c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 
 ymid4:	start_timer 7
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mulf, 64, 2*64, 4*64
 	yloop_init  11			;; 11 more iterations
 b4d:	yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 	yloop	11, b4d			;; Test loop counter
@@ -5100,7 +5156,8 @@ b3b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD3, 8
 	ja	ymid3
 
 	start_timer 7
-	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_fft_final, 64, 2*64, 4*64
 	yloop_init  16, 1, 4		;; 15 more iterations
 b4a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b4a, -4*8*64+dist32	;; Test loop counter, next source pointer
@@ -5109,7 +5166,8 @@ b4a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yfft_1_ret
 
 ymid2:	start_timer 7
-	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_square, 64, 2*64, 4*64
 	yloop_init  16, 1, 4		;; 15 more iterations
 b4b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b4b, -4*8*64+dist32	;; Test loop counter, next source pointer
@@ -5119,7 +5177,8 @@ b4b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 
 ymid3:	start_timer 7
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mult, 64, 2*64, 4*64
 	yloop_init  16, 1, 4		;; 15 more iterations
 b4c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b4c, -4*8*64+dist32	;; Test loop counter, next source pointer
@@ -5129,7 +5188,8 @@ b4c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 
 ymid4:	start_timer 7
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mulf, 64, 2*64, 4*64
 	yloop_init  16, 1, 4		;; 15 more iterations
 b4d:	yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b4d, -4*8*64+dist32	;; Test loop counter, next source pointer
@@ -5628,7 +5688,8 @@ b3b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, YMM_SCD3, 8
 	ja	ymid3
 
 	start_timer 7
-	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_fft_final, 64, 2*64, 4*64
 	yloop_init  19			;; 19 more iterations
 b4a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yloop	19, b4a			;; Test loop counter
@@ -5636,7 +5697,8 @@ b4a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yfft_1_ret
 
 ymid2:	start_timer 7
-	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_square, 64, 2*64, 4*64
 	yloop_init  19			;; 19 more iterations
 b4b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 	yloop	19, b4b			;; Test loop counter
@@ -5645,7 +5707,8 @@ b4b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 
 ymid3:	start_timer 7
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mult, 64, 2*64, 4*64
 	yloop_init  19			;; 19 more iterations
 b4c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 	yloop	19, b4c			;; Test loop counter
@@ -5654,7 +5717,8 @@ b4c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 
 ymid4:	start_timer 7
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mulf, 64, 2*64, 4*64
 	yloop_init  19			;; 19 more iterations
 b4d:	yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 	yloop	19, b4d			;; Test loop counter
@@ -6179,7 +6243,8 @@ b4b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD3, 4
 	ja	ymid3
 
 	start_timer 8
-	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_fft_final, 64, 2*64
 	yloop_init  48, 1, 4		;; 47 more iterations
 b5a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yloop	4, b5a, -4*4*64+dist16	;; Test loop counter, next source pointer
@@ -6188,7 +6253,8 @@ b5a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yfft_1_ret
 
 ymid2:	start_timer 8
-	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_square, 64, 2*64
 	yloop_init  48, 1, 4		;; 47 more iterations
 	yr4_4cl_four_complex_with_square_preload
 b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
@@ -6199,7 +6265,8 @@ b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 
 ymid3:	start_timer 8
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mult, 64, 2*64
 	yloop_init  48, 1, 4		;; 47 more iterations
 b5c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	yloop	4, b5c, -4*4*64+dist16	;; Test loop counter, next source pointer
@@ -6209,7 +6276,8 @@ b5c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 
 ymid4:	start_timer 8
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mulf, 64, 2*64
 	yloop_init  48, 1, 4		;; 47 more iterations
 b5d:	yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	yloop	4, b5d, -4*4*64+dist16	;; Test loop counter, next source pointer
@@ -6836,7 +6904,8 @@ b4b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 16*YMM_SCD3, 4
 	ja	ymid3
 
 	start_timer 8
-	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_fft_final, 64, 2*64
 	yloop_init  64, 1, 16		;; 63 more iterations
 b5a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yloop	16, b5a, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -6845,7 +6914,8 @@ b5a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yfft_1_ret
 
 ymid2:	start_timer 8
-	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_square, 64, 2*64
 	yloop_init  64, 1, 16		;; 63 more iterations
 	yr4_4cl_four_complex_with_square_preload
 b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
@@ -6856,7 +6926,8 @@ b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 
 ymid3:	start_timer 8
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mult, 64, 2*64
 	yloop_init  64, 1, 16		;; 63 more iterations
 b5c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	yloop	16, b5c, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -6866,7 +6937,8 @@ b5c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 
 ymid4:	start_timer 8
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mulf, 64, 2*64
 	yloop_init  64, 1, 16		;; 63 more iterations
 b5d:	yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	yloop	16, b5d, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -7511,7 +7583,8 @@ b4b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 4*YMM_SCD3, 4
 	ja	ymid3
 
 	start_timer 8
-	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_fft_final, 64, 2*64
 	yloop_init  80, 1, 4		;; 79 more iterations
 b5a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yloop	4, b5a, -4*4*64+dist16	;; Test loop counter, next source pointer
@@ -7520,7 +7593,8 @@ b5a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yfft_1_ret
 
 ymid2:	start_timer 8
-	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_square, 64, 2*64
 	yloop_init  80, 1, 4		;; 79 more iterations
 	yr4_4cl_four_complex_with_square_preload
 b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
@@ -7531,7 +7605,8 @@ b5b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 
 ymid3:	start_timer 8
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mult, 64, 2*64
 	yloop_init  80, 1, 4		;; 79 more iterations
 b5c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	yloop	4, b5c, -4*4*64+dist16	;; Test loop counter, next source pointer
@@ -7541,7 +7616,8 @@ b5c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 
 ymid4:	start_timer 8
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mulf, 64, 2*64
 	yloop_init  80, 1, 4		;; 79 more iterations
 b5d:	yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	yloop	4, b5d, -4*4*64+dist16	;; Test loop counter, next source pointer
@@ -8166,7 +8242,8 @@ b4b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD3, 8
 	ja	ymid3
 
 	start_timer 8
-	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_fft_final, 64, 2*64, 4*64
 	yloop_init  48, 1, 4		;; 47 more iterations
 b5a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b5a, -4*8*64+dist32	;; Test loop counter, next source pointer
@@ -8175,7 +8252,8 @@ b5a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yfft_1_ret
 
 ymid2:	start_timer 8
-	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_square, 64, 2*64, 4*64
 	yloop_init  48, 1, 4		;; 47 more iterations
 b5b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b5b, -4*8*64+dist32	;; Test loop counter, next source pointer
@@ -8185,7 +8263,8 @@ b5b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 
 ymid3:	start_timer 8
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mult, 64, 2*64, 4*64
 	yloop_init  48, 1, 4		;; 47 more iterations
 b5c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b5c, -4*8*64+dist32	;; Test loop counter, next source pointer
@@ -8195,7 +8274,8 @@ b5c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 
 ymid4:	start_timer 8
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mulf, 64, 2*64, 4*64
 	yloop_init  48, 1, 4		;; 47 more iterations
 b5d:	yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b5d, -4*8*64+dist32	;; Test loop counter, next source pointer
@@ -8823,7 +8903,8 @@ b4b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, 16*YMM_SCD3, 8
 	ja	ymid3
 
 	start_timer 8
-	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_fft_final, 64, 2*64, 4*64
 	yloop_init  64, 1, 8		;; 63 more iterations
 b5a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yloop	8, b5a, -8*8*64+dist64	;; Test loop counter, next source pointer
@@ -8832,7 +8913,8 @@ b5a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yfft_1_ret
 
 ymid2:	start_timer 8
-	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_square, 64, 2*64, 4*64
 	yloop_init  64, 1, 8		;; 63 more iterations
 b5b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 	yloop	8, b5b, -8*8*64+dist64	;; Test loop counter, next source pointer
@@ -8842,7 +8924,8 @@ b5b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 
 ymid3:	start_timer 8
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mult, 64, 2*64, 4*64
 	yloop_init  64, 1, 8		;; 63 more iterations
 b5c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 	yloop	8, b5c, -8*8*64+dist64	;; Test loop counter, next source pointer
@@ -8852,7 +8935,8 @@ b5c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 
 ymid4:	start_timer 8
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mulf, 64, 2*64, 4*64
 	yloop_init  64, 1, 8		;; 63 more iterations
 b5d:	yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 	yloop	8, b5d, -8*8*64+dist64	;; Test loop counter, next source pointer
@@ -9494,7 +9578,8 @@ b4b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD3, 8
 	ja	ymid3
 
 	start_timer 8
-	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_fft_final, 64, 2*64, 4*64
 	yloop_init  80, 1, 4		;; 79 more iterations
 b5a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b5a, -4*8*64+dist32	;; Test loop counter, next source pointer
@@ -9503,7 +9588,8 @@ b5a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yfft_1_ret
 
 ymid2:	start_timer 8
-	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_square, 64, 2*64, 4*64
 	yloop_init  80, 1, 4		;; 79 more iterations
 b5b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b5b, -4*8*64+dist32	;; Test loop counter, next source pointer
@@ -9513,7 +9599,8 @@ b5b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 
 ymid3:	start_timer 8
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mult, 64, 2*64, 4*64
 	yloop_init  80, 1, 4		;; 79 more iterations
 b5c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b5c, -4*8*64+dist32	;; Test loop counter, next source pointer
@@ -9523,7 +9610,8 @@ b5c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 
 ymid4:	start_timer 8
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mulf, 64, 2*64, 4*64
 	yloop_init  80, 1, 4		;; 79 more iterations
 b5d:	yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 	yloop	4, b5d, -4*8*64+dist32	;; Test loop counter, next source pointer
@@ -10193,7 +10281,8 @@ b5b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 16*YMM_SCD3, 4
 	ja	ymid3
 
 	start_timer 9
-	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_fft_final, 64, 2*64
 	yloop_init  192, 1, 16		;; 191 more iterations
 b6a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yloop	16, b6a, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -10202,7 +10291,8 @@ b6a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yfft_1_ret
 
 ymid2:	start_timer 9
-	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_square, 64, 2*64
 	yloop_init  192, 1, 16		;; 191 more iterations
 	yr4_4cl_four_complex_with_square_preload
 b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
@@ -10213,7 +10303,8 @@ b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 
 ymid3:	start_timer 9
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mult, 64, 2*64
 	yloop_init  192, 1, 16		;; 191 more iterations
 b6c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	yloop	16, b6c, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -10223,7 +10314,8 @@ b6c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 
 ymid4:	start_timer 9
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mulf, 64, 2*64
 	yloop_init  192, 1, 16		;; 191 more iterations
 b6d:	yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	yloop	16, b6d, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -11004,7 +11096,8 @@ b5b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 64*YMM_SCD3, 4
 	ja	ymid3
 
 	start_timer 9
-	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_fft_final, 64, 2*64
 	yloop_init  256, 1, 16		;; 255 more iterations
 b6a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yloop	16, b6a, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -11013,7 +11106,8 @@ b6a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yfft_1_ret
 
 ymid2:	start_timer 9
-	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_square, 64, 2*64
 	yloop_init  256, 1, 16		;; 255 more iterations
 	yr4_4cl_four_complex_with_square_preload
 b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
@@ -11024,7 +11118,8 @@ b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 
 ymid3:	start_timer 9
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mult, 64, 2*64
 	yloop_init  256, 1, 16		;; 255 more iterations
 b6c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	yloop	16, b6c, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -11034,7 +11129,8 @@ b6c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 
 ymid4:	start_timer 9
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mulf, 64, 2*64
 	yloop_init  256, 1, 16		;; 255 more iterations
 b6d:	yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	yloop	16, b6d, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -11819,7 +11915,8 @@ b5b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 16*YMM_SCD3, 4
 	ja	ymid3
 
 	start_timer 9
-	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_fft_final, 64, 2*64
 	yloop_init  320, 1, 16		;; 319 more iterations
 b6a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yloop	16, b6a, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -11828,7 +11925,8 @@ b6a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yfft_1_ret
 
 ymid2:	start_timer 9
-	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_square, 64, 2*64
 	yloop_init  320, 1, 16		;; 319 more iterations
 	yr4_4cl_four_complex_with_square_preload
 b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
@@ -11839,7 +11937,8 @@ b6b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 
 ymid3:	start_timer 9
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mult, 64, 2*64
 	yloop_init  320, 1, 16		;; 319 more iterations
 b6c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	yloop	16, b6c, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -11849,7 +11948,8 @@ b6c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 
 ymid4:	start_timer 9
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mulf, 64, 2*64
 	yloop_init  320, 1, 16		;; 319 more iterations
 b6d:	yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	yloop	16, b6d, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -12637,7 +12737,8 @@ b5b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, 16*YMM_SCD3, 8
 	ja	ymid3
 
 	start_timer 9
-	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_fft_final, 64, 2*64, 4*64
 	yloop_init  192, 1, 8		;; 191 more iterations
 b6a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yloop	8, b6a, -8*8*64+dist64	;; Test loop counter, next source pointer
@@ -12646,7 +12747,8 @@ b6a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yfft_1_ret
 
 ymid2:	start_timer 9
-	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_square, 64, 2*64, 4*64
 	yloop_init  192, 1, 8		;; 191 more iterations
 b6b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 	yloop	8, b6b, -8*8*64+dist64	;; Test loop counter, next source pointer
@@ -12656,7 +12758,8 @@ b6b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 
 ymid3:	start_timer 9
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mult, 64, 2*64, 4*64
 	yloop_init  192, 1, 8		;; 191 more iterations
 b6c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 	yloop	8, b6c, -8*8*64+dist64	;; Test loop counter, next source pointer
@@ -12666,7 +12769,8 @@ b6c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 
 ymid4:	start_timer 9
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mulf, 64, 2*64, 4*64
 	yloop_init  192, 1, 8		;; 191 more iterations
 b6d:	yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 	yloop	8, b6d, -8*8*64+dist64	;; Test loop counter, next source pointer
@@ -13452,7 +13556,8 @@ b5b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, 64*YMM_SCD3, 8
 	ja	ymid3
 
 	start_timer 9
-	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_fft_final, 64, 2*64, 4*64
 	yloop_init  256, 1, 8		;; 255 more iterations
 b6a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yloop	8, b6a, -8*8*64+dist64	;; Test loop counter, next source pointer
@@ -13461,7 +13566,8 @@ b6a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yfft_1_ret
 
 ymid2:	start_timer 9
-	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_square, 64, 2*64, 4*64
 	yloop_init  256, 1, 8		;; 255 more iterations
 b6b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 	yloop	8, b6b, -8*8*64+dist64	;; Test loop counter, next source pointer
@@ -13471,7 +13577,8 @@ b6b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 
 ymid3:	start_timer 9
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mult, 64, 2*64, 4*64
 	yloop_init  256, 1, 8		;; 255 more iterations
 b6c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 	yloop	8, b6c, -8*8*64+dist64	;; Test loop counter, next source pointer
@@ -13481,7 +13588,8 @@ b6c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 
 ymid4:	start_timer 9
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mulf, 64, 2*64, 4*64
 	yloop_init  256, 1, 8		;; 255 more iterations
 b6d:	yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 	yloop	8, b6d, -8*8*64+dist64	;; Test loop counter, next source pointer
@@ -14271,7 +14379,8 @@ b5b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 8*64, 16*64, rdi, 16*YMM_SCD3, 8
 	ja	ymid3
 
 	start_timer 9
-	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_fft_final, 64, 2*64, 4*64
 	yloop_init  320, 1, 8		;; 319 more iterations
 b6a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yloop	8, b6a, -8*8*64+dist64	;; Test loop counter, next source pointer
@@ -14280,7 +14389,8 @@ b6a:	yr8_8cl_eight_complex_fft_final rsi, 8*64, 64, 2*64, 4*64
 	yfft_1_ret
 
 ymid2:	start_timer 9
-	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_square, 64, 2*64, 4*64
 	yloop_init  320, 1, 8		;; 319 more iterations
 b6b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 	yloop	8, b6b, -8*8*64+dist64	;; Test loop counter, next source pointer
@@ -14290,7 +14400,8 @@ b6b:	yr8_8cl_eight_complex_with_square rsi, 8*64, 64, 2*64, 4*64
 
 ymid3:	start_timer 9
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mult, 64, 2*64, 4*64
 	yloop_init  320, 1, 8		;; 319 more iterations
 b6c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 	yloop	8, b6c, -8*8*64+dist64	;; Test loop counter, next source pointer
@@ -14300,7 +14411,8 @@ b6c:	yr8_8cl_eight_complex_with_mult rsi, 8*64, 64, 2*64, 4*64
 
 ymid4:	start_timer 9
 	mov	rbp, DIST_TO_MULSRCARG
-	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+;;	yr8_8cl_sixteen_reals_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
+	yr8_dispatch call, y8real_mulf, 64, 2*64, 4*64
 	yloop_init  320, 1, 8		;; 319 more iterations
 b6d:	yr8_8cl_eight_complex_with_mulf rsi, 8*64, 64, 2*64, 4*64
 	yloop	8, b6d, -8*8*64+dist64	;; Test loop counter, next source pointer
@@ -15127,7 +15239,8 @@ b6b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 16*YMM_SCD3, 4
 	ja	ymid3
 
 	start_timer 10
-	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_fft_final, 64, 2*64
 	yloop_init  576, 1, 16		;; 575 more iterations
 b7a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yloop	16, b7a, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -15136,7 +15249,8 @@ b7a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yfft_1_ret
 
 ymid2:	start_timer 10
-	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_square, 64, 2*64
 	yloop_init  576, 1, 16		;; 575 more iterations
 	yr4_4cl_four_complex_with_square_preload
 b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
@@ -15147,7 +15261,8 @@ b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 
 ymid3:	start_timer 10
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mult, 64, 2*64
 	yloop_init  576, 1, 16		;; 575 more iterations
 b7c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	yloop	16, b7c, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -15157,7 +15272,8 @@ b7c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 
 ymid4:	start_timer 10
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mulf, 64, 2*64
 	yloop_init  576, 1, 16		;; 575 more iterations
 b7d:	yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	yloop	16, b7d, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -16075,7 +16191,8 @@ b6b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 64*YMM_SCD3, 4
 	ja	ymid3
 
 	start_timer 10
-	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_fft_final, 64, 2*64
 	yloop_init  768, 1, 16		;; 767 more iterations
 b7a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yloop	16, b7a, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -16084,7 +16201,8 @@ b7a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yfft_1_ret
 
 ymid2:	start_timer 10
-	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_square, 64, 2*64
 	yloop_init  768, 1, 16		;; 767 more iterations
 	yr4_4cl_four_complex_with_square_preload
 b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
@@ -16095,7 +16213,8 @@ b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 
 ymid3:	start_timer 10
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mult, 64, 2*64
 	yloop_init  768, 1, 16		;; 767 more iterations
 b7c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	yloop	16, b7c, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -16105,7 +16224,8 @@ b7c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 
 ymid4:	start_timer 10
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mulf, 64, 2*64
 	yloop_init  768, 1, 16		;; 767 more iterations
 b7d:	yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	yloop	16, b7d, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -17024,7 +17144,8 @@ b6b:	yr4_rb4cl_four_complex_djbfft rsi, 64, 4*64, 8*64, rdi, 256*YMM_SCD3, 4
 	ja	ymid3
 
 	start_timer 10
-	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_fft_final rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_fft_final, 64, 2*64
 	yloop_init  1024, 1, 16		;; 1023 more iterations
 b7a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yloop	16, b7a, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -17033,7 +17154,8 @@ b7a:	yr4_4cl_four_complex_fft_final rsi, 4*64, 64, 2*64
 	yfft_1_ret
 
 ymid2:	start_timer 10
-	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_square rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_square, 64, 2*64
 	yloop_init  1024, 1, 16		;; 1023 more iterations
 	yr4_4cl_four_complex_with_square_preload
 b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
@@ -17044,7 +17166,8 @@ b7b:	yr4_4cl_four_complex_with_square rsi, 4*64, 64, 2*64, 1
 
 ymid3:	start_timer 10
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mult rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mult, 64, 2*64
 	yloop_init  1024, 1, 16		;; 1023 more iterations
 b7c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 	yloop	16, b7c, -16*4*64+dist64 ;; Test loop counter, next source pointer
@@ -17054,7 +17177,8 @@ b7c:	yr4_4cl_four_complex_with_mult rsi, 4*64, 64, 2*64
 
 ymid4:	start_timer 10
 	mov	rbp, DIST_TO_MULSRCARG
-	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+;;	yr4_4cl_eight_reals_four_complex_with_mulf rsi, 4*64, 64, 2*64
+	yr4_dispatch call, yreal_mulf, 64, 2*64
 	yloop_init  1024, 1, 16		;; 1023 more iterations
 b7d:	yr4_4cl_four_complex_with_mulf rsi, 4*64, 64, 2*64
 	yloop	16, b7d, -16*4*64+dist64 ;; Test loop counter, next source pointer

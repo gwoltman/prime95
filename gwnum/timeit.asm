@@ -1,4 +1,4 @@
-; Copyright 1995-2018 Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2020 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -1499,6 +1499,27 @@ INCLUDE ymult.mac
 INCLUDE yr4.mac
 INCLUDE ynormal.mac
 
+EXTRNP	ycomplex_mult_opcode1
+EXTRNP	ycomplex_mult_opcode2
+EXTRNP	ycomplex_mult_opcode3
+EXTRNP	ycomplex_mult_opcode4
+EXTRNP	ycomplex_mult_opcode5
+EXTRNP	ycomplex_mult_opcode6
+EXTRNP	ycomplex_mulf_opcode1
+EXTRNP	ycomplex_mulf_opcode2
+EXTRNP	ycomplex_mulf_opcode3
+EXTRNP	ycomplex_mulf_opcode4
+EXTRNP	ycomplex_mulf_opcode5
+EXTRNP	ycomplex_mulf_opcode6
+EXTRN	y8complex_mult_opcode1:PROC
+EXTRN	y8complex_mult_opcode2:PROC
+EXTRN	y8complex_mult_opcode3:PROC
+EXTRN	y8complex_mult_opcode4:PROC
+EXTRN	y8complex_mulf_opcode1:PROC
+EXTRN	y8complex_mulf_opcode2:PROC
+EXTRN	y8complex_mulf_opcode3:PROC
+EXTRN	y8complex_mulf_opcode4:PROC
+
 ; This code reads/writes 64MB (1M cache lines) in contiguous blocks.  Timings are done
 ; on 4 memory sizes.  4KB will operate on the L1 cache only, 128KB will operate on the
 ; L2 cache only, 1MB will operate on the L3 cache and 32MB will operate on main memory.
@@ -1903,6 +1924,11 @@ INCLUDE zonepass.mac
 INCLUDE zr4.mac
 INCLUDE znormal.mac
 INCLUDE znormal_zpad.mac
+
+EXTRN zreal_mult_opcode:PROC
+EXTRN zreal_mulf_opcode:PROC
+EXTRN zcomplex_mult_opcode:PROC
+EXTRN zcomplex_mulf_opcode:PROC
 
 FMApenalty_test1 MACRO		;; Test if latency is really 4 clocks, ideal macro timing is 4 clocks
 	zfmaddpd	zmm0, zmm0, zmm0, zmm0
