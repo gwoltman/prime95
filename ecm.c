@@ -296,14 +296,12 @@ int ell_add_special2 (
 	gwaddsub (&ecmdata->gwdata, t2, t1);		/* Calc t2 + t1 and t2 - t1 */
 	gwstartnextfft (&ecmdata->gwdata, TRUE);	/* x3 = (t2 + t1)^2 * zdiff */
 	gwsquare (&ecmdata->gwdata, t2);
-	gwfft (&ecmdata->gwdata, t2, t2);
 	gwstartnextfft (&ecmdata->gwdata, FALSE);
-	gwfftfftmul (&ecmdata->gwdata, t2, zdiff, zdiff); /* Return x3 in zdiff */
+	gwmul3 (&ecmdata->gwdata, t2, zdiff, zdiff, 0);	/* Return x3 in zdiff */
 	gwstartnextfft (&ecmdata->gwdata, TRUE);	/* z3 = (t2 - t1)^2 * xdiff */
 	gwsquare (&ecmdata->gwdata, t1);
-	gwfft (&ecmdata->gwdata, t1, t1);
 	gwstartnextfft (&ecmdata->gwdata, FALSE);
-	gwfftfftmul (&ecmdata->gwdata, t1, xdiff, xdiff); /* Return z3 in xdiff */
+	gwmul3 (&ecmdata->gwdata, t1, xdiff, xdiff, 0);	/* Return z3 in xdiff */
 	gwfree (&ecmdata->gwdata, t1);
 	gwfree (&ecmdata->gwdata, t2);
 	return (0);
@@ -3074,8 +3072,7 @@ restart3:
 
 		stop_reason = mQ_next (&ecmdata, &mQx, &mQz, N, &factor);
 		if (stop_reason) {
-			// In case stop_reason is out-of-memory, free some up
-			// before calling ecm_save.
+			// In case stop_reason is out-of-memory, free some up before calling ecm_save.
 			mQ_term (&ecmdata);
 			t1 = gwalloc (&ecmdata.gwdata);
 			if (t1 == NULL) goto oom;
@@ -3089,8 +3086,6 @@ restart3:
 		}
 		if (factor != NULL) goto bingo;
 		memset (ecmdata.pairings, 0, (ecmdata.D + 15) >> 4);
-		t1 = gwalloc (&ecmdata.gwdata);
-		if (t1 == NULL) goto oom;
 
 /* 2 FFT per prime continuation - deals with all normalized values */
 
@@ -3104,9 +3099,8 @@ restart3:
 				if (bittst (ecmdata.pairings, i)) continue;
 			} else
 				break;
-			gwfftsub3 (&ecmdata.gwdata, mQx, ecmdata.nQx[i], t1);
 			gwstartnextfft (&ecmdata.gwdata, TRUE);
-			gwfftmul (&ecmdata.gwdata, t1, gg);
+			gwsubmul4 (&ecmdata.gwdata, mQx, ecmdata.nQx[i], gg, gg, GWMUL_FFT_S1 | GWMUL_FFT_S2);
 			gwstartnextfft (&ecmdata.gwdata, FALSE);
 		    }
 		}
@@ -3114,6 +3108,8 @@ restart3:
 /* 4 FFT per prime continuation - deals with only nQx values normalized */
 
 		else {
+		    t1 = gwalloc (&ecmdata.gwdata);
+		    if (t1 == NULL) goto oom;
 		    for ( ; ; prime = sieve (ecmdata.sieve_info)) {
 			if (prime < m) {	/* Do the m-D to m range */
 				i = (unsigned long) (m - prime) >> 1;
@@ -3125,15 +3121,12 @@ restart3:
 				break;
 			gwstartnextfft (&ecmdata.gwdata, TRUE);
 			gwfftfftmul (&ecmdata.gwdata, ecmdata.nQx[i], mQz, t1);
-			gwstartnextfft (&ecmdata.gwdata, FALSE);
 			gwfft (&ecmdata.gwdata, t1, t1);
-			gwfftsub3 (&ecmdata.gwdata, mQx, t1, t1);
-			gwstartnextfft (&ecmdata.gwdata, TRUE);
-			gwfftmul (&ecmdata.gwdata, t1, gg);
+			gwsubmul4 (&ecmdata.gwdata, mQx, t1, gg, gg, GWMUL_FFT_S1 | GWMUL_FFT_S2);
 			gwstartnextfft (&ecmdata.gwdata, FALSE);
 		    }
+		    gwfree (&ecmdata.gwdata, t1);
 		}
-		gwfree (&ecmdata.gwdata, t1);
 
 /* Calculate stage 2 percent complete */
 
@@ -3749,6 +3742,7 @@ void fd_next (
 
 	for (i = 0; i < pm1data->E; i++) {
 #ifndef SERVER_TESTING
+		gwstartnextfft (&pm1data->gwdata, TRUE);
 		gwfftfftmul (&pm1data->gwdata, pm1data->eQx[i], pm1data->eQx[i+1], pm1data->eQx[i]);
 		gwfft (&pm1data->gwdata, pm1data->eQx[i], pm1data->eQx[i]);
 #endif
@@ -3927,16 +3921,13 @@ err:
 }
 
 
-/* Compute how many values we can allocate.  This function can calculate */
-/* the value using either the maximum available memory or the currently */
-/* available memory. */
+/* Compute how many values we can allocate.  This function can calculate the value using either */
+/* the maximum available memory or the currently available memory. */
 
 int choose_pminus1_numvals (
 	pm1handle *pm1data,
-	int	use_max_mem,		/* True if calculation should use */
-					/* maximum available memory */
-	unsigned long *numvals)		/* Returned number of values we */
-					/* can allocate. */
+	int	use_max_mem,		/* True if calculation should use maximum available memory */
+	unsigned long *numvals)		/* Returned number of values we can allocate. */
 {
 	unsigned int memory;		/* Available memory in MB */
 	int	stop_reason;
@@ -4002,8 +3993,7 @@ double cost_pminus1_plan (
 	uint64_t C,		/* Stage 2 end point */
 	unsigned long d,
 	unsigned long e,	/* Suyama power */
-	unsigned long numvals,	/* Temp gwnums available for stage 2 */
-	int	using_t3)	/* True if t3 avoids a gwfftadd3 */
+	unsigned long numvals)	/* Temp gwnums available for stage 2 */
 {
 	double numprimes, numpairings, sets;
 	unsigned long numrels, passes;
@@ -4028,8 +4018,7 @@ double cost_pminus1_plan (
 /* Compute how many passes this will take to process all the numbers */
 /* relatively prime to D. */
 
-	passes = (unsigned long)
-		ceil ((double) numrels / (numvals - (e+1) - using_t3));
+	passes = (unsigned long) ceil ((double) numrels / (numvals - (e+1)));
 
 /* Compute the nQx setup costs.  To calculate nQx values, one fd_init is */
 /* required on each pass with an average start point of D/2.  A single */
@@ -4057,18 +4046,12 @@ double cost_pminus1_plan (
 		sets = ceil ((double) (C-B) / (d+d));
 	cost += passes * sets * e;
 
-/* Finally, each prime pairing costs one multiply.  If E = 1, then there */
-/* is no prime pairing.  If not using_t3 then each multiply costs more as */
-/* there is an extra gwfftadd3 call. */
+/* Finally, each prime pairing costs one multiply.  If E = 1, then there is no prime pairing. */
 
-	if (e >= 2 && using_t3)
+	if (e >= 2)
 		cost += numprimes - numpairings;
-	else if (e >= 2)
-		cost += (numprimes - numpairings) * 1.1;
-	else if (using_t3)
-		cost += numprimes;
 	else
-		cost += numprimes * 1.1;
+		cost += numprimes;
 
 /* Return the resulting cost */
 
@@ -4111,25 +4094,23 @@ int choose_pminus1_plan (
 	best_cost = 1e99;
 	for (d = 5 * 2310; d >= 30; ) {
 
-/* Try various values of E and using_t3 until we find the best one */
+/* Try various values of E until we find the best one */
 
-		for (i = 0; i < 10; i++) {
-			int	using_t3;
+		for (i = 0; i < 5; i++) {
 
 /* Calculate e and the using_t3 flag.  Don't cost out e values where we */
 /* don't have enough memory. */
 
-			if (i <= 1) e = 1;
-			else if (i <= 3) e = 2;
-			else if (i <= 5) e = 4;
-			else if (i <= 7) e = 6;
+			if (i == 0) e = 1;
+			else if (i == 1) e = 2;
+			else if (i == 2) e = 4;
+			else if (i == 3) e = 6;
 			else e = 12;
-			using_t3 = i & 1;
-			if (numvals <= e + 1 + using_t3) break;
+			if (numvals <= e + 1) break;
 
 /* Calculate the cost of this stage 2 plan */
 
-			cost = cost_pminus1_plan (B, C, d, e, numvals, using_t3);
+			cost = cost_pminus1_plan (B, C, d, e, numvals);
 
 /* Reward higher E values because they should find more factors */
 /* These rewards are close to a complete guess.  Little studying has */
@@ -4162,17 +4143,13 @@ int choose_pminus1_plan (
 
 /* Choose the best implementation of the pminus1 plan given the current */
 /* memory settings.  We may decide to wait for more memory to be available. */
-/* We may choose to use the t3 temporary variable. */
 
 int choose_pminus1_implementation (
 	pm1handle *pm1data,
-	struct work_unit *w,
-	int	*using_t3_result)	/* Should we use a temporary for t3 */
+	struct work_unit *w)
 {
 	uint64_t B, C;
 	unsigned long numvals;
-	int	using_t3;
-	double	cost, best_cost;
 	int	stop_reason;
 
 /* Copy some pm1data variables for easier access */
@@ -4198,33 +4175,9 @@ int choose_pminus1_implementation (
 
 	if (pm1data->E > 2 && numvals < pm1data->E + 10) pm1data->E = 2;
 
-/* Try with and without using_t3 to find the best cost. */
+/* Set and adjust rels_this_pass down if it is too high */
 
-	best_cost = 1e99;
-	for (using_t3 = 0; using_t3 < 2; using_t3++) {
-
-/* If there isn't enough memory to run this scenario, then do not */
-/* bother costing it out. */
-
-		if (numvals <= pm1data->E + 1 + using_t3) break;
-
-/* Calculate the cost of this stage 2 plan */
-
-		cost = cost_pminus1_plan (B, C, pm1data->D, pm1data->E,
-					  numvals, using_t3);
-
-/* Remember best cost, rels_this_pass, and using_t3 */
-
-		if (cost < best_cost) {
-			best_cost = cost;
-			*using_t3_result = using_t3;
-			pm1data->rels_this_pass =
-				numvals - (pm1data->E+1) - using_t3;
-		}
-	}
-
-/* Adjust rels_this_pass down if it is too high */
-
+	pm1data->rels_this_pass = numvals - (pm1data->E+1);
 	if (pm1data->rels_this_pass > pm1data->numrels - pm1data->rels_done)
 		pm1data->rels_this_pass = pm1data->numrels - pm1data->rels_done;
 	return (0);
@@ -4443,7 +4396,7 @@ int pminus1 (
 	unsigned long numrels, first_rel, last_rel;
 	unsigned long i, j, stage2incr, len, bit_number;
 	unsigned long error_recovery_mode = 0;
-	gwnum	x, gg, tmp_gwnum, t3;
+	gwnum	x, gg, tmp_gwnum;
 	readSaveFileState read_save_file_state;	/* Manage savefile names during reading */
 	writeSaveFileState write_save_file_state; /* Manage savefile names during writing */
 	char	filename[32], buf[255], JSONbuf[4000], testnum[100];
@@ -4453,8 +4406,6 @@ int pminus1 (
 	double	base_pct_complete, last_output, last_output_t, last_output_r;
 	double	allowable_maxerr, output_frequency, output_title_frequency;
 	int	first_iter_msg;
-	int	using_t3;	/* Indicates we are using the gwnum t3 */
-				/* to avoid a gwfftadd3 in stage 2 */
 	int	msglen;
 	char	*str, *msg;
 	double	timers[2];
@@ -5146,20 +5097,18 @@ restart3b:
 		(double) pm1data.pairs_done * one_pair_pct;
 
 /* Choose the best plan implementation given the currently available memory. */
-/* This implementation could be anything from "wait until we have more */
-/* memory" to deciding whether using_t3 should be set. */
+/* This implementation could include "wait until we have more memory". */
 
-replan:	stop_reason = choose_pminus1_implementation (&pm1data, w, &using_t3);
+replan:	stop_reason = choose_pminus1_implementation (&pm1data, w);
 	if (stop_reason) {
 		pm1_save (&pm1data, &write_save_file_state, w, 0, x, gg);
 		goto exit;
 	}
 
-/* Record the amount of memory we intend to use.  We use rels_this_pass */
-/* gwnums in the NQx array, E+1 gwnums to calculate eQx values, one gwnum */
-/* for gg, and an optional gwnum for t3. */
+/* Record the amount of memory we intend to use.  We use rels_this_pass gwnums in the NQx array, */
+/* E+1 gwnums to calculate eQx values, one gwnum for gg. */
 
-	memused = cvt_gwnums_to_mem (&pm1data.gwdata, pm1data.rels_this_pass + pm1data.E + 2 + using_t3);
+	memused = cvt_gwnums_to_mem (&pm1data.gwdata, pm1data.rels_this_pass + pm1data.E + 2);
 	if (set_memory_usage (thread_num, MEM_VARIABLE_USAGE, memused)) goto replan;
 	sprintf (buf,
 		 "Using %luMB of memory.  Processing %lu relative primes (%lu of %lu already processed).\n",
@@ -5285,10 +5234,6 @@ found_a_bit:;
 /* handles the range m-D to m+D.  When E = 1, each iteration handles */
 /* the range m-D to m. */
 
-	if (using_t3) {
-		t3 = gwalloc (&pm1data.gwdata);
-		if (t3 == NULL) goto lowmem;
-	}
 	for ( ; pm1data.C > m-pm1data.D; m += stage2incr) {
 	    int	inner_loop_done = FALSE;
 	    int	last_pass = (m - pm1data.D + stage2incr >= pm1data.C);
@@ -5323,14 +5268,7 @@ found_a_bit:;
 		stop_reason = stopCheck (thread_num);
 		gwstartnextfft (&pm1data.gwdata, !stop_reason && !saving);
 #ifndef SERVER_TESTING
-		if (using_t3) {
-			gwfftsub3 (&pm1data.gwdata, pm1data.eQx[0], pm1data.nQx[j], t3);
-			gwfftmul (&pm1data.gwdata, t3, gg);
-		} else {
-			gwfftsub3 (&pm1data.gwdata, pm1data.eQx[0], pm1data.nQx[j], pm1data.eQx[0]);
-			gwfftmul (&pm1data.gwdata, pm1data.eQx[0], gg);
-			gwfftadd3 (&pm1data.gwdata, pm1data.eQx[0], pm1data.nQx[j], pm1data.eQx[0]);
-		}
+		gwsubmul4 (&pm1data.gwdata, pm1data.eQx[0], pm1data.nQx[j], gg, gg, GWMUL_FFT_S1 | GWMUL_FFT_S2);
 #endif
 
 /* Clear this bit or bits in case a save file is written. */
@@ -5390,23 +5328,15 @@ errchk:		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwda
 			last_output_r = gw_get_fft_count (&pm1data.gwdata);
 		}
 
-/* Periodicly write a save file.  If we escaped, free eQx memory so */
-/* that pm1_save can reuse it to convert x and gg to binary.  If we */
-/* have been using t3 as a temporary, free that for the same reason. */
-/* "Touch" gg so that in low memory situations, the reading in of x */
-/* swaps out one of the eQx or nQx values rather than gg. */
+/* Periodicly write a save file.  If we escaped, free eQx memory so that pm1_save can reuse it to convert x and gg to binary. */
+/* "Touch" gg so that in low memory situations, the reading in of x swaps out one of the eQx or nQx values rather than gg. */
 
 		if (stop_reason || saving) {
 			if (stop_reason) fd_term (&pm1data);
-			if (using_t3) gwfree (&pm1data.gwdata, t3);
 			gwtouch (&pm1data.gwdata, gg);
 			pm1_save (&pm1data, &write_save_file_state, w, 0, x, gg);
 			if (stop_reason) goto exit;
 			saving = FALSE;
-			if (using_t3) {
-				t3 = gwalloc (&pm1data.gwdata);
-				if (t3 == NULL) goto oom;
-			}
 		}
 
 /* Leave inner loop to work on the next m value */
@@ -5414,7 +5344,6 @@ errchk:		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwda
 		if (inner_loop_done) break;
 	    }
 	}
-	if (using_t3) gwfree (&pm1data.gwdata, t3);
 	fd_term (&pm1data);
 
 /* Free up the nQx values for the next pass */
@@ -5776,6 +5705,7 @@ int pminus1_QA (
 		unsigned long b, n, B1, B2_start, B2_end;
 		signed long c;
 		char	fac_str[80];
+		int	save_primenet;
 		int	stop_reason;
 
 /* Read a line from the file */
@@ -5804,6 +5734,7 @@ print out each test case (all relevant data)*/
 /* Do the P-1 */
 
 		if (B2_start < B1) B2_start = B1;
+		memset (&w, 0, sizeof (w));
 		w.work_type = WORK_PMINUS1;
 		w.k = k;
 		w.b = b;
@@ -5813,10 +5744,13 @@ print out each test case (all relevant data)*/
 		w.B2_start = B2_start;
 		w.B2 = B2_end;
 		QA_IN_PROGRESS = TRUE;
+		save_primenet = USE_PRIMENET;
+		USE_PRIMENET = 0;
 		stop_reason = pminus1 (0, sp_info, &w);
+		USE_PRIMENET = save_primenet;
 		QA_IN_PROGRESS = FALSE;
 		free (QA_FACTOR);
-		if (stop_reason) {
+		if (stop_reason != STOP_WORK_UNIT_COMPLETE) {
 			fclose (fd);
 			return (stop_reason);
 		}
@@ -5882,13 +5816,12 @@ void cost_pm1 (
 		c->pass2_squarings += numprimes - numpairings;
 	}
 
-/* Pass 2 FFT multiplications seem to be at least 20% slower than */
-/* the squarings in pass 1.  This is probably due to several factors. */
-/* These include: better L2 cache usage and no calls to the faster */
-/* gwsquare routine.  Nov, 2009:  On my Macbook Pro, with exponents */
-/* around 45M and using 800MB memory, pass2 squarings are 40% slower. */
+/* Pass 2 FFT multiplications seem to be at least 20% slower than the squarings in pass 1.  This is probably due */
+/* to several factors.  These include: better L2 cache usage and no calls to the faster gwsquare routine. */
+/* Nov, 2009: On my Macbook Pro, with exponents around 45M and using 800MB memory, pass2 squarings are 40% slower. */
+/* Sept. 2020: gwsubmul4 implemented in assembly for AVX and later reduces the overhead to about 10%. */
 
-	c->pass2_squarings *= 1.35;
+	c->pass2_squarings *= 1.10;
 
 /* Calculate probability of finding a factor (courtesy of Mihai Preda) */
 
