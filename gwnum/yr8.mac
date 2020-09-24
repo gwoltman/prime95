@@ -3529,13 +3529,13 @@ back_to_orig:
 ;; Same as above code between orig and back_to_orig, except we implement mul4_opcode options
 
 yr8_8c_mult_opcode MACRO srcreg,d1,d2,d4
-	LOCAL	notadd, done
+	LOCAL	submul, done
 
 	push	rax				;; We could probably find a free register
 	mov	rax, SRC2ARG			;; Distance to s2 arg from gwaddmul4 or gwsubmul4
 
 	cmp	mul4_opcode, 1			;; Are we doing an ADD
-	jne	notadd
+	jne	submul
 
 	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
 	vaddpd	ymm3, ymm3, [srcreg+d2+d1][rax]	;; MemR4
@@ -3638,7 +3638,7 @@ yr8_8c_mult_opcode MACRO srcreg,d1,d2,d4
 
 	jmp	done
 
-notadd:
+submul:
 	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
 	vsubpd	ymm3, ymm3, [srcreg+d2+d1][rax]	;; MemR4
 	vmovapd	ymm9, [srcreg+d2+d1+32][rbp]	;; MemI4
@@ -3746,7 +3746,7 @@ yr8_8cl_eight_complex_with_mulf_preload MACRO
 yr8_8cl_eight_complex_with_mulf MACRO srcreg,srcinc,d1,d2,d4
 	LOCAL	orig, back_to_orig
 
-	cmp	mul4_opcode, 0			;; See if we need to do more than the original type-3 FFT multiply
+	cmp	mul4_opcode, 0			;; See if we need to do more than the original type-4 FFT multiply
 	je	short orig
 	yr8_dispatch call,y8complex_mulf_opcode,d1,d2,d4 ;; Handle more difficult cases
 	jmp	back_to_orig
@@ -3962,13 +3962,13 @@ back_to_orig:
 ;; Same as above code between orig and back_to_orig, except we implement mul4_opcode options
 
 yr8_8c_mulf_opcode MACRO srcreg,d1,d2,d4
-	LOCAL	notadd, done
+	LOCAL	submul, done
 
 	push	rax				;; We could probably find a free register
 	mov	rax, SRC2ARG			;; Distance to s2 arg from gwaddmul4 or gwsubmul4
 
 	cmp	mul4_opcode, 1			;; Are we doing an ADD
-	jne	notadd
+	jne	submul
 
 	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
 	vaddpd	ymm3, ymm3, [srcreg+d2+d1][rax]	;; MemR4
@@ -4080,7 +4080,7 @@ yr8_8c_mulf_opcode MACRO srcreg,d1,d2,d4
 
 	jmp	done
 
-notadd:
+submul:
 	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
 	vsubpd	ymm3, ymm3, [srcreg+d2+d1][rax]	;; MemR4
 	vmovapd	ymm9, [srcreg+d2+d1+32][rbp]	;; MemI4
@@ -5636,7 +5636,7 @@ yr8_16r_simple_fft_with_mulf MACRO srcreg,d1,d2,d4
 IFDEF X86_64
 
 yr8_8cl_sixteen_reals_eight_complex_with_mult MACRO srcreg,srcinc,d1,d2,d4
-	LOCAL	orig, back_to_orig, notadd
+	LOCAL	orig, back_to_orig, submul
 
 	ymult7	srcreg, srcreg+rbp
 
@@ -5934,7 +5934,7 @@ yr8_8cl_sixteen_reals_eight_complex_with_mult MACRO srcreg,srcinc,d1,d2,d4
 	mov	rax, SRC2ARG			;; Distance to s2 arg from gwaddmul4 or gwsubmul4
 
 	cmp	mul4_opcode, 1			;; Are we doing an ADD
-	jne	notadd
+	jne	submul
 
 	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
 	vaddpd	ymm3, ymm3, [srcreg+d2+d1][rax]	;; MemR4
@@ -6038,7 +6038,7 @@ yr8_8cl_sixteen_reals_eight_complex_with_mult MACRO srcreg,srcinc,d1,d2,d4
 	vaddpd	ymm6, ymm6, ymm13		;; R2*MemI2+I2*MemR2 (new I2)	; 74-76
 
 	jmp	back_to_orig
-notadd:
+submul:
 	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
 	vsubpd	ymm3, ymm3, [srcreg+d2+d1][rax]	;; MemR4
 	vmovapd	ymm9, [srcreg+d2+d1+32][rbp]	;; MemI4
@@ -6525,17 +6525,17 @@ back_to_orig:
 	ENDM
 
 yr8_8cl_sixteen_reals_eight_complex_with_mulf MACRO srcreg,srcinc,d1,d2,d4
-	LOCAL	orig, back_to_orig, notadd
+	LOCAL	orig, back_to_orig, submul
 
 	ymult7	srcreg+rbx, srcreg+rbp
 
-	cmp	mul4_opcode, 0			;; See if we need to do more than the original type-3 FFT multiply
+	cmp	mul4_opcode, 0			;; See if we need to do more than the original type-4 FFT multiply
 	je	orig
 
 	mov	rax, SRC2ARG			;; Distance to s2 arg from gwaddmul4 or gwsubmul4
 
 	cmp	mul4_opcode, 1			;; Are we doing an ADD
-	jne	notadd
+	jne	submul
 
 	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
 	vaddpd	ymm3, ymm3, [srcreg+d2+d1][rax]	;; MemR4
@@ -6646,7 +6646,7 @@ yr8_8cl_sixteen_reals_eight_complex_with_mulf MACRO srcreg,srcinc,d1,d2,d4
 	vaddpd	ymm6, ymm6, ymm13		;; R2*MemI2+I2*MemR2 (new I2)	; 74-76
 
 	jmp	back_to_orig
-notadd:
+submul:
 	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
 	vsubpd	ymm3, ymm3, [srcreg+d2+d1][rax]	;; MemR4
 	vmovapd	ymm9, [srcreg+d2+d1+32][rbp]	;; MemI4
