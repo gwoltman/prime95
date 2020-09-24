@@ -8763,6 +8763,7 @@ static	int	time_all_complex = 0;	/* TRUE if we should time all-complex FFTs */
 		memset (&sp_info, 0, sizeof (sp_info));
 		sp_info.type = SET_PRIORITY_QA;
 		sp_info.worker_num = thread_num;
+		sp_info.normal_work_hyperthreads = 1;
 		sp_info.verbose_flag = IniGetInt (INI_FILE, "AffinityVerbosityQA", 0);
 		SetPriority (&sp_info);
 
