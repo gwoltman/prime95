@@ -161,7 +161,7 @@ void compare (int thread_num, gwhandle *gwdata, gwnum x, giant g)
 				}
 			}
 		}
-		if (IniSectionGetInt (INI_FILE, "QA", "CORRECT_DIFF", 1)) gwcopy (gwdata, x, y);
+		if (IniSectionGetInt (INI_FILE, "QA", "CORRECT_DIFF", 1)) gwcopy (gwdata, y, x);
 		gwfree (gwdata, y);
 	}
 	if (0) {			// Test for doubles that aren't properly normalized
@@ -884,17 +884,30 @@ void test_it (
 	gwsquare2 (gwdata, x2, x3); gtog (g2, g3); squaregi (&gwdata->gdata, g3); specialmodg (gwdata, g3);
 	gwaddmul4 (gwdata, x2, x3, x, x, 0); gtog (g2, g4); addg (g3, g4); mulg (g4, g); specialmodg (gwdata, g);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "addmul4");
-	
-	gwsubmul4 (gwdata, x2, x3, x, x, 0); gtog (g2, g4); subg (g3, g4); mulg (g4, g); specialmodg (gwdata, g);
-	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "submul4");
+
+	gwcopy (gwdata, x2, x4);
+	gwsubmul4 (gwdata, x4, x3, x, x4, 0); gtog (g2, g4); subg (g3, g4); mulg (g4, g); specialmodg (gwdata, g);
+	gwcopy (gwdata, x4, x);
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "submul4 s1 == d");
 
 	gwfft (gwdata, x, x);
 	gwaddmul4 (gwdata, x2, x3, x, x, 0); gtog (g2, g4); addg (g3, g4); mulg (g4, g); specialmodg (gwdata, g);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "addmul4fft");
 
+	gwcopy (gwdata, x3, x4);
 	gwfft (gwdata, x, x);
-	gwsubmul4 (gwdata, x2, x3, x, x, 0); gtog (g2, g4); subg (g3, g4); mulg (g4, g); specialmodg (gwdata, g);
+	gwsubmul4 (gwdata, x2, x4, x, x4, 0); gtog (g2, g4); subg (g3, g4); mulg (g4, g); specialmodg (gwdata, g);
+	gwcopy (gwdata, x4, x);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "submul4fft");
+
+/* Test gwmul3 request to fft both sources */
+
+	gwcopy (gwdata, x, x2);
+	gwcopy (gwdata, x, x3);
+	gwmul3 (gwdata, x2, x3, x, GWMUL_FFT_S1 | GWMUL_FFT_S2);
+	squaregi (&gwdata->gdata, g); specialmodg (gwdata, g);
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "gwmul3 two fft");
+	if (x2[0] != x3[0]) OutputBoth (thread_num, "FAIL: gwmul3 two fft -- s1 != s2");
 
 /* Do the final compare */
 
