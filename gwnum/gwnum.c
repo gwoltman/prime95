@@ -2705,8 +2705,7 @@ int convert_giant_to_k2ncd (
 }
 
 /* Common setup routine for the three different user-visible setup routines */
-/* Allocate memory and initialize assembly code for arithmetic */
-/* modulo k*b^n+c */
+/* Allocate memory and initialize assembly code for arithmetic modulo k*b^n+c */
 
 int internal_gwsetup (
 	gwhandle *gwdata,	/* Placeholder for gwnum global data */
@@ -2723,6 +2722,10 @@ int internal_gwsetup (
 	double	*tables;		/* Pointer tables we are building */
 	unsigned long pass1_size;
 	double	small_word, big_word, temp, asm_values[50];
+
+/* Sanity check some setup parameters */
+
+	if (gwdata->num_threads == 0) return (GWERROR_ZERO_THREADS);
 
 /* Remember the arguments */
 

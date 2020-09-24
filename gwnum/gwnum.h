@@ -77,6 +77,7 @@ typedef double *gwnum;
 					/* when gwnum.c was compiled.  Check compiler alignment switches. */
 #define GWERROR_TOO_SMALL	1008	/* Gwsetup called on a number <= 1 */
 #define GWERROR_NO_INIT		1009	/* gwinit was not called prior to gwsetup */
+#define GWERROR_ZERO_THREADS	1010	/* num_threads set to zero */
 #define GWERROR_INTERNAL	2000	/* 2000 and up are "impossible" internal errors. */
 
 /* Error codes returned by gwtobinary, gwtogiant, and get_fft_value */
