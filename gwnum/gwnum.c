@@ -9291,7 +9291,9 @@ void cmn_gwmul4 (		/* Calculate (s1 op s2) * s3 */
 	int	options,	/* See gwnum.h */
 	int	opcode)		/* 1=ADD or 2=SUBTRACT */
 {
-	gwnum	tmp1, tmp2;
+	gwnum	tmp1, tmp2, tmp3;
+
+	tmp1 = tmp2 = tmp3 = NULL;
 
 /* Clear flags that are impossible when a source is the same as the destination */
 
@@ -9301,7 +9303,6 @@ void cmn_gwmul4 (		/* Calculate (s1 op s2) * s3 */
 
 /* Make sure s1 and s2 are FFTed */
 
-	tmp1 = tmp2 = NULL;
 	if (FFT_state (s1) != FULLY_FFTed) {
 		if (options & GWMUL_PRESERVE_S1) { tmp1 = gwalloc (gwdata); gwfft (gwdata, s1, tmp1); s1 = tmp1; }
 		else gwfft (gwdata, s1, s1);
@@ -9318,11 +9319,10 @@ void cmn_gwmul4 (		/* Calculate (s1 op s2) * s3 */
 #else
 	if (1) {
 #endif
-		gwnum	tmp = gwalloc (gwdata);
-		if (opcode == 1) gwfftadd3 (gwdata, s1, s2, tmp);
-		else gwfftsub3 (gwdata, s1, s2, tmp);
-		gwmul3 (gwdata, tmp, s3, d, (options & ~0x3F) + ((options & 0x30) >> 2));	// Shift s3 options down to s2
-		gwfree (gwdata, tmp);
+		tmp1 = gwalloc (gwdata);
+		if (opcode == 1) gwfftadd3 (gwdata, s1, s2, tmp1);
+		else gwfftsub3 (gwdata, s1, s2, tmp1);
+		gwmul3 (gwdata, tmp1, s3, d, (options & ~0x3F) + ((options & 0x30) >> 2));	// Shift s3 options down to s2
 	}
 
 /* Let assembly code do the work */
@@ -9330,11 +9330,20 @@ void cmn_gwmul4 (		/* Calculate (s1 op s2) * s3 */
 	else {
 		struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 
+/* If s1 or s2 equals d then we must turn this into a type-4 FFT (the forward FFT of type-3 writes to d which would corrupt s1 or s2) */
+
+		if (FFT_state (s3) != FULLY_FFTed && (s1 == d || s2 == d)) {
+			if (options & GWMUL_PRESERVE_S3) { tmp3 = gwalloc (gwdata); gwfft (gwdata, s3, tmp3); s3 = tmp3; }
+			else gwfft (gwdata, s3, s3);
+		}
+
+/* Determine the type of FFT multiply */
+
 		if (FFT_state (s3) == FULLY_FFTed) asm_data->ffttype = 4;
 		else if (options & GWMUL_FFT_S3) gwfft (gwdata, s3, s3), asm_data->ffttype = 4;	// replace gwfft with possible type-4 optimization
 		else asm_data->ffttype = 3;
 
-/* Call the assembly code */
+/* Call the assembly code, very similar to raw_gwmul3 routine */
 
 		asm_data->DESTARG = d;
 		asm_data->DIST_TO_FFTSRCARG = (intptr_t) s3 - (intptr_t) d;
@@ -9384,6 +9393,7 @@ void cmn_gwmul4 (		/* Calculate (s1 op s2) * s3 */
 
 	if (tmp1 != NULL) gwfree (gwdata, tmp1);
 	if (tmp2 != NULL) gwfree (gwdata, tmp2);
+	if (tmp3 != NULL) gwfree (gwdata, tmp3);
 }
 
 /************************************/
@@ -10552,9 +10562,15 @@ void gwsmallmul (
 			gwadd (gwdata, tmp, g);
 		}
 		else {
+			int	saved_NORMNUM, saved_POSTFFT;
 			dbltogw (gwdata, mult, tmp);
-			asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM & 1)];
-			raw_gwmul3 (gwdata, tmp, g, g, 0);
+			saved_NORMNUM = gwdata->NORMNUM;
+			saved_POSTFFT = gwdata->POSTFFT;
+			gwstartnextfft (gwdata, 0);		// Turn off start next FFT
+			gwdata->NORMNUM = gwdata->NORMNUM & 1;	// Turn off mul-by-const, preserve error-checking
+			gwmul3 (gwdata, tmp, g, g, 0);
+			gwstartnextfft (gwdata, saved_POSTFFT);	// Restore start next FFT
+			gwdata->NORMNUM = saved_NORMNUM;	// Restore mul-by-const
 		}
 		gwfree (gwdata, tmp);
 	}
