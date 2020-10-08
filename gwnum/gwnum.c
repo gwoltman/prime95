@@ -5,7 +5,7 @@
 | in the multi-precision arithmetic routines.  That is, all routines
 | that deal with the gwnum data type.
 | 
-|  Copyright 2002-2019 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2020 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -24,6 +24,7 @@
 #include "gwutil.h"
 #include "gwdbldbl.h"
 #include "gwbench.h"
+#include "radix.h"
 
 //#define GDEBUG_MEM	1			// Print out memory used
 
@@ -40,31 +41,6 @@
 /* to initialize GW_RANDOM */
 
 #include "mt19937ar.c"
-
-/* Handy macros to improve readability */
-
-#define log2(n)				(log((double)(n)) / log (2.0))
-#define logb(n)				(log((double)(n)) / log ((double)(b)))
-#define divide_rounding_up(a,b)		((a + (b) - 1) / (b))
-#define divide_rounding_down(a,b)	((a) / (b))
-#define round_up_to_multiple_of(a,b)	(divide_rounding_up (a, b) * (b))
-#define round_down_to_multiple_of(a,b)	(divide_rounding_down (a, b) * (b))
-#define fltmod(a,b)			((double)(a) - floor ((double)(a) / (double)(b)) * (double)(b))
-#define round_to_cache_line(p)		(void *) (((intptr_t)(p) + 63) & ~63)
-
-/* Macros to acccess some of the header values in a gwnum */
-
-#define norm_count(x)		((uint32_t *)(x))[-1]
-#define FFT_state(x)		((uint32_t *)(x))[-7]
-#define	NOT_FFTed		0
-#define PARTIALLY_FFTed		1
-#define FULLY_FFTed		3
-
-/* MSVC6 has trouble with the pow function using integer arguments. */
-/* For example, "(unsigned long) pow (5.0, 7.0)" returns 78124 instead */
-/* of the correct 78125.  This macro, works around this trouble. */
-
-#define intpow(b,n)	((long) floor (pow ((double)(b), (double)(n)) + 0.1))
 
 /* global variables */
 
@@ -458,13 +434,6 @@ int internal_gwsetup (
 	unsigned long b,	/* B in K*B^N+C. */
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
 	signed long c);		/* C in K*B^N+C. Must be rel. prime to K. */
-long nonbase2_gianttogw (
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	giant	a,
-	gwnum	g,
-	unsigned long limit,	/* How many FFT words to set */
-	unsigned long offset,	/* Offset into FFT array of words to set */
-	long	carry);		/* Carry to add into this section */
 void raw_gwsetaddin (gwhandle *gwdata, unsigned long word, double val);
 int multithread_init (gwhandle *gwdata);
 void multithread_term (gwhandle *gwdata);
@@ -2842,12 +2811,14 @@ int internal_gwsetup (
 	gwdata->fft_max_bits_per_word = (double) adjusted_max_exponent (gwdata, info) / (double) gwdata->FFTLEN;
 	if (gwdata->ZERO_PADDED_FFT) gwdata->fft_max_bits_per_word += 0.3;
 
-/* Compute extra bits - the number of adds we can tolerate without */
-/* a normalization operation. Under normal circumstances, max_bits */
-/* will be greater than virtual bits, but playing with the safety margin */
+/* Compute extra bits in FFT output words.  By default, the maximum exponent for an FFT size allows one extra bit */
+/* so that one unnormalized add can be an input to a multiply operation.  When extra bits is greater than one, we */
+/* convert some gwadd and gwsub operations into unnormalized gwaddquick and gwsubquick operations. */
+/* Under normal circumstances, max_bits will be greater than virtual bits, but playing with the safety margin */
 /* or forcing use of a specific FFT length could change that. */
 
-	gwdata->EXTRA_BITS = (unsigned long) pow (2.0, (gwdata->fft_max_bits_per_word - virtual_bits_per_word (gwdata)) / 2.0);
+	gwdata->EXTRA_BITS = (float) ((gwdata->fft_max_bits_per_word - gwdata->safety_margin - virtual_bits_per_word (gwdata)) * 2.0 + 1.0);
+	if (gwdata->EXTRA_BITS < 1.0) gwdata->EXTRA_BITS = 1.0;
 
 /* Determine the pass 1 size.  This affects how we build many of the sin/cos tables. */
 
@@ -6199,6 +6170,7 @@ int multithread_init (
 		gwdata->num_threads = gwdata->num_pass1_blocks / asm_data->cache_line_multiplier;
 	if (gwdata->num_threads > gwdata->num_pass1_blocks / 8)
 		gwdata->num_threads = gwdata->num_pass1_blocks / 8;
+	if (gwdata->num_threads == 0) gwdata->num_threads = 1;
 
 /* Determine how many data blocks are affected by carries out of pass 1 section.  Zero-padded FFTs require 8 words */
 /* to propagate carries into.  For AVX-512 FFTs, znorm012_wpn can spread the carry over a maximum of 8 words. */
@@ -6209,7 +6181,7 @@ int multithread_init (
 		gwdata->num_postfft_blocks = 8;
 	else if (gwdata->cpu_flags & CPU_AVX512F) {
 		gwdata->num_postfft_blocks = (int) floor (53.0 / (gwdata->avg_num_b_per_word * log2 (gwdata->b)));
-		ASSERTG (gwdata->num_postfft_blocks <= 8);
+		ASSERTG (gwdata->PASS1_SIZE == 0 || gwdata->num_postfft_blocks <= 8);
 	} else if (gwdata->cpu_flags & CPU_AVX) {
 		gwdata->num_postfft_blocks = (int) floor (53.0 / (gwdata->avg_num_b_per_word * log2 (gwdata->b)));
 		ASSERTG (gwdata->num_postfft_blocks <= 8);
@@ -6789,6 +6761,8 @@ unsigned long addr_offset (
 	unsigned long fftlen;
 	unsigned long addr, i1, i2, i3, i6;
 
+	ASSERTG (i < gwdata->FFTLEN);
+
 	fftlen = gwdata->FFTLEN;
 
 /* Memory layouts for AVX-512 machines */
@@ -7362,11 +7336,9 @@ int gwnear_fft_limit (
 	double	pct)
 {
 
-/* Return TRUE if the virtual bits per word is near the maximum bits */
-/* per word. */
+/* Return TRUE if the virtual bits per word is near the maximum bits per word. */
 
-	return (virtual_bits_per_word (gwdata) >
-			(100.0 - pct) / 100.0 * gwdata->fft_max_bits_per_word);
+	return (virtual_bits_per_word (gwdata) > (100.0 - pct) / 100.0 * gwdata->fft_max_bits_per_word);
 }
 
 /* Compute the virtual bits per word.  That is, the mersenne-mod-equivalent */
@@ -7411,8 +7383,7 @@ double virtual_bits_per_word (
 		num_b_in_big_word = (int) ceil (b_per_input_word);
 		num_small_words = (int) ((num_b_in_big_word - b_per_input_word) * gwdata->FFTLEN);
 		num_big_words = gwdata->FFTLEN - num_small_words;
-		max_weighted_bits_per_output_word =
-			2.0 * gwdata->fft_max_bits_per_word + 0.6 * log2 (gwdata->FFTLEN);
+		max_weighted_bits_per_output_word = 2.0 * gwdata->fft_max_bits_per_word + 0.6 * log2 (gwdata->FFTLEN);
 		weighted_bits_per_output_word =
 			2.0 * ((b_per_input_word + 1.0) * log2b - 1.0) +
 			0.6 * log2 (gwdata->FFTLEN) +
@@ -7430,7 +7401,7 @@ double virtual_bits_per_word (
 
 /* Now generate a value that can compared to gwdata->fft_max_bits_per_word */
 
-	return (weighted_bits_per_output_word / max_weighted_bits_per_output_word * gwdata->fft_max_bits_per_word);
+	return (gwdata->fft_max_bits_per_word - (max_weighted_bits_per_output_word - weighted_bits_per_output_word) / 2.0);
 }
 
 /* Given k,b,n,c determine the fft length.  If k,b,n,c is not supported */
@@ -7799,9 +7770,8 @@ void gwcopyzero (
 	FFT_state (d) = NOT_FFTed;
 }
 
-/* Set the constant which the results of a multiplication should be */
-/* multiplied by.  Use this macro in conjunction with the c argument of */
-/* gwsetnormroutine. */
+/* Set the constant which the results of a multiplication should be multiplied by. */
+/* Use this routine in conjunction with the GWMUL_MULBYCONST multiplication option. */
 
 void gwsetmulbyconst (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -7913,25 +7883,6 @@ void gwsetmulbyconst (
 		big_word = big_word * big_word;
 		asm_data->u.x87.K_TIMES_MULCONST_HI_2 = floor (asm_data->u.x87.K_TIMES_MULCONST_HI / big_word) * big_word;
 		asm_data->u.x87.K_TIMES_MULCONST_HI_1 = asm_data->u.x87.K_TIMES_MULCONST_HI - asm_data->u.x87.K_TIMES_MULCONST_HI_2;
-	}
-}
-
-/* Set the flag which controls whether the multiply code should begin the */
-/* forward FFT of the results of a multiply. This is a little faster than */
-/* than doing a full forward FFT later on.  The downside is the caller */
-/* cannot convert the results of the multiply to an integer. */
-
-void gwstartnextfft (
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	int	state)		/* New value for POSTFFT */
-{
-	/* Option is not supported for generic modular reduction and one-pass FFTs */
-	if (!gwdata->GENERAL_MOD && gwdata->PASS1_SIZE) {
-		gwdata->POSTFFT = state;
-		if (! (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX | CPU_SSE2))) {	// Copy state to asm_data for x87 FFTs
-			struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
-			asm_data->u.x87.POSTFFT = state;
-		}
 	}
 }
 
@@ -8492,31 +8443,23 @@ void gianttogw (
 					bits_in_next_binval -= bits;
 				}
 			}
+
+/* Write carry, if any, to FFT data */
+
+			if (carry) set_fft_value (gwdata, g, i++, carry);
+
+/* Clear the upper words */
+
 			for ( ; i < gwdata->FFTLEN; i++) {
 				set_fft_value (gwdata, g, i, 0);
 			}
 		}
 
 /* Otherwise (non-base 2), we do a recursive divide and conquer radix conversion. */
-/* The recursive routine writes on a, so make a copy before calling */
 
 		else {
-			if (a != newg) {
-				newg = popg (&gwdata->gdata, a->sign * 2);
-				gtog (a, newg);
-				a = newg;
-			}
-			carry = nonbase2_gianttogw (gwdata, a, g, limit, 0, 0);
+			nonbase2_gianttogw (gwdata, a, g);
 		}
-
-/* Write carry, if any, to FFT data */
-
-		if (carry) set_fft_value (gwdata, g, limit++, carry);
-
-/* Clear the upper words */
-
-		for (i = limit; i < gwdata->FFTLEN; i++)
-			set_fft_value (gwdata, g, i, 0);
 
 /* Free allocated memory */
 
@@ -8528,83 +8471,6 @@ void gianttogw (
 	norm_count (g) = 1;		/* Set unnormalized add counter */
 	FFT_state (g) = NOT_FFTed;	/* Clear has been completely/partially FFTed flag */
 }
-
-/* Internal recursive routine to convert a giant to gwnum FFT format. */
-
-long nonbase2_gianttogw (
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	giant	a,
-	gwnum	g,
-	unsigned long limit,	/* How many FFT words to set */
-	unsigned long offset,	/* Offset into FFT array of words to set */
-	long	carry)		/* Carry to add into this section */		 
-{
-	ASSERTG (a->sign >= 0);		/* We only handle positive numbers */
-
-/* If we are converting a lot of words, divide and conquer. */
-
-	if (limit >= 50) {
-		giant	upper, tmp;
-		int	num_b;
-		unsigned long half_limit = limit >> 1;
-
-		tmp = popg (&gwdata->gdata, limit * 2);
-		upper = popg (&gwdata->gdata, a->sign * 2);
-		num_b = gwfft_base (gwdata->dd_data, offset + half_limit) - gwfft_base (gwdata->dd_data, offset);
-		itog (gwdata->b, tmp);
-		power (tmp, num_b);
-		gtog (a, upper);
-		divg (tmp, upper);
-		mulgi (&gwdata->gdata, upper, tmp);
-		subg (tmp, a);
-		carry = nonbase2_gianttogw (gwdata, a, g, half_limit, offset, carry);
-		carry = nonbase2_gianttogw (gwdata, upper, g, limit - half_limit, offset + half_limit, carry);
-		pushg (&gwdata->gdata, 2);
-	}
-
-/* Convert the giant to FFT format */
-
-	else {
-		giant	newg, tmp;
-		unsigned long i, mask1, mask2;
-		long	value;
-
-		newg = popg (&gwdata->gdata, a->sign * 2);
-		tmp = popg (&gwdata->gdata, a->sign * 2);
-
-		mask1 = intpow (gwdata->b, gwdata->NUM_B_PER_SMALL_WORD);
-		mask2 = gwdata->b * mask1;
-		for (i = offset; i < offset + limit; i++) {
-			unsigned long mask;
-
-			mask = is_big_word (gwdata, i) ? mask2 : mask1;
-
-			gtog (a, newg);
-			if (i != gwdata->FFTLEN - 1) {
-				ultog (mask, tmp);
-				divg (tmp, a);
-				mulgi (&gwdata->gdata, a, tmp);
-				subg (tmp, newg);
-			}
-			value = (newg->sign) ? newg->n[0] : 0;
-			value += carry;
-
-			if (value > (long) (mask >> 1) && i != gwdata->FFTLEN - 1) {
-				value = value - mask;
-				carry = 1;
-			} else {
-				carry = 0;
-			}
-			set_fft_value (gwdata, g, i, value);
-		}
-		pushg (&gwdata->gdata, 2);
-	}
-
-/* Return carry for next section */
-
-	return (carry);
-}
-
 
 /* Convert a gwnum to a binary value.  Returns the number of 32-bit values */
 /* written to the array.  The array is NOT zero-padded.  Returns a */
@@ -8873,8 +8739,7 @@ err:				free (array);
 		pushg (&gwdata->gdata, 2);
 	}
 
-/* Since all gwnums are premultiplied by the inverse of k, we must now */
-/* multiply by k to get the true result. */
+/* Since all gwnums are premultiplied by the inverse of k, we must now multiply by k to get the true result. */
 
 	if (gwdata->k > 1.0) {
 		stackgiant(k,2);
@@ -9108,6 +8973,77 @@ int gwequal (
 /******************************************************************/
 
 /* Internal routine to implement gwmul3 by calling fft/multiply assembly code. */
+/* Caller must set ffttype, SRC2ARG, mul4_opcode, NORMRTN prior to calling this routine.  Caller is responsible for emulate_mod. */
+
+__inline void asm_mul (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	s1,		/* First source */
+	gwnum	s2,		/* Second source */
+	gwnum	d,		/* Destination */
+	int	options)	/* See gwnum.h */
+{
+	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
+
+/* Set the flag which controls whether the multiply code should begin the forward FFT of the results of a multiply. */
+/* This is a little faster than than doing a full forward FFT later on.  The downside is the caller cannot convert the */
+/* results of the multiply to an integer without an inefficient call to gwunfft. */
+/* NOTE:  THe POSTFFT option is not supported for generic modular reduction and one-pass FFTs. */
+
+	gwdata->POSTFFT = FALSE;
+	if ((options & GWMUL_STARTNEXTFFT) ||
+	    ((options & GWMUL_STARTNEXTFFT1) && gwdata->EXTRA_BITS >= 2.0) ||
+	    (! (options & (GWMUL_NOSTARTNEXTFFT | GWMUL_STARTNEXTFFT | GWMUL_STARTNEXTFFT1)) && gwdata->GLOBAL_POSTFFT)) {
+		if (!gwdata->GENERAL_MOD && gwdata->PASS1_SIZE) gwdata->POSTFFT = TRUE;
+	}
+	// Copy POSTFFT state to asm_data for x87 FFTs
+#ifndef X86_64
+	if (! (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX | CPU_SSE2))) asm_data->u.x87.POSTFFT = gwdata->POSTFFT;
+#endif	
+
+/* Call the assembly code */
+
+	asm_data->DESTARG = d;
+	asm_data->DIST_TO_FFTSRCARG = (intptr_t) s1 - (intptr_t) d;
+	asm_data->DIST_TO_MULSRCARG = (intptr_t) s2 - (intptr_t) d;
+
+	asm_data->zero_fft = (asm_data->NORMRTN == gwdata->GWPROCPTRS[zerohigh_routines + (gwdata->NORMNUM & 1)]);
+	asm_data->const_fft = gwdata->NORMNUM & 2;
+	asm_data->add_sub_smallmul_op = 0;
+//if (rand() % 100 < 1) *s += 1.0;			// Generate random errors (for caller to test error recovery)
+//if (rand() % 1000 < 2) *s += 1.0E200 * 1.0E200;
+	gw_fft (gwdata, asm_data);
+//if (rand() % 100 < 1) *d += 1.0;			// Generate random errors (for caller to test error recovery)
+//if (rand() % 1000 < 2) *d += 1.0E200 * 1.0E200;
+	if (! is_valid_double (gwsumout (gwdata, d))) gwdata->GWERROR |= 1;
+	gwdata->fft_count += (asm_data->ffttype <= 3) ? 2.0 : 1.0;
+
+/* Adjust if necessary the SUM(INPUTS) vs. SUM(OUTPUTS).  If norm_count is more than one, then the sums will be */
+/* larger than normal.  This could trigger a spurious MAXDIFF warning.  Shrink the two SUMS to compensate. */
+
+	if (gwdata->sum_inputs_checking) {
+		uint32_t norm_count1, norm_count2;
+
+		norm_count1 = norm_count (s1);
+		norm_count2 = norm_count (s2);
+		if (norm_count1 != 1 || norm_count2 != 1) {
+			double	adjustment;
+			adjustment = 1.0 / ((double) norm_count1 * (double) norm_count2);
+			gwsuminp (gwdata, d) *= adjustment;
+			gwsumout (gwdata, d) *= adjustment;
+		}
+
+/* Test SUM(INPUTS) vs. SUM(OUTPUTS) */
+
+		if (fabs (gwsuminp (gwdata, d) - gwsumout (gwdata, d)) > gwdata->MAXDIFF) gwdata->GWERROR |= 2;
+	}
+
+/* Reset the unnormalized add count, set the FFT state */
+
+	norm_count (d) = 1;
+	FFT_state (d) = gwdata->POSTFFT ? PARTIALLY_FFTed : NOT_FFTed;
+}
+
+/* Internal routine to implement gwmul3 by calling fft/multiply assembly code. */
 /* Caller must set NORMRTN prior to calling this routine.  Caller is responsible for emulate_mod. */
 
 void raw_gwmul3 (
@@ -9156,50 +9092,12 @@ void raw_gwmul3 (
 
 /* Call the assembly code */
 
-	asm_data->DESTARG = d;
-	asm_data->DIST_TO_FFTSRCARG = (intptr_t) s1 - (intptr_t) d;
-	asm_data->DIST_TO_MULSRCARG = (intptr_t) s2 - (intptr_t) d;
-
-	asm_data->zero_fft = (asm_data->NORMRTN == gwdata->GWPROCPTRS[zerohigh_routines + (gwdata->NORMNUM & 1)]);
-	asm_data->const_fft = gwdata->NORMNUM & 2;
-	asm_data->add_sub_smallmul_op = 0;
 	asm_data->mul4_opcode = 0;
-//if (rand() % 100 < 1) *s += 1.0;			// Generate random errors (for caller to test error recovery)
-//if (rand() % 1000 < 2) *s += 1.0E200 * 1.0E200;
-	gw_fft (gwdata, asm_data);
-//if (rand() % 100 < 1) *d += 1.0;			// Generate random errors (for caller to test error recovery)
-//if (rand() % 1000 < 2) *d += 1.0E200 * 1.0E200;
-	if (! is_valid_double (gwsumout (gwdata, d))) gwdata->GWERROR |= 1;
-	gwdata->fft_count += (asm_data->ffttype <= 3) ? 2.0 : 1.0;
-
-/* Adjust if necessary the SUM(INPUTS) vs. SUM(OUTPUTS).  If norm_count is more than one, then the sums will be */
-/* larger than normal.  This could trigger a spurious MAXDIFF warning.  Shrink the two SUMS to compensate. */
-
-	if (gwdata->sum_inputs_checking) {
-		uint32_t norm_count1, norm_count2;
-
-		norm_count1 = norm_count (s1);
-		norm_count2 = norm_count (s2);
-		if (norm_count1 != 1 || norm_count2 != 1) {
-			double	adjustment;
-			adjustment = 1.0 / ((double) norm_count1 * (double) norm_count2);
-			gwsuminp (gwdata, d) *= adjustment;
-			gwsumout (gwdata, d) *= adjustment;
-		}
-
-/* Test SUM(INPUTS) vs. SUM(OUTPUTS) */
-
-		if (fabs (gwsuminp (gwdata, d) - gwsumout (gwdata, d)) > gwdata->MAXDIFF) gwdata->GWERROR |= 2;
-	}
+	asm_mul (gwdata, s1, s2, d, options);
 
 /* Free temporary memory */			
 
 	if (tmp != NULL) gwfree (gwdata, tmp);
-
-/* Reset the unnormalized add count, set the FFT state */
-
-	norm_count (d) = 1;
-	FFT_state (d) = gwdata->POSTFFT ? PARTIALLY_FFTed : NOT_FFTed;
 }
 
 /* Common code to emulate the modulo with two multiplies in the general purpose case */
@@ -9227,10 +9125,8 @@ void emulate_mod (
 	tmp = gwalloc (gwdata);
 	gwcopyzero (gwdata, s, tmp, gwdata->GW_ZEROWORDSLOW);
 
-/* Multiply by the reciprocal that has been carefully shifted so that the */
-/* integer part of the result wraps to the lower FFT words.  Adjust the */
-/* normalization routine so that the FFT code zeroes the high FFT words */
-/* and we are left with just the quotient! */
+/* Multiply by the reciprocal that has been carefully shifted so that the integer part of the result wraps to the lower FFT words. */
+/* Adjust the normalization routine so that the FFT code zeroes the high FFT words and we are left with just the quotient! */
 
 	asm_data->NORMRTN = gwdata->GWPROCPTRS[zerohigh_routines + (gwdata->NORMNUM & 1)];
 	raw_gwmul3 (gwdata, gwdata->GW_RECIP_FFT, tmp, tmp, GWMUL_PRESERVE_S1);
@@ -9238,13 +9134,17 @@ void emulate_mod (
 	if (* addr (gwdata, tmp, gwdata->FFTLEN/2-1) <= -2.0 || * addr (gwdata, tmp, gwdata->FFTLEN/2-1) > 0.0)
 		gwdata->GWERROR = GWERROR_INTERNAL + 11;
 
-/* Muliply quotient and modulus.  Select normalization routine that does not zero the high FFT words and no roundoff checking. */
+/* Muliply quotient and modulus.  Select normalization routine that does not zero the high FFT words and preserves roundoff checking. */
 
 	asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM & 1)];
 	raw_gwmul3 (gwdata, gwdata->GW_MODULUS_FFT, tmp, tmp, GWMUL_PRESERVE_S1);
 
-/* Subtract from the original number to get the remainder */
+/* Subtract from the original number to get the remainder. */
+/* Callers of gwmul3 expect results to be fully normalized, especially if they are carefully counting unnormalized adds. */
+/* Thus, it is prudent to always normalize this next subtraction.  Prior to doing this, our QA was getting asserts in gwaddmul4 */
+/* when all 3 input arguments had a normalization count of two. */
 
+	force_normalize(s);
 	gwsub (gwdata, tmp, s);
 	ASSERTG (* addr (gwdata, s, gwdata->FFTLEN-1) == 0.0);
 	if (* addr (gwdata, s, gwdata->FFTLEN-1) != 0.0) gwdata->GWERROR = GWERROR_INTERNAL + 12;
@@ -9256,7 +9156,7 @@ void emulate_mod (
 }
 
 /* Perform an inverse FFT.  This is inefficient!!  We call this to undo the forward FFT performed on a gwnum where we need unFFTed data. */
-/* In a perfect world, the user would not have doen the forward FFT in the first place. */
+/* In a perfect world, the forward FFT would not have been done in the first place. */
 
 void gwunfft (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -9315,7 +9215,7 @@ void cmn_gwmul4 (		/* Calculate (s1 op s2) * s3 */
 		else gwfft (gwdata, s2, s2);
 	}
 
-/* If asm code cannot handle this feature, or the multiply carefully count is active, then emulate this feature */
+/* If asm code cannot handle this feature, or the multiply carefully count is active, then emulate this function */
 
 #ifdef X86_64
 	if (!(gwdata->cpu_flags & (CPU_AVX512F | CPU_FMA3 | CPU_AVX)) || gwdata->careful_count > 0) {
@@ -9346,46 +9246,14 @@ void cmn_gwmul4 (		/* Calculate (s1 op s2) * s3 */
 		else if (options & GWMUL_FFT_S3) gwfft (gwdata, s3, s3), asm_data->ffttype = 4;	// replace gwfft with possible type-4 optimization
 		else asm_data->ffttype = 3;
 
-/* Call the assembly code, very similar to raw_gwmul3 routine */
+/* Call the assembly code */
 
-		asm_data->DESTARG = d;
-		asm_data->DIST_TO_FFTSRCARG = (intptr_t) s3 - (intptr_t) d;
-		asm_data->DIST_TO_MULSRCARG = (intptr_t) s1 - (intptr_t) d;
-		asm_data->SRC2ARG = (void *) ((intptr_t) s2 - (intptr_t) d);
-
-		asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->NORMNUM];
-
-		asm_data->zero_fft = (asm_data->NORMRTN == gwdata->GWPROCPTRS[zerohigh_routines + (gwdata->NORMNUM & 1)]);
-		asm_data->const_fft = gwdata->NORMNUM & 2;
-		asm_data->add_sub_smallmul_op = 0;
+		if (options & GWMUL_NOMULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM & ~2)];
+		else if (options & GWMUL_MULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM | 2)];
+		else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->NORMNUM];
 		asm_data->mul4_opcode = opcode;
-		gw_fft (gwdata, asm_data);
-		if (! is_valid_double (gwsumout (gwdata, d))) gwdata->GWERROR |= 1;
-		gwdata->fft_count += (asm_data->ffttype <= 3) ? 2.0 : 1.0;
-
-/* Adjust if necessary the SUM(INPUTS) vs. SUM(OUTPUTS).  If norm_count is more than one, then the sums will be */
-/* larger than normal.  This could trigger a spurious MAXDIFF warning.  Shrink the two SUMS to compensate. */
-
-		if (gwdata->sum_inputs_checking) {
-			uint32_t norm_count1, norm_count2, norm_count3;
-			double	adjustment;
-
-			norm_count1 = norm_count (s1);
-			norm_count2 = norm_count (s2);
-			norm_count3 = norm_count (s3);
-			adjustment = 1.0 / ((double) (norm_count1 + norm_count2) * (double) norm_count3);
-			gwsuminp (gwdata, d) *= adjustment;
-			gwsumout (gwdata, d) *= adjustment;
-
-/* Test SUM(INPUTS) vs. SUM(OUTPUTS) */
-
-			if (fabs (gwsuminp (gwdata, d) - gwsumout (gwdata, d)) > gwdata->MAXDIFF) gwdata->GWERROR |= 2;
-		}
-
-/* Reset the unnormalized add count, set the FFT state */
-
-		norm_count (d) = 1;
-		FFT_state (d) = gwdata->POSTFFT ? PARTIALLY_FFTed : NOT_FFTed;
+		asm_data->SRC2ARG = (void *) ((intptr_t) s2 - (intptr_t) d);
+		asm_mul (gwdata, s3, s1, d, options);
 
 /* Emulate mod with 2 multiplies case */
 
@@ -9465,7 +9333,7 @@ void gwmul3 (			/* Multiply two gwnums */
 
 	ASSERTG (norm_count (s1) >= 1);
 	ASSERTG (norm_count (s2) >= 1);
-	ASSERTG (norm_count (s1) + norm_count (s2) <= 3 + 2 * gwdata->EXTRA_BITS);  // Make sure not too many unnormalized adds prior to multiplication
+	ASSERTG (log2f (norm_count (s1) * norm_count (s2)) <= gwdata->EXTRA_BITS);  // Make sure not too many unnormalized adds prior to multiply
 
 /* Clear flags that are impossible when a source is the same as the destination */
 
@@ -9483,7 +9351,9 @@ void gwmul3 (			/* Multiply two gwnums */
 /* Call the assembly code */
 
 	asm_data = (struct gwasm_data *) gwdata->asm_data;
-	asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->NORMNUM];
+	if (options & GWMUL_NOMULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM & ~2)];
+	else if (options & GWMUL_MULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM | 2)];
+	else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->NORMNUM];
 	raw_gwmul3 (gwdata, s1, s2, d, options);
 
 /* Emulate mod with 2 multiplies case */
@@ -9502,12 +9372,12 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 {
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 	double	saved_addin_value;
-	unsigned long saved_extra_bits;
-	int	saved_careful_count, saved_POSTFFT;
+	float	saved_extra_bits;
+	int	saved_careful_count;
 
 	ASSERTG (norm_count (s1) >= 1);
 	ASSERTG (norm_count (s2) >= 1);
-	ASSERTG (norm_count (s1) + norm_count (s2) <= 3 + 2 * gwdata->EXTRA_BITS);  // Make sure not too many unnormalized adds prior to multiplication
+	ASSERTG (log2f (norm_count (s1) * norm_count (s2)) <= gwdata->EXTRA_BITS);  // Make sure not too many unnormalized adds prior to multiply
 	ASSERTG (! (options & (GWMUL_FFT_S1 | GWMUL_FFT_S1)));  // Dangerous to FFT non-random data
 
 /* Clear flags that are impossible when a source is the same as the destination */
@@ -9536,12 +9406,7 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 /* thinks there are enough extra bits to do an add quick.  This generates temps with nearly all positive values -- very bad. */
 
 	saved_extra_bits = gwdata->EXTRA_BITS;
-	gwdata->EXTRA_BITS = 0;
-
-/* Save and clear the POSTFFT */
-
-	saved_POSTFFT = gwdata->POSTFFT;
-	gwstartnextfft (gwdata, 0);
+	gwdata->EXTRA_BITS = 0.0;
 
 /* Handle a squaring operation using two multiplies and several adds. */
 
@@ -9551,10 +9416,10 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 		else if (options & (GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2)) gwunfft (gwdata, s1, tmp), s1 = tmp;
 		else gwunfft (gwdata, s1, s1);
 		gwaddsub4 (gwdata, s1, gwdata->GW_RANDOM, tmp, d);	/* Compute s1+random and s1-random */
-		gwmul (gwdata, tmp, d);					/* Compute (s1+random)(s1-random)+addin */
+		gwmul3 (gwdata, tmp, d, d, GWMUL_NOSTARTNEXTFFT);	/* Compute (s1+random)(s1-random)+addin */
 		asm_data->ADDIN_VALUE = 0.0;				/* Clear the addin value */
 		gwfft (gwdata, gwdata->GW_RANDOM, tmp);
-		gwfftfftmul (gwdata, tmp, tmp, tmp);			/* Compute random^2 (we could compute this once and save it) */
+		gwmul3 (gwdata, tmp, tmp, tmp, GWMUL_NOSTARTNEXTFFT);	/* Compute random^2 (we could compute this once and save it) */
 		gwadd3 (gwdata, d, tmp, d);				/* Calc s1^2+addin from 2 results */
 		gwfree (gwdata, tmp);
 	}
@@ -9580,12 +9445,12 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 		gwadd3 (gwdata, tmp1, gwdata->GW_RANDOM, tmp2);	/* Compute s1+2*random */
 		gwadd3 (gwdata, d, gwdata->GW_RANDOM, tmp3);	/* Compute s2+2*random */
 
-		gwmul (gwdata, tmp1, d);			/* Compute (s1+r)*(s2+r)+addin = s1s2 + rs1 + rs2 + rr + addin */
-		gwmul (gwdata, tmp2, tmp3);			/* Compute (s+2r)*(s2+2r)+addin = s1s2 + 2rs1 + 2rs2 + 4rr + addin */
+		gwmul3 (gwdata, tmp1, d, d, GWMUL_NOSTARTNEXTFFT);	/* Compute (s1+r)*(s2+r)+addin = s1s2 + rs1 + rs2 + rr + addin */
+		gwmul3 (gwdata, tmp2, tmp3, tmp3, GWMUL_NOSTARTNEXTFFT);/* Compute (s+2r)*(s2+2r)+addin = s1s2 + 2rs1 + 2rs2 + 4rr + addin */
 
 		asm_data->ADDIN_VALUE = 0.0;
 		gwfft (gwdata, gwdata->GW_RANDOM, tmp1);
-		gwfftfftmul (gwdata, tmp1, tmp1, tmp1);		/* Compute random^2 (we could compute this once and save it) */
+		gwmul3 (gwdata, tmp1, tmp1, tmp1, GWMUL_NOSTARTNEXTFFT);/* Compute random^2 (we could compute this once and save it) */
 
 		gwaddquick (gwdata, d, d);			/* Compute 2st + 2rs + 2rt + 2rr + 2addin */
 		gwsubquick (gwdata, tmp3, d);			/* Compute st - 2rr + addin */
@@ -9602,7 +9467,6 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 	asm_data->ADDIN_VALUE = saved_addin_value;
 	gwdata->EXTRA_BITS = saved_extra_bits;
 	gwdata->careful_count = saved_careful_count;
-	gwstartnextfft (gwdata, saved_POSTFFT);
 }
 
 /* Special multiply routine that adds two numbers and multiplies by a third.  This is faster if s1 and s2 have already been FFTed. */
@@ -9619,7 +9483,7 @@ void gwaddmul4 (		/* Calculate (s1+s2)*s3 */
 	ASSERTG (norm_count (s1) >= 1);
 	ASSERTG (norm_count (s2) >= 1);
 	ASSERTG (norm_count (s3) >= 1);
-	ASSERTG (norm_count (s1) + norm_count (s2) + norm_count (s3) <= 3 + 2 * gwdata->EXTRA_BITS);  // Make sure not too many unnormalized adds prior to multiplication
+	ASSERTG (log2f ((norm_count (s1) + norm_count (s2)) * norm_count (s3)) <= gwdata->EXTRA_BITS);  // Make sure not too many unnormalized adds prior to multiply
 
 /* Let common code do the work */
 
@@ -9640,7 +9504,7 @@ void gwsubmul4 (		/* Calculate (s1-s2)*s3 */
 	ASSERTG (norm_count (s1) >= 1);
 	ASSERTG (norm_count (s2) >= 1);
 	ASSERTG (norm_count (s3) >= 1);
-	ASSERTG (norm_count (s1) + norm_count (s2) + norm_count (s3) <= 3 + 2 * gwdata->EXTRA_BITS);  // Make sure not too many unnormalized adds prior to multiplication
+	ASSERTG (log2f ((norm_count (s1) + norm_count (s2)) * norm_count (s3)) <= gwdata->EXTRA_BITS);  // Make sure not too many unnormalized adds prior to multiply
 
 /* Let common code do the work */
 
@@ -9648,7 +9512,7 @@ void gwsubmul4 (		/* Calculate (s1-s2)*s3 */
 }
 
 /* Generate random FFT data.  We used to use the C runtime library. */
-/* However, when a caller discovered a bug in gwsquare_carefully it */
+/* However, when a caller discovered a bug in gwsquare_carefully it was */
 /* very difficult to track down because the bug was not reproducible. */
 /* We could make bugs reproducible by calling srand with a fixed value, */
 /* but it is bad form for a library to do this.  Thus, we found a */
@@ -9659,8 +9523,8 @@ void gw_random_number (
 	gwnum	x)
 {
 	struct mt_state rand_info;
-	giant	g;
-	unsigned long i, len;
+	stackgiant(g,4);
+	int	bitlen;
 
 /* Init the random generator to a reproducible state for gwsquare_carefully. */
 /* For other users of this routine, initialize to a more random state. */
@@ -9670,17 +9534,24 @@ void gw_random_number (
 	else
 		init_genrand (&rand_info, (unsigned long) time (NULL));
 
-/* Generate the random number */
+/* Generate a random number.  Start with a 128-bit random odd number and square it several times. */
 
-	len = (((unsigned long) gwdata->bit_length) >> 5) + 1;
-	g = popg (&gwdata->gdata, len);
-	for (i = 0; i < len; i++) {
-		g->n[i] = genrand_int32 (&rand_info);
-	}
-	g->sign = len;
-	specialmodg (gwdata, g);
+	g->sign = 4;
+	g->n[0] = (uint32_t) genrand_int32 (&rand_info) | 1;
+	g->n[1] = (uint32_t) genrand_int32 (&rand_info);
+	g->n[2] = (uint32_t) genrand_int32 (&rand_info);
+	g->n[3] = (uint32_t) genrand_int32 (&rand_info) | 0x80000000;
 	gianttogw (gwdata, g, x);
-	pushg (&gwdata->gdata, 1);
+	// Square until number exceeds MODULUS. Do 4 extra squarings "for good measure".
+	for (bitlen = 128 >> 4; bitlen < gwdata->bit_length; bitlen <<= 1) {
+		int	saved_normnum = gwdata->NORMNUM;
+		int	saved_careful_count = gwdata->careful_count;
+		gwdata->NORMNUM &= ~1;				// Turn off error checking
+		gwdata->careful_count = 0;			// Disable square carefully count
+		gwsquare2 (gwdata, x, x, GWMUL_NOMULBYCONST | GWMUL_NOSTARTNEXTFFT);
+		gwdata->NORMNUM = saved_normnum;
+		gwdata->careful_count = saved_careful_count;
+	}
 }
 
 /* The FFT selection code assumes FFT data will essentially be random data2 yielding pretty well understood maximum */
@@ -10033,6 +9904,146 @@ void gwcopy (			/* Copy a gwnum */
 /* Wrapper routines for the add and sub assembly code    */
 /*********************************************************/
 
+void fftadd3 (			/* Add two FFTed numbers */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	s1,		/* Source #1 */
+	gwnum	s2,		/* Source #2 */
+	gwnum	d)		/* Destination */
+{
+	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
+
+	ASSERTG (FFT_state (s1) == FFT_state (s2));
+
+/* If this is a zero-padded FFT, then also add the 7 copied doubles in the gwnum header */
+
+	if (gwdata->ZERO_PADDED_FFT) {
+		d[-5] = s1[-5] + s2[-5];
+		d[-6] = s1[-6] + s2[-6];
+		d[-7] = s1[-7] + s2[-7];
+		d[-8] = s1[-8] + s2[-8];
+		d[-9] = s1[-9] + s2[-9];
+		d[-10] = s1[-10] + s2[-10];
+		d[-11] = s1[-11] + s2[-11];
+	}
+
+/* Do an AVX-512 or two-pass AVX addquick */
+
+	if ((gwdata->cpu_flags & CPU_AVX512F) ||
+	    (gwdata->cpu_flags & CPU_AVX && gwdata->PASS2_SIZE)) {
+		multithread_op (gwdata, s1, s2, d, NULL, addr_gw_addf (gwdata), TRUE);
+	}
+
+/* Do the add the old way -- single-threaded in assembly code */
+
+	else {
+		asm_data->SRCARG = s1;
+		asm_data->SRC2ARG = s2;
+		asm_data->DESTARG = d;
+		gw_addf (gwdata, asm_data);
+	}
+
+/* Update the count of unnormalized adds and subtracts */
+/* Copy the has-been-completely/partially-FFTed flag */
+
+	norm_count (d) = norm_count (s1) + norm_count (s2);
+	FFT_state (d) = FFT_state (s1);
+}
+
+void fftsub3 (			/* Compute FFTed s1 - FFTed s2 */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	s1,		/* Source #1 */
+	gwnum	s2,		/* Source #2 */
+	gwnum	d)		/* Destination */
+{
+	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
+
+	ASSERTG (FFT_state (s1) == FFT_state (s2));
+
+/* If this is a zero-padded FFT, then also subtract the 7 copied doubles in the gwnum header */
+
+	if (gwdata->ZERO_PADDED_FFT) {
+		d[-5] = s1[-5] - s2[-5];
+		d[-6] = s1[-6] - s2[-6];
+		d[-7] = s1[-7] - s2[-7];
+		d[-8] = s1[-8] - s2[-8];
+		d[-9] = s1[-9] - s2[-9];
+		d[-10] = s1[-10] - s2[-10];
+		d[-11] = s1[-11] - s2[-11];
+	}
+
+/* Do an AVX-512 or two-pass AVX subquick */
+
+	if ((gwdata->cpu_flags & CPU_AVX512F) ||
+	    (gwdata->cpu_flags & CPU_AVX && gwdata->PASS2_SIZE)) {
+		multithread_op (gwdata, s2, s1, d, NULL, addr_gw_subf (gwdata), TRUE);
+	}
+
+/* Do the subtract the old way -- single-threaded in assembly code */
+
+	else {
+		asm_data->SRCARG = s2;
+		asm_data->SRC2ARG = s1;
+		asm_data->DESTARG = d;
+		gw_subf (gwdata, asm_data);
+	}
+
+/* Update the count of unnormalized adds and subtracts */
+/* Copy the has-been-completely/partially-FFTed flag */
+
+	norm_count (d) = norm_count (s1) + norm_count (s2);
+	FFT_state (d) = FFT_state (s1);
+}
+
+void fftaddsub4 (		/* Add & sub two FFTed numbers */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	s1,		/* Source #1 */
+	gwnum	s2,		/* Source #2 */
+	gwnum	d1,		/* Destination #1 */
+	gwnum	d2)		/* Destination #2 */
+{
+	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
+
+	ASSERTG (FFT_state (s1) == FFT_state (s2));
+
+/* If this is a zero-padded FFT, then also add & sub the 7 copied doubles in */
+/* the gwnum header.  Copy data to temporaries first in case s1, s2 pointers */
+/* are equal to the d1, d2 pointers! */
+
+	if (gwdata->ZERO_PADDED_FFT) {
+		double	v1, v2;
+		v1 = s1[-5]; v2 = s2[-5]; d1[-5] = v1 + v2; d2[-5] = v1 - v2;
+		v1 = s1[-6]; v2 = s2[-6]; d1[-6] = v1 + v2; d2[-6] = v1 - v2;
+		v1 = s1[-7]; v2 = s2[-7]; d1[-7] = v1 + v2; d2[-7] = v1 - v2;
+		v1 = s1[-8]; v2 = s2[-8]; d1[-8] = v1 + v2; d2[-8] = v1 - v2;
+		v1 = s1[-9]; v2 = s2[-9]; d1[-9] = v1 + v2; d2[-9] = v1 - v2;
+		v1 = s1[-10]; v2 = s2[-10]; d1[-10] = v1+v2; d2[-10] = v1-v2;
+		v1 = s1[-11]; v2 = s2[-11]; d1[-11] = v1+v2; d2[-11] = v1-v2;
+	}
+
+/* Do an AVX-512 or two-pass AVX addsubquick */
+
+	if ((gwdata->cpu_flags & CPU_AVX512F) ||
+	    (gwdata->cpu_flags & CPU_AVX && gwdata->PASS2_SIZE)) {
+		multithread_op (gwdata, s1, s2, d1, d2, addr_gw_addsubf (gwdata), TRUE);
+	}
+
+/* Do the add & subtract the old way -- single-threaded in assembly code */
+
+	else {
+		asm_data->SRCARG = s1;
+		asm_data->SRC2ARG = s2;
+		asm_data->DESTARG = d1;
+		asm_data->DEST2ARG = d2;
+		gw_addsubf (gwdata, asm_data);
+	}
+
+/* Update the counts of unnormalized adds and subtracts */
+/* Copy the has-been-completely/partially-FFTed flag */
+
+	norm_count (d1) = norm_count (d2) = norm_count (s1) + norm_count (s2);
+	FFT_state (d1) = FFT_state (d2) = FFT_state (s1);
+}
+
 void gwadd3quick (		/* Add two numbers without normalizing */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	s1,		/* Source #1 */
@@ -10044,19 +10055,12 @@ void gwadd3quick (		/* Add two numbers without normalizing */
 	ASSERTG (norm_count (s1) >= 1);
 	ASSERTG (norm_count (s2) >= 1);
 
-/* We could support completely/partially FFTed inputs if we updated the 7 zero pad */
-/* values.  Until then, assert inputs are not completely/partially FFTed. */
+/* If either input is partially or fully FFTed, use a different routine */
 
-	ASSERTG (FFT_state (s1) == NOT_FFTed);
-	ASSERTG (FFT_state (s2) == NOT_FFTed);
-
-/* Update the count of unnormalized adds and subtracts */
-
-	norm_count (d) = norm_count (s1) + norm_count (s2);
-
-/* Copy the has-been-completely/partially-FFTed flag */
-
-	FFT_state (d) = FFT_state (s1);
+	if (FFT_state (s1) != NOT_FFTed || FFT_state (s2) != NOT_FFTed) {
+		fftadd3 (gwdata, s1, s2, d);
+		return;
+	}
 
 /* Do an AVX-512 or two-pass AVX addquick */
 
@@ -10073,6 +10077,12 @@ void gwadd3quick (		/* Add two numbers without normalizing */
 		asm_data->DESTARG = d;
 		gw_addq (gwdata, asm_data);
 	}
+
+/* Update the count of unnormalized adds and subtracts */
+/* Set the has-been-completely/partially-FFTed flag */
+
+	norm_count (d) = norm_count (s1) + norm_count (s2);
+	FFT_state (d) = NOT_FFTed;
 }
 
 void gwsub3quick (		/* Compute s1 - s2 without normalizing */
@@ -10086,19 +10096,12 @@ void gwsub3quick (		/* Compute s1 - s2 without normalizing */
 	ASSERTG (norm_count (s1) >= 1);
 	ASSERTG (norm_count (s2) >= 1);
 
-/* We could support completely/partially FFTed inputs if we updated the 7 zero pad */
-/* values.  Until then, assert inputs are not partially FFTed. */
+/* If either input is partially or fully FFTed, use a different routine */
 
-	ASSERTG (FFT_state (s1) == NOT_FFTed);
-	ASSERTG (FFT_state (s2) == NOT_FFTed);
-
-/* Update the count of unnormalized adds and subtracts */
-
-	norm_count (d) = norm_count (s1) + norm_count (s2);
-
-/* Copy the has-been-completely/partially-FFTed flag */
-
-	FFT_state (d) = FFT_state (s1);
+	if (FFT_state (s1) != NOT_FFTed || FFT_state (s2) != NOT_FFTed) {
+		fftsub3 (gwdata, s1, s2, d);
+		return;
+	}
 
 /* Do an AVX-512 or two-pass AVX subquick */
 
@@ -10115,6 +10118,12 @@ void gwsub3quick (		/* Compute s1 - s2 without normalizing */
 		asm_data->DESTARG = d;
 		gw_subq (gwdata, asm_data);
 	}
+
+/* Update the count of unnormalized adds and subtracts */
+/* Set the has-been-completely/partially-FFTed flag */
+
+	norm_count (d) = norm_count (s1) + norm_count (s2);
+	FFT_state (d) = NOT_FFTed;
 }
 
 void gwaddsub4quick (		/* Add & sub two numbers without normalizing */
@@ -10129,19 +10138,12 @@ void gwaddsub4quick (		/* Add & sub two numbers without normalizing */
 	ASSERTG (norm_count (s1) >= 1);
 	ASSERTG (norm_count (s2) >= 1);
 
-/* We could support completely/partially FFTed inputs if we updated the 7 zero pad */
-/* values.  Until then, assert inputs are not partially FFTed. */
+/* If either input is partially or fully FFTed, use a different routine */
 
-	ASSERTG (FFT_state (s1) == NOT_FFTed);
-	ASSERTG (FFT_state (s2) == NOT_FFTed);
-
-/* Update the counts of unnormalized adds and subtracts */
-
-	norm_count (d1) = norm_count (d2) = norm_count (s1) + norm_count (s2);
-
-/* Copy the has-been-completely/partially-FFTed flag */
-
-	FFT_state (d1) = FFT_state (d2) = FFT_state (s1);
+	if (FFT_state (s1) != NOT_FFTed || FFT_state (s2) != NOT_FFTed) {
+		fftaddsub4 (gwdata, s1, s2, d1, d2);
+		return;
+	}
 
 /* Do an AVX-512 or two-pass AVX addsubquick */
 
@@ -10159,6 +10161,12 @@ void gwaddsub4quick (		/* Add & sub two numbers without normalizing */
 		asm_data->DEST2ARG = d2;
 		gw_addsubq (gwdata, asm_data);
 	}
+
+/* Update the count of unnormalized adds and subtracts */
+/* Set the has-been-completely/partially-FFTed flag */
+
+	norm_count (d1) = norm_count (d2) = norm_count (s1) + norm_count (s2);
+	FFT_state (d1) = FFT_state (d2) = NOT_FFTed;
 }
 
 
@@ -10173,15 +10181,22 @@ void gwadd3 (			/* Add two numbers normalizing if needed */
 
 	ASSERTG (norm_count (s1) >= 1);
 	ASSERTG (norm_count (s2) >= 1);
-	ASSERTG (FFT_state (s1) == NOT_FFTed);
-	ASSERTG (FFT_state (s2) == NOT_FFTed);
+
+/* If either input is partially or fully FFTed, use a different routine */
+
+	if (FFT_state (s1) != NOT_FFTed || FFT_state (s2) != NOT_FFTed) {
+		fftadd3 (gwdata, s1, s2, d);
+		return;
+	}
 
 /* Get counts of unnormalized adds and subtracts */
 /* If we can do an addquick, do that - it should be faster */
 
 	normcnt1 = norm_count (s1);
 	normcnt2 = norm_count (s2);
-	if (normcnt1 + normcnt2 <= gwdata->EXTRA_BITS) {
+	// Normalize if an unnormalized result would not work in a multiply.
+	// Take addmul4: log2 ((1 + 1) * unnormalized_result) must be less than extra_bits
+	if (norm_count (d) != 999 && log2f (2 * (normcnt1 + normcnt2)) < gwdata->EXTRA_BITS) {
 		gwadd3quick (gwdata, s1, s2, d);
 		return;
 	}
@@ -10218,15 +10233,22 @@ void gwsub3 (			/* Compute s1 - s2 normalizing if needed */
 
 	ASSERTG (norm_count (s1) >= 1);
 	ASSERTG (norm_count (s2) >= 1);
-	ASSERTG (FFT_state (s1) == NOT_FFTed);
-	ASSERTG (FFT_state (s2) == NOT_FFTed);
+
+/* If either input is partially or fully FFTed, use a different routine */
+
+	if (FFT_state (s1) != NOT_FFTed || FFT_state (s2) != NOT_FFTed) {
+		fftsub3 (gwdata, s1, s2, d);
+		return;
+	}
 
 /* Get counts of unnormalized adds and subtracts */
 /* If we can do a subquick, do that - it should be faster */
 
 	normcnt1 = norm_count (s1);
 	normcnt2 = norm_count (s2);
-	if (normcnt1 + normcnt2 <= gwdata->EXTRA_BITS) {
+	// Normalize if an unnormalized result would not work in a multiply.
+	// Take addmul4: log2 ((1 + 1) * unnormalized_result) must be less than extra_bits
+	if (norm_count (d) != 999 && log2f (2 * (normcnt1 + normcnt2)) < gwdata->EXTRA_BITS) {
 		gwsub3quick (gwdata, s1, s2, d);
 		return;
 	}
@@ -10264,15 +10286,22 @@ void gwaddsub4 (		/* Add & sub two nums normalizing if needed */
 
 	ASSERTG (norm_count (s1) >= 1);
 	ASSERTG (norm_count (s2) >= 1);
-	ASSERTG (FFT_state (s1) == NOT_FFTed);
-	ASSERTG (FFT_state (s2) == NOT_FFTed);
+
+/* If either input is partially or fully FFTed, use a different routine */
+
+	if (FFT_state (s1) != NOT_FFTed || FFT_state (s2) != NOT_FFTed) {
+		fftaddsub4 (gwdata, s1, s2, d1, d2);
+		return;
+	}
 
 /* Get counts of unnormalized adds and subtracts */
 /* If we can do an addsubquick, do that - it should be faster */
 
 	normcnt1 = norm_count (s1);
 	normcnt2 = norm_count (s2);
-	if (normcnt1 + normcnt2 <= gwdata->EXTRA_BITS) {
+	// Normalize if an unnormalized result would not work in a multiply.
+	// Take addmul4: log2 ((1 + 1) * unnormalized_result) must be less than extra_bits
+	if (norm_count (d1) != 999 && norm_count (d2) != 999 && log2f (2 * (normcnt1 + normcnt2)) < gwdata->EXTRA_BITS) {
 		gwaddsub4quick (gwdata, s1, s2, d1, d2);
 		return;
 	}
@@ -10301,158 +10330,6 @@ void gwaddsub4 (		/* Add & sub two nums normalizing if needed */
 	FFT_state (d2) = NOT_FFTed;
 }
 
-
-void gwfftadd3 (		/* Add two FFTed numbers */
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s1,		/* Source #1 */
-	gwnum	s2,		/* Source #2 */
-	gwnum	d)		/* Destination */
-{
-	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
-
-	ASSERTG (norm_count (s1) >= 1);
-	ASSERTG (norm_count (s2) >= 1);
-	ASSERTG (FFT_state (s1) == FFT_state (s2));
-
-/* Update the count of unnormalized adds and subtracts */
-
-	norm_count (d) = norm_count (s1) + norm_count (s2);
-
-/* Copy the has-been-completely/partially-FFTed flag */
-
-	FFT_state (d) = FFT_state (s1);
-
-/* If this is a zero-padded FFT, then also add the 7 copied doubles in the gwnum header */
-
-	if (gwdata->ZERO_PADDED_FFT) {
-		d[-5] = s1[-5] + s2[-5];
-		d[-6] = s1[-6] + s2[-6];
-		d[-7] = s1[-7] + s2[-7];
-		d[-8] = s1[-8] + s2[-8];
-		d[-9] = s1[-9] + s2[-9];
-		d[-10] = s1[-10] + s2[-10];
-		d[-11] = s1[-11] + s2[-11];
-	}
-
-/* Do an AVX-512 or two-pass AVX addquick */
-
-	if ((gwdata->cpu_flags & CPU_AVX512F) ||
-	    (gwdata->cpu_flags & CPU_AVX && gwdata->PASS2_SIZE)) {
-		multithread_op (gwdata, s1, s2, d, NULL, addr_gw_addf (gwdata), TRUE);
-	}
-
-/* Do the add the old way -- single-threaded in assembly code */
-
-	else {
-		asm_data->SRCARG = s1;
-		asm_data->SRC2ARG = s2;
-		asm_data->DESTARG = d;
-		gw_addf (gwdata, asm_data);
-	}
-}
-
-void gwfftsub3 (		/* Compute FFTed s1 - FFTed s2 */
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s1,		/* Source #1 */
-	gwnum	s2,		/* Source #2 */
-	gwnum	d)		/* Destination */
-{
-	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
-
-	ASSERTG (norm_count (s1) >= 1);
-	ASSERTG (norm_count (s2) >= 1);
-	ASSERTG (FFT_state (s1) == FFT_state (s2));
-
-/* Update the count of unnormalized adds and subtracts */
-
-	norm_count (d) = norm_count (s1) + norm_count (s2);
-
-/* Copy the has-been-completely/partially-FFTed flag */
-
-	FFT_state (d) = FFT_state (s1);
-
-/* If this is a zero-padded FFT, then also subtract the 7 copied doubles in the gwnum header */
-
-	if (gwdata->ZERO_PADDED_FFT) {
-		d[-5] = s1[-5] - s2[-5];
-		d[-6] = s1[-6] - s2[-6];
-		d[-7] = s1[-7] - s2[-7];
-		d[-8] = s1[-8] - s2[-8];
-		d[-9] = s1[-9] - s2[-9];
-		d[-10] = s1[-10] - s2[-10];
-		d[-11] = s1[-11] - s2[-11];
-	}
-
-/* Do an AVX-512 or two-pass AVX subquick */
-
-	if ((gwdata->cpu_flags & CPU_AVX512F) ||
-	    (gwdata->cpu_flags & CPU_AVX && gwdata->PASS2_SIZE)) {
-		multithread_op (gwdata, s2, s1, d, NULL, addr_gw_subf (gwdata), TRUE);
-	}
-
-/* Do the subtract the old way -- single-threaded in assembly code */
-
-	else {
-		asm_data->SRCARG = s2;
-		asm_data->SRC2ARG = s1;
-		asm_data->DESTARG = d;
-		gw_subf (gwdata, asm_data);
-	}
-}
-
-void gwfftaddsub4 (		/* Add & sub two FFTed numbers */
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s1,		/* Source #1 */
-	gwnum	s2,		/* Source #2 */
-	gwnum	d1,		/* Destination #1 */
-	gwnum	d2)		/* Destination #2 */
-{
-	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
-
-	ASSERTG (norm_count (s1) >= 1);
-	ASSERTG (norm_count (s2) >= 1);
-	ASSERTG (FFT_state (s1) == FFT_state (s2));
-
-/* Update the counts of unnormalized adds and subtracts */
-
-	norm_count (d1) = norm_count (d2) = norm_count (s1) + norm_count (s2);
-
-/* Copy the has-been-completely/partially-FFTed flag */
-
-	FFT_state (d1) = FFT_state (d2) = FFT_state (s1);
-
-/* If this is a zero-padded FFT, then also add & sub the 7 copied doubles in */
-/* the gwnum header.  Copy data to temporaries first in case s1, s2 pointers */
-/* are equal to the d1, d2 pointers! */
-
-	if (gwdata->ZERO_PADDED_FFT) {
-		double	v1, v2;
-		v1 = s1[-5]; v2 = s2[-5]; d1[-5] = v1 + v2; d2[-5] = v1 - v2;
-		v1 = s1[-6]; v2 = s2[-6]; d1[-6] = v1 + v2; d2[-6] = v1 - v2;
-		v1 = s1[-7]; v2 = s2[-7]; d1[-7] = v1 + v2; d2[-7] = v1 - v2;
-		v1 = s1[-8]; v2 = s2[-8]; d1[-8] = v1 + v2; d2[-8] = v1 - v2;
-		v1 = s1[-9]; v2 = s2[-9]; d1[-9] = v1 + v2; d2[-9] = v1 - v2;
-		v1 = s1[-10]; v2 = s2[-10]; d1[-10] = v1+v2; d2[-10] = v1-v2;
-		v1 = s1[-11]; v2 = s2[-11]; d1[-11] = v1+v2; d2[-11] = v1-v2;
-	}
-
-/* Do an AVX-512 or two-pass AVX addsubquick */
-
-	if ((gwdata->cpu_flags & CPU_AVX512F) ||
-	    (gwdata->cpu_flags & CPU_AVX && gwdata->PASS2_SIZE)) {
-		multithread_op (gwdata, s1, s2, d1, d2, addr_gw_addsubf (gwdata), TRUE);
-	}
-
-/* Do the add & subtract the old way -- single-threaded in assembly code */
-
-	else {
-		asm_data->SRCARG = s1;
-		asm_data->SRC2ARG = s2;
-		asm_data->DESTARG = d1;
-		asm_data->DEST2ARG = d2;
-		gw_addsubf (gwdata, asm_data);
-	}
-}
 
 /* Routine to add a small number to a gwnum.  Some day, */
 /* I might optimize this routine for the cases where just one or two */
@@ -10565,15 +10442,8 @@ void gwsmallmul (
 			gwadd (gwdata, tmp, g);
 		}
 		else {
-			int	saved_NORMNUM, saved_POSTFFT;
 			dbltogw (gwdata, mult, tmp);
-			saved_NORMNUM = gwdata->NORMNUM;
-			saved_POSTFFT = gwdata->POSTFFT;
-			gwstartnextfft (gwdata, 0);		// Turn off start next FFT
-			gwdata->NORMNUM = gwdata->NORMNUM & 1;	// Turn off mul-by-const, preserve error-checking
-			gwmul3 (gwdata, tmp, g, g, 0);
-			gwstartnextfft (gwdata, saved_POSTFFT);	// Restore start next FFT
-			gwdata->NORMNUM = saved_NORMNUM;	// Restore mul-by-const
+			gwmul3 (gwdata, tmp, g, g, GWMUL_NOMULBYCONST | GWMUL_NOSTARTNEXTFFT);
 		}
 		gwfree (gwdata, tmp);
 	}
