@@ -7857,7 +7857,7 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 			gwsetnormroutine (&lldata.gwdata, 0, 1, 0);
 			gwstartnextfft (&lldata.gwdata, k != ll_iters - 1);
 			gwsetaddin (&lldata.gwdata, -2);
-			gwsquare2 (&lldata.gwdata, prev, g);
+			gwsquare2 (&lldata.gwdata, prev, g, 0);
 
 /* If the sum of the output values is an error (such as infinity) */
 /* then raise an error. */
