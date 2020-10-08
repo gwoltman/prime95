@@ -259,6 +259,7 @@ PROCF	y8real_mulf4
 	int_epilog 0,0,0
 y8real_mulf4 ENDP
 
+IFDEF X86_64
 PROCF	y8complex_mult_opcode1
 	int_prolog 0,0,0
 	yr8_8c_mult_opcode rsi, 64, 2*64, 4*64
@@ -300,6 +301,7 @@ PROCF	y8complex_mulf_opcode4
 	yr8_8c_mulf_opcode rsi, 8*(64*64+64), 16*(64*64+64), 64
 	int_epilog 0,0,0
 y8complex_mulf_opcode4 ENDP
+ENDIF
 
 ELSE
 
@@ -358,6 +360,7 @@ EXTRN	y8complex_mulf_opcode4:PROC
 
 ENDIF
 
+IFDEF X86_64
 PROCFP	ycomplex_mult_opcode1
 	int_prolog 0,0,0
 	yr4_4c_mult_opcode rsi, 64, 2*64
@@ -429,6 +432,7 @@ PROCFP	ycomplex_mulf_opcode6
 	yr4_4c_mulf_opcode rsi, 16*(64*64+64), 32*(64*64+64)
 	int_epilog 0,0,0
 ENDPP	ycomplex_mulf_opcode6
+ENDIF
 
 ;; Generate shared pass 1 routines optimized for this architecture
 
