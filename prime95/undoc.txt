@@ -301,7 +301,7 @@ You can do "optimal" P-1 factoring of k*b^n+c by adding lines to worktodo.txt:
 	Pfactor=k,b,n,c,how_far_factored,num_primality_tests_saved
 For example, Pfactor=1,2,10000157,-1,64,2.0
 
-You can limit which exponents PrimeNet will assign to you.  In local.ini, add
+You can limit which exponents PrimeNet will assign to you.  In local.txt, add
 	GetMinExponent=x
 	GetMaxExponent=y
 Assignments from PrimeNet will be on exponents between x and y.
@@ -432,7 +432,7 @@ throughput benchmark data for the 3 cores / 3 workers combination.
 One can adjust FFT crossover points up or down.  In prime.txt use the setting:
 	ExtraSafetymargin=n		(recommend n between 0.01 and -0.01)
 For each FFT size, the program uses a pre-calculated maximum number of bits that can be
-safely stored in each FFT word.  This INI setting reduces the pre-calculated maximum
+safely stored in each FFT word.  This setting reduces the pre-calculated maximum
 by n bits.  If n is a positive number, the maximum bits per FFT word is reduced, which
 reduces round off errors.  If n is a negative number, the maximum bits per FFT word is
 increased, which increases round off errors.  Values of n below -0.025 could be pretty
