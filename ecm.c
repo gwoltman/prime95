@@ -81,6 +81,16 @@ int isProbablePrime (
 /* ECM structures and setup/termination routines */
 /*************************************************/
 
+/* We compute ell_dbl and ell_add by computing (x+z) and (x-z).  We save these two values in FFTed form in */
+/* case they are needed for a later ell_dbl or ell_add.  The output is in standard x,z form.  This structure lets */
+/* us manage the state of an x,z pair. */
+
+struct xz {
+	gwnum	x;		/* x or FFT(x+z) */
+	gwnum	z;		/* z or FFT(x-z) */
+	int	added;		/* TRUE if x is really x+z and z is really x-z and they've been FFTed */
+};
+
 /* Data maintained during ECM process */
 
 #define POOL_3MULT	2	/* Modinv algorithm that takes 3 multiplies */
@@ -91,9 +101,11 @@ typedef struct {
 	int	thread_num;	/* Worker thread number */
 	unsigned long D;	/* Stage 2 loop size */
 	unsigned long E;	/* Suyama's power in stage 2 */
+	gwnum	Ad4;		/* Pre-computed value used for doubling */
 	gwnum	*nQx;		/* Array of data used in stage 2 */
 	char	*pairings;	/* Bits used in determining if primes pair */
-	gwnum	Qprevmx, Qprevmz, Qmx, Qmz, Q2Dxplus1, Q2Dxminus1, *mQx;
+	struct xz Qm, Qprevm, Q2Dx;
+	gwnum	*mQx;
 	unsigned int mQx_count;
 	int	TWO_FFT_STAGE2;	/* Type of ECM stage 2 to execute */
 	int	pool_type;	/* Modinv algorithm type to use */
@@ -141,385 +153,305 @@ void ecm_partial_cleanup (
  *
  **************************************************************/
 
-/* computes 2P=(x2:z2) from P=(x1:z1), uses the global variables Ad4 */
+/* This routine initializes an xz pair with two allocated gwnums */
 
-int ell_dbl (
+__inline int alloc_xz (			/* Returns TRUE if successful */
 	ecmhandle *ecmdata,
-	const gwnum x1,
-	const gwnum z1,
-	gwnum	x2,
-	gwnum	z2,
-	const gwnum Ad4)
-{					/* 10 FFTs */
-	gwnum	t1, t3;
-	t1 = gwalloc (&ecmdata->gwdata);
-	if (t1 == NULL) goto oom;
-	t3 = gwalloc (&ecmdata->gwdata);
-	if (t3 == NULL) goto oom;
-	gwaddsub4 (&ecmdata->gwdata, x1, z1, t1, x2);
-	gwsquare (&ecmdata->gwdata, t1);	/* t1 = (x1 + z1)^2 */
-	gwsquare (&ecmdata->gwdata, x2);	/* t2 = (x1 - z1)^2 (store in x2) */
-	gwsub3 (&ecmdata->gwdata, t1, x2, t3);	/* t3 = t1 - t2 = 4 * x1 * z1 */
-	gwfft (&ecmdata->gwdata, t3, t3);
-	gwfft (&ecmdata->gwdata, x2, x2);
-	gwfftadd3 (&ecmdata->gwdata, t3, x2, t1);/* Compute the fft of t1! */
-	gwfftfftmul (&ecmdata->gwdata, Ad4, x2, x2);	/* x2 = t2 * Ad4 */
-	gwfft (&ecmdata->gwdata, x2, x2);
-	gwfftadd3 (&ecmdata->gwdata, x2, t3, z2);	/* z2 = (t2 * Ad4 + t3) */
-	gwfftfftmul (&ecmdata->gwdata, t3, z2, z2);	/* z2 = z2 * t3 */
-	gwfftfftmul (&ecmdata->gwdata, t1, x2, x2);	/* x2 = x2 * t1 */
-	gwfree (&ecmdata->gwdata, t1);
-	gwfree (&ecmdata->gwdata, t3);
-	return (0);
-
-/* Out of memory exit path */
-
-oom:	return (OutOfMemory (ecmdata->thread_num));
-}
-
-/* adds Q=(x2:z2) and R=(x1:z1) and puts the result in (x3:z3),
-   Assumes that Q-R=P or R-Q=P where P=(xdiff:zdiff). */
-
-#ifdef ELL_ADD_USED
-int ell_add (
-	ecmhandle *ecmdata,
-	gwnum 	x1,
-	gwnum 	z1,
-	gwnum 	x2,
-	gwnum 	z2,
-	gwnum	xdiff,
-	gwnum	zdiff,
-	gwnum	x3,
-	gwnum	z3)
-{					/* 16 FFTs */
-	gwnum	t1, t2, t3;
-	t1 = gwalloc (&ecmdata->gwdata);
-	if (t1 == NULL) goto oom;
-	t2 = gwalloc (&ecmdata->gwdata);
-	if (t2 == NULL) goto oom;
-	t3 = gwalloc (&ecmdata->gwdata);
-	if (t3 == NULL) goto oom;
-	gwaddsub4 (&ecmdata->gwdata, x1, z1, t1, t2);
-						/* t1 = (x1 + z1)(x2 - z2) */
-						/* t2 = (x1 - z1)(x2 + z2) */
-	gwsub3 (&ecmdata->gwdata, x2, z2, t3);
-	gwmul (&ecmdata->gwdata, t3, t1);
-	gwadd3 (&ecmdata->gwdata, x2, z2, t3);
-	gwmul (&ecmdata->gwdata, t3, t2);
-	gwaddsub (&ecmdata->gwdata, t2, t1);	/* x3 = (t2 + t1)^2 * zdiff */
-	gwsquare (&ecmdata->gwdata, t2);
-	gwmul (&ecmdata->gwdata, zdiff, t2);
-	gwsquare (&ecmdata->gwdata, t1);	/* z3 = (t2 - t1)^2 * xdiff */
-	gwmul (&ecmdata->gwdata, xdiff, t1);
-	gwcopy (&ecmdata->gwdata, t2, x3);
-	gwcopy (&ecmdata->gwdata, t1, z3);
-	gwfree (&ecmdata->gwdata, t1);
-	gwfree (&ecmdata->gwdata, t2);
-	gwfree (&ecmdata->gwdata, t3);
-	return (0);
-
-/* Out of memory exit path */
-
-oom:	return (OutOfMemory (ecmdata->thread_num));
-}
-#endif
-
-/* Like ell_add except that x1, z1, xdiff, and zdiff have been FFTed */
-/* NOTE: x2 and z2 represent the FFTs of (x2+z2) and (x2-z2) respectively. */
-
-#ifdef ELL_ADD_SPECIAL_USED
-int ell_add_special (
-	ecmhandle *ecmdata,
-	gwnum 	x1,
-	gwnum 	z1,
-	gwnum 	x2,
-	gwnum 	z2,
-	gwnum	xdiff,
-	gwnum	zdiff,
-	gwnum	x3,
-	gwnum	z3)
-{				/* 10 FFTs */
-	gwnum	t1, t2;
-	t1 = gwalloc (&ecmdata->gwdata);
-	if (t1 == NULL) goto oom;
-	t2 = gwalloc (&ecmdata->gwdata);
-	if (t2 == NULL) goto oom;
-	gwfftaddsub4 (&ecmdata->gwdata, x1, z1, t1, t2);
-						/* t1 = (x1 + z1)(x2 - z2) */
-						/* t2 = (x1 - z1)(x2 + z2) */
-	gwfftfftmul (&ecmdata->gwdata, z2, t1, t1);
-	gwfftfftmul (&ecmdata->gwdata, x2, t2, t2);
-	gwaddsub (&ecmdata->gwdata, t2, t1);	/* x3 = (t2 + t1)^2 * zdiff */
-	gwstartnextfft (&ecmdata->gwdata, TRUE);
-	gwsquare (&ecmdata->gwdata, t2);
-	gwstartnextfft (&ecmdata->gwdata, FALSE);
-	gwfftmul (&ecmdata->gwdata, zdiff, t2);
-	gwstartnextfft (&ecmdata->gwdata, TRUE);
-	gwsquare (&ecmdata->gwdata, t1);	/* z3 = (t2 - t1)^2 * xdiff */
-	gwstartnextfft (&ecmdata->gwdata, FALSE);
-	gwfftmul (&ecmdata->gwdata, xdiff, t1);
-	gwcopy (&ecmdata->gwdata, t2, x3);
-	gwcopy (&ecmdata->gwdata, t1, z3);
-	gwfree (&ecmdata->gwdata, t1);
-	gwfree (&ecmdata->gwdata, t2);
-	return (0);
-
-/* Out of memory exit path */
-
-oom:	return (OutOfMemory (ecmdata->thread_num));
-}
-#endif
-
-/* Like ell_add except that x1, z1, xdiff, and zdiff have been FFTed */
-/* NOTE: x2 and z2 represent the FFTs of (x2+z2) and (x2-z2) respectively. */
-/* ALSO: Like ell_add_special except x3 is returned in zdiff and z3 is returned in xdiff */
-/* caller must then gwswap xdiff and zdiff.  This save two gwcopies. */
-
-#ifdef ELL_ADD_SPECIAL2_USED
-int ell_add_special2 (
-	ecmhandle *ecmdata,
-	const gwnum x1,
-	const gwnum z1,
-	const gwnum x2,
-	const gwnum z2,
-	gwnum	xdiff,
-	gwnum	zdiff)
-{				/* 10 FFTs */
-	gwnum	t1, t2;
-	t1 = gwalloc (&ecmdata->gwdata);
-	if (t1 == NULL) goto oom;
-	t2 = gwalloc (&ecmdata->gwdata);
-	if (t2 == NULL) goto oom;
-	gwfftaddsub4 (&ecmdata->gwdata, x1, z1, t1, t2);/* Calc (x1 + z1) and (x1 - z1) */
-	gwfftfftmul (&ecmdata->gwdata, z2, t1, t1);	/* t1 = (x1 + z1)(x2 - z2) */
-	gwfftfftmul (&ecmdata->gwdata, x2, t2, t2);	/* t2 = (x1 - z1)(x2 + z2) */
-	gwaddsub (&ecmdata->gwdata, t2, t1);		/* Calc t2 + t1 and t2 - t1 */
-	gwstartnextfft (&ecmdata->gwdata, TRUE);	/* x3 = (t2 + t1)^2 * zdiff */
-	gwsquare (&ecmdata->gwdata, t2);
-	gwstartnextfft (&ecmdata->gwdata, FALSE);
-	gwmul3 (&ecmdata->gwdata, t2, zdiff, zdiff, 0);	/* Return x3 in zdiff */
-	gwstartnextfft (&ecmdata->gwdata, TRUE);	/* z3 = (t2 - t1)^2 * xdiff */
-	gwsquare (&ecmdata->gwdata, t1);
-	gwstartnextfft (&ecmdata->gwdata, FALSE);
-	gwmul3 (&ecmdata->gwdata, t1, xdiff, xdiff, 0);	/* Return z3 in xdiff */
-	gwfree (&ecmdata->gwdata, t1);
-	gwfree (&ecmdata->gwdata, t2);
-	return (0);
-
-/* Out of memory exit path */
-
-oom:	return (OutOfMemory (ecmdata->thread_num));
-}
-#endif
-
-/* Like ell_add_special2 except that xdiff and zdiff will be freed and replaced with the new x3 and z3 values */
-/* NOTE: x2 and z2 represent the FFTs of (x2+z2) and (x2-z2) respectively. */
-
-int ell_add_special3 (
-	ecmhandle *ecmdata,
-	const gwnum x1,
-	const gwnum z1,
-	const gwnum x2,
-	const gwnum z2,
-	gwnum	*xdiff_and_returned_x3,
-	gwnum	*zdiff_and_returned_z3)
-{				/* 10 FFTs */
-	gwnum	xdiff = *xdiff_and_returned_x3;
-	gwnum	zdiff = *zdiff_and_returned_z3;
-	gwnum	t1, t2;
-	t1 = gwalloc (&ecmdata->gwdata);
-	if (t1 == NULL) goto oom;
-	t2 = gwalloc (&ecmdata->gwdata);
-	if (t2 == NULL) goto oom;
-	gwfftaddsub4 (&ecmdata->gwdata, x1, z1, t1, t2);/* Calc (x1 + z1) and (x1 - z1) */
-	gwfftfftmul (&ecmdata->gwdata, z2, t1, t1);	/* t1 = (x1 + z1)(x2 - z2) */
-	gwfftfftmul (&ecmdata->gwdata, x2, t2, t2);	/* t2 = (x1 - z1)(x2 + z2) */
-	gwaddsub (&ecmdata->gwdata, t2, t1);		/* Calc t2 + t1 and t2 - t1 */
-	gwstartnextfft (&ecmdata->gwdata, TRUE);	/* x3 = (t2 + t1)^2 * zdiff */
-	gwsquare (&ecmdata->gwdata, t2);
-	gwstartnextfft (&ecmdata->gwdata, FALSE);
-	gwfftmul (&ecmdata->gwdata, zdiff, t2);		/* Final x3 */
-	gwstartnextfft (&ecmdata->gwdata, TRUE);	/* z3 = (t2 - t1)^2 * xdiff */
-	gwsquare (&ecmdata->gwdata, t1);
-	gwstartnextfft (&ecmdata->gwdata, FALSE);
-	gwfftmul (&ecmdata->gwdata, xdiff, t1);		/* Final z3 */
-	gwfree (&ecmdata->gwdata, xdiff);
-	gwfree (&ecmdata->gwdata, zdiff);
-	*xdiff_and_returned_x3 = t2;
-	*zdiff_and_returned_z3 = t1;
-	return (0);
-
-/* Out of memory exit path */
-
-oom:	return (OutOfMemory (ecmdata->thread_num));
-}
-
-/* This routine is called prior to a series of many ell_add_fft and */
-/* ell_dbl_fft calls.  The sequence ends by calling ell_add_fft_last. */
-/* Note: We used to simply just FFT x1 and z1.  However, convolution error */
-/* in computing (x1+z1)^2 and the like was too great.  Instead, we now */
-/* save the FFTs of (x1+z1) and (x1-z1).  The multiplication by xdiff */
-/* and zdiff is now more complicated, but convolution errors are reduced */
-/* since only one argument of any multiply will involve a value that is */
-/* the sum of two FFTs rather than computing a properly normalized sum */
-/* and then taking the FFT. */
-
-void ell_begin_fft (
-	ecmhandle *ecmdata,
-	const gwnum x1,
-	const gwnum z1,
-	gwnum	x2,
-	gwnum	z2)
+	struct xz *arg)
 {
-	gwaddsub4 (&ecmdata->gwdata, x1, z1, x2, z2);	/* x2 = x1 + z1, z2 = x1 - z1 */
-	gwfft (&ecmdata->gwdata, x2, x2);
-	gwfft (&ecmdata->gwdata, z2, z2);
+	arg->x = gwalloc (&ecmdata->gwdata);
+	if (arg->x == NULL) return (FALSE);
+	arg->z = gwalloc (&ecmdata->gwdata);
+	if (arg->z == NULL) return (FALSE);
+	arg->added = FALSE;
+	return (TRUE);
 }
 
-/* Like ell_dbl, but the input arguments are FFTs of x1=x1+z1, z1=x1-z1 */
-/* The output arguments are also FFTs of x2=x2+z2, z2=x2-z2 */
+/* This routine cleans up an xz pair with two allocated gwnums */
 
-int ell_dbl_fft (
+__inline void free_xz (
 	ecmhandle *ecmdata,
-	const gwnum x1,
-	const gwnum z1,
-	gwnum	x2,
-	gwnum	z2,
-	const gwnum Ad4)
-{					/* 10 FFTs, 4 adds */
-	gwnum	t1, t3;
-	t1 = gwalloc (&ecmdata->gwdata);
-	if (t1 == NULL) goto oom;
-	t3 = gwalloc (&ecmdata->gwdata);
-	if (t3 == NULL) goto oom;
-	gwfftfftmul (&ecmdata->gwdata, x1, x1, t1);	/* t1 = (x1 + z1)^2 */
-	gwfftfftmul (&ecmdata->gwdata, z1, z1, x2);	/* t2 = (x1 - z1)^2 (store in x2) */
-	gwsub3 (&ecmdata->gwdata, t1, x2, t3);		/* t3 = t1 - t2 = 4 * x1 * z1 */
-	gwfft (&ecmdata->gwdata, t3, t3);
-	gwfft (&ecmdata->gwdata, x2, x2);
-	gwfftadd3 (&ecmdata->gwdata, t3, x2, t1);	/* Compute fft of t1! */
-	gwstartnextfft (&ecmdata->gwdata, TRUE);
-	gwfftfftmul (&ecmdata->gwdata, Ad4, x2, x2);	/* x2 = t2 * Ad4 */
-	gwstartnextfft (&ecmdata->gwdata, FALSE);
-	gwfft (&ecmdata->gwdata, x2, x2);
-	gwfftadd3 (&ecmdata->gwdata, x2, t3, z2);	/* z2 = (t2 * Ad4 + t3) * t3 */
-	gwfftfftmul (&ecmdata->gwdata, t3, z2, z2);
-	gwfftfftmul (&ecmdata->gwdata, t1, x2, x2);	/* x2 = x2 * t1 */
-	gwaddsub (&ecmdata->gwdata, x2, z2);		/* x2 = x2 + z2, z2 = x2 - z2 */
-	gwfft (&ecmdata->gwdata, x2, x2);
-	gwfft (&ecmdata->gwdata, z2, z2);
-	gwfree (&ecmdata->gwdata, t1);
-	gwfree (&ecmdata->gwdata, t3);
+	struct xz *arg)
+{
+	gwfree (&ecmdata->gwdata, arg->x);
+	gwfree (&ecmdata->gwdata, arg->z);
+}
+
+/* This routine converts from x,z format to x+z,x-z format */
+
+__inline void convert_xz (
+	ecmhandle *ecmdata,
+	struct xz *arg)
+{
+	if (arg->added) return;
+	if (gwnum_is_not_ffted (&ecmdata->gwdata, arg->x)) {
+		gwaddsub (&ecmdata->gwdata, arg->x, arg->z);		/* Convert to x + z, x - z format */
+	}
+	else if (gwnum_is_partially_ffted (&ecmdata->gwdata, arg->x)) {
+		ASSERTG (ecmdata->gwdata.EXTRA_BITS >= 2.0);
+		gwfftaddsub (&ecmdata->gwdata, arg->x, arg->z);		/* Convert to x + z, x - z format */
+	} else {
+		// Super rare (perhaps impossible).  I ECMed to B1=22M and this did not occur.
+		// Undo the FFT of diff done in ell_add_xz.
+		gwunfft (&ecmdata->gwdata, arg->x, arg->x);
+		gwunfft (&ecmdata->gwdata, arg->z, arg->z);
+		gwaddsub (&ecmdata->gwdata, arg->x, arg->z);		/* Convert to x + z, x - z format */
+	}
+	arg->added = TRUE;
+}
+
+/* Macro to swap to xz structs */
+
+#define xzswap(a,b)	{ struct xz t; t = a; a = b; b = t; }
+
+/* Computes 2P=(out.x:out.z) from P=(in.x:in.z), uses the global variable Ad4. */
+/* Input argument may be in x+z, x-z format.  Out argument can be same as the input argument. */
+/* Scratch xz argument can equal in but cannot equal out. */
+
+void ell_dbl_xz_scr (
+	ecmhandle *ecmdata,
+	struct xz *in,		/* Input value to double */
+	struct xz *out,		/* Output value */
+	struct xz *scr)		// Scratch registers (only the .x gwnum is used)
+{				/* 10 FFTs, 4 adds */
+	gwnum	t1, t2, t3, t4;
+
+	ASSERTG (scr != out);
+
+//GW the ideal solution is to write gwaddsubmul3(s1,s2,d). It computes d=(s1+s2)(s1-s2).  We "know" the add errors will cancel in calc of t3=4*x*z
+//requires assembly code, not generally useful. OR addsubmul5: d=(s1+s2)*(s3-s4)  more generally useful, but need 4 combos and only "works" when
+//extrabits >= 2
+#ifdef TESTING_THEORY
+convert_xz (ecmdata, in);
+gwstartnextfft (&ecmdata->gwdata, ecmdata->gwdata.EXTRA_BITS >= 2.0);	deprecated
+gwfft (&ecmdata->gwdata, in->x, in->x);	// addsubmul3 can do this FFT?!
+gwfft (&ecmdata->gwdata, in->z, in->z);	// addsubmul3 can do this FFT?!
+gwfftaddsub4 (&ecmdata->gwdata, in->x, in->z, a, out->x);		/* Convert back to x, z format multiplied by 2 */ //loses accuracy?
+norm_count(a) = 1;  
+norm_count(out->x) = 1;
+gwmul3 (&ecmdata->gwdata, a, out->x, a, 0);				/* t3 = 4 * x * z (store in a) */
+// uh oh, roe=0.477 (because addsubfft introduced more error in every LSB?)
+if (in == out) {
+	gwsquare2 (&ecmdata->gwdata, in->z, out->x, 0);			/* t2 = (x - z)^2 (store in outx) */
+} else {
+//GW: squaring that outputs FFT would be useful (twice)! Hard for AVX */
+	gwmul3 (&ecmdata->gwdata, in->z, in->z, out->x, GWMUL_FFT_S1);	/* t2 = (x - z)^2 (store in outx) */
+}
+#endif
+
+
+#ifndef NOT_TESTING_THEORY	
+	/* If we have extra_bits and the input has not yet been converted, then we can use a slightly different algorithm */
+	/* that saves a gwsub3 to calculate t3 as well as generating a normalized t3. */
+	if (ecmdata->gwdata.EXTRA_BITS >= 2.0 && !in->added) {
+		t2 = out->x;
+		if (in == out) t3 = scr->x, t4 = out->z;
+		else t3 = out->z, t4 = scr->x;
+			//GW problem if in == scr!
+		gwsetmulbyconst (&ecmdata->gwdata, 4);
+		gwmul3 (&ecmdata->gwdata, in->x, in->z, t3, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT1); /* t3 = 4 * x * z */
+		if (in == out || in == scr) {
+			gwfftsub3 (&ecmdata->gwdata, in->x, in->z, in->z);	/* Compute x - z */
+		} else {
+			gwfftaddsub (&ecmdata->gwdata, in->x, in->z);		/* Convert to x + z, x - z format */
+			in->added = TRUE;
+		}
+//GW an asm impl of type-4 that computes (s1-s2)*(s1-s2) would save a read/write in the in==out case
+		gwmul3 (&ecmdata->gwdata, in->z, in->z, t2, GWMUL_STARTNEXTFFT1);			/* t2 = (x - z)^2 */
+	}
+
+	/* Use the original algorithm */
+	else {
+		t1 = scr->x;
+		t2 = out->x;
+		t3 = t1;
+		t4 = out->z;
+		convert_xz (ecmdata, in);
+		/* If we have extra_bits then we can start next FFT of t1 and t2 since (t2+t1)^2 should not have too much roundoff error */
+		if (in == out || in == scr) {
+			gwsquare2 (&ecmdata->gwdata, in->x, t1, GWMUL_STARTNEXTFFT1);	/* t1 = (x + z)^2 */
+			gwsquare2 (&ecmdata->gwdata, in->z, t2, GWMUL_STARTNEXTFFT1);	/* t2 = (x - z)^2 */
+		} else {
+//GW: squaring that outputs FFT would be useful (twice)! Hard for AVX */
+			gwsquare2 (&ecmdata->gwdata, in->x, t1, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT1); /* t1 = (x + z)^2 */
+			gwsquare2 (&ecmdata->gwdata, in->z, t2, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT1); /* t2 = (x - z)^2 */
+		}
+		gwsub3 (&ecmdata->gwdata, t1, t2, t3);						/* t3 = t1 - t2 = 4 * x * z */
+	}
+#endif
+
+	/* Finish up */
+	gwmul3 (&ecmdata->gwdata, t2, ecmdata->Ad4, t4, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);	/* t4 = t2 * Ad4 */
+	/* If we have extra_bits then we can start next FFT of the outputs since (x+z)^2 should not have too much roundoff error */
+	gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT1);	/* outx = t4 * (t1 = t2 + t3) */
+norm_count(t3) = 1;  //BUG - fails because gwsub3 did not normalize when extrabits=2 log2((1+2)*2) is not <= 2
+// Need warning in gwnum.h??? Macro/Routine called ultrasafeadd4?? or a force normalize option?
+	gwaddmul4 (&ecmdata->gwdata, t4, t3, t3, out->z, GWMUL_STARTNEXTFFT1);			/* outz = (t4 + t3) * t3 */
+	out->added = FALSE;
+}
+
+// Like ell_dbl_xz_scr except that a scratch register is allocated.
+
+int ell_dbl_xz_noscr (
+	ecmhandle *ecmdata,
+	struct xz *in,
+	struct xz *out)
+{
+	struct xz scr;
+	scr.x = gwalloc (&ecmdata->gwdata);
+	if (scr.x == NULL) return (OutOfMemory (ecmdata->thread_num));
+	ell_dbl_xz_scr (ecmdata, in, out, &scr);
+	gwfree (&ecmdata->gwdata, scr.x);
 	return (0);
-
-/* Out of memory exit path */
-
-oom:	return (OutOfMemory (ecmdata->thread_num));
 }
 
-/* Like ell_add but input arguments are FFTs of x1=x1+z1, z1=x1-z1, */
-/* x2=x2+z2, z2=x2-z2, xdiff=xdiff+zdiff, zdiff=xdiff-zdiff. */
-/* The output arguments are also FFTs of x3=x3+z3, z3=x3-z3 */
+/* Like ell_dbl_xz_scr, but the output arguments are not partially FFTed.  The input argument is assumed to never be used again. */
 
-int ell_add_fft (
+void ell_dbl_xz_scr_last (
 	ecmhandle *ecmdata,
-	gwnum 	x1,
-	gwnum 	z1,
-	gwnum 	x2,
-	gwnum 	z2,
-	gwnum 	xdiff,
-	gwnum 	zdiff,
-	gwnum 	x3,
-	gwnum 	z3)
+	struct xz *in,		/* Input value to double */
+	struct xz *out,		/* Output value */
+	struct xz *scr)		// Scratch registers (only the .x gwnum is used)
+{				/* 10 FFTs, 4 adds */
+	gwnum	t1, t2, t3, t4;
+
+	t1 = scr->x;
+	t2 = out->x;
+	t3 = t1;
+	t4 = out->z;
+	convert_xz (ecmdata, in);
+	/* If we have extra_bits then we can start next FFT of t1 and t2 since (t2+t1)^2 should not have too much roundoff error */
+	gwsquare2 (&ecmdata->gwdata, in->x, t1, GWMUL_STARTNEXTFFT1);		/* t1 = (x + z)^2 */
+	gwsquare2 (&ecmdata->gwdata, in->z, t2, GWMUL_STARTNEXTFFT1);		/* t2 = (x - z)^2 */
+	gwsub3 (&ecmdata->gwdata, t1, t2, t3);					/* t3 = t1 - t2 = 4 * x * z */
+	gwmul3 (&ecmdata->gwdata, t2, ecmdata->Ad4, t4, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);	/* t4 = t2 * Ad4 */
+	gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S2);		/* outx = t4 * (t1 = t2 + t3) */
+norm_count(t3) = 1;
+	gwaddmul4 (&ecmdata->gwdata, t4, t3, t3, out->z, 0);			/* outz = (t4 + t3) * t3 */
+	out->added = FALSE;
+}
+
+/* Adds Q=(in2.x:in2.z) and R=(in1.x:in1.z) and puts the result in (out.x:out.z).  Assumes that Q-R=P or R-Q=P where P=(diff.x:diff.z). */
+/* Input arguments may be in x+z, x-z format.  Out argument can be same as any of the 3 input arguments. */
+/* Scratch xz argument can equal in1, in2, or out but cannot equal diff. */
+
+void ell_add_xz_scr (
+	ecmhandle *ecmdata,
+	struct xz *in1,
+	struct xz *in2,
+	struct xz *diff,
+	struct xz *out,
+	struct xz *scr)		// Scratch registers
 {				/* 12 FFTs, 6 adds */
 	gwnum	t1, t2;
-	t1 = gwalloc (&ecmdata->gwdata);
-	if (t1 == NULL) goto oom;
-	t2 = gwalloc (&ecmdata->gwdata);
-	if (t2 == NULL) goto oom;
-	gwfftfftmul (&ecmdata->gwdata, x1, z2, t1);			/* t1 = (x1 + z1)(x2 - z2) */
-	gwfftfftmul (&ecmdata->gwdata, x2, z1, t2);			/* t2 = (x1 - z1)(x2 + z2) */
-	gwaddsub (&ecmdata->gwdata, t2, t1);
-	gwstartnextfft (&ecmdata->gwdata, TRUE);
-	gwsquare (&ecmdata->gwdata, t2);				/* t2 = (t2 + t1)^2 (will become x3) */
-	gwsquare (&ecmdata->gwdata, t1);				/* t1 = (t2 - t1)^2 (will become z3) */
-	gwstartnextfft (&ecmdata->gwdata, FALSE);
-	gwfftaddsub4 (&ecmdata->gwdata, xdiff, zdiff, x3, z3);		/* x3 = xdiff = (xdiff + zdiff) */
-									/* z3 = zdiff = (xdiff - zdiff) */
-	gwfftmul (&ecmdata->gwdata, z3, t2);				/* t2 = t2 * zdiff (new x3) */
-	gwfftmul (&ecmdata->gwdata, x3, t1);				/* t1 = t1 * xdiff (new z3) */
-	gwaddsub (&ecmdata->gwdata, t2, t1);				/* t2 = x3 + z3, t1 = x3 - z3 */
-	gwfft (&ecmdata->gwdata, t2, x3);
-	gwfft (&ecmdata->gwdata, t1, z3);
-	gwfree (&ecmdata->gwdata, t1);
-	gwfree (&ecmdata->gwdata, t2);
-	return (0);
 
-/* Out of memory exit path */
-
-oom:	return (OutOfMemory (ecmdata->thread_num));
-}
-
-/* Like ell_add_fft but output arguments are not FFTed. */
-
-int ell_add_fft_last (
-	ecmhandle *ecmdata,
-	gwnum 	x1,
-	gwnum 	z1,
-	gwnum 	x2,
-	gwnum 	z2,
-	gwnum 	xdiff,
-	gwnum 	zdiff,
-	gwnum 	x3,
-	gwnum 	z3)
-{				/* 10 FFTs, 6 adds */
-	gwnum	t1, t2;
-	t1 = gwalloc (&ecmdata->gwdata);
-	if (t1 == NULL) goto oom;
-	t2 = gwalloc (&ecmdata->gwdata);
-	if (t2 == NULL) goto oom;
-	gwfftfftmul (&ecmdata->gwdata, x1, z2, t1);			/* t1 = (x1 + z1)(x2 - z2) */
-	gwfftfftmul (&ecmdata->gwdata, x2, z1, t2);			/* t2 = (x1 - z1)(x2 + z2) */
-	if (xdiff != x3) {
-		gwaddsub4 (&ecmdata->gwdata, t2, t1, x3, z3);
-		gwstartnextfft (&ecmdata->gwdata, TRUE);
-		gwsquare (&ecmdata->gwdata, x3);			/* x3 = (t2 + t1)^2 */
-		gwsquare (&ecmdata->gwdata, z3);			/* z3 = (t2 - t1)^2 */
-		gwstartnextfft (&ecmdata->gwdata, FALSE);
-		gwfftaddsub4 (&ecmdata->gwdata, xdiff, zdiff, t1, t2);	/* t1 = xdiff = (xdiff + zdiff) */
-									/* t2 = zdiff = (xdiff - zdiff) */
-		gwfftmul (&ecmdata->gwdata, t2, x3);			/* x3 = x3 * zdiff */
-		gwfftmul (&ecmdata->gwdata, t1, z3);			/* z3 = z3 * xdiff */
+	ASSERTG (scr != diff);
+	if (scr != in2) t1 = scr->x, t2 = scr->z;
+	else t1 = scr->z, t2 = scr->x;
+	convert_xz (ecmdata, in1);
+	convert_xz (ecmdata, in2);
+//GW  can we remove some GWMUL_FFT flags depending on if scr1 buffers equal in1 or in2 buffers?  Or is it the case that out is the best
+// scratch register?  I doubt it.  I think in1 or in2 will be ideal.  We do not have a way to indicate that both in1 and in2 will not be used again.
+// gwmul3 code may well catch these gwmul_fft flags where source == dest.
+	/* If we have extra_bits then we can start next FFT of t1 and t2 since (t2+t1)^2 should not have too much roundoff error */
+	if (in1 == out) {
+		gwmul3 (&ecmdata->gwdata, in1->x, in2->z, t1, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT1);	/* t1 = (x1 + z1)(x2 - z2) */
+		gwmul3 (&ecmdata->gwdata, in1->z, in2->x, t2, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT1);	/* t2 = (x1 - z1)(x2 + z2) */
+	} else if (in2 == out) {
+		gwmul3 (&ecmdata->gwdata, in1->x, in2->z, t1, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT1);	/* t1 = (x1 + z1)(x2 - z2) */
+		gwmul3 (&ecmdata->gwdata, in1->z, in2->x, t2, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT1);	/* t2 = (x1 - z1)(x2 + z2) */
 	} else {
-		gwaddsub (&ecmdata->gwdata, t2, t1);
-		gwstartnextfft (&ecmdata->gwdata, TRUE);
-		gwsquare (&ecmdata->gwdata, t2);
-		gwfft (&ecmdata->gwdata, t2, t2);
-		gwsquare (&ecmdata->gwdata, t1);
-		gwfft (&ecmdata->gwdata, t1, t1);
-		gwstartnextfft (&ecmdata->gwdata, FALSE);
-		gwfftaddsub4 (&ecmdata->gwdata, xdiff, zdiff, z3, x3);
-		gwfftfftmul (&ecmdata->gwdata, t2, x3, x3);
-		gwfftfftmul (&ecmdata->gwdata, t1, z3, z3);
+//GW: mul3 that outputs FFT would be useful here (twice)! Easy for AVX */
+		gwmul3 (&ecmdata->gwdata, in1->x, in2->z, t1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT1);/* t1 = (x1 + z1)(x2 - z2) */
+		gwmul3 (&ecmdata->gwdata, in1->z, in2->x, t2, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT1);/* t2 = (x1 - z1)(x2 + z2) */
 	}
-	gwfree (&ecmdata->gwdata, t1);
-	gwfree (&ecmdata->gwdata, t2);
-	return (0);
-
-/* Out of memory exit path */
-
-oom:	return (OutOfMemory (ecmdata->thread_num));
+	gwaddsub (&ecmdata->gwdata, t2, t1);
+	gwsquare2 (&ecmdata->gwdata, t2, t2, GWMUL_STARTNEXTFFT);		/* t2 = (t2 + t1)^2 */
+	gwsquare2 (&ecmdata->gwdata, t1, t1, GWMUL_STARTNEXTFFT);		/* t1 = (t2 - t1)^2 */
+	/* If we have extra_bits then we can start next FFT of the outputs since (x+z)^2 should not have too much roundoff error */
+	if (diff->added) {
+		gwsubmul4 (&ecmdata->gwdata, diff->x, diff->z, t2, t2, GWMUL_STARTNEXTFFT1);	/* t2 = t2 * zdiff (will become outx) */
+		gwaddmul4 (&ecmdata->gwdata, diff->x, diff->z, t1, t1, GWMUL_STARTNEXTFFT1);	/* t1 = t1 * xdiff (will become outz) */
+	} else if (diff == out) {
+		gwmul3 (&ecmdata->gwdata, t2, diff->z, t2, GWMUL_STARTNEXTFFT1);		/* t2 = t2 * zdiff (will become outx) */
+		gwmul3 (&ecmdata->gwdata, t1, diff->x, t1, GWMUL_STARTNEXTFFT1);		/* t1 = t1 * xdiff (will become outz) */
+	} else if (in2 == out) {			/* In this lucas mul case, we find that diff is usually used next in x+z,x-z fmt */
+		convert_xz (ecmdata, diff);					/* Convert to x + z, x - z format */
+		gwsubmul4 (&ecmdata->gwdata, diff->x, diff->z, t2, t2, GWMUL_STARTNEXTFFT1);	/* t2 = t2 * zdiff (will become outx) */
+		gwaddmul4 (&ecmdata->gwdata, diff->x, diff->z, t1, t1, GWMUL_STARTNEXTFFT1);	/* t1 = t1 * xdiff (will become outz) */
+	} else {					/* In these lucas mul cases, we find that diff is usually used next as a diff */
+							/* If the FFTed diff is used as a regular in1/in2 arg then convert_xz will catch it */
+		gwmul3 (&ecmdata->gwdata, t2, diff->z, t2, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT1);	/* t2 = t2 * zdiff (will become outx) */
+		gwmul3 (&ecmdata->gwdata, t1, diff->x, t1, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT1);	/* t1 = t1 * xdiff (will become outz) */
+	}
+	scr->x = t2;
+	scr->z = t1;
+	scr->added = FALSE;
+	xzswap (*scr, *out);
 }
 
-/* Perform an elliptic multiply using an algorithm developed by */
-/* Peter Montgomery.  Basically, we try to find a near optimal */
-/* Lucas chain of additions that generates the number we are */
-/* multiplying by.  This minimizes the number of calls to ell_dbl */
-/* and ell_add. */
+// Like ell_add_xz_scr except that in1 or in2 is the same as out or out is not equal any input so that scratch register can be inferred.
+// Scratch register cannot also be equal to diff.  This is simply a shortcut for better readability.
 
-/* The costing function assigns an ell_dbl call a cost of 10 and */
-/* an ell_add call a cost of 12.  This cost estimates the number */
-/* of forward and inverse transforms performed. */
+#define ell_add_xz(h,i1,i2,dif,o)	ell_add_xz_scr(h,i1,i2,dif,o,((i1)==(o)?i1:(i2)==(o)?i2:o));
+
+// Like ell_add_xz_scr except that a scratch register is allocated.
+
+int ell_add_xz_noscr (
+	ecmhandle *ecmdata,
+	struct xz *in1,
+	struct xz *in2,
+	struct xz *diff,
+	struct xz *out)
+{
+	struct xz scr;
+	if (!alloc_xz (ecmdata, &scr)) return (OutOfMemory (ecmdata->thread_num));
+	ell_add_xz_scr (ecmdata, in1, in2, diff, out, &scr);
+	free_xz (ecmdata, &scr);
+	return (0);
+}
+
+/* Like ell_add_xz_scr but in1, in2 and diff are assumed to not be used again.  Out argument never has its forward FFT begun. */
+
+void ell_add_xz_last (
+	ecmhandle *ecmdata,
+	struct xz *in1,
+	struct xz *in2,
+	struct xz *diff,
+	struct xz *out)
+{				/* 12 FFTs, 6 adds */
+	gwnum	t1, t2;
+	struct	xz *scr;
+	scr = (in1 != diff) ? in1 : in2;
+	if (scr != in2) t1 = scr->x, t2 = scr->z;
+	else t1 = scr->z, t2 = scr->x;
+	convert_xz (ecmdata, in1);
+	convert_xz (ecmdata, in2);
+	/* If we have extra_bits then we can start next FFT of t1 and t2 since (t2+t1)^2 should not have too much roundoff error */
+	gwmul3 (&ecmdata->gwdata, in1->x, in2->z, t1, GWMUL_STARTNEXTFFT1);	/* t1 = (x1 + z1)(x2 - z2) */
+	gwmul3 (&ecmdata->gwdata, in1->z, in2->x, t2, GWMUL_STARTNEXTFFT1);	/* t2 = (x1 - z1)(x2 + z2) */
+	gwaddsub (&ecmdata->gwdata, t2, t1);
+	gwsquare2 (&ecmdata->gwdata, t2, t2, GWMUL_STARTNEXTFFT);		/* t2 = (t2 + t1)^2 */
+	gwsquare2 (&ecmdata->gwdata, t1, t1, GWMUL_STARTNEXTFFT);		/* t1 = (t2 - t1)^2 */
+	if (diff->added) {
+		gwsubmul4 (&ecmdata->gwdata, diff->x, diff->z, t2, t2, 0);	/* t2 = t2 * zdiff (will become outx) */
+		gwaddmul4 (&ecmdata->gwdata, diff->x, diff->z, t1, t1, 0);	/* t1 = t1 * xdiff (will become outz) */
+	} else if (diff == out) {
+		gwmul3 (&ecmdata->gwdata, t2, diff->z, t2, 0);			/* t2 = t2 * zdiff (will become outx) */
+		gwmul3 (&ecmdata->gwdata, t1, diff->x, t1, 0);			/* t1 = t1 * xdiff (will become outz) */
+	}
+	scr->x = t2;
+	scr->z = t1;
+	scr->added = FALSE;
+	xzswap (*scr, *out);
+}
+
+
+/* Perform an elliptic multiply using an algorithm developed by Peter Montgomery.  Basically, we try to find a near optimal Lucas */
+/* chain of additions that generates the number we are multiplying by.  This minimizes the number of calls to ell_dbl and ell_add. */
+
+/* The costing function assigns an ell_dbl call a cost of 10 and an ell_add call a cost of 12. */
+/* This cost estimates the number of forward and inverse transforms performed. */
 
 #define swap(a,b)	{t=a;a=b;b=t;}
 
@@ -587,41 +519,24 @@ unsigned long lucas_cost (
 
 int lucas_mul (
 	ecmhandle *ecmdata,
-	gwnum	xx,
-	gwnum	zz,
+	struct xz *A,
 	uint64_t n,
-	double	inv_v,
-	gwnum	Ad4)
+	double	inv_v)
 {
 	uint64_t d, e, t, dmod3, emod3;
-	gwnum	xA, zA, xB, zB, xC, zC, xs, zs, xt, zt;
-	int	stop_reason;
+	struct xz B, C, S, T;
 
-	xA = gwalloc (&ecmdata->gwdata);
-	if (xA == NULL) goto oom;
-	zA = gwalloc (&ecmdata->gwdata);
-	if (zA == NULL) goto oom;
-	xB = gwalloc (&ecmdata->gwdata);
-	if (xB == NULL) goto oom;
-	zB = gwalloc (&ecmdata->gwdata);
-	if (zB == NULL) goto oom;
-	xC = gwalloc (&ecmdata->gwdata);
-	if (xC == NULL) goto oom;
-	zC = gwalloc (&ecmdata->gwdata);
-	if (zC == NULL) goto oom;
-	xs = xx;
-	zs = zz;
-	xt = gwalloc (&ecmdata->gwdata);
-	if (xt == NULL) goto oom;
-	zt = gwalloc (&ecmdata->gwdata);
-	if (zt == NULL) goto oom;
+	if (!alloc_xz (ecmdata, &B)) goto oom;
+	if (!alloc_xz (ecmdata, &C)) goto oom;
+	if (!alloc_xz (ecmdata, &S)) goto oom;
+	if (!alloc_xz (ecmdata, &T)) goto oom;
 
 	while (n != 1) {
-	    ell_begin_fft (ecmdata, xx, zz, xA, zA);		/* A */
-	    stop_reason = ell_dbl_fft (ecmdata, xA, zA, xB, zB, Ad4);		/* B = 2*A */
-	    if (stop_reason) return (stop_reason);
-	    gwcopy (&ecmdata->gwdata, xA, xC);
-	    gwcopy (&ecmdata->gwdata, zA, zC);			/* C = A */
+	    ell_dbl_xz_scr (ecmdata, A, &B, &C);				/* B = 2*A, scratch reg = C */
+//GW we can likely save these two copies by caerfully remembering where A=C
+gwcopy (&ecmdata->gwdata, A->x, C.x);					
+gwcopy (&ecmdata->gwdata, A->z, C.z);
+C.added = A->added;								/* C = A */
 
 	    d = (uint64_t) ((double) n * inv_v + 0.5); e = n - d;
 	    d = d - e;
@@ -629,102 +544,78 @@ int lucas_mul (
 	    while (d != e) {
 		if (d < e) {
 			swap (d, e);
-			gwswap (xA, xB); gwswap (zA, zB);
+			xzswap (*A, B);
 		}
 		if (d <= e + (e >> 2)) {
 			if ((dmod3 = d%3) == 3 - (emod3 = e%3)) {
-				stop_reason = ell_add_fft (ecmdata, xA, zA, xB, zB, xC, zC, xs, zs);/* S = A+B */
-				if (stop_reason) return (stop_reason);
-				stop_reason = ell_add_fft (ecmdata, xA, zA, xs, zs, xB, zB, xt, zt);/* T = A+S */
-				if (stop_reason) return (stop_reason);
-				stop_reason = ell_add_fft (ecmdata, xs, zs, xB, zB, xA, zA, xB, zB);/* B = B+S */
-				if (stop_reason) return (stop_reason);
-				gwswap (xt, xA); gwswap (zt, zA);/* A = T */
+				ell_add_xz (ecmdata, A, &B, &C, &S);		/* S = A+B */
+				ell_add_xz (ecmdata, A, &S, &B, &T);		/* T = A+S */
+				ell_add_xz (ecmdata, &S, &B, A, &B);		/* B = B+S */
+				xzswap (T, *A);					/* A = T */
 				t = d;
 				d = (d+d-e)/3;
 				e = (e+e-t)/3;
 				continue;
 			}
 			if (dmod3 == emod3 && (d&1) == (e&1)) {
-				stop_reason = ell_add_fft (ecmdata, xA, zA, xB, zB, xC, zC, xB, zB);/* B = A+B */
-				if (stop_reason) return (stop_reason);
-				stop_reason = ell_dbl_fft (ecmdata, xA, zA, xA, zA, Ad4);	/* A = 2*A */
-				if (stop_reason) return (stop_reason);
+				ell_add_xz (ecmdata, A, &B, &C, &B);		/* B = A+B */
+				ell_dbl_xz_scr (ecmdata, A, A, &T);		/* A = 2*A, scratch reg = T */
 				d = (d-e) >> 1;
 				continue;
 			}
 		}
 		if (d <= (e << 2)) {
-			stop_reason = ell_add_fft (ecmdata, xA, zA, xB, zB, xC, zC, xC, zC);/* B = A+B */
-			if (stop_reason) return (stop_reason);
-			gwswap (xB, xC); gwswap (zB, zC);	/* C = B */
+			ell_add_xz_scr (ecmdata, A, &B, &C, &C, &S);		/* B = A+B, scratch reg = S */
+			xzswap (B, C);						/* C = B */
 			d = d-e;
 		} else if ((d&1) == (e&1)) {
-			stop_reason = ell_add_fft (ecmdata, xA, zA, xB, zB, xC, zC, xB, zB);/* B = A+B */
-			if (stop_reason) return (stop_reason);
-			stop_reason = ell_dbl_fft (ecmdata, xA, zA, xA, zA, Ad4);	/* A = 2*A */
-			if (stop_reason) return (stop_reason);
+			ell_add_xz (ecmdata, A, &B, &C, &B);			/* B = A+B */
+			ell_dbl_xz_scr (ecmdata, A, A, &T);			/* A = 2*A, scratch reg = T */
 			d = (d-e) >> 1;
 		} else if ((d&1) == 0) {
-			stop_reason = ell_add_fft (ecmdata, xA, zA, xC, zC, xB, zB, xC, zC);/* C = A+C */
-			if (stop_reason) return (stop_reason);
-			stop_reason = ell_dbl_fft (ecmdata, xA, zA, xA, zA, Ad4);	/* A = 2*A */
-			if (stop_reason) return (stop_reason);
+//GW start next FFT of C? since it is liekly used as a diff next?
+			ell_add_xz (ecmdata, A, &C, &B, &C);			/* C = A+C */
+			ell_dbl_xz_scr (ecmdata, A, A, &T);			/* A = 2*A, scratch reg = T */
 			d = d >> 1;
 		} else if ((dmod3 = d%3) == 0) {
-			stop_reason = ell_dbl_fft (ecmdata, xA, zA, xs, zs, Ad4);	/* S = 2*A */
-			if (stop_reason) return (stop_reason);
-			stop_reason = ell_add_fft (ecmdata, xA, zA, xB, zB, xC, zC, xt, zt);/* T = A+B */
-			if (stop_reason) return (stop_reason);
-			stop_reason = ell_add_fft (ecmdata, xs, zs, xA, zA, xA, zA, xA, zA);/* A = S+A */
-			if (stop_reason) return (stop_reason);
-			stop_reason = ell_add_fft (ecmdata, xs, zs, xt, zt, xC, zC, xC, zC);/* B = S+T */
-			if (stop_reason) return (stop_reason);
-			gwswap (xB, xC); gwswap (zB, zC);	/* C = B */
+			ell_dbl_xz_scr (ecmdata, A, &S, &T);			/* S = 2*A, scratch reg = T */
+			ell_add_xz (ecmdata, A, &B, &C, &T);			/* T = A+B */
+			ell_add_xz_scr (ecmdata, &S, &T, &C, &C, &T);		/* B = S+T, scratch reg = T */
+			ell_add_xz_scr (ecmdata, &S, A, A, A, &S);		/* A = S+A, scratch reg = S */
+			xzswap (B, C);						/* C = B */
 			d = d/3-e;
 		} else if (dmod3 == 3 - (emod3 = e%3)) {
-			stop_reason = ell_add_fft (ecmdata, xA, zA, xB, zB, xC, zC, xs, zs);/* S = A+B */
-			if (stop_reason) return (stop_reason);
-			stop_reason = ell_add_fft (ecmdata, xA, zA, xs, zs, xB, zB, xB, zB);/* B = A+S */
-			if (stop_reason) return (stop_reason);
-			stop_reason = ell_dbl_fft (ecmdata, xA, zA, xs, zs, Ad4);	/* S = 2*A */
-			if (stop_reason) return (stop_reason);
-			stop_reason = ell_add_fft (ecmdata, xs, zs, xA, zA, xA, zA, xA, zA);/* A = S+A */
-			if (stop_reason) return (stop_reason);
+			ell_add_xz (ecmdata, A, &B, &C, &S);			/* S = A+B */
+			ell_add_xz_scr (ecmdata, A, &S, &B, &B, &T);		/* B = A+S, scratch reg = T */
+			ell_dbl_xz_scr (ecmdata, A, &S, &T);			/* S = 2*A, scratch reg = T */
+			ell_add_xz_scr (ecmdata, &S, A, A, A, &S);		/* A = S+A, scratch reg = S */
 			d = (d-e-e)/3;
 		} else if (dmod3 == emod3) {
-			stop_reason = ell_add_fft (ecmdata, xA, zA, xB, zB, xC, zC, xt, zt);/* T = A+B */
-			if (stop_reason) return (stop_reason);
-			stop_reason = ell_add_fft (ecmdata, xA, zA, xC, zC, xB, zB, xC, zC);/* C = A+C */
-			if (stop_reason) return (stop_reason);
-			gwswap (xt, xB); gwswap (zt, zB);	/* B = T */
-			stop_reason = ell_dbl_fft (ecmdata, xA, zA, xs, zs, Ad4);	/* S = 2*A */
-			if (stop_reason) return (stop_reason);
-			stop_reason = ell_add_fft (ecmdata, xs, zs, xA, zA, xA, zA, xA, zA);/* A = S+A */
-			if (stop_reason) return (stop_reason);
+			ell_add_xz (ecmdata, A, &B, &C, &T);			/* T = A+B */
+			ell_add_xz (ecmdata, A, &C, &B, &C);			/* C = A+C */
+			xzswap (T, B);						/* B = T */
+			ell_dbl_xz_scr (ecmdata, A, &S, &T);			/* S = 2*A, scratch reg = T */
+			ell_add_xz_scr (ecmdata, &S, A, A, A, &S);		/* A = S+A, scratch reg = S */
 			d = (d-e)/3;
 		} else {
-			stop_reason = ell_add_fft (ecmdata, xB, zB, xC, zC, xA, zA, xC, zC);/* C = C-B */
-			if (stop_reason) return (stop_reason);
-			stop_reason = ell_dbl_fft (ecmdata, xB, zB, xB, zB, Ad4);	/* B = 2*B */
-			if (stop_reason) return (stop_reason);
+			ell_add_xz (ecmdata, &B, &C, A, &C);			/* C = C-B */
+			ell_dbl_xz_scr (ecmdata, &B, &B, &T);			/* B = 2*B, scratch reg = T */
 			e = e >> 1;
 		}
 	    }
 
-	    stop_reason = ell_add_fft_last (ecmdata, xB, zB, xA, zA, xC, zC, xx, zz);	/* A = A+B */
-	    if (stop_reason) return (stop_reason);
+	    if (d == 1) {
+		ell_add_xz_last (ecmdata, &B, A, &C, A);		/* A = A+B */
+	    } else {
+		ell_add_xz (ecmdata, &B, A, &C, A);			/* A = A+B */
+	    }
 
 	    n = d;
 	}
-	gwfree (&ecmdata->gwdata, xA);
-	gwfree (&ecmdata->gwdata, zA);
-	gwfree (&ecmdata->gwdata, xB);
-	gwfree (&ecmdata->gwdata, zB);
-	gwfree (&ecmdata->gwdata, xC);
-	gwfree (&ecmdata->gwdata, zC);
-	gwfree (&ecmdata->gwdata, xt);
-	gwfree (&ecmdata->gwdata, zt);
+	free_xz (ecmdata, &B);
+	free_xz (ecmdata, &C);
+	free_xz (ecmdata, &S);
+	free_xz (ecmdata, &T);
 	return (0);
 
 /* Out of memory exit path */
@@ -732,89 +623,77 @@ int lucas_mul (
 oom:	return (OutOfMemory (ecmdata->thread_num));
 }
 
-/* Multiplies the point (xx,zz) by n using a combination */
-/* of ell_dbl and ell_add calls */
+/* Multiplies a point by n using a combination of ell_dbl and ell_add calls */
 
 int bin_ell_mul (
 	ecmhandle *ecmdata,
-	gwnum	xx,
-	gwnum	zz,
-	uint64_t n,
-	gwnum	Ad4)
+	struct xz *arg,
+	uint64_t n)
 {
 	uint64_t c;
 	unsigned long zeros;
-	gwnum	xorg, zorg, xs, zs;
-	int	stop_reason;
+	struct xz s, t, scr;
 
-	xorg = gwalloc (&ecmdata->gwdata);
-	if (xorg == NULL) goto oom;
-	zorg = gwalloc (&ecmdata->gwdata);
-	if (zorg == NULL) goto oom;
-	xs = gwalloc (&ecmdata->gwdata);
-	if (xs == NULL) goto oom;
-	zs = gwalloc (&ecmdata->gwdata);
-	if (zs == NULL) goto oom;
+	if (!alloc_xz (ecmdata, &s)) goto oom;
+	if (!alloc_xz (ecmdata, &t)) goto oom;
+	scr.x = gwalloc (&ecmdata->gwdata);
+	if (scr.x == NULL) goto oom;
 
+	// Count trailing zeroes
 	for (zeros = 0; (n & 1) == 0; zeros++) n >>= 1;
 
 	if (n > 1) {
-		ell_begin_fft (ecmdata, xx, zz, xorg, zorg);
-
+		// Find topmost bit
 		c = 1; c <<= 63;
 		while ((c&n) == 0) c >>= 1;
 		c >>= 1;
 
-		/* If the second bit is zero, we can save one ell_dbl call */
-
+		/* In this loop, t = our multiplication result, s = t + 1
+		
+		/* Process the second bit.  If the second bit is zero, we can save one ell_dbl call */
 		if (c&n) {
-			gwcopy (&ecmdata->gwdata, xorg, xx);
-			gwcopy (&ecmdata->gwdata, zorg, zz);
-			stop_reason = ell_dbl_fft (ecmdata, xx, zz, xs, zs, Ad4);
-			if (stop_reason) return (stop_reason);
+			ell_dbl_xz_scr (ecmdata, arg, &s, &scr);		// s = 2
+			ell_add_xz (ecmdata, &s, arg, arg, &t);			// t = 3
+			ell_dbl_xz_scr (ecmdata, &s, &s, &scr);			// s = 4
 		} else {
-			stop_reason = ell_dbl_fft (ecmdata, xorg, zorg, xx, zz, Ad4);
-			if (stop_reason) return (stop_reason);
-			stop_reason = ell_add_fft (ecmdata, xorg, zorg, xx, zz, xorg, zorg, xs, zs);
-			if (stop_reason) return (stop_reason);
-			c >>= 1;
+			ell_dbl_xz_scr (ecmdata, arg, &t, &scr);		// t = 2
+			ell_add_xz (ecmdata, &t, arg, arg, &s);			// s = 3
 		}
+		c >>= 1;
 
 		/* Do the rest of the bits */
 
-		do {
+		while (c) {
 			if (c&n) {
 				if (c == 1) {
-					stop_reason = ell_add_fft_last (ecmdata, xs, zs, xx, zz,
-									xorg, zorg, xx, zz);
-					if (stop_reason) return (stop_reason);
+					if (zeros) {
+						ell_add_xz (ecmdata, &s, &t, arg, &t);
+					} else {
+						ell_add_xz_last (ecmdata, &s, &t, arg, arg);
+					}
 				} else {
-					stop_reason = ell_add_fft (ecmdata, xs, zs, xx, zz,
-								   xorg, zorg, xx, zz);
-					if (stop_reason) return (stop_reason);
-					stop_reason = ell_dbl_fft (ecmdata, xs, zs, xs, zs, Ad4);
-					if (stop_reason) return (stop_reason);
+					ell_add_xz (ecmdata, &s, &t, arg, &t);			// t = s + t
+					ell_dbl_xz_scr (ecmdata, &s, &s, &scr);			// s = 2 * s
 				}
 			} else {
-				stop_reason = ell_add_fft (ecmdata, xx, zz, xs, zs,
-							   xorg, zorg, xs, zs);
-				if (stop_reason) return (stop_reason);
-				stop_reason = ell_dbl_fft (ecmdata, xx, zz, xx, zz, Ad4);
-				if (stop_reason) return (stop_reason);
+				ell_add_xz (ecmdata, &s, &t, arg, &s);				// s = t + s
+				ell_dbl_xz_scr (ecmdata, &t, &t, &scr);				// t = 2 * t
 			}
 			c >>= 1;
-		} while (c);
+		}
 	}
-
-	gwfree (&ecmdata->gwdata, xorg); 
-	gwfree (&ecmdata->gwdata, zorg); 
-	gwfree (&ecmdata->gwdata, xs); 
-	gwfree (&ecmdata->gwdata, zs); 
 
 	while (zeros--) {
-		stop_reason = ell_dbl (ecmdata, xx, zz, xx, zz, Ad4);
-		if (stop_reason) return (stop_reason);
+		if (zeros) {
+			ell_dbl_xz_scr (ecmdata, &t, &t, &scr);					// t = 2 * t
+		} else {
+			ell_dbl_xz_scr_last (ecmdata, &t, arg, &scr);
+		}
 	}
+
+	free_xz (ecmdata, &s);
+	free_xz (ecmdata, &t);
+	gwfree (&ecmdata->gwdata, scr.x);
 	return (0);
 
 /* Out of memory exit path */
@@ -829,10 +708,8 @@ oom:	return (OutOfMemory (ecmdata->thread_num));
 
 int ell_mul (
 	ecmhandle *ecmdata,
-	gwnum	xx,
-	gwnum	zz,
-	uint64_t n,
-	gwnum	Ad4)
+	struct xz *arg,
+	uint64_t n)
 {
 	unsigned long zeros;
 	int	stop_reason;
@@ -873,12 +750,15 @@ int ell_mul (
 		c = lucas_cost (n, 0.6180796684698958);	/*(89+55*v)/(55+34*v)*/
 		if (c < min) min = c, minv = 0.6180796684698958;
 
-		stop_reason = lucas_mul (ecmdata, xx, zz, n, minv, Ad4);
+		stop_reason = lucas_mul (ecmdata, arg, n, minv);
 		if (stop_reason) return (stop_reason);
 	}
 	while (zeros--) {
-		stop_reason = ell_dbl (ecmdata, xx, zz, xx, zz, Ad4);
-		if (stop_reason) return (stop_reason);
+		struct xz scr;
+		scr.x = gwalloc (&ecmdata->gwdata);
+		if (scr.x == NULL) return (OutOfMemory (ecmdata->thread_num));
+		ell_dbl_xz_scr_last (ecmdata, arg, arg, &scr);
+		gwfree (&ecmdata->gwdata, scr.x);
 	}
 	return (0);
 }
@@ -1340,8 +1220,7 @@ int normalize (
 int add_to_normalize_pool (
 	ecmhandle *ecmdata,
 	gwnum	a,
-	gwnum	b,
-	int	ffted)		/* TRUE if input arguments have been FFTed */
+	gwnum	b)
 {
 
 /* Switch off the type of pooling we are going to do */
@@ -1358,35 +1237,18 @@ int add_to_normalize_pool (
 			ecmdata->pool_modinv_value = gwalloc (&ecmdata->gwdata);
 			if (ecmdata->pool_modinv_value == NULL) goto oom;
 			gwcopy (&ecmdata->gwdata, b, ecmdata->pool_modinv_value);
-			ecmdata->pool_ffted = ffted;
 		}
 
 /* Otherwise, multiply a by the accumulated b values */
 
-		else if (ffted) {
-			if (ecmdata->pool_count != 1)
-				gwfft (&ecmdata->gwdata,
-				       ecmdata->pool_modinv_value,
-				       ecmdata->pool_modinv_value);
-			gwfftfftmul (&ecmdata->gwdata,
-				     ecmdata->pool_modinv_value, a, a);
+		else {
+			gwstartnextfft (&ecmdata->gwdata, TRUE);
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, a, a, GWMUL_FFT_S1);
 			ecmdata->poolz_values[ecmdata->pool_count] = gwalloc (&ecmdata->gwdata);
 			if (ecmdata->poolz_values[ecmdata->pool_count] == NULL) goto oom;
-			gwcopy (&ecmdata->gwdata, b, ecmdata->poolz_values[ecmdata->pool_count]);
-			gwfftfftmul (&ecmdata->gwdata,
-				     ecmdata->poolz_values[ecmdata->pool_count],
-				     ecmdata->pool_modinv_value,
-				     ecmdata->pool_modinv_value);
-		} else {
-			gwmul (&ecmdata->gwdata, ecmdata->pool_modinv_value, a);
-			ecmdata->poolz_values[ecmdata->pool_count] = gwalloc (&ecmdata->gwdata);
-			if (ecmdata->poolz_values[ecmdata->pool_count] == NULL) goto oom;
-			gwfft (&ecmdata->gwdata,
-			       b, ecmdata->poolz_values[ecmdata->pool_count]);
-			gwfftfftmul (&ecmdata->gwdata,
-				     ecmdata->poolz_values[ecmdata->pool_count],
-				     ecmdata->pool_modinv_value,
-				     ecmdata->pool_modinv_value);
+			gwfft (&ecmdata->gwdata, b, ecmdata->poolz_values[ecmdata->pool_count]);
+			gwstartnextfft (&ecmdata->gwdata, FALSE);
+			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->pool_count], ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, 0);
 		}
 
 /* Add a to array of values to normalize */
@@ -1404,46 +1266,22 @@ int add_to_normalize_pool (
 			ecmdata->pool_modinv_value = gwalloc (&ecmdata->gwdata);
 			if (ecmdata->pool_modinv_value == NULL) goto oom;
 			gwcopy (&ecmdata->gwdata, b, ecmdata->pool_modinv_value);
-			ecmdata->pool_ffted = ffted;
 		}
 
-/* Otherwise, multiply a by the accumulated b values */
-/* and multiply all previous a's by this b */
+/* Otherwise, multiply a by the accumulated b values and multiply all previous a's by this b */
 
-		else if (ffted) {
-			unsigned int i;
-			if (ecmdata->pool_count != 1)
-				gwfft (&ecmdata->gwdata,
-				       ecmdata->pool_modinv_value,
-				       ecmdata->pool_modinv_value);
-			gwfftfftmul (&ecmdata->gwdata,
-				     ecmdata->pool_modinv_value, a, a);
-			gwfftfftmul (&ecmdata->gwdata,
-				     b, ecmdata->pool_modinv_value,
-				     ecmdata->pool_modinv_value);
-			for (i = 0; i < ecmdata->pool_count; i++)
-				if (i == 0 && ecmdata->pool_ffted) {
-					gwfftfftmul (&ecmdata->gwdata,
-						     b, ecmdata->pool_values[i],
-						     ecmdata->pool_values[i]);
-					ecmdata->pool_ffted = FALSE;
-				} else
-					gwfftmul (&ecmdata->gwdata,
-						  b, ecmdata->pool_values[i]);
-		} else {
+		else {
 			unsigned int i;
 			gwnum	tmp;
-			gwmul (&ecmdata->gwdata, ecmdata->pool_modinv_value, a);
+			gwstartnextfft (&ecmdata->gwdata, TRUE);
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, a, a, GWMUL_FFT_S1);
 			tmp = gwalloc (&ecmdata->gwdata);
 			if (tmp == NULL) goto oom;
 			gwfft (&ecmdata->gwdata, b, tmp);
-			gwfftfftmul (&ecmdata->gwdata, tmp, ecmdata->pool_modinv_value, ecmdata->pool_modinv_value);
 			for (i = 0; i < ecmdata->pool_count; i++)
-				if (i == 0 && ecmdata->pool_ffted) {
-					gwfftfftmul (&ecmdata->gwdata, tmp, ecmdata->pool_values[i], ecmdata->pool_values[i]);
-					ecmdata->pool_ffted = FALSE;
-				} else
-					gwfftmul (&ecmdata->gwdata, tmp, ecmdata->pool_values[i]);
+				gwmul3 (&ecmdata->gwdata, tmp, ecmdata->pool_values[i], ecmdata->pool_values[i], 0);
+			gwstartnextfft (&ecmdata->gwdata, FALSE);
+			gwmul3 (&ecmdata->gwdata, tmp, ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, 0);
 			gwfree (&ecmdata->gwdata, tmp);
 		}
 
@@ -1477,52 +1315,30 @@ int normalize_pool (
 	if (stop_reason) return (stop_reason);
 	if (*factor != NULL) goto exit;
 
-/* Now invert each value */
-/* Switch off the type of pooling we are going to do */
+/* Now invert each value.  Switch off the type of pooling we are doing. */
 
 	switch (ecmdata->pool_type) {
 
 /* Implement algorithm 2 above */
 
 	case POOL_3MULT:
+		gwstartnextfft (&ecmdata->gwdata, FALSE);
 		for (i = ecmdata->pool_count-1; ; i--) {
-			if (i == 0 && ecmdata->pool_ffted) {
-				gwfft (&ecmdata->gwdata,
-				       ecmdata->pool_modinv_value,
-				       ecmdata->pool_modinv_value);
-				gwfftfftmul (&ecmdata->gwdata,
-					     ecmdata->pool_modinv_value,
-					     ecmdata->pool_values[i],
-					     ecmdata->pool_values[i]);
-			} else
-				gwmul (&ecmdata->gwdata,
-				       ecmdata->pool_modinv_value,
-				       ecmdata->pool_values[i]);
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->pool_values[i], ecmdata->pool_values[i], 0);
 			if (i == 0) break;
-			gwfftfftmul (&ecmdata->gwdata,
-				     ecmdata->poolz_values[i],
-				     ecmdata->pool_modinv_value,
-				     ecmdata->pool_modinv_value);
+			gwstartnextfft (&ecmdata->gwdata, TRUE);
+			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[i], ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, 0);
 			gwfree (&ecmdata->gwdata, ecmdata->poolz_values[i]);
+			gwstartnextfft (&ecmdata->gwdata, FALSE);
 		}
 		break;
 
 /* Implement algorithm 4 above */
 
 	case POOL_N_SQUARED:
-		gwfft (&ecmdata->gwdata,
-		       ecmdata->pool_modinv_value,
-		       ecmdata->pool_modinv_value);
+		gwstartnextfft (&ecmdata->gwdata, FALSE);
 		for (i = 0; i < ecmdata->pool_count; i++)
-			if (i == 0 && ecmdata->pool_ffted) {
-				gwfftfftmul (&ecmdata->gwdata,
-					     ecmdata->pool_modinv_value,
-					     ecmdata->pool_values[i],
-					     ecmdata->pool_values[i]);
-			} else
-				gwfftmul (&ecmdata->gwdata,
-					  ecmdata->pool_modinv_value,
-					  ecmdata->pool_values[i]);
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->pool_values[i], ecmdata->pool_values[i], GWMUL_FFT_S1);
 		break;
 	}
 
@@ -1551,7 +1367,6 @@ int choose12 (
 	gwnum 	x,
 	gwnum 	z,
 	double 	curve,
-	gwnum	*Ad4,
 	giant	N,		/* Number we are factoring */
 	giant	*factor)	/* Factor found, if any */
 {
@@ -1596,21 +1411,21 @@ int choose12 (
 	gwsafemul (&ecmdata->gwdata, xs, t3);
 	gwsquare (&ecmdata->gwdata, xs);
 	gwsafemul (&ecmdata->gwdata, xs, t3);
-	*Ad4 = gwalloc (&ecmdata->gwdata);
-	if (*Ad4 == NULL) goto oom;
-	dbltogw (&ecmdata->gwdata, 4.0, *Ad4);
-	gwmul (&ecmdata->gwdata, t3, *Ad4);	/* An/Ad is now A + 2 */
+	ecmdata->Ad4 = gwalloc (&ecmdata->gwdata);
+	if (ecmdata->Ad4 == NULL) goto oom;
+	dbltogw (&ecmdata->gwdata, 4.0, ecmdata->Ad4);
+	gwmul (&ecmdata->gwdata, t3, ecmdata->Ad4);	/* An/Ad is now A + 2 */
 
 	/* Normalize so that An is one */
-	stop_reason = normalize (ecmdata, *Ad4, t2, N, factor);
+	stop_reason = normalize (ecmdata, ecmdata->Ad4, t2, N, factor);
 	if (stop_reason) return (stop_reason);
 
 	/* For extra speed, precompute Ad * 4 */
 	dbltogw (&ecmdata->gwdata, 4.0, t1);
-	gwmul (&ecmdata->gwdata, t1, *Ad4);
+	gwmul (&ecmdata->gwdata, t1, ecmdata->Ad4);
 
 	/* Even more speed, save FFT of Ad4 */
-	gwfft (&ecmdata->gwdata, *Ad4, *Ad4);
+	gwfft (&ecmdata->gwdata, ecmdata->Ad4, ecmdata->Ad4);
 
 /* Clean up temporaries */
 
@@ -1638,14 +1453,12 @@ void curve_start_msg (
 {
 	char	buf[120];
 
-	sprintf (buf, "%s ECM curve #%ld",
-		 gwmodulo_as_string (&ecmdata->gwdata), curve);
+	sprintf (buf, "%s ECM curve #%ld", gwmodulo_as_string (&ecmdata->gwdata), curve);
 	title (thread_num, buf);
 
 	sprintf (buf,
 		 "ECM on %s: curve #%ld with s=%.0f, B1=%.0f, B2=%.0f\n",
-		 gwmodulo_as_string (&ecmdata->gwdata), curve, sigma,
-		 (double) B, (double) C);
+		 gwmodulo_as_string (&ecmdata->gwdata), curve, sigma, (double) B, (double) C);
 	OutputStr (thread_num, buf);
 }
 
@@ -1655,43 +1468,38 @@ int mQ_init (
 	ecmhandle *ecmdata,
 	gwnum	x,
 	uint64_t m,
-	gwnum	Q2Dx,
-	gwnum	Ad4)
+	gwnum	Q2Dx)
 {
 	int	stop_reason;
 
-	ecmdata->Qprevmx = gwalloc (&ecmdata->gwdata);
-	if (ecmdata->Qprevmx == NULL) goto oom;
-	ecmdata->Qprevmz = gwalloc (&ecmdata->gwdata);
-	if (ecmdata->Qprevmz == NULL) goto oom;
-	ecmdata->Qmx = gwalloc (&ecmdata->gwdata);
-	if (ecmdata->Qmx == NULL) goto oom;
-	ecmdata->Qmz = gwalloc (&ecmdata->gwdata);
-	if (ecmdata->Qmz == NULL) goto oom;
-	gwcopy (&ecmdata->gwdata, x, ecmdata->Qprevmx);
-	dbltogw (&ecmdata->gwdata, 1.0, ecmdata->Qprevmz);
-	stop_reason = bin_ell_mul (ecmdata, ecmdata->Qprevmx, ecmdata->Qprevmz, m - 4*ecmdata->D, Ad4);
+	if (!alloc_xz (ecmdata, &ecmdata->Qm)) goto oom;
+	if (!alloc_xz (ecmdata, &ecmdata->Qprevm)) goto oom;
+
+//GW:  let bin_ell_mul start next FFT!
+	/* Compute x * (m - 2D) */
+	gwcopy (&ecmdata->gwdata, x, ecmdata->Qm.x);
+	dbltogw (&ecmdata->gwdata, 1.0, ecmdata->Qm.z);
+	stop_reason = bin_ell_mul (ecmdata, &ecmdata->Qm, m - 2*ecmdata->D);
 	if (stop_reason) return (stop_reason);
-	gwfft (&ecmdata->gwdata, ecmdata->Qprevmx, ecmdata->Qprevmx);
-	gwfft (&ecmdata->gwdata, ecmdata->Qprevmz, ecmdata->Qprevmz);
-	gwcopy (&ecmdata->gwdata, x, ecmdata->Qmx);
-	dbltogw (&ecmdata->gwdata, 1.0, ecmdata->Qmz);
-	stop_reason = bin_ell_mul (ecmdata, ecmdata->Qmx, ecmdata->Qmz, m - 2*ecmdata->D, Ad4);
+
+	/* Compute x * (m - 4D) */
+	gwcopy (&ecmdata->gwdata, x, ecmdata->Qprevm.x);
+	dbltogw (&ecmdata->gwdata, 1.0, ecmdata->Qprevm.z);
+	stop_reason = bin_ell_mul (ecmdata, &ecmdata->Qprevm, m - 4*ecmdata->D);
 	if (stop_reason) return (stop_reason);
-	gwfft (&ecmdata->gwdata, ecmdata->Qmx, ecmdata->Qmx);
-	gwfft (&ecmdata->gwdata, ecmdata->Qmz, ecmdata->Qmz);
 
 	/* There will be no more ell_dbl calls */
-	gwfree (&ecmdata->gwdata, Ad4);
+	gwfree (&ecmdata->gwdata, ecmdata->Ad4);
+	ecmdata->Ad4 = NULL;
 
-	/* Precompute the FFTs of Q2Dx+1 and Q2Dx-1 */
-	ecmdata->Q2Dxplus1 = Q2Dx;
-	ecmdata->Q2Dxminus1 = gwalloc (&ecmdata->gwdata);
-	if (ecmdata->Q2Dxminus1 == NULL) goto oom;
-	gwaddsmall (&ecmdata->gwdata, Q2Dx, -1);
-	gwfft (&ecmdata->gwdata, Q2Dx, ecmdata->Q2Dxminus1);
-	gwaddsmall (&ecmdata->gwdata, Q2Dx, 2);
-	gwfft (&ecmdata->gwdata, Q2Dx, ecmdata->Q2Dxplus1);
+	/* Turn x * 2D, 1 into x+z,x-z format */
+	ecmdata->Q2Dx.x = Q2Dx;
+	ecmdata->Q2Dx.z = gwalloc (&ecmdata->gwdata);
+	if (ecmdata->Q2Dx.z == NULL) goto oom;
+	gwcopy (&ecmdata->gwdata, Q2Dx, ecmdata->Q2Dx.z);
+	gwaddsmall (&ecmdata->gwdata, ecmdata->Q2Dx.x, 1);
+	gwaddsmall (&ecmdata->gwdata, ecmdata->Q2Dx.z, -1);
+	ecmdata->Q2Dx.added = TRUE;
 
 	/* Init the arrays used in pooled normalizes of mQx values */
 	if (ecmdata->TWO_FFT_STAGE2) {
@@ -1717,39 +1525,27 @@ int mQ_next (
 {
 	int	stop_reason;
 
-/* The non-normalized case - simple multiply the last Q^m value */
-/* by Q^2D to get the next Q^m value */
+/* The non-normalized case - simple multiply the last Q^m value by Q^2D to get the next Q^m value */
 
 	if (!ecmdata->TWO_FFT_STAGE2) {
-		stop_reason = ell_add_special3 (ecmdata, ecmdata->Qmx, ecmdata->Qmz,
-					        ecmdata->Q2Dxplus1, ecmdata->Q2Dxminus1,
-						&ecmdata->Qprevmx, &ecmdata->Qprevmz);
+		stop_reason = ell_add_xz_noscr (ecmdata, &ecmdata->Qm, &ecmdata->Q2Dx, &ecmdata->Qprevm, &ecmdata->Qprevm);
 		if (stop_reason) return (stop_reason);
-		gwswap (ecmdata->Qmx, ecmdata->Qprevmx);
-		gwswap (ecmdata->Qmz, ecmdata->Qprevmz);
-		gwfft (&ecmdata->gwdata, ecmdata->Qmx, ecmdata->Qmx);
-		gwfft (&ecmdata->gwdata, ecmdata->Qmz, ecmdata->Qmz);
-		*retx = ecmdata->Qmx;
-		*retz = ecmdata->Qmz;
+		xzswap (ecmdata->Qm, ecmdata->Qprevm);
+		*retx = ecmdata->Qm.x;
+		*retz = ecmdata->Qm.z;
 		return (0);
 	}
 
-/* The normalized case - batch up a bunch of Q^m values and normalize */
-/* them.  Then return them one at a time.  Obviously retz need not be */
-/* returned since it is always one. */
+/* The normalized case - batch up a bunch of Q^m values and normalize them.  Then return them one at a time. */
+/* Obviously retz need not be returned since it is always one. */
 
 	if (ecmdata->mQx_count == 0) {
 		for ( ; ecmdata->mQx_count < ecmdata->E; ecmdata->mQx_count++) {
-			stop_reason = ell_add_special3 (ecmdata, ecmdata->Qmx, ecmdata->Qmz,
-						        ecmdata->Q2Dxplus1, ecmdata->Q2Dxminus1,
-						        &ecmdata->Qprevmx, &ecmdata->Qprevmz);
+			stop_reason = ell_add_xz_noscr (ecmdata, &ecmdata->Qm, &ecmdata->Q2Dx, &ecmdata->Qprevm, &ecmdata->Qprevm);
 			if (stop_reason) return (stop_reason);
-			gwswap (ecmdata->Qmx, ecmdata->Qprevmx);
-			gwswap (ecmdata->Qmz, ecmdata->Qprevmz);
-			gwfft (&ecmdata->gwdata, ecmdata->Qmx, ecmdata->Qmx);
-			gwfft (&ecmdata->gwdata, ecmdata->Qmz, ecmdata->Qmz);
-			gwcopy (&ecmdata->gwdata, ecmdata->Qmx, ecmdata->mQx[ecmdata->mQx_count]);
-			stop_reason = add_to_normalize_pool (ecmdata, ecmdata->mQx[ecmdata->mQx_count], ecmdata->Qmz, 1);
+			xzswap (ecmdata->Qm, ecmdata->Qprevm);
+			gwcopy (&ecmdata->gwdata, ecmdata->Qm.x, ecmdata->mQx[ecmdata->mQx_count]);
+			stop_reason = add_to_normalize_pool (ecmdata, ecmdata->mQx[ecmdata->mQx_count], ecmdata->Qm.z);
 			if (stop_reason) return (stop_reason);
 		}
 		stop_reason = normalize_pool (ecmdata, N, factor);
@@ -1757,18 +1553,15 @@ int mQ_next (
 		if (*factor != NULL) return (0);
 	}
 	*retx = ecmdata->mQx[ecmdata->E - ecmdata->mQx_count];
-	gwfft (&ecmdata->gwdata, *retx, *retx);
 	ecmdata->mQx_count--;
 	return (0);
 }
 void mQ_term (
 	ecmhandle *ecmdata)
 {
-	gwfree (&ecmdata->gwdata, ecmdata->Qprevmx);
-	gwfree (&ecmdata->gwdata, ecmdata->Qprevmz);
-	gwfree (&ecmdata->gwdata, ecmdata->Qmx);
-	gwfree (&ecmdata->gwdata, ecmdata->Qmz);
-	gwfree (&ecmdata->gwdata, ecmdata->Q2Dxminus1);
+	free_xz (ecmdata, &ecmdata->Qm);
+	free_xz (ecmdata, &ecmdata->Qprevm);
+	gwfree (&ecmdata->gwdata, ecmdata->Q2Dx.z);
 }
 
 /* Record the amount of memory being used by this thread.  Until we get to */
@@ -1874,8 +1667,7 @@ replan:	stop_reason = avail_mem (thread_num,
 /* normally be C-B.  However, the relprime algorithm makes */
 /* our primes much denser than that. */
 
-		numpairings = ceil (
-			(numprimes / 2.0 * numprimes / ((C-B) * density)));
+		numpairings = ceil ((numprimes / 2.0 * numprimes / ((C-B) * density)));
 
 /* There will be (C-B)/2D sections */
 
@@ -1883,8 +1675,8 @@ replan:	stop_reason = avail_mem (thread_num,
 
 /* Cost out the 4FFT stage 2 using this D			*/
 /* The cost will be:						*/
-/*	D/2 ell_add_ffts  + pool_cost (relprime) +		*/
-/*	(C-B)/2D ell_add_specials + #primes*4			*/
+/*	D/2 ell_add_xzs  + pool_cost (relprime) +		*/
+/*	(C-B)/2D ell_add_xzs + #primes*4			*/
 /* The memory consumed will be:					*/
 /*	13 + relprime gwnums if N^2 pooling			*/
 /* or	13 + 2*relprime gwnums if 3N pooling			*/
@@ -1923,8 +1715,8 @@ replan:	stop_reason = avail_mem (thread_num,
 
 /* Cost out the 2FFT stage 2 using this D			*/
 /* The cost will be:						*/
-/*	D/2 ell_add_ffts  + pool_cost (relprime) +		*/
-/*	(C-B)/2D ell_add_specials + #primes*2 +			*/
+/*	D/2 ell_add_xzs  + pool_cost (relprime) +		*/
+/*	(C-B)/2D ell_add_xzs + #primes*2 +			*/
 /*	(C-B)/2D/E * pool_cost (e)				*/
 /*	(C-B)/2D/E * gcd_cost					*/
 /* The memory consumed will be:					*/
@@ -2038,8 +1830,10 @@ void ecm_save (
 	if (! write_longlong (fd, B_processed, &sum)) goto writeerr;
 	if (! write_longlong (fd, C_processed, &sum)) goto writeerr;
 
-/* Write the data values */
+/* Write the data values, make sure they have not been FFTed or partially FFTed */
 
+	gwunfft (&ecmdata->gwdata, x, x);
+	gwunfft (&ecmdata->gwdata, gg, gg);
 	if (! write_gwnum (fd, &ecmdata->gwdata, x, &sum)) goto writeerr;
 	if (! write_gwnum (fd, &ecmdata->gwdata, gg, &sum)) goto writeerr;
 
@@ -2198,11 +1992,10 @@ int ecm (
 	writeSaveFileState write_save_file_state; /* Manage savefile names during writing */
 	char	filename[32], buf[255], JSONbuf[4000], fft_desc[200];
 	int	res, stop_reason, stage, first_iter_msg;
-	gwnum	x, z, t1, t2, gg;
-	gwnum	Q2x, Q2z, Qiminus2x, Qiminus2z, Qdiffx, Qdiffz;
+	gwnum	t1, t2, gg;
+	struct xz xz, Q2, Qiminus2, Qdiff;
 	giant	N;		/* Number being factored */
 	giant	factor;		/* Factor found, if any */
-	gwnum	Ad4 = NULL;
 	int	msglen, continueECM, prpAfterEcmFactor;
 	char	*str, *msg;
 	double	timers[10];
@@ -2543,6 +2336,10 @@ OutputStr (thread_num, buf);
 	gwfft_description (&ecmdata.gwdata, fft_desc);
 	sprintf (buf, "Using %s\n", fft_desc);
 	OutputStr (thread_num, buf);
+	if (ecmdata.gwdata.PASS1_SIZE) {
+		sprintf (buf, "%5.3f bits-per-word below FFT limit (more than 0.5 allows extra optimizations)\n", (ecmdata.gwdata.EXTRA_BITS - 1.0) / 2.0);
+		OutputStr (thread_num, buf);
+	}
 
 /* Check for a continuation file.  Limit number of backup files we try */
 /* to read in case there is an error deleting bad save files. */
@@ -2567,20 +2364,15 @@ OutputStr (thread_num, buf);
 
 /* Allocate memory */
 
-		x = gwalloc (&ecmdata.gwdata);
-		if (x == NULL) goto oom;
-		z = gwalloc (&ecmdata.gwdata);
-		if (z == NULL) goto oom;
+		if (!alloc_xz (&ecmdata, &xz)) goto oom;
 		gg = NULL;
 
 /* Read in the save file.  If the save file is no good ecm_restore will have */
 /* deleted it.  Loop trying to read a backup save file. */
 
 		if (! ecm_restore (&ecmdata, thread_num, read_save_file_state.current_filename, w, &stage,
-				   &curve, &sigma, &save_B, &save_B_processed,
-				   &save_C_processed, x, z)) {
-			gwfree (&ecmdata.gwdata, x);
-			gwfree (&ecmdata.gwdata, z);
+				   &curve, &sigma, &save_B, &save_B_processed, &save_C_processed, xz.x, xz.z)) {
+			free_xz (&ecmdata, &xz);
 			/* Close and rename the bad save file */
 			saveFileBad (&read_save_file_state);
 			continue;
@@ -2591,8 +2383,7 @@ OutputStr (thread_num, buf);
 /* Restart the curve (and curve count) from scratch. */
 
 		if (B > save_B) {
-			gwfree (&ecmdata.gwdata, x);
-			gwfree (&ecmdata.gwdata, z);
+			free_xz (&ecmdata, &xz);
 			break;
 		}
 
@@ -2603,8 +2394,7 @@ OutputStr (thread_num, buf);
 		if (t1 == NULL) goto oom;
 		t2 = gwalloc (&ecmdata.gwdata);
 		if (t2 == NULL) goto oom;
-		stop_reason = choose12 (&ecmdata, w, t1, t2, sigma,
-					&Ad4, N, &factor);
+		stop_reason = choose12 (&ecmdata, w, t1, t2, sigma, N, &factor);
 		if (stop_reason) goto exit;
 		gwfree (&ecmdata.gwdata, t1);
 		gwfree (&ecmdata.gwdata, t2);
@@ -2620,12 +2410,12 @@ OutputStr (thread_num, buf);
 
 		gg = gwalloc (&ecmdata.gwdata);
 		if (gg == NULL) goto oom;
-		gwswap (z, gg);
+		gwswap (xz.z, gg);
 
 /* We've finished stage 1, resume stage 2 */
 
 		if (C > save_C_processed) {
-			dbltogw (&ecmdata.gwdata, 1.0, z);
+			dbltogw (&ecmdata.gwdata, 1.0, xz.z);
 			stop_reason = start_sieve (thread_num, save_C_processed, &ecmdata.sieve_info);
 			if (stop_reason) goto exit;
 			prime = sieve (ecmdata.sieve_info);
@@ -2650,14 +2440,10 @@ restart0:
 
 /* Allocate memory */
 
-	x = gwalloc (&ecmdata.gwdata);
-	if (x == NULL) goto oom;
-	z = gwalloc (&ecmdata.gwdata);
-	if (z == NULL) goto oom;
+	if (!alloc_xz (&ecmdata, &xz)) goto oom;
 	gg = NULL;
 
-/* Choose curve with order divisible by 16 and choose a point (x/z) on */
-/* said curve. */
+/* Choose curve with order divisible by 16 and choose a point (x/z) on said curve. */
 
 	stage = 0;  /* In case we print out a factor found message! */
 	do {
@@ -2669,7 +2455,7 @@ restart0:
 	} while (sigma <= 5.0);
 	if (w->curve > 5.0 && w->curve < 9007199254740992.0) sigma = w->curve;
 	curve_start_msg (&ecmdata, thread_num, curve, sigma, B, C);
-	stop_reason = choose12 (&ecmdata, w, x, z, sigma, &Ad4, N, &factor);
+	stop_reason = choose12 (&ecmdata, w, xz.x, xz.z, sigma, N, &factor);
 	if (stop_reason) goto exit;
 	if (factor != NULL) goto bingo;
 	sieve_start = 2;
@@ -2692,14 +2478,14 @@ restart1:
 /* Apply as many powers of prime as long as prime^n <= B */
 /* MEMUSED: 3 gwnums (x, z, AD4) + 10 for ell_mul */
 
-		stop_reason = ell_mul (&ecmdata, x, z, prime, Ad4);
+		stop_reason = ell_mul (&ecmdata, &xz, prime);
 		if (stop_reason) goto exit;
 		if (prime <= SQRT_B) {
 			uint64_t mult, max;
 			mult = prime;
 			max = B / prime;
 			for ( ; ; ) {
-				stop_reason = ell_mul (&ecmdata, x, z, prime, Ad4);
+				stop_reason = ell_mul (&ecmdata, &xz, prime);
 				if (stop_reason) goto exit;
 				mult *= prime;
 				if (mult > max) break;
@@ -2748,12 +2534,12 @@ restart1:
 
 		if (gw_test_for_error (&ecmdata.gwdata)) goto err;
 
-/* Write a save file when the user interrupts the calculation and */
-/* every DISK_WRITE_TIME minutes. */
+/* Write a save file when the user interrupts the calculation and every DISK_WRITE_TIME minutes. */
 
 		stop_reason = stopCheck (thread_num);
 		if (stop_reason || testSaveFilesFlag (thread_num)) {
-			ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE1, curve, sigma, B, prime, 0, x, z);
+			ASSERTG (!xz.added);
+			ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE1, curve, sigma, B, prime, 0, xz.x, xz.z);
 			if (stop_reason) goto exit;
 		}
 	}
@@ -2761,8 +2547,7 @@ restart1:
 /* Stage 1 complete */
 
 	end_timer (timers, 0);
-	sprintf (buf, "Stage 1 complete. %.0f transforms, %lu modular inverses. Time: ",
-		 gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
+	sprintf (buf, "Stage 1 complete. %.0f transforms, %lu modular inverses. Time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
 	print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	last_output = last_output_t = ecmdata.modinv_count = 0;
@@ -2781,9 +2566,10 @@ restart1:
 
 	if (C <= B) {
 skip_stage_2:	start_timer (timers, 0);
-		stop_reason = gcd (&ecmdata.gwdata, thread_num, z, N, &factor);
+		stop_reason = gcd (&ecmdata.gwdata, thread_num, xz.z, N, &factor);
 		if (stop_reason) {
-			ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE1, curve, sigma, B, B, 0, x, z);
+			ASSERTG (!xz.added);
+			ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE1, curve, sigma, B, B, 0, xz.x, xz.z);
 			goto exit;
 		}
 		end_timer (timers, 0);
@@ -2802,12 +2588,12 @@ skip_stage_2:	start_timer (timers, 0);
 			giant	gx;
 			char	*hex = "0123456789ABCDEF";
 
-			stop_reason = normalize (&ecmdata, x, z, N, &factor);
+			stop_reason = normalize (&ecmdata, xz.x, xz.z, N, &factor);
 			if (stop_reason) goto exit;
 
 			gx = popg (&ecmdata.gwdata.gdata, ((int) ecmdata.gwdata.bit_length >> 5) + 10);
 			if (gx == NULL) goto oom;
-			if (gwtogiant (&ecmdata.gwdata, x, gx)) goto oom;  // Unexpected error, return oom for lack of a better error message
+			if (gwtogiant (&ecmdata.gwdata, xz.x, gx)) goto oom;  // Unexpected error, return oom for lack of a better error message
 			modgi (&ecmdata.gwdata.gdata, N, gx);
 
 			msglen = N->sign * 8 + 5;
@@ -2877,7 +2663,8 @@ restart3:
 	stop_reason = choose_stage2_plan (thread_num, &ecmdata, B, C);
 	if (stop_reason) {
 		if (gg == NULL) {
-			ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE1, curve, sigma, B, B, 0, x, z);
+			ASSERTG (!xz.added);
+			ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE1, curve, sigma, B, B, 0, xz.x, xz.z);
 		}
 		goto exit;
 	}
@@ -2906,90 +2693,82 @@ restart3:
 /* Allocate memory for computing nQx values */
 /* MEMUSED: 9 gwnums (x, z, AD4, 6 for nQx) */
 
-	Q2x = gwalloc (&ecmdata.gwdata);
-	if (Q2x == NULL) goto oom;
-	Q2z = gwalloc (&ecmdata.gwdata);
-	if (Q2z == NULL) goto oom;
-	Qiminus2x = gwalloc (&ecmdata.gwdata);
-	if (Qiminus2x == NULL) goto oom;
-	Qiminus2z = gwalloc (&ecmdata.gwdata);
-	if (Qiminus2z == NULL) goto oom;
-	Qdiffx = gwalloc (&ecmdata.gwdata); Qdiffz = gwalloc (&ecmdata.gwdata);
-	if (Qdiffx == NULL) goto oom;
+	if (!alloc_xz (&ecmdata, &Q2)) goto oom;
+	if (!alloc_xz (&ecmdata, &Qiminus2)) goto oom;
+	if (!alloc_xz (&ecmdata, &Qdiff)) goto oom;
 
 /* Init values used in computing nQx.  We need Q^2, Q^1, and diff of Q^1. */
 /* MEMUSED: 9 gwnums (x, z, AD4, 6 for computing nQx) + 2 temporaries */
 
-	stop_reason = ell_dbl (&ecmdata, x, z, Q2x, Q2z, Ad4);
-	if (stop_reason) goto exit;
-	ell_begin_fft (&ecmdata, Q2x, Q2z, Q2x, Q2z);
-	gwfft (&ecmdata.gwdata, x, x); gwfft (&ecmdata.gwdata, z, z);
-	gwcopy (&ecmdata.gwdata, x, Qdiffx);
-	gwcopy (&ecmdata.gwdata, z, Qdiffz);
-	gwcopy (&ecmdata.gwdata, x, Qiminus2x);
-	gwcopy (&ecmdata.gwdata, z, Qiminus2z);
+	gwcopy (&ecmdata.gwdata, xz.x, Qdiff.x);
+	gwcopy (&ecmdata.gwdata, xz.z, Qdiff.z);
+	ell_dbl_xz_scr (&ecmdata, &Qdiff, &Q2, &Qiminus2);	// Q2 = 2 * Qdiff, scratch reg = Qiminus2
+	gwcopy (&ecmdata.gwdata, Qdiff.x, Qiminus2.x);
+	gwcopy (&ecmdata.gwdata, Qdiff.z, Qiminus2.z);
+	Qiminus2.added = Qdiff.added;
+//GW  seems wasteful to have so many copies of x and z lying around
 
 /* Init the first nQx value with Q^1 */
 /* MEMUSED: 9 gwnums (AD4, 6 for computing nQx, nQx[0], modinv_value) */
 
-	ecmdata.nQx[0] = x;
-	stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[0], z, 1);
+	ecmdata.nQx[0] = xz.x;
+	stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[0], xz.z);
 	if (stop_reason) goto exit;
-	gwfree (&ecmdata.gwdata, z);
+	gwfree (&ecmdata.gwdata, xz.z);
 
 /* Compute the rest of the nQx values (Q^i for i >= 3) */
 /* MEMUSED: 8 + nQx gwnums (AD4, 6 for computing nQx, nQx vals, modinv_val) */
 /* MEMPEAK: 8 + nQx-1 + 2 for ell_add temporaries */
 
 	for (i = 3; i < ecmdata.D; i = i + 2) {
-		ell_add_special3 (&ecmdata, Qiminus2x, Qiminus2z, Q2x, Q2z, &Qdiffx, &Qdiffz);
+		stop_reason = ell_add_xz_noscr (&ecmdata, &Qiminus2, &Q2, &Qdiff, &Qdiff);
+		if (stop_reason) goto exit;
 
 		if (gw_test_for_error (&ecmdata.gwdata)) goto err;
 
 		stop_reason = stopCheck (thread_num);
 		if (stop_reason) {
 			if (gg == NULL) {
-				ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE1,
-					  curve, sigma, B, B, 0, Qdiffx, Qdiffz);
+				ASSERTG (!Qdiff.added);
+				ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE1, curve, sigma, B, B, 0, Qdiff.x, Qdiff.z);
 			}
 			goto exit;
 		}
 
-		gwfft (&ecmdata.gwdata, Qdiffx, Qdiffx);
-		gwfft (&ecmdata.gwdata, Qdiffz, Qdiffz);
+//GW - We used to fft Qdiff.x and Qdiff.z, but doesn't that lead to potential roundoff issues in next ell_add_xz?
+// We could reinstate if extrabits && normalize pool as well as ell_add_xz benefits
 		if (relatively_prime (i, ecmdata.D)) {
 			j = (i - 1) >> 1;
 			ecmdata.nQx[j] = gwalloc (&ecmdata.gwdata);
 			if (ecmdata.nQx[j] == NULL) goto oom;
-			gwcopy (&ecmdata.gwdata, Qdiffx, ecmdata.nQx[j]);
-			stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[j], Qdiffz, 1);
+			gwcopy (&ecmdata.gwdata, Qdiff.x, ecmdata.nQx[j]);
+			stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[j], Qdiff.z);
 			if (stop_reason) goto exit;
 		}
-		gwswap (Qdiffx, Qiminus2x); gwswap (Qdiffz, Qiminus2z);
+		xzswap (Qdiff, Qiminus2);
 	}
 
-/* Now compute Q^2D.  This will be used in computing Q^m values. */
-/* Qiminus2 is Q^(D-1) and Qdiff if Q^(D-3).  Add Q^(D-1) and Q^2 to */
-/* get Q^(D+1).  Then add Q^(D-1) and Q^(D+1) to get Q^2D.  Store Q^2D */
+/* Now compute Q^2D.  This will be used in computing Q^m values.  Qiminus2 is Q^(D-1) and Qdiff if Q^(D-3). */
+/* Add Q^(D-1) and Q^2 to get Q^(D+1).  Then add Q^(D-1) and Q^(D+1) to get Q^2D.  Store Q^2D */
 /* in Q2x and Q2z.  Normalize them so we can free Q2z later on. */
 /* MEMUSED: 8 + nQx gwnums (AD4, 6 for computing nQx, nQx vals, modinv_val) */
 /* MEMPEAK: 8 + nQx + 2 for ell_add temporaries */
 
-	ell_add_special3 (&ecmdata, Qiminus2x, Qiminus2z, Q2x, Q2z, &Qdiffx, &Qdiffz);
-	gwfftaddsub (&ecmdata.gwdata, Q2x, Q2z); /* Recompute fft of Q2x,Q2z */
-	ell_begin_fft (&ecmdata, Qdiffx, Qdiffz, Qdiffx, Qdiffz);
-	ell_add_special3 (&ecmdata, Qiminus2x, Qiminus2z, Qdiffx, Qdiffz, &Q2x, &Q2z);
-	gwfft (&ecmdata.gwdata, Q2x, Q2x); gwfft (&ecmdata.gwdata, Q2z, Q2z);
-	stop_reason = add_to_normalize_pool (&ecmdata, Q2x, Q2z, 1);
+	ell_add_xz_noscr (&ecmdata, &Qiminus2, &Q2, &Qdiff, &Qdiff);			// Qdiff = Q^(D+1)
+	ell_add_xz_scr (&ecmdata, &Qiminus2, &Qdiff, &Q2, &Q2, &Qdiff);			// Q2 = Q^2D, scratch reg = Qdiff
+//GW - We used to fft Q2.x and Q2.z, but doesn't that lead to potential roundoff issues in next ell_add_xz?
+// We could reinstate if extrabits && normalize pool as well as ell_add_xz benefits
+// Well maybe there was no paroblem since Q2.x gets normalized and Q2.z is deleted
+// Is normalizing Q2D.x worthwhile -- in mQ_init we recreate Q2D.z
+	stop_reason = add_to_normalize_pool (&ecmdata, Q2.x, Q2.z);
 	if (stop_reason) goto exit;
 
 /* Free most of the memory used in computing nQx values */
-/* Keep two values we could free in case the upcoming normalize is */
-/* aborted and we need to write a save file. */
+/* Keep two values we could free in case the upcoming normalize is aborted and we need to write a save file. */
 /* MEMUSED: 5 + nQx gwnums (AD4, Q2x, Qiminus2x&z, nQx values, modinv_value) */
 
-	gwfree (&ecmdata.gwdata, Q2z);
-	gwfree (&ecmdata.gwdata, Qdiffx); gwfree (&ecmdata.gwdata, Qdiffz);
+	gwfree (&ecmdata.gwdata, Q2.z);
+	free_xz (&ecmdata, &Qdiff);
 
 /* Normalize all the nQx values */
 /* MEMUSED: 4 + nQx gwnums (AD4, Q2x, Qiminus2x&z, nQx values) */
@@ -2998,12 +2777,9 @@ restart3:
 	stop_reason = normalize_pool (&ecmdata, N, &factor);
 	if (stop_reason) {
 		if (gg == NULL) {
-			dbltogw (&ecmdata.gwdata, 1.0, Q2x);
-			gwfft (&ecmdata.gwdata, Q2x, Q2x);
-			gwfftfftmul (&ecmdata.gwdata, Q2x, Qiminus2x, Qiminus2x);
-			gwfftfftmul (&ecmdata.gwdata, Q2x, Qiminus2z, Qiminus2z);
-			ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE1, curve,
-				  sigma, B, B, 0, Qiminus2x, Qiminus2z);
+//GW fail!
+			ASSERTG (!Qiminus2.added);
+			ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE1, curve, sigma, B, B, 0, Qiminus2.x, Qiminus2.z);
 		}
 		goto exit;
 	}
@@ -3015,25 +2791,23 @@ restart3:
 /* Free rest of the memory used in computing nQx values */
 /* MEMUSED: 2 + nQx gwnums (AD4, Q2x, nQx values) */
 
-	gwfree (&ecmdata.gwdata, Qiminus2x);
-	gwfree (&ecmdata.gwdata, Qiminus2z);
+	free_xz (&ecmdata, &Qiminus2);
 
 /* Init code that computes Q^m */
 /* MEMUSED: 6 + nQx gwnums (6 for computing mQx, nQx values) */
 /* MEMPEAK: 6 + nQx + 6 for bin_ell_mul temporaries */
 
 	m = (prime / ecmdata.D + 1) * ecmdata.D;
-	stop_reason = mQ_init (&ecmdata, ecmdata.nQx[0], m, Q2x, Ad4);
+	stop_reason = mQ_init (&ecmdata, ecmdata.nQx[0], m, Q2.x);
 	if (stop_reason) goto exit;
 
 /* Precompute the transforms of nQx */
 
-	for (i = 0; i < ecmdata.D/2; i++)
-		if (ecmdata.nQx[i] != NULL)
-			gwfft (&ecmdata.gwdata, ecmdata.nQx[i], ecmdata.nQx[i]);
+//	for (i = 0; i < ecmdata.D/2; i++)
+//		if (ecmdata.nQx[i] != NULL)
+//			gwfft (&ecmdata.gwdata, ecmdata.nQx[i], ecmdata.nQx[i]);
 
-/* Now init the accumulator unless this value was read */
-/* from a continuation file */
+/* Now init the accumulator unless this value was read from a continuation file */
 /* MEMUSED: 7 + nQx gwnums (6 for computing mQx, gg, nQx values) */
 
 	if (gg == NULL) {
@@ -3074,14 +2848,7 @@ restart3:
 		if (stop_reason) {
 			// In case stop_reason is out-of-memory, free some up before calling ecm_save.
 			mQ_term (&ecmdata);
-			t1 = gwalloc (&ecmdata.gwdata);
-			if (t1 == NULL) goto oom;
-			dbltogw (&ecmdata.gwdata, 1.0, t1);
-			gwmul (&ecmdata.gwdata, t1, gg);
-			gwfftfftmul (&ecmdata.gwdata, t1, ecmdata.nQx[0], ecmdata.nQx[0]);
-			ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE2, curve,
-				  sigma, B, B, prime, ecmdata.nQx[0], gg);
-			gwfree (&ecmdata.gwdata, t1);
+			ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE2, curve, sigma, B, B, prime, ecmdata.nQx[0], gg);
 			goto exit;
 		}
 		if (factor != NULL) goto bingo;
@@ -3120,8 +2887,7 @@ restart3:
 			} else
 				break;
 			gwstartnextfft (&ecmdata.gwdata, TRUE);
-			gwfftfftmul (&ecmdata.gwdata, ecmdata.nQx[i], mQz, t1);
-			gwfft (&ecmdata.gwdata, t1, t1);
+			gwmul3 (&ecmdata.gwdata, ecmdata.nQx[i], mQz, t1, GWMUL_FFT_S1 | GWMUL_FFT_S2);
 			gwsubmul4 (&ecmdata.gwdata, mQx, t1, gg, gg, GWMUL_FFT_S1 | GWMUL_FFT_S2);
 			gwstartnextfft (&ecmdata.gwdata, FALSE);
 		    }
@@ -3170,28 +2936,16 @@ restart3:
 
 		if (gw_test_for_error (&ecmdata.gwdata)) goto err;
 
-/* Write a save file when the user interrupts the calculation and */
-/* every DISK_WRITE_TIME minutes. */
+/* Write a save file when the user interrupts the calculation and every DISK_WRITE_TIME minutes. */
 
 		stop_reason = stopCheck (thread_num);
 		if (stop_reason || testSaveFilesFlag (thread_num)) {
-			t1 = gwalloc (&ecmdata.gwdata);
-			if (t1 == NULL) goto oom;
-			dbltogw (&ecmdata.gwdata, 1.0, t1);
-			gwmul (&ecmdata.gwdata, t1, gg);
-			gwfftfftmul (&ecmdata.gwdata, t1, ecmdata.nQx[0], t1);
-			ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE2, curve,
-				  sigma, B, B, prime, t1, gg);
-			gwfree (&ecmdata.gwdata, t1);
+			ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE2, curve, sigma, B, B, prime, ecmdata.nQx[0], gg);
 			if (stop_reason) goto exit;
 		}
 	}
 	mQ_term (&ecmdata);
-	t1 = gwalloc (&ecmdata.gwdata);
-	if (t1 == NULL) goto oom;
-	dbltogw (&ecmdata.gwdata, 1.0, t1);
-	gwmul (&ecmdata.gwdata, t1, gg);
-	gwfree (&ecmdata.gwdata, t1);
+	gwunfft (&ecmdata.gwdata, gg, gg);
 
 /* Stage 2 is complete */
 

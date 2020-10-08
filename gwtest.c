@@ -148,7 +148,7 @@ void compare (int thread_num, gwhandle *gwdata, gwnum x, giant g)
 		if (IniSectionGetInt (INI_FILE, "QA", "DUMP_DIFF", 0)) { // Sometimes we must debug by finding which FFT words are different
 			int	count, max_count;
 			count = 0;
-			max_count = IniSectionGetInt (INI_FILE, "QA", "DUMP_DIFF_COUNT", 50);
+			max_count = IniSectionGetInt (INI_FILE, "QA", "DUMP_DIFF", 50);
 			for (i = 0; i < (int) gwdata->FFTLEN && count < max_count; i++) {
 				long val, val2;
 				get_fft_value (gwdata, x, i, &val);
@@ -437,8 +437,8 @@ void test_it_all (
 
 /* Test gwmul4 routines */
 
-		gwsquare2 (&gwdata, x, x2);
-		gwsquare2 (&gwdata, x2, x3);
+		gwsquare2 (&gwdata, x, x2, 0);
+		gwsquare2 (&gwdata, x2, x3, 0);
 		gwaddmul4 (&gwdata, x2, x3, x, x, 0);
 	
 		gwsubmul4 (&gwdata, x2, x3, x, x, 0);
@@ -880,8 +880,8 @@ void test_it (
 
 /* Test gwmul4 routines */
 
-	gwsquare2 (gwdata, x, x2); gtog (g, g2); squaregi (&gwdata->gdata, g2); specialmodg (gwdata, g2);
-	gwsquare2 (gwdata, x2, x3); gtog (g2, g3); squaregi (&gwdata->gdata, g3); specialmodg (gwdata, g3);
+	gwsquare2 (gwdata, x, x2, 0); gtog (g, g2); squaregi (&gwdata->gdata, g2); specialmodg (gwdata, g2);
+	gwsquare2 (gwdata, x2, x3, 0); gtog (g2, g3); squaregi (&gwdata->gdata, g3); specialmodg (gwdata, g3);
 	gwaddmul4 (gwdata, x2, x3, x, x, 0); gtog (g2, g4); addg (g3, g4); mulg (g4, g); specialmodg (gwdata, g);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "addmul4");
 
