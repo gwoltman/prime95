@@ -2,7 +2,7 @@
 | This file contains various utility routines that may be used by gwnum
 | routines, prime95, or other consumers of gwnum.
 | 
-|  Copyright 2004-2019 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2004-2020 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 #ifndef _GWUTIL_H
@@ -14,6 +14,24 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* Handy macros to improve readability */
+
+#define log2(n)				(log((double)(n)) / log (2.0))
+#define log2f(n)			(logf((float)(n)) / logf ((float)2.0))
+#define logb(n)				(log((double)(n)) / log ((double)(b)))
+#define divide_rounding_up(a,b)		((a + (b) - 1) / (b))
+#define divide_rounding_down(a,b)	((a) / (b))
+#define round_up_to_multiple_of(a,b)	(divide_rounding_up (a, b) * (b))
+#define round_down_to_multiple_of(a,b)	(divide_rounding_down (a, b) * (b))
+#define fltmod(a,b)			((double)(a) - floor ((double)(a) / (double)(b)) * (double)(b))
+#define round_to_cache_line(p)		(void *) (((intptr_t)(p) + 63) & ~63)
+
+/* MSVC6 has trouble with the pow function using integer arguments. */
+/* For example, "(unsigned long) pow (5.0, 7.0)" returns 78124 instead */
+/* of the correct 78125.  This macro, works around this trouble. */
+
+#define intpow(b,n)	((long) floor (pow ((double)(b), (double)(n)) + 0.1))
 
 /* Align a pointer to the given boundary (boundary must be a power of 2) */
 
