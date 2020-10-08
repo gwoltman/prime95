@@ -408,7 +408,7 @@ done:	if (askOkCancel ()) {
 		STARTUP_IN_PROGRESS = 0;
 }
 
-/* Test/Worker threads dialog */
+/* Test/Workers dialog */
 
 int AreAllTheSame (
 	unsigned long *array,
@@ -435,7 +435,7 @@ unsigned int max_num_workers (void)
 		return (NUM_CPUS);
 }
 
-void test_worker_threads (void)
+void test_workers (void)
 {
 	unsigned long m_num_thread;
 	unsigned long m_work_pref[MAX_NUM_WORKER_THREADS];
@@ -1356,7 +1356,7 @@ void main_menu (void)
 	printf ("\t     Main Menu\n");
 	printf ("\n");
 	printf ("\t 1.  Test/Primenet\n");
-	printf ("\t 2.  Test/Worker threads\n");
+	printf ("\t 2.  Test/Workers\n");
 	printf ("\t 3.  Test/Status\n");
 	if (WORKER_THREADS_ACTIVE && active_workers_count () < WORKER_THREADS_ACTIVE)
 		printf ("\t 4.  Test/Continue or Stop\n");
@@ -1400,7 +1400,7 @@ void main_menu (void)
 /* Test/User Information dialog */
 
 	case 2:
-		test_worker_threads ();
+		test_workers ();
 		break;
 
 /* Test/Status message */
