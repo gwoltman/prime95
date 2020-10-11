@@ -8392,7 +8392,7 @@ void gianttogw (
 
 		limit = (unsigned long) ceil ((double) bitlen (a) / (gwdata->avg_num_b_per_word * log2 (gwdata->b)));
 		if (limit > gwdata->FFTLEN) limit = gwdata->FFTLEN;
-		if (gwdata->ZERO_PADDED_FFT && limit > gwdata->FFTLEN / 2 +4) limit = gwdata->FFTLEN / 2 + 4;
+		if (gwdata->ZERO_PADDED_FFT && limit > gwdata->FFTLEN / 2 + 4) limit = gwdata->FFTLEN / 2 + 4;
 
 /* Now convert the giant to FFT format.  For base 2 we simply copy bits.  */
 
@@ -8668,75 +8668,8 @@ int gwtogiant (
 /* Otherwise (base is not 2) we must do a radix conversion */
 
 	else {
-		giantstruct *array = NULL;
-		uint32_t *buf = NULL;
-		giant	small_base = NULL;
-		giant	large_base = NULL;
-		unsigned long i, gap, small_size, last_small_size;
-
-		array = (giantstruct *) malloc (limit * sizeof (giantstruct));
-		if (array == NULL) { memerr: err_code = GWERROR_MALLOC; goto err; }
-		buf = (uint32_t *) malloc (limit * sizeof (uint32_t));
-		if (buf == NULL) goto memerr;
-		small_base = popg (&gwdata->gdata, limit);
-		if (small_base == NULL) goto memerr;
-		large_base = popg (&gwdata->gdata, limit);
-		if (large_base == NULL) goto memerr;
-		for (i = 0; i < limit; i++) {
-			long	val;
-			err_code = get_fft_value (gwdata, gg, i, &val);
-			if (err_code) {
-err:				free (array);
-				free (buf);
-				if (small_base != NULL) pushg (&gwdata->gdata, 1);
-				if (large_base != NULL) pushg (&gwdata->gdata, 1);
-				return (err_code);
-			}
-			array[i].n = &buf[i];
-			setmaxsize(&array[i], limit);
-			itog (val, &array[i]);
-		}
-
-/* Loop combining pairs into ever larger and larger numbers.  Do all but last combining pass. */
-
-		gap = 1;
-		while (gap + gap < limit) {
-			small_size = gwfft_base (gwdata->dd_data, gap) - 1;
-			if (gap == 1)
-				itog (intpow (gwdata->b, small_size), small_base);
-			else if (small_size == last_small_size * 2)
-				squaregi (&gwdata->gdata, small_base);
-			else
-				mulgi (&gwdata->gdata, large_base, small_base);
-			itog (gwdata->b, large_base);
-			mulgi (&gwdata->gdata, small_base, large_base);
-			for (i = 0; i + gap < limit; i += gap + gap) {
-				gtog (&array[i+gap], v);
-				if (gwfft_base (gwdata->dd_data, i+gap) - gwfft_base (gwdata->dd_data, i) == small_size)
-					mulgi (&gwdata->gdata, small_base, v);
-				else
-					mulgi (&gwdata->gdata, large_base, v);
-				addg (v, &array[i]);
-			}
-			gap = gap << 1;
-			last_small_size = small_size;
-		}
-
-/* Do the last combining pass, outputting result directly to v. */
-
-		if (gwfft_base (gwdata->dd_data, gap) == small_size * 2 + 1)
-			mulgi (&gwdata->gdata, small_base, large_base);
-		else
-			squaregi (&gwdata->gdata, large_base);
-		gtog (&array[gap], v);
-		mulgi (&gwdata->gdata, large_base, v);
-		addg (&array[0], v);
-
-/* Clean up */
-
-		free (array);
-		free (buf);
-		pushg (&gwdata->gdata, 2);
+		err_code = nonbase2_gwtogiant (gwdata, gg, v);
+		if (err_code) return (err_code);
 	}
 
 /* Since all gwnums are premultiplied by the inverse of k, we must now multiply by k to get the true result. */
@@ -8775,6 +8708,12 @@ void specialmodg (
 		modgi (&gwdata->gdata, gwdata->GW_MODULUS, g);
 		return;
 	}
+
+/* A quick check to see if the input number is between 0 and k*b^n+c.  This will save us some slow giants calls. */
+
+	if (g->sign == 0) return;
+	if (g->sign == 1 && log2 (1.00001 * (double) g->n[0]) < gwdata->bit_length) return;
+	if (g->sign >= 2 && log2 (1.00001 * (g->n[g->sign-1] * 4294967296.0 + g->n[g->sign-2])) + 32 * (g->sign - 2) < gwdata->bit_length) return;
 
 /* Calculate the modulo number - k*b^n+c */
 
