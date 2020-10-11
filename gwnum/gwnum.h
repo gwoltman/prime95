@@ -626,8 +626,8 @@ unsigned long gwnum_size (gwhandle *);
 unsigned long gwmemused (gwhandle *);
 
 /* Macros to acccess some of the header values in a gwnum.  Do not access or change these unless you know what you are doing! */
-/* Log2(norm_count) is the number of extra bits in the FFT data due to unnormalized adds and subtracts.  The add/sub does not */
-/* always normalize results depending on how close k*b^n+c is to the maximum for this FFT size.  Add/sub of FFTed or partially FFTed */
+/* Log2(norm_count) is the number of extra bits in the FFT data due to unnormalized adds and subtracts.  The add/sub routines do not */
+/* always normalize results, it depends on how close k*b^n+c is to the maximum for this FFT size.  Add/sub of FFTed or partially FFTed */
 /* data never normalizes results.  It is the programmer's responsibility to make sure there aren't too many unnormalized add/sub */
 /* operations prior to a multiplication operation.  ASSERTs can be enabled to ensure excessive unnormalized adds are not occurring. */
 
@@ -643,7 +643,7 @@ unsigned long gwmemused (gwhandle *);
 #define gwnum_is_partially_ffted(h,g)	(FFT_state(g) == PARTIALLY_FFTed)
 #define gwnum_is_fully_ffted(h,g)	(FFT_state(g) == FULLY_FFTed)
 
-/* Perform an inverse FFT.  This is inefficient!!  We call this to undo the forward FFT performed on a gwnum where we need unFFTed data. */
+/* Perform an inverse FFT.  This is inefficient!!  We call this to undo a forward FFT performed on a gwnum where we need unFFTed data. */
 /* In a perfect world, the forward FFT would not have been done in the first place. */
 void gwunfft (gwhandle *, gwnum s, gwnum d);
 
@@ -743,7 +743,7 @@ int gwtogiant (gwhandle *, gwnum, giant);
 
 #define gwsetnormroutine(h,z,e,c) {(h)->NORMNUM=((c)?2:0)+((e)?1:0);}
 
-/* DEPRECATED.  Use GWMUL_NOSTARTNEXTFFT and GWMUL_STARTNEXTFFT options instead. */
+/* DEPRECATED.  Use GWMUL_NOSTARTNEXTFFT, GWMUL_STARTNEXTFFT, GWMUL_STARTNEXTFFT1 options instead. */
 /* If you know the result of a multiplication will be the input to another multiplication (but not gwmul_carefully), */
 /* then a small performance gain can be had in larger FFTs by doing some of the next forward FFT at the end of the multiplication. */
 /* Use this routine to tell the multiplication code whether or not it can start the forward FFT on the result. */
