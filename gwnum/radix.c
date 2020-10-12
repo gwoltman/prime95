@@ -447,9 +447,11 @@ int source_extract (
 			(s->srci)++;
 			// Handle last FFT word(s) special.
 			if (s->total_srcb >= (int) gwdata->n) {
-				// When k=1, calculate the wrap around carry using just the top FFT word.  Doing so ensures that
-				// the final result of nonbase2_gwtogiant does need exceed the allocated size of the giant.
+				int	b_above_wrap, limit;
+				// When k=1, calculate the wrap around carry using just the top FFT word (see exception below).
+				// Doing so ensures that the final result of nonbase2_gwtogiant does need exceed the allocated size of the giant.
 				if (gwdata->k == 1.0 && !gwdata->ZERO_PADDED_FFT) {
+					b_above_wrap = s->srcb;
 					s->wrap_modulus = (int64_t) radix_powers[s->srcb];
 					s->wrap_val = s->srcval;
 					s->srcval = 0;
@@ -458,23 +460,24 @@ int source_extract (
 				// Wraparound carries for k > 1 are nasty!  The operation requires the last few FFT words and division by k.
 				// We read all FFT words above b^n to later compute the wraparound carry.
 				else {
-					int	b_above_n, b_below_n, limit;
-					// split data above/below b^n
-					b_above_n = s->total_srcb - gwdata->n;
-					b_below_n = s->srcb - b_above_n;
+					int	b_below_wrap;
+					// split data above/below the wrap point: b^n
+					b_above_wrap = s->total_srcb - gwdata->n;
+					b_below_wrap = s->srcb - b_above_wrap;
 					s->wrap_modulus = (int64_t) gwdata->k;
-					s->wrap_val = s->srcval / (int64_t) radix_powers[b_below_n];
-					s->srcval -= s->wrap_val * (int64_t) radix_powers[b_below_n];
-					s->srcb = b_below_n;
-					// Read remaining FFT data
-					limit = (gwdata->ZERO_PADDED_FFT) ? gwdata->FFTLEN / 2 + 4 : gwdata->FFTLEN;
-					while (s->srci < limit) {
-						err_code = get_fft_value (gwdata, x, s->srci, &fftval);
-						if (err_code) return (err_code);
-						s->wrap_val += fftval * (int64_t) radix_powers[b_above_n];
-						b_above_n += gwdata->NUM_B_PER_SMALL_WORD + !!is_big_word (gwdata, s->srci);
-						(s->srci)++;
-					}
+					s->wrap_val = s->srcval / (int64_t) radix_powers[b_below_wrap];
+					s->srcval -= s->wrap_val * (int64_t) radix_powers[b_below_wrap];
+					s->srcb = b_below_wrap;
+				}
+				// Read remaining FFT data.  Even in the k=1 case there can be remaining FFT data.  For example,
+				// gwsmallmul of 6387^1554-11 in an FFT length 4608 outputs data to the top two "empty" FFT words.
+				limit = (gwdata->ZERO_PADDED_FFT) ? gwdata->FFTLEN / 2 + 4 : gwdata->FFTLEN;
+				while (s->srci < limit) {
+					err_code = get_fft_value (gwdata, x, s->srci, &fftval);
+					if (err_code) return (err_code);
+					s->wrap_val += fftval * (int64_t) radix_powers[b_above_wrap];
+					b_above_wrap += gwdata->NUM_B_PER_SMALL_WORD + !!is_big_word (gwdata, s->srci);
+					(s->srci)++;
 				}
 			}
 		}
