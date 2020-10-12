@@ -9,7 +9,7 @@
  *  This is the only C++ routine in the gwnum library.  Since gwnum is
  *  a C based library, we declare all routines here as extern "C".
  *
- *  Copyright 2005-2018 Mersenne Research, Inc.  All rights reserved.
+ *  Copyright 2005-2020 Mersenne Research, Inc.  All rights reserved.
  *
  **************************************************************/
 
@@ -51,9 +51,8 @@
 
 #define epsilon 5.5271478752604445602472651921923E-76
 
-/* Structure for "global" data that gwfft_weight_setup and passes */
-/* to several gwdbldbl routines */
-	
+/* Structure for "global" data that gwfft_weight_setup and passes to several gwdbldbl routines */
+
 struct gwdbldbl_constants {
 	dd_real	gw__b;
 	dd_real	gw__logb;
@@ -68,6 +67,8 @@ struct gwdbldbl_constants {
 	double	gwdbl__fractional_b_per_word;
 	double	gwdbl__logb_abs_c_div_fftlen;
 	unsigned long integral_b_per_word;
+	unsigned long last_fft_base_j;
+	unsigned long last_fft_base_result;
 	unsigned long last_inv_sloppy_j;
 	double	last_inv_sloppy_result;
 	double	fast_inv_sloppy_multiplier;
@@ -77,8 +78,7 @@ struct gwdbldbl_constants {
 	double	last_partial_inv_sloppy_result[2];
 };
 
-/* Macro routines below use to type the cast untyped data pointer */
-/* input argument. */
+/* Macro routines below use to type the cast untyped data pointer input argument. */
 
 #define dd_data		((struct gwdbldbl_constants *) dd_data_arg)
 
@@ -836,10 +836,11 @@ void gwfft_weight_setup (
 	dd_data->integral_b_per_word = (unsigned long) double (gwfloor (dd_data->gw__num_b_per_word));
 	dd_data->gwdbl__fractional_b_per_word = (double) (dd_data->gw__num_b_per_word - gwfloor (dd_data->gw__num_b_per_word));
 	dd_data->gwdbl__logb_abs_c_div_fftlen = (double) dd_data->gw__logb_abs_c_div_fftlen;
+	dd_data->last_fft_base_j = 0;
+	dd_data->last_fft_base_result = 0;
 	dd_data->last_inv_sloppy_j = 0;
 	dd_data->last_inv_sloppy_result = 1.0;
 	dd_data->fast_inv_sloppy_multiplier = gwfft_weight_inverse (dd_data, 1);
-
 	dd_data->last_partial_sloppy_power[0] = dd_data->last_partial_sloppy_power[1] = 999.0;
 	dd_data->last_partial_inv_sloppy_power[0] = dd_data->last_partial_inv_sloppy_power[1] = 999.0;
 	END_x86_FIX
@@ -1093,21 +1094,34 @@ unsigned long gwfft_base (
 	dd_real temp;
 	unsigned long bpower;
 
-// For speed, try this with plain old doubles first
+// Handle easy cases (first base and same as last base).  When converting a gwnum to binary, we call is_big_word sequentially.
+// Is_big_word calls this routing on n and n+1.  Consequently caching the last returned fft_base nearly halves the cost.
 
 	if (j == 0) return (0);
+	if (j == dd_data->last_fft_base_j) return (dd_data->last_fft_base_result);
+
+// For speed, try this with plain old doubles first
+
 	tempdbl = (double) j * dd_data->gwdbl__fractional_b_per_word;
 	ceildbl = ceil (tempdbl);
 	diffdbl = ceildbl - tempdbl;
-	if (diffdbl > 0.001 && diffdbl < 0.999)
-		return ((unsigned long) ceildbl + j * dd_data->integral_b_per_word);
+	if (diffdbl > 0.001 && diffdbl < 0.999) {
+		bpower = (unsigned long) ceildbl + j * dd_data->integral_b_per_word;
+	}
 
 // We cannot be certain of the ceiling result, use doubledoubles to do the calculation
 
-	x86_FIX
-	temp = (double) j * dd_data->gw__num_b_per_word;
-	bpower = (int) gwceil (temp);
-	END_x86_FIX
+	else {
+		x86_FIX
+		temp = (double) j * dd_data->gw__num_b_per_word;
+		bpower = (int) gwceil (temp);
+		END_x86_FIX
+	}
+
+// Cache the result before returning it
+
+	dd_data->last_fft_base_j = j;
+	dd_data->last_fft_base_result = bpower;
 	return (bpower);
 }
 
