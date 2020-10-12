@@ -7114,7 +7114,7 @@ void set_fft_value (
 		return;
 	}
 
-/* Handle r4dwpn FFTs which are only partially normalized */
+/* Handle r4dwpn FFTs which are only partially weighted */
 
 	if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
 		* addr (gwdata, g, i) = val * gwfft_partial_weight_sloppy (gwdata->dd_data, i, dwpn_col (gwdata, i));
@@ -10337,14 +10337,12 @@ void gwsmallmul (
 	ASSERTG (norm_count (g) >= 1);
 	ASSERTG (FFT_state (g) == NOT_FFTed);
 
-/* The x87 assembly version won't spread carries over multiple words. */
-/* Also, the x87 assembly version won't guard against carries out of the */
-/* critical top words in a zero-padded number. */
-/* A simple brute-force implementation.  Note we cannot call gwmul as this */
-/* will use the caller's last gwsetnormroutine value which could incorrectly */
-/* multiply by a constant. */
+/* The x87 assembly version won't spread carries over multiple words.  Also, the x87 assembly version won't guard against */
+/* carries out of the critical top words in a zero-padded number.  Also, SSE2 has trouble with sparse FFTs where there are not */
+/* enough FFT words to spread the wraparound carry to (example: 31*28619^8930+1).  Use a simple brute-force implementation instead. */
 
-	if (! (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX | CPU_SSE2)) && (mult > 1024.0 || gwdata->ZERO_PADDED_FFT)) {
+	if ((! (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX | CPU_SSE2)) && (mult > 1024.0 || gwdata->ZERO_PADDED_FFT)) ||
+	    (! (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX)) && gwdata->avg_num_b_per_word < 0.5 && mult > gwdata->b)) {
 		gwnum	tmp;
 		tmp = gwalloc (gwdata);
 		if (mult == 1.0);
@@ -10404,8 +10402,7 @@ void gwsmallmul (
 		norm_count (g) = 1;
 	}
 
-/* If the number has gotten too large (high words should all be */
-/* weighted -1 or 0) then emulate general mod with 2 multiplies */
+/* If the number has gotten too large (high words should all be weighted -1 or 0) then emulate general mod with 2 multiplies */
 
 	if (gwdata->GENERAL_MOD &&
 	    (* (double *) ((char *) g + gwdata->GW_GEN_MOD_MAX_OFFSET) <= -2.0 ||
