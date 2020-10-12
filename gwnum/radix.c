@@ -434,7 +434,7 @@ int source_extract (
 	int64_t remainder;
 
 	*result = 0;
-	for (b_we_have = 0; b_we_have < num_b_to_get; b_we_have += b_to_get) {
+	for (b_we_have = 0; ; b_we_have += b_to_get) {
 
 		// Get more src data if we do not have any and there is more to get
 		if (s->srcb == 0 && s->total_srcb < (int) gwdata->n) {
@@ -487,15 +487,25 @@ int source_extract (
 		// completely negative result, make sure the last *result value is greater than zero.
 		if (s->srcb == 0 && s->total_srcb >= (int) gwdata->n) {
 			s->srcval += s->wrap_val;
-			if (s->srcval > 0 || (*result > 0 && s->srcval == 0)) {
+			if (s->wrap_modulus == 1) {			// This can happen in sparse FFTs and zero-padded FFTs
+				*wraparound_carry = (int) s->srcval;
+				s->srcval = 0;
+			}
+			else if (s->srcval > 0 || (*result > 0 && s->srcval == 0)) {
 				*wraparound_carry = (int) (s->srcval / s->wrap_modulus);
 				s->srcval -= *wraparound_carry * s->wrap_modulus;
-			} else {
+			}
+			else {
 				*wraparound_carry = (int) (s->srcval / s->wrap_modulus - 1);
 				s->srcval -= *wraparound_carry * s->wrap_modulus;
 			}
 			s->srcb = 9999;
 		}
+
+		// It seems weird to have our loop exit here.  Why get more source words when we don't need any more for our result?
+		// The answer came from QA'ing 2932^1870+11.  Prior to moving the exit here, with k=1 the last caller got his data
+		// from the last FFT value.  The wraparound_carry calculation above never happened.
+		if (b_we_have == num_b_to_get) break;
 
 		// Get part or all of source word
 		b_to_get = min (s->srcb, num_b_to_get - b_we_have);
