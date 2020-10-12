@@ -17,8 +17,10 @@ extern "C" {
 
 /* Handy macros to improve readability */
 
-#define log2(n)				(log((double)(n)) / log (2.0))
-#define log2f(n)			(logf((float)(n)) / logf ((float)2.0))
+#define CONST_LOG2			0.69314718055994530941723212145818
+#define CONST_ONE_OVER_LOG2		1.4426950408889634073599246810019
+#define log2(n)				(log((double)(n)) * CONST_ONE_OVER_LOG2)
+#define log2f(n)			(logf((float)(n)) * CONST_ONE_OVER_LOG2)
 #define logb(n)				(log((double)(n)) / log ((double)(b)))
 #define divide_rounding_up(a,b)		((a + (b) - 1) / (b))
 #define divide_rounding_down(a,b)	((a) / (b))
