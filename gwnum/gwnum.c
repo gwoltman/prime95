@@ -8340,7 +8340,7 @@ void gianttogw (
 		giant	newg = NULL;
 
 		if (gwdata->k > 1.0) {
-			newg = popg (&gwdata->gdata, (((unsigned long) gwdata->bit_length >> 5) + 1) * 2);
+			newg = popg (&gwdata->gdata, (((unsigned long) gwdata->bit_length >> 5) + 2) * 2);
 
 			/* Easy case 1 (k*b^n-1): Inverse of k is b^n */
 
@@ -8372,7 +8372,7 @@ void gianttogw (
 
 			else {				/* General inverse case */
 				giant	n;
-				n = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 1);
+				n = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 2);
 				ultog (gwdata->b, n);		/* Compute k*b^n+c */
 				power (n, gwdata->n);
 				dblmulg (gwdata->k, n);
@@ -8717,7 +8717,7 @@ void specialmodg (
 
 /* Calculate the modulo number - k*b^n+c */
 
-	n = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 1);
+	n = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 2);
 	ultog (gwdata->b, n);
 	power (n, gwdata->n);
 	dblmulg (gwdata->k, n);
