@@ -862,7 +862,7 @@ double gwfft_weight (
 	return (double (result));
 }
 
-// Like the above, but multiplies the weight by sqrt (2/FFTLEN).
+// Like gwfft_weight, but multiplies the weight by sqrt (2/FFTLEN).
 
 extern "C"
 double gwfft_weight_over_sqrt_fftlen (
@@ -880,9 +880,9 @@ double gwfft_weight_over_sqrt_fftlen (
 	return (double (result));
 }
 
-// Like the above, but faster and does not guarantee quite as much accuracy.
+// Like gwfft_weight, but slightly faster and does not guarantee quite as much accuracy.
 // We cannot be very sloppy as these weights are used to set FFT data values
-// when reading save files.  If we are too sloppy we get roundoff errors > 0.5.
+// when reading save files.  If we are too sloppy we quickly get roundoff errors > 0.5.
 
 extern "C"
 double gwfft_weight_sloppy (
@@ -896,7 +896,7 @@ double gwfft_weight_sloppy (
 	bpower = gwceil (temp) - temp;
 	if (! dd_data->gw__c_is_one) bpower += dd_data->gw__logb_abs_c_div_fftlen * (double) j;
 	END_x86_FIX
-	return (pow (dd_data->gwdbl__b, double (bpower)));
+	return (exp (double (dd_data->gw__logb) * double (bpower)));
 }
 
 // Compute the inverse of the fft weight
@@ -935,9 +935,8 @@ double gwfft_weight_inverse_squared (
 	return (double (result));
 }
 
-// Like the above, but faster and does not guarantee quite as much accuracy.
-// We can be very sloppy as these weights are used to read FFT data values
-// when writing save files.
+// Like gwfft_weight_inverse, but faster and does not guarantee quite as much accuracy.
+// We can be very sloppy as these weights are used to read FFT data values when writing save files.
 
 extern "C"
 double gwfft_weight_inverse_sloppy (
@@ -954,7 +953,7 @@ double gwfft_weight_inverse_sloppy (
 		bpower = ceil (temp) - temp;
 		if (bpower < 0.001 || bpower > 0.999) return (gwfft_weight_inverse (dd_data_arg, j));
 		bpower += dd_data->gwdbl__logb_abs_c_div_fftlen * (double) j;
-		return (pow (dd_data->gwdbl__b, - bpower));
+		return (exp (double (dd_data->gw__logb) * - bpower));
 	}
 
 // Compute weight from previous weight, but don't do too many of
@@ -964,8 +963,7 @@ double gwfft_weight_inverse_sloppy (
 		result = dd_data->last_inv_sloppy_result * dd_data->fast_inv_sloppy_multiplier;
 		if (result <= dd_data->gwdbl__b_inverse) result = result * dd_data->gwdbl__b;
 
-// Just to be safe, if result is at all close to the boundaries return
-// the carefully computed weight.
+// Just to be safe, if result is at all close to the boundaries return the carefully computed weight.
 
 		if (result < dd_data->gwdbl__b_inverse + 0.001 || result > 0.999)
 			result = gwfft_weight_inverse (dd_data_arg, j);
@@ -1398,7 +1396,7 @@ double gwfft_partial_weight (
 	return (double (result));
 }
 
-// Like the above, but faster and does not guarantee quite as much accuracy.
+// Like gwfft_partial_weight, but faster and does not guarantee quite as much accuracy.
 
 extern "C"
 double gwfft_partial_weight_sloppy (
@@ -1422,7 +1420,7 @@ double gwfft_partial_weight_sloppy (
 	bpower = double (j_bpower - col_bpower);
 	if (bpower == dd_data->last_partial_sloppy_power[0]) return (dd_data->last_partial_sloppy_result[0]);
 	if (bpower == dd_data->last_partial_sloppy_power[1]) return (dd_data->last_partial_sloppy_result[1]);
-	result = pow (dd_data->gwdbl__b, bpower);
+	result = exp (double (dd_data->gw__logb) * bpower);
 	dd_data->last_partial_sloppy_power[0] = dd_data->last_partial_sloppy_power[1];
 	dd_data->last_partial_sloppy_result[0] = dd_data->last_partial_sloppy_result[1];
 	dd_data->last_partial_sloppy_power[1] = bpower;
@@ -1454,9 +1452,8 @@ double gwfft_partial_weight_inverse (
 	return (double (result));
 }
 
-// Like the above, but faster and does not guarantee quite as much accuracy.
-// We can be very sloppy as these weights are used to read FFT data values
-// when writing save files.
+// Like the gwfft_partial_weight_inverse, but faster and does not guarantee quite as much accuracy.
+// We can be very sloppy as these weights are used to read FFT data values when writing save files.
 
 extern "C"
 double gwfft_partial_weight_inverse_sloppy (
@@ -1493,7 +1490,7 @@ double gwfft_partial_weight_inverse_sloppy (
 	bpower = col_bpower - j_bpower;
 	if (bpower == dd_data->last_partial_inv_sloppy_power[0]) return (dd_data->last_partial_inv_sloppy_result[0]);
 	if (bpower == dd_data->last_partial_inv_sloppy_power[1]) return (dd_data->last_partial_inv_sloppy_result[1]);
-	result = pow (dd_data->gwdbl__b, bpower);
+	result = exp (double (dd_data->gw__logb) * bpower);
 	dd_data->last_partial_inv_sloppy_power[0] = dd_data->last_partial_inv_sloppy_power[1];
 	dd_data->last_partial_inv_sloppy_result[0] = dd_data->last_partial_inv_sloppy_result[1];
 	dd_data->last_partial_inv_sloppy_power[1] = bpower;
