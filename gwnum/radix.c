@@ -332,7 +332,7 @@ int radix_gwcopy (
 	uint64_t big_word_flags,
 	int	num_big_word_flags)
 {
-	int	srci, dsti, i, err_code, last_dsti;
+	int	srci, dsti, i, err_code, last_dsti, last_dstval_negative;
 	long	srcval, dstval, carry;
 	int	srcb, dstb;
 	int	radix_powers[32];
@@ -345,6 +345,7 @@ int radix_gwcopy (
 	srcb = 0;
 	carry = 0;
 	last_dsti = dst_gwdata->FFTLEN-1;
+	last_dstval_negative = FALSE;
 	if (dst_gwdata->NUM_B_PER_SMALL_WORD == 0) while (!is_big_word (dst_gwdata, last_dsti)) last_dsti--;
 	for (dsti = 0; dsti < (int) dst_gwdata->FFTLEN; dsti++) {
 		int	b_we_have;
@@ -387,7 +388,8 @@ int radix_gwcopy (
 		// Store in balanced representation except for the last destination FFT word.
 		dstval += carry;
 		if (dsti == last_dsti) {			// NOTE: This occurs before the last FFT word if avg_num_b_per_word < 1
-			if (dstval < 0) dstval += radix_powers[dstb];
+			// As an alternative this negative dstval test we could read the next source word to see if it is one
+			if (dstval < 0 || (dstval == 0 && last_dstval_negative)) dstval += radix_powers[dstb];
 		}
 		else if (dstval < -radix_powers[dstb] / 2) {
 			dstval += radix_powers[dstb];
@@ -399,6 +401,8 @@ int radix_gwcopy (
 		} else
 			carry = 0;
 		set_fft_value (dst_gwdata, dst, dsti, dstval);
+		if (dstval > 0) last_dstval_negative = FALSE;
+		if (dstval < 0) last_dstval_negative = TRUE;
 	}
 
 /* Return Success */

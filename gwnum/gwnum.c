@@ -8336,7 +8336,6 @@ void gianttogw (
 /* the giant by the inverse of k, and do a mod k*b^n+c. */
 
 	else {
-		unsigned long i, limit, carry;
 		giant	newg = NULL;
 
 		if (gwdata->k > 1.0) {
@@ -8388,19 +8387,19 @@ void gianttogw (
 			a = newg;
 		}
 
-/* Figure out how many FFT words we will need to set */
-
-		limit = (unsigned long) ceil ((double) bitlen (a) / (gwdata->avg_num_b_per_word * log2 (gwdata->b)));
-		if (limit > gwdata->FFTLEN) limit = gwdata->FFTLEN;
-		if (gwdata->ZERO_PADDED_FFT && limit > gwdata->FFTLEN / 2 + 4) limit = gwdata->FFTLEN / 2 + 4;
-
 /* Now convert the giant to FFT format.  For base 2 we simply copy bits.  */
 
 		if (gwdata->b == 2) {
+			unsigned long i, limit, carry;
 			unsigned long mask1, mask2, e1len;
 			int	bits1, bits2, bits_in_next_binval;
 			unsigned long binval;
 			uint32_t *e1;
+
+			// Figure out how many FFT words we will need to set
+			limit = (unsigned long) ceil ((double) bitlen (a) / (gwdata->avg_num_b_per_word * log2 (gwdata->b)));
+			if (limit > gwdata->FFTLEN) limit = gwdata->FFTLEN;
+			if (gwdata->ZERO_PADDED_FFT && limit > gwdata->FFTLEN / 2 + 4) limit = gwdata->FFTLEN / 2 + 4;
 
 			e1len = a->sign;
 			e1 = a->n;
