@@ -893,7 +893,7 @@ inline double map_to_weight_power_sloppy (
 
 	result = (double) (int64_t) (tmp2 >> 1);			// I think Intel can convert int64 to double easier than uint64
 	result = result * 1.0842021724855044340074528008699e-19;	// Times 2^-63
-		  
+
 	if (! dd_data->gw__c_is_one) result += double (dd_data->gw__logb_abs_c_div_fftlen) * (double) j;
 
 	return (result);
@@ -920,6 +920,28 @@ inline dd_real map_to_weight_power_no_c (
 	result = (double) (tmp2 & ~(uint64_t) 0xFFFFFFFF);
 	result += (double) (tmp2 & (uint64_t) 0xFFFFFFFF);
 	result *= 5.4210108624275221700372640043497e-20;		// Times 2^-64
+
+	return (result);
+}
+
+inline double map_to_weight_power_no_c_sloppy (
+	void	*dd_data_arg,
+	unsigned long j)
+{
+	uint32_t tmp1;
+	uint64_t tmp2, tmp3;
+	double	result;
+
+	// Use fractional value accurate to 96-bits.  Assuming j is at most 30 bits, we'll end up with a fractional part accurate to 66 bits.
+	tmp1 = (uint32_t) j * (uint32_t) dd_data->frac_bpw1;		// 0.A
+	tmp2 = (uint64_t) j * (uint64_t) dd_data->frac_bpw2;		// 0.BC
+	tmp3 = (uint64_t) j * (uint64_t) dd_data->frac_bpw3;		// 0.0DE
+	tmp2 += (tmp3 >> 32);						// Cannot overflow
+	tmp2 += (((uint64_t) tmp1) << 32);				// Overflow into integer portion is irrelevant
+	tmp2 = 0 - tmp2;						// Simulate a ceil(tmp2) - tmp2 operation
+
+	result = (double) (int64_t) (tmp2 >> 1);			// I think Intel can convert int64 to double easier than uint64
+	result = result * 1.0842021724855044340074528008699e-19;	// Times 2^-63
 
 	return (result);
 }
@@ -1120,14 +1142,8 @@ double gwfft_weight_exponent (
 	void	*dd_data_arg,
 	unsigned long j)
 {
-	dd_real bpower;
-
 	if (j == 0) return (0);
-
-	x86_FIX
-	bpower = map_to_weight_power_no_c (dd_data_arg, j);
-	END_x86_FIX
-	return (double (bpower));
+	return (map_to_weight_power_no_c_sloppy (dd_data_arg, j));
 }
 
 // Funky version that does not factor in the weight for c != 1.  Required for building the AVX-512 XOR masks in the compressed fudge table,
