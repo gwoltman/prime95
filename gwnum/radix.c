@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <memory.h>
+#include "cpuid.h"
 #include "gwnum.h"
 #include "gwutil.h"
 #include "radix.h"
@@ -213,11 +214,20 @@ int nonbase2_gianttogw (	/* Returns an error code or zero for success */
 		dbltogw (&new_gwdata, 0.0, t3);
 		for (gwnum_offset = 0, num_left = num_chunks; num_left; num_left--, gwnum_offset += fft_words_per_mult * 2) {
 			for (j = gwnum_offset; j < gwnum_offset + fft_words_per_mult; j++) {
-				double	*upper_word;
 				if (j + fft_words_per_mult >= (int) new_gwdata.FFTLEN) break;
-				upper_word = addr (&new_gwdata, t1, j + fft_words_per_mult);
-				* addr (&new_gwdata, t3, j) = *upper_word;
-				*upper_word = 0.0;
+				// Rational and AVX-512 FFTs and non-rdpwn (partial weights) can copy FFT data directly
+				// Partial weights require using slower get and set FFT value.
+				if (gwdata->RATIONAL_FFT || (gwdata->cpu_flags & CPU_AVX512F) || gwdata->FFT_TYPE != FFT_TYPE_RADIX_4_DWPN) {
+					double	*upper_word;
+					upper_word = addr (&new_gwdata, t1, j + fft_words_per_mult);
+					* addr (&new_gwdata, t3, j) = *upper_word;
+					*upper_word = 0.0;
+				} else {
+					long	val;
+					get_fft_value (&new_gwdata, t1, j + fft_words_per_mult, &val);
+					set_fft_value (&new_gwdata, t3, j, val);
+					* addr (&new_gwdata, t1, j + fft_words_per_mult) = 0.0;
+				}
 			}
 		}
 
@@ -232,7 +242,7 @@ int nonbase2_gianttogw (	/* Returns an error code or zero for success */
 	gwfree (&new_gwdata, pow2_multiplier);
 	gwfree (&new_gwdata, t3);
 
-// Finally, write the converted result (t1) to the caller's gwdata.
+/* Finally, write the converted result (t1) to the caller's gwdata. */
 
 	err_code = radix_gwcopy (&new_gwdata, gwdata, t1, x, big_word_flags, num_big_word_flags);
 	if (err_code) goto err;
@@ -724,11 +734,20 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 		dbltogw (&new_gwdata, 0.0, t3);
 		for (gwnum_offset = 0, num_left = num_chunks; num_left; num_left--, gwnum_offset += fft_words_per_mult * 2) {
 			for (j = gwnum_offset; j < gwnum_offset + fft_words_per_mult; j++) {
-				double	*upper_word;
 				if (j + fft_words_per_mult >= (int) new_gwdata.FFTLEN) break;
-				upper_word = addr (&new_gwdata, t1, j + fft_words_per_mult);
-				* addr (&new_gwdata, t3, j) = *upper_word;
-				*upper_word = 0.0;
+				// Rational and AVX-512 FFTs and non-rdpwn (partial weights) can copy FFT data directly
+				// Partial weights require using slower get and set FFT value.
+				if (gwdata->RATIONAL_FFT || (gwdata->cpu_flags & CPU_AVX512F) || gwdata->FFT_TYPE != FFT_TYPE_RADIX_4_DWPN) {
+					double	*upper_word;
+					upper_word = addr (&new_gwdata, t1, j + fft_words_per_mult);
+					* addr (&new_gwdata, t3, j) = *upper_word;
+					*upper_word = 0.0;
+				} else {
+					long	val;
+					get_fft_value (&new_gwdata, t1, j + fft_words_per_mult, &val);
+					set_fft_value (&new_gwdata, t3, j, val);
+					* addr (&new_gwdata, t1, j + fft_words_per_mult) = 0.0;
+				}
 			}
 		}
 
