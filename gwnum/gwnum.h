@@ -301,7 +301,10 @@ void gwfreeall (
 
 /* Free internal memory that can be safely freed.  Call this prior to using a lot of gwnum memory. */
 /* There may be some internal gwnum memory that can be safely freed. */
-#define gwfree_internal_memory(h) (gwfree((h), (h)->GW_RANDOM), (h)->GW_RANDOM = NULL)
+#define gwfree_internal_memory(h) { \
+		gwfree((h), (h)->GW_RANDOM), (h)->GW_RANDOM = NULL; \
+		if ((h)->to_radix_gwdata != NULL) gwdone ((h)->to_radix_gwdata), free ((h)->to_radix_gwdata), (h)->to_radix_gwdata = NULL; \
+		if ((h)->from_radix_gwdata != NULL) gwdone ((h)->from_radix_gwdata), free ((h)->from_radix_gwdata), (h)->from_radix_gwdata = NULL; }
 
 /*---------------------------------------------------------------------+
 |                        GWNUM CONVERSION ROUTINES                     |
@@ -1044,6 +1047,8 @@ struct gwhandle_struct {
 	double	ZPAD_COPY7_ADJUST[7];	/* Adjustments for copying the 7 words around the halfway point of a zero pad FFT. */
 	double	ZPAD_0_6_ADJUST[7];	/* Adjustments for ZPAD0_6 in a r4dwpn FFT */
 	unsigned long wpn_count;	/* Count of r4dwpn pass 1 blocks that use the same ttp/ttmp grp multipliers */
+	gwhandle *to_radix_gwdata;	/* FFTs used in converting to base b from binary in nonbase2_gianttogw */
+	gwhandle *from_radix_gwdata;	/* FFTs used in converting from base b to binary in nonbase2_gwtogiant */
 };
 
 /* A psuedo declaration for our big numbers.  The actual pointers to */

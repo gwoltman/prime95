@@ -6530,6 +6530,16 @@ void gwdone (
 		aligned_free (gwdata->gwnum_memory);
 		gwdata->gwnum_memory = NULL;
 	}
+	if (gwdata->to_radix_gwdata != NULL) {
+		gwdone (gwdata->to_radix_gwdata);
+		free (gwdata->to_radix_gwdata);
+		gwdata->to_radix_gwdata = NULL;
+	}
+	if (gwdata->from_radix_gwdata != NULL) {
+		gwdone (gwdata->from_radix_gwdata);
+		free (gwdata->from_radix_gwdata);
+		gwdata->from_radix_gwdata = NULL;
+	}
 }
 
 /* Routine to allocate aligned memory for our big numbers */
