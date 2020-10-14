@@ -217,7 +217,7 @@ int nonbase2_gianttogw (	/* Returns an error code or zero for success */
 				if (j + fft_words_per_mult >= (int) new_gwdata.FFTLEN) break;
 				// Rational and AVX-512 FFTs and non-rdpwn (partial weights) can copy FFT data directly
 				// Partial weights require using slower get and set FFT value.
-				if (gwdata->RATIONAL_FFT || (gwdata->cpu_flags & CPU_AVX512F) || gwdata->FFT_TYPE != FFT_TYPE_RADIX_4_DWPN) {
+				if (new_gwdata.RATIONAL_FFT || (new_gwdata.cpu_flags & CPU_AVX512F) || new_gwdata.FFT_TYPE != FFT_TYPE_RADIX_4_DWPN) {
 					double	*upper_word;
 					upper_word = addr (&new_gwdata, t1, j + fft_words_per_mult);
 					* addr (&new_gwdata, t3, j) = *upper_word;
@@ -737,7 +737,7 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 				if (j + fft_words_per_mult >= (int) new_gwdata.FFTLEN) break;
 				// Rational and AVX-512 FFTs and non-rdpwn (partial weights) can copy FFT data directly
 				// Partial weights require using slower get and set FFT value.
-				if (gwdata->RATIONAL_FFT || (gwdata->cpu_flags & CPU_AVX512F) || gwdata->FFT_TYPE != FFT_TYPE_RADIX_4_DWPN) {
+				if (new_gwdata.RATIONAL_FFT || (new_gwdata.cpu_flags & CPU_AVX512F) || new_gwdata.FFT_TYPE != FFT_TYPE_RADIX_4_DWPN) {
 					double	*upper_word;
 					upper_word = addr (&new_gwdata, t1, j + fft_words_per_mult);
 					* addr (&new_gwdata, t3, j) = *upper_word;
