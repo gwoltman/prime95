@@ -9860,7 +9860,13 @@ void fftadd3 (			/* Add two FFTed numbers */
 {
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 
-	ASSERTG (FFT_state (s1) == FFT_state (s2));
+/* If the two FFT states are not the same, make them so */
+
+	ASSERTG (FFT_state (s1) != NOT_FFTed || FFT_state (s2) != NOT_FFTed);
+	if (FFT_state (s1) != FFT_state (s2)) {
+		gwfft (gwdata, s1, s1);
+		gwfft (gwdata, s2, s2);
+	}
 
 /* If this is a zero-padded FFT, then also add the 7 copied doubles in the gwnum header */
 
@@ -9905,7 +9911,13 @@ void fftsub3 (			/* Compute FFTed s1 - FFTed s2 */
 {
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 
-	ASSERTG (FFT_state (s1) == FFT_state (s2));
+/* If the two FFT states are not the same, make them so */
+
+	ASSERTG (FFT_state (s1) != NOT_FFTed || FFT_state (s2) != NOT_FFTed);
+	if (FFT_state (s1) != FFT_state (s2)) {
+		gwfft (gwdata, s1, s1);
+		gwfft (gwdata, s2, s2);
+	}
 
 /* If this is a zero-padded FFT, then also subtract the 7 copied doubles in the gwnum header */
 
@@ -9951,7 +9963,13 @@ void fftaddsub4 (		/* Add & sub two FFTed numbers */
 {
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 
-	ASSERTG (FFT_state (s1) == FFT_state (s2));
+/* If the two FFT states are not the same, make them so */
+
+	ASSERTG (FFT_state (s1) != NOT_FFTed || FFT_state (s2) != NOT_FFTed);
+	if (FFT_state (s1) != FFT_state (s2)) {
+		gwfft (gwdata, s1, s1);
+		gwfft (gwdata, s2, s2);
+	}
 
 /* If this is a zero-padded FFT, then also add & sub the 7 copied doubles in */
 /* the gwnum header.  Copy data to temporaries first in case s1, s2 pointers */

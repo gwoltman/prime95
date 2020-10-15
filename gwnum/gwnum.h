@@ -470,36 +470,36 @@ void gwsubmul4 (		/* (s1-s2)*s3 */
 	int	options);
 
 
-void gwadd3 (			/* Add two numbers normalizing if needed */
+void gwadd3 (			/* Add two numbers normalizing if needed and inputs are not FFTed. */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s1,		/* Source #1 */
-	gwnum	s2,		/* Source #2 */
+	gwnum	s1,		/* Source #1.  Will be FFTed if two sources do not have the same FFT state. */
+	gwnum	s2,		/* Source #2.  Will be FFTed if two sources do not have the same FFT state. */
 	gwnum	d);		/* Destination */
-void gwsub3 (			/* Compute s1 - s2 normalizing if needed */
+void gwsub3 (			/* Compute s1 - s2 normalizing if needed and inputs are not FFTed. */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s1,		/* Source #1 */
-	gwnum	s2,		/* Source #2 */
+	gwnum	s1,		/* Source #1.  Will be FFTed if two sources do not have the same FFT state. */
+	gwnum	s2,		/* Source #2.  Will be FFTed if two sources do not have the same FFT state. */
 	gwnum	d);		/* Destination */
-void gwaddsub4 (		/* Add & sub two nums normalizing if needed */
+void gwaddsub4 (		/* Add & sub two nums normalizing if needed and inputs are not FFTed. */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s1,		/* Source #1 */
-	gwnum	s2,		/* Source #2 */
+	gwnum	s1,		/* Source #1.  Will be FFTed if two sources do not have the same FFT state. */
+	gwnum	s2,		/* Source #2.  Will be FFTed if two sources do not have the same FFT state. */
 	gwnum	d1,		/* Destination #1 */
 	gwnum	d2);		/* Destination #2 */
 void gwadd3quick (		/* Add two numbers without normalizing */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s1,		/* Source #1 */
-	gwnum	s2,		/* Source #2 */
+	gwnum	s1,		/* Source #1.  Will be FFTed if two sources do not have the same FFT state. */
+	gwnum	s2,		/* Source #2.  Will be FFTed if two sources do not have the same FFT state. */
 	gwnum	d);		/* Destination */
 void gwsub3quick (		/* Compute s1 - s2 without normalizing */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s1,		/* Source #1 */
-	gwnum	s2,		/* Source #2 */
+	gwnum	s1,		/* Source #1.  Will be FFTed if two sources do not have the same FFT state. */
+	gwnum	s2,		/* Source #2.  Will be FFTed if two sources do not have the same FFT state. */
 	gwnum	d);		/* Destination */
 void gwaddsub4quick (		/* Add & sub two numbers without normalizing */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s1,		/* Source #1 */
-	gwnum	s2,		/* Source #2 */
+	gwnum	s1,		/* Source #1.  Will be FFTed if two sources do not have the same FFT state. */
+	gwnum	s2,		/* Source #2.  Will be FFTed if two sources do not have the same FFT state. */
 	gwnum	d1,		/* Destination #1 */
 	gwnum	d2);		/* Destination #2 */
 
