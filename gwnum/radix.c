@@ -43,7 +43,7 @@ int nonbase2_gianttogw (	/* Returns an error code or zero for success */
 
 #define BRUTE_FORCE_WORDS		2
 #define giant_extract(s,off,len,d)	{if ((s)->sign <= (off)) (d)->sign = 0; \
-					 else { (d)->sign = min ((s)->sign - (off), (len)); \
+					 else { (d)->sign = intmin ((s)->sign - (off), (len)); \
 						memcpy ((d)->n, (s)->n+(off), (d)->sign * sizeof (uint32_t)); \
 						while((d)->sign && (d)->n[(d)->sign-1] == 0) (d)->sign--;}}
 
@@ -528,7 +528,7 @@ int source_extract (
 		if (b_we_have == num_b_to_get) break;
 
 		// Get part or all of source word
-		b_to_get = min (s->srcb, num_b_to_get - b_we_have);
+		b_to_get = intmin (s->srcb, num_b_to_get - b_we_have);
 		while ((int64_t) radix_powers[b_to_get] <= 0) b_to_get--;	// Make sure radix power can be successfully changed to int64_t
 		remainder = s->srcval % (int64_t) radix_powers[b_to_get];
 		s->srcval = s->srcval / (int64_t) radix_powers[b_to_get];
@@ -550,7 +550,7 @@ int source_extract (
 
 /* Output up to 64-bits to part of a gwnum specified by gwnum_offset and num_fft_words */
 
-__inline brute_output64 (
+__inline void brute_output64 (
 	gwhandle *gwdata,
 	gwnum	x,
 	int	gwnum_offset,
