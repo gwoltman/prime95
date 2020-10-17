@@ -717,6 +717,9 @@ lab:	mov	rbx, 0			;; Offset for some avx macros (s.b. non-zero for with_mult mac
 	mov	rbp, 524288+256		;; Offset for mulf avx macros
 	mov	eax, outer_iters
 	mov	ecx, odd_iters
+	IFDEF X86_64
+	mov	r8, 0			;; yr4 and yr8 macros use this for optional distance between the two destination registers
+	ENDIF
 	mov	SRCARG, rdi		;; Save work buf addr
 av0a:	mov	rdi, SRCARG		;; Reload work buf addr (sincos data)
 	lea	rsi, [rdi+262144+4096+64] ;; Source & dest ptr
@@ -895,8 +898,8 @@ ENDIF
 avx512mac MACRO	memused, memarea, rdi_incr, ops:vararg
 	LOCAL	avx512label
 	avx512label CATSTR <av512case>,%avx512_case_num
-	avx512_case_num = avx512_case_num + 1
 	avx512mac1 avx512label, memused, memarea, rdi_incr, ops
+	avx512_case_num = avx512_case_num + 1
 	ENDM
 avx512mac1 MACRO lab, memused, memarea, rdi_incr, ops:vararg
 	LOCAL	av00, av0a, av0b
@@ -912,8 +915,13 @@ lab:	mov	rbx, 0			;; Offset for some avx macros (s.b. non-zero for with_mult mac
 	mov	rbp, 524288+256		;; Offset for mulf avx macros
 	mov	r12, norm_grp_mults
 	mov	r13, r12
+	IF (avx512_case_num GE 108 AND avx512_case_num LT 116)
 	mov	r8, 128			;; d1reg for "rsc" macros
 	mov	r9, 384			;; d3reg for "rsc" macros
+	ELSE
+	mov	r8, 0			;; zr64 macros use this for optional distance between the two destination registers
+	mov	r9, 0			;; unused by any macro
+	ENDIF
 	mov	eax, outer_iters
 	mov	ecx, odd_iters
 	mov	SRCARG, rdi		;; Save work buf addr

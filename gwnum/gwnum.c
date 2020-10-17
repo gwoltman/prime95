@@ -5405,6 +5405,7 @@ void auxiliary_thread (void *arg)
 		asm_data->DIST_TO_FFTSRCARG = main_thread_asm_data->DIST_TO_FFTSRCARG;
 		asm_data->DIST_TO_MULSRCARG = main_thread_asm_data->DIST_TO_MULSRCARG;
 		asm_data->SRC2ARG = main_thread_asm_data->SRC2ARG;
+		asm_data->DEST2ARG = main_thread_asm_data->DEST2ARG;
 		asm_data->ffttype = main_thread_asm_data->ffttype;
 		asm_data->mul4_opcode = main_thread_asm_data->mul4_opcode;
 		asm_data->thread_work_routine = main_thread_asm_data->thread_work_routine;
@@ -5535,6 +5536,10 @@ void pass1_wake_up_threads (
 
 	if (gwdata->pass1_state == 1) {
 		int	i, num_blocks_allocated, num_blocks_remaining, num_threads_remaining;
+
+/* For the two destination case, switch from writing the FFT data to writing the multiplication data. */
+
+		asm_data->DESTARG = (char *) asm_data->DESTARG + (intptr_t) asm_data->DEST2ARG;
 
 /* Initialize values that the normalization / carry propagation code uses. */
 
@@ -8921,7 +8926,7 @@ int gwequal (
 /******************************************************************/
 
 /* Internal routine to implement gwmul3 by calling fft/multiply assembly code. */
-/* Caller must set ffttype, SRC2ARG, mul4_opcode, NORMRTN prior to calling this routine.  Caller is responsible for emulate_mod. */
+/* Caller must set ffttype, SRC2ARG, DEST2ARG, mul4_opcode, NORMRTN prior to calling this routine.  Caller is responsible for emulate_mod. */
 
 __inline void asm_mul (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -8935,7 +8940,6 @@ __inline void asm_mul (
 /* Set the flag which controls whether the multiply code should begin the forward FFT of the results of a multiply. */
 /* This is a little faster than than doing a full forward FFT later on.  The downside is the caller cannot convert the */
 /* results of the multiply to an integer without an inefficient call to gwunfft. */
-/* NOTE:  THe POSTFFT option is not supported for generic modular reduction and one-pass FFTs. */
 
 	gwdata->POSTFFT = FALSE;
 	if ((options & GWMUL_STARTNEXTFFT) ||
@@ -8964,6 +8968,13 @@ __inline void asm_mul (
 //if (rand() % 1000 < 2) *d += 1.0E200 * 1.0E200;
 	if (! is_valid_double (gwsumout (gwdata, d))) gwdata->GWERROR |= 1;
 	gwdata->fft_count += (asm_data->ffttype <= 3) ? 2.0 : 1.0;
+
+/* For the two destination case, mark the source fully FFTed and calculate the address for the multiplication destination */
+
+	if (asm_data->DEST2ARG) {
+		FFT_state (s1) = FULLY_FFTed;
+		d = (gwnum) ((char *) d + (intptr_t) asm_data->DEST2ARG);
+	}
 
 /* Adjust if necessary the SUM(INPUTS) vs. SUM(OUTPUTS).  If norm_count is more than one, then the sums will be */
 /* larger than normal.  This could trigger a spurious MAXDIFF warning.  Shrink the two SUMS to compensate. */
@@ -9005,45 +9016,107 @@ void raw_gwmul3 (
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 	gwnum	tmp = NULL;
 
-/* Handle squaring */
-
-	if (s1 == s2) {
-		if (FFT_state (s2) == FULLY_FFTed) asm_data->ffttype = 4;
-		else if (options & (GWMUL_FFT_S1 | GWMUL_FFT_S2)) gwfft (gwdata, s1, s1), asm_data->ffttype = 4;	// or type-2*
-		else asm_data->ffttype = 2;
-	}
-
-/* Handle multiplication.  If one source is the same as destination, make it s1.  We will always FFT s2. */
-/* Decide which of s1 and s2 is better suited to being s2. */
-
-	else {
-		if (s2 == d) { swaps1s2 (); }						// Only s1 can equal d
-		else if (s1 == d);							// Only s1 can equal d
-		else if (FFT_state (s2) == FULLY_FFTed || (options & GWMUL_FFT_S2));	// s2 is already a good choice for 2nd argument
-		else if (FFT_state (s1) == FULLY_FFTed || (options & GWMUL_FFT_S1)) { swaps1s2 (); } // s1 is the better choice for 2nd arg
-		// neither is already or must be ffted we have a choice -- next preference is scratch variables
-		else if	(!(options & GWMUL_PRESERVE_S2));				// s2 need not be preserved, overwrite it with FFT
-		else if	(!(options & GWMUL_PRESERVE_S1)) { swaps1s2 (); }		// s1 need not be preserved, overwrite it with FFT
-		// Ugh, both must be preserved, a temporary will be required
-	//else gwalloc, gwfft (s2, tmp), s2 = tmp						(3)
-
-		// Make sure s2 is FFTed.
-		if (FFT_state (s2) != FULLY_FFTed) {
-			if (options & GWMUL_PRESERVE_S2) { tmp = gwalloc (gwdata); gwfft (gwdata, s2, tmp); s2 = tmp; }
-			else gwfft (gwdata, s2, s2);
-		}
-
-		if (FFT_state (s1) == FULLY_FFTed) asm_data->ffttype = 4;
-		else if (options & GWMUL_FFT_S1) gwfft (gwdata, s1, s1), asm_data->ffttype = 4;	// replace gwfft with possible type-4 optimization
-		else asm_data->ffttype = 3;
-	}
-
-/* Call the assembly code */
+/* Assume we will not be asking the assembly code to use two destinations */
 
 	asm_data->mul4_opcode = 0;
-	asm_mul (gwdata, s1, s2, d, options);
+	asm_data->DEST2ARG = 0;
 
-/* Free temporary memory */			
+/* New in 30.4, the AVX-512 FFT routines can handle two destinations!  One for the FFT of s1 and one for the multiplication result. */
+
+	if (gwdata->cpu_flags & CPU_AVX512F) {
+
+/* Handle squaring */
+
+		if (s1 == s2) {
+			if (FFT_state (s2) == FULLY_FFTed) asm_data->ffttype = 4;
+			else if (options & (GWMUL_FFT_S1 | GWMUL_FFT_S2)) gwfft (gwdata, s1, s1), asm_data->ffttype = 4;	// or type-2*
+			else asm_data->ffttype = 2;
+		}
+
+/* Handle multiplication.  The s2 argument must be FFTed prior to calling the assembly code.  However, the assembly */
+/* code can FFT s1 and save the result while storing the result of the multiply in a different destination. */
+/* Decide which of s1 and s2 is better suited to being s2. */
+
+		else {
+			if (FFT_state (s2) == FULLY_FFTed);				// s2 is already a great choice for 2nd argument
+			else if (FFT_state (s1) == FULLY_FFTed) { swaps1s2 (); }	// s1 is the better choice for 2nd arg
+			else if (s1 == d);						// If a not-FFTed-source = d, it's best for s1 to equal d
+			else if (s2 == d) { swaps1s2 (); }				// If a not-FFTed-source = d, it's best for s1 to equal d
+			else if (options & GWMUL_FFT_S1);				// Have asm code FFT s1 and save result
+			else if (options & GWMUL_FFT_S2) { swaps1s2 (); }		// Have asm code FFT s2 and save result
+			// Neither source is already FFTed or must be FFTed.  We have a choice -- next preference is scratch variables
+			else if	(!(options & GWMUL_PRESERVE_S2));			// s2 need not be preserved, overwrite it with FFT
+			else if	(!(options & GWMUL_PRESERVE_S1)) { swaps1s2 (); }	// s1 need not be preserved, overwrite it with FFT
+			// Ugh, both must be preserved, a temporary will be required
+
+			// Make sure s2 is FFTed.
+			if (FFT_state (s2) != FULLY_FFTed) {
+				if (options & GWMUL_PRESERVE_S2) { tmp = gwalloc (gwdata); gwfft (gwdata, s2, tmp); s2 = tmp; }
+				else gwfft (gwdata, s2, s2);
+			}
+
+			// Our options here depend on s1's FFT option and whether s2 = d (if s2 = d we cannot write to d during the forward FFT)
+			// This table describes the 6 combinations:
+			//	FFT option	s2!=d		s2==d
+			//	0		3		new3
+			//	PRESERVE_S1	3		gwfft/4
+			//	FFT_S1		new3		new3
+			if (FFT_state (s1) == FULLY_FFTed) asm_data->ffttype = 4;
+			else if (! (options & GWMUL_FFT_S1) && s2 != d) asm_data->ffttype = 3;
+			else if (options & GWMUL_PRESERVE_S1) { tmp = gwalloc (gwdata); gwfft (gwdata, s1, tmp); s1 = tmp; asm_data->ffttype = 4; }
+			else {	// Two destinations
+				asm_data->ffttype = 3;
+				asm_data->DEST2ARG = (void *) ((intptr_t) d - (intptr_t) s1);
+				asm_data->mul4_opcode = 0x80;
+			}
+		}
+	}
+
+/* Handle the original style single-destination FFT routines. */
+
+	else {
+
+/* Handle squaring */
+
+		if (s1 == s2) {
+			if (FFT_state (s1) == FULLY_FFTed) asm_data->ffttype = 4;
+			else if (options & (GWMUL_FFT_S1 | GWMUL_FFT_S2)) gwfft (gwdata, s1, s1), asm_data->ffttype = 4;
+			else asm_data->ffttype = 2;
+		}
+
+/* Handle multiplication.  If one source is the same as destination, make it s1.  We will always FFT s2 before calling the assembly code. */
+/* Decide which of s1 and s2 is better suited to being s2. */
+
+		else {
+			if (s2 == d) { swaps1s2 (); }						// Only s1 can equal d
+			else if (s1 == d);							// Only s1 can equal d
+			else if (FFT_state (s2) == FULLY_FFTed || (options & GWMUL_FFT_S2));	// s2 is already a good choice for 2nd argument
+			else if (FFT_state (s1) == FULLY_FFTed || (options & GWMUL_FFT_S1)) { swaps1s2 (); } // s1 is the better choice for 2nd arg
+			// Neither is already FFTed or must be FFTed.  We have a choice -- next preference is scratch variables
+			else if	(!(options & GWMUL_PRESERVE_S2));				// s2 need not be preserved, overwrite it with FFT
+			else if	(!(options & GWMUL_PRESERVE_S1)) { swaps1s2 (); }		// s1 need not be preserved, overwrite it with FFT
+			// Ugh, both must be preserved, a temporary will be required
+
+			// Make sure s2 is FFTed.
+			if (FFT_state (s2) != FULLY_FFTed) {
+				if (options & GWMUL_PRESERVE_S2) { tmp = gwalloc (gwdata); gwfft (gwdata, s2, tmp); s2 = tmp; }
+				else gwfft (gwdata, s2, s2);
+			}
+
+			if (FFT_state (s1) == FULLY_FFTed) asm_data->ffttype = 4;
+			else if (options & GWMUL_FFT_S1) gwfft (gwdata, s1, s1), asm_data->ffttype = 4;
+			else asm_data->ffttype = 3;
+		}
+	}
+
+/* Call the assembly code.  When there are 2 destinations start with the FFT destination */
+
+	if (asm_data->DEST2ARG)
+		asm_mul (gwdata, s1, s2, s1, options);
+	else
+		asm_mul (gwdata, s1, s2, d, options);
+
+/* Free temporary memory */
 
 	if (tmp != NULL) gwfree (gwdata, tmp);
 }
@@ -9126,7 +9199,7 @@ void gwunfft (
 	} else {
 		gwnum	tmp = gwalloc (gwdata);
 		dbltogw (gwdata, 1.0, tmp);
-		gwmul3 (gwdata, s, tmp, d, GWMUL_PRESERVE_S1);
+		gwmul3 (gwdata, s, tmp, d, 0);
 		gwfree (gwdata, tmp);
 	}
 }
@@ -9180,6 +9253,10 @@ void cmn_gwmul4 (		/* Calculate (s1 op s2) * s3 */
 
 	else {
 		struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
+
+/* Assume we will not be asking the assembly code to use two destinations */
+
+		asm_data->DEST2ARG = 0;
 
 /* If s1 or s2 equals d then we must turn this into a type-4 FFT (the forward FFT of type-3 writes to d which would corrupt s1 or s2) */
 

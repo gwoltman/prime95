@@ -432,16 +432,16 @@ void gwfft (			/* Forward FFT */
 #define GWMUL_PRESERVE_S2	0x0008
 #define GWMUL_FFT_S3		0x0010
 #define GWMUL_PRESERVE_S3	0x0020
-						/* If neither of the next 2 options are set, the old-style deprecated mul by setting is used */
-#define GWMUL_NOMULBYCONST	0x0040		/* Do not multiply the final result by the small-mulby-const */
-#define GWMUL_MULBYCONST	0x0080		/* Multiply the final result by the small-mulby-const */
+						/* If neither of the next 2 options are set, the deprecated global mulbyconst setting */
+						/* from gwsetnormroutine is used. */
+#define GWMUL_NOMULBYCONST	0x0040		/* Do not multiply the final result by the small mulbyconst */
+#define GWMUL_MULBYCONST	0x0080		/* Multiply the final result by the small mulbyconst */
 						/* If none of the next 3 options are set, the old-style global gwstartnextfft setting is used */
 #define GWMUL_NOSTARTNEXTFFT	0x0100		/* Do not start the forward FFT of the multiplication result */
 #define GWMUL_STARTNEXTFFT	0x0200		/* Start the forward FFT of the multiplication result (for better performance) */
 #define GWMUL_STARTNEXTFFT1	0x0400		/* Start the forward FFT of the multiplication result only if an extra add can occur on */
 						/* multiplication inputs.  Normally a multiply of (a+b)*c is safe, this option takes */
 						/* effect if we are sufficiently below the FFT limit that (a+b)*(c+d) is also safe. */
-// echk?  mul-by-const?  postfft?
 void gwmul3 (			/* Multiply two gwnums */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	s1,		/* First source */
@@ -750,6 +750,7 @@ int gwtogiant (gwhandle *, gwnum, giant);
 /* If you know the result of a multiplication will be the input to another multiplication (but not gwmul_carefully), */
 /* then a small performance gain can be had in larger FFTs by doing some of the next forward FFT at the end of the multiplication. */
 /* Use this routine to tell the multiplication code whether or not it can start the forward FFT on the result. */
+/* NOTE:  The STARTNEXTFFT option is not supported for generic modular reduction and one-pass FFTs. */
 
 #define gwstartnextfft(h,state)	{(h)->GLOBAL_POSTFFT = (state);}
 
