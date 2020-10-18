@@ -373,6 +373,8 @@ zr64_64c_square_cmn_preload MACRO
 	vbroadcastsd zmm30, ZMM_TWO
 	ENDM
 zr64_64c_square_cmn MACRO srcreg,srcoff,srcinc,d1,d2,d4,screg,scinc,maxrpt,L1pt,L1pd
+	LOCAL	orig, back_to_orig
+
 	vmovapd	zmm0, [srcreg+srcoff]			;; R1
 	vmovapd	zmm20, [srcreg+srcoff+d4]		;; R5
 	vaddpd	zmm15, zmm0, zmm20			;; R1+R5					; 1-4		n 9
@@ -677,6 +679,12 @@ zr64_64c_square_cmn MACRO srcreg,srcoff,srcinc,d1,d2,d4,screg,scinc,maxrpt,L1pt,
 	zfnmaddpd zmm16, zmm3, zmm31, zmm15	;; R7 - I8 * SQRTHALF (final R7)			; 89-92		n 93
 	zfmaddpd zmm3, zmm3, zmm31, zmm15	;; R7 + I8 * SQRTHALF (final R8)			; 89-92		n 99
 
+	cmp	mul4_opcode, 0			;; See if we need to do more than the original type-2 FFT squaring
+	je	short orig
+	call	zcomplex_square_opcode		;; Handle more difficult cases
+	jmp	back_to_orig
+
+orig:
 	;; Square the complex numbers
 	vmulpd	zmm1, zmm13, zmm13		;; R1 * R1						; 90-93		n 94
 	vmulpd	zmm13, zmm13, zmm5		;; R1 * I1 (I1/2)					; 90-93		n 100
@@ -714,6 +722,7 @@ zr64_64c_square_cmn MACRO srcreg,srcoff,srcinc,d1,d2,d4,screg,scinc,maxrpt,L1pt,
 	zfnmaddpd zmm15, zmm8, zmm8, zmm15	;; R2^2 - I2 * I2 (R2)					; 101-104	n 107
 	zfnmaddpd zmm17, zmm7, zmm7, zmm17	;; R4^2 - I4 * I4 (R4)					; 101-104	n 108
 
+back_to_orig:
 	zfmaddpd zmm8, zmm7, zmm11, zmm14	;; I3/2 + I4 * R4 (new I3/2)				; 102-105	n 109
 	zfnmaddpd zmm14, zmm7, zmm11, zmm14	;; I3/2 - I4 * R4 (new R4/2)				; 102-105	n 122
 
@@ -956,41 +965,101 @@ zr64_64c_square_cmn MACRO srcreg,srcoff,srcinc,d1,d2,d4,screg,scinc,maxrpt,L1pt,
 
 	vaddpd	zmm10, zmm6, zmm14		;; I1 = (i1++) + (i2++)					; 179-182		r178
 	vsubpd	zmm6, zmm6, zmm14		;; I5 = (i1++) - (i2++)					; 179-182
-	zstore	[srcreg], zmm8			;; Save R1						; 179
+	zstore	[srcreg+r8], zmm8		;; Save R1						; 179
 
 	vaddpd	zmm14, zmm20, zmm11		;; R3 = (r1+-) + (i2--)					; 180-183		r177
 	vsubpd	zmm20, zmm20, zmm11		;; R7 = (r1+-) - (i2--)					; 180-183
-	zstore	[srcreg+d4], zmm13		;; Save R5						; 179+1
+	zstore	[srcreg+r8+d4], zmm13		;; Save R5						; 179+1
 
 	zfmaddpd zmm11, zmm0, zmm31, zmm3	;; R2 = (r1-+) + .707*(r2+-+)				; 181-184		r181
 	zfnmaddpd zmm0, zmm0, zmm31, zmm3	;; R6 = (r1-+) - .707*(r2+-+)				; 181-184
-	zstore	[srcreg+d2+64], zmm12		;; Save I3						; 180+1
+	zstore	[srcreg+r8+d2+64], zmm12	;; Save I3						; 180+1
 
 	zfnmaddpd zmm3, zmm9, zmm31, zmm4	;; R4 = (r1--) - .707*(r2+--)				; 182-185		r181
 	zfmaddpd zmm9, zmm9, zmm31, zmm4	;; R8 = (r1--) + .707*(r2+--)				; 182-185
-	zstore	[srcreg+d4+d2+64], zmm15	;; Save I7						; 180+2
+	zstore	[srcreg+r8+d4+d2+64], zmm15	;; Save I7						; 180+2
 
 	zfnmaddpd zmm4, zmm7, zmm31, zmm1	;; I2 = (i1--) - .707*(r2-+-)				; 183-186		r182
 	zfmaddpd zmm7, zmm7, zmm31, zmm1	;; I6 = (i1--) + .707*(r2-+-)				; 183-186
-	zstore	[srcreg+64], zmm10		;; Save I1						; 183
+	zstore	[srcreg+r8+64], zmm10		;; Save I1						; 183
 
 	zfnmaddpd zmm1, zmm5, zmm31, zmm2	;; I4 = (i1-+) - .707*(r2-++)				; 184-187		r182
 	zfmaddpd zmm5, zmm5, zmm31, zmm2	;; I8 = (i1-+) + .707*(r2-++)				; 184-187
-	zstore	[srcreg+d4+64], zmm6		;; Save I5						; 183+1
+	zstore	[srcreg+r8+d4+64], zmm6		;; Save I5						; 183+1
 
-	zstore	[srcreg+d2], zmm14		;; Save R3						; 184+1
-	zstore	[srcreg+d4+d2], zmm20		;; Save R7						; 184+2
-	zstore	[srcreg+d1], zmm11		;; Save R2						; 185+2
-	zstore	[srcreg+d4+d1], zmm0		;; Save R6						; 185+3
-	zstore	[srcreg+d2+d1], zmm3		;; Save R4						; 186+3
-	zstore	[srcreg+d4+d2+d1], zmm9		;; Save R8						; 186+4
-	zstore	[srcreg+d1+64], zmm4		;; Save I2						; 187+5
-	zstore	[srcreg+d4+d1+64], zmm7		;; Save I6						; 187+5
-	zstore	[srcreg+d2+d1+64], zmm1		;; Save I4						; 188+5
-	zstore	[srcreg+d4+d2+d1+64], zmm5	;; Save I8						; 188+6
+	zstore	[srcreg+r8+d2], zmm14		;; Save R3						; 184+1
+	zstore	[srcreg+r8+d4+d2], zmm20	;; Save R7						; 184+2
+	zstore	[srcreg+r8+d1], zmm11		;; Save R2						; 185+2
+	zstore	[srcreg+r8+d4+d1], zmm0		;; Save R6						; 185+3
+	zstore	[srcreg+r8+d2+d1], zmm3		;; Save R4						; 186+3
+	zstore	[srcreg+r8+d4+d2+d1], zmm9	;; Save R8						; 186+4
+	zstore	[srcreg+r8+d1+64], zmm4		;; Save I2						; 187+5
+	zstore	[srcreg+r8+d4+d1+64], zmm7	;; Save I6						; 187+5
+	zstore	[srcreg+r8+d2+d1+64], zmm1	;; Save I4						; 188+5
+	zstore	[srcreg+r8+d4+d2+d1+64], zmm5	;; Save I8						; 188+6
 	bump	srcreg, srcinc
 	ENDM
 
+;; Same as above code between orig and back_to_orig, except we implement mul4_opcode options
+
+zr64_64c_square_opcode MACRO srcreg,d1,d2,d4
+
+	;; The only supported opcode for squaring is 0x80 is "save FFT results"
+
+	;; Square the complex numbers
+	zstore	[srcreg], zmm13			;; R1
+	zstore	[srcreg+64], zmm5		;; I1
+	vmulpd	zmm1, zmm13, zmm13		;; R1 * R1						; 90-93		n 94
+	vmulpd	zmm13, zmm13, zmm5		;; R1 * I1 (I1/2)					; 90-93		n 100
+
+	zstore	[srcreg+d2], zmm14		;; R3
+	zstore	[srcreg+d2+64], zmm0		;; I3
+	vmulpd	zmm15, zmm14, zmm14		;; R3 * R3						; 91-94		n 95
+	vmulpd	zmm14, zmm14, zmm0		;; R3 * I3 (I3/2)					; 91-94		n 102
+
+	zstore	[srcreg+d4], zmm6		;; R5
+	zstore	[srcreg+d4+64], zmm9		;; I5
+	vmulpd	zmm17, zmm9, zmm9		;; I5 * I5						; 92-95		n 96
+	vmulpd	zmm9, zmm9, zmm6		;; I5 * R5 (I5/2)					; 92-95		n 98
+
+	zstore	[srcreg+d4+d2], zmm16		;; R7
+	zstore	[srcreg+d4+d2+64], zmm2		;; I7
+ 	vmulpd	zmm18, zmm2, zmm2		;; I7 * I7						; 93-96		n 97
+	vmulpd	zmm2, zmm2, zmm16		;; I7 * R7 (I7/2)					; 93-96		n 103
+
+	zstore	[srcreg+d4+d1+64], zmm4		;; I6
+	vmulpd	zmm20, zmm4, zmm4		;; I6 * I6						; 94-97		n 99
+	zfnmaddpd zmm5, zmm5, zmm5, zmm1	;; R1^2 - I1 * I1 (R1)					; 94-97		n 107
+
+	zstore	[srcreg+d4+d2+d1+64], zmm10	;; I8
+	vmulpd	zmm1, zmm10, zmm10		;; I8 * I8						; 95-98		n 99
+	zfnmaddpd zmm0, zmm0, zmm0, zmm15	;; R3^2 - I3 * I3 (R3)					; 95-98		n 108
+
+	zstore	[srcreg+d1], zmm19		;; R2
+	vmulpd	zmm15, zmm19, zmm19		;; R2 * R2						; 96-99		n 101
+	zfmsubpd zmm6, zmm6, zmm6, zmm17	;; R5 * R5 - I5^2 (R5)					; 96-99		n 104
+
+	zstore	[srcreg+d2+d1], zmm11		;; R4
+	vmulpd	zmm17, zmm11, zmm11		;; R4 * R4						; 97-100	n 101
+	zfmsubpd zmm16, zmm16, zmm16, zmm18	;; R7 * R7 - I7^2 (R7)					; 97-100	n 105
+
+	zstore	[srcreg+d4+d1], zmm12		;; R6
+	zfmaddpd zmm18, zmm4, zmm12, zmm9	;; I5/2 + I6 * R6 (new I5/2)				; 98-101	n 106
+	zfnmaddpd zmm4, zmm4, zmm12, zmm9	;; I5/2 - I6 * R6 (new I6/2)				; 98-101	n 112
+
+	zstore	[srcreg+d4+d2+d1], zmm3		;; R8
+	zfmsubpd zmm12, zmm12, zmm12, zmm20	;; R6 * R6 - I6^2 (R6)					; 99-102	n 104
+	zfmsubpd zmm1, zmm3, zmm3, zmm1		;; R8 * R8 - I8^2 (R8)					; 99-102	n 105
+
+	zstore	[srcreg+d1+64], zmm8		;; I2
+	zfmaddpd zmm9, zmm8, zmm19, zmm13	;; I1/2 + I2 * R2 (new I1/2)				; 100-103	n 109
+	zfnmaddpd zmm13, zmm8, zmm19, zmm13	;; I1/2 - I2 * R2 (new I2/2)				; 100-103	n 116
+
+	zstore	[srcreg+d2+d1+64], zmm7		;; I4
+	zfnmaddpd zmm15, zmm8, zmm8, zmm15	;; R2^2 - I2 * I2 (R2)					; 101-104	n 107
+	zfnmaddpd zmm17, zmm7, zmm7, zmm17	;; R4^2 - I4 * I4 (R4)					; 101-104	n 108
+
+	ENDM
 
 zr64_sixtyfour_complex_with_mult_preload MACRO
 	zr64_64c_mult_cmn_preload
@@ -1313,8 +1382,8 @@ zr64_64c_mult_cmn MACRO srcreg,srcoff,srcinc,d1,d2,d4,screg,scinc,maxrpt,L1pt,L1
 	je	short orig
 	call	zcomplex_mult_opcode		;; Handle more difficult cases
 	jmp	back_to_orig
-orig:
 
+orig:
 	;; Multiply the complex numbers
 	vmovapd	zmm30, [srcreg+rbp]		;; MemR1
 	vmulpd	zmm20, zmm13, zmm30		;; A1 = R1 * MemR1					; 88-91		n 92
@@ -3210,6 +3279,7 @@ zr64_128r_square_cmn_preload MACRO
 	;; preload would be silly for a macro that is executed only once
 	ENDM
 zr64_128r_square_cmn MACRO srcreg,srcoff,srcinc,d1,d2,d4,screg1,scinc1,screg2,scinc2,maxrpt,L1pt,L1pd
+	LOCAL	orig
 
 	;; For zero pad
 	zsquare7 srcreg
@@ -3565,6 +3635,28 @@ zr64_128r_square_cmn MACRO srcreg,srcoff,srcinc,d1,d2,d4,screg1,scinc1,screg2,sc
 	zfmaddpd zmm4, zmm5, zmm28, zmm18	;; I7 + R8*SQRTHALF (final I7)	I11 + R12*.383 (final I11 => I7); 99-102	n 
 	zfnmaddpd zmm5, zmm5, zmm28, zmm18	;; I7 - R8*SQRTHALF (final I8)	I11 - R12*.383 (final I12 => I8); 99-102	n 
 
+	cmp	mul4_opcode, 0			;; See if we need to do more than the original type-2 FFT squaring
+	je	short orig
+
+	;; Store FFT results
+	zstore	[srcreg], zmm1			;; R1			R1a
+	zstore	[srcreg+64], zmm11		;; I1			R1b
+	zstore	[srcreg+d1], zmm2		;;		R2
+	zstore	[srcreg+d1+64], zmm3		;;		I2
+	zstore	[srcreg+d2], zmm13		;;		R3
+	zstore	[srcreg+d2+64], zmm15		;;		I3
+	zstore	[srcreg+d2+d1], zmm9		;;		R4
+	zstore	[srcreg+d2+d1+64], zmm12	;;		I4
+	zstore	[srcreg+d4], zmm10		;;		R5
+	zstore	[srcreg+d4+64], zmm7		;;		I5
+	zstore	[srcreg+d4+d1], zmm6		;;		R6
+	zstore	[srcreg+d4+d1+64], zmm8		;;		I6
+	zstore	[srcreg+d4+d2], zmm14		;;		R7
+	zstore	[srcreg+d4+d2+64], zmm4		;;		I7
+	zstore	[srcreg+d4+d2+d1], zmm0		;;		R8
+	zstore	[srcreg+d4+d2+d1+64], zmm5	;;		I8
+
+orig:
 	;; Square the results
 	vmulpd	zmm23, zmm1, zmm1		;; A1 = R1 * R1			R1a*R1a (R1a)			; 1-4		n 5
 	vmulpd	zmm17, zmm2, zmm2		;;		A2 = R2 * R2					; 1-4		n 5
@@ -3580,7 +3672,7 @@ zr64_128r_square_cmn MACRO srcreg,srcoff,srcinc,d1,d2,d4,screg1,scinc1,screg2,sc
 
 	zfnmaddpd zmm23 {k7}, zmm11, zmm11, zmm23;; A1 - I1 * I1 (R1)		R1a				; 5-8		n 13
 	zfnmaddpd zmm17, zmm3, zmm3, zmm17	;;		A2 - I2 * I2 (R2)				; 5-8		n 9
-	vmovsd	Q [srcreg-16], xmm23		;;				Save square of FFT sums		; 5
+	vmovsd	Q [srcreg+r8-16], xmm23		;;				Save square of FFT sums		; 5
 
 	vmulpd	zmm9, zmm12, zmm9		;;		B4 = I4 * R4					; 6-9		n 10
 	vmulpd	zmm0, zmm5, zmm0		;;		B8 = I8 * R8					; 6-9		n 13
@@ -3911,19 +4003,19 @@ zr64_128r_square_cmn MACRO srcreg,srcoff,srcinc,d1,d2,d4,screg1,scinc1,screg2,sc
 
 	zfmaddpd zmm0, zmm21, zmm30, zmm1	;; r2_10e/.383 = .924/.383(r2-+) + (i2++)		; 30-33		n 35
 	zfmsubpd zmm1, zmm1, zmm30, zmm21	;; r6_14e/.383 = .924/.383(i2++) - (r2-+)		; 30-33		n 36
-	zstore	[srcreg], zmm9			;; Save R1						; 30
+	zstore	[srcreg+r8], zmm9		;; Save R1						; 30
 
 	zfnmaddpd zmm6, zmm24, zmm31, zmm3	;; r4_12o = (r1--) - .707(r3--)				; 31-34		n 37
 	zfmaddpd zmm24, zmm24, zmm31, zmm3	;; r8_16o = (r1--) + .707(r3--)				; 31-34		n 38
-	zstore	[srcreg+64], zmm22		;; Save R9						; 30+1
+	zstore	[srcreg+r8+64], zmm22		;; Save R9						; 30+1
 
 	zfmaddpd zmm21, zmm12, zmm30, zmm2	;; r4_12e/.383 = .924/.383(i2+-) + (r2--)		; 32-35		n 37
 	zfnmaddpd zmm2, zmm2, zmm30, zmm12	;; r8_16e/.383 = (i2+-) - .924/.383(r2--)		; 32-35		n 38
-	zstore	[srcreg+d4], zmm5		;; Save R5						; 31+1
+	zstore	[srcreg+r8+d4], zmm5		;; Save R5						; 31+1
 
 	zfmaddpd zmm3, zmm19, zmm31, zmm16	;; R3  = (r1+-+) + .707(r2+-+)				; 33-36
 	zfnmaddpd zmm19, zmm19, zmm31, zmm16	;; R11 = (r1+-+) - .707(r2+-+)				; 33-36
-	zstore	[srcreg+d4+64], zmm15		;; Save R13						; 31+2
+	zstore	[srcreg+r8+d4+64], zmm15	;; Save R13						; 31+2
 
 	zfnmaddpd zmm12, zmm17, zmm31, zmm20	;; R7  = (r1+--) - .707(r2+--)				; 34-37
 	zfmaddpd zmm17, zmm17, zmm31, zmm20	;; R15 = (r1+--) + .707(r2+--)				; 34-37
@@ -3936,22 +4028,22 @@ zr64_128r_square_cmn MACRO srcreg,srcoff,srcinc,d1,d2,d4,screg1,scinc1,screg2,sc
 
 	zfmaddpd zmm7, zmm21, zmm29, zmm6	;; R4  = r4_12o + .383*r4_12e				; 37-40
 	zfnmaddpd zmm21, zmm21, zmm29, zmm6	;; R12 = r4_12o - .383*r4_12e				; 37-40
-	zstore	[srcreg+d2], zmm3		;; Save R3						; 37
+	zstore	[srcreg+r8+d2], zmm3		;; Save R3						; 37
 
 	zfmaddpd zmm8, zmm2, zmm29, zmm24	;; R8  = r8_16o + .383*r8_16e				; 38-41
 	zfnmaddpd zmm2, zmm2, zmm29, zmm24	;; R16 = r8_16o - .383*r8_16e				; 38-41
-	zstore	[srcreg+d2+64], zmm19		;; Save R11						; 37+1
+	zstore	[srcreg+r8+d2+64], zmm19	;; Save R11						; 37+1
 
-	zstore	[srcreg+d4+d2], zmm12		;; Save R7						; 38+1
-	zstore	[srcreg+d4+d2+64], zmm17	;; Save R15						; 38+2
-	zstore	[srcreg+d1], zmm16		;; Save R2						; 39+2
-	zstore	[srcreg+d1+64], zmm0		;; Save R10						; 39+3
-	zstore	[srcreg+d4+d1], zmm20		;; Save R6						; 40+3
-	zstore	[srcreg+d4+d1+64], zmm1		;; Save R14						; 40+4
-	zstore	[srcreg+d2+d1], zmm7		;; Save R4						; 41+4
-	zstore	[srcreg+d2+d1+64], zmm21	;; Save R12						; 41+5
-	zstore	[srcreg+d4+d2+d1], zmm8		;; Save R8						; 42+5
-	zstore	[srcreg+d4+d2+d1+64], zmm2	;; Save R16						; 42+6
+	zstore	[srcreg+r8+d4+d2], zmm12	;; Save R7						; 38+1
+	zstore	[srcreg+r8+d4+d2+64], zmm17	;; Save R15						; 38+2
+	zstore	[srcreg+r8+d1], zmm16		;; Save R2						; 39+2
+	zstore	[srcreg+r8+d1+64], zmm0		;; Save R10						; 39+3
+	zstore	[srcreg+r8+d4+d1], zmm20	;; Save R6						; 40+3
+	zstore	[srcreg+r8+d4+d1+64], zmm1	;; Save R14						; 40+4
+	zstore	[srcreg+r8+d2+d1], zmm7		;; Save R4						; 41+4
+	zstore	[srcreg+r8+d2+d1+64], zmm21	;; Save R12						; 41+5
+	zstore	[srcreg+r8+d4+d2+d1], zmm8	;; Save R8						; 42+5
+	zstore	[srcreg+r8+d4+d2+d1+64], zmm2	;; Save R16						; 42+6
 	bump	srcreg, srcinc
 	ENDM
 

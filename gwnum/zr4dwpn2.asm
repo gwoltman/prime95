@@ -50,6 +50,12 @@ PROCFP	zreal_mulf
 	int_epilog 0,0,0
 ENDPP	zreal_mulf 
 
+PROCF	zcomplex_square_opcode
+	int_prolog 0,0,0
+	zr64_64c_square_opcode rsi, 1*128, 2*128, 4*128
+	int_epilog 0,0,0
+zcomplex_square_opcode ENDP
+
 PROCF	zcomplex_mult_opcode
 	int_prolog 0,0,0
 	zr64_64c_mult_opcode rsi, 1*128, 2*128, 4*128

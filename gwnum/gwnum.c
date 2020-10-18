@@ -9029,12 +9029,17 @@ void raw_gwmul3 (
 	if (0) {
 #endif
 
-/* Handle squaring */
+/* Handle squaring.  AVX-512 can handle two destination squaring, AVX and FMA3 cannot. */
 
 		if (s1 == s2) {
-			if (FFT_state (s2) == FULLY_FFTed) asm_data->ffttype = 4;
-			else if (options & (GWMUL_FFT_S1 | GWMUL_FFT_S2)) gwfft (gwdata, s1, s1), asm_data->ffttype = 4;	// or type-2*
-			else asm_data->ffttype = 2;
+			if (FFT_state (s1) == FULLY_FFTed) asm_data->ffttype = 4;
+			else if (!(options & (GWMUL_FFT_S1 | GWMUL_FFT_S2))) asm_data->ffttype = 2;
+			else if (!(gwdata->cpu_flags & (CPU_AVX512F))) gwfft (gwdata, s1, s1), asm_data->ffttype = 4;
+			else {	// Two destinations
+				asm_data->ffttype = 2;
+				asm_data->DEST2ARG = (void *) ((intptr_t) d - (intptr_t) s1);
+				asm_data->mul4_opcode = 0x80;
+			}
 		}
 
 /* Handle multiplication.  The s2 argument must be FFTed prior to calling the assembly code.  However, the assembly */

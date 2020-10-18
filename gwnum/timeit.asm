@@ -1933,6 +1933,7 @@ INCLUDE zr4.mac
 INCLUDE znormal.mac
 INCLUDE znormal_zpad.mac
 
+EXTRN zcomplex_square_opcode:PROC
 EXTRN zcomplex_mult_opcode:PROC
 EXTRN zcomplex_mulf_opcode:PROC
 
