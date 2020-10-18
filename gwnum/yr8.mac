@@ -3264,7 +3264,7 @@ yr8_8cl_eight_complex_with_mult MACRO srcreg,srcinc,d1,d2,d4
 	vaddpd	ymm12, ymm8, ymm6		;; I6 + R8 (new I6)		; 17-19
 	vsubpd	ymm8, ymm8, ymm6		;; I6 - R8 (new I8)		; 18-20
 	vmovapd	ymm6, [srcreg+32]		;; I1
-	ystore	[srcreg+32], ymm3		;; Temporarily save newer R2	; 14
+	ystore	[srcreg+d1], ymm3		;; Temporarily save newer R2	; 14
 
 	vsubpd	ymm14, ymm4, ymm10		;; R6 - I8 (new R6)		; 19-21
 	vaddpd	ymm4, ymm4, ymm10		;; R6 + I8 (new R8)		; 20-22
@@ -3321,14 +3321,14 @@ yr8_8cl_eight_complex_with_mult MACRO srcreg,srcinc,d1,d2,d4
 
 	vaddpd	ymm4, ymm13, ymm9		;; I1 + I2 (last I1)		; 45-47
 	vsubpd	ymm13, ymm13, ymm9		;; I1 - I2 (last I2)		; 50-52
-	ystore	[srcreg+d1], ymm4		;; Temporarily save I1		; 48
+	ystore	[srcreg+32], ymm4		;; Temporarily save I1		; 48
 
 	cmp	mul4_opcode, 0			;; See if we need to do more than the original type-3 FFT multiply
 	je	short orig
 	yr8_dispatch call,y8complex_mult_opcode,d1,d2,d4 ;; Handle more difficult cases
 	jmp	back_to_orig
-orig:
 
+orig:
 	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
 	vmovapd	ymm9, [srcreg+d2+d1+32][rbp]	;; MemI4
 	vmulpd	ymm4, ymm7, ymm3		;; R4 * MemR4			; 32-36
@@ -3388,7 +3388,7 @@ orig:
 
 	vmovapd	ymm3, [srcreg]			;; Reload newer R1
 	vsubpd	ymm8, ymm8, ymm9		;; R7*MemR7-I7*MemI7 (new R7)	; 61-63
-	vmovapd	ymm9, [srcreg+32]		;; Reload newer R2
+	vmovapd	ymm9, [srcreg+d1]		;; Reload newer R2
 	vaddpd	ymm0, ymm0, ymm6		;; R7*MemI7+I7*MemR7 (new I7)	; 62-64
 
 	vsubpd	ymm6, ymm3, ymm9		;; R1 - R2 (last R2)		; 63-65
@@ -3398,9 +3398,9 @@ orig:
 	vsubpd	ymm4, ymm4, ymm10		;; R4 - R3 (new I4)		; 66-68
 
 	vmovapd	ymm10, [srcreg+d1][rbp]		;; MemR2
-	ystore	[srcreg+d2], ymm9		;; Temporarily save new R3	; 68
+	ystore	[srcreg+r8+d2], ymm9		;; Temporarily save new R3	; 68
 	vmovapd	ymm9, [srcreg+d1+32][rbp]	;; MemI2
-	ystore	[srcreg+d2+32], ymm4		;; Temporarily save new I4	; 69
+	ystore	[srcreg+r8+d2+32], ymm4		;; Temporarily save new I4	; 69
 
 	vmulpd	ymm4, ymm6, ymm10		;; R2 * MemR2			; 66-70
 	vmulpd	ymm6, ymm6, ymm9		;; R2 * MemI2			; 67-71
@@ -3424,8 +3424,8 @@ back_to_orig:
 
 	vmulpd	ymm11, ymm3, ymm10		;; R1 * MemR1			; 70-74
 	vmulpd	ymm3, ymm3, ymm9		;; R1 * MemI1			; 71-75
-	vmulpd	ymm9, ymm9, [srcreg+d1]		;; (reload I1) * MemI1		; 72-76
-	vmulpd	ymm10, ymm10, [srcreg+d1]	;; (reload I1) * MemR1		; 73-77
+	vmulpd	ymm9, ymm9, [srcreg+32]		;; (reload I1) * MemI1		; 72-76
+	vmulpd	ymm10, ymm10, [srcreg+32]	;; (reload I1) * MemR1		; 73-77
 
 	vsubpd	ymm11, ymm11, ymm9		;; R1*MemR1-I1*MemI1 (new R1)	; 77-79
 	vaddpd	ymm3, ymm3, ymm10		;; R1*MemI1+I1*MemR1 (new I1)	; 78-80
@@ -3459,7 +3459,7 @@ back_to_orig:
 	vaddpd	ymm14, ymm6, ymm13		;; R2 + R4 (newer R2)		; 89-91
 	vsubpd	ymm6, ymm6, ymm13		;; R2 - R4 (newer R4)		; 90-92
 
-	vmovapd	ymm10, [srcreg+d2+32]		;; Reload new I4
+	vmovapd	ymm10, [srcreg+r8+d2+32]	;; Reload new I4
 	vaddpd	ymm13, ymm8, ymm10		;; I2 + I4 (newer I2)		; 91-93
 	vsubpd	ymm8, ymm8, ymm10		;; I2 - I4 (newer I4)		; 92-94
 
@@ -3480,48 +3480,48 @@ back_to_orig:
 
 	vsubpd	ymm2, ymm13, ymm4		;; I2 - I6 (final I6)		; 103-105
 	vaddpd	ymm13, ymm13, ymm4		;; I2 + I6 (final I2)		; 104-106
-	ystore	[srcreg+d4+d2+d1], ymm1		;; Save R8			; 104
+	ystore	[srcreg+r8+d4+d2+d1], ymm1	;; Save R8			; 104
 
 	vsubpd	ymm4, ymm8, ymm7		;; I4 - I8 (final I8)		; 105-107
 	vaddpd	ymm8, ymm8, ymm7		;; I4 + I8 (final I4)		; 106-108
-	ystore	[srcreg+d2+d1], ymm6		;; Save R4			; 105
-	ystore	[srcreg+d4+d1+32], ymm2		;; Save I6			; 106
+	ystore	[srcreg+r8+d2+d1], ymm6		;; Save R4			; 105
+	ystore	[srcreg+r8+d4+d1+32], ymm2	;; Save I6			; 106
 
 	vsubpd	ymm7, ymm14, ymm9		;; R2 - R6 (final R6)		; 107-109
 	vaddpd	ymm14, ymm14, ymm9		;; R2 + R6 (final R2)		; 108-110
-	ystore	[srcreg+d1+32], ymm13		;; Save I2			; 107
-	ystore	[srcreg+d4+d2+d1+32], ymm4	;; Save I8			; 108
+	ystore	[srcreg+r8+d1+32], ymm13	;; Save I2			; 107
+	ystore	[srcreg+r8+d4+d2+d1+32], ymm4	;; Save I8			; 108
 
-	vmovapd	ymm1, [srcreg+d2]		;; Reload new R3
+	vmovapd	ymm1, [srcreg+r8+d2]		;; Reload new R3
 	vsubpd	ymm9, ymm11, ymm1		;; R1 - R3 (newer R3)		; 109-111
 	vaddpd	ymm11, ymm11, ymm1		;; R1 + R3 (newer R1)		; 110-112
-	ystore	[srcreg+d2+d1+32], ymm8		;; Save I4			; 109
-	ystore	[srcreg+d4+d1], ymm7		;; Save R6			; 110
+	ystore	[srcreg+r8+d2+d1+32], ymm8	;; Save I4			; 109
+	ystore	[srcreg+r8+d4+d1], ymm7		;; Save R6			; 110
 
 	vaddpd	ymm1, ymm15, ymm5		;; R7 + R5 (newer R5)		; 111-113
 	vsubpd	ymm15, ymm15, ymm5		;; R7 - R5 (newer I7)		; 112-114
-	ystore	[srcreg+d1], ymm14		;; Save R2			; 111
+	ystore	[srcreg+r8+d1], ymm14		;; Save R2			; 111
 
 	vsubpd	ymm5, ymm3, ymm12		;; I1 - I5 (final I5)		; 113-115
 	vaddpd	ymm3, ymm3, ymm12		;; I1 + I5 (final I1)		; 114-116
 
 	vsubpd	ymm12, ymm9, ymm10		;; R3 - R7 (final R7)		; 115-117
 	vaddpd	ymm9, ymm9, ymm10		;; R3 + R7 (final R3)		; 116-118
-	ystore	[srcreg+d4+32], ymm5		;; Save I5			; 116
+	ystore	[srcreg+r8+d4+32], ymm5		;; Save I5			; 116
 
 	vsubpd	ymm10, ymm0, ymm15		;; I3 - I7 (final I7)		; 117-119
 	vaddpd	ymm0, ymm0, ymm15		;; I3 + I7 (final I3)		; 118-120
-	ystore	[srcreg+32], ymm3		;; Save I1			; 117
-	ystore	[srcreg+d4+d2], ymm12		;; Save R7			; 118
+	ystore	[srcreg+r8+32], ymm3		;; Save I1			; 117
+	ystore	[srcreg+r8+d4+d2], ymm12	;; Save R7			; 118
 
 	vsubpd	ymm15, ymm11, ymm1		;; R1 - R5 (final R5)		; 119-121
 	vaddpd	ymm11, ymm11, ymm1		;; R1 + R5 (final R1)		; 120-122
-	ystore	[srcreg+d2], ymm9		;; Save R3			; 119
-	ystore	[srcreg+d4+d2+32], ymm10	;; Save I7			; 120
+	ystore	[srcreg+r8+d2], ymm9		;; Save R3			; 119
+	ystore	[srcreg+r8+d4+d2+32], ymm10	;; Save I7			; 120
 
-	ystore	[srcreg+d2+32], ymm0		;; Save I3			; 121
-	ystore	[srcreg+d4], ymm15		;; Save R5			; 122
-	ystore	[srcreg], ymm11			;; Save R1			; 123
+	ystore	[srcreg+r8+d2+32], ymm0		;; Save I3			; 121
+	ystore	[srcreg+r8+d4], ymm15		;; Save R5			; 122
+	ystore	[srcreg+r8], ymm11		;; Save R1			; 123
 
 	bump	srcreg, srcinc
 	ENDM
@@ -3529,86 +3529,91 @@ back_to_orig:
 ;; Same as above code between orig and back_to_orig, except we implement mul4_opcode options
 
 yr8_8c_mult_opcode MACRO srcreg,d1,d2,d4
-	LOCAL	submul, done
+	LOCAL	origsave, addmul, addmulsave, submul, submulsave, done
 
-	push	rax				;; We could probably find a free register
-	mov	rax, SRC2ARG			;; Distance to s2 arg from gwaddmul4 or gwsubmul4
+	mov	r9, SRC2ARG			;; Distance to s2 arg from gwaddmul4 or gwsubmul4
+	movzx	r10, mul4_opcode		;; Load the mul4_opcode
+	cmp	r10, 2				;; Test the mul4_opcode (part 1)
+	jl	addmul				;; opcode == 1, addmul
+	je	submul				;; opcode == 2, submul
+	cmp	r10, 81h			;; Test the mul4_opcode (part 2)
+	je	addmulsave			;; opcode == 0x81, addmul with FFT save
+	jg	submulsave			;; opcode == 0x82, submul with FFT save
+						;; opcode == 0x80, plain mul with FFT save, fall through
 
-	cmp	mul4_opcode, 1			;; Are we doing an ADD
-	jne	submul
-
+origsave:
 	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
-	vaddpd	ymm3, ymm3, [srcreg+d2+d1][rax]	;; MemR4
 	vmovapd	ymm9, [srcreg+d2+d1+32][rbp]	;; MemI4
-	vaddpd	ymm9, ymm9, [srcreg+d2+d1+32][rax];; MemI4
+	ystore	[srcreg+d2+d1], ymm7		;; R4
 	vmulpd	ymm4, ymm7, ymm3		;; R4 * MemR4			; 32-36
 	vmulpd	ymm7, ymm7, ymm9		;; R4 * MemI4			; 33-37
+	ystore	[srcreg+d2+d1+32], ymm10	;; I4
 	vmulpd	ymm9, ymm10, ymm9		;; I4 * MemI4			; 34-38
 	vmulpd	ymm10, ymm10, ymm3		;; I4 * MemR4			; 35-39
 
 	vmovapd	ymm3, [srcreg+d2][rbp]		;; MemR3
-	vaddpd	ymm3, ymm3, [srcreg+d2][rax]	;; MemR3
 	vsubpd	ymm4, ymm4, ymm9		;; R4*MemR4-I4*MemI4 (new R4)	; 51-53
 	vmovapd	ymm9, [srcreg+d2+32][rbp]	;; MemI3
-	vaddpd	ymm9, ymm9, [srcreg+d2+32][rax]	;; MemI3
 	vaddpd	ymm7, ymm7, ymm10		;; R4*MemI4+I4*MemR4 (new I4)	; 52-54
 
+	ystore	[srcreg+d2], ymm2		;; R3
 	vmulpd	ymm10, ymm2, ymm3		;; R3 * MemR3			; 36-40
 	vmulpd	ymm2, ymm2, ymm9		;; R3 * MemI3			; 37-41
+	ystore	[srcreg+d2+32], ymm11		;; I3
 	vmulpd	ymm9, ymm11, ymm9		;; I3 * MemI3			; 38-42
 	vmulpd	ymm11, ymm11, ymm3		;; I3 * MemR3			; 39-43
 
 	vmovapd	ymm3, [srcreg+d4+d1][rbp]	;; MemR6
-	vaddpd	ymm3, ymm3, [srcreg+d4+d1][rax]	;; MemR6
 	vsubpd	ymm10, ymm10, ymm9		;; R3*MemR3-I3*MemI3 (new R3)	; 53-55
 	vmovapd	ymm9, [srcreg+d4+d1+32][rbp]	;; MemI6
-	vaddpd	ymm9, ymm9, [srcreg+d4+d1+32][rax];; MemI6
 	vaddpd	ymm2, ymm2, ymm11		;; R3*MemI3+I3*MemR3 (new I3)	; 54-56
 
+	ystore	[srcreg+d4+d1], ymm1		;; R6
 	vmulpd	ymm11, ymm1, ymm3		;; R6 * MemR6			; 42-46
 	vmulpd	ymm1, ymm1, ymm9		;; R6 * MemI6			; 43-47
+	ystore	[srcreg+d4+d1+32], ymm5		;; I6
 	vmulpd	ymm9, ymm5, ymm9		;; I6 * MemI6			; 46-50
 	vmulpd	ymm5, ymm5, ymm3		;; I6 * MemR6			; 47-51
 
 	vmovapd	ymm3, [srcreg+d4][rbp]		;; MemR5
-	vaddpd	ymm3, ymm3, [srcreg+d4][rax]	;; MemR5
 	vsubpd	ymm11, ymm11, ymm9		;; R6*MemR6-I6*MemI6 (new R6)	; 55-57
 	vmovapd	ymm9, [srcreg+d4+32][rbp]	;; MemI5
-	vaddpd	ymm9, ymm9, [srcreg+d4+32][rax]	;; MemI5
 	vaddpd	ymm1, ymm1, ymm5		;; R6*MemI6+I6*MemR6 (new I6)	; 56-58
 
+	ystore	[srcreg+d4], ymm12		;; R5
 	vmulpd	ymm5, ymm12, ymm3		;; R5 * MemR5			; 44-48
 	vmulpd	ymm12, ymm12, ymm9		;; R5 * MemI5			; 45-49
+	ystore	[srcreg+d4+32], ymm15		;; I5
 	vmulpd	ymm9, ymm15, ymm9		;; I5 * MemI5			; 48-52
 	vmulpd	ymm15, ymm15, ymm3		;; I5 * MemR5			; 49-53
 
 	vmovapd	ymm3, [srcreg+d4+d2+d1][rbp]	;; MemR8
-	vaddpd	ymm3, ymm3, [srcreg+d4+d2+d1][rax];; MemR8
 	vsubpd	ymm5, ymm5, ymm9		;; R5*MemR5-I5*MemI5 (new R5)	; 57-59
 	vmovapd	ymm9, [srcreg+d4+d2+d1+32][rbp]	;; MemI8
-	vaddpd	ymm9, ymm9, [srcreg+d4+d2+d1+32][rax];; MemI8
 	vaddpd	ymm12, ymm12, ymm15		;; R5*MemI5+I5*MemR5 (new I5)	; 58-60
 
+	ystore	[srcreg+d4+d2+d1], ymm14	;; R8
 	vmulpd	ymm15, ymm14, ymm3		;; R8 * MemR8			; 51-55
 	vmulpd	ymm14, ymm14, ymm9		;; R8 * MemI8			; 52-56
+	ystore	[srcreg+d4+d2+d1+32], ymm8	;; I8
 	vmulpd	ymm9, ymm8, ymm9		;; I8 * MemI8			; 53-57
 	vmulpd	ymm8, ymm8, ymm3		;; I8 * MemR8			; 54-58
 
 	vmovapd	ymm3, [srcreg+d4+d2][rbp]	;; MemR7
-	vaddpd	ymm3, ymm3, [srcreg+d4+d2][rax]	;; MemR7
 	vsubpd	ymm15, ymm15, ymm9		;; R8*MemR8-I8*MemI8 (new R8)	; 59-61
 	vmovapd	ymm9, [srcreg+d4+d2+32][rbp]	;; MemI7
-	vaddpd	ymm9, ymm9, [srcreg+d4+d2+32][rax] ;; MemI7
 	vaddpd	ymm14, ymm14, ymm8		;; R8*MemI8+I8*MemR8 (new I8)	; 60-62
 
+	ystore	[srcreg+d4+d2], ymm0		;; R7
 	vmulpd	ymm8, ymm0, ymm3		;; R7 * MemR7			; 54-58
 	vmulpd	ymm0, ymm0, ymm9		;; R7 * MemI7			; 55-59
+	ystore	[srcreg+d4+d2+32], ymm6		;; I7
 	vmulpd	ymm9, ymm6, ymm9		;; I7 * MemI7			; 56-60
 	vmulpd	ymm6, ymm6, ymm3		;; I7 * MemR7			; 57-61
 
 	vmovapd	ymm3, [srcreg]			;; Reload newer R1
 	vsubpd	ymm8, ymm8, ymm9		;; R7*MemR7-I7*MemI7 (new R7)	; 61-63
-	vmovapd	ymm9, [srcreg+32]		;; Reload newer R2
+	vmovapd	ymm9, [srcreg+d1]		;; Reload newer R2
 	vaddpd	ymm0, ymm0, ymm6		;; R7*MemI7+I7*MemR7 (new I7)	; 62-64
 
 	vsubpd	ymm6, ymm3, ymm9		;; R1 - R2 (last R2)		; 63-65
@@ -3618,11 +3623,113 @@ yr8_8c_mult_opcode MACRO srcreg,d1,d2,d4
 	vsubpd	ymm4, ymm4, ymm10		;; R4 - R3 (new I4)		; 66-68
 
 	vmovapd	ymm10, [srcreg+d1][rbp]		;; MemR2
-	vaddpd	ymm10, ymm10, [srcreg+d1][rax]	;; MemR2
-	ystore	[srcreg+d2], ymm9		;; Temporarily save new R3	; 68
+	ystore	[srcreg+r8+d2], ymm9		;; Temporarily save new R3	; 68
 	vmovapd	ymm9, [srcreg+d1+32][rbp]	;; MemI2
-	vaddpd	ymm9, ymm9, [srcreg+d1+32][rax]	;; MemI2
-	ystore	[srcreg+d2+32], ymm4		;; Temporarily save new I4	; 69
+	ystore	[srcreg+r8+d2+32], ymm4		;; Temporarily save new I4	; 69
+
+	ystore	[srcreg+d1], ymm6		;; R2
+	vmulpd	ymm4, ymm6, ymm10		;; R2 * MemR2			; 66-70
+	vmulpd	ymm6, ymm6, ymm9		;; R2 * MemI2			; 67-71
+	ystore	[srcreg+d1+32], ymm13		;; I2
+	vmulpd	ymm9, ymm13, ymm9		;; I2 * MemI2			; 68-72
+	vmulpd	ymm13, ymm13, ymm10		;; I2 * MemR2			; 69-73
+
+	vmovapd	ymm10, [srcreg][rbp]		;; MemR1
+	vsubpd	ymm4, ymm4, ymm9		;; R2*MemR2-I2*MemI2 (new R2)	; 73-75
+	vmovapd	ymm9, [srcreg+32][rbp]		;; MemI1
+	vaddpd	ymm6, ymm6, ymm13		;; R2*MemI2+I2*MemR2 (new I2)	; 74-76
+
+	ystore	[srcreg], ymm3			;; R1
+
+	jmp	done
+
+addmul:
+	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
+	vaddpd	ymm3, ymm3, [srcreg+d2+d1][r9]	;; MemR4
+	vmovapd	ymm9, [srcreg+d2+d1+32][rbp]	;; MemI4
+	vaddpd	ymm9, ymm9, [srcreg+d2+d1+32][r9];; MemI4
+	vmulpd	ymm4, ymm7, ymm3		;; R4 * MemR4			; 32-36
+	vmulpd	ymm7, ymm7, ymm9		;; R4 * MemI4			; 33-37
+	vmulpd	ymm9, ymm10, ymm9		;; I4 * MemI4			; 34-38
+	vmulpd	ymm10, ymm10, ymm3		;; I4 * MemR4			; 35-39
+
+	vmovapd	ymm3, [srcreg+d2][rbp]		;; MemR3
+	vaddpd	ymm3, ymm3, [srcreg+d2][r9]	;; MemR3
+	vsubpd	ymm4, ymm4, ymm9		;; R4*MemR4-I4*MemI4 (new R4)	; 51-53
+	vmovapd	ymm9, [srcreg+d2+32][rbp]	;; MemI3
+	vaddpd	ymm9, ymm9, [srcreg+d2+32][r9]	;; MemI3
+	vaddpd	ymm7, ymm7, ymm10		;; R4*MemI4+I4*MemR4 (new I4)	; 52-54
+
+	vmulpd	ymm10, ymm2, ymm3		;; R3 * MemR3			; 36-40
+	vmulpd	ymm2, ymm2, ymm9		;; R3 * MemI3			; 37-41
+	vmulpd	ymm9, ymm11, ymm9		;; I3 * MemI3			; 38-42
+	vmulpd	ymm11, ymm11, ymm3		;; I3 * MemR3			; 39-43
+
+	vmovapd	ymm3, [srcreg+d4+d1][rbp]	;; MemR6
+	vaddpd	ymm3, ymm3, [srcreg+d4+d1][r9]	;; MemR6
+	vsubpd	ymm10, ymm10, ymm9		;; R3*MemR3-I3*MemI3 (new R3)	; 53-55
+	vmovapd	ymm9, [srcreg+d4+d1+32][rbp]	;; MemI6
+	vaddpd	ymm9, ymm9, [srcreg+d4+d1+32][r9];; MemI6
+	vaddpd	ymm2, ymm2, ymm11		;; R3*MemI3+I3*MemR3 (new I3)	; 54-56
+
+	vmulpd	ymm11, ymm1, ymm3		;; R6 * MemR6			; 42-46
+	vmulpd	ymm1, ymm1, ymm9		;; R6 * MemI6			; 43-47
+	vmulpd	ymm9, ymm5, ymm9		;; I6 * MemI6			; 46-50
+	vmulpd	ymm5, ymm5, ymm3		;; I6 * MemR6			; 47-51
+
+	vmovapd	ymm3, [srcreg+d4][rbp]		;; MemR5
+	vaddpd	ymm3, ymm3, [srcreg+d4][r9]	;; MemR5
+	vsubpd	ymm11, ymm11, ymm9		;; R6*MemR6-I6*MemI6 (new R6)	; 55-57
+	vmovapd	ymm9, [srcreg+d4+32][rbp]	;; MemI5
+	vaddpd	ymm9, ymm9, [srcreg+d4+32][r9]	;; MemI5
+	vaddpd	ymm1, ymm1, ymm5		;; R6*MemI6+I6*MemR6 (new I6)	; 56-58
+
+	vmulpd	ymm5, ymm12, ymm3		;; R5 * MemR5			; 44-48
+	vmulpd	ymm12, ymm12, ymm9		;; R5 * MemI5			; 45-49
+	vmulpd	ymm9, ymm15, ymm9		;; I5 * MemI5			; 48-52
+	vmulpd	ymm15, ymm15, ymm3		;; I5 * MemR5			; 49-53
+
+	vmovapd	ymm3, [srcreg+d4+d2+d1][rbp]	;; MemR8
+	vaddpd	ymm3, ymm3, [srcreg+d4+d2+d1][r9];; MemR8
+	vsubpd	ymm5, ymm5, ymm9		;; R5*MemR5-I5*MemI5 (new R5)	; 57-59
+	vmovapd	ymm9, [srcreg+d4+d2+d1+32][rbp]	;; MemI8
+	vaddpd	ymm9, ymm9, [srcreg+d4+d2+d1+32][r9];; MemI8
+	vaddpd	ymm12, ymm12, ymm15		;; R5*MemI5+I5*MemR5 (new I5)	; 58-60
+
+	vmulpd	ymm15, ymm14, ymm3		;; R8 * MemR8			; 51-55
+	vmulpd	ymm14, ymm14, ymm9		;; R8 * MemI8			; 52-56
+	vmulpd	ymm9, ymm8, ymm9		;; I8 * MemI8			; 53-57
+	vmulpd	ymm8, ymm8, ymm3		;; I8 * MemR8			; 54-58
+
+	vmovapd	ymm3, [srcreg+d4+d2][rbp]	;; MemR7
+	vaddpd	ymm3, ymm3, [srcreg+d4+d2][r9]	;; MemR7
+	vsubpd	ymm15, ymm15, ymm9		;; R8*MemR8-I8*MemI8 (new R8)	; 59-61
+	vmovapd	ymm9, [srcreg+d4+d2+32][rbp]	;; MemI7
+	vaddpd	ymm9, ymm9, [srcreg+d4+d2+32][r9] ;; MemI7
+	vaddpd	ymm14, ymm14, ymm8		;; R8*MemI8+I8*MemR8 (new I8)	; 60-62
+
+	vmulpd	ymm8, ymm0, ymm3		;; R7 * MemR7			; 54-58
+	vmulpd	ymm0, ymm0, ymm9		;; R7 * MemI7			; 55-59
+	vmulpd	ymm9, ymm6, ymm9		;; I7 * MemI7			; 56-60
+	vmulpd	ymm6, ymm6, ymm3		;; I7 * MemR7			; 57-61
+
+	vmovapd	ymm3, [srcreg]			;; Reload newer R1
+	vsubpd	ymm8, ymm8, ymm9		;; R7*MemR7-I7*MemI7 (new R7)	; 61-63
+	vmovapd	ymm9, [srcreg+d1]		;; Reload newer R2
+	vaddpd	ymm0, ymm0, ymm6		;; R7*MemI7+I7*MemR7 (new I7)	; 62-64
+
+	vsubpd	ymm6, ymm3, ymm9		;; R1 - R2 (last R2)		; 63-65
+	vaddpd	ymm3, ymm3, ymm9		;; R1 + R2 (last R1)		; 64-66
+
+	vaddpd	ymm9, ymm4, ymm10		;; R4 + R3 (new R3)		; 65-67
+	vsubpd	ymm4, ymm4, ymm10		;; R4 - R3 (new I4)		; 66-68
+
+	vmovapd	ymm10, [srcreg+d1][rbp]		;; MemR2
+	vaddpd	ymm10, ymm10, [srcreg+d1][r9]	;; MemR2
+	ystore	[srcreg+r8+d2], ymm9		;; Temporarily save new R3	; 68
+	vmovapd	ymm9, [srcreg+d1+32][rbp]	;; MemI2
+	vaddpd	ymm9, ymm9, [srcreg+d1+32][r9]	;; MemI2
+	ystore	[srcreg+r8+d2+32], ymm4		;; Temporarily save new I4	; 69
 
 	vmulpd	ymm4, ymm6, ymm10		;; R2 * MemR2			; 66-70
 	vmulpd	ymm6, ymm6, ymm9		;; R2 * MemI2			; 67-71
@@ -3630,29 +3737,147 @@ yr8_8c_mult_opcode MACRO srcreg,d1,d2,d4
 	vmulpd	ymm13, ymm13, ymm10		;; I2 * MemR2			; 69-73
 
 	vmovapd	ymm10, [srcreg][rbp]		;; MemR1
-	vaddpd	ymm10, ymm10, [srcreg][rax]	;; MemR1
+	vaddpd	ymm10, ymm10, [srcreg][r9]	;; MemR1
 	vsubpd	ymm4, ymm4, ymm9		;; R2*MemR2-I2*MemI2 (new R2)	; 73-75
 	vmovapd	ymm9, [srcreg+32][rbp]		;; MemI1
-	vaddpd	ymm9, ymm9, [srcreg+32][rax]	;; MemI1
+	vaddpd	ymm9, ymm9, [srcreg+32][r9]	;; MemI1
 	vaddpd	ymm6, ymm6, ymm13		;; R2*MemI2+I2*MemR2 (new I2)	; 74-76
+
+	jmp	done
+
+addmulsave:
+	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
+	vaddpd	ymm3, ymm3, [srcreg+d2+d1][r9]	;; MemR4
+	vmovapd	ymm9, [srcreg+d2+d1+32][rbp]	;; MemI4
+	vaddpd	ymm9, ymm9, [srcreg+d2+d1+32][r9];; MemI4
+	ystore	[srcreg+d2+d1], ymm7		;; R4
+	vmulpd	ymm4, ymm7, ymm3		;; R4 * MemR4			; 32-36
+	vmulpd	ymm7, ymm7, ymm9		;; R4 * MemI4			; 33-37
+	ystore	[srcreg+d2+d1+32], ymm10	;; I4
+	vmulpd	ymm9, ymm10, ymm9		;; I4 * MemI4			; 34-38
+	vmulpd	ymm10, ymm10, ymm3		;; I4 * MemR4			; 35-39
+
+	vmovapd	ymm3, [srcreg+d2][rbp]		;; MemR3
+	vaddpd	ymm3, ymm3, [srcreg+d2][r9]	;; MemR3
+	vsubpd	ymm4, ymm4, ymm9		;; R4*MemR4-I4*MemI4 (new R4)	; 51-53
+	vmovapd	ymm9, [srcreg+d2+32][rbp]	;; MemI3
+	vaddpd	ymm9, ymm9, [srcreg+d2+32][r9]	;; MemI3
+	vaddpd	ymm7, ymm7, ymm10		;; R4*MemI4+I4*MemR4 (new I4)	; 52-54
+
+	ystore	[srcreg+d2], ymm2		;; R3
+	vmulpd	ymm10, ymm2, ymm3		;; R3 * MemR3			; 36-40
+	vmulpd	ymm2, ymm2, ymm9		;; R3 * MemI3			; 37-41
+	ystore	[srcreg+d2+32], ymm11		;; I3
+	vmulpd	ymm9, ymm11, ymm9		;; I3 * MemI3			; 38-42
+	vmulpd	ymm11, ymm11, ymm3		;; I3 * MemR3			; 39-43
+
+	vmovapd	ymm3, [srcreg+d4+d1][rbp]	;; MemR6
+	vaddpd	ymm3, ymm3, [srcreg+d4+d1][r9]	;; MemR6
+	vsubpd	ymm10, ymm10, ymm9		;; R3*MemR3-I3*MemI3 (new R3)	; 53-55
+	vmovapd	ymm9, [srcreg+d4+d1+32][rbp]	;; MemI6
+	vaddpd	ymm9, ymm9, [srcreg+d4+d1+32][r9];; MemI6
+	vaddpd	ymm2, ymm2, ymm11		;; R3*MemI3+I3*MemR3 (new I3)	; 54-56
+
+	ystore	[srcreg+d4+d1], ymm1		;; R6
+	vmulpd	ymm11, ymm1, ymm3		;; R6 * MemR6			; 42-46
+	vmulpd	ymm1, ymm1, ymm9		;; R6 * MemI6			; 43-47
+	ystore	[srcreg+d4+d1+32], ymm5		;; I6
+	vmulpd	ymm9, ymm5, ymm9		;; I6 * MemI6			; 46-50
+	vmulpd	ymm5, ymm5, ymm3		;; I6 * MemR6			; 47-51
+
+	vmovapd	ymm3, [srcreg+d4][rbp]		;; MemR5
+	vaddpd	ymm3, ymm3, [srcreg+d4][r9]	;; MemR5
+	vsubpd	ymm11, ymm11, ymm9		;; R6*MemR6-I6*MemI6 (new R6)	; 55-57
+	vmovapd	ymm9, [srcreg+d4+32][rbp]	;; MemI5
+	vaddpd	ymm9, ymm9, [srcreg+d4+32][r9]	;; MemI5
+	vaddpd	ymm1, ymm1, ymm5		;; R6*MemI6+I6*MemR6 (new I6)	; 56-58
+
+	ystore	[srcreg+d4], ymm12		;; R5
+	vmulpd	ymm5, ymm12, ymm3		;; R5 * MemR5			; 44-48
+	vmulpd	ymm12, ymm12, ymm9		;; R5 * MemI5			; 45-49
+	ystore	[srcreg+d4+32], ymm15		;; I5
+	vmulpd	ymm9, ymm15, ymm9		;; I5 * MemI5			; 48-52
+	vmulpd	ymm15, ymm15, ymm3		;; I5 * MemR5			; 49-53
+
+	vmovapd	ymm3, [srcreg+d4+d2+d1][rbp]	;; MemR8
+	vaddpd	ymm3, ymm3, [srcreg+d4+d2+d1][r9];; MemR8
+	vsubpd	ymm5, ymm5, ymm9		;; R5*MemR5-I5*MemI5 (new R5)	; 57-59
+	vmovapd	ymm9, [srcreg+d4+d2+d1+32][rbp]	;; MemI8
+	vaddpd	ymm9, ymm9, [srcreg+d4+d2+d1+32][r9];; MemI8
+	vaddpd	ymm12, ymm12, ymm15		;; R5*MemI5+I5*MemR5 (new I5)	; 58-60
+
+	ystore	[srcreg+d4+d2+d1], ymm14	;; R8
+	vmulpd	ymm15, ymm14, ymm3		;; R8 * MemR8			; 51-55
+	vmulpd	ymm14, ymm14, ymm9		;; R8 * MemI8			; 52-56
+	ystore	[srcreg+d4+d2+d1+32], ymm8	;; I8
+	vmulpd	ymm9, ymm8, ymm9		;; I8 * MemI8			; 53-57
+	vmulpd	ymm8, ymm8, ymm3		;; I8 * MemR8			; 54-58
+
+	vmovapd	ymm3, [srcreg+d4+d2][rbp]	;; MemR7
+	vaddpd	ymm3, ymm3, [srcreg+d4+d2][r9]	;; MemR7
+	vsubpd	ymm15, ymm15, ymm9		;; R8*MemR8-I8*MemI8 (new R8)	; 59-61
+	vmovapd	ymm9, [srcreg+d4+d2+32][rbp]	;; MemI7
+	vaddpd	ymm9, ymm9, [srcreg+d4+d2+32][r9] ;; MemI7
+	vaddpd	ymm14, ymm14, ymm8		;; R8*MemI8+I8*MemR8 (new I8)	; 60-62
+
+	ystore	[srcreg+d4+d2], ymm0		;; R7
+	vmulpd	ymm8, ymm0, ymm3		;; R7 * MemR7			; 54-58
+	vmulpd	ymm0, ymm0, ymm9		;; R7 * MemI7			; 55-59
+	ystore	[srcreg+d4+d2+32], ymm6		;; I7
+	vmulpd	ymm9, ymm6, ymm9		;; I7 * MemI7			; 56-60
+	vmulpd	ymm6, ymm6, ymm3		;; I7 * MemR7			; 57-61
+
+	vmovapd	ymm3, [srcreg]			;; Reload newer R1
+	vsubpd	ymm8, ymm8, ymm9		;; R7*MemR7-I7*MemI7 (new R7)	; 61-63
+	vmovapd	ymm9, [srcreg+d1]		;; Reload newer R2
+	vaddpd	ymm0, ymm0, ymm6		;; R7*MemI7+I7*MemR7 (new I7)	; 62-64
+
+	vsubpd	ymm6, ymm3, ymm9		;; R1 - R2 (last R2)		; 63-65
+	vaddpd	ymm3, ymm3, ymm9		;; R1 + R2 (last R1)		; 64-66
+
+	vaddpd	ymm9, ymm4, ymm10		;; R4 + R3 (new R3)		; 65-67
+	vsubpd	ymm4, ymm4, ymm10		;; R4 - R3 (new I4)		; 66-68
+
+	vmovapd	ymm10, [srcreg+d1][rbp]		;; MemR2
+	vaddpd	ymm10, ymm10, [srcreg+d1][r9]	;; MemR2
+	ystore	[srcreg+r8+d2], ymm9		;; Temporarily save new R3	; 68
+	vmovapd	ymm9, [srcreg+d1+32][rbp]	;; MemI2
+	vaddpd	ymm9, ymm9, [srcreg+d1+32][r9]	;; MemI2
+	ystore	[srcreg+r8+d2+32], ymm4		;; Temporarily save new I4	; 69
+
+	ystore	[srcreg+d1], ymm6		;; R2
+	vmulpd	ymm4, ymm6, ymm10		;; R2 * MemR2			; 66-70
+	vmulpd	ymm6, ymm6, ymm9		;; R2 * MemI2			; 67-71
+	ystore	[srcreg+d1+32], ymm13		;; I2
+	vmulpd	ymm9, ymm13, ymm9		;; I2 * MemI2			; 68-72
+	vmulpd	ymm13, ymm13, ymm10		;; I2 * MemR2			; 69-73
+
+	vmovapd	ymm10, [srcreg][rbp]		;; MemR1
+	vaddpd	ymm10, ymm10, [srcreg][r9]	;; MemR1
+	vsubpd	ymm4, ymm4, ymm9		;; R2*MemR2-I2*MemI2 (new R2)	; 73-75
+	vmovapd	ymm9, [srcreg+32][rbp]		;; MemI1
+	vaddpd	ymm9, ymm9, [srcreg+32][r9]	;; MemI1
+	vaddpd	ymm6, ymm6, ymm13		;; R2*MemI2+I2*MemR2 (new I2)	; 74-76
+
+	ystore	[srcreg], ymm3			;; R1
 
 	jmp	done
 
 submul:
 	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
-	vsubpd	ymm3, ymm3, [srcreg+d2+d1][rax]	;; MemR4
+	vsubpd	ymm3, ymm3, [srcreg+d2+d1][r9]	;; MemR4
 	vmovapd	ymm9, [srcreg+d2+d1+32][rbp]	;; MemI4
-	vsubpd	ymm9, ymm9, [srcreg+d2+d1+32][rax];; MemI4
+	vsubpd	ymm9, ymm9, [srcreg+d2+d1+32][r9];; MemI4
 	vmulpd	ymm4, ymm7, ymm3		;; R4 * MemR4			; 32-36
 	vmulpd	ymm7, ymm7, ymm9		;; R4 * MemI4			; 33-37
 	vmulpd	ymm9, ymm10, ymm9		;; I4 * MemI4			; 34-38
 	vmulpd	ymm10, ymm10, ymm3		;; I4 * MemR4			; 35-39
 
 	vmovapd	ymm3, [srcreg+d2][rbp]		;; MemR3
-	vsubpd	ymm3, ymm3, [srcreg+d2][rax]	;; MemR3
+	vsubpd	ymm3, ymm3, [srcreg+d2][r9]	;; MemR3
 	vsubpd	ymm4, ymm4, ymm9		;; R4*MemR4-I4*MemI4 (new R4)	; 51-53
 	vmovapd	ymm9, [srcreg+d2+32][rbp]	;; MemI3
-	vsubpd	ymm9, ymm9, [srcreg+d2+32][rax]	;; MemI3
+	vsubpd	ymm9, ymm9, [srcreg+d2+32][r9]	;; MemI3
 	vaddpd	ymm7, ymm7, ymm10		;; R4*MemI4+I4*MemR4 (new I4)	; 52-54
 
 	vmulpd	ymm10, ymm2, ymm3		;; R3 * MemR3			; 36-40
@@ -3661,10 +3886,10 @@ submul:
 	vmulpd	ymm11, ymm11, ymm3		;; I3 * MemR3			; 39-43
 
 	vmovapd	ymm3, [srcreg+d4+d1][rbp]	;; MemR6
-	vsubpd	ymm3, ymm3, [srcreg+d4+d1][rax]	;; MemR6
+	vsubpd	ymm3, ymm3, [srcreg+d4+d1][r9]	;; MemR6
 	vsubpd	ymm10, ymm10, ymm9		;; R3*MemR3-I3*MemI3 (new R3)	; 53-55
 	vmovapd	ymm9, [srcreg+d4+d1+32][rbp]	;; MemI6
-	vsubpd	ymm9, ymm9, [srcreg+d4+d1+32][rax];; MemI6
+	vsubpd	ymm9, ymm9, [srcreg+d4+d1+32][r9];; MemI6
 	vaddpd	ymm2, ymm2, ymm11		;; R3*MemI3+I3*MemR3 (new I3)	; 54-56
 
 	vmulpd	ymm11, ymm1, ymm3		;; R6 * MemR6			; 42-46
@@ -3673,10 +3898,10 @@ submul:
 	vmulpd	ymm5, ymm5, ymm3		;; I6 * MemR6			; 47-51
 
 	vmovapd	ymm3, [srcreg+d4][rbp]		;; MemR5
-	vsubpd	ymm3, ymm3, [srcreg+d4][rax]	;; MemR5
+	vsubpd	ymm3, ymm3, [srcreg+d4][r9]	;; MemR5
 	vsubpd	ymm11, ymm11, ymm9		;; R6*MemR6-I6*MemI6 (new R6)	; 55-57
 	vmovapd	ymm9, [srcreg+d4+32][rbp]	;; MemI5
-	vsubpd	ymm9, ymm9, [srcreg+d4+32][rax]	;; MemI5
+	vsubpd	ymm9, ymm9, [srcreg+d4+32][r9]	;; MemI5
 	vaddpd	ymm1, ymm1, ymm5		;; R6*MemI6+I6*MemR6 (new I6)	; 56-58
 
 	vmulpd	ymm5, ymm12, ymm3		;; R5 * MemR5			; 44-48
@@ -3685,10 +3910,10 @@ submul:
 	vmulpd	ymm15, ymm15, ymm3		;; I5 * MemR5			; 49-53
 
 	vmovapd	ymm3, [srcreg+d4+d2+d1][rbp]	;; MemR8
-	vsubpd	ymm3, ymm3, [srcreg+d4+d2+d1][rax];; MemR8
+	vsubpd	ymm3, ymm3, [srcreg+d4+d2+d1][r9];; MemR8
 	vsubpd	ymm5, ymm5, ymm9		;; R5*MemR5-I5*MemI5 (new R5)	; 57-59
 	vmovapd	ymm9, [srcreg+d4+d2+d1+32][rbp]	;; MemI8
-	vsubpd	ymm9, ymm9, [srcreg+d4+d2+d1+32][rax];; MemI8
+	vsubpd	ymm9, ymm9, [srcreg+d4+d2+d1+32][r9];; MemI8
 	vaddpd	ymm12, ymm12, ymm15		;; R5*MemI5+I5*MemR5 (new I5)	; 58-60
 
 	vmulpd	ymm15, ymm14, ymm3		;; R8 * MemR8			; 51-55
@@ -3697,10 +3922,10 @@ submul:
 	vmulpd	ymm8, ymm8, ymm3		;; I8 * MemR8			; 54-58
 
 	vmovapd	ymm3, [srcreg+d4+d2][rbp]	;; MemR7
-	vsubpd	ymm3, ymm3, [srcreg+d4+d2][rax]	;; MemR7
+	vsubpd	ymm3, ymm3, [srcreg+d4+d2][r9]	;; MemR7
 	vsubpd	ymm15, ymm15, ymm9		;; R8*MemR8-I8*MemI8 (new R8)	; 59-61
 	vmovapd	ymm9, [srcreg+d4+d2+32][rbp]	;; MemI7
-	vsubpd	ymm9, ymm9, [srcreg+d4+d2+32][rax] ;; MemI7
+	vsubpd	ymm9, ymm9, [srcreg+d4+d2+32][r9] ;; MemI7
 	vaddpd	ymm14, ymm14, ymm8		;; R8*MemI8+I8*MemR8 (new I8)	; 60-62
 
 	vmulpd	ymm8, ymm0, ymm3		;; R7 * MemR7			; 54-58
@@ -3710,7 +3935,7 @@ submul:
 
 	vmovapd	ymm3, [srcreg]			;; Reload newer R1
 	vsubpd	ymm8, ymm8, ymm9		;; R7*MemR7-I7*MemI7 (new R7)	; 61-63
-	vmovapd	ymm9, [srcreg+32]		;; Reload newer R2
+	vmovapd	ymm9, [srcreg+d1]		;; Reload newer R2
 	vaddpd	ymm0, ymm0, ymm6		;; R7*MemI7+I7*MemR7 (new I7)	; 62-64
 
 	vsubpd	ymm6, ymm3, ymm9		;; R1 - R2 (last R2)		; 63-65
@@ -3720,11 +3945,11 @@ submul:
 	vsubpd	ymm4, ymm4, ymm10		;; R4 - R3 (new I4)		; 66-68
 
 	vmovapd	ymm10, [srcreg+d1][rbp]		;; MemR2
-	vsubpd	ymm10, ymm10, [srcreg+d1][rax]	;; MemR2
-	ystore	[srcreg+d2], ymm9		;; Temporarily save new R3	; 68
+	vsubpd	ymm10, ymm10, [srcreg+d1][r9]	;; MemR2
+	ystore	[srcreg+r8+d2], ymm9		;; Temporarily save new R3	; 68
 	vmovapd	ymm9, [srcreg+d1+32][rbp]	;; MemI2
-	vsubpd	ymm9, ymm9, [srcreg+d1+32][rax]	;; MemI2
-	ystore	[srcreg+d2+32], ymm4		;; Temporarily save new I4	; 69
+	vsubpd	ymm9, ymm9, [srcreg+d1+32][r9]	;; MemI2
+	ystore	[srcreg+r8+d2+32], ymm4		;; Temporarily save new I4	; 69
 
 	vmulpd	ymm4, ymm6, ymm10		;; R2 * MemR2			; 66-70
 	vmulpd	ymm6, ymm6, ymm9		;; R2 * MemI2			; 67-71
@@ -3732,13 +3957,131 @@ submul:
 	vmulpd	ymm13, ymm13, ymm10		;; I2 * MemR2			; 69-73
 
 	vmovapd	ymm10, [srcreg][rbp]		;; MemR1
-	vsubpd	ymm10, ymm10, [srcreg][rax]	;; MemR1
+	vsubpd	ymm10, ymm10, [srcreg][r9]	;; MemR1
 	vsubpd	ymm4, ymm4, ymm9		;; R2*MemR2-I2*MemI2 (new R2)	; 73-75
 	vmovapd	ymm9, [srcreg+32][rbp]		;; MemI1
-	vsubpd	ymm9, ymm9, [srcreg+32][rax]	;; MemI1
+	vsubpd	ymm9, ymm9, [srcreg+32][r9]	;; MemI1
 	vaddpd	ymm6, ymm6, ymm13		;; R2*MemI2+I2*MemR2 (new I2)	; 74-76
 
-done:	pop	rax				;; Restore trashed register
+	jmp	done
+
+submulsave:
+	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
+	vsubpd	ymm3, ymm3, [srcreg+d2+d1][r9]	;; MemR4
+	vmovapd	ymm9, [srcreg+d2+d1+32][rbp]	;; MemI4
+	vsubpd	ymm9, ymm9, [srcreg+d2+d1+32][r9];; MemI4
+	ystore	[srcreg+d2+d1], ymm7		;; R4
+	vmulpd	ymm4, ymm7, ymm3		;; R4 * MemR4			; 32-36
+	vmulpd	ymm7, ymm7, ymm9		;; R4 * MemI4			; 33-37
+	ystore	[srcreg+d2+d1+32], ymm10	;; I4
+	vmulpd	ymm9, ymm10, ymm9		;; I4 * MemI4			; 34-38
+	vmulpd	ymm10, ymm10, ymm3		;; I4 * MemR4			; 35-39
+
+	vmovapd	ymm3, [srcreg+d2][rbp]		;; MemR3
+	vsubpd	ymm3, ymm3, [srcreg+d2][r9]	;; MemR3
+	vsubpd	ymm4, ymm4, ymm9		;; R4*MemR4-I4*MemI4 (new R4)	; 51-53
+	vmovapd	ymm9, [srcreg+d2+32][rbp]	;; MemI3
+	vsubpd	ymm9, ymm9, [srcreg+d2+32][r9]	;; MemI3
+	vaddpd	ymm7, ymm7, ymm10		;; R4*MemI4+I4*MemR4 (new I4)	; 52-54
+
+	ystore	[srcreg+d2], ymm2		;; R3
+	vmulpd	ymm10, ymm2, ymm3		;; R3 * MemR3			; 36-40
+	vmulpd	ymm2, ymm2, ymm9		;; R3 * MemI3			; 37-41
+	ystore	[srcreg+d2+32], ymm11		;; I3
+	vmulpd	ymm9, ymm11, ymm9		;; I3 * MemI3			; 38-42
+	vmulpd	ymm11, ymm11, ymm3		;; I3 * MemR3			; 39-43
+
+	vmovapd	ymm3, [srcreg+d4+d1][rbp]	;; MemR6
+	vsubpd	ymm3, ymm3, [srcreg+d4+d1][r9]	;; MemR6
+	vsubpd	ymm10, ymm10, ymm9		;; R3*MemR3-I3*MemI3 (new R3)	; 53-55
+	vmovapd	ymm9, [srcreg+d4+d1+32][rbp]	;; MemI6
+	vsubpd	ymm9, ymm9, [srcreg+d4+d1+32][r9];; MemI6
+	vaddpd	ymm2, ymm2, ymm11		;; R3*MemI3+I3*MemR3 (new I3)	; 54-56
+
+	ystore	[srcreg+d4+d1], ymm1		;; R6
+	vmulpd	ymm11, ymm1, ymm3		;; R6 * MemR6			; 42-46
+	vmulpd	ymm1, ymm1, ymm9		;; R6 * MemI6			; 43-47
+	ystore	[srcreg+d4+d1+32], ymm5		;; I6
+	vmulpd	ymm9, ymm5, ymm9		;; I6 * MemI6			; 46-50
+	vmulpd	ymm5, ymm5, ymm3		;; I6 * MemR6			; 47-51
+
+	vmovapd	ymm3, [srcreg+d4][rbp]		;; MemR5
+	vsubpd	ymm3, ymm3, [srcreg+d4][r9]	;; MemR5
+	vsubpd	ymm11, ymm11, ymm9		;; R6*MemR6-I6*MemI6 (new R6)	; 55-57
+	vmovapd	ymm9, [srcreg+d4+32][rbp]	;; MemI5
+	vsubpd	ymm9, ymm9, [srcreg+d4+32][r9]	;; MemI5
+	vaddpd	ymm1, ymm1, ymm5		;; R6*MemI6+I6*MemR6 (new I6)	; 56-58
+
+	ystore	[srcreg+d4], ymm12		;; R5
+	vmulpd	ymm5, ymm12, ymm3		;; R5 * MemR5			; 44-48
+	vmulpd	ymm12, ymm12, ymm9		;; R5 * MemI5			; 45-49
+	ystore	[srcreg+d4+32], ymm15		;; I5
+	vmulpd	ymm9, ymm15, ymm9		;; I5 * MemI5			; 48-52
+	vmulpd	ymm15, ymm15, ymm3		;; I5 * MemR5			; 49-53
+
+	vmovapd	ymm3, [srcreg+d4+d2+d1][rbp]	;; MemR8
+	vsubpd	ymm3, ymm3, [srcreg+d4+d2+d1][r9];; MemR8
+	vsubpd	ymm5, ymm5, ymm9		;; R5*MemR5-I5*MemI5 (new R5)	; 57-59
+	vmovapd	ymm9, [srcreg+d4+d2+d1+32][rbp]	;; MemI8
+	vsubpd	ymm9, ymm9, [srcreg+d4+d2+d1+32][r9];; MemI8
+	vaddpd	ymm12, ymm12, ymm15		;; R5*MemI5+I5*MemR5 (new I5)	; 58-60
+
+	ystore	[srcreg+d4+d2+d1], ymm14	;; R8
+	vmulpd	ymm15, ymm14, ymm3		;; R8 * MemR8			; 51-55
+	vmulpd	ymm14, ymm14, ymm9		;; R8 * MemI8			; 52-56
+	ystore	[srcreg+d4+d2+d1+32], ymm8	;; I8
+	vmulpd	ymm9, ymm8, ymm9		;; I8 * MemI8			; 53-57
+	vmulpd	ymm8, ymm8, ymm3		;; I8 * MemR8			; 54-58
+
+	vmovapd	ymm3, [srcreg+d4+d2][rbp]	;; MemR7
+	vsubpd	ymm3, ymm3, [srcreg+d4+d2][r9]	;; MemR7
+	vsubpd	ymm15, ymm15, ymm9		;; R8*MemR8-I8*MemI8 (new R8)	; 59-61
+	vmovapd	ymm9, [srcreg+d4+d2+32][rbp]	;; MemI7
+	vsubpd	ymm9, ymm9, [srcreg+d4+d2+32][r9] ;; MemI7
+	vaddpd	ymm14, ymm14, ymm8		;; R8*MemI8+I8*MemR8 (new I8)	; 60-62
+
+	ystore	[srcreg+d4+d2], ymm0		;; R7
+	vmulpd	ymm8, ymm0, ymm3		;; R7 * MemR7			; 54-58
+	vmulpd	ymm0, ymm0, ymm9		;; R7 * MemI7			; 55-59
+	ystore	[srcreg+d4+d2+32], ymm6		;; I7
+	vmulpd	ymm9, ymm6, ymm9		;; I7 * MemI7			; 56-60
+	vmulpd	ymm6, ymm6, ymm3		;; I7 * MemR7			; 57-61
+
+	vmovapd	ymm3, [srcreg]			;; Reload newer R1
+	vsubpd	ymm8, ymm8, ymm9		;; R7*MemR7-I7*MemI7 (new R7)	; 61-63
+	vmovapd	ymm9, [srcreg+d1]		;; Reload newer R2
+	vaddpd	ymm0, ymm0, ymm6		;; R7*MemI7+I7*MemR7 (new I7)	; 62-64
+
+	vsubpd	ymm6, ymm3, ymm9		;; R1 - R2 (last R2)		; 63-65
+	vaddpd	ymm3, ymm3, ymm9		;; R1 + R2 (last R1)		; 64-66
+
+	vaddpd	ymm9, ymm4, ymm10		;; R4 + R3 (new R3)		; 65-67
+	vsubpd	ymm4, ymm4, ymm10		;; R4 - R3 (new I4)		; 66-68
+
+	vmovapd	ymm10, [srcreg+d1][rbp]		;; MemR2
+	vsubpd	ymm10, ymm10, [srcreg+d1][r9]	;; MemR2
+	ystore	[srcreg+r8+d2], ymm9		;; Temporarily save new R3	; 68
+	vmovapd	ymm9, [srcreg+d1+32][rbp]	;; MemI2
+	vsubpd	ymm9, ymm9, [srcreg+d1+32][r9]	;; MemI2
+	ystore	[srcreg+r8+d2+32], ymm4		;; Temporarily save new I4	; 69
+
+	ystore	[srcreg+d1], ymm6		;; R2
+	vmulpd	ymm4, ymm6, ymm10		;; R2 * MemR2			; 66-70
+	vmulpd	ymm6, ymm6, ymm9		;; R2 * MemI2			; 67-71
+	ystore	[srcreg+d1+32], ymm13		;; I2
+	vmulpd	ymm9, ymm13, ymm9		;; I2 * MemI2			; 68-72
+	vmulpd	ymm13, ymm13, ymm10		;; I2 * MemR2			; 69-73
+
+	vmovapd	ymm10, [srcreg][rbp]		;; MemR1
+	vsubpd	ymm10, ymm10, [srcreg][r9]	;; MemR1
+	vsubpd	ymm4, ymm4, ymm9		;; R2*MemR2-I2*MemI2 (new R2)	; 73-75
+	vmovapd	ymm9, [srcreg+32][rbp]		;; MemI1
+	vsubpd	ymm9, ymm9, [srcreg+32][r9]	;; MemI1
+	vaddpd	ymm6, ymm6, ymm13		;; R2*MemI2+I2*MemR2 (new I2)	; 74-76
+
+	ystore	[srcreg], ymm3			;; R1
+
+done:
 	ENDM
 
 yr8_8cl_eight_complex_with_mulf_preload MACRO
@@ -5636,7 +5979,7 @@ yr8_16r_simple_fft_with_mulf MACRO srcreg,d1,d2,d4
 IFDEF X86_64
 
 yr8_8cl_sixteen_reals_eight_complex_with_mult MACRO srcreg,srcinc,d1,d2,d4
-	LOCAL	orig, back_to_orig, submul
+	LOCAL	orig, origsave, addmul, addmulsave, submul, submulsave, save_fft, back_to_orig
 
 	ymult7	srcreg, srcreg+rbp
 
@@ -5855,7 +6198,7 @@ yr8_8cl_sixteen_reals_eight_complex_with_mult MACRO srcreg,srcinc,d1,d2,d4
 	vaddpd	ymm12, ymm8, ymm6		;; I6 + R8 (new I6)		; 17-19
 	vsubpd	ymm8, ymm8, ymm6		;; I6 - R8 (new I8)		; 18-20
 	vmovapd	ymm6, [srcreg+32]		;; I1
-	ystore	[srcreg+32], ymm3		;; Temporarily save newer R2	; 14
+	ystore	[srcreg+d1], ymm3		;; Temporarily save newer R2	; 14
 
 	vsubpd	ymm14, ymm4, ymm10		;; R6 - I8 (new R6)		; 19-21
 	vaddpd	ymm4, ymm4, ymm10		;; R6 + I8 (new R8)		; 20-22
@@ -5926,16 +6269,18 @@ yr8_8cl_sixteen_reals_eight_complex_with_mult MACRO srcreg,srcinc,d1,d2,d4
 	vsubpd	ymm13, ymm13, ymm9		;; I1 - I2 (last I2)		; 50-52
 	vblendpd ymm4, ymm4, YMM_TMP1[8], 1	;; Blend in 16-real I1		; 52
 	vblendpd ymm13, ymm13, YMM_TMP1[24], 1	;; Blend in 16-real I2		; 53
-	ystore	[srcreg+d1], ymm4		;; Temporarily save I1		; 53
+	ystore	[srcreg+32], ymm4		;; Temporarily save I1		; 53
 
-	cmp	mul4_opcode, 0			;; See if we need to do more than the original type-3 FFT multiply
-	je	orig
-
+	mov	al, mul4_opcode			;; Load the mul4_opcode
+	cmp	al, 0				;; See if we need to do more than the original type-3 FFT multiply
+	je	orig				;; Jump if nothing special
+	jl	save_fft			;; Jump if saving result of the forward FFT?
+	cmp	al, 1				;; Are we doing addmul or submul
 	mov	rax, SRC2ARG			;; Distance to s2 arg from gwaddmul4 or gwsubmul4
+	jg	submul				;; opcode == 2
+	;;je	addmul				;; opcode == 1
 
-	cmp	mul4_opcode, 1			;; Are we doing an ADD
-	jne	submul
-
+addmul:
 	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
 	vaddpd	ymm3, ymm3, [srcreg+d2+d1][rax]	;; MemR4
 	vmovapd	ymm9, [srcreg+d2+d1+32][rbp]	;; MemI4
@@ -6007,7 +6352,7 @@ yr8_8cl_sixteen_reals_eight_complex_with_mult MACRO srcreg,srcinc,d1,d2,d4
 
 	vmovapd	ymm3, [srcreg]			;; Reload newer R1
 	vsubpd	ymm8, ymm8, ymm9		;; R7*MemR7-I7*MemI7 (new R7)	; 61-63
-	vmovapd	ymm9, [srcreg+32]		;; Reload newer R2
+	vmovapd	ymm9, [srcreg+d1]		;; Reload newer R2
 	vaddpd	ymm0, ymm0, ymm6		;; R7*MemI7+I7*MemR7 (new I7)	; 62-64
 
 	vsubpd	ymm6, ymm3, ymm9		;; R1 - R2 (last R2)		; 63-65
@@ -6038,6 +6383,7 @@ yr8_8cl_sixteen_reals_eight_complex_with_mult MACRO srcreg,srcinc,d1,d2,d4
 	vaddpd	ymm6, ymm6, ymm13		;; R2*MemI2+I2*MemR2 (new I2)	; 74-76
 
 	jmp	back_to_orig
+
 submul:
 	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
 	vsubpd	ymm3, ymm3, [srcreg+d2+d1][rax]	;; MemR4
@@ -6110,7 +6456,7 @@ submul:
 
 	vmovapd	ymm3, [srcreg]			;; Reload newer R1
 	vsubpd	ymm8, ymm8, ymm9		;; R7*MemR7-I7*MemI7 (new R7)	; 61-63
-	vmovapd	ymm9, [srcreg+32]		;; Reload newer R2
+	vmovapd	ymm9, [srcreg+d1]		;; Reload newer R2
 	vaddpd	ymm0, ymm0, ymm6		;; R7*MemI7+I7*MemR7 (new I7)	; 62-64
 
 	vsubpd	ymm6, ymm3, ymm9		;; R1 - R2 (last R2)		; 63-65
@@ -6141,6 +6487,358 @@ submul:
 	vaddpd	ymm6, ymm6, ymm13		;; R2*MemI2+I2*MemR2 (new I2)	; 74-76
 
 	jmp	back_to_orig
+
+save_fft:
+	cmp	al, 81h				;; Are we doing addmul or submul or neither
+	jl	origsave			;; opcode == 80h, plain old multiply with FFT save
+	mov	rax, SRC2ARG			;; Distance to s2 arg from gwaddmul4 or gwsubmul4
+	jg	submulsave			;; opcode == 82h
+	;;je	addmulsave			;; opcode == 81h
+
+addmulsave:
+	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
+	vaddpd	ymm3, ymm3, [srcreg+d2+d1][rax]	;; MemR4
+	vmovapd	ymm9, [srcreg+d2+d1+32][rbp]	;; MemI4
+	vaddpd	ymm9, ymm9, [srcreg+d2+d1+32][rax];; MemI4
+	ystore	[srcreg+d2+d1], ymm7		;; R4
+	vmulpd	ymm4, ymm7, ymm3		;; R4 * MemR4			; 32-36
+	vmulpd	ymm7, ymm7, ymm9		;; R4 * MemI4			; 33-37
+	ystore	[srcreg+d2+d1+32], ymm10	;; I4
+	vmulpd	ymm9, ymm10, ymm9		;; I4 * MemI4			; 34-38
+	vmulpd	ymm10, ymm10, ymm3		;; I4 * MemR4			; 35-39
+
+	vmovapd	ymm3, [srcreg+d2][rbp]		;; MemR3
+	vaddpd	ymm3, ymm3, [srcreg+d2][rax]	;; MemR3
+	vsubpd	ymm4, ymm4, ymm9		;; R4*MemR4-I4*MemI4 (new R4)	; 51-53
+	vmovapd	ymm9, [srcreg+d2+32][rbp]	;; MemI3
+	vaddpd	ymm9, ymm9, [srcreg+d2+32][rax]	;; MemI3
+	vaddpd	ymm7, ymm7, ymm10		;; R4*MemI4+I4*MemR4 (new I4)	; 52-54
+
+	ystore	[srcreg+d2], ymm2		;; R3
+	vmulpd	ymm10, ymm2, ymm3		;; R3 * MemR3			; 36-40
+	vmulpd	ymm2, ymm2, ymm9		;; R3 * MemI3			; 37-41
+	ystore	[srcreg+d2+32], ymm11		;; I3
+	vmulpd	ymm9, ymm11, ymm9		;; I3 * MemI3			; 38-42
+	vmulpd	ymm11, ymm11, ymm3		;; I3 * MemR3			; 39-43
+
+	vmovapd	ymm3, [srcreg+d4+d1][rbp]	;; MemR6
+	vaddpd	ymm3, ymm3, [srcreg+d4+d1][rax]	;; MemR6
+	vsubpd	ymm10, ymm10, ymm9		;; R3*MemR3-I3*MemI3 (new R3)	; 53-55
+	vmovapd	ymm9, [srcreg+d4+d1+32][rbp]	;; MemI6
+	vaddpd	ymm9, ymm9, [srcreg+d4+d1+32][rax];; MemI6
+	vaddpd	ymm2, ymm2, ymm11		;; R3*MemI3+I3*MemR3 (new I3)	; 54-56
+
+	ystore	[srcreg+d4+d1], ymm1		;; R6
+	vmulpd	ymm11, ymm1, ymm3		;; R6 * MemR6			; 42-46
+	vmulpd	ymm1, ymm1, ymm9		;; R6 * MemI6			; 43-47
+	ystore	[srcreg+d4+d1+32], ymm5		;; I6
+	vmulpd	ymm9, ymm5, ymm9		;; I6 * MemI6			; 46-50
+	vmulpd	ymm5, ymm5, ymm3		;; I6 * MemR6			; 47-51
+
+	vmovapd	ymm3, [srcreg+d4][rbp]		;; MemR5
+	vaddpd	ymm3, ymm3, [srcreg+d4][rax]	;; MemR5
+	vsubpd	ymm11, ymm11, ymm9		;; R6*MemR6-I6*MemI6 (new R6)	; 55-57
+	vmovapd	ymm9, [srcreg+d4+32][rbp]	;; MemI5
+	vaddpd	ymm9, ymm9, [srcreg+d4+32][rax]	;; MemI5
+	vaddpd	ymm1, ymm1, ymm5		;; R6*MemI6+I6*MemR6 (new I6)	; 56-58
+
+	ystore	[srcreg+d4], ymm12		;; R5
+	vmulpd	ymm5, ymm12, ymm3		;; R5 * MemR5			; 44-48
+	vmulpd	ymm12, ymm12, ymm9		;; R5 * MemI5			; 45-49
+	ystore	[srcreg+d4+32], ymm15		;; I5
+	vmulpd	ymm9, ymm15, ymm9		;; I5 * MemI5			; 48-52
+	vmulpd	ymm15, ymm15, ymm3		;; I5 * MemR5			; 49-53
+
+	vmovapd	ymm3, [srcreg+d4+d2+d1][rbp]	;; MemR8
+	vaddpd	ymm3, ymm3, [srcreg+d4+d2+d1][rax];; MemR8
+	vsubpd	ymm5, ymm5, ymm9		;; R5*MemR5-I5*MemI5 (new R5)	; 57-59
+	vmovapd	ymm9, [srcreg+d4+d2+d1+32][rbp]	;; MemI8
+	vaddpd	ymm9, ymm9, [srcreg+d4+d2+d1+32][rax];; MemI8
+	vaddpd	ymm12, ymm12, ymm15		;; R5*MemI5+I5*MemR5 (new I5)	; 58-60
+
+	ystore	[srcreg+d4+d2+d1], ymm14	;; R8
+	vmulpd	ymm15, ymm14, ymm3		;; R8 * MemR8			; 50-54
+	vmulpd	ymm14, ymm14, ymm9		;; R8 * MemI8			; 51-55
+	ystore	[srcreg+d4+d2+d1+32], ymm8	;; I8
+	vmulpd	ymm9, ymm8, ymm9		;; I8 * MemI8			; 52-56
+	vmulpd	ymm8, ymm8, ymm3		;; I8 * MemR8			; 53-57
+
+	vmovapd	ymm3, [srcreg+d4+d2][rbp]	;; MemR7
+	vaddpd	ymm3, ymm3, [srcreg+d4+d2][rax]	;; MemR7
+	vsubpd	ymm15, ymm15, ymm9		;; R8*MemR8-I8*MemI8 (new R8)	; 59-61
+	vmovapd	ymm9, [srcreg+d4+d2+32][rbp]	;; MemI7
+	vaddpd	ymm9, ymm9, [srcreg+d4+d2+32][rax];; MemI7
+	vaddpd	ymm14, ymm14, ymm8		;; R8*MemI8+I8*MemR8 (new I8)	; 60-62
+
+	ystore	[srcreg+d4+d2], ymm0		;; R7
+	vmulpd	ymm8, ymm0, ymm3		;; R7 * MemR7			; 54-58
+	vmulpd	ymm0, ymm0, ymm9		;; R7 * MemI7			; 55-59
+	ystore	[srcreg+d4+d2+32], ymm6		;; I7
+	vmulpd	ymm9, ymm6, ymm9		;; I7 * MemI7			; 56-60
+	vmulpd	ymm6, ymm6, ymm3		;; I7 * MemR7			; 57-61
+
+	vmovapd	ymm3, [srcreg]			;; Reload newer R1
+	vsubpd	ymm8, ymm8, ymm9		;; R7*MemR7-I7*MemI7 (new R7)	; 61-63
+	vmovapd	ymm9, [srcreg+d1]		;; Reload newer R2
+	vaddpd	ymm0, ymm0, ymm6		;; R7*MemI7+I7*MemR7 (new I7)	; 62-64
+
+	vsubpd	ymm6, ymm3, ymm9		;; R1 - R2 (last R2)		; 63-65
+	vaddpd	ymm3, ymm3, ymm9		;; R1 + R2 (last R1)		; 64-66
+	vblendpd ymm6, ymm6, YMM_TMP1[16], 1	;; Blend in 16-real R2		; 66
+	vblendpd ymm3, ymm3, YMM_TMP1[0], 1	;; Blend in 16-real R1		; 67
+
+	vaddpd	ymm9, ymm4, ymm10		;; R4 + R3 (new R3)		; 65-67
+	vsubpd	ymm4, ymm4, ymm10		;; R4 - R3 (new I4)		; 66-68
+
+	vmovapd	ymm10, [srcreg+d1][rbp]		;; MemR2
+	vaddpd	ymm10, ymm10, [srcreg+d1][rax]	;; MemR2
+	ystore	YMM_TMP5, ymm9			;; Temporarily save new R3	; 68
+	vmovapd	ymm9, [srcreg+d1+32][rbp]	;; MemI2
+	vaddpd	ymm9, ymm9, [srcreg+d1+32][rax]	;; MemI2
+	ystore	YMM_TMP6, ymm4			;; Temporarily save new I4	; 69
+
+	ystore	[srcreg+d1], ymm6		;; R2
+	vmulpd	ymm4, ymm6, ymm10		;; R2 * MemR2			; 66-70
+	vmulpd	ymm6, ymm6, ymm9		;; R2 * MemI2			; 67-71
+	ystore	[srcreg+d1+32], ymm13		;; I2
+	vmulpd	ymm9, ymm13, ymm9		;; I2 * MemI2			; 68-72
+	vmulpd	ymm13, ymm13, ymm10		;; I2 * MemR2			; 69-73
+
+	vmovapd	ymm10, [srcreg][rbp]		;; MemR1
+	vaddpd	ymm10, ymm10, [srcreg][rax]	;; MemR1
+	vsubpd	ymm4, ymm4, ymm9		;; R2*MemR2-I2*MemI2 (new R2)	; 73-75
+	vmovapd	ymm9, [srcreg+32][rbp]		;; MemI1
+	vaddpd	ymm9, ymm9, [srcreg+32][rax]	;; MemI1
+	vaddpd	ymm6, ymm6, ymm13		;; R2*MemI2+I2*MemR2 (new I2)	; 74-76
+
+	ystore	[srcreg], ymm3			;; R1
+
+	jmp	back_to_orig
+
+submulsave:
+	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
+	vsubpd	ymm3, ymm3, [srcreg+d2+d1][rax]	;; MemR4
+	vmovapd	ymm9, [srcreg+d2+d1+32][rbp]	;; MemI4
+	vsubpd	ymm9, ymm9, [srcreg+d2+d1+32][rax];; MemI4
+	ystore	[srcreg+d2+d1], ymm7		;; R4
+	vmulpd	ymm4, ymm7, ymm3		;; R4 * MemR4			; 32-36
+	vmulpd	ymm7, ymm7, ymm9		;; R4 * MemI4			; 33-37
+	ystore	[srcreg+d2+d1+32], ymm10	;; I4
+	vmulpd	ymm9, ymm10, ymm9		;; I4 * MemI4			; 34-38
+	vmulpd	ymm10, ymm10, ymm3		;; I4 * MemR4			; 35-39
+
+	vmovapd	ymm3, [srcreg+d2][rbp]		;; MemR3
+	vsubpd	ymm3, ymm3, [srcreg+d2][rax]	;; MemR3
+	vsubpd	ymm4, ymm4, ymm9		;; R4*MemR4-I4*MemI4 (new R4)	; 51-53
+	vmovapd	ymm9, [srcreg+d2+32][rbp]	;; MemI3
+	vsubpd	ymm9, ymm9, [srcreg+d2+32][rax]	;; MemI3
+	vaddpd	ymm7, ymm7, ymm10		;; R4*MemI4+I4*MemR4 (new I4)	; 52-54
+
+	ystore	[srcreg+d2], ymm2		;; R3
+	vmulpd	ymm10, ymm2, ymm3		;; R3 * MemR3			; 36-40
+	vmulpd	ymm2, ymm2, ymm9		;; R3 * MemI3			; 37-41
+	ystore	[srcreg+d2+32], ymm11		;; I3
+	vmulpd	ymm9, ymm11, ymm9		;; I3 * MemI3			; 38-42
+	vmulpd	ymm11, ymm11, ymm3		;; I3 * MemR3			; 39-43
+
+	vmovapd	ymm3, [srcreg+d4+d1][rbp]	;; MemR6
+	vsubpd	ymm3, ymm3, [srcreg+d4+d1][rax]	;; MemR6
+	vsubpd	ymm10, ymm10, ymm9		;; R3*MemR3-I3*MemI3 (new R3)	; 53-55
+	vmovapd	ymm9, [srcreg+d4+d1+32][rbp]	;; MemI6
+	vsubpd	ymm9, ymm9, [srcreg+d4+d1+32][rax];; MemI6
+	vaddpd	ymm2, ymm2, ymm11		;; R3*MemI3+I3*MemR3 (new I3)	; 54-56
+
+	ystore	[srcreg+d4+d1], ymm1		;; R6
+	vmulpd	ymm11, ymm1, ymm3		;; R6 * MemR6			; 42-46
+	vmulpd	ymm1, ymm1, ymm9		;; R6 * MemI6			; 43-47
+	ystore	[srcreg+d4+d1+32], ymm5		;; I6
+	vmulpd	ymm9, ymm5, ymm9		;; I6 * MemI6			; 46-50
+	vmulpd	ymm5, ymm5, ymm3		;; I6 * MemR6			; 47-51
+
+	vmovapd	ymm3, [srcreg+d4][rbp]		;; MemR5
+	vsubpd	ymm3, ymm3, [srcreg+d4][rax]	;; MemR5
+	vsubpd	ymm11, ymm11, ymm9		;; R6*MemR6-I6*MemI6 (new R6)	; 55-57
+	vmovapd	ymm9, [srcreg+d4+32][rbp]	;; MemI5
+	vsubpd	ymm9, ymm9, [srcreg+d4+32][rax]	;; MemI5
+	vaddpd	ymm1, ymm1, ymm5		;; R6*MemI6+I6*MemR6 (new I6)	; 56-58
+
+	ystore	[srcreg+d4], ymm12		;; R5
+	vmulpd	ymm5, ymm12, ymm3		;; R5 * MemR5			; 44-48
+	vmulpd	ymm12, ymm12, ymm9		;; R5 * MemI5			; 45-49
+	ystore	[srcreg+d4+32], ymm15		;; I5
+	vmulpd	ymm9, ymm15, ymm9		;; I5 * MemI5			; 48-52
+	vmulpd	ymm15, ymm15, ymm3		;; I5 * MemR5			; 49-53
+
+	vmovapd	ymm3, [srcreg+d4+d2+d1][rbp]	;; MemR8
+	vsubpd	ymm3, ymm3, [srcreg+d4+d2+d1][rax];; MemR8
+	vsubpd	ymm5, ymm5, ymm9		;; R5*MemR5-I5*MemI5 (new R5)	; 57-59
+	vmovapd	ymm9, [srcreg+d4+d2+d1+32][rbp]	;; MemI8
+	vsubpd	ymm9, ymm9, [srcreg+d4+d2+d1+32][rax];; MemI8
+	vaddpd	ymm12, ymm12, ymm15		;; R5*MemI5+I5*MemR5 (new I5)	; 58-60
+
+	ystore	[srcreg+d4+d2+d1], ymm14	;; R8
+	vmulpd	ymm15, ymm14, ymm3		;; R8 * MemR8			; 50-54
+	vmulpd	ymm14, ymm14, ymm9		;; R8 * MemI8			; 51-55
+	ystore	[srcreg+d4+d2+d1+32], ymm8	;; I8
+	vmulpd	ymm9, ymm8, ymm9		;; I8 * MemI8			; 52-56
+	vmulpd	ymm8, ymm8, ymm3		;; I8 * MemR8			; 53-57
+
+	vmovapd	ymm3, [srcreg+d4+d2][rbp]	;; MemR7
+	vsubpd	ymm3, ymm3, [srcreg+d4+d2][rax]	;; MemR7
+	vsubpd	ymm15, ymm15, ymm9		;; R8*MemR8-I8*MemI8 (new R8)	; 59-61
+	vmovapd	ymm9, [srcreg+d4+d2+32][rbp]	;; MemI7
+	vsubpd	ymm9, ymm9, [srcreg+d4+d2+32][rax];; MemI7
+	vaddpd	ymm14, ymm14, ymm8		;; R8*MemI8+I8*MemR8 (new I8)	; 60-62
+
+	ystore	[srcreg+d4+d2], ymm0		;; R7
+	vmulpd	ymm8, ymm0, ymm3		;; R7 * MemR7			; 54-58
+	vmulpd	ymm0, ymm0, ymm9		;; R7 * MemI7			; 55-59
+	ystore	[srcreg+d4+d2+32], ymm6		;; I7
+	vmulpd	ymm9, ymm6, ymm9		;; I7 * MemI7			; 56-60
+	vmulpd	ymm6, ymm6, ymm3		;; I7 * MemR7			; 57-61
+
+	vmovapd	ymm3, [srcreg]			;; Reload newer R1
+	vsubpd	ymm8, ymm8, ymm9		;; R7*MemR7-I7*MemI7 (new R7)	; 61-63
+	vmovapd	ymm9, [srcreg+d1]		;; Reload newer R2
+	vaddpd	ymm0, ymm0, ymm6		;; R7*MemI7+I7*MemR7 (new I7)	; 62-64
+
+	vsubpd	ymm6, ymm3, ymm9		;; R1 - R2 (last R2)		; 63-65
+	vaddpd	ymm3, ymm3, ymm9		;; R1 + R2 (last R1)		; 64-66
+	vblendpd ymm6, ymm6, YMM_TMP1[16], 1	;; Blend in 16-real R2		; 66
+	vblendpd ymm3, ymm3, YMM_TMP1[0], 1	;; Blend in 16-real R1		; 67
+
+	vaddpd	ymm9, ymm4, ymm10		;; R4 + R3 (new R3)		; 65-67
+	vsubpd	ymm4, ymm4, ymm10		;; R4 - R3 (new I4)		; 66-68
+
+	vmovapd	ymm10, [srcreg+d1][rbp]		;; MemR2
+	vsubpd	ymm10, ymm10, [srcreg+d1][rax]	;; MemR2
+	ystore	YMM_TMP5, ymm9			;; Temporarily save new R3	; 68
+	vmovapd	ymm9, [srcreg+d1+32][rbp]	;; MemI2
+	vsubpd	ymm9, ymm9, [srcreg+d1+32][rax]	;; MemI2
+	ystore	YMM_TMP6, ymm4			;; Temporarily save new I4	; 69
+
+	ystore	[srcreg+d1], ymm6		;; R2
+	vmulpd	ymm4, ymm6, ymm10		;; R2 * MemR2			; 66-70
+	vmulpd	ymm6, ymm6, ymm9		;; R2 * MemI2			; 67-71
+	ystore	[srcreg+d1+32], ymm13		;; I2
+	vmulpd	ymm9, ymm13, ymm9		;; I2 * MemI2			; 68-72
+	vmulpd	ymm13, ymm13, ymm10		;; I2 * MemR2			; 69-73
+
+	vmovapd	ymm10, [srcreg][rbp]		;; MemR1
+	vsubpd	ymm10, ymm10, [srcreg][rax]	;; MemR1
+	vsubpd	ymm4, ymm4, ymm9		;; R2*MemR2-I2*MemI2 (new R2)	; 73-75
+	vmovapd	ymm9, [srcreg+32][rbp]		;; MemI1
+	vsubpd	ymm9, ymm9, [srcreg+32][rax]	;; MemI1
+	vaddpd	ymm6, ymm6, ymm13		;; R2*MemI2+I2*MemR2 (new I2)	; 74-76
+
+	ystore	[srcreg], ymm3			;; R1
+
+	jmp	back_to_orig
+
+origsave:
+	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
+	vmovapd	ymm9, [srcreg+d2+d1+32][rbp]	;; MemI4
+	ystore	[srcreg+d2+d1], ymm7		;; R4
+	vmulpd	ymm4, ymm7, ymm3		;; R4 * MemR4			; 32-36
+	vmulpd	ymm7, ymm7, ymm9		;; R4 * MemI4			; 33-37
+	ystore	[srcreg+d2+d1+32], ymm10	;; I4
+	vmulpd	ymm9, ymm10, ymm9		;; I4 * MemI4			; 34-38
+	vmulpd	ymm10, ymm10, ymm3		;; I4 * MemR4			; 35-39
+
+	vmovapd	ymm3, [srcreg+d2][rbp]		;; MemR3
+	vsubpd	ymm4, ymm4, ymm9		;; R4*MemR4-I4*MemI4 (new R4)	; 51-53
+	vmovapd	ymm9, [srcreg+d2+32][rbp]	;; MemI3
+	vaddpd	ymm7, ymm7, ymm10		;; R4*MemI4+I4*MemR4 (new I4)	; 52-54
+
+	ystore	[srcreg+d2], ymm2		;; R3
+	vmulpd	ymm10, ymm2, ymm3		;; R3 * MemR3			; 36-40
+	vmulpd	ymm2, ymm2, ymm9		;; R3 * MemI3			; 37-41
+	ystore	[srcreg+d2+32], ymm11		;; I3
+	vmulpd	ymm9, ymm11, ymm9		;; I3 * MemI3			; 38-42
+	vmulpd	ymm11, ymm11, ymm3		;; I3 * MemR3			; 39-43
+
+	vmovapd	ymm3, [srcreg+d4+d1][rbp]	;; MemR6
+	vsubpd	ymm10, ymm10, ymm9		;; R3*MemR3-I3*MemI3 (new R3)	; 53-55
+	vmovapd	ymm9, [srcreg+d4+d1+32][rbp]	;; MemI6
+	vaddpd	ymm2, ymm2, ymm11		;; R3*MemI3+I3*MemR3 (new I3)	; 54-56
+
+	ystore	[srcreg+d4+d1], ymm1		;; R6
+	vmulpd	ymm11, ymm1, ymm3		;; R6 * MemR6			; 42-46
+	vmulpd	ymm1, ymm1, ymm9		;; R6 * MemI6			; 43-47
+	ystore	[srcreg+d4+d1+32], ymm5		;; I6
+	vmulpd	ymm9, ymm5, ymm9		;; I6 * MemI6			; 46-50
+	vmulpd	ymm5, ymm5, ymm3		;; I6 * MemR6			; 47-51
+
+	vmovapd	ymm3, [srcreg+d4][rbp]		;; MemR5
+	vsubpd	ymm11, ymm11, ymm9		;; R6*MemR6-I6*MemI6 (new R6)	; 55-57
+	vmovapd	ymm9, [srcreg+d4+32][rbp]	;; MemI5
+	vaddpd	ymm1, ymm1, ymm5		;; R6*MemI6+I6*MemR6 (new I6)	; 56-58
+
+	ystore	[srcreg+d4], ymm12		;; R5
+	vmulpd	ymm5, ymm12, ymm3		;; R5 * MemR5			; 44-48
+	vmulpd	ymm12, ymm12, ymm9		;; R5 * MemI5			; 45-49
+	ystore	[srcreg+d4+32], ymm15		;; I5
+	vmulpd	ymm9, ymm15, ymm9		;; I5 * MemI5			; 48-52
+	vmulpd	ymm15, ymm15, ymm3		;; I5 * MemR5			; 49-53
+
+	vmovapd	ymm3, [srcreg+d4+d2+d1][rbp]	;; MemR8
+	vsubpd	ymm5, ymm5, ymm9		;; R5*MemR5-I5*MemI5 (new R5)	; 57-59
+	vmovapd	ymm9, [srcreg+d4+d2+d1+32][rbp]	;; MemI8
+	vaddpd	ymm12, ymm12, ymm15		;; R5*MemI5+I5*MemR5 (new I5)	; 58-60
+
+	ystore	[srcreg+d4+d2+d1], ymm14	;; R8
+	vmulpd	ymm15, ymm14, ymm3		;; R8 * MemR8			; 50-54
+	vmulpd	ymm14, ymm14, ymm9		;; R8 * MemI8			; 51-55
+	ystore	[srcreg+d4+d2+d1+32], ymm8	;; I8
+	vmulpd	ymm9, ymm8, ymm9		;; I8 * MemI8			; 52-56
+	vmulpd	ymm8, ymm8, ymm3		;; I8 * MemR8			; 53-57
+
+	vmovapd	ymm3, [srcreg+d4+d2][rbp]	;; MemR7
+	vsubpd	ymm15, ymm15, ymm9		;; R8*MemR8-I8*MemI8 (new R8)	; 59-61
+	vmovapd	ymm9, [srcreg+d4+d2+32][rbp]	;; MemI7
+	vaddpd	ymm14, ymm14, ymm8		;; R8*MemI8+I8*MemR8 (new I8)	; 60-62
+
+	ystore	[srcreg+d4+d2], ymm0		;; R7
+	vmulpd	ymm8, ymm0, ymm3		;; R7 * MemR7			; 54-58
+	vmulpd	ymm0, ymm0, ymm9		;; R7 * MemI7			; 55-59
+	ystore	[srcreg+d4+d2+32], ymm6		;; I7
+	vmulpd	ymm9, ymm6, ymm9		;; I7 * MemI7			; 56-60
+	vmulpd	ymm6, ymm6, ymm3		;; I7 * MemR7			; 57-61
+
+	vmovapd	ymm3, [srcreg]			;; Reload newer R1
+	vsubpd	ymm8, ymm8, ymm9		;; R7*MemR7-I7*MemI7 (new R7)	; 61-63
+	vmovapd	ymm9, [srcreg+d1]		;; Reload newer R2
+	vaddpd	ymm0, ymm0, ymm6		;; R7*MemI7+I7*MemR7 (new I7)	; 62-64
+
+	vsubpd	ymm6, ymm3, ymm9		;; R1 - R2 (last R2)		; 63-65
+	vaddpd	ymm3, ymm3, ymm9		;; R1 + R2 (last R1)		; 64-66
+	vblendpd ymm6, ymm6, YMM_TMP1[16], 1	;; Blend in 16-real R2		; 66
+	vblendpd ymm3, ymm3, YMM_TMP1[0], 1	;; Blend in 16-real R1		; 67
+
+	vaddpd	ymm9, ymm4, ymm10		;; R4 + R3 (new R3)		; 65-67
+	vsubpd	ymm4, ymm4, ymm10		;; R4 - R3 (new I4)		; 66-68
+
+	vmovapd	ymm10, [srcreg+d1][rbp]		;; MemR2
+	ystore	YMM_TMP5, ymm9			;; Temporarily save new R3	; 68
+	vmovapd	ymm9, [srcreg+d1+32][rbp]	;; MemI2
+	ystore	YMM_TMP6, ymm4			;; Temporarily save new I4	; 69
+
+	ystore	[srcreg+d1], ymm6		;; R2
+	vmulpd	ymm4, ymm6, ymm10		;; R2 * MemR2			; 66-70
+	vmulpd	ymm6, ymm6, ymm9		;; R2 * MemI2			; 67-71
+	ystore	[srcreg+d1+32], ymm13		;; I2
+	vmulpd	ymm9, ymm13, ymm9		;; I2 * MemI2			; 68-72
+	vmulpd	ymm13, ymm13, ymm10		;; I2 * MemR2			; 69-73
+
+	vmovapd	ymm10, [srcreg][rbp]		;; MemR1
+	vsubpd	ymm4, ymm4, ymm9		;; R2*MemR2-I2*MemI2 (new R2)	; 73-75
+	vmovapd	ymm9, [srcreg+32][rbp]		;; MemI1
+	vaddpd	ymm6, ymm6, ymm13		;; R2*MemI2+I2*MemR2 (new I2)	; 74-76
+
+	ystore	[srcreg], ymm3			;; R1
+
+	jmp	back_to_orig
+
 orig:
 	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
 	vmovapd	ymm9, [srcreg+d2+d1+32][rbp]	;; MemI4
@@ -6201,7 +6899,7 @@ orig:
 
 	vmovapd	ymm3, [srcreg]			;; Reload newer R1
 	vsubpd	ymm8, ymm8, ymm9		;; R7*MemR7-I7*MemI7 (new R7)	; 61-63
-	vmovapd	ymm9, [srcreg+32]		;; Reload newer R2
+	vmovapd	ymm9, [srcreg+d1]		;; Reload newer R2
 	vaddpd	ymm0, ymm0, ymm6		;; R7*MemI7+I7*MemR7 (new I7)	; 62-64
 
 	vsubpd	ymm6, ymm3, ymm9		;; R1 - R2 (last R2)		; 63-65
@@ -6239,9 +6937,9 @@ back_to_orig:
 
 	vmulpd	ymm11, ymm3, ymm10		;; R1 * MemR1			; 70-74
 	vmulpd	ymm3, ymm3, ymm9		;; R1 * MemI1			; 71-75
-	vmovsd	Q [srcreg-16], xmm11		;; Save product of sum of FFT values
-	vmulpd	ymm9, ymm9, [srcreg+d1]		;; (reload I1) * MemI1		; 72-76
-	vmulpd	ymm10, ymm10, [srcreg+d1]	;; (reload I1) * MemR1		; 73-77
+	vmovsd	Q [srcreg+r8-16], xmm11		;; Save product of sum of FFT values
+	vmulpd	ymm9, ymm9, [srcreg+32]		;; (reload I1) * MemI1		; 72-76
+	vmulpd	ymm10, ymm10, [srcreg+32]	;; (reload I1) * MemR1		; 73-77
 	vmovsd	Q YMM_TMP1[8], xmm9		;; I1
 
 	vsubpd	ymm11, ymm11, ymm9		;; R1*MemR1-I1*MemI1 (new R1)	; 77-79
@@ -6311,55 +7009,55 @@ back_to_orig:
 
 	vsubpd	ymm2, ymm13, ymm4		;; I2 - I6 (final I6)		; 103-105
 	vaddpd	ymm13, ymm13, ymm4		;; I2 + I6 (final I2)		; 104-106
-	ystore	[srcreg+d4+d2+d1], ymm1		;; Save R8			; 104
+	ystore	[srcreg+r8+d4+d2+d1], ymm1	;; Save R8			; 104
 
 	vsubpd	ymm4, ymm8, ymm7		;; I4 - I8 (final I8)		; 105-107
 	vaddpd	ymm8, ymm8, ymm7		;; I4 + I8 (final I4)		; 106-108
-	ystore	[srcreg+d2+d1], ymm6		;; Save R4			; 105
-	ystore	[srcreg+d4+d1+32], ymm2		;; Save I6			; 106
+	ystore	[srcreg+r8+d2+d1], ymm6		;; Save R4			; 105
+	ystore	[srcreg+r8+d4+d1+32], ymm2	;; Save I6			; 106
 
 	vsubpd	ymm7, ymm14, ymm9		;; R2 - R6 (final R6)		; 107-109
 	vaddpd	ymm14, ymm14, ymm9		;; R2 + R6 (final R2)		; 108-110
-	ystore	[srcreg+d1+32], ymm13		;; Save I2			; 107
-	ystore	[srcreg+d4+d2+d1+32], ymm4	;; Save I8			; 108
+	ystore	[srcreg+r8+d1+32], ymm13	;; Save I2			; 107
+	ystore	[srcreg+r8+d4+d2+d1+32], ymm4	;; Save I8			; 108
 
 	vmovapd	ymm1, YMM_TMP5			;; Reload new R3
 	vsubpd	ymm9, ymm11, ymm1		;; R1 - R3 (newer R3)		; 109-111
 	vaddpd	ymm11, ymm11, ymm1		;; R1 + R3 (newer R1)		; 110-112
-	ystore	[srcreg+d2+d1+32], ymm8		;; Save I4			; 109
-	ystore	[srcreg+d4+d1], ymm7		;; Save R6			; 110
+	ystore	[srcreg+r8+d2+d1+32], ymm8	;; Save I4			; 109
+	ystore	[srcreg+r8+d4+d1], ymm7		;; Save R6			; 110
 
 	vmovsd	Q YMM_TMP3[0], xmm5		;; R5+R6
 	vaddpd	ymm1, ymm15, ymm5		;; R7 + R5 (newer R5)		; 111-113
 	vsubpd	ymm15, ymm15, ymm5		;; R7 - R5 (newer I7)		; 112-114
-	ystore	[srcreg+d1], ymm14		;; Save R2			; 111
+	ystore	[srcreg+r8+d1], ymm14		;; Save R2			; 111
 
 	vsubpd	ymm5, ymm3, ymm12		;; I1 - I5 (final I5)		; 113-115
 	vaddpd	ymm3, ymm3, ymm12		;; I1 + I5 (final I1)		; 114-116
 
 	vsubpd	ymm12, ymm9, ymm10		;; R3 - R7 (final R7)		; 115-117
 	vaddpd	ymm9, ymm9, ymm10		;; R3 + R7 (final R3)		; 116-118
-	ystore	[srcreg+d4+32], ymm5		;; Save I5			; 116
+	ystore	[srcreg+r8+d4+32], ymm5		;; Save I5			; 116
 
 	vsubpd	ymm10, ymm0, ymm15		;; I3 - I7 (final I7)		; 117-119
 	vaddpd	ymm0, ymm0, ymm15		;; I3 + I7 (final I3)		; 118-120
-	ystore	[srcreg+32], ymm3		;; Save I1			; 117
-	ystore	[srcreg+d4+d2], ymm12		;; Save R7			; 118
+	ystore	[srcreg+r8+32], ymm3		;; Save I1			; 117
+	ystore	[srcreg+r8+d4+d2], ymm12	;; Save R7			; 118
 
 	vsubpd	ymm15, ymm11, ymm1		;; R1 - R5 (final R5)		; 119-121
 	vaddpd	ymm11, ymm11, ymm1		;; R1 + R5 (final R1)		; 120-122
-	ystore	[srcreg+d2], ymm9		;; Save R3			; 119
-	ystore	[srcreg+d4+d2+32], ymm10	;; Save I7			; 120
+	ystore	[srcreg+r8+d2], ymm9		;; Save R3			; 119
+	ystore	[srcreg+r8+d4+d2+32], ymm10	;; Save I7			; 120
 
-	ystore	[srcreg+d2+32], ymm0		;; Save I3			; 121
-	ystore	[srcreg+d4], ymm15		;; Save R5			; 122
-	ystore	[srcreg], ymm11			;; Save R1			; 123
+	ystore	[srcreg+r8+d2+32], ymm0		;; Save I3			; 121
+	ystore	[srcreg+r8+d4], ymm15		;; Save R5			; 122
+	ystore	[srcreg+r8], ymm11		;; Save R1			; 123
 
 	;; Do 16-reals from YMM_TMPs
 
 	;; Level 4
 
-	vmovsd	xmm0, [srcreg-16]		;; R1
+	vmovsd	xmm0, [srcreg+r8-16]		;; R1
 	vmovsd	xmm1, Q YMM_TMP1[8]		;; R2
 
 	vsubsd	xmm0, xmm0, xmm1		;; R1 - R2 (new R2)
@@ -6445,14 +7143,14 @@ back_to_orig:
 	vaddsd	xmm6, xmm0, xmm4		;; R8 + R16 (final R8)
 	vsubsd	xmm0, xmm0, xmm4		;; R8 - R16 (final R16)
 
-	vmovsd	Q [srcreg+d1], xmm3		;; R2
-	vmovsd	Q [srcreg+d1+32], xmm5		;; R10
-	vmovsd	Q [srcreg+d4+d1], xmm9		;; R6
-	vmovsd	Q [srcreg+d4+d1+32], xmm7	;; R14
-	vmovsd	Q [srcreg+d2+d1], xmm2		;; R4
-	vmovsd	Q [srcreg+d2+d1+32], xmm8	;; R12
-	vmovsd	Q [srcreg+d4+d2+d1], xmm6	;; R8
-	vmovsd	Q [srcreg+d4+d2+d1+32], xmm0	;; R16
+	vmovsd	Q [srcreg+r8+d1], xmm3		;; R2
+	vmovsd	Q [srcreg+r8+d1+32], xmm5	;; R10
+	vmovsd	Q [srcreg+r8+d4+d1], xmm9	;; R6
+	vmovsd	Q [srcreg+r8+d4+d1+32], xmm7	;; R14
+	vmovsd	Q [srcreg+r8+d2+d1], xmm2	;; R4
+	vmovsd	Q [srcreg+r8+d2+d1+32], xmm8	;; R12
+	vmovsd	Q [srcreg+r8+d4+d2+d1], xmm6	;; R8
+	vmovsd	Q [srcreg+r8+d4+d2+d1+32], xmm0	;; R16
 
 	;; Odd level 3
 
@@ -6512,14 +7210,14 @@ back_to_orig:
 	vaddsd	xmm0, xmm1, xmm5		;; R7 + R15 (final R7)
 	vsubsd	xmm1, xmm1, xmm5		;; R7 - R15 (final R15)
 
-	vmovsd	Q [srcreg], xmm3		;; R1
-	vmovsd	Q [srcreg+32], xmm4		;; R9
-	vmovsd	Q [srcreg+d4], xmm8		;; R5
-	vmovsd	Q [srcreg+d4+32], xmm7		;; R13
-	vmovsd	Q [srcreg+d2], xmm6		;; R3
-	vmovsd	Q [srcreg+d2+32], xmm2		;; R11
-	vmovsd	Q [srcreg+d4+d2], xmm0		;; R7
-	vmovsd	Q [srcreg+d4+d2+32], xmm1	;; R15
+	vmovsd	Q [srcreg+r8], xmm3		;; R1
+	vmovsd	Q [srcreg+r8+32], xmm4		;; R9
+	vmovsd	Q [srcreg+r8+d4], xmm8		;; R5
+	vmovsd	Q [srcreg+r8+d4+32], xmm7	;; R13
+	vmovsd	Q [srcreg+r8+d2], xmm6		;; R3
+	vmovsd	Q [srcreg+r8+d2+32], xmm2	;; R11
+	vmovsd	Q [srcreg+r8+d4+d2], xmm0	;; R7
+	vmovsd	Q [srcreg+r8+d4+d2+32], xmm1	;; R15
 
 	bump	srcreg, srcinc
 	ENDM

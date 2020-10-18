@@ -800,12 +800,12 @@ ymult7	MACRO	src1, src2
 	vmovsd	xmm13, Q [src2-56]	;; Load copy of input FFT word at halfway + 2
 	vmovsd	xmm14, Q [src2-64]	;; Load copy of input FFT word at halfway + 3
 
-	cmp	mul4_opcode, 0		;; Are we doing a gwmul4?
-	je	orig
+	mov	al, mul4_opcode		;; Load gwmul4 opcode
+	and	al, 7fh			;; Mask out the save FFT results flag
+	jz	orig			;; Jump if not doing addmul4 or submul4
 
+	cmp	al, 1			;; Are we doing an ADD or SUB
 	mov	rax, SRC2ARG		;; Distance to s2 arg from gwaddmul4 or gwsubmul4
-
-	cmp	mul4_opcode, 1		;; Are we doing an ADD
 	jne	short notadd
 
 	vaddsd	xmm8, xmm8, Q [rsi+rax-88]	;; Add copy of input FFT word at halfway - 3

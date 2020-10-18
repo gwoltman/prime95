@@ -9021,9 +9021,13 @@ void raw_gwmul3 (
 	asm_data->mul4_opcode = 0;
 	asm_data->DEST2ARG = 0;
 
-/* New in 30.4, the AVX-512 FFT routines can handle two destinations!  One for the FFT of s1 and one for the multiplication result. */
+/* New in 30.4, the AVX, FMA, and AVX-512 FFT routines can handle two destinations!  One for the FFT of s1 and one for the multiplication result. */
 
-	if (gwdata->cpu_flags & CPU_AVX512F) {
+#ifdef X86_64
+	if (gwdata->cpu_flags & (CPU_AVX512F | CPU_FMA3 | CPU_AVX)) {
+#else
+	if (0) {
+#endif
 
 /* Handle squaring */
 

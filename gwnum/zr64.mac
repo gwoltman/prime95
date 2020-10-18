@@ -4403,7 +4403,7 @@ no_save_fft:
 	vaddpd	zmm24, zmm24, [srcreg+rax+d2+d1+64];;		MemI4
 	zfnmaddpd zmm21, zmm12, zmm24, zmm21	;;		A4 - I4 * MemI4 (R4 & R6)			; 8-11		n 19
 	zfmaddpd zmm20, zmm9, zmm24, zmm20	;;		B4 + R4 * MemI4 (I4 & I6)			; 8-11		n 20
-	vmovsd	Q [srcreg-16], xmm23		;;				Save product of FFT sums	; 8
+	vmovsd	Q [srcreg+r8-16], xmm23		;;				Save product of FFT sums	; 8
 
 	vmovapd	zmm24, [srcreg+rbp+d4+d1]	;;		MemR6
 	vaddpd	zmm24, zmm24, [srcreg+rax+d4+d1];;		MemR6
