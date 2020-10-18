@@ -909,6 +909,34 @@ void test_it (
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "gwmul3 two fft");
 	if (x2[0] != x3[0]) OutputBoth (thread_num, "FAIL: gwmul3 two fft -- s1 != s2");
 
+/* Test gwmul3, gwmul4 where there are 2 destinations */
+
+	gwfft (gwdata, x, x2);
+	gwsquare2 (gwdata, x, x3, GWMUL_FFT_S1);
+	gwsquare2 (gwdata, x, x, 0);
+	squaregi (&gwdata->gdata, g); specialmodg (gwdata, g);
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "gwsquare2 two dest #1");
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x3, g, "gwsquare2 two dest #2");
+
+	gwfft (gwdata, x, x2);
+	gwmul3 (gwdata, x, x2, x3, GWMUL_FFT_S1 | GWMUL_FFT_S2);
+	gwmul3 (gwdata, x, x, x, 0);
+	squaregi (&gwdata->gdata, g); specialmodg (gwdata, g);
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "gwmul3 two dest #1");
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x3, g, "gwmul3 two dest #2");
+
+	gwsquare2 (gwdata, x, x2, 0); gtog (g, g2); squaregi (&gwdata->gdata, g2); specialmodg (gwdata, g2);
+	gwsquare2 (gwdata, x2, x3, 0); gtog (g2, g3); squaregi (&gwdata->gdata, g3); specialmodg (gwdata, g3);
+	gwaddmul4 (gwdata, x2, x3, x, x4, GWMUL_FFT_S3); gtog (g2, g4); addg (g3, g4); mulg (g, g4); specialmodg (gwdata, g4);
+	gwmul3 (gwdata, x, x, x, 0); squaregi (&gwdata->gdata, g); specialmodg (gwdata, g);
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "addmul4 two dest #1");
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x4, g4, "addmul4 two dest #2");
+
+	gwsubmul4 (gwdata, x2, x3, x, x4, GWMUL_FFT_S3); gtog (g2, g4); subg (g3, g4); mulg (g, g4); specialmodg (gwdata, g4);
+	gwmul3 (gwdata, x, x, x, 0); squaregi (&gwdata->gdata, g); specialmodg (gwdata, g);
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "submul4 two dest #1");
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x4, g4, "submul4 two dest #2");
+
 /* Do the final compare */
 
 done:	if (!CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "final");
