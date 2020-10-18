@@ -9277,17 +9277,26 @@ void cmn_gwmul4 (		/* Calculate (s1 op s2) * s3 */
 /* Determine the type of FFT multiply */
 
 		if (FFT_state (s3) == FULLY_FFTed) asm_data->ffttype = 4;
-		else if (options & GWMUL_FFT_S3) gwfft (gwdata, s3, s3), asm_data->ffttype = 4;	// replace gwfft with possible type-4 optimization
-		else asm_data->ffttype = 3;
+		else if (!(options & GWMUL_FFT_S3)) asm_data->ffttype = 3;
+		else {	// Two destinations
+			asm_data->ffttype = 3;
+			asm_data->DEST2ARG = (void *) ((intptr_t) d - (intptr_t) s3);
+		}
 
 /* Call the assembly code */
 
 		if (options & GWMUL_NOMULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM & ~2)];
 		else if (options & GWMUL_MULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM | 2)];
 		else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->NORMNUM];
-		asm_data->mul4_opcode = opcode;
-		asm_data->SRC2ARG = (void *) ((intptr_t) s2 - (intptr_t) d);
-		asm_mul (gwdata, s3, s1, d, options);
+		if (asm_data->DEST2ARG) {
+			asm_data->mul4_opcode = 0x80 | opcode;
+			asm_data->SRC2ARG = (void *) ((intptr_t) s2 - (intptr_t) s3);
+			asm_mul (gwdata, s3, s1, s3, options);
+		} else {
+			asm_data->mul4_opcode = opcode;
+			asm_data->SRC2ARG = (void *) ((intptr_t) s2 - (intptr_t) d);
+			asm_mul (gwdata, s3, s1, d, options);
+		}
 
 /* Emulate mod with 2 multiplies case */
 
