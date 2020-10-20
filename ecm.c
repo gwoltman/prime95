@@ -218,29 +218,6 @@ void ell_dbl_xz_scr (
 
 	ASSERTG (scr != out);
 
-//GW the ideal solution is to write gwaddsubmul3(s1,s2,d). It computes d=(s1+s2)(s1-s2).  We "know" the add errors will cancel in calc of t3=4*x*z
-//requires assembly code, not generally useful. OR addsubmul5: d=(s1+s2)*(s3-s4)  more generally useful, but need 4 combos and only "works" when
-//extrabits >= 2
-#ifdef TESTING_THEORY
-convert_xz (ecmdata, in);
-gwstartnextfft (&ecmdata->gwdata, ecmdata->gwdata.EXTRA_BITS >= 2.0);	deprecated
-gwfft (&ecmdata->gwdata, in->x, in->x);	// addsubmul3 can do this FFT?!
-gwfft (&ecmdata->gwdata, in->z, in->z);	// addsubmul3 can do this FFT?!
-gwfftaddsub4 (&ecmdata->gwdata, in->x, in->z, a, out->x);		/* Convert back to x, z format multiplied by 2 */ //loses accuracy?
-norm_count(a) = 1;  
-norm_count(out->x) = 1;
-gwmul3 (&ecmdata->gwdata, a, out->x, a, 0);				/* t3 = 4 * x * z (store in a) */
-// uh oh, roe=0.477 (because addsubfft introduced more error in every LSB?)
-if (in == out) {
-	gwsquare2 (&ecmdata->gwdata, in->z, out->x, 0);			/* t2 = (x - z)^2 (store in outx) */
-} else {
-//GW: squaring that outputs FFT would be useful (twice)! Hard for AVX */
-	gwmul3 (&ecmdata->gwdata, in->z, in->z, out->x, GWMUL_FFT_S1);	/* t2 = (x - z)^2 (store in outx) */
-}
-#endif
-
-
-#ifndef NOT_TESTING_THEORY	
 	/* If we have extra_bits and the input has not yet been converted, then we can use a slightly different algorithm */
 	/* that saves a gwsub3 to calculate t3 as well as generating a normalized t3. */
 	if (ecmdata->gwdata.EXTRA_BITS >= 2.0 && !in->added) {
@@ -256,8 +233,8 @@ if (in == out) {
 			gwfftaddsub (&ecmdata->gwdata, in->x, in->z);		/* Convert to x + z, x - z format */
 			in->added = TRUE;
 		}
-//GW an asm impl of type-4 that computes (s1-s2)*(s1-s2) would save a read/write in the in==out case
-		gwmul3 (&ecmdata->gwdata, in->z, in->z, t2, GWMUL_STARTNEXTFFT1);			/* t2 = (x - z)^2 */
+		//GW: an asm impl of type-4 FFT that computes (s1-s2)*(s1-s2) would save a read/write in the in==out case
+		gwsquare2 (&ecmdata->gwdata, in->z, t2, GWMUL_STARTNEXTFFT1);	/* t2 = (x - z)^2 */
 	}
 
 	/* Use the original algorithm */
@@ -267,26 +244,26 @@ if (in == out) {
 		t3 = t1;
 		t4 = out->z;
 		convert_xz (ecmdata, in);
-		/* If we have extra_bits then we can start next FFT of t1 and t2 since (t2+t1)^2 should not have too much roundoff error */
+		/* If we have extra_bits then we can start next FFT of t1 and t2 since (t2+t1)^2 will not have too much roundoff error */
 		if (in == out || in == scr) {
 			gwsquare2 (&ecmdata->gwdata, in->x, t1, GWMUL_STARTNEXTFFT1);	/* t1 = (x + z)^2 */
 			gwsquare2 (&ecmdata->gwdata, in->z, t2, GWMUL_STARTNEXTFFT1);	/* t2 = (x - z)^2 */
 		} else {
-//GW: squaring that outputs FFT would be useful (twice)! Hard for AVX */
+			//GW: asm squaring that also outputs FFT would be useful (twice)! Hard for AVX
 			gwsquare2 (&ecmdata->gwdata, in->x, t1, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT1); /* t1 = (x + z)^2 */
 			gwsquare2 (&ecmdata->gwdata, in->z, t2, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT1); /* t2 = (x - z)^2 */
 		}
-		gwsub3 (&ecmdata->gwdata, t1, t2, t3);						/* t3 = t1 - t2 = 4 * x * z */
+		gwsub3 (&ecmdata->gwdata, t1, t2, t3);					/* t3 = t1 - t2 = 4 * x * z */
 	}
-#endif
 
 	/* Finish up */
 	gwmul3 (&ecmdata->gwdata, t2, ecmdata->Ad4, t4, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);	/* t4 = t2 * Ad4 */
 	/* If we have extra_bits then we can start next FFT of the outputs since (x+z)^2 should not have too much roundoff error */
-	gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT1);	/* outx = t4 * (t1 = t2 + t3) */
-norm_count(t3) = 1;  //BUG - fails because gwsub3 did not normalize when extrabits=2 log2((1+2)*2) is not <= 2
-// Need warning in gwnum.h??? Macro/Routine called ultrasafeadd4?? or a force normalize option?
-	gwaddmul4 (&ecmdata->gwdata, t4, t3, t3, out->z, GWMUL_STARTNEXTFFT1);			/* outz = (t4 + t3) * t3 */
+	gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S2 | GWMUL_FFT_S3 | GWMUL_STARTNEXTFFT1);	/* outx = t4 * (t1 = t2 + t3) */
+	/* I do not know why this next gwaddmul4 doesn't generate a big roundoff error!!  When EXTRA_BITS is 2, we rightfully assert */
+	/* that log2((1+2)*2) is not <= 2.  However, when we tweak the t3 normalized add count to 1 the roundoff error remains manageable. */
+	norm_count(t3) = 1;
+	gwaddmul4 (&ecmdata->gwdata, t4, t3, t3, out->z, GWMUL_STARTNEXTFFT1);		/* outz = (t4 + t3) * t3 */
 	out->added = FALSE;
 }
 
@@ -320,13 +297,13 @@ void ell_dbl_xz_scr_last (
 	t3 = t1;
 	t4 = out->z;
 	convert_xz (ecmdata, in);
-	/* If we have extra_bits then we can start next FFT of t1 and t2 since (t2+t1)^2 should not have too much roundoff error */
+	/* If we have extra_bits then we can start next FFT of t1 and t2 since (t2+t1)^2 will not have too much roundoff error */
 	gwsquare2 (&ecmdata->gwdata, in->x, t1, GWMUL_STARTNEXTFFT1);		/* t1 = (x + z)^2 */
 	gwsquare2 (&ecmdata->gwdata, in->z, t2, GWMUL_STARTNEXTFFT1);		/* t2 = (x - z)^2 */
 	gwsub3 (&ecmdata->gwdata, t1, t2, t3);					/* t3 = t1 - t2 = 4 * x * z */
 	gwmul3 (&ecmdata->gwdata, t2, ecmdata->Ad4, t4, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);	/* t4 = t2 * Ad4 */
-	gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S2);		/* outx = t4 * (t1 = t2 + t3) */
-norm_count(t3) = 1;
+	gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S2 | GWMUL_FFT_S3);		/* outx = t4 * (t1 = t2 + t3) */
+	norm_count(t3) = 1;
 	gwaddmul4 (&ecmdata->gwdata, t4, t3, t3, out->z, 0);			/* outz = (t4 + t3) * t3 */
 	out->added = FALSE;
 }
@@ -344,31 +321,23 @@ void ell_add_xz_scr (
 	struct xz *scr)		// Scratch registers
 {				/* 12 FFTs, 6 adds */
 	gwnum	t1, t2;
+	int	options;
 
 	ASSERTG (scr != diff);
 	if (scr != in2) t1 = scr->x, t2 = scr->z;
 	else t1 = scr->z, t2 = scr->x;
 	convert_xz (ecmdata, in1);
 	convert_xz (ecmdata, in2);
-//GW  can we remove some GWMUL_FFT flags depending on if scr1 buffers equal in1 or in2 buffers?  Or is it the case that out is the best
-// scratch register?  I doubt it.  I think in1 or in2 will be ideal.  We do not have a way to indicate that both in1 and in2 will not be used again.
-// gwmul3 code may well catch these gwmul_fft flags where source == dest.
-	/* If we have extra_bits then we can start next FFT of t1 and t2 since (t2+t1)^2 should not have too much roundoff error */
-	if (in1 == out) {
-		gwmul3 (&ecmdata->gwdata, in1->x, in2->z, t1, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT1);	/* t1 = (x1 + z1)(x2 - z2) */
-		gwmul3 (&ecmdata->gwdata, in1->z, in2->x, t2, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT1);	/* t2 = (x1 - z1)(x2 + z2) */
-	} else if (in2 == out) {
-		gwmul3 (&ecmdata->gwdata, in1->x, in2->z, t1, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT1);	/* t1 = (x1 + z1)(x2 - z2) */
-		gwmul3 (&ecmdata->gwdata, in1->z, in2->x, t2, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT1);	/* t2 = (x1 - z1)(x2 + z2) */
-	} else {
-//GW: mul3 that outputs FFT would be useful here (twice)! Easy for AVX */
-		gwmul3 (&ecmdata->gwdata, in1->x, in2->z, t1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT1);/* t1 = (x1 + z1)(x2 - z2) */
-		gwmul3 (&ecmdata->gwdata, in1->z, in2->x, t2, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT1);/* t2 = (x1 - z1)(x2 + z2) */
-	}
+	/* If we have extra_bits then we can start next FFT of t1 and t2 since (t2+t1)^2 will not have too much roundoff error */
+	options = GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT1;
+	if (in1 == out || in1 == scr) options &= ~GWMUL_FFT_S1;
+	if (in2 == out || in2 == scr) options &= ~GWMUL_FFT_S2;
+	gwmul3 (&ecmdata->gwdata, in1->x, in2->z, t1, options);			/* t1 = (x1 + z1)(x2 - z2) */
+	gwmul3 (&ecmdata->gwdata, in1->z, in2->x, t2, options);			/* t2 = (x1 - z1)(x2 + z2) */
 	gwaddsub (&ecmdata->gwdata, t2, t1);
 	gwsquare2 (&ecmdata->gwdata, t2, t2, GWMUL_STARTNEXTFFT);		/* t2 = (t2 + t1)^2 */
 	gwsquare2 (&ecmdata->gwdata, t1, t1, GWMUL_STARTNEXTFFT);		/* t1 = (t2 - t1)^2 */
-	/* If we have extra_bits then we can start next FFT of the outputs since (x+z)^2 should not have too much roundoff error */
+	/* If we have extra_bits then we can start next FFT of the outputs since (x+z)^2 will not have too much roundoff error */
 	if (diff->added) {
 		gwsubmul4 (&ecmdata->gwdata, diff->x, diff->z, t2, t2, GWMUL_STARTNEXTFFT1);	/* t2 = t2 * zdiff (will become outx) */
 		gwaddmul4 (&ecmdata->gwdata, diff->x, diff->z, t1, t1, GWMUL_STARTNEXTFFT1);	/* t1 = t1 * xdiff (will become outz) */
@@ -427,7 +396,7 @@ void ell_add_xz_last (
 	else t1 = scr->z, t2 = scr->x;
 	convert_xz (ecmdata, in1);
 	convert_xz (ecmdata, in2);
-	/* If we have extra_bits then we can start next FFT of t1 and t2 since (t2+t1)^2 should not have too much roundoff error */
+	/* If we have extra_bits then we can start next FFT of t1 and t2 since (t2+t1)^2 will not have too much roundoff error */
 	gwmul3 (&ecmdata->gwdata, in1->x, in2->z, t1, GWMUL_STARTNEXTFFT1);	/* t1 = (x1 + z1)(x2 - z2) */
 	gwmul3 (&ecmdata->gwdata, in1->z, in2->x, t2, GWMUL_STARTNEXTFFT1);	/* t2 = (x1 - z1)(x2 + z2) */
 	gwaddsub (&ecmdata->gwdata, t2, t1);
@@ -533,13 +502,29 @@ int lucas_mul (
 
 	while (n != 1) {
 	    ell_dbl_xz_scr (ecmdata, A, &B, &C);				/* B = 2*A, scratch reg = C */
-//GW we can likely save these two copies by caerfully remembering where A=C
-gwcopy (&ecmdata->gwdata, A->x, C.x);					
-gwcopy (&ecmdata->gwdata, A->z, C.z);
-C.added = A->added;								/* C = A */
+										/* C = A (but we delay setting that up) */
 
 	    d = (uint64_t) ((double) n * inv_v + 0.5); e = n - d;
 	    d = d - e;
+
+	    // To save two gwcopies setting C=A, we handle the most common case for the first iteration of the following loop.
+	    // I've only seen three cases that end up doing the gwcopies, n=3, n=11 and n=17.
+	    if (e > d + (d >> 2) && e <= (d << 2)) {
+		swap (d, e);
+		xzswap (*A, B);							/* swap A & B, thus C = B */
+		ell_add_xz_scr (ecmdata, A, &B, &B, &C, &S);			/* B = A+B, scratch reg = S */
+		xzswap (B, C);							/* C = B */
+		d = d-e;
+	    }
+	    else if (d > e + (e >> 2) && d <= (e << 2)) {
+		ell_add_xz_scr (ecmdata, A, &B, A, &C, &S);			/* B = A+B, scratch reg = S */
+		xzswap (B, C);							/* C = B */
+		d = d-e;
+	    } else {
+		gwcopy (&ecmdata->gwdata, A->x, C.x);
+		gwcopy (&ecmdata->gwdata, A->z, C.z);
+		C.added = A->added;						/* C = A */
+	    }
 
 	    while (d != e) {
 		if (d < e) {
@@ -573,7 +558,6 @@ C.added = A->added;								/* C = A */
 			ell_dbl_xz_scr (ecmdata, A, A, &T);			/* A = 2*A, scratch reg = T */
 			d = (d-e) >> 1;
 		} else if ((d&1) == 0) {
-//GW start next FFT of C? since it is liekly used as a diff next?
 			ell_add_xz (ecmdata, A, &C, &B, &C);			/* C = A+C */
 			ell_dbl_xz_scr (ecmdata, A, A, &T);			/* A = 2*A, scratch reg = T */
 			d = d >> 1;
@@ -1475,7 +1459,7 @@ int mQ_init (
 	if (!alloc_xz (ecmdata, &ecmdata->Qm)) goto oom;
 	if (!alloc_xz (ecmdata, &ecmdata->Qprevm)) goto oom;
 
-//GW:  let bin_ell_mul start next FFT!
+//GW:  let bin_ell_mul start next FFT
 	/* Compute x * (m - 2D) */
 	gwcopy (&ecmdata->gwdata, x, ecmdata->Qm.x);
 	dbltogw (&ecmdata->gwdata, 1.0, ecmdata->Qm.z);
@@ -1525,7 +1509,7 @@ int mQ_next (
 {
 	int	stop_reason;
 
-/* The non-normalized case - simple multiply the last Q^m value by Q^2D to get the next Q^m value */
+/* The non-normalized case - multiply the last Q^m value by Q^2D to get the next Q^m value */
 
 	if (!ecmdata->TWO_FFT_STAGE2) {
 		stop_reason = ell_add_xz_noscr (ecmdata, &ecmdata->Qm, &ecmdata->Q2Dx, &ecmdata->Qprevm, &ecmdata->Qprevm);
@@ -2866,9 +2850,7 @@ restart3:
 				if (bittst (ecmdata.pairings, i)) continue;
 			} else
 				break;
-			gwstartnextfft (&ecmdata.gwdata, TRUE);
-			gwsubmul4 (&ecmdata.gwdata, mQx, ecmdata.nQx[i], gg, gg, GWMUL_FFT_S1 | GWMUL_FFT_S2);
-			gwstartnextfft (&ecmdata.gwdata, FALSE);
+			gwsubmul4 (&ecmdata.gwdata, mQx, ecmdata.nQx[i], gg, gg, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 		    }
 		}
 
@@ -2886,10 +2868,8 @@ restart3:
 				if (bittst (ecmdata.pairings, i)) continue;
 			} else
 				break;
-			gwstartnextfft (&ecmdata.gwdata, TRUE);
-			gwmul3 (&ecmdata.gwdata, ecmdata.nQx[i], mQz, t1, GWMUL_FFT_S1 | GWMUL_FFT_S2);
-			gwsubmul4 (&ecmdata.gwdata, mQx, t1, gg, gg, GWMUL_FFT_S1 | GWMUL_FFT_S2);
-			gwstartnextfft (&ecmdata.gwdata, FALSE);
+			gwmul3 (&ecmdata.gwdata, ecmdata.nQx[i], mQz, t1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwsubmul4 (&ecmdata.gwdata, mQx, t1, gg, gg, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);
 		    }
 		    gwfree (&ecmdata.gwdata, t1);
 		}
@@ -4014,7 +3994,7 @@ errexit:	pm1data->bitarray_len = 0;
 		if (stop_reason) goto errexit;
 	}
 
-/* Now "move" some of the primes around so that we both maximize pairings. */
+/* Now "move" some of the primes around so that we maximize pairings. */
 /* We do this by moving prime to 13*prime or 17*prime, etc. (as long as */
 /* the multiple of prime is also in the bit array). */
 
