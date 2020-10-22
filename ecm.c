@@ -16,16 +16,10 @@
  *************************************************************/
 
 /* IDEAS:
-   The P-1 stage 2 bit array could also use a mod 30 scheme to cut the
-	number of bits in the array nearly in half)
-   We could allocate a bit array half the size and do the pairings as we fill
-	the bit array.
-   Have 16 PRAC values, and/or 16 PRAC values and +/-8 offset.  Then keep one
-	   precomputed 4-bit or 8-bit value per B1 prime that points to
-	   a precomputed optimal PRAC initial value.  There are 5.7 million
-	   primes < 100M -- or maybe the cost of testing 256 different PRAC
-	   combos isn't great.  Another possibility would be to remember only
-	   those primes where a better solution is available
+   The P-1 stage 2 bit array could also use a mod 30 scheme to cut the number of bits in the array nearly in half)
+   We could allocate a bit array half the size and do the pairings as we fill the bit array.
+   Pairing for ECM
+   Mihai's enhanced pairing
 */
 
 /* Global variables */
@@ -33,6 +27,7 @@
 int	QA_IN_PROGRESS = FALSE;
 int	QA_TYPE = 0;
 giant	QA_FACTOR = NULL;
+int	PRAC_SEARCH = 7;
 
 /********************/
 /* Utility routines */
@@ -424,16 +419,18 @@ void ell_add_xz_last (
 
 #define swap(a,b)	{t=a;a=b;b=t;}
 
-unsigned long lucas_cost (
+int lucas_cost (
 	uint64_t n,
-	double	inv_v)
+	uint64_t d)
 {
-	uint64_t d, e, t, dmod3, emod3;
+	uint64_t e, t;//, dmod3, emod3;
 	unsigned long c;
+
+	if (d >= n) return (999999999);		/* Catch invalid costings */
 
 	c = 0;
 	while (n != 1) {
-	    d = (uint64_t) ((double) n * inv_v + 0.5); e = n - d;
+	    e = n - d;
 	    d = d - e;
 
 	    c += 12;
@@ -442,21 +439,21 @@ unsigned long lucas_cost (
 		if (d < e) {
 			swap (d,e);
 		}
-		if (d <= e + (e >> 2)) {
-			if ((dmod3 = d%3) == 3 - (emod3 = e%3)) {
-				t = d;
-				d = (d+d-e)/3;
-				e = (e+e-t)/3;
-				c += 36;
-				continue;
-			}
-			if (dmod3 == emod3 && (d&1) == (e&1)) {
-				d = (d-e) >> 1;
-				c += 22;
-				continue;
-			}
-		}
-		if (d <= (e << 2)) {
+//		if (d <= e + (e >> 2)) {
+//			if ((dmod3 = d%3) == 3 - (emod3 = e%3)) {
+//				t = d;
+//				d = (d+d-e)/3;
+//				e = (e+e-t)/3;
+//				c += 36;
+//				continue;
+//			}
+//			if (dmod3 == emod3 && (d&1) == (e&1)) {
+//				d = (d-e) >> 1;
+//				c += 22;
+//				continue;
+//			}
+//		}
+		if (100 * d <= 296 * e) {
 			d = d-e;
 			c += 12;
 		} else if ((d&1) == (e&1)) {
@@ -465,22 +462,24 @@ unsigned long lucas_cost (
 		} else if ((d&1) == 0) {
 			d = d >> 1;
 			c += 22;
-		} else if ((dmod3 = d%3) == 0) {
-			d = d/3-e;
-			c += 46;
-		} else if (dmod3 == 3 - (emod3 = e%3)) {
-			d = (d-e-e)/3;
-			c += 46;
-		} else if (dmod3 == emod3) {
-			d = (d-e)/3;
-			c += 46;
+//		} else if ((dmod3 = d%3) == 0) {
+//			d = d/3-e;
+//			c += 46;
+//		} else if (dmod3 == 3 - (emod3 = e%3)) {
+//			d = (d-e-e)/3;
+//			c += 46;
+//		} else if (dmod3 == emod3) {
+//			d = (d-e)/3;
+//			c += 46;
 		} else {
 			e = e >> 1;
 			c += 22;
 		}
 	    }
 	    c += 10;
+	    if (d == 1) break;
 	    n = d;
+	    d = (uint64_t) ((double) n * 0.6180339887498948);
 	}
 
 	return (c);
@@ -490,34 +489,34 @@ int lucas_mul (
 	ecmhandle *ecmdata,
 	struct xz *A,
 	uint64_t n,
-	double	inv_v)
+	uint64_t d)
 {
-	uint64_t d, e, t, dmod3, emod3;
-	struct xz B, C, S, T;
+	uint64_t e, t;//, dmod3, emod3;
+	struct xz B, C, T;//, S
 
 	if (!alloc_xz (ecmdata, &B)) goto oom;
 	if (!alloc_xz (ecmdata, &C)) goto oom;
-	if (!alloc_xz (ecmdata, &S)) goto oom;
+//      if (!alloc_xz (ecmdata, &S)) goto oom;
 	if (!alloc_xz (ecmdata, &T)) goto oom;
 
 	while (n != 1) {
 	    ell_dbl_xz_scr (ecmdata, A, &B, &C);				/* B = 2*A, scratch reg = C */
 										/* C = A (but we delay setting that up) */
 
-	    d = (uint64_t) ((double) n * inv_v + 0.5); e = n - d;
+	    e = n - d;
 	    d = d - e;
 
 	    // To save two gwcopies setting C=A, we handle the most common case for the first iteration of the following loop.
-	    // I've only seen three cases that end up doing the gwcopies, n=3, n=11 and n=17.
-	    if (e > d + (d >> 2) && e <= (d << 2)) {
+	    // I've only seen three cases that end up doing the gwcopies, n=3, n=11 and n=17.  With change to 2.96 there are a couple more.
+	    if (e > d && 100 * e <= 296 * d) {
 		swap (d, e);
-		xzswap (*A, B);							/* swap A & B, thus C = B */
-		ell_add_xz_scr (ecmdata, A, &B, &B, &C, &S);			/* B = A+B, scratch reg = S */
+		xzswap (*A, B);							/* swap A & B, thus diff C = B */
+		ell_add_xz (ecmdata, A, &B, &B, &C);				/* B = A+B */
 		xzswap (B, C);							/* C = B */
 		d = d-e;
 	    }
-	    else if (d > e + (e >> 2) && d <= (e << 2)) {
-		ell_add_xz_scr (ecmdata, A, &B, A, &C, &S);			/* B = A+B, scratch reg = S */
+	    else if (d > e && 100 * d <= 296 * e) {
+		ell_add_xz (ecmdata, A, &B, A, &C);				/* B = A+B */
 		xzswap (B, C);							/* C = B */
 		d = d-e;
 	    } else {
@@ -531,26 +530,28 @@ int lucas_mul (
 			swap (d, e);
 			xzswap (*A, B);
 		}
-		if (d <= e + (e >> 2)) {
-			if ((dmod3 = d%3) == 3 - (emod3 = e%3)) {
-				ell_add_xz (ecmdata, A, &B, &C, &S);		/* S = A+B */
-				ell_add_xz (ecmdata, A, &S, &B, &T);		/* T = A+S */
-				ell_add_xz (ecmdata, &S, &B, A, &B);		/* B = B+S */
-				xzswap (T, *A);					/* A = T */
-				t = d;
-				d = (d+d-e)/3;
-				e = (e+e-t)/3;
-				continue;
-			}
-			if (dmod3 == emod3 && (d&1) == (e&1)) {
-				ell_add_xz (ecmdata, A, &B, &C, &B);		/* B = A+B */
-				ell_dbl_xz_scr (ecmdata, A, A, &T);		/* A = 2*A, scratch reg = T */
-				d = (d-e) >> 1;
-				continue;
-			}
-		}
-		if (d <= (e << 2)) {
-			ell_add_xz_scr (ecmdata, A, &B, &C, &C, &S);		/* B = A+B, scratch reg = S */
+		// These cases were in Peter Montgomery's original PRAC implementation.  I've found that we do fewer FFTs with
+		// these cases removed.  Should they be added back in the if statements above for gwcopies and in lucas_cost need to be restored.
+//		if (d <= e + (e >> 2)) {
+//			if ((dmod3 = d%3) == 3 - (emod3 = e%3)) {
+//				ell_add_xz (ecmdata, A, &B, &C, &S);		/* S = A+B */
+//				ell_add_xz (ecmdata, A, &S, &B, &T);		/* T = A+S */
+//				ell_add_xz (ecmdata, &S, &B, A, &B);		/* B = B+S */
+//				xzswap (T, *A);					/* A = T */
+//				t = d;
+//				d = (d+d-e)/3;
+//				e = (e+e-t)/3;
+//				continue;
+//			}
+//			if (dmod3 == emod3 && (d&1) == (e&1)) {
+//				ell_add_xz (ecmdata, A, &B, &C, &B);		/* B = A+B */
+//				ell_dbl_xz_scr (ecmdata, A, A, &T);		/* A = 2*A, scratch reg = T */
+//				d = (d-e) >> 1;
+//				continue;
+//			}
+//		}
+		if (100 * d <= 296 * e) {					/* d <= 2.96 * e (Montgomery used 4.00) */
+			ell_add_xz_scr (ecmdata, A, &B, &C, &C, &T);		/* B = A+B, scratch reg = T */
 			xzswap (B, C);						/* C = B */
 			d = d-e;
 		} else if ((d&1) == (e&1)) {
@@ -561,27 +562,31 @@ int lucas_mul (
 			ell_add_xz (ecmdata, A, &C, &B, &C);			/* C = A+C */
 			ell_dbl_xz_scr (ecmdata, A, A, &T);			/* A = 2*A, scratch reg = T */
 			d = d >> 1;
-		} else if ((dmod3 = d%3) == 0) {
-			ell_dbl_xz_scr (ecmdata, A, &S, &T);			/* S = 2*A, scratch reg = T */
-			ell_add_xz (ecmdata, A, &B, &C, &T);			/* T = A+B */
-			ell_add_xz_scr (ecmdata, &S, &T, &C, &C, &T);		/* B = S+T, scratch reg = T */
-			ell_add_xz_scr (ecmdata, &S, A, A, A, &S);		/* A = S+A, scratch reg = S */
-			xzswap (B, C);						/* C = B */
-			d = d/3-e;
-		} else if (dmod3 == 3 - (emod3 = e%3)) {
-			ell_add_xz (ecmdata, A, &B, &C, &S);			/* S = A+B */
-			ell_add_xz_scr (ecmdata, A, &S, &B, &B, &T);		/* B = A+S, scratch reg = T */
-			ell_dbl_xz_scr (ecmdata, A, &S, &T);			/* S = 2*A, scratch reg = T */
-			ell_add_xz_scr (ecmdata, &S, A, A, A, &S);		/* A = S+A, scratch reg = S */
-			d = (d-e-e)/3;
-		} else if (dmod3 == emod3) {
-			ell_add_xz (ecmdata, A, &B, &C, &T);			/* T = A+B */
-			ell_add_xz (ecmdata, A, &C, &B, &C);			/* C = A+C */
-			xzswap (T, B);						/* B = T */
-			ell_dbl_xz_scr (ecmdata, A, &S, &T);			/* S = 2*A, scratch reg = T */
-			ell_add_xz_scr (ecmdata, &S, A, A, A, &S);		/* A = S+A, scratch reg = S */
-			d = (d-e)/3;
-		} else {
+		}
+		// These cases were in Peter Montgomery's original PRAC implementation.  I've found that optimal addition chains
+		// rarely (never?) use these rules.  Should they be added back lucas_cost needs to be restored too.
+//		else if ((dmod3 = d%3) == 0) {
+//			ell_dbl_xz_scr (ecmdata, A, &S, &T);			/* S = 2*A, scratch reg = T */
+//			ell_add_xz (ecmdata, A, &B, &C, &T);			/* T = A+B */
+//			ell_add_xz_scr (ecmdata, &S, &T, &C, &C, &T);		/* B = S+T, scratch reg = T */
+//			ell_add_xz_scr (ecmdata, &S, A, A, A, &S);		/* A = S+A, scratch reg = S */
+//			xzswap (B, C);						/* C = B */
+//			d = d/3-e;
+//		} else if (dmod3 == 3 - (emod3 = e%3)) {
+//			ell_add_xz (ecmdata, A, &B, &C, &S);			/* S = A+B */
+//			ell_add_xz_scr (ecmdata, A, &S, &B, &B, &T);		/* B = A+S, scratch reg = T */
+//			ell_dbl_xz_scr (ecmdata, A, &S, &T);			/* S = 2*A, scratch reg = T */
+//			ell_add_xz_scr (ecmdata, &S, A, A, A, &S);		/* A = S+A, scratch reg = S */
+//			d = (d-e-e)/3;
+//		} else if (dmod3 == emod3) {
+//			ell_add_xz (ecmdata, A, &B, &C, &T);			/* T = A+B */
+//			ell_add_xz (ecmdata, A, &C, &B, &C);			/* C = A+C */
+//			xzswap (T, B);						/* B = T */
+//			ell_dbl_xz_scr (ecmdata, A, &S, &T);			/* S = 2*A, scratch reg = T */
+//			ell_add_xz_scr (ecmdata, &S, A, A, A, &S);		/* A = S+A, scratch reg = S */
+//			d = (d-e)/3;
+//		}
+		else {
 			ell_add_xz (ecmdata, &B, &C, A, &C);			/* C = C-B */
 			ell_dbl_xz_scr (ecmdata, &B, &B, &T);			/* B = 2*B, scratch reg = T */
 			e = e >> 1;
@@ -590,15 +595,17 @@ int lucas_mul (
 
 	    if (d == 1) {
 		ell_add_xz_last (ecmdata, &B, A, &C, A);		/* A = A+B */
+		break;
 	    } else {
 		ell_add_xz (ecmdata, &B, A, &C, A);			/* A = A+B */
 	    }
 
 	    n = d;
+	    d = (uint64_t) ((double) n * 0.6180339887498948);
 	}
 	free_xz (ecmdata, &B);
 	free_xz (ecmdata, &C);
-	free_xz (ecmdata, &S);
+//      free_xz (ecmdata, &S);
 	free_xz (ecmdata, &T);
 	return (0);
 
@@ -690,6 +697,16 @@ oom:	return (OutOfMemory (ecmdata->thread_num));
 /* then (5+3*v)/(3+2*v), etc.  Finally, execute the cheapest. */
 /* This is much faster than bin_ell_mul, but uses more memory. */
 
+__inline int lucas_cost_several (uint64_t n, uint64_t *d) {
+	int	i, c, min;
+	uint64_t testd;
+	for (i = 0, testd = *d - PRAC_SEARCH / 2; i < PRAC_SEARCH; i++, testd++) {
+		c = lucas_cost (n, testd);
+		if (i == 0 || c < min) min = c, *d = testd;
+	}
+	return (min);
+}
+
 int ell_mul (
 	ecmhandle *ecmdata,
 	struct xz *arg,
@@ -701,40 +718,49 @@ int ell_mul (
 	for (zeros = 0; (n & 1) == 0; zeros++) n >>= 1;
 
 	if (n > 1) {
-		unsigned long c, min;
-		double	minv;
+		int	c, min;
+		uint64_t d, mind;
 
-		minv = 0.6180339887498948;		/*v=(1+sqrt(5))/2*/
-		min = lucas_cost (n, minv);
+		mind = (uint64_t) ceil((double) 0.6180339887498948 * n);		/*v=(1+sqrt(5))/2*/
+		min = lucas_cost_several (n, &mind);
 
-		c = lucas_cost (n, 0.7236067977499790);	/*(2+v)/(1+v)*/
-		if (c < min) min = c, minv = 0.7236067977499790;
+		d = (uint64_t) ceil ((double) 0.7236067977499790 * n);			/*(2+v)/(1+v)*/
+		c = lucas_cost_several (n, &d);
+		if (c < min) min = c, mind = d;
 
-		c = lucas_cost (n, 0.5801787282954641);	/*(3+2*v)/(2+v)*/
-		if (c < min) min = c, minv = 0.5801787282954641;
+		d = (uint64_t) ceil ((double) 0.5801787282954641 * n);			/*(3+2*v)/(2+v)*/
+		c = lucas_cost_several (n, &d);
+		if (c < min) min = c, mind = d;
 
-		c = lucas_cost (n, 0.6328398060887063);	/*(5+3*v)/(3+2*v)*/
-		if (c < min) min = c, minv = 0.6328398060887063;
+		d = (uint64_t) ceil ((double) 0.6328398060887063 * n);			/*(5+3*v)/(3+2*v)*/
+		c = lucas_cost_several (n, &d);
+		if (c < min) min = c, mind = d;
 
-		c = lucas_cost (n, 0.6124299495094950);	/*(8+5*v)/(5+3*v)*/
-		if (c < min) min = c, minv = 0.6124299495094950;
+		d = (uint64_t) ceil ((double) 0.6124299495094950 * n);			/*(8+5*v)/(5+3*v)*/
+		c = lucas_cost_several (n, &d);
+		if (c < min) min = c, mind = d;
 
-		c = lucas_cost (n, 0.6201819808074158);	/*(13+8*v)/(8+5*v)*/
-		if (c < min) min = c, minv = 0.6201819808074158;
+		d = (uint64_t) ceil ((double) 0.6201819808074158 * n);			/*(13+8*v)/(8+5*v)*/
+		c = lucas_cost_several (n, &d);
+		if (c < min) min = c, mind = d;
 
-		c = lucas_cost (n, 0.6172146165344039);	/*(21+13*v)/(13+8*v)*/
-		if (c < min) min = c, minv = 0.6172146165344039;
+		d = (uint64_t) ceil ((double) 0.6172146165344039 * n);			/*(21+13*v)/(13+8*v)*/
+		c = lucas_cost_several (n, &d);
+		if (c < min) min = c, mind = d;
 
-		c = lucas_cost (n, 0.6183471196562281);	/*(34+21*v)/(21+13*v)*/
-		if (c < min) min = c, minv = 0.6183471196562281;
+		d = (uint64_t) ceil ((double) 0.6183471196562281 * n);			/*(34+21*v)/(21+13*v)*/
+		c = lucas_cost_several (n, &d);
+		if (c < min) min = c, mind = d;
 
-		c = lucas_cost (n, 0.6179144065288179);	/*(55+34*v)/(34+21*v)*/
-		if (c < min) min = c, minv = 0.6179144065288179;
+		d = (uint64_t) ceil ((double) 0.6179144065288179 * n);			/*(55+34*v)/(34+21*v)*/
+		c = lucas_cost_several (n, &d);
+		if (c < min) min = c, mind = d;
 
-		c = lucas_cost (n, 0.6180796684698958);	/*(89+55*v)/(55+34*v)*/
-		if (c < min) min = c, minv = 0.6180796684698958;
+		d = (uint64_t) ceil ((double) 0.6180796684698958 * n);			/*(89+55*v)/(55+34*v)*/
+		c = lucas_cost_several (n, &d);
+		if (c < min) min = c, mind = d;
 
-		stop_reason = lucas_mul (ecmdata, arg, n, minv);
+		stop_reason = lucas_mul (ecmdata, arg, n, mind);
 		if (stop_reason) return (stop_reason);
 	}
 	while (zeros--) {
@@ -1997,6 +2023,10 @@ int ecm (
 	factor = NULL;
 	str = NULL;
 	msg = NULL;
+
+/* Other initialization */
+
+	PRAC_SEARCH = IniGetInt (INI_FILE, "PracSearch", 7);
 
 /* Clear all timers */
 
