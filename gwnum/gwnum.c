@@ -979,7 +979,7 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 	double	weighted_bits_per_output_word;
 	unsigned long max_exp;
 	char	buf[20];
-	int	qa_nth_fft, desired_bif;
+	int	larger_fftlen_count, qa_nth_fft, desired_bif;
 	void	*prev_proc_ptrs[5];
 	uint32_t flags;
 	struct gwasm_data *asm_data;
@@ -1018,6 +1018,7 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 again:	zpad_jmptab = NULL;
 	generic_jmptab = NULL;
 	if (! gwdata->force_general_mod && (k > 1.0 || (n > 0 && n < 500) || labs (c) > 1) && gwdata->qa_pick_nth_fft < 1000) {
+		larger_fftlen_count = gwdata->larger_fftlen_count;
 
 /* Use the proper 2^N-1 jmptable */
 
@@ -1133,6 +1134,10 @@ again:	zpad_jmptab = NULL;
 
 			    bits_per_output_word - floor (b_per_input_word) * log2b + log2c + log2maxmulbyconst <= 51.0) {
 
+/* This FFT could work, but see if the user requested a larger than normal FFT size */
+
+				if (larger_fftlen_count--) goto next1;
+
 /* We can use this FFT.  Look for a non-zero-padded FFT that might be even faster. */
 
 				break;
@@ -1184,6 +1189,7 @@ next1:			zpad_jmptab = NEXT_SET_OF_JMPTABS (zpad_jmptab);
 /* Find the table entry using either the specified fft length or */
 /* the smallest FFT length that can handle the k,b,n,c being tested. */
 
+	larger_fftlen_count = gwdata->larger_fftlen_count;
 	while ((max_exp = adjusted_max_exponent (gwdata, jmptab)) != 0) {
 
 /* Do a quick check on the suitability of this FFT */
@@ -1416,6 +1422,10 @@ next1:			zpad_jmptab = NEXT_SET_OF_JMPTABS (zpad_jmptab);
 				goto next2;
 			}
 
+/* This FFT could work, but see if the user requested a larger than normal FFT size */
+
+			if (larger_fftlen_count--) goto next2;
+
 /* We've found an FFT length to use */
 
 			break;
@@ -1448,14 +1458,6 @@ next2:		jmptab = NEXT_SET_OF_JMPTABS (jmptab);
 
 	else
 		return (GWERROR_TOO_LARGE);
-
-/* See if the user requested a larger than normal FFT size */
-
-	if (gwdata->larger_fftlen_count) {
-		gwdata->larger_fftlen_count--;
-		gwdata->minimum_fftlen = jmptab->fftlen + 1;
-		goto again;
-	}
 
 /* We've found the right "jump" table entry, save the pointer and FFT length */
 
