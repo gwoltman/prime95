@@ -503,15 +503,14 @@ int source_extract (
 		}
 
 		// If we still don't have source data and we've read all the FFT data, then work on the wraparound carry
-		// and its remainder.  Apply the wrap modulus.  To make sure the wraparound carry does not generate a
-		// completely negative result, make sure the last *result value is greater than zero.
+		// and its remainder.  Apply the wrap modulus.
 		if (s->srcb == 0 && s->total_srcb >= (int) gwdata->n) {
 			s->srcval += s->wrap_val;
 			if (s->wrap_modulus == 1) {			// This can happen in sparse FFTs and zero-padded FFTs
 				*wraparound_carry = (int) s->srcval;
 				s->srcval = 0;
 			}
-			else if (s->srcval > 0 || (*result > 0 && s->srcval == 0)) {
+			else if (s->srcval >= 0) {
 				*wraparound_carry = (int) (s->srcval / s->wrap_modulus);
 				s->srcval -= *wraparound_carry * s->wrap_modulus;
 			}
@@ -776,7 +775,7 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 	gwfree (work_gwdata, t3);
 
 /* Finally, write the converted result (t1) to a giant.  We cannot simply call gwtogiant as that may write to too many words in the */
-/* giant (new_gwdata->bit_length may be significantly larger than gwdata->bit_length).  So, we copied much of the gwtogiant code which */
+/* giant (work_gwdata->bit_length may be significantly larger than gwdata->bit_length).  So, we copied much of the gwtogiant code which */
 /* also lets us perform a few optimizations. */
 
 	{
@@ -811,12 +810,22 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 				if (outptr == g->n + limit) break;
 			}
 		}
-		ASSERTG (val == 0 && carry == 0);
+		ASSERTG (val == 0 && (carry == 0 || carry == -1));
 
 /* Set the length */
 
 		g->sign = (long) (outptr - g->n);
 		while (g->sign && g->n[g->sign-1] == 0) g->sign--;
+
+/* If carry is -1, the gwnum is negative.  Ugh.  Flip the bits and sign. */
+
+		if (carry == -1) {
+			int	j;
+			for (j = 0; j < g->sign; j++) g->n[j] = ~g->n[j];
+			while (g->sign && g->n[g->sign-1] == 0) g->sign--;
+			iaddg (1, g);
+			g->sign = -g->sign;
+		}
 	}
 
 /* Finish cleanup */
