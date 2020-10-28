@@ -1325,7 +1325,7 @@ void test_welcome (void)
 		test_primenet ();
 		if (USE_PRIMENET && STARTUP_IN_PROGRESS) options_cpu ();
 		if (STARTUP_IN_PROGRESS) options_resources ();
-		if (USE_PRIMENET && STARTUP_IN_PROGRESS) test_worker_threads ();
+		if (USE_PRIMENET && STARTUP_IN_PROGRESS) test_workers ();
 		if (USE_PRIMENET && STARTUP_IN_PROGRESS) {
 			STARTUP_IN_PROGRESS = 0;
 			set_comm_timers ();
