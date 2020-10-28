@@ -26,7 +26,13 @@ INCLUDE yr8.mac
 
 yr4_dispatch MACRO call_type,routine,d1,d2
 IF	d1 EQ 64
+IFDEF X86_64
 	call_type &routine&1
+ELSEIF push_amt GT 0
+	call_type &routine&1
+ELSE
+	call_type &routine&1a
+ENDIF
 ELSEIF	d1 EQ 4*64
 	call_type &routine&2
 ELSEIF	d1 EQ 16*64

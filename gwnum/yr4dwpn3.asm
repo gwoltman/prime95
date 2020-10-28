@@ -52,6 +52,7 @@ EXTRN	yreal_mulf4:PROC
 EXTRN	yreal_mulf4a:PROC
 EXTRN	yreal_mulf5:PROC
 EXTRN	yreal_mulf6:PROC
+IFDEF X86_64
 EXTRNP	ycomplex_mult_opcode1
 EXTRNP	ycomplex_mult_opcode2
 EXTRNP	ycomplex_mult_opcode3
@@ -66,6 +67,7 @@ EXTRNP	ycomplex_mulf_opcode4
 EXTRNP	ycomplex_mulf_opcode4a
 EXTRNP	ycomplex_mulf_opcode5
 EXTRNP	ycomplex_mulf_opcode6
+ENDIF
 EXTRN	y8real_fft_final1:PROC
 EXTRN	y8real_fft_final2:PROC
 EXTRN	y8real_fft_final3:PROC
@@ -82,6 +84,7 @@ EXTRN	y8real_mulf1:PROC
 EXTRN	y8real_mulf2:PROC
 EXTRN	y8real_mulf3:PROC
 EXTRN	y8real_mulf4:PROC
+IFDEF X86_64
 EXTRN	y8complex_mult_opcode1:PROC
 EXTRN	y8complex_mult_opcode2:PROC
 EXTRN	y8complex_mult_opcode3:PROC
@@ -90,6 +93,7 @@ EXTRN	y8complex_mulf_opcode1:PROC
 EXTRN	y8complex_mulf_opcode2:PROC
 EXTRN	y8complex_mulf_opcode3:PROC
 EXTRN	y8complex_mulf_opcode4:PROC
+ENDIF
 
 _TEXT SEGMENT
 

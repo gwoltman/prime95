@@ -1507,6 +1507,7 @@ INCLUDE ymult.mac
 INCLUDE yr4.mac
 INCLUDE ynormal.mac
 
+IFDEF X86_64
 EXTRNP	ycomplex_mult_opcode1
 EXTRNP	ycomplex_mult_opcode2
 EXTRNP	ycomplex_mult_opcode3
@@ -1527,6 +1528,7 @@ EXTRN	y8complex_mulf_opcode1:PROC
 EXTRN	y8complex_mulf_opcode2:PROC
 EXTRN	y8complex_mulf_opcode3:PROC
 EXTRN	y8complex_mulf_opcode4:PROC
+ENDIF
 
 ; This code reads/writes 64MB (1M cache lines) in contiguous blocks.  Timings are done
 ; on 4 memory sizes.  4KB will operate on the L1 cache only, 128KB will operate on the

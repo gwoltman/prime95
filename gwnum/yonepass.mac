@@ -29,8 +29,8 @@
 
 ytwo_dest_adjust MACRO
 	mov	rsi, DESTARG
-	add	rsi, DEST2ARG
-	mov	DESTARG, rsi
+x64	add	rsi, DEST2ARG
+x64	mov	DESTARG, rsi
 	ENDM
 
 ;; When doing zero-padded FFTs, the 7 words around the halfway point must
