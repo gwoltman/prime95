@@ -99,7 +99,7 @@ typedef struct {
 	gwnum	Ad4;		/* Pre-computed value used for doubling */
 	gwnum	*nQx;		/* Array of data used in stage 2 */
 	char	*pairings;	/* Bits used in determining if primes pair */
-	struct xz Qm, Qprevm, Q2Dx;
+	struct xz Qm, Qprevm, Q2D;
 	gwnum	*mQx;
 	unsigned int mQx_count;
 	int	TWO_FFT_STAGE2;	/* Type of ECM stage 2 to execute */
@@ -1477,21 +1477,21 @@ void curve_start_msg (
 int mQ_init (
 	ecmhandle *ecmdata,
 	gwnum	x,
-	uint64_t m,
-	gwnum	Q2Dx)
+	uint64_t m)
 {
 	int	stop_reason;
 
 	if (!alloc_xz (ecmdata, &ecmdata->Qm)) goto oom;
 	if (!alloc_xz (ecmdata, &ecmdata->Qprevm)) goto oom;
 
-//GW:  let bin_ell_mul start next FFT
+//GW:  let bin_ell_mul start next FFT?  Use lucas_mul (with its additional temporaries?  use some of the pooling temporaries??)
 	/* Compute x * (m - 2D) */
 	gwcopy (&ecmdata->gwdata, x, ecmdata->Qm.x);
 	dbltogw (&ecmdata->gwdata, 1.0, ecmdata->Qm.z);
 	stop_reason = bin_ell_mul (ecmdata, &ecmdata->Qm, m - 2*ecmdata->D);
 	if (stop_reason) return (stop_reason);
 
+//GW - compute x * (m - 2D)  from  x * (m - 4D) using binellmul??
 	/* Compute x * (m - 4D) */
 	gwcopy (&ecmdata->gwdata, x, ecmdata->Qprevm.x);
 	dbltogw (&ecmdata->gwdata, 1.0, ecmdata->Qprevm.z);
@@ -1501,15 +1501,6 @@ int mQ_init (
 	/* There will be no more ell_dbl calls */
 	gwfree (&ecmdata->gwdata, ecmdata->Ad4);
 	ecmdata->Ad4 = NULL;
-
-	/* Turn x * 2D, 1 into x+z,x-z format */
-	ecmdata->Q2Dx.x = Q2Dx;
-	ecmdata->Q2Dx.z = gwalloc (&ecmdata->gwdata);
-	if (ecmdata->Q2Dx.z == NULL) goto oom;
-	gwcopy (&ecmdata->gwdata, Q2Dx, ecmdata->Q2Dx.z);
-	gwaddsmall (&ecmdata->gwdata, ecmdata->Q2Dx.x, 1);
-	gwaddsmall (&ecmdata->gwdata, ecmdata->Q2Dx.z, -1);
-	ecmdata->Q2Dx.added = TRUE;
 
 	/* Init the arrays used in pooled normalizes of mQx values */
 	if (ecmdata->TWO_FFT_STAGE2) {
@@ -1538,7 +1529,7 @@ int mQ_next (
 /* The non-normalized case - multiply the last Q^m value by Q^2D to get the next Q^m value */
 
 	if (!ecmdata->TWO_FFT_STAGE2) {
-		stop_reason = ell_add_xz_noscr (ecmdata, &ecmdata->Qm, &ecmdata->Q2Dx, &ecmdata->Qprevm, &ecmdata->Qprevm);
+		stop_reason = ell_add_xz_noscr (ecmdata, &ecmdata->Qm, &ecmdata->Q2D, &ecmdata->Qprevm, &ecmdata->Qprevm);
 		if (stop_reason) return (stop_reason);
 		xzswap (ecmdata->Qm, ecmdata->Qprevm);
 		*retx = ecmdata->Qm.x;
@@ -1551,7 +1542,7 @@ int mQ_next (
 
 	if (ecmdata->mQx_count == 0) {
 		for ( ; ecmdata->mQx_count < ecmdata->E; ecmdata->mQx_count++) {
-			stop_reason = ell_add_xz_noscr (ecmdata, &ecmdata->Qm, &ecmdata->Q2Dx, &ecmdata->Qprevm, &ecmdata->Qprevm);
+			stop_reason = ell_add_xz_noscr (ecmdata, &ecmdata->Qm, &ecmdata->Q2D, &ecmdata->Qprevm, &ecmdata->Qprevm);
 			if (stop_reason) return (stop_reason);
 			xzswap (ecmdata->Qm, ecmdata->Qprevm);
 			gwcopy (&ecmdata->gwdata, ecmdata->Qm.x, ecmdata->mQx[ecmdata->mQx_count]);
@@ -1571,7 +1562,7 @@ void mQ_term (
 {
 	free_xz (ecmdata, &ecmdata->Qm);
 	free_xz (ecmdata, &ecmdata->Qprevm);
-	gwfree (&ecmdata->gwdata, ecmdata->Q2Dx.z);
+	free_xz (ecmdata, &ecmdata->Q2D);
 }
 
 /* Record the amount of memory being used by this thread.  Until we get to */
@@ -2661,6 +2652,7 @@ restart3:
 		C = B;
 		goto skip_stage_2;
 	}
+//GW: always create save file here???  Lets us Delete all save file code during stage 2 init.  Sometimes we're ignoring stop_reason
 
 /* Initialize variables for second stage */
 /* Our goal is to fill up the nQx array with Q^1, Q^3, Q^5, ... */
@@ -2763,37 +2755,30 @@ restart3:
 	}
 
 /* Now compute Q^2D.  This will be used in computing Q^m values.  Qiminus2 is Q^(D-1) and Qdiff if Q^(D-3). */
-/* Add Q^(D-1) and Q^2 to get Q^(D+1).  Then add Q^(D-1) and Q^(D+1) to get Q^2D.  Store Q^2D */
-/* in Q2x and Q2z.  Normalize them so we can free Q2z later on. */
+/* Add Q^(D-1) and Q^2 to get Q^(D+1).  Then add Q^(D-1) and Q^(D+1) to get Q^2D.  Store Q^2D in Q2x and Q2z. */
 /* MEMUSED: 8 + nQx gwnums (AD4, 6 for computing nQx, nQx vals, modinv_val) */
 /* MEMPEAK: 8 + nQx + 2 for ell_add temporaries */
 
 	ell_add_xz_noscr (&ecmdata, &Qiminus2, &Q2, &Qdiff, &Qdiff);			// Qdiff = Q^(D+1)
 	ell_add_xz_scr (&ecmdata, &Qiminus2, &Qdiff, &Q2, &Q2, &Qdiff);			// Q2 = Q^2D, scratch reg = Qdiff
-//GW - We used to fft Q2.x and Q2.z, but doesn't that lead to potential roundoff issues in next ell_add_xz?
-// We could reinstate if extrabits && normalize pool as well as ell_add_xz benefits
-// Well maybe there was no paroblem since Q2.x gets normalized and Q2.z is deleted
-// Is normalizing Q2D.x worthwhile -- in mQ_init we recreate Q2D.z
-	stop_reason = add_to_normalize_pool (&ecmdata, Q2.x, Q2.z);
-	if (stop_reason) goto exit;
+	xzswap (ecmdata.Q2D, Q2);							// Save Q^2D in ecmdata for mQ_init
 
-/* Free most of the memory used in computing nQx values */
+/* Free memory used in computing nQx values */
 /* Keep two values we could free in case the upcoming normalize is aborted and we need to write a save file. */
-/* MEMUSED: 5 + nQx gwnums (AD4, Q2x, Qiminus2x&z, nQx values, modinv_value) */
+/* MEMUSED: 4 + nQx gwnums (AD4, Q2D.x, Q2D.z, nQx values, modinv_value) */
 
-	gwfree (&ecmdata.gwdata, Q2.z);
+	free_xz (&ecmdata, &Qiminus2);
 	free_xz (&ecmdata, &Qdiff);
 
 /* Normalize all the nQx values */
-/* MEMUSED: 4 + nQx gwnums (AD4, Q2x, Qiminus2x&z, nQx values) */
-/* MEMPEAK: 4 + nQx + 3 for UV, normalize, and pooled_modinv temporaries */
+/* MEMUSED: 3 + nQx gwnums (AD4, Q2D.x, Q2D.z, nQx values) */
+/* MEMPEAK: 3 + nQx + 3 for UV, normalize, and pooled_modinv temporaries */
 
 	stop_reason = normalize_pool (&ecmdata, N, &factor);
 	if (stop_reason) {
 		if (gg == NULL) {
-//GW fail!
-			ASSERTG (!Qiminus2.added);
-			ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE1, curve, sigma, B, B, 0, Qiminus2.x, Qiminus2.z);
+			ASSERTG (!ecmdata.Q2D.added);
+			ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE1, curve, sigma, B, B, 0, ecmdata.Q2D.x, ecmdata.Q2D.z);
 		}
 		goto exit;
 	}
@@ -2802,17 +2787,12 @@ restart3:
 
 	if (factor != NULL) goto bingo;
 
-/* Free rest of the memory used in computing nQx values */
-/* MEMUSED: 2 + nQx gwnums (AD4, Q2x, nQx values) */
-
-	free_xz (&ecmdata, &Qiminus2);
-
 /* Init code that computes Q^m */
 /* MEMUSED: 6 + nQx gwnums (6 for computing mQx, nQx values) */
 /* MEMPEAK: 6 + nQx + 6 for bin_ell_mul temporaries */
 
 	m = (prime / ecmdata.D + 1) * ecmdata.D;
-	stop_reason = mQ_init (&ecmdata, ecmdata.nQx[0], m, Q2.x);
+	stop_reason = mQ_init (&ecmdata, ecmdata.nQx[0], m);
 	if (stop_reason) goto exit;
 
 /* Precompute the transforms of nQx */
