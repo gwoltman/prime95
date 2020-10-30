@@ -81,9 +81,9 @@ int nonbase2_gianttogw (	/* Returns an error code or zero for success */
 		// Calc how big each partial result is in radix-b (with no borrow from next result)
 		// This is the number of bits in a multiplication result plus one to avoid borrow divided by bits in radix b.
 		b_per_mult = (int) ceil ((double) (2 * BRUTE_FORCE_WORDS * 32 + 1) / log2 (gwdata->b));
-		// Calc number of chunks and pairs
-		num_chunks = (int) ceil (gwdata->bit_length / (BRUTE_FORCE_WORDS * 32));	// Total num chunks
-		num_pairs = (num_chunks + 1) / 2;						// Number of pairs
+		// Calc number of chunks and pairs.  Allow for 32 extra bits so final result can't wrap-around carry.
+		num_chunks = (int) ceil ((gwdata->bit_length + 32.0) / (BRUTE_FORCE_WORDS * 32));	// Total num chunks
+		num_pairs = (num_chunks + 1) / 2;							// Number of pairs
 		// Loop until we find a good FFT to use
 		for (fftlen = 0; ; fftlen++) {
 			double	words_per_mult;		/* Number of FFT words a specific FFT uses to hold a partial multiply result */
@@ -348,7 +348,7 @@ int radix_gwcopy (
 	uint64_t big_word_flags,
 	int	num_big_word_flags)
 {
-	int	srci, dsti, i, err_code, last_dsti, last_dstval_negative;
+	int	srci, dsti, i, err_code, last_dsti;
 	long	srcval, dstval, carry;
 	int	srcb, dstb;
 	int	radix_powers[32];
@@ -360,8 +360,7 @@ int radix_gwcopy (
 	srci = 0;
 	srcb = 0;
 	carry = 0;
-	last_dsti = dst_gwdata->FFTLEN-1;
-	last_dstval_negative = FALSE;
+	last_dsti = dst_gwdata->ZERO_PADDED_FFT ? dst_gwdata->FFTLEN / 2 + 3 : dst_gwdata->FFTLEN - 1;
 	if (dst_gwdata->NUM_B_PER_SMALL_WORD == 0) while (!is_big_word (dst_gwdata, last_dsti)) last_dsti--;
 	for (dsti = 0; dsti < (int) dst_gwdata->FFTLEN; dsti++) {
 		int	b_we_have;
@@ -404,8 +403,15 @@ int radix_gwcopy (
 		// Store in balanced representation except for the last destination FFT word.
 		dstval += carry;
 		if (dsti == last_dsti) {			// NOTE: This occurs before the last FFT word if avg_num_b_per_word < 1
-			// As an alternative this negative dstval test we could read the next source word to see if it is one
-			if (dstval < 0 || (dstval == 0 && last_dstval_negative)) dstval += radix_powers[dstb];
+			// Sometimes there is data above the last srcb -- a possible carry.
+			// Get that data so we can adjust last dstval accordingly.
+			ASSERTG (srcb || srci != src_gwdata->FFTLEN);
+			if (srcb == 0) {
+				err_code = get_fft_value (src_gwdata, src, srci, &srcval);
+				if (err_code) return (err_code);
+			}
+			ASSERTG (srcval == 0 || srcval == 1);
+			if (srcval) dstval += radix_powers[dstb];
 		}
 		else if (dstval < -radix_powers[dstb] / 2) {
 			dstval += radix_powers[dstb];
@@ -417,8 +423,6 @@ int radix_gwcopy (
 		} else
 			carry = 0;
 		set_fft_value (dst_gwdata, dst, dsti, dstval);
-		if (dstval > 0) last_dstval_negative = FALSE;
-		if (dstval < 0) last_dstval_negative = TRUE;
 	}
 
 /* Return Success */
@@ -582,8 +586,8 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 
 	// Calc how the number of b's we can safely put in a uint64_t
 	b_per_uint64 = (int) floor (64.0 / log2 (gwdata->b));
-	// Calc number of chunks to convert
-	num_chunks = (int) ceil (((double) gwdata->n + log2(gwdata->k)) / (double) b_per_uint64);
+	// Calc number of chunks to convert.  Allow for 32 extra bits so final result can't wrap-around carry.
+	num_chunks = (int) ceil (((double) gwdata->n + log2(gwdata->k) + 32.0) / (double) b_per_uint64);
 
 // We do a new gwsetup to do our multiplications.  The smallest FFT we can get away must hold all our initial partial results.
 // This FFT size likely won't work.  Try larger and larger FFT sizes until we find an FFT that suits our needs.
@@ -810,7 +814,7 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 				if (outptr == g->n + limit) break;
 			}
 		}
-		ASSERTG (val == 0 && (carry == 0 || carry == -1));
+		ASSERTG (carry == 0 || carry == -1);
 
 /* Set the length */
 
