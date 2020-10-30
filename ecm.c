@@ -95,7 +95,7 @@ typedef struct {
 	gwhandle gwdata;	/* GWNUM handle */
 	int	thread_num;	/* Worker thread number */
 	unsigned long D;	/* Stage 2 loop size */
-	unsigned long E;	/* Suyama's power in stage 2 */
+	unsigned long E;	/* Number of mQx values pooled together into one stage 2 modular inverse */
 	gwnum	Ad4;		/* Pre-computed value used for doubling */
 	gwnum	*nQx;		/* Array of data used in stage 2 */
 	char	*pairings;	/* Bits used in determining if primes pair */
@@ -640,7 +640,7 @@ int bin_ell_mul (
 		c >>= 1;
 
 		/* In this loop, t = our multiplication result, s = t + 1
-		
+
 		/* Process the second bit.  If the second bit is zero, we can save one ell_dbl call */
 		if (c&n) {
 			ell_dbl_xz_scr (ecmdata, arg, &s, &scr);		// s = 2
@@ -1252,12 +1252,11 @@ int add_to_normalize_pool (
 /* Otherwise, multiply a by the accumulated b values */
 
 		else {
-			gwstartnextfft (&ecmdata->gwdata, TRUE);
-			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, a, a, GWMUL_FFT_S1);
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, a, a, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);
 			ecmdata->poolz_values[ecmdata->pool_count] = gwalloc (&ecmdata->gwdata);
 			if (ecmdata->poolz_values[ecmdata->pool_count] == NULL) goto oom;
 			gwfft (&ecmdata->gwdata, b, ecmdata->poolz_values[ecmdata->pool_count]);
-			gwstartnextfft (&ecmdata->gwdata, FALSE);
+//GW: startnextfft.  either unfft last call or delay this multiply  into normalize_pool
 			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->pool_count], ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, 0);
 		}
 
@@ -1283,14 +1282,12 @@ int add_to_normalize_pool (
 		else {
 			unsigned int i;
 			gwnum	tmp;
-			gwstartnextfft (&ecmdata->gwdata, TRUE);
-			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, a, a, GWMUL_FFT_S1);
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, a, a, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);
 			tmp = gwalloc (&ecmdata->gwdata);
 			if (tmp == NULL) goto oom;
 			gwfft (&ecmdata->gwdata, b, tmp);
 			for (i = 0; i < ecmdata->pool_count; i++)
-				gwmul3 (&ecmdata->gwdata, tmp, ecmdata->pool_values[i], ecmdata->pool_values[i], 0);
-			gwstartnextfft (&ecmdata->gwdata, FALSE);
+				gwmul3 (&ecmdata->gwdata, tmp, ecmdata->pool_values[i], ecmdata->pool_values[i], GWMUL_STARTNEXTFFT);
 			gwmul3 (&ecmdata->gwdata, tmp, ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, 0);
 			gwfree (&ecmdata->gwdata, tmp);
 		}
@@ -1476,26 +1473,28 @@ void curve_start_msg (
 
 int mQ_init (
 	ecmhandle *ecmdata,
-	gwnum	x,
 	uint64_t m)
 {
 	int	stop_reason;
 
-	if (!alloc_xz (ecmdata, &ecmdata->Qm)) goto oom;
+	if (!alloc_xz (ecmdata, &ecmdata->Q2D)) goto oom;
 	if (!alloc_xz (ecmdata, &ecmdata->Qprevm)) goto oom;
 
+	/* We know that m is divisible by D.  So, we had caller first compute Q * D and store it in Qm. */
+	/* Now compute Q2D = Qm * 2 */
+	gwcopy (&ecmdata->gwdata, ecmdata->Qm.x, ecmdata->Q2D.x);
+	gwcopy (&ecmdata->gwdata, ecmdata->Qm.z, ecmdata->Q2D.z);
+	ell_dbl_xz_scr (ecmdata, &ecmdata->Q2D, &ecmdata->Q2D, &ecmdata->Qprevm);	// scratch = Qprevm
+
 //GW:  let bin_ell_mul start next FFT?  Use lucas_mul (with its additional temporaries?  use some of the pooling temporaries??)
-	/* Compute x * (m - 2D) */
-	gwcopy (&ecmdata->gwdata, x, ecmdata->Qm.x);
-	dbltogw (&ecmdata->gwdata, 1.0, ecmdata->Qm.z);
-	stop_reason = bin_ell_mul (ecmdata, &ecmdata->Qm, m - 2*ecmdata->D);
+	/* Compute Q * (m - 4D) */
+	gwcopy (&ecmdata->gwdata, ecmdata->Qm.x, ecmdata->Qprevm.x);
+	gwcopy (&ecmdata->gwdata, ecmdata->Qm.z, ecmdata->Qprevm.z);
+	stop_reason = bin_ell_mul (ecmdata, &ecmdata->Qprevm, m / ecmdata->D - 4);
 	if (stop_reason) return (stop_reason);
 
-//GW - compute x * (m - 2D)  from  x * (m - 4D) using binellmul??
-	/* Compute x * (m - 4D) */
-	gwcopy (&ecmdata->gwdata, x, ecmdata->Qprevm.x);
-	dbltogw (&ecmdata->gwdata, 1.0, ecmdata->Qprevm.z);
-	stop_reason = bin_ell_mul (ecmdata, &ecmdata->Qprevm, m - 4*ecmdata->D);
+	/* Compute Q * (m - 2D) */
+	stop_reason = bin_ell_mul (ecmdata, &ecmdata->Qm, m / ecmdata->D - 2);
 	if (stop_reason) return (stop_reason);
 
 	/* There will be no more ell_dbl calls */
@@ -1590,7 +1589,7 @@ int choose_stage2_plan (
 	unsigned long numvals, d, e;
 	unsigned long relprime, beste, bestnumvals;
 	double	numprimes, numpairings, numsections, numgcdsections;
-	double	cost, bestcost, density, gcd_cost;
+	double	cost, bestcost, density, gcd_cost, modinv_cost;
 	char	buf[120];
 	int	stop_reason;
 
@@ -1605,14 +1604,18 @@ replan:	stop_reason = avail_mem (thread_num,
 	if (stop_reason) return (stop_reason);
 	if (memory < 8) memory = 8;
 
-/* Define constants for the number of transforms for various operations */
-/* The GCD cost is based on our timings and an Excel spreadsheet */
+/* Define constants for the number of transforms for various operations. */
+/* The GCD cost comes from the timing code running ECM on M604 and spreadsheeting. */
+/* Since GCDs are single-threaded we double the GCD cost for multi-threaded ECM runs. */
 
 #define ELL_ADD_COST		12
 #define N_SQUARED_POOL_COST	2
 #define MULT3_POOL_COST		7
-	gcd_cost = 861.0 * log ((double) ecmdata->gwdata.n) - 7775.0;
+	gcd_cost = 320.53 * log ((double) n) - 3302.0;
 	if (gcd_cost < 100.0) gcd_cost = 100.0;
+	modinv_cost = 285.08 * log ((double) n) - 3094.2;
+	if (modinv_cost < 1.25 * gcd_cost) modinv_cost = 1.25 * gcd_cost;
+	if (gwget_num_threads (&ecmdata->gwdata)) gcd_cost *= 2.0, modinv_cost *= 2.0;
 
 /* Reserve space for overhead needed by invgi and gcdg (about 1.5 gwnums) */
 /* However, not all stage 2 implementations use gcds.  So only reserve space */
@@ -2197,6 +2200,104 @@ return 0;
 #endif
 
 
+#ifdef GDEBUG
+if (w->n == 604) {
+	gmp_randstate_t rstate;
+	int	exp;
+
+	gmp_randinit_default (rstate);
+	for (exp = 100000; exp < 300000000; exp *= 2) {
+		gwhandle gwdata;
+		giant	N;
+		gwnum	a, b, c;
+		int	j;
+		mpz_t	r;
+
+		gwinit (&gwdata);
+		gwsetup (&gwdata, 1.0, 2, exp, -1);
+
+		a = gwalloc (&gwdata);
+		b = gwalloc (&gwdata);
+		c = gwalloc (&gwdata);
+		N = popg (&gwdata.gdata, ((int) gwdata.bit_length >> 5) + 10);
+		mpz_init (r);
+		mpz_urandomb (r, rstate, exp);
+		mpztog (r, N);
+		gianttogw (&gwdata, N, a);
+		mpz_urandomb (r, rstate, exp);
+		mpztog (r, N);
+		gianttogw (&gwdata, N, b);
+		mpz_urandomb (r, rstate, exp);
+		mpztog (r, N);
+		gianttogw (&gwdata, N, c);
+		mpz_clear (r);
+
+		start_timer (timers, 0);
+		for (j = 0; j < 100; j++) {
+			gwsquare2 (&gwdata, c, c, GWMUL_STARTNEXTFFT);
+		}
+		end_timer (timers, 0);
+		sprintf (buf, "Exp: %d, 100 squares: ", exp);
+		print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+		OutputBoth (thread_num, buf);
+
+		start_timer (timers, 0);
+		for (j = 0; j < 1; j++) {
+			mpz_t	__v, __N, __gcd;
+			giant	v;
+			v = popg (&gwdata.gdata, ((int) gwdata.bit_length >> 5) + 10);
+			gwtogiant (&gwdata, b, v);
+			/* Do the GCD */
+			mpz_init (__v);
+			mpz_init (__N);
+			mpz_init (__gcd);
+			gtompz (v, __v);
+			gtompz (N, __N);
+			mpz_gcd (__gcd, __v, __N);
+			mpz_clear (__gcd);
+			mpz_clear (__v);
+			mpz_clear (__N);
+			pushg (&gwdata.gdata, 1);
+		}
+		end_timer (timers, 0);
+		sprintf (buf, "Exp: %d, GCD: ", exp);
+		print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+		OutputBoth (thread_num, buf);
+
+		start_timer (timers, 0);
+		for (j = 0; j < 1; j++) {
+			giant	v;
+			mpz_t	__v, __N, __gcd, __inv;
+			v = popg (&gwdata.gdata, ((int) gwdata.bit_length >> 5) + 10);
+			gwtogiant (&gwdata, b, v);
+			/* Do the extended GCD */
+			mpz_init (__v);
+			mpz_init (__N);
+			mpz_init (__gcd);
+			mpz_init (__inv);
+			gtompz (v, __v);
+			gtompz (N, __N);
+			mpz_gcdext (__gcd, __inv, NULL, __v, __N);
+			mpz_clear (__v);
+			if (mpz_sgn (__inv) < 0) mpz_add (__inv, __inv, __N);
+			mpztog (__inv, v);
+			gianttogw (&gwdata, v, b);
+			mpz_clear (__gcd);
+			mpz_clear (__inv);
+			mpz_clear (__N);
+			pushg (&gwdata.gdata, 1);
+		}
+		end_timer (timers, 0);
+		sprintf (buf, "Exp: %d, modinv: ", exp);
+		print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+		OutputBoth (thread_num, buf);
+		gwdone (&gwdata);
+	}
+	return (0);
+}
+#endif
+
+
 /* Init filename */
 
 	tempFileName (w, filename);
@@ -2652,7 +2753,6 @@ restart3:
 		C = B;
 		goto skip_stage_2;
 	}
-//GW: always create save file here???  Lets us Delete all save file code during stage 2 init.  Sometimes we're ignoring stop_reason
 
 /* Initialize variables for second stage */
 /* Our goal is to fill up the nQx array with Q^1, Q^3, Q^5, ... */
@@ -2696,15 +2796,25 @@ restart3:
 		if (ecmdata.pairings == NULL) goto oom;
 	}
 
-/* Allocate memory for computing nQx values */
-/* MEMUSED: 9 gwnums (x, z, AD4, 6 for nQx) */
+/* Compute Q^D which we will need in mQ_init.  We compute it here in case we need to create a save file during stage 2 initialization. */
+/* Store Q^D in Qm. */
+/* MEMUSED: 5 gwnums (x, z, AD4, Qm.x&z) */
+/* MEMPEAK: 5 + 6 for bin_ell_mul temporaries */
+
+	if (!alloc_xz (&ecmdata, &ecmdata.Qm)) goto oom;
+	gwcopy (&ecmdata.gwdata, xz.x, ecmdata.Qm.x);
+	gwcopy (&ecmdata.gwdata, xz.z, ecmdata.Qm.z);
+	stop_reason = bin_ell_mul (&ecmdata, &ecmdata.Qm, ecmdata.D);
+	if (stop_reason) goto exit;
+
+/* Allocate memory and init values for computing nQx.  We need Q^2, Q^1, and diff of Q^1. */
+/* MEMUSED: 11 gwnums (x, z, AD4, Qm.x&z, 6 for nQx) */
 
 	if (!alloc_xz (&ecmdata, &Q2)) goto oom;
 	if (!alloc_xz (&ecmdata, &Qiminus2)) goto oom;
 	if (!alloc_xz (&ecmdata, &Qdiff)) goto oom;
 
-/* Init values used in computing nQx.  We need Q^2, Q^1, and diff of Q^1. */
-/* MEMUSED: 9 gwnums (x, z, AD4, 6 for computing nQx) + 2 temporaries */
+/* MEMUSED: 11 gwnums (x, z, AD4, Qm.x&z, 6 for computing nQx) */
 
 	gwcopy (&ecmdata.gwdata, xz.x, Qdiff.x);
 	gwcopy (&ecmdata.gwdata, xz.z, Qdiff.z);
@@ -2712,10 +2822,9 @@ restart3:
 	gwcopy (&ecmdata.gwdata, Qdiff.x, Qiminus2.x);
 	gwcopy (&ecmdata.gwdata, Qdiff.z, Qiminus2.z);
 	Qiminus2.added = Qdiff.added;
-//GW  seems wasteful to have so many copies of x and z lying around
 
 /* Init the first nQx value with Q^1 */
-/* MEMUSED: 9 gwnums (AD4, 6 for computing nQx, nQx[0], modinv_value) */
+/* MEMUSED: 11 gwnums (AD4, Qm.x&z, 6 for computing nQx, nQx[0], modinv_value) */
 
 	ecmdata.nQx[0] = xz.x;
 	stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[0], xz.z);
@@ -2723,8 +2832,8 @@ restart3:
 	gwfree (&ecmdata.gwdata, xz.z);
 
 /* Compute the rest of the nQx values (Q^i for i >= 3) */
-/* MEMUSED: 8 + nQx gwnums (AD4, 6 for computing nQx, nQx vals, modinv_val) */
-/* MEMPEAK: 8 + nQx-1 + 2 for ell_add temporaries */
+/* MEMUSED: 10 + nQx gwnums (AD4, Qm.x&z, 6 for computing nQx, nQx vals, modinv_val) */
+/* MEMPEAK: 10 + nQx + 2 for ell_add temporaries */
 
 	for (i = 3; i < ecmdata.D; i = i + 2) {
 		stop_reason = ell_add_xz_noscr (&ecmdata, &Qiminus2, &Q2, &Qdiff, &Qdiff);
@@ -2735,14 +2844,12 @@ restart3:
 		stop_reason = stopCheck (thread_num);
 		if (stop_reason) {
 			if (gg == NULL) {
-				ASSERTG (!Qdiff.added);
-				ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE1, curve, sigma, B, B, 0, Qdiff.x, Qdiff.z);
+				ASSERTG (!ecmdata.Qm.added);
+				ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE1, curve, sigma, B, B, 0, ecmdata.Qm.x, ecmdata.Qm.z);
 			}
 			goto exit;
 		}
 
-//GW - We used to fft Qdiff.x and Qdiff.z, but doesn't that lead to potential roundoff issues in next ell_add_xz?
-// We could reinstate if extrabits && normalize pool as well as ell_add_xz benefits
 		if (relatively_prime (i, ecmdata.D)) {
 			j = (i - 1) >> 1;
 			ecmdata.nQx[j] = gwalloc (&ecmdata.gwdata);
@@ -2754,31 +2861,23 @@ restart3:
 		xzswap (Qdiff, Qiminus2);
 	}
 
-/* Now compute Q^2D.  This will be used in computing Q^m values.  Qiminus2 is Q^(D-1) and Qdiff if Q^(D-3). */
-/* Add Q^(D-1) and Q^2 to get Q^(D+1).  Then add Q^(D-1) and Q^(D+1) to get Q^2D.  Store Q^2D in Q2x and Q2z. */
-/* MEMUSED: 8 + nQx gwnums (AD4, 6 for computing nQx, nQx vals, modinv_val) */
-/* MEMPEAK: 8 + nQx + 2 for ell_add temporaries */
-
-	ell_add_xz_noscr (&ecmdata, &Qiminus2, &Q2, &Qdiff, &Qdiff);			// Qdiff = Q^(D+1)
-	ell_add_xz_scr (&ecmdata, &Qiminus2, &Qdiff, &Q2, &Q2, &Qdiff);			// Q2 = Q^2D, scratch reg = Qdiff
-	xzswap (ecmdata.Q2D, Q2);							// Save Q^2D in ecmdata for mQ_init
-
 /* Free memory used in computing nQx values */
 /* Keep two values we could free in case the upcoming normalize is aborted and we need to write a save file. */
-/* MEMUSED: 4 + nQx gwnums (AD4, Q2D.x, Q2D.z, nQx values, modinv_value) */
+/* MEMUSED: 4 + nQx gwnums (AD4, Qm.x&z, nQx values, modinv_value) */
 
 	free_xz (&ecmdata, &Qiminus2);
 	free_xz (&ecmdata, &Qdiff);
+	free_xz (&ecmdata, &Q2);
 
 /* Normalize all the nQx values */
-/* MEMUSED: 3 + nQx gwnums (AD4, Q2D.x, Q2D.z, nQx values) */
+/* MEMUSED: 3 + nQx gwnums (AD4, Qm.x&z, nQx values) */
 /* MEMPEAK: 3 + nQx + 3 for UV, normalize, and pooled_modinv temporaries */
 
 	stop_reason = normalize_pool (&ecmdata, N, &factor);
 	if (stop_reason) {
 		if (gg == NULL) {
-			ASSERTG (!ecmdata.Q2D.added);
-			ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE1, curve, sigma, B, B, 0, ecmdata.Q2D.x, ecmdata.Q2D.z);
+			ASSERTG (!ecmdata.Qm.added);
+			ecm_save (&ecmdata, &write_save_file_state, w, ECM_STAGE1, curve, sigma, B, B, 0, ecmdata.Qm.x, ecmdata.Qm.z);
 		}
 		goto exit;
 	}
@@ -2792,7 +2891,7 @@ restart3:
 /* MEMPEAK: 6 + nQx + 6 for bin_ell_mul temporaries */
 
 	m = (prime / ecmdata.D + 1) * ecmdata.D;
-	stop_reason = mQ_init (&ecmdata, ecmdata.nQx[0], m);
+	stop_reason = mQ_init (&ecmdata, m);
 	if (stop_reason) goto exit;
 
 /* Precompute the transforms of nQx */
@@ -5705,14 +5804,12 @@ void guess_pminus1_bounds (
 
 	g.ll_testing_cost = (tests_saved + 2 * ERROR_RATE) * n;
 
-/* Precompute the cost of a GCD.  We used Excel to come up with the */
-/* formula GCD is equivalent to 861 * Ln (p) - 7775 transforms. */
-/* Since one squaring equals two transforms we get the formula below. */
-/* NOTE: In version 22, the GCD speed has approximately doubled.  I've */
-/* adjusted the formula accordingly. */
+/* The GCD cost comes from the timing code running ECM on M604 and a spreadsheet. */
+/* Since GCDs are single-threaded we double the GCD cost for multi-threaded P-1 runs. */
 
-	g.gcd_cost = (430.5 * log ((double) n) - 3887.5) / 2.0;
-	if (g.gcd_cost < 50.0) g.gcd_cost = 50.0;
+	g.gcd_cost = 160.265 * log ((double) n) - 1651.0;
+	if (g.gcd_cost < 50.0) gcd_cost = 50.0;
+	if (CORES_PER_TEST[thread_num] > 1) g.gcd_cost *= 2.0;
 
 /* Compute how many temporaries we can use given our memory constraints. */
 /* Allow 1MB for code and data structures. */
