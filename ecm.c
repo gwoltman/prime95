@@ -616,6 +616,7 @@ oom:	return (OutOfMemory (ecmdata->thread_num));
 
 /* Multiplies a point by n using a combination of ell_dbl and ell_add calls */
 
+#ifdef BIN_ELL_MUL_USED
 int bin_ell_mul (
 	ecmhandle *ecmdata,
 	struct xz *arg,
@@ -691,6 +692,7 @@ int bin_ell_mul (
 
 oom:	return (OutOfMemory (ecmdata->thread_num));
 }
+#endif
 
 /* Try a series of Lucas chains to find the cheapest. */
 /* First try v = (1+sqrt(5))/2, then (2+v)/(1+v), then (3+2*v)/(2+v), */
@@ -1486,15 +1488,15 @@ int mQ_init (
 	gwcopy (&ecmdata->gwdata, ecmdata->Qm.z, ecmdata->Q2D.z);
 	ell_dbl_xz_scr (ecmdata, &ecmdata->Q2D, &ecmdata->Q2D, &ecmdata->Qprevm);	// scratch = Qprevm
 
-//GW:  let bin_ell_mul start next FFT?  Use lucas_mul (with its additional temporaries?  use some of the pooling temporaries??)
+//GW:  let ell_mul start next FFT?
 	/* Compute Q * (m - 4D) */
 	gwcopy (&ecmdata->gwdata, ecmdata->Qm.x, ecmdata->Qprevm.x);
 	gwcopy (&ecmdata->gwdata, ecmdata->Qm.z, ecmdata->Qprevm.z);
-	stop_reason = bin_ell_mul (ecmdata, &ecmdata->Qprevm, m / ecmdata->D - 4);
+	stop_reason = ell_mul (ecmdata, &ecmdata->Qprevm, m / ecmdata->D - 4);
 	if (stop_reason) return (stop_reason);
 
 	/* Compute Q * (m - 2D) */
-	stop_reason = bin_ell_mul (ecmdata, &ecmdata->Qm, m / ecmdata->D - 2);
+	stop_reason = ell_mul (ecmdata, &ecmdata->Qm, m / ecmdata->D - 2);
 	if (stop_reason) return (stop_reason);
 
 	/* There will be no more ell_dbl calls */
@@ -1611,9 +1613,9 @@ replan:	stop_reason = avail_mem (thread_num,
 #define ELL_ADD_COST		12
 #define N_SQUARED_POOL_COST	2
 #define MULT3_POOL_COST		7
-	gcd_cost = 320.53 * log ((double) n) - 3302.0;
+	gcd_cost = 320.53 * log (ecmdata->gwdata.bit_length) - 3302.0;
 	if (gcd_cost < 100.0) gcd_cost = 100.0;
-	modinv_cost = 285.08 * log ((double) n) - 3094.2;
+	modinv_cost = 570.16 * log (ecmdata->gwdata.bit_length) - 6188.4;
 	if (modinv_cost < 1.25 * gcd_cost) modinv_cost = 1.25 * gcd_cost;
 	if (gwget_num_threads (&ecmdata->gwdata)) gcd_cost *= 2.0, modinv_cost *= 2.0;
 
@@ -1648,7 +1650,7 @@ replan:	stop_reason = avail_mem (thread_num,
 
 /* Figure out the best value for E when using the O(N^2) pool method */
 
-	beste = (unsigned long) sqrt (gcd_cost / N_SQUARED_POOL_COST) + 1;
+	beste = (unsigned long) sqrt (modinv_cost / N_SQUARED_POOL_COST) + 1;
 
 /* Loop through various D values choosing the most cost effective one */
 
@@ -1686,8 +1688,7 @@ replan:	stop_reason = avail_mem (thread_num,
 /* or	13 + 2*relprime gwnums if 3N pooling			*/
 /* Note that MQ_init requires B is at least 4 times D		*/
 
-		if (B >= 4*d && 13 + relprime <= numvals &&
-		    (QA_TYPE == 0 || QA_TYPE == 1)) {
+		if (B >= 4*d && 13 + relprime <= numvals && (QA_TYPE == 0 || QA_TYPE == 1)) {
 			cost = d/2 * ELL_ADD_COST +
 			       relprime * relprime * N_SQUARED_POOL_COST +
 			       numsections * ELL_ADD_COST +
@@ -1701,8 +1702,7 @@ replan:	stop_reason = avail_mem (thread_num,
 				bestnumvals = 13 + relprime; 
 			}
 		}
-		if (B >= 4*d && 13 + relprime*2 <= numvals &&
-		    (QA_TYPE == 0 || QA_TYPE == 2)) {
+		if (B >= 4*d && 13 + relprime*2 <= numvals && (QA_TYPE == 0 || QA_TYPE == 2)) {
 			cost = d/2 * ELL_ADD_COST +
 			       relprime * MULT3_POOL_COST +
 			       numsections * ELL_ADD_COST +
@@ -1722,13 +1722,12 @@ replan:	stop_reason = avail_mem (thread_num,
 /*	D/2 ell_add_xzs  + pool_cost (relprime) +		*/
 /*	(C-B)/2D ell_add_xzs + #primes*2 +			*/
 /*	(C-B)/2D/E * pool_cost (e)				*/
-/*	(C-B)/2D/E * gcd_cost					*/
+/*	(C-B)/2D/E * modinv_cost					*/
 /* The memory consumed will be:					*/
 /*	13 + relprime + e gwnums if N^2 pooling			*/
 /* or	13 + relprime + e + max (relprime, e) gwnums if 3N pooling */
 
-		if (B >= 4*d && 13 + relprime <= numvals &&
-		    (QA_TYPE == 0 || QA_TYPE == 3)) {
+		if (B >= 4*d && 13 + relprime <= numvals && (QA_TYPE == 0 || QA_TYPE == 3)) {
 			e = numvals - relprime - 13;
 			if (e == 0) e = 1;
 			if (e > beste) e = beste;
@@ -1738,7 +1737,7 @@ replan:	stop_reason = avail_mem (thread_num,
 			       numsections * ELL_ADD_COST +
 			       (numprimes - numpairings) * 2 +
 			       numgcdsections * e * e * N_SQUARED_POOL_COST +
-			       numgcdsections * gcd_cost;
+			       numgcdsections * modinv_cost;
 			if (cost < bestcost) {
 				ecmdata->TWO_FFT_STAGE2 = TRUE;
 				ecmdata->pool_type = POOL_N_SQUARED;
@@ -1748,8 +1747,7 @@ replan:	stop_reason = avail_mem (thread_num,
 				bestnumvals = 13 + relprime + e;
 			}
 		}
-		if (B >= 4*d && 13 + relprime*2 <= numvals &&
-		    (QA_TYPE == 0 || QA_TYPE == 4)) {
+		if (B >= 4*d && 13 + relprime*2 <= numvals && (QA_TYPE == 0 || QA_TYPE == 4)) {
 			e = numvals - 13 - relprime*2;
 			if (e > relprime) e -= (e - relprime) / 2;
 			if (e == 0) e = 1;
@@ -1760,15 +1758,14 @@ replan:	stop_reason = avail_mem (thread_num,
 			       numsections * (ELL_ADD_COST + 1) +
 			       (numprimes - numpairings) * 2.0 +
 			       numgcdsections * e * MULT3_POOL_COST +
-			       numgcdsections * gcd_cost;
+			       numgcdsections * modinv_cost;
 			if (cost < bestcost) {
 				ecmdata->TWO_FFT_STAGE2 = TRUE;
 				ecmdata->pool_type = POOL_3MULT;
 				ecmdata->D = d;
 				ecmdata->E = e;
 				bestcost = cost;
-				bestnumvals = 13 + relprime + e +
-						(relprime > e ? relprime : e);
+				bestnumvals = 13 + relprime + e + (relprime > e ? relprime : e);
 			}
 		}
 
@@ -2799,12 +2796,12 @@ restart3:
 /* Compute Q^D which we will need in mQ_init.  We compute it here in case we need to create a save file during stage 2 initialization. */
 /* Store Q^D in Qm. */
 /* MEMUSED: 5 gwnums (x, z, AD4, Qm.x&z) */
-/* MEMPEAK: 5 + 6 for bin_ell_mul temporaries */
+/* MEMPEAK: 5 + 6 for ell_mul temporaries */
 
 	if (!alloc_xz (&ecmdata, &ecmdata.Qm)) goto oom;
 	gwcopy (&ecmdata.gwdata, xz.x, ecmdata.Qm.x);
 	gwcopy (&ecmdata.gwdata, xz.z, ecmdata.Qm.z);
-	stop_reason = bin_ell_mul (&ecmdata, &ecmdata.Qm, ecmdata.D);
+	stop_reason = ell_mul (&ecmdata, &ecmdata.Qm, ecmdata.D);
 	if (stop_reason) goto exit;
 
 /* Allocate memory and init values for computing nQx.  We need Q^2, Q^1, and diff of Q^1. */
@@ -2888,7 +2885,7 @@ restart3:
 
 /* Init code that computes Q^m */
 /* MEMUSED: 6 + nQx gwnums (6 for computing mQx, nQx values) */
-/* MEMPEAK: 6 + nQx + 6 for bin_ell_mul temporaries */
+/* MEMPEAK: 6 + nQx + 6 for ell_mul temporaries */
 
 	m = (prime / ecmdata.D + 1) * ecmdata.D;
 	stop_reason = mQ_init (&ecmdata, m);
@@ -5808,7 +5805,7 @@ void guess_pminus1_bounds (
 /* Since GCDs are single-threaded we double the GCD cost for multi-threaded P-1 runs. */
 
 	g.gcd_cost = 160.265 * log ((double) n) - 1651.0;
-	if (g.gcd_cost < 50.0) gcd_cost = 50.0;
+	if (g.gcd_cost < 50.0) g.gcd_cost = 50.0;
 	if (CORES_PER_TEST[thread_num] > 1) g.gcd_cost *= 2.0;
 
 /* Compute how many temporaries we can use given our memory constraints. */
