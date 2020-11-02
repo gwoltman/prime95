@@ -110,6 +110,7 @@ typedef struct {
 	gwnum	*pool_values;	/* Array of values to normalize */
 	gwnum	*poolz_values;	/* Array of z values we are normalize */
 	unsigned long modinv_count; /* Stats - count of modinv calls */
+	int	stage2_numvals;	/* Number of gwnums used in stage 2 */
 	void	*sieve_info;
 } ecmhandle;
 
@@ -1576,35 +1577,18 @@ void ecm_stage1_memory_usage (
 	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&ecmdata->gwdata,  13));
 }
 
-/* Choose 4 FFT stage 2 of the 2 FFT stage 2.  Also choose a good */
-/* value for D and a good algorithm for normalize_pool. */
-/* We try to choose the above such that the number of multiplications */
-/* are minimized, yet too much memory isn't used. */
+/* Cost out the best B2 plan.  Choose D, normalize_pool algoritm, and 2 vs. 4 FFT stage 2. */
 
-int choose_stage2_plan (
-	int	thread_num,
+double ecm_stage2_cost (
 	ecmhandle *ecmdata,
+	unsigned long numvals,		/* Number of gwnums that can be allocated */
 	uint64_t B,			/* Stage 1 bound */
 	uint64_t C)			/* Stage 2 bound */
 {
-	unsigned int memory;		/* MB of memory we can use */
-	unsigned long numvals, d, e;
-	unsigned long relprime, beste, bestnumvals;
+	unsigned long d, e;
+	unsigned long relprime, beste;
 	double	numprimes, numpairings, numsections, numgcdsections;
 	double	cost, bestcost, density, gcd_cost, modinv_cost;
-	char	buf[120];
-	int	stop_reason;
-
-/* Get available memory.  We need 21 gwnums to do the smallest stage 2, plus */
-/* another 0.5 gwnums of overhead in invgi (and gcd).  We assume 120 gwnums */
-/* will allow us to do a reasonable efficient stage 2 implementation. */
-
-replan:	stop_reason = avail_mem (thread_num,
-				 cvt_gwnums_to_mem (&ecmdata->gwdata, 21.5),
-				 cvt_gwnums_to_mem (&ecmdata->gwdata, 120),
-				 &memory);
-	if (stop_reason) return (stop_reason);
-	if (memory < 8) memory = 8;
 
 /* Define constants for the number of transforms for various operations. */
 /* The GCD cost comes from the timing code running ECM on M604 and spreadsheeting. */
@@ -1619,17 +1603,6 @@ replan:	stop_reason = avail_mem (thread_num,
 	if (modinv_cost < 1.25 * gcd_cost) modinv_cost = 1.25 * gcd_cost;
 	if (gwget_num_threads (&ecmdata->gwdata)) gcd_cost *= 2.0, modinv_cost *= 2.0;
 
-/* Reserve space for overhead needed by invgi and gcdg (about 1.5 gwnums) */
-/* However, not all stage 2 implementations use gcds.  So only reserve space */
-/* for the giant sin/cos data that is never freed once allocated (about 0.5 gwnums) */	
-
-	memory = memory - (unsigned int) (gwnum_size (&ecmdata->gwdata) * 0.5 / 1048576.0);
-
-/* Figure out how many gwnum values fit in our memory limit. */
-
-	numvals = cvt_mem_to_gwnums (&ecmdata->gwdata, memory);
-	ASSERTG (numvals >= 21);
-
 /* If memory is really tight, then the 4 FFT - O(n^2) pooling is the */
 /* most memory efficient ECM implementation.  This will be our default */
 /* plan.  Note: D=30 (8 nQx values) requires 21 gwnums.  The next D */
@@ -1640,7 +1613,7 @@ replan:	stop_reason = avail_mem (thread_num,
 		ecmdata->E = 0;
 		ecmdata->TWO_FFT_STAGE2 = FALSE;
 		ecmdata->pool_type = POOL_N_SQUARED;
-		bestnumvals = 21;
+		ecmdata->stage2_numvals = 21;
 	}
 
 /* Numprimes below C approximately equals C / (ln(C)-1) */
@@ -1699,7 +1672,7 @@ replan:	stop_reason = avail_mem (thread_num,
 				ecmdata->D = d;
 				ecmdata->E = 0;
 				bestcost = cost;
-				bestnumvals = 13 + relprime; 
+				ecmdata->stage2_numvals = 13 + relprime; 
 			}
 		}
 		if (B >= 4*d && 13 + relprime*2 <= numvals && (QA_TYPE == 0 || QA_TYPE == 2)) {
@@ -1713,7 +1686,7 @@ replan:	stop_reason = avail_mem (thread_num,
 				ecmdata->D = d;
 				ecmdata->E = 0;
 				bestcost = cost;
-				bestnumvals = 13 + relprime*2; 
+				ecmdata->stage2_numvals = 13 + relprime*2; 
 			}
 		}
 
@@ -1744,7 +1717,7 @@ replan:	stop_reason = avail_mem (thread_num,
 				ecmdata->D = d;
 				ecmdata->E = e;
 				bestcost = cost;
-				bestnumvals = 13 + relprime + e;
+				ecmdata->stage2_numvals = 13 + relprime + e;
 			}
 		}
 		if (B >= 4*d && 13 + relprime*2 <= numvals && (QA_TYPE == 0 || QA_TYPE == 4)) {
@@ -1765,7 +1738,7 @@ replan:	stop_reason = avail_mem (thread_num,
 				ecmdata->D = d;
 				ecmdata->E = e;
 				bestcost = cost;
-				bestnumvals = 13 + relprime + e + (relprime > e ? relprime : e);
+				ecmdata->stage2_numvals = 13 + relprime + e + (relprime > e ? relprime : e);
 			}
 		}
 
@@ -1777,17 +1750,167 @@ replan:	stop_reason = avail_mem (thread_num,
 		else break;
 	}
 
+/* Return the cost of executing this stage 2 */
+
+	return (bestcost);
+}
+
+/* Choose 4 FFT stage 2 of the 2 FFT stage 2.  Also choose a good */
+/* value for D and a good algorithm for normalize_pool. */
+/* We try to choose the above such that the number of multiplications */
+/* are minimized, yet too much memory isn't used. */
+
+int choose_stage2_plan (
+	int	thread_num,
+	ecmhandle *ecmdata,
+	uint64_t B,			/* Stage 1 bound */
+	uint64_t C)			/* Stage 2 bound */
+{
+	unsigned int memory;		/* MB of memory we can use */
+	unsigned long numvals;
+	char	buf[120];
+	int	stop_reason;
+
+/* Get available memory.  We need 21 gwnums to do the smallest stage 2, plus */
+/* another 0.5 gwnums of overhead in invgi (and gcd).  We assume 120 gwnums */
+/* will allow us to do a reasonable efficient stage 2 implementation. */
+
+replan:	stop_reason = avail_mem (thread_num,
+				 cvt_gwnums_to_mem (&ecmdata->gwdata, 21.5),
+				 cvt_gwnums_to_mem (&ecmdata->gwdata, 120),
+				 &memory);
+	if (stop_reason) return (stop_reason);
+	if (memory < 8) memory = 8;
+
+/* Reserve space for overhead needed by invgi and gcdg (about 1.5 gwnums) */
+/* However, not all stage 2 implementations use gcds.  So only reserve space */
+/* for the giant sin/cos data that is never freed once allocated (about 0.5 gwnums) */	
+
+	memory = memory - (unsigned int) (gwnum_size (&ecmdata->gwdata) * 0.5 / 1048576.0);
+
+/* Figure out how many gwnum values fit in our memory limit. */
+
+	numvals = cvt_mem_to_gwnums (&ecmdata->gwdata, memory);
+	ASSERTG (numvals >= 21);
+
+/* Find the least costly stage 2 plan */
+
+	ecm_stage2_cost (ecmdata, numvals, B, C);
+
 /* Record the amount of memory this thread will be using in stage 2. */
 
-	memory = cvt_gwnums_to_mem (&ecmdata->gwdata, bestnumvals);
-	if (set_memory_usage (thread_num, MEM_VARIABLE_USAGE, memory))
-		goto replan;
+	memory = cvt_gwnums_to_mem (&ecmdata->gwdata, ecmdata->stage2_numvals);
+	if (set_memory_usage (thread_num, MEM_VARIABLE_USAGE, memory)) goto replan;
 
 /* Output a useful message regarding memory usage */
 
 	sprintf (buf, "Using %dMB of memory in stage 2.\n", memory);
 	OutputStr (thread_num, buf);
 	return (0);
+}
+
+/* Choose most effective B2 for an ECM curve */
+
+uint64_t choose_B2 (
+	ecmhandle *ecmdata,
+	unsigned int memory,		/* MB of memory we can use */
+	uint64_t B1)
+{
+	unsigned long numvals;
+	double	B1_cost;
+	struct ecm_stage2_efficiency {
+		int	i;
+		double	efficiency;
+	} best[3];
+
+/* Figure out how many gwnum values fit in our memory limit. */
+
+	numvals = cvt_mem_to_gwnums (&ecmdata->gwdata, memory);
+	ASSERTG (numvals >= 21);
+
+// The cost of B1 (in FFTs) is 25.4 * B1
+
+	B1_cost = 25.4 * (double) B1;
+
+// From Alex Kruppa, master of all things ECM, the following formula
+// compensates for using B2 values that are not 100 * B1.
+// 0.11 + 0.89 * (log10(B2 / B1) / 2) ^ 1.5
+
+#define kruppa(i)	((0.11 + 0.89 * pow (_log10(i) / 2.0, 1.5)) / (B1_cost + ecm_stage2_cost (ecmdata, numvals, B1, (i) * B1)))
+
+/* Look for the best B2 which is likely between 50 * B1 and 150 * B1.  If optimal is not between these bounds, don't worry */
+/* we'll locate the optimal spot anyway. */
+
+	best[0].i = 50;
+	best[0].efficiency = kruppa (50);
+	best[1].i = 100;
+	best[1].efficiency = kruppa (100);
+	best[2].i = 150;
+	best[2].efficiency = kruppa (150);
+
+/* Handle case where midpoint has worse efficiency than the start point */
+/* The search code requires best[1] to be better than best[0] and best[2] */
+
+	while (best[0].efficiency > best[1].efficiency) {
+		best[2] = best[1];
+		best[1].i = (best[0].i + best[2].i) / 2;
+		best[1].efficiency = kruppa (best[1].i);
+	}
+
+/* Handle case where midpoint has worse efficiency than the end point */
+/* The search code requires best[1] to be better than best[0] and best[2] */
+
+	while (best[2].efficiency > best[1].efficiency) {
+		best[0] = best[1];
+		best[1] = best[2];
+		best[2].i = best[1].i * 2;
+		best[2].efficiency = kruppa (best[2].i);
+	}
+
+/* Find the best B1.  We use a binary-like search to speed things up (new in version 30.3b3). */
+
+	while (best[0].i != best[2].i) {
+		struct ecm_stage2_efficiency midpoint;
+
+		ASSERTG (best[1].efficiency >= best[0].efficiency);
+		ASSERTG (best[1].efficiency >= best[2].efficiency);
+
+/* Work on the bigger of the lower section and upper section */
+
+		if (best[1].i - best[0].i > best[2].i - best[1].i) {		// Work on lower section
+			// If i's are close together, then we've searched this section enough
+			if (best[1].i - best[0].i < 2) {
+				best[0] = best[1];
+				continue;
+			}
+			midpoint.i = (best[0].i + best[1].i) / 2;
+			midpoint.efficiency = kruppa (midpoint.i);
+			if (midpoint.efficiency > best[1].efficiency) {		// Make middle the new end point
+				best[2] = best[1];
+				best[1] = midpoint;
+			} else {						// Create new start point
+				best[0] = midpoint;
+			}
+		} else {							// Work on upper section
+			// If B1's are close together, then we've searched this section enough
+			if (best[2].i - best[1].i < 2) {
+				best[2] = best[1];
+				continue;
+			}
+			midpoint.i = (best[1].i + best[2].i) / 2;
+			midpoint.efficiency = kruppa (midpoint.i);
+			if (midpoint.efficiency > best[1].efficiency) {		// Make middle the new start point
+				best[0] = best[1];
+				best[1] = midpoint;
+			} else {						// Create new end point
+				best[2] = midpoint;
+			}
+		}
+	}
+
+/* Return the best B2 */
+
+	return (best[1].i * B1);
 }
 
 /* Routines to create and read save files for an ECM factoring job */
@@ -2196,8 +2319,7 @@ return 0;
 }
 #endif
 
-
-#ifdef GDEBUG
+#ifdef TIMING604
 if (w->n == 604) {
 	gmp_randstate_t rstate;
 	int	exp;
@@ -2355,8 +2477,24 @@ if (w->n == 604) {
 
 	ecmdata.gwdata.MAXDIFF *= IniGetInt (INI_FILE, "MaxDiffMultiplier", 1);
 
+/* Override give B2 with optimal B2 */
+/* Get available memory.  We need 21 gwnums to do the smallest stage 2, plus */
+/* another 0.5 gwnums of overhead in invgi (and gcd).  We assume 120 gwnums */
+/* will allow us to do a reasonable efficient stage 2 implementation. */
+
+	if (C == 100 * B && IniGetInt (INI_FILE, "ECMBestB2", 1)) {
+		unsigned int memory;		/* MB of memory we can use */
+		stop_reason = avail_mem (thread_num, cvt_gwnums_to_mem (&ecmdata.gwdata, 21.5), cvt_gwnums_to_mem (&ecmdata.gwdata, 120), &memory);
+		if (stop_reason) {
+			ecm_cleanup (&ecmdata);
+			return (stop_reason);
+		}
+		if (memory < 8) memory = 8;
+		C = choose_B2 (&ecmdata, memory, B);
+	}
+
 /* More random initializations */
-	
+
 	gwsetnormroutine (&ecmdata.gwdata, 0, ERRCHK, 0);
 	last_output = last_output_t = ecmdata.modinv_count = 0;
 	gw_clear_fft_count (&ecmdata.gwdata);
@@ -2377,62 +2515,6 @@ if (w->n == 604) {
 		sprintf (buf, "%s is a probable prime\n", gwmodulo_as_string (&ecmdata.gwdata));
 		OutputStr (thread_num, buf);
 	}
-
-/* Time various gwnum routines */
-
-/*#define TIMING*/
-#ifdef TIMING
-{
-unsigned long i, j, limit;
-gwnum	n1, n2, n3;
-n1 = gwalloc (&ecmdata.gwdata);
-n2 = gwalloc (&ecmdata.gwdata);
-n3 = gwalloc (&ecmdata.gwdata);
-dbltogw (&ecmdata.gwdata, 283457283657.0, n2);
-for (i = 1; i <= 50; i++) gwsquare (&ecmdata.gwdata, n2); /* gen random num */
-gwcopy (&ecmdata.gwdata, n2, n3);
-gwcopy (&ecmdata.gwdata, n2, n1);
-if (n < 20000) limit = 100; else limit = 10;
-for (i = 1; i <= limit; i++) {
-	start_timer (timers, 0); gwsquare (&ecmdata.gwdata, n2); end_timer (0);
-	start_timer (timers, 1); gwmul (&ecmdata.gwdata, n2, n3); end_timer (1);
-	start_timer (timers, 2); gwfftmul (&ecmdata.gwdata, n2, n3); end_timer (2);
-	start_timer (timers, 3); normalize (&ecmdata, n1, n3); end_timer (3);
-	start_timer (timers, 4); gwfftfftmul (n2, n2, n2); end_timer (4);
-	start_timer (timers, 5); gwfft (&ecmdata.gwdata, n2, n2); end_timer (5);
-	start_timer (timers, 6); gwadd (&ecmdata.gwdata, n2, n2); end_timer (6);
-	gwcopy (&ecmdata.gwdata, n1, n2);
-}
-strcpy (buf, "100 squares: ");
-print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
-OutputStr (thread_num, buf);
-strcpy (buf, "100 muls: ");
-print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
-OutputStr (thread_num, buf);
-strcpy (buf, "100 fftmuls: ");
-print_timer (timers, 2, buf, TIMER_NL | TIMER_CLR);
-OutputStr (thread_num, buf);
-strcpy (buf, "100 ffts: ");
-print_timer (timers, 5, buf, TIMER_NL | TIMER_CLR);
-OutputStr (thread_num, buf);
-strcpy (buf, "100 fftfftmuls: ");
-print_timer (timers, 4, buf, TIMER_NL | TIMER_CLR);
-OutputStr (thread_num, buf);
-strcpy (buf, "100 normalizes: ");
-print_timer (timers, 3, buf, TIMER_NL | TIMER_CLR);
-OutputStr (thread_num, buf);
-strcpy (buf, "100 adds: ");
-print_timer (timers, 6, buf, TIMER_NL | TIMER_CLR);
-OutputStr (thread_num, buf);
-	start_timer (timers, 7);
-	start_sieve (thread_num, 2, &ecmdata.sieve_info);
-	for (i = 0; sieve (ecmdata.sieve_info) < 0xFFFFFFFF; i++);
-	end_timer (timers, 7);
-sprintf (buf, "Sieve: %ld primes found.  ", i);
-print_timer (timers, 7, buf, TIMER_NL | TIMER_CLR);
-OutputStr (thread_num, buf);
-}		
-#endif
 
 /* Output a startup message */
 
