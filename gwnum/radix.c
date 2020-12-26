@@ -24,10 +24,7 @@
 
 int radix_gwcopy (gwhandle *src_gwdata, gwhandle *dst_gwdata, gwnum src, gwnum dst, uint64_t big_word_flags, int num_big_word_flags);
 void brute_convert (gwhandle *gwdata, giant g, gwnum x, int offset, uint64_t big_word_flags);
-__inline int intgcd(int k, int c) {
-	stackgiant(kg,2); stackgiant(cg,2);itog(k,kg);itog(c,cg);gcdg(kg,cg);
-	return (cg->n[0]);
-}
+__inline uint64_t intgcd (uint64_t a, uint64_t b) { while (b != 0) { uint64_t temp = a % b; a = b; b = temp; } return a; }
 
 /* Internal routine to convert a giant to base != 2 gwnum FFT format. */
 
@@ -114,7 +111,7 @@ int nonbase2_gianttogw (	/* Returns an error code or zero for success */
 			// If either of these options results in the same FFT length, we have a winner
 			for (option = 1; option <= 2; option++) {
 				int newwpm = (int) floor (words_per_mult) + (option - 1);
-				int newbpm = round_up_to_multiple_of (b_per_mult, newwpm / intgcd (fftlen, newwpm));
+				int newbpm = round_up_to_multiple_of (b_per_mult, newwpm / (int) intgcd (fftlen, newwpm));
 				if (newwpm > newbpm) newwpm = newbpm;		// When base is large, use rational FFT one b per FFT word
 				if (fftlen >= num_pairs * newwpm) {
 					gwinit (work_gwdata);
@@ -152,7 +149,7 @@ int nonbase2_gianttogw (	/* Returns an error code or zero for success */
 	fft_words_per_mult = (int) ceil (
 			(2 * BRUTE_FORCE_WORDS * 32 + 1)	// Number of bits in multiplication result plus one to avoid borrow
 			/ (log2 (gwdata->b) * work_gwdata->avg_num_b_per_word));	// Over bits per FFT word
-	fft_words_per_mult = round_up_to_multiple_of (fft_words_per_mult, work_gwdata->FFTLEN / intgcd (work_gwdata->n, work_gwdata->FFTLEN));
+	fft_words_per_mult = round_up_to_multiple_of (fft_words_per_mult, work_gwdata->FFTLEN / (int) intgcd (work_gwdata->n, work_gwdata->FFTLEN));
 
 // Pre-calculate the bigword vs. smallword flags so that brute_convert does not need to do that repeatedly.
 
@@ -635,7 +632,7 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 			// If either of these options results in the same FFT length, we have a winner
 			for (option = 1; option <= 2; option++) {
 				int newwpm = (int) floor (words_per_mult) + (option - 1);
-				int newbpm = round_up_to_multiple_of (bits_per_mult, newwpm / intgcd (fftlen, newwpm));
+				int newbpm = round_up_to_multiple_of (bits_per_mult, newwpm / (int) intgcd (fftlen, newwpm));
 				if (fftlen >= num_pairs * newwpm) {
 					gwinit (work_gwdata);
 					err_code = gwinfo (work_gwdata, 1.0, 2, exp = newbpm * fftlen / newwpm, -1);
@@ -670,7 +667,7 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 
 	fft_words_per_mult = (int) ceil ((((double) (b_per_uint64 * 2) * log2 (gwdata->b) + 0.1) + 1.0)	// Bits in multiplication result plus one to avoid borrow
 					/ work_gwdata->avg_num_b_per_word);				// Over bits per FFT word
-	fft_words_per_mult = round_up_to_multiple_of (fft_words_per_mult, work_gwdata->FFTLEN / intgcd (work_gwdata->n, work_gwdata->FFTLEN));
+	fft_words_per_mult = round_up_to_multiple_of (fft_words_per_mult, work_gwdata->FFTLEN / (int) intgcd (work_gwdata->n, work_gwdata->FFTLEN));
 
 // Pre-calculate the bigword vs. smallword flags so that chunk conversion does not need to do that repeatedly.
 
