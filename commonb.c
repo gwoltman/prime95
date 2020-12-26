@@ -1452,12 +1452,8 @@ unsigned long max_mem (
 
 int avail_mem (
 	int	thread_num,
-	unsigned long minimum_memory,	/* If this much memory (in MB) */
-					/* can be returned without restarting other */
-					/* workers, then do so */
-	unsigned long desired_memory,	/* If this much memory (in MB) */
-					/* can be returned without restarting other */
-					/* workers, then do so */
+	unsigned long minimum_memory,	/* If this much memory (in MB) can be returned without restarting other workers, then do so */
+	unsigned long desired_memory,	/* If this much memory (in MB) can be returned without restarting other workers, then do so */
 	unsigned int *memory)		/* Returned available memory, in MB */
 {
 	int	i, fixed_threads[MAX_NUM_WORKER_THREADS];
@@ -1470,8 +1466,7 @@ int avail_mem (
 		return (STOP_NOT_ENOUGH_MEM);
 	}
 
-/* Check if we are only supposed to run high memory workers when the maximum */
-/* amount memory is available. */
+/* Check if we are only supposed to run high memory workers when the maximum amount memory is available. */
 
 	if (IniGetInt (INI_FILE, "OnlyRunStage2WithMaxMemory", 0) &&
 	    AVAIL_MEM != MAX_MEM) {
@@ -1480,9 +1475,7 @@ int avail_mem (
 		return (STOP_NOT_ENOUGH_MEM);
 	}
 
-/* Check if we must wait for more memory to become available.  This */
-/* happens when we reach the maximum allowable number of threads using a lot */
-/* of memory. */
+/* Check if we must wait for more memory to become available.  This happens when we reach the maximum allowable number of threads using a lot of memory. */
 
 	if (are_threads_using_lots_of_memory (thread_num)) {
 		OutputStr (thread_num, "Exceeded limit on number of workers that can use lots of memory.\n");
@@ -6014,7 +6007,7 @@ int writeLLSaveFile (
 	closeWriteSaveFile (write_save_file_state, fd);
 	return (TRUE);
 
-/* An error occured.  Delete the current file. */
+/* An error occurred.  Delete the current file. */
 
 err:	deleteWriteSaveFile (write_save_file_state, fd);
 	return (FALSE);
@@ -7319,7 +7312,7 @@ begin:	gwinit (&lldata.gwdata);
 
 	return (STOP_WORK_UNIT_COMPLETE);
 
-/* An error occured, output a message saying we are restarting, sleep, */
+/* An error occurred, output a message saying we are restarting, sleep, */
 /* then try restarting at last save point. */
 
 restart:if (sleep5) OutputBoth (thread_num, ERRMSG2);
@@ -11106,7 +11099,7 @@ int writePRPSaveFile (			// Returns TRUE if successful
 	closeWriteSaveFile (write_save_file_state, fd);
 	return (TRUE);
 
-/* An error occured.  Delete the current file. */
+/* An error occurred.  Delete the current file. */
 
 writeerr:
 	sprintf (buf, WRITEFILEERR, write_save_file_state->base_filename);
@@ -11718,7 +11711,7 @@ begin:	N = exp = NULL;
 
 /* Compute the number we are testing. */
 
-	stop_reason = setN (&gwdata, thread_num, w, &N);
+	stop_reason = setN (thread_num, w, &N);
 	if (stop_reason) goto exit;
 
 /* If N is one, the number is already fully factored.  Print an error message. */
@@ -13027,7 +13020,7 @@ exit:	gwdone (&gwdata);
 	free (ps.emergency_allocs);
 	return (stop_reason);
 
-/* An error occured, output a message saying we are restarting, sleep, */
+/* An error occurred, output a message saying we are restarting, sleep, */
 /* then try restarting at last save point. */
 
 restart:if (sleep5) OutputBoth (thread_num, ERRMSG2);
