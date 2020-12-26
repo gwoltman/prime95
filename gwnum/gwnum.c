@@ -8946,7 +8946,7 @@ __inline void asm_mul (
 	gwdata->POSTFFT = FALSE;
 	if ((options & GWMUL_STARTNEXTFFT) ||
 	    ((options & GWMUL_STARTNEXTFFT1) && gwdata->EXTRA_BITS >= 2.0) ||
-	    (! (options & (GWMUL_NOSTARTNEXTFFT | GWMUL_STARTNEXTFFT | GWMUL_STARTNEXTFFT1)) && gwdata->GLOBAL_POSTFFT)) {
+	    ((options & GWMUL_GLOBALSTARTNEXTFFT) && gwdata->GLOBAL_POSTFFT)) {
 		if (!gwdata->GENERAL_MOD && gwdata->PASS1_SIZE) gwdata->POSTFFT = TRUE;
 	}
 	// Copy POSTFFT state to asm_data for x87 FFTs
@@ -9287,9 +9287,9 @@ void cmn_gwmul4 (		/* Calculate (s1 op s2) * s3 */
 
 /* Call the assembly code */
 
-		if (options & GWMUL_NOMULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM & ~2)];
-		else if (options & GWMUL_MULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM | 2)];
-		else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->NORMNUM];
+		if (options & GWMUL_MULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM | 2)];
+		else if (options & GWMUL_GLOBALMULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->NORMNUM];
+		else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM & ~2)];
 		if (asm_data->DEST2ARG) {
 			asm_data->mul4_opcode = 0x80 | opcode;
 			asm_data->SRC2ARG = (void *) ((intptr_t) s2 - (intptr_t) s3);
@@ -9305,7 +9305,7 @@ void cmn_gwmul4 (		/* Calculate (s1 op s2) * s3 */
 		if (gwdata->GENERAL_MOD) emulate_mod (gwdata, d);
 	}
 
-/* Free temporary memory */			
+/* Free temporary memory */
 
 	if (tmp1 != NULL) gwfree (gwdata, tmp1);
 	if (tmp2 != NULL) gwfree (gwdata, tmp2);
@@ -9396,9 +9396,9 @@ void gwmul3 (			/* Multiply two gwnums */
 /* Call the assembly code */
 
 	asm_data = (struct gwasm_data *) gwdata->asm_data;
-	if (options & GWMUL_NOMULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM & ~2)];
-	else if (options & GWMUL_MULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM | 2)];
-	else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->NORMNUM];
+	if (options & GWMUL_MULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM | 2)];
+	else if (options & GWMUL_GLOBALMULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->NORMNUM];
+	else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM & ~2)];
 	raw_gwmul3 (gwdata, s1, s2, d, options);
 
 /* Emulate mod with 2 multiplies case */
@@ -9461,11 +9461,11 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 		else if (options & (GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2)) gwunfft (gwdata, s1, tmp), s1 = tmp;
 		else gwunfft (gwdata, s1, s1);
 		gwaddsub4 (gwdata, s1, gwdata->GW_RANDOM, tmp, d);	/* Compute s1+random and s1-random */
-		gwmul3 (gwdata, tmp, d, d, GWMUL_NOSTARTNEXTFFT);	/* Compute (s1+random)(s1-random)+addin */
+		gwmul3 (gwdata, tmp, d, d, options & GWMUL_GLOBALMULBYCONST); /* Compute (s1+random)(s1-random)*const+addin */
 		asm_data->ADDIN_VALUE = 0.0;				/* Clear the addin value */
 		gwfft (gwdata, gwdata->GW_RANDOM, tmp);
-		gwmul3 (gwdata, tmp, tmp, tmp, GWMUL_NOSTARTNEXTFFT);	/* Compute random^2 (we could compute this once and save it) */
-		gwadd3 (gwdata, d, tmp, d);				/* Calc s1^2+addin from 2 results */
+		gwmul3 (gwdata, tmp, tmp, tmp, options & GWMUL_GLOBALMULBYCONST); /* Compute random^2*const */
+		gwadd3 (gwdata, d, tmp, d);				/* Calc s1^2*const+addin from 2 results */
 		gwfree (gwdata, tmp);
 	}
 
@@ -9490,12 +9490,12 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 		gwadd3 (gwdata, tmp1, gwdata->GW_RANDOM, tmp2);	/* Compute s1+2*random */
 		gwadd3 (gwdata, d, gwdata->GW_RANDOM, tmp3);	/* Compute s2+2*random */
 
-		gwmul3 (gwdata, tmp1, d, d, GWMUL_NOSTARTNEXTFFT);	/* Compute (s1+r)*(s2+r)+addin = s1s2 + rs1 + rs2 + rr + addin */
-		gwmul3 (gwdata, tmp2, tmp3, tmp3, GWMUL_NOSTARTNEXTFFT);/* Compute (s+2r)*(s2+2r)+addin = s1s2 + 2rs1 + 2rs2 + 4rr + addin */
+		gwmul3 (gwdata, tmp1, d, d, options & GWMUL_GLOBALMULBYCONST);	/* Compute (s1+r)*(s2+r)+addin = s1s2 + rs1 + rs2 + rr + addin */
+		gwmul3 (gwdata, tmp2, tmp3, tmp3, options & GWMUL_GLOBALMULBYCONST); /* Compute (s+2r)*(s2+2r)+addin = s1s2 + 2rs1 + 2rs2 + 4rr + addin */
 
 		asm_data->ADDIN_VALUE = 0.0;
 		gwfft (gwdata, gwdata->GW_RANDOM, tmp1);
-		gwmul3 (gwdata, tmp1, tmp1, tmp1, GWMUL_NOSTARTNEXTFFT);/* Compute random^2 (we could compute this once and save it) */
+		gwmul3 (gwdata, tmp1, tmp1, tmp1, options & GWMUL_GLOBALMULBYCONST);		/* Compute random^2 (we could compute this once and save it) */
 
 		gwaddquick (gwdata, d, d);			/* Compute 2st + 2rs + 2rt + 2rr + 2addin */
 		gwsubquick (gwdata, tmp3, d);			/* Compute st - 2rr + addin */
@@ -9593,7 +9593,7 @@ void gw_random_number (
 		int	saved_careful_count = gwdata->careful_count;
 		gwdata->NORMNUM &= ~1;				// Turn off error checking
 		gwdata->careful_count = 0;			// Disable square carefully count
-		gwsquare2 (gwdata, x, x, GWMUL_NOMULBYCONST | GWMUL_NOSTARTNEXTFFT);
+		gwsquare2 (gwdata, x, x, 0);
 		gwdata->NORMNUM = saved_normnum;
 		gwdata->careful_count = saved_careful_count;
 	}
@@ -10504,7 +10504,7 @@ void gwsmallmul (
 		}
 		else {
 			dbltogw (gwdata, mult, tmp);
-			gwmul3 (gwdata, tmp, g, g, GWMUL_NOMULBYCONST | GWMUL_NOSTARTNEXTFFT);
+			gwmul3 (gwdata, tmp, g, g, 0);
 		}
 		gwfree (gwdata, tmp);
 	}

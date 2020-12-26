@@ -426,23 +426,18 @@ void gwfft (			/* Forward FFT */
 	gwnum	s,		/* Source number */
 	gwnum	d);		/* Destination (can be same as source) */
 /* Options for gwmul3, gwaddmul4, gwsubmul4 routines */
-#define GWMUL_FFT_S1		0x0001
-#define GWMUL_PRESERVE_S1	0x0002
-#define GWMUL_FFT_S2		0x0004
-#define GWMUL_PRESERVE_S2	0x0008
-#define GWMUL_FFT_S3		0x0010
-#define GWMUL_PRESERVE_S3	0x0020
-						/* If neither of the next 2 options are set, the deprecated global mulbyconst setting */
-						/* from gwsetnormroutine is used. */
-#define GWMUL_NOMULBYCONST	0x0040		/* Do not multiply the final result by the small mulbyconst */
-#define GWMUL_MULBYCONST	0x0080		/* Multiply the final result by the small mulbyconst */
-						/* If none of the next 3 options are set, the old-style global gwstartnextfft setting is used */
-#define GWMUL_NOSTARTNEXTFFT	0x0100		/* Do not start the forward FFT of the multiplication result */
-#define GWMUL_STARTNEXTFFT	0x0200		/* Start the forward FFT of the multiplication result (for better performance) */
-#define GWMUL_STARTNEXTFFT1	0x0400		/* Start the forward FFT of the multiplication result only if an extra add can occur on */
+#define GWMUL_FFT_S1		0x0001		/* FFT the first source */
+#define GWMUL_PRESERVE_S1	0x0002		/* Do not modify the first source */
+#define GWMUL_FFT_S2		0x0004		/* FFT the second source */
+#define GWMUL_PRESERVE_S2	0x0008		/* Do not modify the second source */
+#define GWMUL_FFT_S3		0x0010		/* FFT the third source */
+#define GWMUL_PRESERVE_S3	0x0020		/* Do not modify the third source */
+#define GWMUL_MULBYCONST	0x0040		/* Multiply the final result by the small mulbyconst */
+#define GWMUL_STARTNEXTFFT	0x0080		/* Start the forward FFT of the multiplication result (for better performance) */
+#define GWMUL_STARTNEXTFFT1	0x0100		/* Start the forward FFT of the multiplication result only if an extra add can occur on */
 						/* multiplication inputs.  Normally a multiply of (a+b)*c is safe, this option takes */
 						/* effect if we are sufficiently below the FFT limit that (a+b)*(c+d) is also safe. */
-void gwmul3 (			/* Multiply two gwnums */
+void gwmul3 (			/* Multiply two gwnums, one of s1 or s2 will be FFTed unless the PRESERVE option is set */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	s1,		/* First source */
 	gwnum	s2,		/* Second source */
@@ -454,21 +449,20 @@ void gwmul3_carefully (		/* Multiply two gwnums where inputs may not be random d
 	gwnum	s2,		/* Second source */
 	gwnum	d,		/* Destination */
 	int	options);
-void gwaddmul4 (		/* (s1+s2)*s3 */
+void gwaddmul4 (		/* (s1+s2)*s3, s1 and s2 will be FFTed unless the PRESERVE option is set */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	s1,		/* First source */
 	gwnum	s2,		/* Second source */
 	gwnum	s3,		/* Third source */
 	gwnum	d,		/* Destination */
 	int	options);
-void gwsubmul4 (		/* (s1-s2)*s3 */
+void gwsubmul4 (		/* (s1-s2)*s3, s1 and s2 will be FFTed unless the PRESERVE option is set */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	s1,		/* First source */
 	gwnum	s2,		/* Second source */
 	gwnum	s3,		/* Third source */
 	gwnum	d,		/* Destination */
 	int	options);
-
 
 void gwadd3 (			/* Add two numbers normalizing if needed and inputs are not FFTed. */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -716,14 +710,17 @@ int gwtogiant (gwhandle *, gwnum, giant);
 
 /* Macros to implement deprecated routines */
 
-#define gwsquare(h,s)			gwsquare2 (h,s,s,0)
-#define gwmul(h,s,d)			gwmul3(h,s,d,d,GWMUL_FFT_S1)
-#define gwsafemul(h,s,d)		gwmul3(h,s,d,d,GWMUL_PRESERVE_S1)
-#define gwfftmul(h,s,d)			gwmul3(h,s,d,d,0)
-#define gwfftfftmul(h,s1,s2,d)		gwmul3(h,s1,s2,d,0)
-#define gwsquare_carefully(h,x)		gwmul3_carefully(h,x,x,x,0)
-#define gwsquare2_carefully(h,s,d)	gwmul3_carefully(h,s,s,d,GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2)
-#define gwmul_carefully(h,s,d)		gwmul3_carefully(h,s,d,d,GWMUL_PRESERVE_S1)
+#define GWMUL_GLOBALMULBYCONST	 0x4000	/* gwmul3 option to use deprecated gwsetnormroutine for multiplying final result by the small mulbyconst */
+#define GWMUL_GLOBALSTARTNEXTFFT 0x8000 /* gwmul3 option to use deprecated gwstartnextfft for starting next forward FFT */
+
+#define gwsquare(h,s)			gwsquare2 (h,s,s,GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST)
+#define gwmul(h,s,d)			gwmul3(h,s,d,d,GWMUL_FFT_S1 | GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST)
+#define gwsafemul(h,s,d)		gwmul3(h,s,d,d,GWMUL_PRESERVE_S1 | GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST)
+#define gwfftmul(h,s,d)			gwmul3(h,s,d,d,GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST)
+#define gwfftfftmul(h,s1,s2,d)		gwmul3(h,s1,s2,d,GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST)
+#define gwsquare_carefully(h,x)		gwmul3_carefully(h,x,x,x,GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST)
+#define gwsquare2_carefully(h,s,d)	gwmul3_carefully(h,s,s,d,GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2 | GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST)
+#define gwmul_carefully(h,s,d)		gwmul3_carefully(h,s,d,d,GWMUL_PRESERVE_S1 | GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST)
 
 #define gwadd(h,s,d)			gwadd3 (h,s,d,d)
 #define gwsub(h,s,d)			gwsub3 (h,d,s,d)
