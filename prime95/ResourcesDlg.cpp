@@ -178,7 +178,7 @@ CResourcesAdvancedDlg::CResourcesAdvancedDlg(CWnd* pParent /*=NULL*/)
 void CResourcesAdvancedDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
-	float	max_emergency_mem = (float) (0.25 * physical_memory () / 1024.0);
+	float	max_emergency_mem = (float) round_to_tenth (0.25 * physical_memory () / 1024.0);
 	if (max_emergency_mem < 1.0) max_emergency_mem = 1.0;
 
 	//{{AFX_DATA_MAP(PrimenetDlg)
@@ -190,9 +190,9 @@ void CResourcesAdvancedDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_START_TIME, m_start_time);
 	DDX_Text(pDX, IDC_END_TIME, m_end_time);
 	DDX_Text(pDX, IDC_DAY_MEMORY, m_day_memory);
-	DDV_MinMaxFloat(pDX, m_day_memory, 0.0, (float) (0.9 * physical_memory () / 1024.0));
+	DDV_MinMaxFloat(pDX, m_day_memory, 0.0, (float) round_to_tenth (0.9 * physical_memory () / 1024.0));
 	DDX_Text(pDX, IDC_NIGHT_MEMORY, m_night_memory);
-	DDV_MinMaxFloat(pDX, m_night_memory, 0.0, (float) (0.9 * physical_memory () / 1024.0));
+	DDV_MinMaxFloat(pDX, m_night_memory, 0.0, (float) round_to_tenth (0.9 * physical_memory () / 1024.0));
 	DDX_Text(pDX, IDC_EMERGENCY_MEM, m_emergency_mem);
 	DDV_MinMaxFloat(pDX, m_emergency_mem, 0.0, max_emergency_mem);
 	DDX_Text(pDX, IDC_PRIORITY, m_priority);
