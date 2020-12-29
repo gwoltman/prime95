@@ -8930,7 +8930,7 @@ int gwequal (
 /* Internal routine to implement gwmul3 by calling fft/multiply assembly code. */
 /* Caller must set ffttype, SRC2ARG, DEST2ARG, mul4_opcode, NORMRTN prior to calling this routine.  Caller is responsible for emulate_mod. */
 
-__inline void asm_mul (
+void asm_mul (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	s1,		/* First source */
 	gwnum	s2,		/* Second source */
