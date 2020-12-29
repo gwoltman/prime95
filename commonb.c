@@ -1074,19 +1074,15 @@ void read_mem_info (void)
 		p = p + 6;
 	}
 
-/* Get the maximum number of workers that can use lots of memory */
-/* Default is AVAIL_MEM / 200MB rounded off. */
+/* Get the maximum number of workers that can use lots of memory.  Default is AVAIL_MEM / 1GB rounded off. */
 
-	MAX_HIGH_MEM_WORKERS = IniGetTimedInt (LOCALINI_FILE, "MaxHighMemWorkers",
-					       (AVAIL_MEM + 100) / 200, &seconds);
-	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
-		seconds_until_reread = seconds;
+	MAX_HIGH_MEM_WORKERS = IniGetTimedInt (LOCALINI_FILE, "MaxHighMemWorkers", (AVAIL_MEM + 500) / 1000, &seconds);
+	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread)) seconds_until_reread = seconds;
 	if (MAX_HIGH_MEM_WORKERS < 1) MAX_HIGH_MEM_WORKERS = 1;
 
 /* Add the event that fires when the memory settings expire. */
 
-	if (seconds_until_reread)
-		add_timed_event (TE_MEM_CHANGE, seconds_until_reread);
+	if (seconds_until_reread) add_timed_event (TE_MEM_CHANGE, seconds_until_reread);
 
 /* Unlock */
 
@@ -1468,8 +1464,7 @@ int avail_mem (
 
 /* Check if we are only supposed to run high memory workers when the maximum amount memory is available. */
 
-	if (IniGetInt (INI_FILE, "OnlyRunStage2WithMaxMemory", 0) &&
-	    AVAIL_MEM != MAX_MEM) {
+	if (IniGetInt (INI_FILE, "OnlyRunStage2WithMaxMemory", 0) && AVAIL_MEM != MAX_MEM) {
 		OutputStr (thread_num, "Waiting for maximum available memory to run stage 2.\n");
 		MEM_RESTART_FLAGS[thread_num] |= MEM_RESTART_MAX_MEM_AVAILABLE;
 		return (STOP_NOT_ENOUGH_MEM);
