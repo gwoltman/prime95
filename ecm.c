@@ -195,8 +195,6 @@ double best_stage2_impl (
 
 	if (maxtotrels == 4 || best[1].cost > best[2].cost) return (best[2].cost);
 
-//GW:  Need to verify that binary search will work!  
-
 /* A binary search is required */
 
 	best[0].totrels = 4;
@@ -325,7 +323,7 @@ int count_possible_pairs (char *primes, char *relocated, uint64_t numDsections, 
 	count = 0;
 	for (i = -(multiplier / 2 + 1); i <= (multiplier / 2 + 1); i++) {
 		if (work_j + i * numrels * 2 < 0 || work_j + i * numrels * 2 >= totrels * 2) continue;
-		if (bit + i * numrels * 4 < 0 || bit + i * numrels * 4 >= numDsections * numrels * 2) continue;
+		if (bit + i * numrels * 4 < 0 || bit + i * numrels * 4 >= (int64_t) numDsections * numrels * 2) continue;
 		if (bittst (primes, bit_pair + i * numrels * 4)) count++;
 		else if (relocated != NULL && bittst (relocated, bit_pair + i * numrels * 4)) count++;
 	}
@@ -453,18 +451,14 @@ int fill_work_bitarray (
 	multiplier = totrels / numrels;
 	for (loop_count = 0; loop_count <= 1001; loop_count++) {
 		int	i, j, j_pair, work_j, work_j_pair, match, match_optional, best_count;
-		uint64_t k, prime, delayed;
+		uint64_t k, prime;
 		int64_t	bit, bit_pair;
 
 //GW - we could start at k = multiplier-1 and end at numDsections - multiplier (for a little cost in reduced pairs) but gain in reduced D multiplications
-//GW remove delayed
-		delayed = 0;
 		for (k = 0; k < numDsections; k++) {				// loop through all sections of size D
 			for (j = 0; j < numrels * 2; j++) {			// loop through each relative prime to find a possible pairing
 				bit = k * numrels * 2 + j;
-//prime = bit_prime (k, j);
-//if (prime % 550213 == 0)
-//j = j+1;
+
 				// See if this entry in the prime bit array (or relocated array) needs to be paired up
 				if (loop_count < 1000) {
 					if (!bittst (primes, bit)) continue;
@@ -486,7 +480,6 @@ int fill_work_bitarray (
 				best_count = 999;
 //GW: Rather than recalculate matches each loop, have a bitarray for each multiplier
 //try pairing without relocatables.  then go back and see if the reloctables can pair the singles?
-//figure out a way to improve fast_resolve for small multipliers?
 
 // Loop over all possible ways this prime can be represented by multiple of D +/- a relative prime
 // If any of these possible representations pair with a prime that is wonderful.  If multiple representations pair with a prime
@@ -496,7 +489,7 @@ int fill_work_bitarray (
 			        for (i = -(multiplier / 2 + 1); i <= (multiplier / 2 + 1); i++) {
 					// Make sure this representation of the prime is possible
 					if (work_j - i * numrels * 2 < 0 || work_j - i * numrels * 2 >= totrels * 2) continue;
-					if (bit_pair + i * numrels * 4 < 0 || bit_pair + i * numrels * 4 >= numDsections * numrels * 2) continue;
+					if (bit_pair + i * numrels * 4 < 0 || bit_pair + i * numrels * 4 >= (int64_t) numDsections * numrels * 2) continue;
 
 					// See if the pair for this representation is also required in the output work bit array
 					if (bittst (primes, bit_pair + i * numrels * 4)) {
@@ -557,7 +550,6 @@ int fill_work_bitarray (
 				else if (!match_optional) {
 					bitset_work (work, k + match, work_j - match * numrels * 2);
 					bits_set++;
-//					if (match < 0) delayed--;
 					ASSERTG (bittst (primes, bit_pair + match * numrels * 4));
 					bitclr (primes, bit_pair + match * numrels * 4);
 				}
@@ -581,7 +573,8 @@ int fill_work_bitarray (
 				}
 			}
 		}
-		if (delayed == 0 && loop_count < 999) loop_count = 999;
+		// This rather odd loop_count test is a holdover from tests that did multiple passes looking for better pairing
+		if (loop_count < 999) loop_count = 999;
 	}
 
 /* Free two temporary bit arrays */
@@ -833,7 +826,6 @@ void ell_dbl_xz_scr (
 		t2 = out->x;
 		if (in == out) t3 = scr->x, t4 = out->z;
 		else t3 = out->z, t4 = scr->x;
-			//GW problem if in == scr!
 		gwsetmulbyconst (&ecmdata->gwdata, 4);
 		gwmul3 (&ecmdata->gwdata, in->x, in->z, t3, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT1); /* t3 = 4 * x * z */
 		if (in == out || in == scr) {
@@ -1958,10 +1950,8 @@ int normalize_pool (
 /* Implement algorithm 2 above */
 
 	case POOL_3MULT:
-		gwstartnextfft (&ecmdata->gwdata, FALSE);
 		for (i = ecmdata->pool_count-1; ; i--) {
-//GW: startnextfft??
-			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->pool_values[i], ecmdata->pool_values[i], GWMUL_FFT_S1);
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->pool_values[i], ecmdata->pool_values[i], GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);
 			if (i == 0) break;
 			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[i], ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
 			gwfree (&ecmdata->gwdata, ecmdata->poolz_values[i]);
@@ -1971,9 +1961,8 @@ int normalize_pool (
 /* Implement algorithm 4 above */
 
 	case POOL_N_SQUARED:
-		gwstartnextfft (&ecmdata->gwdata, FALSE);
 		for (i = 0; i < ecmdata->pool_count; i++)
-			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->pool_values[i], ecmdata->pool_values[i], GWMUL_FFT_S1);
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->pool_values[i], ecmdata->pool_values[i], GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);
 		break;
 	}
 
@@ -2162,7 +2151,6 @@ int mQ_next (
 			stop_reason = add_to_normalize_pool (ecmdata, ecmdata->mQx[ecmdata->mQx_count], ecmdata->Qm.z);
 			if (stop_reason) return (stop_reason);
 		}
-//GW: beneficial if normalize_pool starts next fft of every value it normalizes
 		stop_reason = normalize_pool (ecmdata, N, factor);
 		if (stop_reason) return (stop_reason);
 		if (*factor != NULL) return (0);
@@ -2385,8 +2373,6 @@ double ecm_stage2_impl_given_numvals (
 
 //GW:  play with e = num modinvs.  That is, break the N_SQUARED pool in half or thirds, etc.
 //			do we need a binary search on breaking up the 3N pooling into multiple segments?
-
-//GW: for impl==2 and impl==3, best_stage2_impl should not start the binary search at N-1 -- a real binary search will be required
 	}
 
 /* Return our best implementation */
@@ -2604,7 +2590,7 @@ void ecm_save (
 	if (! write_int (fd, ecmdata->state, &sum)) goto writeerr;
 	if (! write_double (fd, ecmdata->sigma, NULL)) goto writeerr;
 	if (! write_longlong (fd, ecmdata->B, &sum)) goto writeerr;
-	if (! write_longlong (fd, ecmdata->C, &sum)) goto writeerr;			//GW:needed???  maybe for stage 2 when optimal b2 is set
+	if (! write_longlong (fd, ecmdata->C, &sum)) goto writeerr;
 
 	if (ecmdata->state == ECM_STATE_STAGE1) {
 		if (! write_longlong (fd, ecmdata->stage1_prime, &sum)) goto writeerr;
@@ -4081,7 +4067,6 @@ replan:	//GW: does replan work, it was not here before and does not have the per
 
 restart4:
 	ecmdata.state = ECM_STATE_GCD;
-	ecm_stage1_memory_usage (thread_num, &ecmdata);
 	sprintf (w->stage, "C%luS2", ecmdata.curve);
 	w->pct_complete = 1.0;
 	start_timer (timers, 0);
@@ -4099,13 +4084,8 @@ restart4:
 /* Check if more curves need to be done */
 
 more_curves:
-//GW: haven't we already done most of this partial cleanup??  Delete once verified
-//	free (ecmdata->nQx); ecmdata->nQx = NULL;
-//	free (ecmdata->pool_values); ecmdata->pool_values = NULL;
-//	free (ecmdata->poolz_values); ecmdata->poolz_values = NULL;
-//	free (ecmdata->mQx); ecmdata->mQx = NULL;
-//	free (ecmdata->bitarray); ecmdata->bitarray = NULL;
 	gwfreeall (&ecmdata.gwdata);
+	ecm_stage1_memory_usage (thread_num, &ecmdata);
 	if (++ecmdata.curve <= w->curves_to_do) goto restart0;
 
 /* Output line to results file indicating the number of curves run */
@@ -4313,7 +4293,10 @@ err:	OutputBoth (thread_num, "SUMOUT error occurred.\n");
 
 /* Sleep five minutes before restarting */
 
-//GW: bug.  free N, str, msg, factor???
+	free (N); N = NULL;
+	free (str); str = NULL;
+	free (msg); msg = NULL;
+	free (factor); factor = NULL;
 	ecm_cleanup (&ecmdata);
 	stop_reason = SleepFive (thread_num);
 	if (stop_reason) return (stop_reason);
@@ -5100,8 +5083,9 @@ void pm1_choose_B2 (
 /* Return the best B2 */
 
 	pm1data->C = best[1].i * pm1data->B;
-	sprintf (buf, "With trial factoring done to 2^%d, optimal B2 is %d*B1 = %" PRIu64 ".  If no prior P-1, chance of a new factor is %.3g%%\n",
-		 sieve_depth, best[1].i, pm1data->C, best[1].fac_pct * 100.0);
+	sprintf (buf, "With trial factoring done to 2^%d, optimal B2 is %d*B1 = %" PRIu64 ".\n", sieve_depth, best[1].i, pm1data->C);
+	OutputStr (pm1data->thread_num, buf);
+	sprintf (buf, "If no prior P-1, chance of a new factor is %.3g%%\n", best[1].fac_pct * 100.0);
 	OutputStr (pm1data->thread_num, buf);
 }
 
