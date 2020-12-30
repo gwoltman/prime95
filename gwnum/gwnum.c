@@ -6568,21 +6568,15 @@ gwnum gwalloc (
 /* Allocate arrays if necessary */
 
 	if (gwdata->gwnum_alloc == NULL) {
-		gwdata->gwnum_free = (gwnum *)
-			malloc (gwdata->gwnum_alloc_array_size * sizeof (gwnum));
+		gwdata->gwnum_free = (gwnum *) malloc (gwdata->gwnum_alloc_array_size * sizeof (gwnum));
 		if (gwdata->gwnum_free == NULL) return (NULL);
-		gwdata->gwnum_alloc = (gwnum *)
-			malloc (gwdata->gwnum_alloc_array_size * sizeof (gwnum));
+		gwdata->gwnum_alloc = (gwnum *) malloc (gwdata->gwnum_alloc_array_size * sizeof (gwnum));
 		if (gwdata->gwnum_alloc == NULL) return (NULL);
 	} else if (gwdata->gwnum_alloc_count == gwdata->gwnum_alloc_array_size) {
 		gwdata->gwnum_alloc_array_size += gwdata->gwnum_alloc_array_size >> 1;
-		gwdata->gwnum_free = (gwnum *)
-			realloc (gwdata->gwnum_free,
-				 gwdata->gwnum_alloc_array_size * sizeof (gwnum));
+		gwdata->gwnum_free = (gwnum *) realloc (gwdata->gwnum_free, gwdata->gwnum_alloc_array_size * sizeof (gwnum));
 		if (gwdata->gwnum_free == NULL) return (NULL);
-		gwdata->gwnum_alloc = (gwnum *)
-			realloc (gwdata->gwnum_alloc,
-				 gwdata->gwnum_alloc_array_size * sizeof (gwnum));
+		gwdata->gwnum_alloc = (gwnum *) realloc (gwdata->gwnum_alloc, gwdata->gwnum_alloc_array_size * sizeof (gwnum));
 		if (gwdata->gwnum_alloc == NULL) return (NULL);
 	}
 
@@ -6612,18 +6606,14 @@ gwnum gwalloc (
 /* theory is this will maximize the number of superpage promotions. */
 #ifdef __FreeBSD__
 	else if (size >= 0x400000 && gwdata->gwnum_alloc_count == 0) {
-		p = (char *) aligned_offset_malloc (
-				size + GW_HEADER_SIZE, 0x400000,
-				(GW_HEADER_SIZE - gwdata->GW_ALIGNMENT_MOD) & 0x3FFFFF);
+		p = (char *) aligned_offset_malloc (size + GW_HEADER_SIZE, 0x400000, (GW_HEADER_SIZE - gwdata->GW_ALIGNMENT_MOD) & 0x3FFFFF);
 		if (p == NULL) return (NULL);
 		freeable = 1;
 	}
 #endif
 	else {
-		p = (char *) aligned_offset_malloc (
-				size + GW_HEADER_SIZE, gwdata->GW_ALIGNMENT,
-				(GW_HEADER_SIZE - gwdata->GW_ALIGNMENT_MOD) &
-					(gwdata->GW_ALIGNMENT - 1));
+		p = (char *) aligned_offset_malloc (size + GW_HEADER_SIZE, gwdata->GW_ALIGNMENT,
+						    (GW_HEADER_SIZE - gwdata->GW_ALIGNMENT_MOD) & (gwdata->GW_ALIGNMENT - 1));
 		if (p == NULL) return (NULL);
 		freeable = 1;
 	}
