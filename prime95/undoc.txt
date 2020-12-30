@@ -265,9 +265,32 @@ The program will restrict how many exponents can be added to worktodo.txt.
 To override this, change prime.txt:
 	MaxExponents=n
 
-By default, ECM will stop when a new factor is found.
-You can have ECM always stop or always continue searching for factors by
-using a value of zero or one in prime.txt:
+By default, ECM ignores B2=100*B1 (this is what PrimeNet assigns) and calculates
+the optimal B2.  You can override this behavior in prime.txt:
+	ECMBestB2=0
+Similarly, P-1 ignores B2 when the worktodo.txt entry contains information on how much
+trial factoring has been done.  The optimal B2 value occurs when incremental P-1 effort
+invested in either a large B1 or larger B2 results in the same increase in the chance
+of finding a factor.  As a refresher, P-1 worktodo.txt entries for k*b^n+c are in
+this format:  Pminus1=k,b,n,c,B1,B2[,how_far_factored][,"factors"]
+Override this behavior, using the B2 from worktodo.txt, with this prime.txt entry:
+	Pminus1BestB2=0
+
+In P-1 and ECM stage 2 a bit array is allocated for finding prime pairs.  The default
+maximum size for this bit array is 250MB.  Only very large B2 values would need a
+bit array this large.  You can change the maximum bit array size with this prime.txt entry:
+	MaximumBitArraySize=n	(default is 250)
+Values from 1 to 2000 are supported.
+
+The Brent-Suyama extension to P-1 stage 2 has been disabled by default.  Our studies
+indicate that you are much better off investing more effort in a larger B2 rather
+than investing more effort in the Brent-Suyama extension.  You can force P-1 to
+use the Brent-Suyama extension with this prime.txt entry:
+	BrentSuyama=n		(default is 2)
+Values from 2 to 24 are supported.
+
+By default, ECM will stop when a new factor is found.  You can have ECM stop or
+continue searching for factors by using a value of zero or one in prime.txt:
 	ContinueECM=n
 
 You can skip the GCD in stage 1 of P-1 factoring with this prime.txt setting:
@@ -628,7 +651,7 @@ a maximum amount of memory that one particular worker can use.
 
 You can set MaxHighMemWorkers=n in local.txt.  This tells the program how
 wany workers are allowed to use lots of memory.  This occurs doing stage 2
-of P-1 or ECM on medium-to-large numbers.  Default is available memory / 200MB.
+of P-1 or ECM on medium-to-large numbers.  Default is available memory / 1GB.
 
 You can set a threshold for what is considered lots of memory in MaxHighMemWorkers
 calculations.  In local.txt, set:
