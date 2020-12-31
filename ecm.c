@@ -5894,11 +5894,10 @@ restart3a:
 	gwcopy (&pm1data.gwdata, x, gg);
 	gwaddsmall (&pm1data.gwdata, gg, -1);
 
-more_C:
-
 /* Restart here when in the middle of stage 2 */
 
 restart3b:
+more_C:
 	start_timer (timers, 0);
 	sprintf (buf, "%s P-1 stage 2 init", gwmodulo_as_string (&pm1data.gwdata));
 	title (thread_num, buf);
@@ -6118,11 +6117,13 @@ replan:	{
 	free (pm1data.bitarray), pm1data.bitarray = NULL;
 
 /* Check for the rare cases where we need to do even more stage 2.  This happens when continuing a save file in the middle of stage 2 and */
-/* the save file's targe bound #2 was smaller than our target bound #2. */
+/* the save file's target bound #2 was smaller than our target bound #2. */
 
-//GW:  should we have just ignored the larger B2?  Only accept larger C from save files in PM1_STATE_DONE state.
-	if (pm1data.C > pm1data.C_done) goto more_C;		//GW:change state??  or stay in stage2 and have code handle no bitmap??  PM1_STATE_STAGE2 is
-								// problematic in pm1_stage2_impl
+	if (pm1data.C > pm1data.C_done) {
+		pm1data.state = PM1_STATE_MIDSTAGE;
+		pm1data.first_C_start = pm1data.C_done;
+		goto more_C;
+	}
 
 /* Stage 2 is complete */
 
