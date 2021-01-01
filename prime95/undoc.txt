@@ -282,6 +282,14 @@ bit array this large.  You can change the maximum bit array size with this prime
 	MaximumBitArraySize=n	(default is 250)
 Values from 1 to 2000 are supported.
 
+The ECM stage 1, the program examines several different Lucas-chains looking for the shortest.
+For ECM on very small numbers, it may be beneficial to reduce the search effort as the
+work saved is pretty small.  For ECM on larger numbers, it might pay to increase the search
+effort.  I have not studied the optimal search effort, so the current default of 7 is a
+complete guess.  To change the search effort, add this to prime.txt:
+	PracSearch=n		(default is 7)
+Values from 1 to 50 are supported.
+
 The Brent-Suyama extension to P-1 stage 2 has been disabled by default.  Our studies
 indicate that you are much better off investing more effort in a larger B2 rather
 than investing more effort in the Brent-Suyama extension.  You can force P-1 to
