@@ -736,15 +736,19 @@ typedef struct {
 	int	mQx_count;	/* Count of values in the mQx array */
 } ecmhandle;
 
-/* Perform cleanup functions. */
+/* Forward declarations */
+
+void normalize_pool_term (ecmhandle *ecmdata);
+void mQ_term (ecmhandle *ecmdata);
+
+/* Perform cleanup functions */
 
 void ecm_cleanup (
 	ecmhandle *ecmdata)
 {
+	normalize_pool_term (ecmdata);
+	mQ_term (ecmdata);
 	free (ecmdata->nQx);
-	free (ecmdata->pool_values);
-	free (ecmdata->poolz_values);
-	free (ecmdata->mQx); 
 	free (ecmdata->bitarray);
 	gwdone (&ecmdata->gwdata);
 	end_sieve (ecmdata->sieve_info);	
@@ -775,8 +779,8 @@ __inline void free_xz (
 	ecmhandle *ecmdata,
 	struct xz *arg)
 {
-	gwfree (&ecmdata->gwdata, arg->x);
-	gwfree (&ecmdata->gwdata, arg->z);
+	gwfree (&ecmdata->gwdata, arg->x); arg->x = NULL;
+	gwfree (&ecmdata->gwdata, arg->z); arg->z = NULL;
 }
 
 /* This routine converts from x,z format to x+z,x-z format */
@@ -1828,26 +1832,77 @@ int normalize (
 	return (0);
 }
 
+/* Initialize the normalize (modular inverse) pool. */
+
+int normalize_pool_init (
+	ecmhandle *ecmdata,
+	int	max_pool_size)
+{
+	ecmdata->pool_count = 0;
+	ecmdata->pool_values = NULL;
+	ecmdata->poolz_values = NULL;
+	ecmdata->pool_modinv_value = NULL;
+
+/* Allocate memory for modular inverse pooling arrays of pointers to gwnums */
+
+	ecmdata->pool_values = (gwnum *) malloc (max_pool_size * sizeof (gwnum));
+	if (ecmdata->pool_values == NULL) goto oom;
+	if (ecmdata->pool_type == POOL_3MULT) {
+		ecmdata->poolz_values = (gwnum *) malloc (max_pool_size * sizeof (gwnum));
+		if (ecmdata->poolz_values == NULL) goto oom;
+	}
+
+/* All done */
+
+	return (0);
+
+/* Out of memory exit path */
+
+oom:	return (OutOfMemory (ecmdata->thread_num));
+}
+
+/* Free data associated with the normalize (modular inverse) pool. */
+
+void normalize_pool_term (
+	ecmhandle *ecmdata)
+{
+	int	i;
+
+	if (ecmdata->pool_type == POOL_3MULT) {
+		if (ecmdata->poolz_values != NULL) {
+			for (i = 0; i < ecmdata->pool_count; i++) {
+				gwfree (&ecmdata->gwdata, ecmdata->poolz_values[i]);
+			}
+			free (ecmdata->poolz_values); ecmdata->poolz_values = NULL;
+		}
+	}
+
+	free (ecmdata->pool_values); ecmdata->pool_values = NULL;
+	gwfree (&ecmdata->gwdata, ecmdata->pool_modinv_value); ecmdata->pool_modinv_value = NULL;
+	ecmdata->pool_count = 0;
+}
+
 /* Adds a point (a,b) to the list of numbers that need normalizing. */
 /* This is done in such a way as to minimize the amount of memory used. */
 
 /* This is an interesting bit of code with a variety of algorithms available.  Assuming there are N pairs to normalize, then you can: */
-/* 1) Use 3*N memory and use as few as 2 multiplies per pair. */
-/* 2) Use 2*N memory and use 3 multiplies per pair. */
-/* 3) Use N+log N memory and use O(log N) multiplies */
-/* 4) Use N memory and use O(N^2) multiplies. */
+/* 1) Use 2*N memory and 3 multiplies per point. */
+/* 2) Use 1.5*N memory and 3.33 multiplies per point. */
+/* 3) Use 1.25*N memory and use 3.5 multiplies per point. */
+/* 4) Use N memory and use O(N^2) multiplies per point. */
 
 int add_to_normalize_pool (
 	ecmhandle *ecmdata,
-	gwnum	a,		/* Number to multiply by 1/b.  This input can be in a full or partial FFTed state. */
-	gwnum	b)
+	gwnum	a,		/* Number to multiply by 1/b.  This input can be in a full or partial FFTed state.  Not preserved! */
+	gwnum	b,		/* Preserved, will not be FFTed in place */
+	giant	*factor)	/* Factor found, if any */
 {
 
 /* Switch off the type of pooling we are going to do */
 
 	switch (ecmdata->pool_type) {
 
-/* Implement algorithm 2 above */
+/* Implement algorithm 1 above */
 
 	case POOL_3MULT:
 
@@ -1862,12 +1917,16 @@ int add_to_normalize_pool (
 /* Otherwise, multiply a by the accumulated b values */
 
 		else {
+			// Accumulate previous b value (delayed so that we can use GWMUL_STARTNEXTFFT on all but last b value)
+			if (ecmdata->pool_count > 1) {
+				gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->pool_count-1], ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
+			}
+			// Multiply a by accumulated b values
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, a, a, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);
+			// Remember b
 			ecmdata->poolz_values[ecmdata->pool_count] = gwalloc (&ecmdata->gwdata);
 			if (ecmdata->poolz_values[ecmdata->pool_count] == NULL) goto oom;
 			gwfft (&ecmdata->gwdata, b, ecmdata->poolz_values[ecmdata->pool_count]);
-//GW: startnextfft when possible.  either unfft last call or delay this multiply  into normalize_pool
-			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->pool_count], ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, 0);
 		}
 
 /* Add a to array of values to normalize */
@@ -1903,7 +1962,6 @@ int add_to_normalize_pool (
 			int	i;
 			gwnum	tmp;
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, a, a, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);
-//GW: FFT b in-place.  Final step can unfft before the extended GCD
 			tmp = gwalloc (&ecmdata->gwdata);
 			if (tmp == NULL) goto oom;
 			gwfft (&ecmdata->gwdata, b, tmp);
@@ -1936,6 +1994,12 @@ int normalize_pool (
 {
 	int	i, stop_reason;
 
+/* Accumulate last b value (was delayed so that we can use GWMUL_STARTNEXTFFT on all but the last pooled b value) */
+
+	if (ecmdata->pool_type == POOL_3MULT && ecmdata->pool_count > 1) {
+		gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->pool_count-1], ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, 0);
+	}
+
 /* Compute the modular inverse */
 
 	gwunfft (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->pool_modinv_value);
@@ -1947,7 +2011,7 @@ int normalize_pool (
 
 	switch (ecmdata->pool_type) {
 
-/* Implement algorithm 2 above */
+/* Implement algorithm 1 above */
 
 	case POOL_3MULT:
 		for (i = ecmdata->pool_count-1; ; i--) {
@@ -1969,7 +2033,7 @@ int normalize_pool (
 /* Cleanup and reinitialize */
 
 exit:	ecmdata->pool_count = 0;
-	gwfree (&ecmdata->gwdata, ecmdata->pool_modinv_value);
+	gwfree (&ecmdata->gwdata, ecmdata->pool_modinv_value); ecmdata->pool_modinv_value = NULL;
 	return (0);
 }
 
@@ -2148,13 +2212,15 @@ int mQ_next (
 			if (stop_reason) return (stop_reason);
 			xzswap (ecmdata->Qm, ecmdata->Qprevm);
 			gwfft (&ecmdata->gwdata, ecmdata->Qm.x, ecmdata->mQx[ecmdata->mQx_count]);
-			stop_reason = add_to_normalize_pool (ecmdata, ecmdata->mQx[ecmdata->mQx_count], ecmdata->Qm.z);
+			stop_reason = add_to_normalize_pool (ecmdata, ecmdata->mQx[ecmdata->mQx_count], ecmdata->Qm.z, factor);
 			if (stop_reason) return (stop_reason);
+			if (*factor != NULL) return (0);
 		}
 		stop_reason = normalize_pool (ecmdata, N, factor);
 		if (stop_reason) return (stop_reason);
 		if (*factor != NULL) return (0);
 	}
+//GW:  Free these as we use them???
 	*retx = ecmdata->mQx[ecmdata->E - ecmdata->mQx_count];
 	ecmdata->mQx_count--;
 	return (0);
@@ -2162,10 +2228,14 @@ int mQ_next (
 void mQ_term (
 	ecmhandle *ecmdata)
 {
+	int	i;
 	free_xz (ecmdata, &ecmdata->Qm);
 	free_xz (ecmdata, &ecmdata->Qprevm);
 	free_xz (ecmdata, &ecmdata->QD);
-	free (ecmdata->mQx); ecmdata->mQx = NULL;
+	if (ecmdata->mQx != NULL) {
+		for (i = 0; i < ecmdata->E; i++) gwfree (&ecmdata->gwdata, ecmdata->mQx[i]);
+		free (ecmdata->mQx); ecmdata->mQx = NULL;
+	}
 }
 
 /* Record the amount of memory being used by this thread.  Until we get to stage 2, ECM uses 9 gwnums (x, z, AD4, 6 for ell_mul). */
@@ -2881,6 +2951,8 @@ restart:
 /* Other initialization */
 
 	PRAC_SEARCH = IniGetInt (INI_FILE, "PracSearch", 7);
+	if (PRAC_SEARCH < 1) PRAC_SEARCH = 1;
+	if (PRAC_SEARCH > 50) PRAC_SEARCH = 50;
 
 /* Clear all timers */
 
@@ -3533,10 +3605,15 @@ replan:	//GW: does replan work, it was not here before and does not have the per
 		goto exit;
 	}
 
+/* Option to control caching of free gwnums */
+
+	ecmdata.gwdata.gwnum_max_free_count = IniGetInt (INI_FILE, "ECMFreeCache", 10);
+
 /* Record the amount of memory this thread will be using in stage 2. */
 
 	memused = cvt_gwnums_to_mem (&ecmdata.gwdata, ecmdata.stage2_numvals);
 	if (set_memory_usage (thread_num, MEM_VARIABLE_USAGE, memused)) goto replan;
+	gw_set_max_allocs (&ecmdata.gwdata, ecmdata.stage2_numvals);
 
 /* Output a useful message regarding memory usage and ECM stage 2 implementation */
 
@@ -3559,18 +3636,15 @@ replan:	//GW: does replan work, it was not here before and does not have the per
 	// Calculate the percent completed by previous bit arrays and the current bit array
 	w->pct_complete = base_pct_complete + (double) (ecmdata.Dsection * ecmdata.totrels) * one_bit_pct;
 
-/* Allocate nQx array of pointers to gwnums */
+/* Allocate nQx array of pointers to gwnums for the relative primes data */
 
 	ecmdata.nQx = (gwnum *) malloc (ecmdata.totrels * sizeof (gwnum));
 	if (ecmdata.nQx == NULL) goto oom;
 
-/* Allocate memory for the pooling arrays of pointers to gwnums */
+/* Allocate memory for modular inverse pooling */
 
-	gw_set_max_allocs (&ecmdata.gwdata, ecmdata.stage2_numvals);
-	ecmdata.pool_values = (gwnum *) malloc ((ecmdata.stage2_numvals - ecmdata.totrels) * sizeof (gwnum));
-	if (ecmdata.pool_values == NULL) goto oom;
-	ecmdata.poolz_values = (gwnum *) malloc ((ecmdata.stage2_numvals - ecmdata.totrels) * sizeof (gwnum));
-	if (ecmdata.poolz_values == NULL) goto oom;
+	stop_reason = normalize_pool_init (&ecmdata, ecmdata.stage2_numvals - ecmdata.totrels);
+	if (stop_reason) goto exit;
 
 /* We have two approaches for computing nQx, if memory is really tight we compute every odd multiple of x. */
 /* Otherwise, if D is divisible by 3 we compute the 1,5 mod 6 multiples which reduces initialization cost by 33%. */
@@ -3588,8 +3662,9 @@ replan:	//GW: does replan work, it was not here before and does not have the per
 		if (ecmdata.nQx[0] == NULL) goto oom;
 		gwfft (&ecmdata.gwdata, Q1->x, ecmdata.nQx[0]);
 		if (ecmdata.state == ECM_STATE_MIDSTAGE) {
-			stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[0], Q1->z);
+			stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[0], Q1->z, &factor);
 			if (stop_reason) goto exit;
+			if (factor != NULL) goto bingo;
 		}
 		totrels = 1;
 
@@ -3620,8 +3695,9 @@ replan:	//GW: does replan work, it was not here before and does not have the per
 				ecmdata.nQx[totrels] = gwalloc (&ecmdata.gwdata);
 				if (ecmdata.nQx[totrels] == NULL) goto oom;
 				gwfft (&ecmdata.gwdata, Qi->x, ecmdata.nQx[totrels]);
-				stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[totrels], Qi->z);
+				stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[totrels], Qi->z, &factor);
 				if (stop_reason) goto exit;
+				if (factor != NULL) goto bingo;
 				totrels++;
 			}
 
@@ -3702,8 +3778,9 @@ replan:	//GW: does replan work, it was not here before and does not have the per
 		if (ecmdata.nQx[0] == NULL) goto oom;
 		gwfft (&ecmdata.gwdata, Q1->x, ecmdata.nQx[0]);
 		if (ecmdata.state == ECM_STATE_MIDSTAGE) {
-			stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[0], Q1->z);
+			stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[0], Q1->z, &factor);
 			if (stop_reason) goto exit;
+			if (factor != NULL) goto bingo;
 		}
 		totrels = 1;
 
@@ -3732,8 +3809,9 @@ replan:	//GW: does replan work, it was not here before and does not have the per
 			ecmdata.nQx[totrels] = gwalloc (&ecmdata.gwdata);
 			if (ecmdata.nQx[totrels] == NULL) goto oom;
 			gwfft (&ecmdata.gwdata, Q5->x, ecmdata.nQx[totrels]);
-			stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[totrels], Q5->z);
+			stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[totrels], Q5->z, &factor);
 			if (stop_reason) goto exit;
+			if (factor != NULL) goto bingo;
 			totrels++;
 		}
 
@@ -3763,8 +3841,9 @@ replan:	//GW: does replan work, it was not here before and does not have the per
 				ecmdata.nQx[totrels] = gwalloc (&ecmdata.gwdata);
 				if (ecmdata.nQx[totrels] == NULL) goto oom;
 				gwfft (&ecmdata.gwdata, Q1mod6->x, ecmdata.nQx[totrels]);
-				stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[totrels], Q1mod6->z);
+				stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[totrels], Q1mod6->z, &factor);
 				if (stop_reason) goto exit;
+				if (factor != NULL) goto bingo;
 				totrels++;
 			}
 
@@ -3772,8 +3851,9 @@ replan:	//GW: does replan work, it was not here before and does not have the per
 				ecmdata.nQx[totrels] = gwalloc (&ecmdata.gwdata);
 				if (ecmdata.nQx[totrels] == NULL) goto oom;
 				gwfft (&ecmdata.gwdata, Q5mod6->x, ecmdata.nQx[totrels]);
-				stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[totrels], Q5mod6->z);
+				stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[totrels], Q5mod6->z, &factor);
 				if (stop_reason) goto exit;
+				if (factor != NULL) goto bingo;
 				totrels++;
 			}
 
@@ -4027,14 +4107,12 @@ replan:	//GW: does replan work, it was not here before and does not have the per
 /* Move nQx[0] to xz.x in case GCD code calls ecm_save.  Free lots of other stage 2 data. */
 
 	mQ_term (&ecmdata);
+	normalize_pool_term (&ecmdata);
 	xz.x = ecmdata.nQx[0];
 	for (i = 1; i < ecmdata.totrels; i++) gwfree (&ecmdata.gwdata, ecmdata.nQx[i]);
 	free (ecmdata.nQx); ecmdata.nQx = NULL;
-//GW: create a pool_term routine to hide pool innards
-	free (ecmdata.pool_values); ecmdata.pool_values = NULL;
-	for (i = 0; i < ecmdata.pool_count; i++) gwfree (&ecmdata.gwdata, ecmdata.poolz_values[i]);
-	free (ecmdata.poolz_values); ecmdata.poolz_values = NULL;
 	free (ecmdata.bitarray); ecmdata.bitarray = NULL;
+	ecm_stage1_memory_usage (thread_num, &ecmdata);		// With the default 10 freed gwnums cached, this should be close to the correct mem usage
 
 /* Compute the new Kruppa-adjusted B2 work completed.  This is needed when curves are run with different optimal B2 values due to */
 /* changing available memory.  The Primenet server expects just one B2 value representing the work done. */
@@ -4085,7 +4163,6 @@ restart4:
 
 more_curves:
 	gwfreeall (&ecmdata.gwdata);
-	ecm_stage1_memory_usage (thread_num, &ecmdata);
 	if (++ecmdata.curve <= w->curves_to_do) goto restart0;
 
 /* Output line to results file indicating the number of curves run */
