@@ -418,7 +418,9 @@ void *x87_prctab[] = { x87_explode(array_entry) NULL };
 /* More #defines */
 
 #define	GWINIT_WAS_CALLED_VALUE	0xAA12BB34	/* Special value checked by gwsetup to ensure gwinit was called */
-#define GWFREED_TEMPORARILY	0x80000000	/* Special flag value set in the gwnum freeable field */
+#define GWFREEABLE		0x80000000	/* Flag set in the gwnum freeable field indicating aligned_free will work */
+#define GWFREED_TEMPORARILY	0x40000000	/* Special flag value set in the gwnum freeable field */
+#define GWFREEALLOC_INDEX	0x3FFFFFFF	/* Remainder of the freeable field -- index into the gwnum_alloc array */
 
 /* Forward declarations */
 
@@ -2043,6 +2045,7 @@ void gwinit2 (
 	gwdata->use_irrational_general_mod = 0;
 	gwdata->use_large_pages = 0;
 	gwdata->use_benchmarks = 1;
+	gwdata->gwnum_max_free_count = 10;
 	gwdata->mem_needed = GWINIT_WAS_CALLED_VALUE;	/* Special code checked by gwsetup to ensure gwinit was called */
 
 /* Init structure that allows giants and gwnum code to share allocated memory */
@@ -6522,7 +6525,7 @@ void gwdone (
 			char	*p;
 			int32_t	freeable;
 			p = (char *) gwdata->gwnum_alloc[i];
-			freeable = * (int32_t *) (p - 32) & ~GWFREED_TEMPORARILY;
+			freeable = * (int32_t *) (p - 32) & GWFREEABLE;
 			if (freeable) aligned_free ((char *) p - GW_HEADER_SIZE);
 		}
 		free (gwdata->gwnum_alloc);
@@ -6608,14 +6611,14 @@ gwnum gwalloc (
 	else if (size >= 0x400000 && gwdata->gwnum_alloc_count == 0) {
 		p = (char *) aligned_offset_malloc (size + GW_HEADER_SIZE, 0x400000, (GW_HEADER_SIZE - gwdata->GW_ALIGNMENT_MOD) & 0x3FFFFF);
 		if (p == NULL) return (NULL);
-		freeable = 1;
+		freeable = GWFREEABLE;
 	}
 #endif
 	else {
 		p = (char *) aligned_offset_malloc (size + GW_HEADER_SIZE, gwdata->GW_ALIGNMENT,
 						    (GW_HEADER_SIZE - gwdata->GW_ALIGNMENT_MOD) & (gwdata->GW_ALIGNMENT - 1));
 		if (p == NULL) return (NULL);
-		freeable = 1;
+		freeable = GWFREEABLE;
 	}
 
 /* Do a seemingly pointless memset!  This actually is very important. */
@@ -6631,10 +6634,10 @@ gwnum gwalloc (
 
 /* Initialize the header */
 
-	* (uint32_t *) (q - 8) = size;	/* Size in bytes */
-	* (uint32_t *) (q - 4) = 1;	/* Unnormalized adds count */
-	* (uint32_t *) (q - 28) = 0;	/* Has-been-pre-ffted flag */
-	* (int32_t *) (q - 32) = freeable; /* Mem should be freed flag */
+	* (uint32_t *) (q - 8) = size;					/* Size in bytes */
+	* (uint32_t *) (q - 4) = 1;					/* Unnormalized adds count */
+	* (uint32_t *) (q - 28) = 0;					/* Has-been-pre-ffted flag */
+	* (int32_t *) (q - 32) = freeable + gwdata->gwnum_alloc_count;	/* Mem should be freed flag / gwnum_alloc index */
 	* (double *) (q - 16) = 0.0;
 	* (double *) (q - 24) = 0.0;
 
@@ -6647,14 +6650,52 @@ gwnum gwalloc (
 	return ((gwnum) q);
 }
 
-/* Free one of our special numbers */
+/* Internal routine to really free a gwnum */
+
+void gwfree_freeable (
+	gwhandle *gwdata,
+	gwnum	q)
+{
+	gwnum	moved_gwnum;
+	int32_t	freeable, alloc_index;
+
+	ASSERTG (* (int32_t *) ((char *) q - 32) & GWFREEABLE);
+	ASSERTG (! (* (int32_t *) ((char *) q - 32) & GWFREED_TEMPORARILY));
+
+	// Move the last entry in the gwnum_alloc array to the slot we are about to free
+	alloc_index = * (int32_t *) ((char *) q - 32) & GWFREEALLOC_INDEX;
+	moved_gwnum = gwdata->gwnum_alloc[--gwdata->gwnum_alloc_count];
+	gwdata->gwnum_alloc[alloc_index] = moved_gwnum;
+	// Patch the alloc_index of the moved gwnum
+	freeable = * (int32_t *) ((char *) moved_gwnum - 32);
+	freeable &= ~GWFREEALLOC_INDEX;
+	freeable |= alloc_index;
+	* (int32_t *) ((char *) moved_gwnum - 32) = freeable;
+	// Free the gwnum
+	aligned_free ((char *) q - GW_HEADER_SIZE);
+}
+
+/* Free or cache a gwnum */
 
 void gwfree (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	q)		/* Number to free */
 {
-	if (gwdata->gwnum_free != NULL && q != NULL)
-		gwdata->gwnum_free[gwdata->gwnum_free_count++] = q;
+	if (q == NULL) return;
+
+/* Free the gwnum if it is freeable and we've cached enough free gwnums */
+
+	if (gwdata->gwnum_free_count >= gwdata->gwnum_max_free_count) {
+		int32_t	freeable = * (int32_t *) ((char *) q - 32);
+		if ((freeable & GWFREEABLE) && !(freeable & GWFREED_TEMPORARILY)) {
+			gwfree_freeable (gwdata, q);
+			return;
+		}
+	}
+
+/* Cache the gwnum for quicker gwallocs in the future */
+
+	gwdata->gwnum_free[gwdata->gwnum_free_count++] = q;
 }
 
 /* Typeless gwalloc and gwfree routines for giants code to call */
@@ -6678,25 +6719,21 @@ void gwgiantdealloc (
 	void	*gwdata_arg)
 {
 	gwhandle *gwdata;
-	gwnum	p;
-	int32_t	freeable;
-	unsigned long i, j;
+	unsigned long i;
 
 	gwdata = (gwhandle *) gwdata_arg;
 	for (i = 0; i < gwdata->gwnum_free_count; i++) {
-		p = gwdata->gwnum_free[i];
-		freeable = * (int32_t *) ((char *) p - 32);
+		gwnum	q = gwdata->gwnum_free[i];
+		int32_t	freeable = * (int32_t *) ((char *) q - 32);
 		if (freeable & GWFREED_TEMPORARILY) continue;
-		if (!freeable) continue;
+		if (!(freeable & GWFREEABLE)) continue;
 
-		for (j = 0; j < gwdata->gwnum_alloc_count; j++) {
-			if (gwdata->gwnum_alloc[j] != p) continue;
+		// Remove entry from gwnum_free array
+		gwdata->gwnum_free[i] = gwdata->gwnum_free[--gwdata->gwnum_free_count];
 
-			aligned_free ((char *) p - GW_HEADER_SIZE);
-			gwdata->gwnum_free[i] = gwdata->gwnum_free[--gwdata->gwnum_free_count];
-			gwdata->gwnum_alloc[j] = gwdata->gwnum_alloc[--gwdata->gwnum_alloc_count];
-			return;
-		}
+		// Really free the gwnum
+		gwfree_freeable (gwdata, q);
+		break;
 	}
 }
 
@@ -6733,26 +6770,24 @@ void gwfreeall (
 	gwhandle *gwdata)	/* Handle initialized by gwsetup */
 {
 	unsigned int i;
-	char	*p;
-	int32_t	freeable;
 
-/* Go through the allocated list and free any user allocated gwnums that */
-/* are freeable.  In other words, unless the user is using the BIGBUF */
-/* kludge, free all possible memory. */
+/* Go through the allocated list and free any user allocated gwnums that are freeable. */
+/* In other words, unless the user is using the BIGBUF kludge, free all possible memory. */
 
 	gwdata->gwnum_free_count = 0;
 	for (i = 0; i < gwdata->gwnum_alloc_count; i++) {
-		if (gwdata->gwnum_alloc[i] == gwdata->GW_MODULUS_FFT) continue;
-		if (gwdata->gwnum_alloc[i] == gwdata->GW_RECIP_FFT) continue;
-		if (gwdata->gwnum_alloc[i] == gwdata->GW_RANDOM) continue;
-		p = (char *) gwdata->gwnum_alloc[i];
-		freeable = * (int32_t *) (p - 32) & ~GWFREED_TEMPORARILY;
-		if (freeable) {
-			aligned_free ((char *) p - GW_HEADER_SIZE);
-			gwdata->gwnum_alloc[i--] = gwdata->gwnum_alloc[--gwdata->gwnum_alloc_count];
+		gwnum	q = gwdata->gwnum_alloc[i];
+		if (q == gwdata->GW_MODULUS_FFT) continue;
+		if (q == gwdata->GW_RECIP_FFT) continue;
+		if (q == gwdata->GW_RANDOM) continue;
+		if (* (int32_t *) ((char *) q - 32) & GWFREEABLE) {
+			// Really free the gwnum
+			gwfree_freeable (gwdata, q);
+			// Compensate for the gwnum that was moved to the current gwnum_alloc slot
+			i--;
 		}
 		else
-			gwdata->gwnum_free[gwdata->gwnum_free_count++] = gwdata->gwnum_alloc[i];
+			gwdata->gwnum_free[gwdata->gwnum_free_count++] = q;
 	}
 }
 

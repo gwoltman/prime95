@@ -290,7 +290,7 @@ void gwdone (
 gwnum gwalloc (
 	gwhandle *gwdata);	/* Handle initialized by gwsetup */
 
-/* Free a previously allocated gwnum */
+/* Free (or cache) a previously allocated gwnum.  gwdata->gwnum_max_free_count (default 10) gwnums are cached. */
 void gwfree (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	val);		/* Gwnum to free */
@@ -610,12 +610,10 @@ void gwfft_description (gwhandle *, char *buf);
 /* does not include the GW_HEADER_SIZE bytes for the header or any pad */
 /* bytes that might be allocated for alignment.  I see little need for */
 /* a program to use this routine. */
-
 unsigned long gwnum_datasize (gwhandle *);
 
 /* Get the amount of memory likely to be allocated a gwnum.  This includes */
 /* FFT data, headers, and pad bytes for alignment. */
-
 unsigned long gwnum_size (gwhandle *);
 
 /* Get the fixed amount of memory allocated during gwsetup.  Programs can */
@@ -1001,6 +999,7 @@ struct gwhandle_struct {
 	unsigned int gwnum_alloc_array_size; /* Size of gwnum_alloc array */
 	gwnum	*gwnum_free;		/* Array of available gwnums */
 	unsigned int gwnum_free_count;	/* Count of available gwnums */
+	unsigned int gwnum_max_free_count; /* Count of free gwnums that should be cached (default is 10) */
 	size_t	GW_BIGBUF_SIZE;		/* Size of the optional buffer */
 	char	*GW_BIGBUF;		/* Optional buffer to allocate gwnums in */
 	void	*large_pages_ptr;	/* Pointer to the lage pages memory block we allocated. */
