@@ -10,7 +10,7 @@
  *	Other important ideas courtesy of Peter Montgomery and Mihai Preda.
  *
  *	c. 1997 Perfectly Scientific, Inc.
- *	c. 1998-2020 Mersenne Research, Inc.
+ *	c. 1998-2021 Mersenne Research, Inc.
  *	All Rights Reserved.
  *
  *************************************************************/
@@ -3643,7 +3643,7 @@ replan:	//GW: does replan work, it was not here before and does not have the per
 
 /* Allocate memory for modular inverse pooling */
 
-	stop_reason = normalize_pool_init (&ecmdata, ecmdata.stage2_numvals - ecmdata.totrels);
+	stop_reason = normalize_pool_init (&ecmdata, _intmax (ecmdata.stage2_numvals - ecmdata.totrels, ecmdata.totrels));
 	if (stop_reason) goto exit;
 
 /* We have two approaches for computing nQx, if memory is really tight we compute every odd multiple of x. */
