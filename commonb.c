@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2020 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2021 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
@@ -132,7 +132,7 @@ gwevent MEM_WAIT_OR_STOP[MAX_NUM_WORKER_THREADS] = {0};
 
 /* Globals for memory manager */
 
-#define DEFAULT_MEM_USAGE 24	/* 24MB default */
+#define DEFAULT_MEM_USAGE 48	/* 48MB default */
 unsigned long AVAIL_MEM = 0;	/* Memory available now */
 unsigned long MAX_MEM = 0;	/* Max memory available */
 unsigned long AVAIL_MEM_PER_WORKER[MAX_NUM_WORKER_THREADS] = {0};
@@ -1115,8 +1115,7 @@ void clear_memory_restart_flags (
 	MEM_RESTART_FLAGS[thread_num] = 0;
 }
 
-/* Set thread to default memory usage.  For now, this is 24MB -- roughly */
-/* the amount of memory used by LL test using a 2.5M FFT. */
+/* Set thread to default memory usage.  For now, this is 48MB -- roughly the amount of memory used by LL test using a 5M FFT. */
 
 void set_default_memory_usage (
 	int	thread_num)
@@ -1497,16 +1496,16 @@ int avail_mem (
 
 	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
 		if (i == thread_num) continue;
-		if (MEM_FLAGS[i] & MEM_USAGE_NOT_SET ||
-		    MEM_FLAGS[i] & MEM_RESTARTING) {
+		if (MEM_FLAGS[i] & MEM_USAGE_NOT_SET || MEM_FLAGS[i] & MEM_RESTARTING) {
 			gwmutex_unlock (&MEM_MUTEX);
 			gwevent_init (&MEM_WAIT_OR_STOP[thread_num]);
 			gwevent_reset (&MEM_WAIT_OR_STOP[thread_num]);
 			MEM_WAIT_OR_STOP_INITIALIZED[thread_num] = 1;
-			gwevent_wait (&MEM_WAIT_OR_STOP[thread_num], 20 + thread_num);
+			gwevent_wait (&MEM_WAIT_OR_STOP[thread_num], 5 + thread_num);
 			MEM_WAIT_OR_STOP_INITIALIZED[thread_num] = 0;
 			gwevent_destroy (&MEM_WAIT_OR_STOP[thread_num]);
 			gwmutex_lock (&MEM_MUTEX);
+			break;
 		}
 	}
 
