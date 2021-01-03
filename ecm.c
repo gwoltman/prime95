@@ -2539,19 +2539,19 @@ void ecm_choose_B2 (
 int ecm_stage2_impl (
 	ecmhandle *ecmdata)
 {
-	unsigned int memory;			/* MB of memory we can use */
+	unsigned int memory, min_memory, desired_memory;	/* Memory is in MB */
 	int	numvals;			/* Number of gwnums we can allocate */
 	struct ecm_stage2_cost_data cost_data;	/* Extra data passed returned from ECM costing function */
 	int	stop_reason;
 
-/* Get available memory.  We need 13 gwnums to do the smallest stage 2.  We assume 120 gwnums */
-/* will allow us to do a reasonable efficient stage 2 implementation. */
+/* Get available memory.  We need 13 gwnums to do the smallest stage 2. */
+/* If continuing from a stage 2 save file then we desire as many temporaries as the save file used.  Otherwise, assume 120 temporaries will */
+/* allow us to do a reasonable efficient stage 2 implementation. */
 //gw: is 120 reasonable?
 
-	stop_reason = avail_mem (ecmdata->thread_num,
-				 cvt_gwnums_to_mem (&ecmdata->gwdata, 13),
-				 cvt_gwnums_to_mem (&ecmdata->gwdata, 120),
-				 &memory);
+	min_memory = cvt_gwnums_to_mem (&ecmdata->gwdata, 13);
+	desired_memory = cvt_gwnums_to_mem (&ecmdata->gwdata, ecmdata->state >= ECM_STATE_STAGE2 ? ecmdata->stage2_numvals : 120);
+	stop_reason = avail_mem (ecmdata->thread_num, min_memory, desired_memory, &memory);
 	if (stop_reason) return (stop_reason);
 	if (memory < 8) memory = 8;
 
@@ -5171,17 +5171,18 @@ void pm1_choose_B2 (
 int pm1_stage2_impl (
 	pm1handle *pm1data)
 {
+	unsigned int memory, min_memory, desired_memory;	/* Memory is in MB */
+	int	numvals;			/* Number of gwnums we can allocate */
 	struct pm1_stage2_cost_data cost_data;
-	unsigned int memory, min_memory, desired_memory;		/* Memory is in MB */
-	int	numvals;
 	int	stop_reason;
 
 /* Calculate the number of temporaries we can use in stage 2.  Base our decision on the current amount of memory available. */
-/* Assume 28 temporaries will provide us with a reasonable execution speed (D = 210).  We must have a minimum of 8 temporaries (D = 30). */
+/* If continuing from a stage 2 save file then we desire as many temporaries as the save file used.  Otherwise, assume 28 temporaries will */
+/* provide us with a reasonable execution speed (D = 210).  We must have a minimum of 8 temporaries (D = 30). */
 
 //GW: ecm_stage2_impl does this differently
 	min_memory = cvt_gwnums_to_mem (&pm1data->gwdata, 8);
-	desired_memory = cvt_gwnums_to_mem (&pm1data->gwdata, 28);
+	desired_memory = cvt_gwnums_to_mem (&pm1data->gwdata, pm1data->state >= PM1_STATE_STAGE2 ? pm1data->stage2_numvals : 28);
 	stop_reason = avail_mem (pm1data->thread_num, min_memory, desired_memory, &memory);
 	if (stop_reason) return (stop_reason);
 
