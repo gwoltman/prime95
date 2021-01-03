@@ -10,7 +10,7 @@
  *	Other important ideas courtesy of Peter Montgomery and Mihai Preda.
  *
  *	c. 1997 Perfectly Scientific, Inc.
- *	c. 1998-2021 Mersenne Research, Inc.
+ *	c. 1998-2020 Mersenne Research, Inc.
  *	All Rights Reserved.
  *
  *************************************************************/
@@ -1887,7 +1887,7 @@ void normalize_pool_term (
 
 /* This is an interesting bit of code with a variety of algorithms available.  Assuming there are N pairs to normalize, then you can: */
 /* 1) Use 2*N memory and 3 multiplies per point. */
-/* 2) Use 1.5*N memory and 3.33 multiplies per point. */
+/* 2) Use 2*N memory and 3 multiplies per point. */
 /* 3) Use 1.25*N memory and use 3.5 multiplies per point. */
 /* 4) Use N memory and use O(N^2) multiplies per point. */
 
@@ -1902,7 +1902,7 @@ int add_to_normalize_pool (
 
 	switch (ecmdata->pool_type) {
 
-/* Implement algorithm 1 above */
+/* Implement algorithm 2 above */
 
 	case POOL_3MULT:
 
@@ -2011,7 +2011,7 @@ int normalize_pool (
 
 	switch (ecmdata->pool_type) {
 
-/* Implement algorithm 1 above */
+/* Implement algorithm 2 above */
 
 	case POOL_3MULT:
 		for (i = ecmdata->pool_count-1; ; i--) {
@@ -2220,7 +2220,6 @@ int mQ_next (
 		if (stop_reason) return (stop_reason);
 		if (*factor != NULL) return (0);
 	}
-//GW:  Free these as we use them???
 	*retx = ecmdata->mQx[ecmdata->E - ecmdata->mQx_count];
 	ecmdata->mQx_count--;
 	return (0);
@@ -3605,10 +3604,6 @@ replan:	//GW: does replan work, it was not here before and does not have the per
 		goto exit;
 	}
 
-/* Option to control caching of free gwnums */
-
-	ecmdata.gwdata.gwnum_max_free_count = IniGetInt (INI_FILE, "ECMFreeCache", 10);
-
 /* Record the amount of memory this thread will be using in stage 2. */
 
 	memused = cvt_gwnums_to_mem (&ecmdata.gwdata, ecmdata.stage2_numvals);
@@ -3636,14 +3631,14 @@ replan:	//GW: does replan work, it was not here before and does not have the per
 	// Calculate the percent completed by previous bit arrays and the current bit array
 	w->pct_complete = base_pct_complete + (double) (ecmdata.Dsection * ecmdata.totrels) * one_bit_pct;
 
-/* Allocate nQx array of pointers to gwnums for the relative primes data */
+/* Allocate nQx array of pointers to relative prime gwnums */
 
 	ecmdata.nQx = (gwnum *) malloc (ecmdata.totrels * sizeof (gwnum));
 	if (ecmdata.nQx == NULL) goto oom;
 
 /* Allocate memory for modular inverse pooling */
 
-	stop_reason = normalize_pool_init (&ecmdata, _intmax (ecmdata.stage2_numvals - ecmdata.totrels, ecmdata.totrels));
+	stop_reason = normalize_pool_init (&ecmdata, ecmdata.stage2_numvals - ecmdata.totrels);
 	if (stop_reason) goto exit;
 
 /* We have two approaches for computing nQx, if memory is really tight we compute every odd multiple of x. */
