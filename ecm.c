@@ -2555,9 +2555,11 @@ int ecm_stage2_impl (
 	if (stop_reason) return (stop_reason);
 	if (memory < 8) memory = 8;
 
-/* Figure out how many gwnum values fit in our memory limit. */
+/* Figure out how many gwnum values fit in our memory limit.  User nordi had over-allocating memory troubles on Linux testing M1277, presumably */
+/* because our estimate genum size was too low.  As a work-around limit numvals to 100,000 by default. */
 
 	numvals = cvt_mem_to_gwnums (&ecmdata->gwdata, memory);
+	if (numvals > 100000) numvals = 100000;
 //GW: Return "no B2" rather than assert
 	ASSERTG (numvals >= 13);
 
@@ -2610,12 +2612,12 @@ int ecm_stage2_impl (
 	ecmdata->B2_start = cost_data.B2_start;
 	ecmdata->numDsections = cost_data.numDsections;
 	ecmdata->bitarraymaxDsections = cost_data.bitarraymaxDsections;
+	ecmdata->Dsection = 0;
 
 	if (ecmdata->state < ECM_STATE_STAGE2) {
 		ecmdata->first_relocatable = ecmdata->B;
 		ecmdata->last_relocatable = ecmdata->B2_start;
 		ecmdata->C_done = ecmdata->B2_start;
-		ecmdata->Dsection = 0;
 	}
 
 /* Once the plan is selected, create a bit array maximizing the prime pairings. */
@@ -3607,6 +3609,7 @@ replan:	//GW: does replan work, it was not here before and does not have the per
 /* Record the amount of memory this thread will be using in stage 2. */
 
 	memused = cvt_gwnums_to_mem (&ecmdata.gwdata, ecmdata.stage2_numvals);
+	memused += (_intmin (ecmdata.numDsections - ecmdata.bitarrayfirstDsection, ecmdata.bitarraymaxDsections) * ecmdata.totrels) >> 23;
 	if (set_memory_usage (thread_num, MEM_VARIABLE_USAGE, memused)) goto replan;
 	gw_set_max_allocs (&ecmdata.gwdata, ecmdata.stage2_numvals);
 
@@ -5198,10 +5201,12 @@ int pm1_stage2_impl (
 		OutputStr (pm1data->thread_num, buf);
 	}
 
-/* Compute the number of gwnum temporaries we can allocate. */
+/* Compute the number of gwnum temporaries we can allocate.  User nordi had over-allocating memory troubles on Linux testing M1277, presumably */
+/* because our estimate genum size was too low.  As a work-around limit numvals to 100,000 by default. */
 
 	numvals = cvt_mem_to_gwnums (&pm1data->gwdata, memory);
 	if (numvals < 1) numvals = 1;
+	if (numvals > 100000) numvals = 100000;
 	if (QA_TYPE) numvals = QA_TYPE;			/* Optionally override numvals for QA purposes */
 
 /* Set C_done for future best_stage2_impl calls. */
@@ -5260,12 +5265,12 @@ int pm1_stage2_impl (
 	pm1data->B2_start = cost_data.B2_start;
 	pm1data->numDsections = cost_data.numDsections;
 	pm1data->bitarraymaxDsections = cost_data.bitarraymaxDsections;
+	pm1data->Dsection = 0;
 
 	if (pm1data->state < PM1_STATE_STAGE2) {
 		pm1data->first_relocatable = pm1data->first_C_start;
 		pm1data->last_relocatable = pm1data->B2_start;
 		pm1data->C_done = pm1data->B2_start;
-		pm1data->Dsection = 0;
 	}
 
 /* Create a bitmap maximizing the prime pairings */
@@ -6005,6 +6010,7 @@ replan:	{
 /* Record the amount of memory this thread will be using in stage 2. */
 
 	memused = cvt_gwnums_to_mem (&pm1data.gwdata, pm1data.stage2_numvals);
+	memused += (_intmin (pm1data.numDsections - pm1data.bitarrayfirstDsection, pm1data.bitarraymaxDsections) * pm1data.totrels) >> 23;
 	if (set_memory_usage (thread_num, MEM_VARIABLE_USAGE, memused)) goto replan;
 
 /* Output a useful message regarding memory usage */
