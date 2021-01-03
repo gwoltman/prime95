@@ -5,7 +5,7 @@
 | in the multi-precision arithmetic routines.  That is, all routines
 | that deal with the gwnum data type.
 | 
-|  Copyright 2002-2020 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2021 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -1659,8 +1659,7 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 
 /* Set more info so that addr_offset called from gwmap_to_estimated_size can work without a call to gwsetup. */
 
-	gwdata->GW_ALIGNMENT = 4096;	/* Guess an alignment so gwsize can return a reasonable value for */
-					/* large page support in gwsetup */
+	gwdata->GW_ALIGNMENT = 4096;	/* Guess an alignment so gwnum_size can return a reasonable value for large page support in gwsetup */
 
 /* Calculate the scratch area size -- needed by gwmemused without calling gwsetup */
 
@@ -4738,7 +4737,7 @@ int internal_gwsetup (
 	} else {
 		if (gwdata->PASS2_SIZE == 0)		/* One pass */
 			gwdata->GW_ALIGNMENT = 128;	/* P4 cache line alignment */
-		else				/* Two passes */
+		else					/* Two passes */
 			gwdata->GW_ALIGNMENT = 4096;	/* Page alignment */
 		gwdata->GW_ALIGNMENT_MOD = 0;
 	}
@@ -6583,11 +6582,8 @@ gwnum gwalloc (
 		if (gwdata->gwnum_alloc == NULL) return (NULL);
 	}
 
-/* Compute the amount of memory to allocate. */
-/* Allocate 96 extra bytes for header information and align the data */
-/* appropriately.  When allocating memory out of the big buffer for */
-/* the torture test, then only allocate data on 128 byte boundaries */
-/* to maximize the number of gwnums allocated. */
+/* Compute the amount of memory to allocate.  Allocate 96 extra bytes for header information and align the data appropriately. */
+/* When allocating memory out of the big buffer for the torture test, allocate on 128 byte boundaries to maximize the number of gwnums allocated. */
 
 	size = gwnum_datasize (gwdata);
 	aligned_size = (size + GW_HEADER_SIZE + 127) & ~127;
@@ -7083,16 +7079,13 @@ unsigned long gwnum_datasize (
 	return (addr_offset (gwdata, gwdata->FFTLEN - 1) + sizeof (double));
 }
 
-/* Get the amount of memory likely to be allocated a gwnum.  This includes */
-/* FFT data, headers, and pad bytes for alignment. */
+/* Get the amount of memory likely to be allocated for a gwnum.  Looking at the code for aligned_offset_malloc this includes FFT data, header, */
+/* a pointer, pad bytes for alignment, and a little bit for malloc overhead. */
 
 unsigned long gwnum_size (
 	gwhandle *gwdata)	/* Handle initialized by gwsetup */
 {
-	unsigned long mem;
-	mem = gwnum_datasize (gwdata) + GW_HEADER_SIZE;
-	mem += gwdata->GW_ALIGNMENT-1;
-	return (mem - mem % (gwdata->GW_ALIGNMENT));
+	return (gwnum_datasize (gwdata) + GW_HEADER_SIZE + sizeof (void *) + gwdata->GW_ALIGNMENT + 2 * sizeof (void *));
 }
 
 /* Each FFT word is multiplied by a two-to-phi value.  These */
