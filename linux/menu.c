@@ -1,4 +1,4 @@
-/* Copyright 1995-2020 Mersenne Research, Inc. */
+/* Copyright 1995-2021 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -927,6 +927,16 @@ void options_resources (void)
 	can_upload = IniSectionGetInt (INI_FILE, "PrimeNet", "ProofUploads", 1);
 
 	askFloat ("Temporary disk space limit in GB/worker", &m_disk, 0.0, 1000.0);
+	if (m_memory_editable) {
+		float	max_mem;
+		max_mem = (float) (0.9 * physical_memory () / 1024.0);
+		askFloat ("Daytime P-1/ECM stage 2 memory in GB", &m_day_memory, 0.0, max_mem);
+		askFloat ("Nighttime P-1/ECM stage 2 memory in GB", &m_night_memory, 0.0, max_mem);
+		if (m_day_memory != m_night_memory) {
+			askStr ("Daytime begins at", m_start_time, 12);
+			askStr ("Daytime ends at", m_end_time, 12);
+		}
+	}
 	if (can_upload) {
 		askFloat ("Upload bandwidth limit in Mbps", &m_upload_bandwidth, 0.05, 10000.0);
 		askStr ("Upload large files time period start", m_upload_start, 8);
@@ -940,16 +950,6 @@ void options_resources (void)
 		if (max_emergency_mem < 1.0) max_emergency_mem = 1.0;
 		askStr ("Optional directory to hold large temporary files", m_temp_dir, 511);
 		askStr ("Optional directory to hold archived proofs", m_archive_dir, 511);
-		if (m_memory_editable) {
-			float	max_mem;
-			max_mem = (float) (0.9 * physical_memory () / 1024.0);
-			askFloat ("Daytime P-1/ECM stage 2 memory in GB", &m_day_memory, 0.0, max_mem);
-			askFloat ("Nighttime P-1/ECM stage 2 memory in GB", &m_night_memory, 0.0, max_mem);
-			if (m_day_memory != m_night_memory) {
-				askStr ("Daytime begins at", m_start_time, 12);
-				askStr ("Daytime ends at", m_end_time, 12);
-			}
-		}
 		askFloat ("Max emergency memory in GB/worker", &m_emergency_mem, 0.0, max_emergency_mem);
 		askNum ("Priority -- 1 is highly recommended, see readme.txt", &m_priority, 1, 10);
 		if (m_download_mb) {
