@@ -2219,6 +2219,7 @@ int mQ_next (
 		stop_reason = normalize_pool (ecmdata, N, factor);
 		if (stop_reason) return (stop_reason);
 		if (*factor != NULL) return (0);
+		mallocFreeForOS ();
 	}
 	*retx = ecmdata->mQx[ecmdata->E - ecmdata->mQx_count];
 	ecmdata->mQx_count--;
@@ -4110,6 +4111,7 @@ replan:	//GW: does replan work, it was not here before and does not have the per
 	for (i = 1; i < ecmdata.totrels; i++) gwfree (&ecmdata.gwdata, ecmdata.nQx[i]);
 	free (ecmdata.nQx); ecmdata.nQx = NULL;
 	free (ecmdata.bitarray); ecmdata.bitarray = NULL;
+	mallocFreeForOS ();
 	ecm_stage1_memory_usage (thread_num, &ecmdata);		// With the default 10 freed gwnums cached, this should be close to the correct mem usage
 
 /* Compute the new Kruppa-adjusted B2 work completed.  This is needed when curves are run with different optimal B2 values due to */
@@ -4161,6 +4163,7 @@ restart4:
 
 more_curves:
 	gwfreeall (&ecmdata.gwdata);
+	mallocFreeForOS ();
 	if (++ecmdata.curve <= w->curves_to_do) goto restart0;
 
 /* Output line to results file indicating the number of curves run */
