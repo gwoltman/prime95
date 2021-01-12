@@ -4864,8 +4864,6 @@ int pm1_old_restore (
 		*gg = gwalloc (&pm1data->gwdata);
 		if (*gg == NULL) goto readerr;
 		if (! read_gwnum (fd, &pm1data->gwdata, *gg, &sum)) goto readerr;
-		gwfree (&pm1data->gwdata, *gg);
-		*gg = NULL;
 	}
 
 /* Read and compare the checksum */
