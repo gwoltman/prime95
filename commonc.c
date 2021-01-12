@@ -2763,8 +2763,8 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		w->work_type = WORK_PMINUS1;
 		if (countCommas (value) <= 4) {
 			sscanf (value, "%ld", &w->n);
-			if ((q = strchr (value, ',')) == NULL)
-				goto illegal_line;
+			if (w->n == 1) goto illegal_line;	// Catch inadvertent missing B2 value.  A user tried this "Pminus1=N/A,1,2,15511381,-1,1500000".
+			if ((q = strchr (value, ',')) == NULL) goto illegal_line;
 			w->B1 = atof (q+1);
 			if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
 			w->B2 = atof (q+1);
