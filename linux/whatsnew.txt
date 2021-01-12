@@ -5,7 +5,7 @@ New features in Version 30.4 of mprime
 2) Faster ECM stage 1 and stage 2.
 3) Gwnum library overhauled.  Many functions deprecated.  Replaced by more powerful gwmul3.  New functions
    that compute (a+b)*c and (a-b)*c with less memory accesses.  Faster conversion to and from binary.
-4) ECM and P-1 can choose the find B2 value for the amount of memory prime95 is allowed to use.  For ECM,
+4) ECM and P-1 can find the best B2 value for the amount of memory prime95 is allowed to use.  For ECM,
    this happens when the worktodo.txt line sets B2=100*B1 which is the default assignment from the PrimeNet
    server.  For P-1, the best B2 is chosen when the worktodo.txt line specifies the trial factoring depth.
    For example, "Pminus1=1,2,20000003,-1,500000,0,70" chooses the best B2 bound for B1=500000 given that
