@@ -2753,63 +2753,40 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		}
 	    }
 
-/* Handle Pminus1 lines:  Old style:				*/
-/*	Pminus1=exponent,B1,B2,plus1[,B2_start]			*/
-/* New style is:						*/
+/* Handle Pminus1 lines:						*/
 /*	Pminus1=k,b,n,c,B1,B2[,how_far_factored][,B2_start][,"factors"] */
 
 	    else if (_stricmp (keyword, "Pminus1") == 0) {
 		char	*q;
 		w->work_type = WORK_PMINUS1;
-		if (countCommas (value) <= 4) {
-			sscanf (value, "%ld", &w->n);
-			if (w->n == 1) goto illegal_line;	// Catch inadvertent missing B2 value.  A user tried this "Pminus1=N/A,1,2,15511381,-1,1500000".
-			if ((q = strchr (value, ',')) == NULL) goto illegal_line;
-			w->B1 = atof (q+1);
-			if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-			w->B2 = atof (q+1);
-			if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-			sscanf (q+1, "%ld", &w->c);
-			q = strchr (q+1, ',');
-			if (w->c == 0) w->c = -1; /* old plus1 arg */
-			if (q != NULL) {
-				double j;
-				j = atof (q+1);
-				if (j > w->B1) w->B2_start = j;
-			}
-		} else {
-			w->k = atof (value);
-			if ((q = strchr (value, ',')) == NULL)
-				goto illegal_line;
-			sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
-			for (i = 1; i <= 3; i++)
-				if ((q = strchr (q+1, ',')) == NULL)
-					goto illegal_line;
-			w->B1 = atof (q+1);
-			if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-			w->B2 = atof (q+1);
-			q = strchr (q+1, ',');
-			w->sieve_depth = 0.0;
-			if (q != NULL && q[1] != '"') {
-				double	j;
-				j = atof (q+1);
-				if (j < 100.0) {
-					w->sieve_depth = j;
-					q = strchr (q+1, ',');
-				}
-			}
-			w->B2_start = 0;
-			if (q != NULL && q[1] != '"') {
-				double	j;
-				j = atof (q+1);
-				if (j > w->B1) w->B2_start = j;
+		w->k = atof (value);
+		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
+		sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
+		for (i = 1; i <= 3; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+		w->B1 = atof (q+1);
+		if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+		w->B2 = atof (q+1);
+		q = strchr (q+1, ',');
+		w->sieve_depth = 0.0;
+		if (q != NULL && q[1] != '"') {
+			double	j;
+			j = atof (q+1);
+			if (j < 100.0) {
+				w->sieve_depth = j;
 				q = strchr (q+1, ',');
 			}
-			if (q != NULL && q[1] == '"') {
-				w->known_factors = (char *) malloc (strlen (q));
-				if (w->known_factors == NULL) goto nomem;
-				strcpy (w->known_factors, q+2);
-			}
+		}
+		w->B2_start = 0;
+		if (q != NULL && q[1] != '"') {
+			double	j;
+			j = atof (q+1);
+			if (j > w->B1) w->B2_start = j;
+			q = strchr (q+1, ',');
+		}
+		if (q != NULL && q[1] == '"') {
+			w->known_factors = (char *) malloc (strlen (q));
+			if (w->known_factors == NULL) goto nomem;
+			strcpy (w->known_factors, q+2);
 		}
 	    }
 
