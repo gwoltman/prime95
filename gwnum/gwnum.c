@@ -9193,7 +9193,7 @@ void emulate_mod (
 /* Callers of gwmul3 expect results to be fully normalized, especially if they are carefully counting unnormalized adds. */
 /* Thus, it might be prudent to always normalize this next subtraction.  Prior to doing this, our QA was getting asserts in gwaddmul4 */
 /* when all 3 input arguments had a normalization count of two.  However, Pavel Atnashev reports that a normalized subtract greatly slows */
-/* down multi-threaded multiplies.  Next, I tried eliminating the assert by decrementing the normalize count.  QA shows the roundoff error */
+/* down multi-threaded multiplies.  Next, I tried eliminating the assert by clearing the normalize count.  QA shows the roundoff error */
 /* does not get out of hand. */
 
 //	force_normalize(s);
