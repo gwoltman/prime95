@@ -3667,9 +3667,9 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 	ecmdata.nQx = (gwnum *) malloc (ecmdata.totrels * sizeof (gwnum));
 	if (ecmdata.nQx == NULL) goto lowmem;
 
-/* Allocate memory for modular inverse pooling */
+/* Allocate some of the memory for modular inverse pooling */
 
-	stop_reason = normalize_pool_init (&ecmdata, ecmdata.stage2_numvals - ecmdata.totrels);
+	stop_reason = normalize_pool_init (&ecmdata, ecmdata.stage2_numvals);
 	if (stop_reason) goto possible_lowmem;
 
 /* We have two approaches for computing nQx, if memory is really tight we compute every odd multiple of x. */
