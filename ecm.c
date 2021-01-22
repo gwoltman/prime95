@@ -680,8 +680,9 @@ struct xz {
 
 /* Data maintained during ECM process */
 
-#define POOL_3MULT	2	/* Modinv algorithm that takes 3 multiplies (9 FFTs) */
-#define POOL_N_SQUARED	4	/* Use O(N^2) multiplies modinv algorithm */
+#define POOL_3MULT		2	/* Modinv algorithm that takes 3 multiplies (9 FFTs) using 100% more gwnums */
+#define POOL_3POINT44MULT	3	/* Modinv algorithm that takes 3.444 multiplies (10.333 FFTs) using 33% more gwnums */
+#define POOL_N_SQUARED		4	/* Use O(N^2) multiplies modinv algorithm using no extra gwnums */
 
 #define ECM_STATE_STAGE1_INIT		0	/* Selecting sigma for curve */
 #define ECM_STATE_STAGE1		1	/* In middle of stage 1 */
@@ -709,6 +710,7 @@ typedef struct {
 
 	int	pool_type;	/* Modinv algorithm type to use */
 	int	pool_count;	/* Count values in the modinv pool */
+	int	poolz_count;	/* Count values in the modinv poolz */
 	gwnum	pool_modinv_value;/* Value we will eventually do a modinv on */
 	gwnum	*pool_values;	/* Array of values to normalize */
 	gwnum	*poolz_values;	/* Array of z values we are normalizing */
@@ -1840,6 +1842,7 @@ int normalize_pool_init (
 	int	max_pool_size)
 {
 	ecmdata->pool_count = 0;
+	ecmdata->poolz_count = 0;
 	ecmdata->pool_values = NULL;
 	ecmdata->poolz_values = NULL;
 	ecmdata->pool_modinv_value = NULL;
@@ -1848,8 +1851,12 @@ int normalize_pool_init (
 
 	ecmdata->pool_values = (gwnum *) malloc (max_pool_size * sizeof (gwnum));
 	if (ecmdata->pool_values == NULL) goto oom;
-	if (ecmdata->pool_type == POOL_3MULT) {
+	if (ecmdata->pool_type == POOL_3MULT) {		// 3MULT pooling requires 100% more gwnums
 		ecmdata->poolz_values = (gwnum *) malloc (max_pool_size * sizeof (gwnum));
+		if (ecmdata->poolz_values == NULL) goto oom;
+	}
+	if (ecmdata->pool_type == POOL_3POINT44MULT) {	// 3POINT44MULT pooling requires 33% more gwnums
+		ecmdata->poolz_values = (gwnum *) malloc (divide_rounding_up (max_pool_size, 3) * sizeof (gwnum));
 		if (ecmdata->poolz_values == NULL) goto oom;
 	}
 
@@ -1869,27 +1876,23 @@ void normalize_pool_term (
 {
 	int	i;
 
-	if (ecmdata->pool_type == POOL_3MULT) {
-		if (ecmdata->poolz_values != NULL) {
-			for (i = 0; i < ecmdata->pool_count; i++) {
-				gwfree (&ecmdata->gwdata, ecmdata->poolz_values[i]);
-			}
-			free (ecmdata->poolz_values); ecmdata->poolz_values = NULL;
-		}
+	if (ecmdata->poolz_values != NULL) {
+		for (i = 0; i < ecmdata->poolz_count; i++) gwfree (&ecmdata->gwdata, ecmdata->poolz_values[i]);
+		free (ecmdata->poolz_values); ecmdata->poolz_values = NULL;
 	}
 
 	free (ecmdata->pool_values); ecmdata->pool_values = NULL;
 	gwfree (&ecmdata->gwdata, ecmdata->pool_modinv_value); ecmdata->pool_modinv_value = NULL;
 	ecmdata->pool_count = 0;
+	ecmdata->poolz_count = 0;
 }
 
 /* Adds a point (a,b) to the list of numbers that need normalizing. */
 /* This is done in such a way as to minimize the amount of memory used. */
 
 /* This is an interesting bit of code with a variety of algorithms available.  Assuming there are N pairs to normalize, then you can: */
-/* 1) Use 2*N memory and 3 multiplies per point. */
 /* 2) Use 2*N memory and 3 multiplies per point. */
-/* 3) Use 1.25*N memory and use 3.5 multiplies per point. */
+/* 3) Use 1.33*N memory and use 3.444 multiplies per point. */
 /* 4) Use N memory and use O(N^2) multiplies per point. */
 
 int add_to_normalize_pool (
@@ -1920,14 +1923,182 @@ int add_to_normalize_pool (
 		else {
 			// Accumulate previous b value (delayed so that we can use GWMUL_STARTNEXTFFT on all but last b value)
 			if (ecmdata->pool_count > 1) {
-				gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->pool_count-1], ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
+				gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count-1], ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
 			}
 			// Multiply a by accumulated b values
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, a, a, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);
 			// Remember b
-			ecmdata->poolz_values[ecmdata->pool_count] = gwalloc (&ecmdata->gwdata);
-			if (ecmdata->poolz_values[ecmdata->pool_count] == NULL) goto oom;
-			gwfft (&ecmdata->gwdata, b, ecmdata->poolz_values[ecmdata->pool_count]);
+			ecmdata->poolz_values[ecmdata->poolz_count] = gwalloc (&ecmdata->gwdata);
+			if (ecmdata->poolz_values[ecmdata->poolz_count] == NULL) goto oom;
+			gwfft (&ecmdata->gwdata, b, ecmdata->poolz_values[ecmdata->poolz_count]);
+			ecmdata->poolz_count++;
+		}
+
+/* Add a to array of values to normalize */
+
+		ecmdata->pool_values[ecmdata->pool_count++] = a;
+		break;
+
+/* Implement algorithm 3 above */
+// The basic algorithm here takes 4 (a,b) points and converts them as follows:
+//	a1							b1			one copy
+//	a1*b2	    a2*b1					b1*b2			7 FFTs (FFT b1, FFT b2, FFTINVFFT a1*b2, FFTINVFFT a2*b1, INVFFT b1*b2)
+//	a1*b2	    a2*b1       a3,b3				b1*b2
+//	a1*b2       a2*b1       a3*b4,b3*b4 a4*b3		b1*b2			7 FFTs (FFT b3, FFT b4, FFTINVFFT a3*b4, FFTINVFFT a4*b3, INVFFT b3*b4)
+//	a1*b2*b3*b4 a2*b1*b3*b4 a3*b4*b1*b2 a4*b3*b1*b2		b1*b2*b3*b4		11 FFTs (FFT b1*b2, FFT b3*b4, FFTINVFFT a1*, FFTINVFFT a2*, FFTINVFFT a3*,
+//												FFTINVFFT a4*, INVFFT b1*b2*b3*b4)
+//	inv = 1/(b1*b2*b3*b4)
+//	a4 *= inv									9 FFTs (FFT inv, FFTINVFFT a1* a2* a3* a4*)
+//	a3 *= inv								
+//	a2 *= inv
+//	a1 *= inv
+// The trick is that subsequent groups of 4 operate on (1,product_of_b) and 3 more (a,b) points.  For example, the steps needed for the next 3 (a,b) points:
+// On 5th input:
+//	let b0 = pooled_modinv
+//	fft b5 to alloc poolz[0] - will become 1/(b1*b2*b3*b4)
+//	pool[4] = a5*b0 will become a5/b5
+//	pooled_modinv *= b5
+//	b5	    a5*b0					b0*b5			5 FFTs (FFT b0, FFT b5, FFTINVFFT a5*b0, INVFFT b0*b5)
+// On 6th input:
+//	fft b6 to tmp1, will free later
+//	pool[5] = a6 will become a6/b6
+//	b5	    a5*b0       a6,b6				b0*b5
+// On 7th input:
+//	tmp2 = fft b7
+//	pool[5] = a6*b7
+//	pool[6] = a7*b6 will become a6/b6
+//	tmp1 = b6*b7
+//	b5       a5*b0       a6*b7,b6*b7 a7*b6			b0*b5			7 FFTs (FFT b6, FFT b7, FFTINVFFT a6*b7, FFTINVFFT a7*b6, INVFFT b6*b7)
+//	poolz[0] *= b6*b7
+//	pool[4] *= b6*b7
+//	pool[5] *= b0*b5
+//	pool[6] *= b0*b5
+//	pooled_modinv *= b6*b7
+//	free tmp1,tmp2
+//	b5*b6*b7 a5*b0*b6*b7 a6*b7*b0*b5 a7*b6*b0*b5		b0*b5*b6*b7		10 FFTs (FFT b0*b5, FFT b6*b7, INVFFT b5*, FFTINVFFT a5*, FFTINVFFT a6*,
+//								 				FFTINVFFT a7*, INVFFT b0*b5*b6*b7)
+//	inv = 1/(b0*b5*b6*b7)
+//	a7 *= inv								9 FFTs (FFT inv, FFTINVFFT a5* a5* a6* a7*)
+//	a6 *= inv								
+//	a5 *= inv
+//	poolz[0] *= inv
+// Careful counting shows that each 3 additional points costs 31 FFTs
+
+	case POOL_3POINT44MULT:
+
+/* Handle the first call for the first set of four points.  Allocate and set pool_modinv_value (the product_of_b's) */
+
+		if (ecmdata->pool_count == 0) {
+			// FFT b1
+			ecmdata->pool_modinv_value = gwalloc (&ecmdata->gwdata);
+			if (ecmdata->pool_modinv_value == NULL) goto oom;
+			gwfft (&ecmdata->gwdata, b, ecmdata->pool_modinv_value);
+		}
+
+/* Handle the second call for the first set of four points */
+
+		else if (ecmdata->pool_count == 1) {
+			// FFT b2 (temporarily store in poolz)
+			ecmdata->poolz_values[ecmdata->poolz_count] = gwalloc (&ecmdata->gwdata);
+			if (ecmdata->poolz_values[ecmdata->poolz_count] == NULL) goto oom;
+			gwfft (&ecmdata->gwdata, b, ecmdata->poolz_values[ecmdata->poolz_count]);
+			ecmdata->poolz_count++;
+			// a1 *= b2
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[0], ecmdata->poolz_values[ecmdata->poolz_count-1], ecmdata->pool_values[0], GWMUL_STARTNEXTFFT);
+			// a2 *= b1
+			gwmul3 (&ecmdata->gwdata, a, ecmdata->pool_modinv_value, a, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			// pool_modinv_value *= b2 (delay this multiply so that we can use startnextfft)
+			//gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->poolz_values[ecmdata->poolz_count-1], ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
+		}
+
+/* Handle the third call for the first set of four points */
+
+		else if (ecmdata->pool_count == 2) {
+			// Do the delayed multiply for pool_modinv
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->poolz_values[ecmdata->poolz_count-1], ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
+			// FFT b3 (temporarily store in poolz)
+			gwfft (&ecmdata->gwdata, b, ecmdata->poolz_values[ecmdata->poolz_count-1]);
+		}
+
+/* Handle the fourth call for the first set of four points */
+
+		else if (ecmdata->pool_count == 3) {
+			gwnum	tmp1, tmp2;
+			// FFT b4
+			tmp2 = gwalloc (&ecmdata->gwdata);
+			if (tmp2 == NULL) goto oom;
+			gwfft (&ecmdata->gwdata, b, tmp2);
+			// a3 *= b4
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[2], tmp2, ecmdata->pool_values[2], GWMUL_STARTNEXTFFT);
+			// a4 *= b3
+			tmp1 = ecmdata->poolz_values[ecmdata->poolz_count-1];
+			gwmul3 (&ecmdata->gwdata, a, tmp1, a, GWMUL_STARTNEXTFFT);
+			// tmp1 = b3*b4
+			gwmul3 (&ecmdata->gwdata, tmp1, tmp2, tmp1, GWMUL_STARTNEXTFFT);
+			gwfree (&ecmdata->gwdata, tmp2);
+			// pool[0] *= b3*b4
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[0], tmp1, ecmdata->pool_values[0], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			// pool[1] *= b3*b4
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[1], tmp1, ecmdata->pool_values[1], GWMUL_STARTNEXTFFT);
+			// pool[2] *= b1*b2
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[2], ecmdata->pool_modinv_value, ecmdata->pool_values[2], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			// a4 *= b1*b2
+			gwmul3 (&ecmdata->gwdata, a, ecmdata->pool_modinv_value, a, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			// pooled_modinv *= b3*b4 (delay this multiply so that we can use startnextfft)
+			//gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, tmp1, ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
+		}
+
+/* Handle the first call for a new set of three points */
+
+		else if (ecmdata->pool_count % 3 == 1) {
+			// Do the delayed multiply for pool_modinv
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->poolz_values[ecmdata->poolz_count-1], ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
+			// FFT b5
+			gwfft (&ecmdata->gwdata, b, ecmdata->poolz_values[ecmdata->poolz_count-1]);
+			// a5 *= pool_modinv_value
+			gwmul3 (&ecmdata->gwdata, a, ecmdata->pool_modinv_value, a, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			// pool_modinv_value *= b5 (delay this multiply so that we can use startnextfft)
+			//gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->poolz_values[ecmdata->poolz_count-1], ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
+		}
+
+/* Handle the second call for a set of three points */
+
+		else if (ecmdata->pool_count % 3 == 2) {
+			// Do the delayed multiply for pool_modinv
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->poolz_values[ecmdata->poolz_count-1], ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
+			// FFT b6 (temporarily store in poolz)
+			ecmdata->poolz_values[ecmdata->poolz_count] = gwalloc (&ecmdata->gwdata);
+			if (ecmdata->poolz_values[ecmdata->poolz_count] == NULL) goto oom;
+			gwfft (&ecmdata->gwdata, b, ecmdata->poolz_values[ecmdata->poolz_count]);
+			ecmdata->poolz_count++;
+		}
+
+/* Handle the third call for a set of three points */
+
+		else {
+			gwnum	tmp1, tmp2;
+			// FFT b7
+			tmp2 = gwalloc (&ecmdata->gwdata);
+			if (tmp2 == NULL) goto oom;
+			gwfft (&ecmdata->gwdata, b, tmp2);
+			// a6 *= b7
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[ecmdata->pool_count-1], tmp2, ecmdata->pool_values[ecmdata->pool_count-1], GWMUL_STARTNEXTFFT);
+			// a7 *= b6
+			tmp1 = ecmdata->poolz_values[ecmdata->poolz_count-1];
+			gwmul3 (&ecmdata->gwdata, a, tmp1, a, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			// tmp1 = b6*b7
+			gwmul3 (&ecmdata->gwdata, tmp1, tmp2, tmp1, GWMUL_STARTNEXTFFT);
+			gwfree (&ecmdata->gwdata, tmp2);
+			// poolz[0] *= b6*b7
+			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count-2], tmp1, ecmdata->poolz_values[ecmdata->poolz_count-2], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			// pool[4] *= b6*b7
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[ecmdata->pool_count-2], tmp1, ecmdata->pool_values[ecmdata->pool_count-2], GWMUL_STARTNEXTFFT);
+			// pool[5] *= b0*b5
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[ecmdata->pool_count-1], ecmdata->pool_modinv_value, ecmdata->pool_values[ecmdata->pool_count-1], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			// a7 *= b0*b5
+			gwmul3 (&ecmdata->gwdata, a, ecmdata->pool_modinv_value, a, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			// pooled_modinv *= b6*b7 (delay this so we can use startnextfft)
+			// gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, tmp1, ecmdata->pool_modinv_value, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 		}
 
 /* Add a to array of values to normalize */
@@ -1995,10 +2166,68 @@ int normalize_pool (
 {
 	int	i, stop_reason;
 
-/* Accumulate last b value (was delayed so that we can use GWMUL_STARTNEXTFFT on all but the last pooled b value) */
+/* For 3-mult pooling, accumulate last b value (was delayed so that we can use GWMUL_STARTNEXTFFT on all but the last pooled b value) */
 
 	if (ecmdata->pool_type == POOL_3MULT && ecmdata->pool_count > 1) {
-		gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->pool_count-1], ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, 0);
+		gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count-1], ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, 0);
+	}
+
+/* For 3.44-mult pooling finish off a partial group of four.  Accumulate last b value (was delayed so that we can use */
+/* GWMUL_STARTNEXTFFT on all but the last pooled b value). */
+
+	if (ecmdata->pool_type == POOL_3POINT44MULT) {
+
+		/* Handle having only two of first set of four points. */
+		if (ecmdata->pool_count == 2) {
+			// Do the delayed multiply for pool_modinv
+			ecmdata->poolz_count--;
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->poolz_values[ecmdata->poolz_count], ecmdata->pool_modinv_value, 0);
+			gwfree (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count]);
+		}
+
+		/* Handle having only three of first set of four points. */
+		/* Do much of the work that would have happened if the fourth point had been added to the pool. */
+		else if (ecmdata->pool_count == 3) {
+			gwnum	tmp1 = ecmdata->poolz_values[--ecmdata->poolz_count];
+			// pool[0] *= b3
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[0], tmp1, ecmdata->pool_values[0], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			// pool[1] *= b3
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[1], tmp1, ecmdata->pool_values[1], GWMUL_STARTNEXTFFT);
+			// pool[2] *= b1*b2
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[2], ecmdata->pool_modinv_value, ecmdata->pool_values[2], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			// pooled_modinv *= b3
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, tmp1, ecmdata->pool_modinv_value, 0);
+			gwfree (&ecmdata->gwdata, tmp1);
+		}
+
+		/* Handle having only the first point in a set of three additional points */
+		else if (ecmdata->pool_count > 4 && ecmdata->pool_count % 3 == 2) {
+			// Do the delayed multiply for pool_modinv
+			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count-1], ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, 0);
+		}
+
+		/* Handle having only two of an additional set of three points */
+		/* Do much of the work that would have happened if the last point had been added to the pool */
+		else if (ecmdata->pool_count > 4 && ecmdata->pool_count % 3 == 0) {
+			gwnum	tmp1 = ecmdata->poolz_values[--ecmdata->poolz_count];
+			// poolz[0] *= b6
+			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count-1], tmp1, ecmdata->poolz_values[ecmdata->poolz_count-1], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			// pool[4] *= b6
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[ecmdata->pool_count-2], tmp1, ecmdata->pool_values[ecmdata->pool_count-2], GWMUL_STARTNEXTFFT);
+			// pool[5] *= b0*b5
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[ecmdata->pool_count-1], ecmdata->pool_modinv_value, ecmdata->pool_values[ecmdata->pool_count-1], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			// pooled_modinv *= b6
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, tmp1, ecmdata->pool_modinv_value, 0);
+			gwfree (&ecmdata->gwdata, tmp1);
+		}
+
+		/* Handle having a complete set of points */
+		else if (ecmdata->pool_count >= 4 && ecmdata->pool_count % 3 == 1) {
+			// Do the delayed multiply for pool_modinv
+			ecmdata->poolz_count--;
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->poolz_values[ecmdata->poolz_count], ecmdata->pool_modinv_value, 0);
+			gwfree (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count]);
+		}
 	}
 
 /* Compute the modular inverse */
@@ -2018,8 +2247,23 @@ int normalize_pool (
 		for (i = ecmdata->pool_count-1; ; i--) {
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->pool_values[i], ecmdata->pool_values[i], GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);
 			if (i == 0) break;
-			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[i], ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
-			gwfree (&ecmdata->gwdata, ecmdata->poolz_values[i]);
+			ecmdata->poolz_count--;
+			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count], ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
+			gwfree (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count]);
+		}
+		break;
+
+/* Implement algorithm 3 above */
+
+	case POOL_3POINT44MULT:
+		for (i = ecmdata->pool_count-1; i >= 0; i--) {
+			// Invert one pooled value
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->pool_values[i], ecmdata->pool_values[i], GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);
+			if (i < 4 || i % 3 != 1) continue;
+			// Compute inverse for next group of 4
+			ecmdata->poolz_count--;
+			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->poolz_values[ecmdata->poolz_count], ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
+			gwfree (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count]);
 		}
 		break;
 
@@ -2034,11 +2278,12 @@ int normalize_pool (
 /* Cleanup and reinitialize */
 
 exit:	ecmdata->pool_count = 0;
+	ecmdata->poolz_count = 0;
 	gwfree (&ecmdata->gwdata, ecmdata->pool_modinv_value); ecmdata->pool_modinv_value = NULL;
 	return (0);
 }
 
-
+ 
 /* From R. P. Brent, priv. comm. 1996:
 Let s > 5 be a pseudo-random seed (called $\sigma$ in the Tech. Report),
 
@@ -2212,6 +2457,7 @@ int mQ_next (
 			stop_reason = ell_add_xz_noscr (ecmdata, &ecmdata->Qm, &ecmdata->QD, &ecmdata->Qprevm, &ecmdata->Qprevm);
 			if (stop_reason) return (stop_reason);
 			xzswap (ecmdata->Qm, ecmdata->Qprevm);
+//gw: if we have extra bits available, I believe we could FFT Qmx in place and then copy it to mQx and allow add_to_normalize to FFT Qm.z
 			gwfft (&ecmdata->gwdata, ecmdata->Qm.x, ecmdata->mQx[ecmdata->mQx_count]);
 			stop_reason = add_to_normalize_pool (ecmdata, ecmdata->mQx[ecmdata->mQx_count], ecmdata->Qm.z, factor);
 			if (stop_reason) return (stop_reason);
@@ -2293,7 +2539,8 @@ double ecm_stage2_cost (
 #define ELL_ADD_COST		12
 #define N_SQUARED_POOL_COST(n)	(((double)((n)+3)) * ((double)((n)+3)) - 13.0 + cost_data->modinv_cost)
 #define MULT3_POOL_COST(n)	((double)(n) * 9 + cost_data->modinv_cost)
-#define NQX_SETUP_COST(fft4)	((((fft4) || D % 3 != 0) ? 1.0 : 0.66667) * multiplier * ((double) D / 4) * ELL_ADD_COST)
+#define MULT3POINT44_POOL_COST(n) ((double)(n) * 10.3333333333333 + cost_data->modinv_cost)
+#define NQX_SETUP_COST(fft4)	((((fft4) || D % 3 != 0) ? 1.0 : 0.666666666667) * multiplier * ((double) D / 4) * ELL_ADD_COST)
 
 /* Calculate the number of temporaries used for relative primes.  This will leave some available for modinv pooling. */
 
@@ -2308,7 +2555,8 @@ double ecm_stage2_cost (
 /*	#primes*4						*/
 /* The memory consumed will be:					*/
 /*	9 + totrels gwnums in main stage 2 loop if N^2 pooling	*/
-/* or	8 + totrels + totrels gwnums in nQx setup if 3N pooling	*/
+/* or	8 + totrels*2 gwnums in nQx setup if 3N pooling		*/
+/* or	8 + totrels*1.33+2 gwnums in nQx setup if 3.44N pooling */
 
 //GW:  what about doing the pool in chunks O(n^2) grows quickly!  There is a best "e" value
 	if (cost_data->impl == 0) {
@@ -2334,6 +2582,19 @@ double ecm_stage2_cost (
 		cost_data->stage2_numvals = 8 + totrels * 2;
 	}
 
+	if (cost_data->impl == 2) {
+		// We need 8 + totrels * 1.33 + 2 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
+		if (8 + totrels * 4 / 3 + 2 > cost_data->numvals) return (1.0e99);
+//GW: seems shameful to dedicate many temporaries to use-once nQx setup computations
+		cost = NQX_SETUP_COST (TRUE) + MULT3POINT44_POOL_COST (totrels) + totrels +
+			(double) numDsections * ELL_ADD_COST + numDsections * 2 +
+			(numpairs + numsingles) * 4;
+		cost_data->TWO_FFT_STAGE2 = FALSE;
+		cost_data->pool_type = POOL_3POINT44MULT;
+		cost_data->E = 0;
+		cost_data->stage2_numvals = 8 + totrels * 4 / 3 + 2;
+	}
+
 /* Cost (in FFTs) of a 2FFT stage 2 using this D		*/
 /* The cost will be:						*/
 /*	multiplier * D / 4 ell_add_xzs + pool_cost (totrels) +	*/
@@ -2345,9 +2606,10 @@ double ecm_stage2_cost (
 /* The memory consumed will be:					*/
 /*	max (13 + totrels + 1, 9 + totrels + e + 1) gwnums if N^2 pooling */
 /* or	max (13 + totrels * 2, 9 + totrels + e * 2) gwnums if 3N pooling */
+/* or	max (13 + totrels * 2, 9 + totrels + e * 4 / 3 + 2) gwnums if 3.44N pooling */
 
 //GW: feedback loop that might make optimizing faster.  choose e such that every gcd section is the same size
-	if (cost_data->impl == 2) {
+	if (cost_data->impl == 3) {
 		int	beste = (int) sqrt (2 * (cost_data->modinv_cost + 9)); // Best value for E using O(N^2) pooling
 		// We need 13 + totrels + 1 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
 		if (13 + totrels + 1 > cost_data->numvals) return (1.0e99);
@@ -2365,7 +2627,7 @@ double ecm_stage2_cost (
 		cost_data->stage2_numvals = _intmax (13 + totrels + 1, 9 + totrels + e + 1);
 	}
 
-	if (cost_data->impl == 3) {
+	if (cost_data->impl == 4) {
 		// We need 13 + totrels * 2 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
 		if (13 + totrels * 2 > cost_data->numvals) return (1.0e99);
 //GW: seems shameful to dedicate many temporaries to use-once nQx setup computations when totrels > E
@@ -2380,6 +2642,24 @@ double ecm_stage2_cost (
 		cost_data->pool_type = POOL_3MULT;
 		cost_data->E = e;
 		cost_data->stage2_numvals = _intmax (13 + totrels * 2, 9 + totrels + e * 2);
+	}
+
+	if (cost_data->impl == 5) {
+		// We need 13 + totrels * 4 / 3 + 2 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
+		if (13 + totrels * 4 / 3 + 2 > cost_data->numvals) return (1.0e99);
+//GW: seems shameful to dedicate many temporaries to use-once nQx setup computations when totrels > E
+// GW: This e calculation may need some refinement
+		e = (cost_data->numvals - 9 - totrels - 2) * 3 / 4;
+		numgcdsections = ceil ((double) numDsections / e);
+		e = (unsigned long) ceil ((double) numDsections / numgcdsections);
+		cost = NQX_SETUP_COST (FALSE) + MULT3POINT44_POOL_COST (totrels) + totrels +
+		       (double) numDsections * (ELL_ADD_COST + 1) +
+		       numgcdsections * MULT3POINT44_POOL_COST (e) +
+		       (numpairs + numsingles) * 2.0;
+		cost_data->TWO_FFT_STAGE2 = TRUE;
+		cost_data->pool_type = POOL_3POINT44MULT;
+		cost_data->E = e;
+		cost_data->stage2_numvals = _intmax (13 + totrels * 4 / 3 + 2, 9 + totrels + e * 4 / 3 + 2);
 	}
 
 /* Return data ECM implementation will need */
@@ -2425,14 +2705,14 @@ double ecm_stage2_impl_given_numvals (
 /* Find the least costly stage 2 plan looking at the four combinations of 2 vs. 4 FFT and pool type N^2 vs. 3-MULT. */
 
 	best_cost = 1.0e99;
-	for (impl = 0; impl <= 3; impl++) {
+	for (impl = 0; impl <= 5; impl++) {
 
 /* Check for QA'ing a specific ECM implementation type */
 
 		if (QA_TYPE != 0 && QA_TYPE != impl + 1) continue;
 
-/* Cost out an ECM stage 2 implementation.  2 vs. 4 FFT, N^2 vs. 3-MULT pooling.  All implementations must account for 9 gwnum temporaries */
-/* required by the main stage 2 loop (6 for computing mQx, gg, 2 for ell_add_xz_noscr temps).  Keep track of the best implementation. */
+/* Cost out an ECM stage 2 implementation.  2 vs. 4 FFT, N^2 vs. 3-MULT vs. 3.44-MULT pooling.  All implementations must account for 9 gwnum */
+/* temporaries required by the main stage 2 loop (6 for computing mQx, gg, 2 for ell_add_xz_noscr temps).  Keep track of the best implementation. */
 
 		cost_data.impl = impl;
 		cost_data.numvals = numvals;
@@ -3645,10 +3925,14 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 
 	if (ecmdata.TWO_FFT_STAGE2 && ecmdata.pool_type == POOL_3MULT)
 		sprintf (buf, "Stage 2 uses %uMB of memory, 2 FFTs per prime pair, 3-mult modinv pooling, pool size %d.\n", memused, ecmdata.E);
+	else if (ecmdata.TWO_FFT_STAGE2 && ecmdata.pool_type == POOL_3POINT44MULT)
+		sprintf (buf, "Stage 2 uses %uMB of memory, 2 FFTs per prime pair, 3.44-mult modinv pooling, pool size %d.\n", memused, ecmdata.E);
 	else if (ecmdata.TWO_FFT_STAGE2 && ecmdata.pool_type == POOL_N_SQUARED)
 		sprintf (buf, "Stage 2 uses %uMB of memory, 2 FFTs per prime pair, N^2 modinv pooling, pool size %d.\n", memused, ecmdata.E);
 	else if (!ecmdata.TWO_FFT_STAGE2 && ecmdata.pool_type == POOL_3MULT)
 		sprintf (buf, "Stage 2 uses %uMB of memory, 4 FFTs per prime pair, 3-mult modinv pooling.\n", memused);
+	else if (!ecmdata.TWO_FFT_STAGE2 && ecmdata.pool_type == POOL_3POINT44MULT)
+		sprintf (buf, "Stage 2 uses %uMB of memory, 4 FFTs per prime pair, 3.44-mult modinv pooling.\n", memused);
 	else if (!ecmdata.TWO_FFT_STAGE2 && ecmdata.pool_type == POOL_N_SQUARED)
 		sprintf (buf, "Stage 2 uses %uMB of memory, 4 FFTs per prime pair, N^2 modinv pooling.\n", memused);
 	OutputStr (thread_num, buf);
@@ -3721,6 +4005,7 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 			if (relatively_prime (i, ecmdata.D)) {
 				ecmdata.nQx[totrels] = gwalloc (&ecmdata.gwdata);
 				if (ecmdata.nQx[totrels] == NULL) goto lowmem;
+//gw: if we have extra bits available, I believe we could FFT Qi->x in place and then copy it to nQx and allow add_to_normalize to FFT Qi->z
 				gwfft (&ecmdata.gwdata, Qi->x, ecmdata.nQx[totrels]);
 				stop_reason = add_to_normalize_pool (&ecmdata, ecmdata.nQx[totrels], Qi->z, &factor);
 				if (stop_reason) goto possible_lowmem;
