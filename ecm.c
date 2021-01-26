@@ -418,11 +418,14 @@ int fill_work_bitarray (
 			}
 		} else {									// Mark all possible relocations
 			int	i;
-			numprimes++;
+			int	set_a_bit = 0;
 			for (i = D_data[D_index].first_missing_prime; i * prime < B2_end; i += 2) {
-				if (map_is_relprime (i, D, &reldata) && i * prime >= C_start)
+				if (map_is_relprime (i, D, &reldata) && i * prime >= C_start) {
 					bitset_prime (relocated, i * prime);
+					set_a_bit = 1;
+				}
 			}
+			numprimes += set_a_bit;
 		}
 	}
 
