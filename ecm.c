@@ -3542,7 +3542,7 @@ int ecm_stage2_impl (
 /* Figure out how many gwnum values fit in our memory limit.  User nordi had over-allocating memory troubles on Linux testing M1277, presumably */
 /* because our estimate genum size was too low.  As a work-around limit numvals to 100,000 by default. */
 
-	numvals = cvt_mem_to_gwnums (&ecmdata->gwdata, memory);
+	numvals = cvt_mem_to_gwnums (&ecmdata->gwdata, memory - bitarray_size);
 	if (numvals < 13) numvals = 13;
 	if (numvals > 100000) numvals = 100000;
 
@@ -4593,10 +4593,12 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 /* Record the amount of memory this thread will be using in stage 2. */
 
 	memused = cvt_gwnums_to_mem (&ecmdata.gwdata, ecmdata.stage2_numvals);
-	memused += (_intmin (ecmdata.numDsections - ecmdata.bitarrayfirstDsection, ecmdata.bitarraymaxDsections) * ecmdata.totrels) >> 23; 
+	memused += (_intmin (ecmdata.numDsections - ecmdata.bitarrayfirstDsection, ecmdata.bitarraymaxDsections) * ecmdata.totrels) >> 23;
 	// To dodge possible infinite loop if ecm_stage2_impl allocates too much memory (it shouldn't), decrease the percentage of memory we are allowed to use
+	// Beware that replaning may allocate a larger bitarray
 	if (set_memory_usage (thread_num, MEM_VARIABLE_USAGE, memused)) {
 		ecmdata.pct_mem_to_use *= 0.99;
+		free (ecmdata.bitarray); ecmdata.bitarray = NULL;
 		goto replan;
 	}
 	gw_set_max_allocs (&ecmdata.gwdata, ecmdata.stage2_numvals);
@@ -6224,7 +6226,7 @@ int pm1_stage2_impl (
 /* Compute the number of gwnum temporaries we can allocate.  User nordi had over-allocating memory troubles on Linux testing M1277, presumably */
 /* because our estimate genum size was too low.  As a work-around limit numvals to 100,000 by default. */
 
-	numvals = cvt_mem_to_gwnums (&pm1data->gwdata, memory);
+	numvals = cvt_mem_to_gwnums (&pm1data->gwdata, memory - bitarray_size);
 	if (numvals < 8) numvals = 8;
 	if (numvals > 100000) numvals = 100000;
 	if (QA_TYPE) numvals = QA_TYPE;			/* Optionally override numvals for QA purposes */
@@ -7030,8 +7032,10 @@ replan:	{
 	memused = cvt_gwnums_to_mem (&pm1data.gwdata, pm1data.stage2_numvals);
 	memused += (_intmin (pm1data.numDsections - pm1data.bitarrayfirstDsection, pm1data.bitarraymaxDsections) * pm1data.totrels) >> 23;
 	// To dodge possible infinite loop if pm1_stage2_impl allocates too much memory (it shouldn't), decrease the percentage of memory we are allowed to use
+	// Beware that replaning may allocate a larger bitarray
 	if (set_memory_usage (thread_num, MEM_VARIABLE_USAGE, memused)) {
 		pm1data.pct_mem_to_use *= 0.99;
+		free (pm1data.bitarray); pm1data.bitarray = NULL;
 		goto replan;
 	}
 
