@@ -379,22 +379,22 @@ int fill_work_bitarray (
 
 	if (*bitarray == NULL) {
 		len = divide_rounding_up (totrels * numDsections, 8);
-		*bitarray = (char *) malloc (len);
+		*bitarray = (char *) malloc ((size_t) len);
 		if (*bitarray == NULL) goto oom;
 	}
 
 /* Allocate two bit arrays for the primes and relocated primes */
 
 	len = divide_rounding_up (numDsections * numrels * 2, 8);
-	primes = (char *) malloc (len);
+	primes = (char *) malloc ((size_t) len);
 	if (primes == NULL) goto oom;
-	relocated = (char *) malloc (len);
+	relocated = (char *) malloc ((size_t) len);
 	if (relocated == NULL) goto oom;
 
 /* Set one bit (or more for relocatables) for each prime between C_start and C. */
 
-	memset (primes, 0, len);
-	memset (relocated, 0, len);
+	memset (primes, 0, (size_t) len);
+	memset (relocated, 0, (size_t) len);
 	start_sieve_with_limit (thread_num, first_relocatable, (uint32_t) sqrt((double) C), sieve_info);
 	initmap (D, &reldata);
 	numprimes = 0;
@@ -432,7 +432,7 @@ int fill_work_bitarray (
 /* Clear the work array */
 
 	work = *bitarray;
-	memset (work, 0, divide_rounding_up (numDsections * totrels, 8));
+	memset (work, 0, (size_t) divide_rounding_up (numDsections * totrels, 8));
 	bits_set = 0;
 
 /* Fill a work bit array in such a way that it maximizes stage 2 prime pairings in ECM and P-1. */
@@ -3832,7 +3832,7 @@ int ecm_restore (			/* For version 30.4 save files */
 		if (bitarray_numDsections > ecmdata->bitarraymaxDsections) bitarray_numDsections = ecmdata->bitarraymaxDsections;
 		bitarray_len = divide_rounding_up (bitarray_numDsections * ecmdata->totrels, 8);
 		bitarray_start = divide_rounding_down ((ecmdata->Dsection - ecmdata->bitarrayfirstDsection) * ecmdata->totrels, 8);
-		ecmdata->bitarray = (char *) malloc (bitarray_len);
+		ecmdata->bitarray = (char *) malloc ((size_t) bitarray_len);
 		if (ecmdata->bitarray == NULL) goto readerr;
 		if (! read_array (fd, ecmdata->bitarray + bitarray_start, (unsigned long) (bitarray_len - bitarray_start), &sum)) goto readerr;
 	}
@@ -5965,7 +5965,7 @@ int pm1_restore (			/* For version 30.4 and later save files */
 		if (bitarray_numDsections > pm1data->bitarraymaxDsections) bitarray_numDsections = pm1data->bitarraymaxDsections;
 		bitarray_len = divide_rounding_up (bitarray_numDsections * pm1data->totrels, 8);
 		bitarray_start = divide_rounding_down ((pm1data->Dsection - pm1data->bitarrayfirstDsection) * pm1data->totrels, 8);
-		pm1data->bitarray = (char *) malloc (bitarray_len);
+		pm1data->bitarray = (char *) malloc ((size_t) bitarray_len);
 		if (pm1data->bitarray == NULL) goto readerr;
 		if (! read_array (fd, pm1data->bitarray + bitarray_start, (unsigned long) (bitarray_len - bitarray_start), &sum)) goto readerr;
 	}
