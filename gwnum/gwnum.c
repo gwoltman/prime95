@@ -9482,10 +9482,10 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 		else if (options & (GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2)) gwunfft (gwdata, s1, tmp), s1 = tmp;
 		else gwunfft (gwdata, s1, s1);
 		gwaddsub4 (gwdata, s1, gwdata->GW_RANDOM, tmp, d);	/* Compute s1+random and s1-random */
-		gwmul3 (gwdata, tmp, d, d, options & GWMUL_GLOBALMULBYCONST); /* Compute (s1+random)(s1-random)*const+addin */
+		gwmul3 (gwdata, tmp, d, d, options & (GWMUL_MULBYCONST | GWMUL_GLOBALMULBYCONST)); /* Compute (s1+random)(s1-random)*const+addin */
 		asm_data->ADDIN_VALUE = 0.0;				/* Clear the addin value */
 		gwfft (gwdata, gwdata->GW_RANDOM, tmp);
-		gwmul3 (gwdata, tmp, tmp, tmp, options & GWMUL_GLOBALMULBYCONST); /* Compute random^2*const */
+		gwmul3 (gwdata, tmp, tmp, tmp, options & (GWMUL_MULBYCONST | GWMUL_GLOBALMULBYCONST)); /* Compute random^2*const */
 		gwadd3 (gwdata, d, tmp, d);				/* Calc s1^2*const+addin from 2 results */
 		gwfree (gwdata, tmp);
 	}
