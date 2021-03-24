@@ -7342,7 +7342,7 @@ static const char SELFFAIL1[] = "ERROR: ILLEGAL SUMOUT\n";
 static const char SELFFAIL2[] = "FATAL ERROR: Resulting sum was %.16g, expected: %.16g\n";
 static const char SELFFAIL3[] = "FATAL ERROR: Rounding was %.10g, expected less than 0.4\n";
 static const char SELFFAIL4[] = "Possible hardware failure, consult readme.txt file, restarting test.\n";
-static const char SELFFAIL5[] = "Hardware failure detected, consult stress.txt file.\n";
+static const char SELFFAIL5[] = "Hardware failure detected running %lu%s FFT size, consult stress.txt file.\n";
 static const char SELFFAIL6[] = "Maximum number of warnings exceeded.\n";
 
 static const char SELFPASS[] = "Self-test %i%s passed!\n";
@@ -7722,13 +7722,11 @@ int selfTestInternal (
 
 	time (&start_time);
 
-/* Start in the self test data array where we left off the last time */
-/* torture test executed this FFT length. */
+/* Start in the self test data array where we left off the last time torture test executed this FFT length. */
 
 	i = (torture_index == NULL) ? 0 : *torture_index;
 
-/* Loop testing various exponents from self test data array until */
-/* time runs out */
+/* Loop testing various exponents from self test data array until time runs out */
 
 	for (iter = 1; ; iter++) {
 		char	fft_desc[200];
@@ -7752,8 +7750,7 @@ int selfTestInternal (
 /* The SSE2 carry propagation code gets into trouble if there are too */
 /* few bits per FFT word!  Thus, we'll require at least 8 bits per */
 /* word here.  Now that the number of iterations changes for each FFT */
-/* length I'm raising the requirement to 10 bits to keep timings roughly */
-/* equal. */
+/* length I'm raising the requirement to 10 bits to keep timings roughly equal. */
 
 			if (p / fftlen < 10) continue;
 
@@ -7866,7 +7863,8 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 			if (gw_test_mismatched_sums (&lldata.gwdata)) {
 				sprintf (buf, SELFFAIL2, gwsumout (&lldata.gwdata, g), gwsuminp (&lldata.gwdata, g));
 				OutputBoth (thread_num, buf);
-				OutputBoth (thread_num, SELFFAIL5);
+				sprintf (buf, SELFFAIL5, (fftlen % 1024 == 0) ? fftlen >> 10 : fftlen, (fftlen % 1024 == 0) ? "K" : "");
+				OutputBoth (thread_num, buf);
 				flashWindowAndBeep ();
 				(*errors)++;
 				lucasDone (&lldata);
@@ -7879,7 +7877,8 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 			if (gw_get_maxerr (&lldata.gwdata) > 0.45) {
 				sprintf (buf, SELFFAIL3, gw_get_maxerr (&lldata.gwdata));
 				OutputBoth (thread_num, buf);
-				OutputBoth (thread_num, SELFFAIL5);
+				sprintf (buf, SELFFAIL5, (fftlen % 1024 == 0) ? fftlen >> 10 : fftlen, (fftlen % 1024 == 0) ? "K" : "");
+				OutputBoth (thread_num, buf);
 				flashWindowAndBeep ();
 				(*errors)++;
 				lucasDone (&lldata);
@@ -7917,7 +7916,8 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 		if (reshi != test_data[i].reshi) {
 			sprintf (buf, SELFFAIL, reshi, test_data[i].reshi);
 			OutputBoth (thread_num, buf);
-			OutputBoth (thread_num, SELFFAIL5);
+			sprintf (buf, SELFFAIL5, (fftlen % 1024 == 0) ? fftlen >> 10 : fftlen, (fftlen % 1024 == 0) ? "K" : "");
+			OutputBoth (thread_num, buf);
 			flashWindowAndBeep ();
 			(*errors)++;
 			return (STOP_FATAL_ERROR);
