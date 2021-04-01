@@ -52,9 +52,9 @@ typedef double *gwnum;
 /* are new prime95 versions without any changes in the gwnum code.  This version number is also embedded in the assembly code and */
 /* gwsetup verifies that the version numbers match.  This prevents bugs from accidentally linking in the wrong gwnum library. */
 
-#define GWNUM_VERSION		"30.5"
+#define GWNUM_VERSION		"30.6"
 #define GWNUM_MAJOR_VERSION	30
-#define GWNUM_MINOR_VERSION	5
+#define GWNUM_MINOR_VERSION	6
 
 /* Error codes returned by the three gwsetup routines */
 
@@ -76,6 +76,7 @@ typedef double *gwnum;
 #define GWERROR_BAD_FFT_DATA	-1	/* Nan or inf data encountered */
 #define GWERROR_PARTIAL_FFT	-1009	/* Attempt to convert a partially FFTed number to binary */
 #define GWERROR_FFT		-1010	/* Attempt to convert an FFTed number to binary */
+#define GWERROR_FFT_FOR_FMA	-1011	/* Attempt to convert an FFTed-for-FMA number to binary */
 
 /* Prior to calling gwsetup, you MUST CALL gwinit.  This initializes the gwhandle structure. */
 /* It gives us a place to set rarely used gwsetup options prior to calling gwsetup. */
@@ -241,6 +242,7 @@ void gwfreeall (
 /* There may be some internal gwnum memory that can be safely freed. */
 #define gwfree_internal_memory(h) { \
 		gwfree((h), (h)->GW_RANDOM), (h)->GW_RANDOM = NULL; \
+		if ((h)->FFT1_state == 1) { gwfree((h), (h)->GW_FFT1), (h)->GW_FFT1 = NULL; (h)->FFT1_state = 0; } \
 		if ((h)->to_radix_gwdata != NULL) gwdone ((h)->to_radix_gwdata), free ((h)->to_radix_gwdata), (h)->to_radix_gwdata = NULL; \
 		if ((h)->from_radix_gwdata != NULL) gwdone ((h)->from_radix_gwdata), free ((h)->from_radix_gwdata), (h)->from_radix_gwdata = NULL; }
 
@@ -379,7 +381,13 @@ void gwfft (			/* Forward FFT */
 	gwnum	s,		/* Source number */
 	gwnum	d);		/* Destination (can be same as source) */
 
-/* Options for gwmul3, gwaddmul4, gwsubmul4 routines */
+void gwfft_for_fma (		/* Forward FFT with extra processing for use in gwmuladd4 or gwmulsub4.  Only use this routine if */
+				/* destination will be used many times as the third source argument to gwmuladd4 or gwmulsub4. */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	s,		/* Source number */
+	gwnum	d);		/* Destination (can overlap source) */
+
+/* Options for gwmul3, gwaddmul4, gwsubmul4, gwmuladd4, gwmulsub4 routines */
 #define GWMUL_FFT_S1		0x0001		/* FFT the first source */
 #define GWMUL_PRESERVE_S1	0x0002		/* Do not modify the first source */
 #define GWMUL_FFT_S2		0x0004		/* FFT the second source */
@@ -414,6 +422,20 @@ void gwaddmul4 (		/* (s1+s2)*s3, s1 and s2 will be FFTed unless the PRESERVE opt
 	gwnum	d,		/* Destination */
 	int	options);
 void gwsubmul4 (		/* (s1-s2)*s3, s1 and s2 will be FFTed unless the PRESERVE option is set */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	s1,		/* First source */
+	gwnum	s2,		/* Second source */
+	gwnum	s3,		/* Third source */
+	gwnum	d,		/* Destination */
+	int	options);
+void gwmuladd4 (		/* (s1*s2)+s3 */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	s1,		/* First source */
+	gwnum	s2,		/* Second source */
+	gwnum	s3,		/* Third source */
+	gwnum	d,		/* Destination */
+	int	options);
+void gwmulsub4 (		/* (s1*s2)-s3 */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	s1,		/* First source */
 	gwnum	s2,		/* Second source */
@@ -596,6 +618,9 @@ unsigned long gwnum_size (gwhandle *);
 /* Get the fixed amount of memory allocated during gwsetup.  Programs can use this and gwnum_size to determine working set size and act accordingly. */
 unsigned long gwmemused (gwhandle *);
 
+/* Return TRUE if using gwmuladd4 and gwmulsub4 results in an extra gwnum being allocated */
+#define gwfma_will_alloc_a_gwnum(h)	((h)->FFT1_state != 2)
+
 /* Returns TRUE if the gwnum value is normalized (the gwadd did not do an unnormalized add) */
 #define gwnum_is_normalized(h,g)	(norm_count(g) == 0.0f)
 
@@ -603,6 +628,7 @@ unsigned long gwmemused (gwhandle *);
 #define gwnum_is_not_ffted(h,g)		(FFT_state(g) == NOT_FFTed)
 #define gwnum_is_partially_ffted(h,g)	(FFT_state(g) == PARTIALLY_FFTed)
 #define gwnum_is_fully_ffted(h,g)	(FFT_state(g) == FULLY_FFTed)
+#define gwnum_is_ffted_for_fma(h,g)	(FFT_state(g) == FFTed_FOR_FMA)
 
 /* Macros to acccess some of the header values in a gwnum.  Do not access or change these unless you know what you are doing! */
 /* Norm_count is the number of extra bits in the output FFT data needed due to unnormalized adds and subtracts.  The add/sub routines do not */
@@ -613,6 +639,7 @@ unsigned long gwmemused (gwhandle *);
 #define	NOT_FFTed		0
 #define PARTIALLY_FFTed		1
 #define FULLY_FFTed		3
+#define	FFTed_FOR_FMA		4
 #define norm_count(x)		((float *)(x))[-1]
 // Convert norm_count to and from extra FFT output bits
 #define norm_count_to_eb(n)	((n) > 2.0f ? EB_FIRST_ADD + EB_SECOND_ADD + ((n) - 2.0f) * EB_THIRD_ADD : \
@@ -997,12 +1024,16 @@ struct gwhandle_struct {
 					/* At the FFT limit this will be set to EB_GWMUL_SAVINGS.  That is, this measures extra bits */
 					/* available for multiplications, not squarings. */
 	gwnum	GW_RANDOM;		/* A random number used in gwmul3_carefully. */
+	gwnum	GW_FFT1;		/* The number 1 FFTed.  Sometimes need by gwmuladd4 and gwmusub4. */
+	int	FFT1_state;		/* 0 = uninitialized, 1 = FFT(1) is needed, 2 = FFT(1) is itself one. */
 	unsigned long saved_copyz_n;	/* Used to reduce COPYZERO calculations */
 	char	GWSTRING_REP[60];	/* The gwsetup modulo number as a string. */
 	unsigned int NORMNUM;		/* The post-multiply normalize routine index */
 	int	GWERROR;		/* Set if an error is detected */
 	double	MAXDIFF;		/* Maximum allowable difference between sum of inputs and outputs */
 	double	fft_count;		/* Count of forward and inverse FFTs */
+	uint64_t read_count;		/* For memory bandwidth optimizing, a count of gwnums read (ex. a gwsquare without startnext FFT does 2 read/writes) */
+	uint64_t write_count;		/* For memory bandwidth optimizing, a count of gwnums written (ex. a gwadd3 does 2 reads and one write) */
 	const struct gwasm_jmptab *jmptab; /* ASM jmptable pointer */
 	void	*asm_data;		/* Memory allocated for ASM global data */
 	void	*dd_data;		/* Memory allocated for gwdbldbl global data */
