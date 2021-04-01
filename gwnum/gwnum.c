@@ -7116,9 +7116,9 @@ int get_fft_value (
 {
 	double	val;
 
-	if (FFT_state (g) == FULLY_FFTed) return (GWERROR_FFT);			/* Test the FFTed flag */
-	if (FFT_state (g) == PARTIALLY_FFTed) return (GWERROR_PARTIAL_FFT);	/* Test the FFT-started flag */
-	if (FFT_state (g) == FFTed_FOR_FMA) return (GWERROR_FFT_FOR_FMA);	/* Test the FFTed-for-FMA flag */
+/* Make sure data is not FFTed.  Caller should really try to avoid this scenario. */
+
+	if (FFT_state (g) != NOT_FFTed) gwunfft (gwdata, g, g);
 
 /* Get the FFT data and validate it */
 
@@ -7251,6 +7251,9 @@ void gwerror_text (
 		break;
 	case GWERROR_STRUCT_SIZE_MISMATCH:
 		strcpy (localbuf, "Gwhandle structure size from gwinit call doesn't match size when gwnum.c was compiled.  Check compiler alignment switches, recompile and relink.");
+		break;
+	case GWERROR_BAD_FFT_DATA:
+		strcpy (localbuf, "Gwnum had corrupted data such as Nan or Inf.");
 		break;
 	default:
 		if (error_code >= GWERROR_INTERNAL && error_code <= GWERROR_INTERNAL+100)
@@ -7834,6 +7837,7 @@ void gwsetmulbyconst (
 
 /* Perform common computations */
 
+	gwdata->mulbyconst = (int) val;
 	asm_data = (struct gwasm_data *) gwdata->asm_data;
 	ktimesval = gwdata->k * (double) val;
 	big_word = pow ((double) gwdata->b, gwdata->NUM_B_PER_SMALL_WORD + 1);
@@ -8538,9 +8542,12 @@ long gwtobinary (
 	giant	tmp;
 	int	err_code;
 
-	if (FFT_state (n) == FULLY_FFTed) return (GWERROR_FFT);			/* Test the FFTed flag */
-	if (FFT_state (n) == PARTIALLY_FFTed) return (GWERROR_PARTIAL_FFT);	/* Test the FFT-started flag */
-	if (FFT_state (n) == FFTed_FOR_FMA) return (GWERROR_FFT_FOR_FMA);	/* Test the FFTed-for-FMA flag */
+/* Make sure data is not FFTed.  Caller should really try to avoid this scenario. */
+
+	if (FFT_state (n) != NOT_FFTed) gwunfft (gwdata, n, n);
+
+/* Convert the number */
+
 	tmp = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 5);
 	err_code = gwtogiant (gwdata, n, tmp);
 	if (err_code < 0) return (err_code);
@@ -8565,9 +8572,12 @@ long gwtobinary64 (
 	giant	tmp;
 	int	err_code;
 
-	if (FFT_state (n) == FULLY_FFTed) return (GWERROR_FFT);			/* Test the FFTed flag */
-	if (FFT_state (n) == PARTIALLY_FFTed) return (GWERROR_PARTIAL_FFT);	/* Test the FFT-started flag */
-	if (FFT_state (n) == FFTed_FOR_FMA) return (GWERROR_FFT_FOR_FMA);	/* Test the FFTed-for-FMA flag */
+/* Make sure data is not FFTed.  Caller should really try to avoid this scenario. */
+
+	if (FFT_state (n) != NOT_FFTed) gwunfft (gwdata, n, n);
+
+/* Convert the number */
+
 	tmp = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 5);
 	err_code = gwtogiant (gwdata, n, tmp);
 	if (err_code < 0) return (err_code);
@@ -8594,9 +8604,12 @@ long gwtobinarylongs (
 	giant	tmp;
 	int	err_code;
 
-	if (FFT_state (n) == FULLY_FFTed) return (GWERROR_FFT);			/* Test the FFTed flag */
-	if (FFT_state (n) == PARTIALLY_FFTed) return (GWERROR_PARTIAL_FFT);	/* Test the FFT-started flag */
-	if (FFT_state (n) == FFTed_FOR_FMA) return (GWERROR_FFT_FOR_FMA);	/* Test the FFTed-for-FMA flag */
+/* Make sure data is not FFTed.  Caller should really try to avoid this scenario. */
+
+	if (FFT_state (n) != NOT_FFTed) gwunfft (gwdata, n, n);
+
+/* Convert the number */
+
 	tmp = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 5);
 	err_code = gwtogiant (gwdata, n, tmp);
 	if (err_code < 0) return (err_code);
@@ -8624,16 +8637,14 @@ int gwtogiant (
 	int	err_code;
 	unsigned long limit;
 
+/* Make sure data is not FFTed.  Caller should really try to avoid this scenario. */
+
+	if (FFT_state (gg) != NOT_FFTed) gwunfft (gwdata, gg, gg);
+
 /* Set result to zero in case of error.  If caller does not check the returned error code */
 /* a result value of zero is less likely to cause problems/crashes. */
 
 	v->sign = 0;
-
-/* Sanity check the input number */
-
-	if (FFT_state (gg) == FULLY_FFTed) return (GWERROR_FFT);		/* Test the FFTed flag */
-	if (FFT_state (gg) == PARTIALLY_FFTed) return (GWERROR_PARTIAL_FFT);	/* Test the FFT-started flag */
-	if (FFT_state (gg) == FFTed_FOR_FMA) return (GWERROR_FFT_FOR_FMA);	/* Test the FFTed-for-FMA flag */
 
 /* If this is a general-purpose mod, then only convert the needed words */
 /* which will be less than half the FFT length.  If this is a zero padded */
@@ -8973,6 +8984,7 @@ void asm_mul (
 	int	options)	/* See gwnum.h */
 {
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
+	double	saved_addin;
 
 /* Set the flag which controls whether the multiply code should begin the forward FFT of the results of a multiply. */
 /* This is a little faster than than doing a full forward FFT later on.  The downside is the caller cannot convert the */
@@ -8990,6 +9002,13 @@ void asm_mul (
 	if (! (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX | CPU_SSE2))) asm_data->u.x87.POSTFFT = gwdata->POSTFFT;
 #endif	
 
+/* Save and clear the addin value if the GWMUL_ADDINCONST option is not set */
+
+	if (! (options & GWMUL_ADDINCONST)) {
+		saved_addin = asm_data->ADDIN_VALUE;
+		asm_data->ADDIN_VALUE = 0.0;
+	}
+
 /* Call the assembly code */
 
 	asm_data->DESTARG = d;
@@ -9006,6 +9025,10 @@ void asm_mul (
 //if (rand() % 1000 < 2) *d += 1.0E200 * 1.0E200;
 	if (! is_valid_double (gwsumout (gwdata, d))) gwdata->GWERROR |= 1;
 	gwdata->fft_count += (asm_data->ffttype <= 3) ? 2.0 : 1.0;
+
+/* Restore the addin value if the GWMUL_ADDINCONST option is not set */
+
+	if (! (options & GWMUL_ADDINCONST)) asm_data->ADDIN_VALUE = saved_addin;
 
 /* For the two destination case, mark the source fully FFTed and calculate the address for the multiplication destination */
 
@@ -9183,19 +9206,12 @@ void emulate_mod (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	s)		/* Source and destination */
 {
-	struct gwasm_data *asm_data;
+	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 	gwnum	tmp;
-	double	saved_addin_value;
 
 	ASSERTG (* addr (gwdata, s, gwdata->FFTLEN-1) > -2.0 && * addr (gwdata, s, gwdata->FFTLEN-1) <= 0.0);
 	if (* addr (gwdata, s, gwdata->FFTLEN-1) <= -2.0 || * addr (gwdata, s, gwdata->FFTLEN-1) > 0.0)
 		gwdata->GWERROR = GWERROR_INTERNAL + 10;
-
-/* Save and clear the addin value */
-
-	asm_data = (struct gwasm_data *) gwdata->asm_data;
-	saved_addin_value = asm_data->ADDIN_VALUE;
-	asm_data->ADDIN_VALUE = 0.0;
 
 /* Copy the number and zero out the low words. */
 
@@ -9223,16 +9239,11 @@ void emulate_mod (
 /* down multi-threaded multiplies.  Next, I tried eliminating the assert by clearing the normalize count.  QA shows the roundoff error */
 /* does not get out of hand. */
 
-//	force_normalize(s);
 	gwsub (gwdata, tmp, s);
 	norm_count (s) = 0.0f;
 	ASSERTG (* addr (gwdata, s, gwdata->FFTLEN-1) == 0.0);
 	if (* addr (gwdata, s, gwdata->FFTLEN-1) != 0.0) gwdata->GWERROR = GWERROR_INTERNAL + 12;
 	gwfree (gwdata, tmp);
-
-/* Restore the addin value */
-
-	asm_data->ADDIN_VALUE = saved_addin_value;
 }
 
 /* Perform an inverse FFT.  This is inefficient!!  We call this to undo the forward FFT performed on a gwnum where we need unFFTed data. */
@@ -9243,9 +9254,7 @@ void gwunfft (
 	gwnum	s,		/* Source number */
 	gwnum	d)		/* Destination (can overlap source) */
 {
-	struct gwasm_data *asm_data;
 	int	save_count;
-	double	save_addin;
 
 	ASSERTG (norm_count (s) >= 0.0f);
 
@@ -9257,13 +9266,9 @@ void gwunfft (
 	}
 
 /* Since cmn_mulop4 calls this routine when emulating, clear the careful count to prevent infinite recursion. */
-/* Also clear the addin so that we produce correct results. */
 
-	asm_data = (struct gwasm_data *) gwdata->asm_data;
 	save_count = gwdata->careful_count;
-	save_addin = asm_data->ADDIN_VALUE;
 	gwdata->careful_count = 0;
-	asm_data->ADDIN_VALUE = 0.0;
 
 /* For partially or fully FFTed data, multiply input by 1.0 */
 
@@ -9299,7 +9304,6 @@ void gwunfft (
 /* Restore state */
 
 	gwdata->careful_count = save_count;
-	asm_data->ADDIN_VALUE = save_addin;
 }
 
 /* Special multiply routine that adds/subtracts two numbers and multiplies by a third. */
@@ -9461,11 +9465,17 @@ void cmn_gwmulop4 (		/* Calculate (s1 op s2) * s3 */
 			s3 = tmp3;
 		}
 
-/* Now emulate */
+/* Now emulate.  Be sure to do the optional mul-by-const after the FMA. */
 
-		gwmul3 (gwdata, s1, s2, d, options);
-		if (opcode == 3) gwadd3o (gwdata, d, s3, d, GWADD_FORCE_NORMALIZE);
-		else gwsub3o (gwdata, d, s3, d, GWADD_FORCE_NORMALIZE);
+		gwmul3 (gwdata, s1, s2, d, options & ~(GWMUL_MULBYCONST | GWMUL_GLOBALMULBYCONST));
+		if (options & GWMUL_MULBYCONST || ((options & GWMUL_GLOBALMULBYCONST) && (gwdata->NORMNUM & 2))) {
+			if (opcode == 3) gwadd3o (gwdata, d, s3, d, GWADD_GUARANTEED_OK | GWADD_DELAY_NORMALIZE);
+			else gwsub3o (gwdata, d, s3, d, GWADD_GUARANTEED_OK | GWADD_DELAY_NORMALIZE);
+			gwsmallmul (gwdata, gwdata->mulbyconst, d);
+		} else {
+			if (opcode == 3) gwadd3o (gwdata, d, s3, d, GWADD_FORCE_NORMALIZE);
+			else gwsub3o (gwdata, d, s3, d, GWADD_FORCE_NORMALIZE);
+		}
 	}
 
 /* Let assembly code do the work */
@@ -9811,7 +9821,7 @@ void gwmul3 (			/* Multiply two gwnums */
 	if (s1 == d) options &= ~(GWMUL_FFT_S1 | GWMUL_PRESERVE_S1);
 	if (s2 == d) options &= ~(GWMUL_FFT_S2 | GWMUL_PRESERVE_S2);
 
-/* Check the square_carefully count */
+/* Check the careful count */
 
 	if (gwdata->careful_count > 0) {
 		gwdata->careful_count--;
@@ -9842,7 +9852,6 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 	int	options)	/* See gwnum.h */
 {
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
-	double	saved_addin_value;
 	int	saved_careful_count;
 
 	ASSERTG (norm_count (s1) >= 0.0f);
@@ -9869,10 +9878,6 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 	saved_careful_count = gwdata->careful_count;
 	gwdata->careful_count = 0;
 
-/* Save the addin value */
-
-	saved_addin_value = asm_data->ADDIN_VALUE;
-
 /* Handle a squaring operation using two multiplies and several adds. */
 /* Make sure we do not do addquick when computing s+random.  If we do not do this, then the non-randomness of s can swamp */
 /* the randomness of s+random.  An example is the first PRP iterations of 2*3^599983-1 -- s is all positive values and gwadd3 */
@@ -9884,11 +9889,10 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 		else if (options & (GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2)) gwunfft (gwdata, s1, tmp), s1 = tmp;
 		else gwunfft (gwdata, s1, s1);
 		gwaddsub4o (gwdata, s1, gwdata->GW_RANDOM, tmp, d, GWADD_FORCE_NORMALIZE);		/* Compute s1+random and s1-random */
-		gwmul3 (gwdata, tmp, d, d, options & (GWMUL_MULBYCONST | GWMUL_GLOBALMULBYCONST));	/* Compute (s1+random)(s1-random)*const+addin */
-		asm_data->ADDIN_VALUE = 0.0;								/* Clear the addin value */
+		gwmul3 (gwdata, tmp, d, d, options & (GWMUL_MULBYCONST | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)); /* ((s1+random)(s1-random)+addin)*const */
 		gwfft (gwdata, gwdata->GW_RANDOM, tmp);
 		gwmul3 (gwdata, tmp, tmp, tmp, options & (GWMUL_MULBYCONST | GWMUL_GLOBALMULBYCONST));	/* Compute random^2*const */
-		gwadd3o (gwdata, d, tmp, d, GWADD_FORCE_NORMALIZE);					/* Calc s1^2*const+addin from 2 results */
+		gwadd3o (gwdata, d, tmp, d, GWADD_FORCE_NORMALIZE);					/* Calc (s1^2+addin)*const from 2 results */
 		gwfree (gwdata, tmp);
 	}
 
@@ -9913,17 +9917,18 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 		gwadd3o (gwdata, tmp1, gwdata->GW_RANDOM, tmp2, GWADD_FORCE_NORMALIZE);	/* Compute s1+2*random */
 		gwadd3o (gwdata, d, gwdata->GW_RANDOM, tmp3, GWADD_FORCE_NORMALIZE);	/* Compute s2+2*random */
 
-		gwmul3 (gwdata, tmp1, d, d, options & GWMUL_GLOBALMULBYCONST);		/* Compute (s1+r)*(s2+r)+addin = s1s2 + rs1 + rs2 + rr + addin */
-		gwmul3 (gwdata, tmp2, tmp3, tmp3, options & GWMUL_GLOBALMULBYCONST);	/* Compute (s+2r)*(s2+2r)+addin = s1s2 + 2rs1 + 2rs2 + 4rr + addin */
+		/* Compute ((s1+r)*(s2+r)+addin)*mulbyconst = (s1s2 + rs1 + rs2 + rr + addin) * mulbyconst */
+		gwmul3 (gwdata, tmp1, d, d, options & (GWMUL_MULBYCONST | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST));
+		/* Compute ((s1+2r)*(s2+2r)+addin)*mulbyconst = (s1s2 + 2rs1 + 2rs2 + 4rr + addin) * mulbyconst */
+		gwmul3 (gwdata, tmp2, tmp3, tmp3, options & (GWMUL_MULBYCONST | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST));
 
-		asm_data->ADDIN_VALUE = 0.0;
 		gwfft (gwdata, gwdata->GW_RANDOM, tmp1);
-		gwmul3 (gwdata, tmp1, tmp1, tmp1, options & GWMUL_GLOBALMULBYCONST);	/* Compute random^2 (we could compute this once and save it) */
+		gwmul3 (gwdata, tmp1, tmp1, tmp1, options & (GWMUL_MULBYCONST | GWMUL_GLOBALMULBYCONST)); /* Compute random^2 * mulbyconst */
 
-		gwaddquick (gwdata, d, d);						/* Compute 2st + 2rs + 2rt + 2rr + 2addin */
-		gwsubquick (gwdata, tmp3, d);						/* Compute st - 2rr + addin */
-		gwaddquick (gwdata, tmp1, d);						/* Compute st - rr + addin */
-		gwadd3o (gwdata, tmp1, d, d, GWADD_FORCE_NORMALIZE);			/* Compute st + addin */
+		gwaddquick (gwdata, d, d);						/* Compute (2s1s2 + 2rs1 + 2rs2 + 2rr + 2addin) * mulbyconst */
+		gwsubquick (gwdata, tmp3, d);						/* Compute (s1s2 - 2rr + addin) * mulbyconst */
+		gwaddquick (gwdata, tmp1, d);						/* Compute (s1s2 - rr + addin) * mulbyconst */
+		gwadd3o (gwdata, tmp1, d, d, GWADD_FORCE_NORMALIZE);			/* Compute (s1s2 + addin) * mulbyconst */
 
 		gwfree (gwdata, tmp1);
 		gwfree (gwdata, tmp2);
@@ -9932,7 +9937,6 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 
 /* Restore from saved values */
 
-	asm_data->ADDIN_VALUE = saved_addin_value;
 	gwdata->careful_count = saved_careful_count;
 }
 

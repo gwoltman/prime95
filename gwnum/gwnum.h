@@ -196,7 +196,7 @@ void gwdone (
 #define gwclear_will_error_check(h)		((h)->will_error_check = 0)
 
 /* Prior to calling one of the gwsetup routines, you can have the library attempt to use large pages (2MB or 4MB on Intel architecture) */
-/* rather than the standard 4KB pages.  This may improve performance by reducing TLB misses.  It may have system-wide costs, as the OS */
+/* rather than the standard 4KB pages.  This may improve performance by reducing TLB misses.  It may have system-wide costs as the OS */
 /* may not page these to disk when not in use.  NOTE: Only the first gwalloc will return memory allocated using large pages. */
 #define gwset_use_large_pages(h)	((h)->use_large_pages = 1)
 #define gwclear_use_large_pages(h)	((h)->use_large_pages = 0)
@@ -394,9 +394,10 @@ void gwfft_for_fma (		/* Forward FFT with extra processing for use in gwmuladd4 
 #define GWMUL_PRESERVE_S2	0x0008		/* Do not modify the second source */
 #define GWMUL_FFT_S3		0x0010		/* FFT the third source */
 #define GWMUL_PRESERVE_S3	0x0020		/* Do not modify the third source */
-#define GWMUL_MULBYCONST	0x0040		/* Multiply the final result by the small mulbyconst */
-#define GWMUL_STARTNEXTFFT	0x0080		/* Start the forward FFT of the multiplication result (for better performance) */
-#define GWMUL_STARTNEXTFFT1	0x0100		/* Start the forward FFT of the multiplication result only if an extra add can occur on */
+#define GWMUL_ADDINCONST	0x0040		/* Addin the optional gwsetaddin value to the multiplication result */
+#define GWMUL_MULBYCONST	0x0080		/* Multiply the final result by the small mulbyconst */
+#define GWMUL_STARTNEXTFFT	0x0100		/* Start the forward FFT of the multiplication result (for better performance) */
+#define GWMUL_STARTNEXTFFT1	0x0200		/* Start the forward FFT of the multiplication result only if an extra add can occur on */
 						/* multiplication inputs.  Normally a multiply of (a+b)*c is safe, this option takes */
 						/* effect if we are sufficiently below the FFT limit that (a+b)*(c+d) is also safe. */
 #define GWMUL_STARTNEXTFFT2	0x0200		/* Start the forward FFT of the multiplication result only if an extra add can occur on */
@@ -762,14 +763,14 @@ int gwtogiant (gwhandle *, gwnum, giant);
 #define GWMUL_GLOBALMULBYCONST	 0x4000	/* gwmul3 option to use deprecated gwsetnormroutine for multiplying final result by the small mulbyconst */
 #define GWMUL_GLOBALSTARTNEXTFFT 0x8000 /* gwmul3 option to use deprecated gwstartnextfft for starting next forward FFT */
 
-#define gwsquare(h,s)			gwsquare2 (h,s,s,GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST)
-#define gwmul(h,s,d)			gwmul3(h,s,d,d,GWMUL_FFT_S1 | GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST)
-#define gwsafemul(h,s,d)		gwmul3(h,s,d,d,GWMUL_PRESERVE_S1 | GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST)
-#define gwfftmul(h,s,d)			gwmul3(h,s,d,d,GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST)
-#define gwfftfftmul(h,s1,s2,d)		gwmul3(h,s1,s2,d,GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST)
-#define gwsquare_carefully(h,x)		gwmul3_carefully(h,x,x,x,GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST)
-#define gwsquare2_carefully(h,s,d)	gwmul3_carefully(h,s,s,d,GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2 | GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST)
-#define gwmul_carefully(h,s,d)		gwmul3_carefully(h,s,d,d,GWMUL_PRESERVE_S1 | GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST)
+#define gwsquare(h,s)			gwsquare2 (h,s,s,GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)
+#define gwmul(h,s,d)			gwmul3(h,s,d,d,GWMUL_FFT_S1 | GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)
+#define gwsafemul(h,s,d)		gwmul3(h,s,d,d,GWMUL_PRESERVE_S1 | GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)
+#define gwfftmul(h,s,d)			gwmul3(h,s,d,d,GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)
+#define gwfftfftmul(h,s1,s2,d)		gwmul3(h,s1,s2,d,GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)
+#define gwsquare_carefully(h,x)		gwmul3_carefully(h,x,x,x,GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)
+#define gwsquare2_carefully(h,s,d)	gwmul3_carefully(h,s,s,d,GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2 | GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)
+#define gwmul_carefully(h,s,d)		gwmul3_carefully(h,s,d,d,GWMUL_PRESERVE_S1 | GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)
 #define gwset_square_carefully_count(h,n) DEPRECATED - use gwset_carefully_count
 
 #define gwadd(h,s,d)			gwadd3 (h,s,d,d)
@@ -811,7 +812,7 @@ int gwtogiant (gwhandle *, gwnum, giant);
 #define gwaddsmall(h,g,a) gwsmalladd(h,a,g)	
 #define gwmulsmall(h,g,m) gwsmallmul(h,m,g)
 
-/* Replaced by better named gwsetaddinatpowerofb */
+/* DEPRECATED.  Replaced by better named gwsetaddinatpowerofb */
 #define gwsetaddinatbit(h,v,b)	gwsetaddinatpowerofb(h,v,b)
 
 /*---------------------------------------------------------------------+
@@ -1030,6 +1031,7 @@ struct gwhandle_struct {
 	char	GWSTRING_REP[60];	/* The gwsetup modulo number as a string. */
 	unsigned int NORMNUM;		/* The post-multiply normalize routine index */
 	int	GWERROR;		/* Set if an error is detected */
+	int	mulbyconst;		/* Current mul-by-const value */
 	double	MAXDIFF;		/* Maximum allowable difference between sum of inputs and outputs */
 	double	fft_count;		/* Count of forward and inverse FFTs */
 	uint64_t read_count;		/* For memory bandwidth optimizing, a count of gwnums read (ex. a gwsquare without startnext FFT does 2 read/writes) */
