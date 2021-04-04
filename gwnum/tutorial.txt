@@ -45,7 +45,7 @@ library to use 4 threads during computations:
 	gwset_num_threads (&gwdata, 4);
 	gwsetup (&gwdata, 2, 3, 1000000, -1);
 
-There are macros/routines available to query the result of the setup.  This is very useful when reporting bugs:
+There are macros/routines available to query the result of the gwsetup.  This is very useful when reporting bugs:
 
 	char	buf[512];
 	gwfft_description (&gwdata, buf);
@@ -74,14 +74,15 @@ Once your modular arithmetic is complete, use gwtobinary to examine the results 
 
 	uint32_t bigarray[50000];	// Holds a 1.5 million bit result
 	uint32_t bigarraylen;
-	binarytogw (gwdata, bigarray, &bigarraylen, x);
+	gwtobinary (gwdata, x, bigarray, &bigarraylen);
 	gwfree (&gwdata, x);
 
 Basic operations
 ----------------
 
-The only arithmetic operations supported are multiplication, addition, and subtraction.  Examples
-(do not worry about the GWMUL_ and GWADD_ options in the examples -- these will be discussed later):
+The only arithmetic operations supported are multiplication, addition, and subtraction.  The routines that perform these operations take a gwhandle,
+source argument(s), a destination argument, and usually an options argument.  The destination argument always comes after the source arguments.
+Examples (do not worry about the GWMUL_ and GWADD_ options in the examples -- these will be discussed later):
 
 	gwmul3 (&gwdata, x, y, z, GWMUL_PRESERVE_S1, GWMUL_PRESERVE_S2); // Calculate z = x * y
 	gwadd3o (&gwdata, a, b, c, GWADD_FORCE_NORMALIZE);               // Calculate c = a + b
@@ -203,7 +204,6 @@ Suppose b is already fully FFTed and we are using a two-pass FFT, the former doe
 	gwmul3: read(a), read(b), write(half-inverse-FFT), read(half-inverse-FFT), write(res1)
 while the latter does 4 reads and 4 writes:
 	gwmul3: read(a), write(half-FFT), read(half-FFT), write(fft(a)), read(b), write(half-inverse-FFT), read(half-inverse-FFT), write(res1)
-
 
 
 Roundoff error
@@ -331,7 +331,7 @@ then you will benefit by pre-multiplying the third argument by the aforementione
 	gwmuladd4 (&gwdata, a1, b1, c, x1, mul_options);        // x1 = a1 * b1 + c
 	gwmuladd4 (&gwdata, a2, b2, c, x2, mul_options);        // x2 = a2 * b2 + c
 
-NOTE:	We have our fourth FFT state, namely FFTed_FOR_FMA.  Once a gwnum has been FFTed for FMA it can only be used as the third argument
+NOTE:	We have our fourth FFT state, namely FFTed_FOR_FMA.  Once a gwnum has been FFTed for FMA it can only be used as the third source argument
 	to gwmuladd4 and gwmulsub4.
 
 
@@ -406,7 +406,7 @@ as input to a multiply (not a squaring) is guaranteed safe.  Thus, this example 
 	gwmul3 (&gwdata, a, b, addarg1, GWMUL_STARTNEXTFFT);
 	gwmul3 (&gwdata, c, d, addarg2, GWMUL_STARTNEXTFFT);
 	gwmul3 (&gwdata, e, f, mularg1, GWMUL_STARTNEXTFFT);
-	gwadd3o (&gwdata, addarg1, addarg2, mularg2, GWADD_MUL_INPUT);
+	gwadd3o (&gwdata, addarg1, addarg2, mularg2, GWADD_DELAY_NORMALIZE);
 	gwmul3 (&gwdata, mularg1, mularg2, res, mul_options);
 
 
@@ -420,14 +420,17 @@ To solve the downsides of simplified GWADD options, we introduce a GWMUL option 
 	GWADD_DELAYNORM_IF(b)                This macros takes a boolean and GWADD_DELAY_NORMALIZE or GWADD_FORCE_NORMALIZE as appropriate
 
 We also created several new macros that return a boolean to be used with the macros above.  These macros need to know how many adds go into
-the creation of each argument of gwsquare2, gwmul3, gwaddmul4, and gwsubmul4.
+the creation of each argument of gwsquare2, gwmul3, gwaddmul4, gwsubmul4, gwmuladd4, or gwmulsub4.
 
 	square_safe(h,numadds1)                    Returns TRUE if gwsquare2 is safe with the specified number of unnormalized adds in the source argument
 	mul_safe(h,numadds1,numadds2)              Returns TRUE if gwmul3 is safe with the specified number of unnormalized adds in the two source arguments
 	addmul_safe(h,numadds1,numadds2,numadds3)  Returns TRUE if gwaddmul4 is safe with the specified number of unnormalized adds in the three source arguments
+	muladd_safe(h,numadds1,numadds2,numadds3)  Returns TRUE if gwmuladd4 is safe with the specified number of unnormalized adds in the three source arguments
 
-Note that gwmuladd4 and gwmulsub4 are not covered.  The third argument is always safe, use the mul_safe macro and ignore the third source.
-The simplest example:
+Note that in muladd_safe, the third unnormalized add count is ignored.  The third source argument to gwmuladd4 and gwmulsub4 is safe with an almost unlimited
+number of unnormalized adds.
+
+The simplest example using the advanced GWADD options:
 
 	gwmul3 (&gwdata, a, b, addarg1, GWMUL_STARTNEXTFFT_IF(square_safe(&gwdata, 1));
 	gwmul3 (&gwdata, c, d, addarg2, GWMUL_STARTNEXTFFT_IF(square_safe(&gwdata, 1));
@@ -462,35 +465,30 @@ This is strictly a matter of personal preference based on what you think is more
 
 Finally, there are cases where you may not know the number of unnormalized adds that were used in creating a gwnum variable.  Perhaps you
 are writing a routine that takes a gwnum variable of unknown origin as input, or your code has several different code paths that making such
-a calculation impossible.  The unorms(x) macro returns the number of unnormalized adds that were executed in creating gwnum variable x.
+a calculation impossible.  The unnorms(x) macro returns the number of unnormalized adds that were executed in creating gwnum variable x.
 An example for a routine that has two gwnum variables a and b as input:
 
-	gwmul3 (&gwdata, x1, y1, addarg1, GWMUL_STARTNEXTFFT_IF(mul_safe(&gwdata, 1, unorms(a) + unorms(b) + 1));
-	gwmul3 (&gwdata, x2, y2, addarg2, GWMUL_STARTNEXTFFT_IF(mul_safe(&gwdata, 1, unorms(a) + unorms(b) + 1));
-	gwadd3o (&gwdata, addarg1, addarg2, mularg1, GWADD_DELAYNORM_IF(mul_safe(&gwdata, 1, unorms(a) + unorms(b) + 1)));
-	gwadd3o (&gwdata, a, b, mularg2, GWADD_DELAYNORM_IF(mul_safe(&gwdata, 1, unorms(a) + unorms(b) + 1)));
+	gwmul3 (&gwdata, x1, y1, addarg1, GWMUL_STARTNEXTFFT_IF(mul_safe(&gwdata, 1, unnorms(a) + unnorms(b) + 1));
+	gwmul3 (&gwdata, x2, y2, addarg2, GWMUL_STARTNEXTFFT_IF(mul_safe(&gwdata, 1, unnorms(a) + unnorms(b) + 1));
+	gwadd3o (&gwdata, addarg1, addarg2, mularg1, GWADD_DELAYNORM_IF(mul_safe(&gwdata, 1, unnorms(a) + unnorms(b) + 1)));
+	gwadd3o (&gwdata, a, b, mularg2, GWADD_DELAYNORM_IF(mul_safe(&gwdata, 1, unnorms(a) + unnorms(b) + 1)));
 	gwmul3 (&gwdata, mularg1, mularg2, res, mul_options);
 
+Just when you think it cannot get any more complicated, consider the example above.  Perhaps the final gwmul3 would be safe if only one
+of the gwmul3 sources is normalized.  In the example, either both or neither source arg is normalized.  Here's how to normalize only
+the second source argument in the final gwmul3 when necessary.
 
-Extremely advanced GWADD options!
----------------------------------
-
-Just when you think it cannot get any more complicated, consider the last example above.  Perhaps the final gwmul3 could be safe if only one
-of the gwmul3 sources is normalized.  In the example above, either both or neither source arg is normalized.
-
-To solve this, we append a suffixes to the mul_safe and addmul_safe macros which specify the order in which arguments should be considered
-for normalizing and which argument to return the status of.  In the previous example, if at least one argument must be normalized we'll try
-to normalize the second source argument first.  This would be the code:
-
-	gwmul3 (&gwdata, x1, y1, addarg1, GWMUL_STARTNEXTFFT_IF(mul_safe_order21arg1(&gwdata, 1, unorms(a) + unorms(b) + 1));
-	gwmul3 (&gwdata, x2, y2, addarg2, GWMUL_STARTNEXTFFT_IF(mul_safe_order21arg1(&gwdata, 1, unorms(a) + unorms(b) + 1));
-	gwadd3o (&gwdata, addarg1, addarg2, mularg1, GWADD_DELAYNORM_IF(mul_safe_order21arg1(&gwdata, 1, unorms(a) + unorms(b) + 1)));
-	gwadd3o (&gwdata, a, b, mularg2, GWADD_DELAYNORM_IF(mul_safe_order21arg2(&gwdata, 1, unorms(a) + unorms(b) + 1)));
+	mularg2_safe = mul_safe (&gwdata, 1, unnorms(a) + unnorms(b) + 1);
+	mularg1_safe = mul_safe (&gwdata, 1, 0);
+	gwmul3 (&gwdata, x1, y1, addarg1, GWMUL_STARTNEXTFFT_IF(mularg1_safe));
+	gwmul3 (&gwdata, x2, y2, addarg2, GWMUL_STARTNEXTFFT_IF(mularg1_safe));
+	gwadd3o (&gwdata, addarg1, addarg2, mularg1, GWADD_DELAYNORM_IF(mularg1_safe));
+	gwadd3o (&gwdata, a, b, mularg2, GWADD_DELAYNORM_IF(mularg2_safe));
 	gwmul3 (&gwdata, mularg1, mularg2, res, mul_options);
 
-The gwmul3 in the first two lines can start the next FFT if mularg1 in the last gwmul3 does not need to be normalized.
-Notice the two gwadd3a calls use different macros mul_safe_order21arg1 and mul_safe_order21arg2.  These can return different values
-causing only the second gwadd3o call to do a normalize.
+We set mularg2_safe using the same mul_safe arguments as in the original example.  In setting mularg1_safe, we use zero for the mularg2's
+unnormalized add count because we know that mularg2 will be normalized if necessary which clears the unnormalized add count for mularg2.
+The astute reader will note that mul_safe (&gwdata, 1, 0) is always TRUE.  
 
 
 Miscellaneous optimizations

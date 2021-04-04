@@ -267,14 +267,6 @@ void binary64togw (
 	uint64_t arraylen,	/* Length of the array */
 	gwnum	n);		/* Destination gwnum */
 
-/* Convert a binary value (array of 32-bit or 64-bit values) to a gwnum. */
-/* Check your C compiler specs to see if a long is 32 or 64 bits. */
-void binarylongstogw (
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	const unsigned long *array, /* Array containing the binary value */
-	unsigned long arraylen,	/* Length of the array */
-	gwnum	n);		/* Destination gwnum */
-
 /* Convert a gwnum to a binary value (array of 32-bit values).  Returns */
 /* the number of 32-bit values written to the array.  The array is NOT */
 /* zero-padded.  Returns a negative number if an error occurs during the */
@@ -296,14 +288,6 @@ long gwtobinary64 (
 	gwnum	n,		/* Source gwnum */
 	uint64_t *array,	/* Array to contain the binary value */
 	uint64_t arraylen);	/* Maximum size of the array */
-
-/* Convert a gwnum to a binary value (array of 32-bit or 64-bit values). */
-/* Check your C compiler specs to see if a long is 32 or 64 bits. */
-long gwtobinarylongs (
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	n,		/* Source gwnum */
-	unsigned long *array,	/* Array to contain the binary value */
-	unsigned long arraylen);/* Maximum size of the array */
 
 /* Generate a random number.  Can be useful for QA purposes. */
 void gw_random_number (
@@ -561,7 +545,7 @@ unsigned long gwmemused (gwhandle *);
 #define gwfma_will_alloc_a_gwnum(h)	((h)->FFT1_state != 2)
 
 /* Returns TRUE if the gwnum value is normalized (the gwadd did not do an unnormalized add) */
-#define gwnum_is_normalized(h,g)	(unorms(g) == 0.0f)
+#define gwnum_is_normalized(h,g)	(unnorms(g) == 0.0f)
 
 /* Returns TRUE if the gwnum value is in the specified FFT state */
 #define gwnum_is_not_ffted(h,g)		(FFT_state(g) == NOT_FFTed)
@@ -570,7 +554,7 @@ unsigned long gwmemused (gwhandle *);
 #define gwnum_is_ffted_for_fma(h,g)	(FFT_state(g) == FFTed_FOR_FMA)
 
 /* Macros to acccess some of the header values in a gwnum.  Do not access or change these unless you know what you are doing! */
-/* Unorms is the number of unnormalized adds that have taken place in creating a gwnum.  The add/sub routines do not always */
+/* Unnorms is the number of unnormalized adds that have taken place in creating a gwnum.  The add/sub routines do not always */
 /* normalize results, it depends on how close k*b^n+c is to the maximum for this FFT size.  Add/sub of FFTed or partially FFTed data */
 /* never normalizes results.  It is the programmer's responsibility to properly use the GWADD options to ensure too many unnormalized add/sub */
 /* operations occur prior to a multiplication operation.  ASSERTs can be enabled to ensure excessive unnormalized adds are not occurring. */
@@ -579,7 +563,7 @@ unsigned long gwmemused (gwhandle *);
 #define PARTIALLY_FFTed		1
 #define FULLY_FFTed		3
 #define	FFTed_FOR_FMA		4
-#define unorms(x)		((float *)(x))[-1]
+#define unnorms(x)		((float *)(x))[-1]
 
 /* Get the amount of memory required for the gwnum's raw FFT data.  This does not include the GW_HEADER_SIZE bytes for the header */
 /* or any pad bytes that might be allocated for alignment.  I see little need for a program to use this routine. */
@@ -600,48 +584,8 @@ unsigned long gwnum_datasize (gwhandle *);
 
 #define square_safe(h,numadds1)				((h)->EXTRA_BITS >= EB_GWMUL_SAVINGS + numadds_to_eb(numadds1) * 2.0f)
 #define mul_safe(h,numadds1,numadds2)			((h)->EXTRA_BITS >= numadds_to_eb(numadds1) + numadds_to_eb(numadds2))
-#define addmul_safe(h,numadds1,numadds2,numadds3)	((h)->EXTRA_BITS >= numadds_to_eb(numadds1 + numadds2 + 1) + numadds_to_eb(numadds3))
+#define addmul_safe(h,numadds1,numadds2,numadds3)	mul_safe(h,(numadds1)+(numadds2)+1,numadds3)
 #define muladd_safe(h,numadds1,numadds2,numadds3)	mul_safe(h,numadds1,numadds2)
-
-/*-----------------------------------------------------------------+
-|            EXTREMELY ADVANCED GWADD_ and GWMUL_ options          |
-+-----------------------------------------------------------------*/
-
-/* These very advanced options are described in tutorial.txt.  The advanced options basically normalize either ALL or NONE of the arguments */
-/* to gwmul, gwaddmul, or gwmuladd.  However, it could be that we can make a multiply safe by only normalizing a subset of the arguments. */
-/* These macros specify the order in which input arguments will be normalized and return which arguments are safe to not normalize. */
-/* As of yet, no one to my knowledge has needed these macros. */
-
-#define mul_safe_order12arg1(h,adds1,adds2)		mul_safe(h,adds1,adds2)
-#define mul_safe_order12arg2(h,adds1,adds2)		mul_safe(h,0,adds2)
-#define mul_safe_order21arg1(h,adds1,adds2)		mul_safe(h,adds1,0)
-#define mul_safe_order21arg2(h,adds1,adds2)		mul_safe(h,adds1,adds2)
-#define addmul_safe_order123arg1(h,adds1,adds2,adds3)	addmul_safe(h,adds1,adds2,adds3)
-#define addmul_safe_order123arg2(h,adds1,adds2,adds3)	addmul_safe(h,0,adds2,adds3)
-#define addmul_safe_order123arg3(h,adds1,adds2,adds3)	addmul_safe(h,0,0,adds3)
-#define addmul_safe_order132arg1(h,adds1,adds2,adds3)	addmul_safe(h,adds1,adds2,adds3)
-#define addmul_safe_order132arg2(h,adds1,adds2,adds3)	addmul_safe(h,0,adds2,adds3)
-#define addmul_safe_order132arg3(h,adds1,adds2,adds3)	addmul_safe(h,0,adds2,0)
-#define addmul_safe_order213arg1(h,adds1,adds2,adds3)	addmul_safe(h,adds1,0,adds3)
-#define addmul_safe_order213arg2(h,adds1,adds2,adds3)	addmul_safe(h,adds1,adds2,adds3)
-#define addmul_safe_order213arg3(h,adds1,adds2,adds3)	addmul_safe(h,0,0,adds3)
-#define addmul_safe_order231arg1(h,adds1,adds2,adds3)	addmul_safe(h,adds1,0,0)
-#define addmul_safe_order231arg2(h,adds1,adds2,adds3)	addmul_safe(h,adds1,adds2,adds3)
-#define addmul_safe_order231arg3(h,adds1,adds2,adds3)	addmul_safe(h,adds1,0,adds3)
-#define addmul_safe_order312arg1(h,adds1,adds2,adds3)	addmul_safe(h,adds1,adds2,0)
-#define addmul_safe_order312arg2(h,adds1,adds2,adds3)	addmul_safe(h,0,adds2,0)
-#define addmul_safe_order312arg3(h,adds1,adds2,adds3)	addmul_safe(h,adds1,adds2,adds3)
-#define addmul_safe_order321arg1(h,adds1,adds2,adds3)	addmul_safe(h,adds1,0,0)
-#define addmul_safe_order321arg2(h,adds1,adds2,adds3)	addmul_safe(h,adds1,adds2,0)
-#define addmul_safe_order321arg3(h,adds1,adds2,adds3)	addmul_safe(h,adds1,adds2,adds3)
-/* And if an addmul argument is used in two different addmul sources, you can use these macros */
-#define addmul_safe_order123arg12(h,adds1,adds2,adds3)	addmul_safe(h,adds1,adds2,adds3)
-#define addmul_safe_order312arg12(h,adds1,adds2,adds3)	addmul_safe(h,0,0,adds3)
-#define addmul_safe_order132arg13(h,adds1,adds2,adds3)	addmul_safe(h,adds1,adds2,adds3)
-#define addmul_safe_order213arg13(h,adds1,adds2,adds3)	addmul_safe(h,0,adds2,0)
-#define addmul_safe_order123arg23(h,adds1,adds2,adds3)	addmul_safe(h,adds1,0,0)
-#define addmul_safe_order231arg23(h,adds1,adds2,adds3)	addmul_safe(h,adds1,adds2,adds3)
-/* For muladd_order, rather than enumerating a blizzard of new macros like we did for addmul_safe_order simply use the mul_safe_order macros */
 
 /*-----------------------------------------------------------------+
 |             **DANGEROUS**  GWNUM COMPARISON ROUTINES             |
@@ -813,7 +757,23 @@ int gwtogiant (gwhandle *, gwnum, giant);
 #define gwsetaddinatbit(h,v,b)	gwsetaddinatpowerofb(h,v,b)
 
 /* Deprecated -- replaced by more appropriately named macro */
-#define norm_count(h)	unorms(h)
+#define norm_count(h)	unnorms(h)
+
+/* Convert a binary value (array of 32-bit or 64-bit values) to a gwnum.  Check your C compiler specs to see if a long is 32 or 64 bits. */
+/* Use of this routine is HIGHLY DISCOURAGED.  It can lead to portability problems between Linux and Windows. */
+void binarylongstogw (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	const unsigned long *array, /* Array containing the binary value */
+	unsigned long arraylen,	/* Length of the array */
+	gwnum	n);		/* Destination gwnum */
+
+/* Convert a gwnum to a binary value (array of 32-bit or 64-bit values).  Check your C compiler specs to see if a long is 32 or 64 bits. */
+/* Use of this routine is HIGHLY DISCOURAGED.  It can lead to portability problems between Linux and Windows. */
+long gwtobinarylongs (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	n,		/* Source gwnum */
+	unsigned long *array,	/* Array to contain the binary value */
+	unsigned long arraylen);/* Maximum size of the array */
 
 /*---------------------------------------------------------------------+
 |          SPECIAL ECM ROUTINE FOR GMP-ECM USING GWNUM LIBRARY         |
