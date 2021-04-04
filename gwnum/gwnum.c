@@ -7819,7 +7819,7 @@ void gwcopyzero (
 
 /* Copy the unnormalized add counter and clear the has been completely/partially FFTed flag. */
 
-	norm_count (d) = norm_count (s);
+	unorms (d) = unorms (s);
 	FFT_state (d) = NOT_FFTed;
 	gwdata->read_count += 1;
 	gwdata->write_count += 1;
@@ -8523,7 +8523,7 @@ void gianttogw (
 
 /* Clear various flags, update counts */
 
-	norm_count (g) = 0.0f;		/* Set unnormalized add counter */
+	unorms (g) = 0.0f;		/* Set unnormalized add counter */
 	FFT_state (g) = NOT_FFTed;	/* Clear has been completely/partially FFTed flag */
 	gwdata->write_count += 1;
 }
@@ -8883,12 +8883,12 @@ int gwiszero (
 	unsigned long j;
 	int 	result, count;
 
-	ASSERTG (norm_count (gg) >= 0.0f);
+	ASSERTG (unorms (gg) >= 0.0f);
 	ASSERTG (FFT_state (gg) == NOT_FFTed);
 
 /* If the input number is the result of an unnormalized addition or subtraction, then we had better normalize the number! */
 
-	if (norm_count (gg) > 0.0f) {
+	if (unorms (gg) > 0.0f) {
 		struct gwasm_data *asm_data;
 		gwnum	gwnorm;
 
@@ -8946,8 +8946,8 @@ int gwequal (
 	gwnum	gwdiff;
 	int	result;
 
-	ASSERTG (norm_count (gw1) >= 0.0f);
-	ASSERTG (norm_count (gw2) >= 0.0f);
+	ASSERTG (unorms (gw1) >= 0.0f);
+	ASSERTG (unorms (gw2) >= 0.0f);
 	ASSERTG (FFT_state (gw1) == NOT_FFTed);
 	ASSERTG (FFT_state (gw2) == NOT_FFTed);
 
@@ -8991,10 +8991,7 @@ void asm_mul (
 /* results of the multiply to an integer without an inefficient call to gwunfft. */
 
 	gwdata->POSTFFT = FALSE;
-	if ((options & GWMUL_STARTNEXTFFT) ||
-	    ((options & GWMUL_STARTNEXTFFT1) && gwdata->EXTRA_BITS >= EB_FIRST_ADD + EB_FIRST_ADD) ||
-	    ((options & GWMUL_STARTNEXTFFT2) && gwdata->EXTRA_BITS >= EB_GWMUL_SAVINGS + EB_FIRST_ADD + EB_FIRST_ADD) ||
-	    ((options & GWMUL_GLOBALSTARTNEXTFFT) && gwdata->GLOBAL_POSTFFT)) {
+	if ((options & GWMUL_STARTNEXTFFT) || ((options & GWMUL_GLOBALSTARTNEXTFFT) && gwdata->GLOBAL_POSTFFT)) {
 		if (!gwdata->GENERAL_MOD && gwdata->PASS1_SIZE) gwdata->POSTFFT = TRUE;
 	}
 	// Copy POSTFFT state to asm_data for x87 FFTs
@@ -9037,16 +9034,16 @@ void asm_mul (
 		d = (gwnum) ((char *) d + (intptr_t) asm_data->DEST2ARG);
 	}
 
-/* Adjust if necessary the SUM(INPUTS) vs. SUM(OUTPUTS).  If norm_count is more than one, then the sums will be */
+/* Adjust if necessary the SUM(INPUTS) vs. SUM(OUTPUTS).  If unnormalized add count is more than one, then the sums will be */
 /* larger than normal.  This could trigger a spurious MAXDIFF warning.  Shrink the two SUMS to compensate. */
 
 	if (gwdata->sum_inputs_checking) {
-		float	norm_count1, norm_count2;
+		float	unorm_count1, unorm_count2;
 
-		norm_count1 = norm_count (s1);
-		norm_count2 = norm_count (s2);
-		if (norm_count1 != 0.0f || norm_count2 != 0.0f) {
-			double	adjustment = pow (2.0, (double) (norm_count1 + norm_count2));
+		unorm_count1 = unorms (s1);
+		unorm_count2 = unorms (s2);
+		if (unorm_count1 != 0.0f || unorm_count2 != 0.0f) {
+			double	adjustment = pow (2.0, (double) (unorm_count1 + unorm_count2));
 			gwsuminp (gwdata, d) *= adjustment;
 			gwsumout (gwdata, d) *= adjustment;
 		}
@@ -9058,7 +9055,7 @@ void asm_mul (
 
 /* Reset the unnormalized add count, set the FFT state */
 
-	norm_count (d) = 0.0f;
+	unorms (d) = 0.0f;
 	FFT_state (d) = gwdata->POSTFFT ? PARTIALLY_FFTed : NOT_FFTed;
 }
 
@@ -9240,7 +9237,7 @@ void emulate_mod (
 /* does not get out of hand. */
 
 	gwsub (gwdata, tmp, s);
-	norm_count (s) = 0.0f;
+	unorms (s) = 0.0f;
 	ASSERTG (* addr (gwdata, s, gwdata->FFTLEN-1) == 0.0);
 	if (* addr (gwdata, s, gwdata->FFTLEN-1) != 0.0) gwdata->GWERROR = GWERROR_INTERNAL + 12;
 	gwfree (gwdata, tmp);
@@ -9256,7 +9253,7 @@ void gwunfft (
 {
 	int	save_count;
 
-	ASSERTG (norm_count (s) >= 0.0f);
+	ASSERTG (unorms (s) >= 0.0f);
 
 /* Handle the easy case */
 
@@ -9609,7 +9606,7 @@ void gwfft (			/* Forward FFT */
 {
 	struct gwasm_data *asm_data;
 
-	ASSERTG (norm_count (s) >= 0.0f);
+	ASSERTG (unorms (s) >= 0.0f);
 
 /* Handle easy case */
 
@@ -9662,7 +9659,7 @@ void gwfft (			/* Forward FFT */
 
 /* Copy the unnormalized add count, set has-been-FFTed flag */
 
-	norm_count (d) = norm_count (s);
+	unorms (d) = unorms (s);
 	FFT_state (d) = FULLY_FFTed;
 }
 
@@ -9677,7 +9674,7 @@ void gwfft_for_fma (		/* Forward FFT with post-processing for use in FMA */
 	struct gwasm_data *asm_data;
 	int	i, j, doubles_per_vector, pass2_size;
 
-	ASSERTG (norm_count (s) >= 0.0f);
+	ASSERTG (unorms (s) >= 0.0f);
 
 /* Handle the easy case */
 
@@ -9810,11 +9807,12 @@ void gwmul3 (			/* Multiply two gwnums */
 {
 	struct gwasm_data *asm_data;
 
-	ASSERTG (norm_count (s1) >= 0.0f);
-	ASSERTG (norm_count (s2) >= 0.0f);
+	ASSERTG (unorms (s1) >= 0.0f);
+	ASSERTG (unorms (s2) >= 0.0f);
+	ASSERTG (FFT_state (s1) != FFTed_FOR_FMA && FFT_state (s2) != FFTed_FOR_FMA);
 	// Make sure not too many unnormalized adds prior to square or multiply
-	ASSERTG ((s1 == s2 && gwdata->EXTRA_BITS >= EB_GWMUL_SAVINGS + 2.0f * norm_count_to_eb (norm_count (s1))) ||
-		 (s1 != s2 && gwdata->EXTRA_BITS >= norm_count_to_eb (norm_count (s1)) + norm_count_to_eb (norm_count (s2))));
+	ASSERTG ((s1 == s2 && gwdata->EXTRA_BITS >= EB_GWMUL_SAVINGS + 2.0f * numadds_to_eb (unorms (s1))) ||
+		 (s1 != s2 && gwdata->EXTRA_BITS >= numadds_to_eb (unorms (s1)) + numadds_to_eb (unorms (s2))));
 
 /* Clear flags that are impossible when a source is the same as the destination */
 
@@ -9854,11 +9852,12 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 	int	saved_careful_count;
 
-	ASSERTG (norm_count (s1) >= 0.0f);
-	ASSERTG (norm_count (s2) >= 0.0f);
+	ASSERTG (unorms (s1) >= 0.0f);
+	ASSERTG (unorms (s2) >= 0.0f);
+	ASSERTG (FFT_state (s1) != FFTed_FOR_FMA && FFT_state (s2) != FFTed_FOR_FMA);
 	// Make sure not too many unnormalized adds prior to square or multiply
-	ASSERTG ((s1 == s2 && gwdata->EXTRA_BITS >= EB_GWMUL_SAVINGS + 2.0f * norm_count_to_eb (norm_count (s1))) ||
-		 (s1 != s2 && gwdata->EXTRA_BITS >= norm_count_to_eb (norm_count (s1)) + norm_count_to_eb (norm_count (s2))));
+	ASSERTG ((s1 == s2 && gwdata->EXTRA_BITS >= EB_GWMUL_SAVINGS + 2.0f * numadds_to_eb (unorms (s1))) ||
+		 (s1 != s2 && gwdata->EXTRA_BITS >= numadds_to_eb (unorms (s1)) + numadds_to_eb (unorms (s2))));
 	ASSERTG (! (options & (GWMUL_FFT_S1 | GWMUL_FFT_S2)));			// It is dangerous to FFT non-random data
 
 /* Clear flags that are impossible when a source is the same as the destination */
@@ -9951,11 +9950,12 @@ void gwaddmul4 (		/* Calculate (s1+s2)*s3 */
 	gwnum	d,		/* Destination */
 	int	options)	/* See gwnum.h */
 {
-	ASSERTG (norm_count (s1) >= 0.0f);
-	ASSERTG (norm_count (s2) >= 0.0f);
-	ASSERTG (norm_count (s3) >= 0.0f);
+	ASSERTG (unorms (s1) >= 0.0f);
+	ASSERTG (unorms (s2) >= 0.0f);
+	ASSERTG (unorms (s3) >= 0.0f);
+	ASSERTG (FFT_state (s1) != FFTed_FOR_FMA && FFT_state (s2) != FFTed_FOR_FMA && FFT_state (s3) != FFTed_FOR_FMA);
 	// Make sure not too many unnormalized adds prior to addmul
-	ASSERTG (gwdata->EXTRA_BITS >= norm_count_to_eb (norm_count (s1) + norm_count (s2) + 1.0f) + norm_count_to_eb (norm_count (s3)));
+	ASSERTG (gwdata->EXTRA_BITS >= numadds_to_eb (unorms (s1) + unorms (s2) + 1.0f) + numadds_to_eb (unorms (s3)));
 
 /* Let common code do the work */
 
@@ -9973,11 +9973,12 @@ void gwsubmul4 (		/* Calculate (s1-s2)*s3 */
 	gwnum	d,		/* Destination */
 	int	options)	/* See gwnum.h */
 {
-	ASSERTG (norm_count (s1) >= 0.0f);
-	ASSERTG (norm_count (s2) >= 0.0f);
-	ASSERTG (norm_count (s3) >= 0.0f);
+	ASSERTG (unorms (s1) >= 0.0f);
+	ASSERTG (unorms (s2) >= 0.0f);
+	ASSERTG (unorms (s3) >= 0.0f);
+	ASSERTG (FFT_state (s1) != FFTed_FOR_FMA && FFT_state (s2) != FFTed_FOR_FMA && FFT_state (s3) != FFTed_FOR_FMA);
 	// Make sure not too many unnormalized adds prior to addmul
-	ASSERTG (gwdata->EXTRA_BITS >= norm_count_to_eb (norm_count (s1) + norm_count (s2) + 1.0f) + norm_count_to_eb (norm_count (s3)));
+	ASSERTG (gwdata->EXTRA_BITS >= numadds_to_eb (unorms (s1) + unorms (s2) + 1.0f) + numadds_to_eb (unorms (s3)));
 
 /* Let common code do the work */
 
@@ -9995,12 +9996,13 @@ void gwmuladd4 (		/* Calculate (s1*s2)+s3 */
 	gwnum	d,		/* Destination */
 	int	options)	/* See gwnum.h */
 {
-	ASSERTG (norm_count (s1) >= 0.0f);
-	ASSERTG (norm_count (s2) >= 0.0f);
-	ASSERTG (norm_count (s3) >= 0.0f);
+	ASSERTG (unorms (s1) >= 0.0f);
+	ASSERTG (unorms (s2) >= 0.0f);
+	ASSERTG (unorms (s3) >= 0.0f);
+	ASSERTG (FFT_state (s1) != FFTed_FOR_FMA && FFT_state (s2) != FFTed_FOR_FMA);
 	// Make sure not too many unnormalized adds prior to square or multiply
-	ASSERTG ((s1 == s2 && gwdata->EXTRA_BITS >= EB_GWMUL_SAVINGS + 2.0f * norm_count_to_eb (norm_count (s1))) ||
-		 (s1 != s2 && gwdata->EXTRA_BITS >= norm_count_to_eb (norm_count (s1)) + norm_count_to_eb (norm_count (s2))));
+	ASSERTG ((s1 == s2 && gwdata->EXTRA_BITS >= EB_GWMUL_SAVINGS + 2.0f * numadds_to_eb (unorms (s1))) ||
+		 (s1 != s2 && gwdata->EXTRA_BITS >= numadds_to_eb (unorms (s1)) + numadds_to_eb (unorms (s2))));
 
 /* Let common code do the work */
 
@@ -10018,12 +10020,13 @@ void gwmulsub4 (		/* Calculate (s1*s2)-s3 */
 	gwnum	d,		/* Destination */
 	int	options)	/* See gwnum.h */
 {
-	ASSERTG (norm_count (s1) >= 0.0f);
-	ASSERTG (norm_count (s2) >= 0.0f);
-	ASSERTG (norm_count (s3) >= 0.0f);
+	ASSERTG (unorms (s1) >= 0.0f);
+	ASSERTG (unorms (s2) >= 0.0f);
+	ASSERTG (unorms (s3) >= 0.0f);
+	ASSERTG (FFT_state (s1) != FFTed_FOR_FMA && FFT_state (s2) != FFTed_FOR_FMA);
 	// Make sure not too many unnormalized adds prior to square or multiply
-	ASSERTG ((s1 == s2 && gwdata->EXTRA_BITS >= EB_GWMUL_SAVINGS + 2.0f * norm_count_to_eb (norm_count (s1))) ||
-		 (s1 != s2 && gwdata->EXTRA_BITS >= norm_count_to_eb (norm_count (s1)) + norm_count_to_eb (norm_count (s2))));
+	ASSERTG ((s1 == s2 && gwdata->EXTRA_BITS >= EB_GWMUL_SAVINGS + 2.0f * numadds_to_eb (unorms (s1))) ||
+		 (s1 != s2 && gwdata->EXTRA_BITS >= numadds_to_eb (unorms (s1)) + numadds_to_eb (unorms (s2))));
 
 /* Let common code do the work */
 
@@ -10438,20 +10441,21 @@ void gwadd3o (			/* Add two numbers normalizing if needed */
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 	float	new_normcnt;
 
-	ASSERTG (norm_count (s1) >= 0.0f);
-	ASSERTG (norm_count (s2) >= 0.0f);
+	ASSERTG (unorms (s1) >= 0.0f);
+	ASSERTG (unorms (s2) >= 0.0f);
+	ASSERTG (FFT_state (s1) != FFTed_FOR_FMA && FFT_state (s2) != FFTed_FOR_FMA);
 
 /* Sanity check the options */
 
 	ASSERTG (!(options & GWADD_DELAY_NORMALIZE) || !(options & GWADD_FORCE_NORMALIZE));	// Both options cannot be set
-	// Force normalize, guaranteed OK, or usage must be set
-	ASSERTG (options & (GWADD_FORCE_NORMALIZE | GWADD_GUARANTEED_OK | GWADD_SQUARE_INPUT | GWADD_MUL_INPUT | GWADD_ADD_INPUT));
+	// Force normalize, delay normalize, guaranteed OK, or usage must be set
+	ASSERTG (options & (GWADD_FORCE_NORMALIZE | GWADD_DELAY_NORMALIZE | GWADD_GUARANTEED_OK | GWADD_SQUARE_INPUT | GWADD_MUL_INPUT | GWADD_ADD_INPUT));
 
-/* Calculate the new norm_count if we don't do a normalized add. */
+/* Calculate the new unnormalized add count if we don't do a normalized add. */
 /* Non-random input data will eat up a full extra FFT output bit. */
 
-	if (options & GWADD_NON_RANDOM_DATA) new_normcnt = eb_to_norm_count (norm_count_to_eb (norm_count (s1)) + norm_count_to_eb (norm_count (s2)) + 1.0f);
-	else new_normcnt = norm_count (s1) + norm_count (s2) + 1.0f;
+	if (options & GWADD_NON_RANDOM_DATA) new_normcnt = eb_to_numadds (numadds_to_eb (unorms (s1)) + numadds_to_eb (unorms (s2)) + 1.0f);
+	else new_normcnt = unorms (s1) + unorms (s2) + 1.0f;
 	if (options & GWADD_GUARANTEED_OK) new_normcnt = 0.0f;
 
 /* If either input is partially or fully FFTed, we cannot normalize the result.  Use a different assembly routine. */
@@ -10495,7 +10499,7 @@ void gwadd3o (			/* Add two numbers normalizing if needed */
 /* Update the count of unnormalized adds and subtracts */
 /* Copy the has-been-completely/partially-FFTed flag */
 
-		norm_count (d) = new_normcnt;
+		unorms (d) = new_normcnt;
 		FFT_state (d) = FFT_state (s1);
 	}
 
@@ -10505,13 +10509,9 @@ void gwadd3o (			/* Add two numbers normalizing if needed */
 	else if ((options & GWADD_DELAY_NORMALIZE) ||
 		 (!(options & GWADD_FORCE_NORMALIZE) &&
 		  gwdata->EXTRA_BITS >= (
-			(options & GWADD_SQUARE_INPUT) ?
-				EB_GWMUL_SAVINGS + norm_count_to_eb (new_normcnt) * 2.0f
-			: (options & (GWADD_ADD_INPUT | GWADD_ADDITIONAL_ADD_INPUT)) ?
-				norm_count_to_eb (1 + ((options & GWADD_ADD_INPUT) ? new_normcnt : 0) + ((options & GWADD_ADDITIONAL_ADD_INPUT ? 1 : 0))) +
-				((options & GWADD_MUL_INPUT) ? norm_count_to_eb (new_normcnt) : (options & GWADD_ADDITIONAL_MUL_INPUT) ? EB_FIRST_ADD : 0)
-			:
-				norm_count_to_eb (new_normcnt) + ((options & GWADD_ADDITIONAL_MUL_INPUT) ? EB_FIRST_ADD : 0)))) {
+			(options & GWADD_SQUARE_INPUT) ? EB_GWMUL_SAVINGS + numadds_to_eb (new_normcnt) * 2.0f :
+			(options & GWADD_ADD_INPUT) ? numadds_to_eb (new_normcnt + 1) :
+			numadds_to_eb (new_normcnt)))) {
 
 /* Do an AVX-512 or two-pass AVX addquick */
 
@@ -10531,7 +10531,7 @@ void gwadd3o (			/* Add two numbers normalizing if needed */
 /* Update the count of unnormalized adds and subtracts */
 /* Set the has-been-completely/partially-FFTed flag */
 
-		norm_count (d) = new_normcnt;
+		unorms (d) = new_normcnt;
 		FFT_state (d) = NOT_FFTed;
 	}
 
@@ -10556,7 +10556,7 @@ void gwadd3o (			/* Add two numbers normalizing if needed */
 
 /* Reset the unnormalized adds and subtracts count, clear the has-been-completely/partially-FFTed flag,  */
 
-		norm_count (d) = 0.0f;
+		unorms (d) = 0.0f;
 		FFT_state (d) = NOT_FFTed;
 	}
 
@@ -10576,20 +10576,21 @@ void gwsub3o (			/* Compute s1 - s2 normalizing if needed */
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 	float	new_normcnt;
 
-	ASSERTG (norm_count (s1) >= 0.0f);
-	ASSERTG (norm_count (s2) >= 0.0f);
+	ASSERTG (unorms (s1) >= 0.0f);
+	ASSERTG (unorms (s2) >= 0.0f);
+	ASSERTG (FFT_state (s1) != FFTed_FOR_FMA && FFT_state (s2) != FFTed_FOR_FMA);
 
 /* Sanity check the options */
 
 	ASSERTG (!(options & GWADD_DELAY_NORMALIZE) || !(options & GWADD_FORCE_NORMALIZE));	// Both options cannot be set
-	// Force normalize, guaranteed OK, or usage must be set
-	ASSERTG (options & (GWADD_FORCE_NORMALIZE | GWADD_GUARANTEED_OK | GWADD_SQUARE_INPUT | GWADD_MUL_INPUT | GWADD_ADD_INPUT));
+	// Force normalize, delay normalize, guaranteed OK, or usage must be set
+	ASSERTG (options & (GWADD_FORCE_NORMALIZE | GWADD_DELAY_NORMALIZE | GWADD_GUARANTEED_OK | GWADD_SQUARE_INPUT | GWADD_MUL_INPUT | GWADD_ADD_INPUT));
 
-/* Calculate the new norm_count if we don't do a normalized add. */
+/* Calculate the new unnormalized add count if we don't do a normalized add. */
 /* Non-random input data will eat up a full extra output bit. */
 
-	if (options & GWADD_NON_RANDOM_DATA) new_normcnt = eb_to_norm_count (norm_count_to_eb (norm_count (s1)) + norm_count_to_eb (norm_count (s2)) + 1.0f);
-	else new_normcnt = norm_count (s1) + norm_count (s2) + 1.0f;
+	if (options & GWADD_NON_RANDOM_DATA) new_normcnt = eb_to_numadds (numadds_to_eb (unorms (s1)) + numadds_to_eb (unorms (s2)) + 1.0f);
+	else new_normcnt = unorms (s1) + unorms (s2) + 1.0f;
 	if (options & GWADD_GUARANTEED_OK) new_normcnt = 0.0f;
 
 /* If either input is partially or fully FFTed, we cannot normalize the result.  Use a different assembly routine. */
@@ -10633,7 +10634,7 @@ void gwsub3o (			/* Compute s1 - s2 normalizing if needed */
 /* Update the count of unnormalized adds and subtracts */
 /* Copy the has-been-completely/partially-FFTed flag */
 
-		norm_count (d) = new_normcnt;
+		unorms (d) = new_normcnt;
 		FFT_state (d) = FFT_state (s1);
 	}
 
@@ -10643,13 +10644,9 @@ void gwsub3o (			/* Compute s1 - s2 normalizing if needed */
 	else if ((options & GWADD_DELAY_NORMALIZE) ||
 		 (!(options & GWADD_FORCE_NORMALIZE) &&
 		  gwdata->EXTRA_BITS >= (
-			(options & GWADD_SQUARE_INPUT) ?
-				EB_GWMUL_SAVINGS + norm_count_to_eb (new_normcnt) * 2.0f
-			: (options & (GWADD_ADD_INPUT | GWADD_ADDITIONAL_ADD_INPUT)) ?
-				norm_count_to_eb (1 + ((options & GWADD_ADD_INPUT) ? new_normcnt : 0) + ((options & GWADD_ADDITIONAL_ADD_INPUT ? 1 : 0))) +
-				((options & GWADD_MUL_INPUT) ? norm_count_to_eb (new_normcnt) : (options & GWADD_ADDITIONAL_MUL_INPUT) ? EB_FIRST_ADD : 0)
-			:
-				norm_count_to_eb (new_normcnt) + ((options & GWADD_ADDITIONAL_MUL_INPUT) ? EB_FIRST_ADD : 0)))) {
+			(options & GWADD_SQUARE_INPUT) ? EB_GWMUL_SAVINGS + numadds_to_eb (new_normcnt) * 2.0f :
+			(options & GWADD_ADD_INPUT) ? numadds_to_eb (new_normcnt + 1) :
+			numadds_to_eb (new_normcnt)))) {
 
 /* Do an AVX-512 or two-pass AVX subquick */
 
@@ -10669,7 +10666,7 @@ void gwsub3o (			/* Compute s1 - s2 normalizing if needed */
 /* Update the count of unnormalized adds and subtracts */
 /* Set the has-been-completely/partially-FFTed flag */
 
-		norm_count (d) = new_normcnt;
+		unorms (d) = new_normcnt;
 		FFT_state (d) = NOT_FFTed;
 	}
 
@@ -10694,7 +10691,7 @@ void gwsub3o (			/* Compute s1 - s2 normalizing if needed */
 
 /* Reset the unnormalized adds and subtracts count, clear the has-been-completely/partially-FFTed flag. */
 
-		norm_count (d) = 0.0f;
+		unorms (d) = 0.0f;
 		FFT_state (d) = NOT_FFTed;
 	}
 
@@ -10715,20 +10712,21 @@ void gwaddsub4o (		/* Add & sub two nums normalizing if needed */
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 	float	new_normcnt;
 
-	ASSERTG (norm_count (s1) >= 0.0f);
-	ASSERTG (norm_count (s2) >= 0.0f);
+	ASSERTG (unorms (s1) >= 0.0f);
+	ASSERTG (unorms (s2) >= 0.0f);
+	ASSERTG (FFT_state (s1) != FFTed_FOR_FMA && FFT_state (s2) != FFTed_FOR_FMA);
 
 /* Sanity check the options */
 
 	ASSERTG (!(options & GWADD_DELAY_NORMALIZE) || !(options & GWADD_FORCE_NORMALIZE));	// Both options cannot be set
-	// Force normalize, guaranteed OK, or usage must be set
-	ASSERTG (options & (GWADD_FORCE_NORMALIZE | GWADD_GUARANTEED_OK | GWADD_SQUARE_INPUT | GWADD_MUL_INPUT | GWADD_ADD_INPUT));
+	// Force normalize, delay normalize, guaranteed OK, or usage must be set
+	ASSERTG (options & (GWADD_FORCE_NORMALIZE | GWADD_DELAY_NORMALIZE | GWADD_GUARANTEED_OK | GWADD_SQUARE_INPUT | GWADD_MUL_INPUT | GWADD_ADD_INPUT));
 
-/* Calculate the new norm_count if we don't do a normalized add. */
+/* Calculate the new unnormalized add count if we don't do a normalized add. */
 /* Non-random input data will eat up a full extra output bit. */
 
-	if (options & GWADD_NON_RANDOM_DATA) new_normcnt = eb_to_norm_count (norm_count_to_eb (norm_count (s1)) + norm_count_to_eb (norm_count (s2)) + 1.0f);
-	else new_normcnt = norm_count (s1) + norm_count (s2) + 1.0f;
+	if (options & GWADD_NON_RANDOM_DATA) new_normcnt = eb_to_numadds (numadds_to_eb (unorms (s1)) + numadds_to_eb (unorms (s2)) + 1.0f);
+	else new_normcnt = unorms (s1) + unorms (s2) + 1.0f;
 	if (options & GWADD_GUARANTEED_OK) new_normcnt = 0.0f;
 
 /* If either input is partially or fully FFTed, use a different routine */
@@ -10775,7 +10773,7 @@ void gwaddsub4o (		/* Add & sub two nums normalizing if needed */
 /* Update the counts of unnormalized adds and subtracts */
 /* Copy the has-been-completely/partially-FFTed flag */
 
-		norm_count (d1) = norm_count (d2) = new_normcnt;
+		unorms (d1) = unorms (d2) = new_normcnt;
 		FFT_state (d1) = FFT_state (d2) = FFT_state (s1);
 	}
 
@@ -10785,13 +10783,9 @@ void gwaddsub4o (		/* Add & sub two nums normalizing if needed */
 	else if ((options & GWADD_DELAY_NORMALIZE) ||
 		 (!(options & GWADD_FORCE_NORMALIZE) &&
 		  gwdata->EXTRA_BITS >= (
-			(options & GWADD_SQUARE_INPUT) ?
-				EB_GWMUL_SAVINGS + norm_count_to_eb (new_normcnt) * 2.0f
-			: (options & (GWADD_ADD_INPUT | GWADD_ADDITIONAL_ADD_INPUT)) ?
-				norm_count_to_eb (1 + ((options & GWADD_ADD_INPUT) ? new_normcnt : 0) + ((options & GWADD_ADDITIONAL_ADD_INPUT ? 1 : 0))) +
-				((options & GWADD_MUL_INPUT) ? norm_count_to_eb (new_normcnt) : (options & GWADD_ADDITIONAL_MUL_INPUT) ? EB_FIRST_ADD : 0)
-			:
-				norm_count_to_eb (new_normcnt) + ((options & GWADD_ADDITIONAL_MUL_INPUT) ? EB_FIRST_ADD : 0)))) {
+			(options & GWADD_SQUARE_INPUT) ? EB_GWMUL_SAVINGS + numadds_to_eb (new_normcnt) * 2.0f :
+			(options & GWADD_ADD_INPUT) ? numadds_to_eb (new_normcnt + 1) :
+			numadds_to_eb (new_normcnt)))) {
 
 /* Do an AVX-512 or two-pass AVX addsubquick */
 
@@ -10812,7 +10806,7 @@ void gwaddsub4o (		/* Add & sub two nums normalizing if needed */
 /* Update the count of unnormalized adds and subtracts */
 /* Set the has-been-completely/partially-FFTed flag */
 
-		norm_count (d1) = norm_count (d2) = new_normcnt;
+		unorms (d1) = unorms (d2) = new_normcnt;
 		FFT_state (d1) = FFT_state (d2) = NOT_FFTed;
 	}
 
@@ -10838,8 +10832,8 @@ void gwaddsub4o (		/* Add & sub two nums normalizing if needed */
 
 /* Reset the unnormalized adds and subtracts count, clear the has-been-completely/partially-FFTed flags */
 
-		norm_count (d1) = 0.0f;
-		norm_count (d2) = 0.0f;
+		unorms (d1) = 0.0f;
+		unorms (d2) = 0.0f;
 		FFT_state (d1) = NOT_FFTed;
 		FFT_state (d2) = NOT_FFTed;
 	}
@@ -10862,7 +10856,7 @@ void gwsmalladd (
 
 /* Assert unnormalized add count valid, input not completely/partially FFTed. */
 
-	ASSERTG (norm_count (g) >= 0.0f);
+	ASSERTG (unorms (g) >= 0.0f);
 	ASSERTG (FFT_state (g) == NOT_FFTed);
 
 /* AVX-512 one-pass implementation spreads carry over four words.  If there aren't many */
@@ -10912,7 +10906,7 @@ void gwsmallmul (
 
 /* Assert unnormalized add count valid, input not completely/partially FFTed. */
 
-	ASSERTG (norm_count (g) >= 0.0f);
+	ASSERTG (unorms (g) >= 0.0f);
 	ASSERTG (FFT_state (g) == NOT_FFTed);
 
 /* The x87 assembly version won't spread carries over multiple words.  Also, the x87 assembly version won't guard against */
@@ -10968,7 +10962,7 @@ void gwsmallmul (
 	else if (gwdata->cpu_flags & CPU_AVX512F) {
 		asm_data->DBLARG = mult;
 		multithread_op (gwdata, g, NULL, g, NULL, addr_gw_muls (gwdata), FALSE);
-		norm_count (g) = 0.0f;
+		unorms (g) = 0.0f;
 		gwdata->read_count += 1;
 		gwdata->write_count += 1;
 	}
@@ -10979,7 +10973,7 @@ void gwsmallmul (
 		asm_data->DESTARG = g;
 		asm_data->DBLARG = mult;
 		gw_muls (gwdata, asm_data);
-		norm_count (g) = 0.0f;
+		unorms (g) = 0.0f;
 		gwdata->read_count += 1;
 		gwdata->write_count += 1;
 	}
