@@ -800,7 +800,7 @@ __inline void convert_xz (
 
 	// Super rare.  It is possible when following the lucas_mul rules for ell_add_xz to FFT the diff values and for us to later need a
 	// conversion to x+z,x-z format.  If this happens and we need to do normalized adds, undo the FFT of diff done in ell_add_xz.
-	if (gwnum_is_fully_ffted (&ecmdata->gwdata, arg->x) && ecmdata->gwdata.EXTRA_BITS < EB_GWMUL_SAVINGS + EB_FIRST_ADD + EB_FIRST_ADD) {
+	if (gwnum_is_fully_ffted (&ecmdata->gwdata, arg->x) && !square_safe (&ecmdata->gwdata, 1)) {
 		gwunfft (&ecmdata->gwdata, arg->x, arg->x);
 		gwunfft (&ecmdata->gwdata, arg->z, arg->z);
 	}
