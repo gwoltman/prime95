@@ -366,6 +366,7 @@ int radix_gwcopy (
 		int	b_we_have;
 
 		dstb = dst_gwdata->NUM_B_PER_SMALL_WORD + !!is_big_word (dst_gwdata, dsti);
+		if (dsti > last_dsti) dstb = 0;  // Needed for zero-padded FFTs
 		dstval = 0;
 		b_we_have = 0;
 
