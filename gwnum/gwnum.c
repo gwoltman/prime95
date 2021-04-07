@@ -4653,6 +4653,7 @@ int internal_gwsetup (
 	gwdata->saved_copyz_n = 0;
 	gwdata->GWERROR = 0;
 	gwdata->GW_RANDOM = NULL;
+	gwdata->GW_ADDIN = NULL;
 
 /* Init FFT1 state for possible future gwmuladd4 and gwmulsub4 calls */
 /* For AVX-512 FFTs, two-pass k == 1 FFTs can skip FFT(1), but FFTlen divisible by 7 cannot because of a weird optimization in zr7.mac */
@@ -7975,12 +7976,25 @@ void gwsetaddin (
 {
 	unsigned long word, b_in_word;
 
-	ASSERTG (gwdata->k == 1.0 || labs (gwdata->c) == 1 || value == 0.0);
+	ASSERTG (labs(value) <= 2147483647);		// Limit add-in to 32 bits, though I don't see why 45 or even more bits would not work
+
+/* If this is a case we must emulate, allocate and initialize GW_ADDIN */
+
+	if (gwdata->k != 1.0 && labs (gwdata->c) != 1) {
+		if (value == 0) {
+			gwfree (gwdata, gwdata->GW_ADDIN);
+			gwdata->GW_ADDIN = NULL;
+			return;
+		}
+		if (gwdata->GW_ADDIN == NULL) gwdata->GW_ADDIN = gwalloc (gwdata);
+		dbltogw (gwdata, (double) value, gwdata->GW_ADDIN);
+		return;
+	}
 
 /* Handle value of zero */
 
 	if (value == 0) {
-		raw_gwsetaddin (gwdata, 0, 0.0);
+		((struct gwasm_data *) gwdata->asm_data)->ADDIN_VALUE = 0.0;
 		return;
 	}
 
@@ -8281,14 +8295,13 @@ void binarylongstogw (
 	gianttogw (gwdata, &tmp, n);
 }
 
-/* Convert a giant to gwnum FFT format.  Giant must be a positive number. */
+/* Convert a giant to gwnum FFT format */
 
 void gianttogw (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	giant	a,
 	gwnum	g)
 {
-	ASSERTG (a->sign >= 0);		/* We only handle positive numbers */
 
 /* Jean Penne requested that we optimize the small number cases. */
 /* Setting the gwnum to zero is real easy. */
@@ -8300,13 +8313,15 @@ void gianttogw (
 /* Small numbers can also be optimized for many moduli by zeroing all the */
 /* FFT data using memset and then setting only the affected FFT elements. */
 
-	else if (a->sign == 1 && (gwdata->k == 1.0 || labs (gwdata->c) == 1)) {
-		uint32_t low_addin;
+	else if (labs (a->sign) == 1 && (gwdata->k == 1.0 || labs (gwdata->c) == 1)) {
+		double	value_to_convert;
+		int32_t low_addin;
 		int	i;
 
-/* Zero the FFT data */
+/* Zero the FFT data, init the small value to convert to a gwnum */
 
 		memset (g, 0, gwnum_datasize (gwdata));
+		value_to_convert = (a->sign > 0) ? (double) a->n[0] : - (double) a->n[0];
 
 /* To make the mod k*b^n+c step faster, gwnum's are pre-multiplied by 1/k. */
 /* Case 1 (k*b^n-1): Inverse of k is b^n.  Case 2 (k*b^n+1): Inverse of k is -b^n. */
@@ -8318,20 +8333,20 @@ void gianttogw (
 			double	quotient, remainder, high_addin;
 			unsigned long word, bit_in_word;
 
-			quotient = floor ((double) a->n[0] / gwdata->k);
-			remainder = (double) a->n[0] - quotient * gwdata->k;
+			quotient = floor (value_to_convert / gwdata->k);
+			remainder = value_to_convert - quotient * gwdata->k;
 			if (gwdata->c == -1) {
-				low_addin = (uint32_t) quotient;
+				low_addin = (int32_t) quotient;
 				high_addin = remainder;
 			} else {
-				low_addin = (uint32_t) quotient + 1;
+				low_addin = (int32_t) quotient + 1;
 				high_addin = gwdata->k - remainder;
 			}
 
 /* Add the high_addin value across the top FFT words */
 
 			bitaddr (gwdata, gwdata->n, &word, &bit_in_word);
-			for (i = word; high_addin > 0.0; i++, bit_in_word = 0) {
+			for (i = word; high_addin != 0.0; i++, bit_in_word = 0) {
 				long	value, maxval;
 
 				maxval = intpow (gwdata->b, gwdata->NUM_B_PER_SMALL_WORD);
@@ -8367,7 +8382,7 @@ void gianttogw (
 /* If k is 1, simply copy the giant value to the low FFT words */
 
 		else
-			low_addin = a->n[0];
+			low_addin = (int32_t) value_to_convert;
 
 /* Spread the low_addin value across the lowest FFT words as necessary */
 
@@ -8513,6 +8528,12 @@ void gianttogw (
 /* Otherwise (non-base 2), we do a recursive divide and conquer radix conversion. */
 
 		else {
+			if (a->sign < 0) {
+				newg = popg (&gwdata->gdata, (((unsigned long) gwdata->bit_length >> 5) + 2) * 2);
+				gtog (a, newg);
+				specialmodg (gwdata, newg);
+				a = newg;
+			}
 			nonbase2_gianttogw (gwdata, a, g);
 		}
 
@@ -8991,7 +9012,7 @@ void asm_mul (
 /* results of the multiply to an integer without an inefficient call to gwunfft. */
 
 	gwdata->POSTFFT = FALSE;
-	if ((options & GWMUL_STARTNEXTFFT) || ((options & GWMUL_GLOBALSTARTNEXTFFT) && gwdata->GLOBAL_POSTFFT)) {
+	if (options & GWMUL_STARTNEXTFFT) {
 		if (!gwdata->GENERAL_MOD && gwdata->PASS1_SIZE) gwdata->POSTFFT = TRUE;
 	}
 	// Copy POSTFFT state to asm_data for x87 FFTs
@@ -9013,7 +9034,7 @@ void asm_mul (
 	asm_data->DIST_TO_MULSRCARG = (intptr_t) s2 - (intptr_t) d;
 
 	asm_data->zero_fft = (asm_data->NORMRTN == gwdata->GWPROCPTRS[zerohigh_routines + (gwdata->NORMNUM & 1)]);
-	asm_data->const_fft = gwdata->NORMNUM & 2;
+	asm_data->const_fft = !!(options & GWMUL_MULBYCONST);
 	asm_data->add_sub_smallmul_op = 0;
 //if (rand() % 100 < 1) *s += 1.0;			// Generate random errors (for caller to test error recovery)
 //if (rand() % 1000 < 2) *s += 1.0E200 * 1.0E200;
@@ -9343,8 +9364,8 @@ void cmn_gwopmul4 (		/* Calculate (s1 op s2) * s3 */
 	if (1) {
 #endif
 		tmp1 = gwalloc (gwdata);
-		if (opcode == 1) gwadd3o (gwdata, s1, s2, tmp1, GWADD_MUL_INPUT);
-		else gwsub3o (gwdata, s1, s2, tmp1, GWADD_MUL_INPUT);
+		if (opcode == 1) gwadd3o (gwdata, s1, s2, tmp1, GWADD_DELAY_NORMALIZE);
+		else gwsub3o (gwdata, s1, s2, tmp1, GWADD_DELAY_NORMALIZE);
 		gwmul3 (gwdata, tmp1, s3, d, (options & ~0x3F) + ((options & 0x30) >> 2));	// Shift s3 options down to s2
 	}
 
@@ -9352,6 +9373,15 @@ void cmn_gwopmul4 (		/* Calculate (s1 op s2) * s3 */
 
 	else {
 		struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
+
+/* See if GWMUL3_ADDINCONST must be emulated */
+
+		if ((options & GWMUL_ADDINCONST) && gwdata->GW_ADDIN != NULL) {
+			cmn_gwopmul4 (gwdata, s1, s2, s3, d, options & ~(GWMUL_MULBYCONST | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT), opcode);
+			gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
+			if (options & GWMUL_MULBYCONST) gwsmallmul (gwdata, gwdata->mulbyconst, d);
+			return;
+		}
 
 /* Assume we will not be asking the assembly code to use two destinations */
 
@@ -9380,7 +9410,6 @@ void cmn_gwopmul4 (		/* Calculate (s1 op s2) * s3 */
 /* Call the assembly code */
 
 		if (options & GWMUL_MULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM | 2)];
-		else if (options & GWMUL_GLOBALMULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->NORMNUM];
 		else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM & ~2)];
 		if (asm_data->DEST2ARG) {
 			asm_data->mul4_opcode = 0x80 | opcode;
@@ -9464,8 +9493,8 @@ void cmn_gwmulop4 (		/* Calculate (s1 op s2) * s3 */
 
 /* Now emulate.  Be sure to do the optional mul-by-const after the FMA. */
 
-		gwmul3 (gwdata, s1, s2, d, options & ~(GWMUL_MULBYCONST | GWMUL_GLOBALMULBYCONST));
-		if (options & GWMUL_MULBYCONST || ((options & GWMUL_GLOBALMULBYCONST) && (gwdata->NORMNUM & 2))) {
+		gwmul3 (gwdata, s1, s2, d, options & ~(GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT));
+		if (options & GWMUL_MULBYCONST) {
 			if (opcode == 3) gwadd3o (gwdata, d, s3, d, GWADD_GUARANTEED_OK | GWADD_DELAY_NORMALIZE);
 			else gwsub3o (gwdata, d, s3, d, GWADD_GUARANTEED_OK | GWADD_DELAY_NORMALIZE);
 			gwsmallmul (gwdata, gwdata->mulbyconst, d);
@@ -9479,6 +9508,15 @@ void cmn_gwmulop4 (		/* Calculate (s1 op s2) * s3 */
 
 	else {
 		struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
+
+/* See if GWMUL3_ADDINCONST must be emulated */
+
+		if ((options & GWMUL_ADDINCONST) && gwdata->GW_ADDIN != NULL) {
+			cmn_gwmulop4 (gwdata, s1, s2, s3, d, options & ~(GWMUL_MULBYCONST | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT), opcode);
+			gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
+			if (options & GWMUL_MULBYCONST) gwsmallmul (gwdata, gwdata->mulbyconst, d);
+			return;
+		}
 
 /* Create and cache FFT(1) */
 
@@ -9559,7 +9597,6 @@ void cmn_gwmulop4 (		/* Calculate (s1 op s2) * s3 */
 /* Call the assembly code */
 
 		if (options & GWMUL_MULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM | 2)];
-		else if (options & GWMUL_GLOBALMULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->NORMNUM];
 		else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM & ~2)];
 		if (asm_data->DEST2ARG) {
 			asm_data->mul4_opcode = 0x80 | opcode;
@@ -9827,11 +9864,19 @@ void gwmul3 (			/* Multiply two gwnums */
 		return;
 	}
 
+/* See if GWMUL3_ADDINCONST must be emulated */
+
+	if ((options & GWMUL_ADDINCONST) && gwdata->GW_ADDIN != NULL) {
+		gwmul3 (gwdata, s1, s2, d, options & ~(GWMUL_MULBYCONST | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT));
+		gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
+		if (options & GWMUL_MULBYCONST) gwsmallmul (gwdata, gwdata->mulbyconst, d);
+		return;
+	}
+
 /* Call the assembly code */
 
 	asm_data = (struct gwasm_data *) gwdata->asm_data;
 	if (options & GWMUL_MULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM | 2)];
-	else if (options & GWMUL_GLOBALMULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->NORMNUM];
 	else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM & ~2)];
 	raw_gwmul3 (gwdata, s1, s2, d, options);
 
@@ -9860,10 +9905,11 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 		 (s1 != s2 && gwdata->EXTRA_BITS >= numadds_to_eb (unnorms (s1)) + numadds_to_eb (unnorms (s2))));
 	ASSERTG (! (options & (GWMUL_FFT_S1 | GWMUL_FFT_S2)));			// It is dangerous to FFT non-random data
 
-/* Clear flags that are impossible when a source is the same as the destination */
+/* Clear flags that are impossible when a source is the same as the destination.  Start next FFT cannot be supported. */
 
 	if (s1 == d) options &= ~(GWMUL_FFT_S1 | GWMUL_PRESERVE_S1);
 	if (s2 == d) options &= ~(GWMUL_FFT_S2 | GWMUL_PRESERVE_S2);
+	options &= ~GWMUL_STARTNEXTFFT;
 
 /* Generate a random number, if we have't already done so */
 
@@ -9888,10 +9934,9 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 		else if (options & (GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2)) gwunfft (gwdata, s1, tmp), s1 = tmp;
 		else gwunfft (gwdata, s1, s1);
 		gwaddsub4o (gwdata, s1, gwdata->GW_RANDOM, tmp, d, GWADD_FORCE_NORMALIZE);		/* Compute s1+random and s1-random */
-		gwmul3 (gwdata, tmp, d, d, options & (GWMUL_MULBYCONST | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)); /* ((s1+random)(s1-random)+addin)*const */
-		gwfft (gwdata, gwdata->GW_RANDOM, tmp);
-		gwmul3 (gwdata, tmp, tmp, tmp, options & (GWMUL_MULBYCONST | GWMUL_GLOBALMULBYCONST));	/* Compute random^2*const */
-		gwadd3o (gwdata, d, tmp, d, GWADD_FORCE_NORMALIZE);					/* Calc (s1^2+addin)*const from 2 results */
+		gwmul3 (gwdata, tmp, d, d, options & (GWMUL_MULBYCONST | GWMUL_ADDINCONST));		/* ((s1+random)(s1-random)+addin)*mulbyconst */
+		gwsquare2 (gwdata, gwdata->GW_RANDOM, tmp, GWMUL_PRESERVE_S1 | (options & GWMUL_MULBYCONST)); /* Compute random^2*mulbyconst */
+		gwadd3o (gwdata, d, tmp, d, GWADD_FORCE_NORMALIZE);					/* Calc (s1^2+addin)*mulbyconst from 2 results */
 		gwfree (gwdata, tmp);
 	}
 
@@ -9905,10 +9950,10 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 		tmp3 = gwalloc (gwdata);
 
 		if (FFT_state (s1) == NOT_FFTed);					/* Make sure s1 input data is not FFTed */
-		else if (options & GWMUL_PRESERVE_S1) gwunfft (gwdata, s1, tmp2), s1 = tmp2;
+		else if (options & GWMUL_PRESERVE_S1) gwunfft (gwdata, s1, tmp1), s1 = tmp1;
 		else gwunfft (gwdata, s1, s1);
 		if (FFT_state (s2) == NOT_FFTed);					/* Make sure s2 input data is not FFTed */
-		else if (options & GWMUL_PRESERVE_S2) gwunfft (gwdata, s2, tmp3), s2 = tmp3;
+		else if (options & GWMUL_PRESERVE_S2) gwunfft (gwdata, s2, tmp2), s2 = tmp2;
 		else gwunfft (gwdata, s2, s2);
 
 		gwadd3o (gwdata, s1, gwdata->GW_RANDOM, tmp1, GWADD_FORCE_NORMALIZE);	/* Compute s1+random */
@@ -9917,12 +9962,11 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 		gwadd3o (gwdata, d, gwdata->GW_RANDOM, tmp3, GWADD_FORCE_NORMALIZE);	/* Compute s2+2*random */
 
 		/* Compute ((s1+r)*(s2+r)+addin)*mulbyconst = (s1s2 + rs1 + rs2 + rr + addin) * mulbyconst */
-		gwmul3 (gwdata, tmp1, d, d, options & (GWMUL_MULBYCONST | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST));
+		gwmul3 (gwdata, tmp1, d, d, options & (GWMUL_MULBYCONST | GWMUL_ADDINCONST));
 		/* Compute ((s1+2r)*(s2+2r)+addin)*mulbyconst = (s1s2 + 2rs1 + 2rs2 + 4rr + addin) * mulbyconst */
-		gwmul3 (gwdata, tmp2, tmp3, tmp3, options & (GWMUL_MULBYCONST | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST));
-
-		gwfft (gwdata, gwdata->GW_RANDOM, tmp1);
-		gwmul3 (gwdata, tmp1, tmp1, tmp1, options & (GWMUL_MULBYCONST | GWMUL_GLOBALMULBYCONST)); /* Compute random^2 * mulbyconst */
+		gwmul3 (gwdata, tmp2, tmp3, tmp3, options & (GWMUL_MULBYCONST | GWMUL_ADDINCONST));
+		/* Compute random^2 * mulbyconst */
+		gwsquare2 (gwdata, gwdata->GW_RANDOM, tmp1, GWMUL_PRESERVE_S1 | (options & GWMUL_MULBYCONST)); 
 
 		gwaddquick (gwdata, d, d);						/* Compute (2s1s2 + 2rs1 + 2rs2 + 2rr + 2addin) * mulbyconst */
 		gwsubquick (gwdata, tmp3, d);						/* Compute (s1s2 - 2rr + addin) * mulbyconst */

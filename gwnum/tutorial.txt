@@ -439,7 +439,7 @@ The simplest example using the advanced GWADD options:
 
 Here one add is used in creating the argument to gwsquare2.  We have no way of knowing ahead of time if this add will require normalization.
 Rather than never using the important GWMUL_STARTNEXTFFT option in creating the inputs to gwadd3o, we use the GWMUL_STARTNEXTFFT_IF macro
-which will set the GWMUL_STARTNEXTFFT option only is squaring a gwnum that has one unnormalized add is safe.
+which will set the GWMUL_STARTNEXTFFT option only if squaring a gwnum that has one unnormalized add is safe.
 
 Here is a more complicated example from real-world code:
 
@@ -512,7 +512,7 @@ You can add a small constant to a gwnum that has not been FFTed:
 
 	gwsmalladd (&gwdata, 89, a);                    // a = a + 89
 
-You can multiply a gwnumthat that has not been FFTed by a small constant:
+You can multiply a gwnum that has not been FFTed by a small constant:
 
 	gwsmallmul (&gwdata, 89, a);                    // a = a * 89
 
@@ -539,7 +539,7 @@ you can live with the different license terms.
 Sample timing code
 ------------------
 
-As promised, the C code that benchmarks various gwnum operations.  It is hardly a thing of beauty:
+As promised, the C code that benchmarks various gwnum operations.  It is hardly a thing of beauty and uses several deprecated routines:
 
 // time_gwnum.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
@@ -908,8 +908,4 @@ int main()
 	}
 
 }
-
-
-
-
 

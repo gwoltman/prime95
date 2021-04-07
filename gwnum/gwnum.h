@@ -467,11 +467,12 @@ void gwset_carefully_count (
 	int	n);		/* Number of squarings and multiplications to do carefully. */
 				/* If n is -1, a suitable default value is used */
 
-/* These routines can be used to add a constant to the result of a multiplication at virtually no cost.  Prime95 uses these routines to */
-/* do the -2 operation in a Lucas-Lehmer test.  NOTE:  There are some number formats that cannot use these routines.  If abs(c) in k*b^n+c is 1, */
-/* then gwsetaddin can be used.  To use gwsetaddinatpowerofb, k must also be 1.  If you also use the mul-by-small-const option, the multiply */
-/* is done after the addition. */
+/* This routine is used to add a constant to the result of a multiplication at virtually no cost.  Prime95 uses this routine to do the -2 */
+/* operation in a Lucas-Lehmer test.  NOTE:  There are some number formats where the add-in must be emulated and is thus expensive.  Namely, */
+/* if k != 1 and abs(c) != 1 in k*b^n+c then emulation occurs.  If you also use the mul-by-const option, the multiply is done after the addition. */
+/* I think an add-in as large as 40 or 45 bits ought to work, but this is not tested. */
 void gwsetaddin (gwhandle *, long);
+/* Prime95 uses the the specialized gwsetaddinatpowerofb.  k must be 1 and abs(c) must be 1.  This is not emulated. */
 void gwsetaddinatpowerofb (gwhandle *, long, unsigned long);
 
 /* This routine adds a small value to a gwnum.  This lets us apply some optimizations that cannot be performed by general purpose gwadd. */
@@ -701,17 +702,17 @@ int gwtogiant (gwhandle *, gwnum, giant);
 
 /* Macros to implement deprecated routines */
 
-#define GWMUL_GLOBALMULBYCONST	 0x4000	/* gwmul3 option to use deprecated gwsetnormroutine for multiplying final result by the small mulbyconst */
-#define GWMUL_GLOBALSTARTNEXTFFT 0x8000 /* gwmul3 option to use deprecated gwstartnextfft for starting next forward FFT */
+#define oldmulbyconst(h)		(((h)->NORMNUM & 2) ? GWMUL_MULBYCONST : 0)	 /* use deprecated gwsetnormroutine to multiplying result by mulbyconst */
+#define oldstartnextfft(h)		((h)->GLOBAL_POSTFFT ? GWMUL_STARTNEXTFFT : 0)	 /* use deprecated gwstartnextfft for starting next forward FFT */
 
-#define gwsquare(h,s)			gwsquare2 (h,s,s,GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)
-#define gwmul(h,s,d)			gwmul3(h,s,d,d,GWMUL_FFT_S1 | GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)
-#define gwsafemul(h,s,d)		gwmul3(h,s,d,d,GWMUL_PRESERVE_S1 | GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)
-#define gwfftmul(h,s,d)			gwmul3(h,s,d,d,GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)
-#define gwfftfftmul(h,s1,s2,d)		gwmul3(h,s1,s2,d,GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)
-#define gwsquare_carefully(h,x)		gwmul3_carefully(h,x,x,x,GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)
-#define gwsquare2_carefully(h,s,d)	gwmul3_carefully(h,s,s,d,GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2 | GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)
-#define gwmul_carefully(h,s,d)		gwmul3_carefully(h,s,d,d,GWMUL_PRESERVE_S1 | GWMUL_GLOBALSTARTNEXTFFT | GWMUL_GLOBALMULBYCONST | GWMUL_ADDINCONST)
+#define gwsquare(h,s)			gwsquare2 (h,s,s,oldstartnextfft(h) | oldmulbyconst(h) | GWMUL_ADDINCONST)
+#define gwmul(h,s,d)			gwmul3(h,s,d,d,GWMUL_FFT_S1 | oldstartnextfft(h) | oldmulbyconst(h) | GWMUL_ADDINCONST)
+#define gwsafemul(h,s,d)		gwmul3(h,s,d,d,GWMUL_PRESERVE_S1 | oldstartnextfft(h) | oldmulbyconst(h) | GWMUL_ADDINCONST)
+#define gwfftmul(h,s,d)			gwmul3(h,s,d,d,oldstartnextfft(h) | oldmulbyconst(h) | GWMUL_ADDINCONST)
+#define gwfftfftmul(h,s1,s2,d)		gwmul3(h,s1,s2,d,oldstartnextfft(h) | oldmulbyconst(h) | GWMUL_ADDINCONST)
+#define gwsquare_carefully(h,x)		gwmul3_carefully(h,x,x,x,oldstartnextfft(h) | oldmulbyconst(h) | GWMUL_ADDINCONST)
+#define gwsquare2_carefully(h,s,d)	gwmul3_carefully(h,s,s,d,GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2 | oldstartnextfft(h) | oldmulbyconst(h) | GWMUL_ADDINCONST)
+#define gwmul_carefully(h,s,d)		gwmul3_carefully(h,s,d,d,GWMUL_PRESERVE_S1 | oldstartnextfft(h) | oldmulbyconst(h) | GWMUL_ADDINCONST)
 #define gwset_square_carefully_count(h,n) DEPRECATED - use gwset_carefully_count
 
 #define gwadd(h,s,d)			gwadd3 (h,s,d,d)
@@ -729,9 +730,9 @@ int gwtogiant (gwhandle *, gwnum, giant);
 #define gwadd3(h,s1,s2,d)		gwadd3o (h,s1,s2,d,GWADD_MUL_INPUT)
 #define gwsub3(h,s1,s2,d)		gwsub3o (h,s1,s2,d,GWADD_MUL_INPUT)
 #define gwaddsub4(h,s1,s2,d1,d2)	gwaddsub4o (h,s1,s2,d1,d2,GWADD_MUL_INPUT)
-#define gwadd3quick(h,s1,s2,d)		gwadd3o (h,s1,s2,d,GWADD_DELAY_NORMALIZE | GWADD_MUL_INPUT)
-#define gwsub3quick(h,s1,s2,d)		gwsub3o (h,s1,s2,d,GWADD_DELAY_NORMALIZE | GWADD_MUL_INPUT)
-#define gwaddsub4quick(h,s1,s2,d1,d2)	gwaddsub4o (h,s1,s2,d1,d2,GWADD_DELAY_NORMALIZE | GWADD_MUL_INPUT)
+#define gwadd3quick(h,s1,s2,d)		gwadd3o (h,s1,s2,d,GWADD_DELAY_NORMALIZE)
+#define gwsub3quick(h,s1,s2,d)		gwsub3o (h,s1,s2,d,GWADD_DELAY_NORMALIZE)
+#define gwaddsub4quick(h,s1,s2,d1,d2)	gwaddsub4o (h,s1,s2,d1,d2,GWADD_DELAY_NORMALIZE)
 #define force_normalize(x)		DEPRECATED - use GWADD_FORCE_NORMALIZE
 
 /* DEPRECATED.  Using gwerror_checking macro and the GWMUL_MULBYCONST option is preferred. */
@@ -985,7 +986,8 @@ struct gwhandle_struct {
 					/* At the FFT limit this will be set to EB_GWMUL_SAVINGS.  That is, this measures extra bits */
 					/* available for multiplications, not squarings. */
 	gwnum	GW_RANDOM;		/* A random number used in gwmul3_carefully. */
-	gwnum	GW_FFT1;		/* The number 1 FFTed.  Sometimes need by gwmuladd4 and gwmusub4. */
+	gwnum	GW_ADDIN;		/* The gwsetaddin value when we need to emulate GWMUL3_ADDINCONST. */
+	gwnum	GW_FFT1;		/* The number 1 FFTed.  Sometimes need by gwmuladd4 and gwmulsub4. */
 	int	FFT1_state;		/* 0 = uninitialized, 1 = FFT(1) is needed, 2 = FFT(1) is itself one. */
 	unsigned long saved_copyz_n;	/* Used to reduce COPYZERO calculations */
 	char	GWSTRING_REP[60];	/* The gwsetup modulo number as a string. */
