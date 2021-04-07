@@ -332,8 +332,7 @@ void test_it_all (
 			gwstartnextfft (&gwdata, (i & 3) == 2);
 
 			/* Test gwsetaddin without and with POSTFFT set */
-			if ((i == 45 || i == 46) && labs (c) == 1)
-				gwsetaddin (&gwdata, -31);
+			if (i == 45 || i == 46) gwsetaddin (&gwdata, -31);
 
 			/* Test several different ways to square a number */
 			if (i >= 4 && i <= 7) {
@@ -357,8 +356,7 @@ void test_it_all (
 			/* Remember maximum difference */
 			diff = fabs (gwsuminp (&gwdata, x) - gwsumout (&gwdata, x));
 			if (diff > maxdiff) maxdiff = diff;
-			if ((i == 45 || i == 46) && labs (c) == 1)
-				gwsetaddin (&gwdata, 0);
+			if (i == 45 || i == 46) gwsetaddin (&gwdata, 0);
 		}
 		if (gwdata.MAXDIFF < 1e50)
 			sprintf (buf, "Squares complete. MaxErr=%.8g, SumoutDiff=%.8g/%.8g(%d to 1)\n", gw_get_maxerr (&gwdata), maxdiff, gwdata.MAXDIFF, (int) (gwdata.MAXDIFF / maxdiff));
@@ -378,7 +376,7 @@ void test_it_all (
 /* Test square and mul carefully */
 
 		gwfree (&gwdata, x3); gwfree (&gwdata, x4);
-		if (labs (c) == 1) gwsetaddin (&gwdata, -42);
+		gwsetaddin (&gwdata, -42);
 		gwsquare_carefully (&gwdata, x);
 		diff = fabs (gwsuminp (&gwdata, x) - gwsumout (&gwdata, x));
 		if (diff > maxdiff) maxdiff = diff;
@@ -386,7 +384,7 @@ void test_it_all (
 		gwfree (&gwdata, gwdata.GW_RANDOM); gwdata.GW_RANDOM = NULL;
 		diff = fabs (gwsuminp (&gwdata, x) - gwsumout (&gwdata, x));
 		if (diff > maxdiff) maxdiff = diff;
-		if (labs (c) == 1) gwsetaddin (&gwdata, 0);
+		gwsetaddin (&gwdata, 0);
 
 /* Test gwaddquick, gwsubquick */
 
@@ -614,8 +612,7 @@ void test_it (
 		gwstartnextfft (gwdata, (i & 3) == 2);
 
 		/* Test gwsetaddin without and with POSTFFT set */
-		if ((i == 45 || i == 46) && labs (gwdata->c) == 1)
-			gwsetaddin (gwdata, -31);
+		if (i == 45 || i == 46) gwsetaddin (gwdata, -31);
 
 		/* Test several different ways to square a number */
 		if (i % 50 >= 4 && i % 50 <= 7) {
@@ -642,7 +639,7 @@ void test_it (
 
 		/* Square number (and do add-in) using giants code */
 		squaregi (&gwdata->gdata, g);
-		if ((i == 45 || i == 46) && labs (gwdata->c) == 1) {
+		if (i == 45 || i == 46) {
 			iaddg (-31, g);
 			gwsetaddin (gwdata, 0);
 		}
@@ -741,13 +738,11 @@ void test_it (
 /* Test square and mul carefully */
 
 	gwfree (gwdata, x3); gwfree (gwdata, x4);
-	if (labs (gwdata->c) == 1) gwsetaddin (gwdata, -42);
+	gwsetaddin (gwdata, -42);
 	gwsquare_carefully (gwdata, x);
 	diff = fabs (gwsuminp (gwdata, x) - gwsumout (gwdata, x));
 	if (diff > maxdiff) maxdiff = diff;
-	squaregi (&gwdata->gdata, g);
-	if (labs (gwdata->c) == 1) iaddg (-42, g);
-	specialmodg (gwdata, g);
+	squaregi (&gwdata->gdata, g); iaddg (-42, g); specialmodg (gwdata, g);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "square careful");
 
 	x3 = gwalloc (gwdata);
@@ -755,12 +750,10 @@ void test_it (
 	gwmul_carefully (gwdata, x3, x);
 	diff = fabs (gwsuminp (gwdata, x) - gwsumout (gwdata, x));
 	if (diff > maxdiff) maxdiff = diff;
-	squaregi (&gwdata->gdata, g);
-	if (labs (gwdata->c) == 1) { iaddg (-42, g); gwsetaddin (gwdata, 0); }
-	specialmodg (gwdata, g);
+	squaregi (&gwdata->gdata, g); iaddg (-42, g); specialmodg (gwdata, g);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "mul careful");
-
 	gwsetaddin (gwdata, 0);
+
 	gwfft (gwdata, x, x);
 	gwsquare_carefully (gwdata, x);
 	diff = fabs (gwsuminp (gwdata, x) - gwsumout (gwdata, x));
@@ -923,11 +916,11 @@ void test_it (
 	gwmuladd4 (gwdata, x, x, x2, x, 0); squaregi (&gwdata->gdata, g); addg (g2, g); specialmodg (gwdata, g);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "muladd4 s1 == s2");
 
-	if (labs (gwdata->c) == 1) gwsetaddin (gwdata, 2);
-	gwmuladd4 (gwdata, x, x, x2, x4, GWMUL_ADDINCONST); squaregi (&gwdata->gdata, g); addg (g2, g); if (labs (gwdata->c) == 1) iaddg (2, g); specialmodg (gwdata, g);
+	gwsetaddin (gwdata, 2);
+	gwmuladd4 (gwdata, x, x, x2, x4, GWMUL_ADDINCONST); squaregi (&gwdata->gdata, g); addg (g2, g); iaddg (2, g); specialmodg (gwdata, g);
 	gwcopy (gwdata, x4, x);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "muladd4 s1 == s2");
-	if (labs (gwdata->c) == 1) gwsetaddin (gwdata, 0);
+	gwsetaddin (gwdata, 0);
 
 	gwmulsub4 (gwdata, x, x, x2, x, 0); squaregi (&gwdata->gdata, g); subg (g2, g); specialmodg (gwdata, g);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "mulsub4 s1 == s2");
@@ -946,12 +939,12 @@ void test_it (
 	gwcopy (gwdata, x4, x);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "muladd4 s1 == s2, s3 == d");
 
-	if (labs (gwdata->c) == 1) gwsetaddin (gwdata, 2);
+	gwsetaddin (gwdata, 2);
 	gwfft_for_fma (gwdata, x2, x4);
-	gwmuladd4 (gwdata, x, x3, x4, x4, GWMUL_ADDINCONST); mulg (g3, g); addg (g2, g); if (labs (gwdata->c) == 1) iaddg (2, g); specialmodg (gwdata, g);
+	gwmuladd4 (gwdata, x, x3, x4, x4, GWMUL_ADDINCONST); mulg (g3, g); addg (g2, g); iaddg (2, g); specialmodg (gwdata, g);
 	gwcopy (gwdata, x4, x);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "muladd4 fft-for-fma, s1 != s2");
-	if (labs (gwdata->c) == 1) gwsetaddin (gwdata, 0);
+	gwsetaddin (gwdata, 0);
 
 	gwfft_for_fma (gwdata, x2, x4);
 	gwmuladd4 (gwdata, x, x, x4, x4, 0); squaregi (&gwdata->gdata, g); addg (g2, g); specialmodg (gwdata, g);
@@ -1008,10 +1001,10 @@ void test_it (
 /* Test both mul-by-const and addin (carefully and not carefully!).  Test addmul and mul add too. */
 
 	gwsetmulbyconst (gwdata, 3);
-	if (labs (gwdata->c) == 1) gwsetaddin (gwdata, 4);
+	gwsetaddin (gwdata, 4);
 
 	gwsquare2 (gwdata, x, x4, GWMUL_MULBYCONST | GWMUL_ADDINCONST);
-	gtog (g, g4); squaregi (&gwdata->gdata, g4); if (labs (gwdata->c) == 1) iaddg (4, g4); imulg (3, g4); specialmodg (gwdata, g4);
+	gtog (g, g4); squaregi (&gwdata->gdata, g4); iaddg (4, g4); imulg (3, g4); specialmodg (gwdata, g4);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x4, g4, "mul by const and addin const #1");
 
 	gwcopy (gwdata, x, x4);
@@ -1026,7 +1019,7 @@ void test_it (
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x4, g4, "mul by const and addin const #4");
 
 	gwaddmul4 (gwdata, x, x2, x3, x4, GWMUL_MULBYCONST | GWMUL_ADDINCONST);
-	gtog (g, g4); addg (g2, g4); mulg (g3, g4); if (labs (gwdata->c) == 1) iaddg (4, g4); imulg (3, g4); specialmodg (gwdata, g4);
+	gtog (g, g4); addg (g2, g4); mulg (g3, g4); iaddg (4, g4); imulg (3, g4); specialmodg (gwdata, g4);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x4, g4, "mul by const and addin const #5");
 
 	gwdata->careful_count = 1;
@@ -1034,14 +1027,14 @@ void test_it (
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x4, g4, "mul by const and addin const #6");
 
 	gwmuladd4 (gwdata, x, x2, x3, x4, GWMUL_MULBYCONST | GWMUL_ADDINCONST);
-	gtog (g, g4); mulg (g2, g4); addg (g3, g4); if (labs (gwdata->c) == 1) iaddg (4, g4); imulg (3, g4); specialmodg (gwdata, g4);
+	gtog (g, g4); mulg (g2, g4); addg (g3, g4); iaddg (4, g4); imulg (3, g4); specialmodg (gwdata, g4);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x4, g4, "mul by const and addin const #7");
 
 	gwdata->careful_count = 1;
 	gwmuladd4 (gwdata, x, x2, x3, x4, GWMUL_MULBYCONST | GWMUL_ADDINCONST);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x4, g4, "mul by const and addin const #8");
 
-	if (labs (gwdata->c) == 1) gwsetaddin (gwdata, 0);
+	gwsetaddin (gwdata, 0);
 
 /* Do the final compare */
 
