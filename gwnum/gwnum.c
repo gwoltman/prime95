@@ -9456,7 +9456,7 @@ void init_FFT1 (		/* Calculate GW_FFT1 if necessary */
 
 /* Special multiply routine that multiplies two numbers and adds/subtracts a third. */
 
-void cmn_gwmulop4 (		/* Calculate (s1 op s2) * s3 */
+void cmn_gwmulop4 (		/* Calculate (s1 * s2) op s3 */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	s1,		/* First source */
 	gwnum	s2,		/* Second source */
@@ -10030,7 +10030,7 @@ void gwsubmul4 (		/* Calculate (s1-s2)*s3 */
 }
 
 /* Special multiply routine that multiplies two numbers and adds a third.  This is faster if s3 is already FFTed. */
-/* There is almost no limit on the unnormalized adds done on s3.  WARNING: this must be emulated if k != 1 */
+/* There is almost no limit on the unnormalized adds done on s3. */
 
 void gwmuladd4 (		/* Calculate (s1*s2)+s3 */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -10053,7 +10053,7 @@ void gwmuladd4 (		/* Calculate (s1*s2)+s3 */
 	cmn_gwmulop4 (gwdata, s1, s2, s3, d, options, 3);	// 3 = muladd
 }
 
-/* Special multiply routine that multiplies two numbers and subtracts a third.  This is faster if s3is already FFTed. */
+/* Special multiply routine that multiplies two numbers and subtracts a third.  This is faster if s3 is already FFTed. */
 /* There is almost no limit on the unnormalized adds done on s3. */
 
 void gwmulsub4 (		/* Calculate (s1*s2)-s3 */
