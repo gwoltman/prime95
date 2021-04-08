@@ -10920,10 +10920,10 @@ void gwsmalladd (
 		gwnum	tmp = gwalloc (gwdata);
 		if (addin >= 0.0) {
 			dbltogw (gwdata, addin, tmp);
-			gwadd3o (gwdata, tmp, g, g, GWADD_MUL_INPUT | GWADD_DELAY_NORMALIZE);
+			gwadd3o (gwdata, g, tmp, g, GWADD_DELAY_NORMALIZE);
 		} else {
 			dbltogw (gwdata, -addin, tmp);
-			gwsub3o (gwdata, tmp, g, g, GWADD_MUL_INPUT | GWADD_DELAY_NORMALIZE);
+			gwsub3o (gwdata, g, tmp, g, GWADD_DELAY_NORMALIZE);
 		}
 		gwfree (gwdata, tmp);
 	}
@@ -10966,32 +10966,32 @@ void gwsmallmul (
 			gwadd3o (gwdata, g, g, g, GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
 		}
 		else if (mult == 3.0) {
-			gwadd3o (gwdata, g, g, tmp, GWADD_DELAY_NORMALIZE | GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
+			gwadd3o (gwdata, g, g, tmp, GWADD_NON_RANDOM_DATA | GWADD_DELAY_NORMALIZE);
 			gwadd3o (gwdata, g, tmp, g, GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
 		}
 		else if (mult == 4.0) {
-			gwadd3o (gwdata, g, g, g, GWADD_DELAY_NORMALIZE | GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
+			gwadd3o (gwdata, g, g, g, GWADD_NON_RANDOM_DATA | GWADD_DELAY_NORMALIZE);
 			gwadd3o (gwdata, g, g, g, GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
 		}
 		else if (mult == 5.0) {
-			gwadd3o (gwdata, g, g, tmp, GWADD_DELAY_NORMALIZE | GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
-			gwadd3o (gwdata, tmp, tmp, tmp, GWADD_DELAY_NORMALIZE | GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
+			gwadd3o (gwdata, g, g, tmp, GWADD_NON_RANDOM_DATA | GWADD_DELAY_NORMALIZE);
+			gwadd3o (gwdata, tmp, tmp, tmp, GWADD_NON_RANDOM_DATA | GWADD_DELAY_NORMALIZE);
 			gwadd3o (gwdata, g, tmp, g, GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
 		}
 		else if (mult == 6.0) {
-			gwadd3o (gwdata, g, g, tmp, GWADD_DELAY_NORMALIZE | GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
-			gwadd3o (gwdata, g, tmp, g, GWADD_DELAY_NORMALIZE | GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
+			gwadd3o (gwdata, g, g, tmp, GWADD_NON_RANDOM_DATA | GWADD_DELAY_NORMALIZE);
+			gwadd3o (gwdata, g, tmp, g, GWADD_NON_RANDOM_DATA | GWADD_DELAY_NORMALIZE);
 			gwadd3o (gwdata, g, g, g, GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
 		}
 		else if (mult == 8.0) {
-			gwadd3o (gwdata, g, g, g, GWADD_DELAY_NORMALIZE | GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
-			gwadd3o (gwdata, g, g, g, GWADD_DELAY_NORMALIZE | GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
+			gwadd3o (gwdata, g, g, g, GWADD_NON_RANDOM_DATA | GWADD_DELAY_NORMALIZE);
+			gwadd3o (gwdata, g, g, g, GWADD_NON_RANDOM_DATA | GWADD_DELAY_NORMALIZE);
 			gwadd3o (gwdata, g, g, g, GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
 		}
 		else if (mult == 9.0) {
-			gwadd3o (gwdata, g, g, tmp, GWADD_DELAY_NORMALIZE | GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
-			gwadd3o (gwdata, tmp, tmp, tmp, GWADD_DELAY_NORMALIZE | GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
-			gwadd3o (gwdata, tmp, tmp, tmp, GWADD_DELAY_NORMALIZE | GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
+			gwadd3o (gwdata, g, g, tmp, GWADD_NON_RANDOM_DATA | GWADD_DELAY_NORMALIZE);
+			gwadd3o (gwdata, tmp, tmp, tmp, GWADD_NON_RANDOM_DATA | GWADD_DELAY_NORMALIZE);
+			gwadd3o (gwdata, tmp, tmp, tmp, GWADD_NON_RANDOM_DATA | GWADD_DELAY_NORMALIZE);
 			gwadd3o (gwdata, g, tmp, g, GWADD_NON_RANDOM_DATA | GWADD_SQUARE_INPUT);
 		}
 		else {
