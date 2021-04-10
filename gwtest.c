@@ -505,7 +505,7 @@ void test_it (
 	int	thread_num,		/* Worker thread number */
 	gwhandle *gwdata)
 {
-	gwnum	x, x2, x3, x4;
+	gwnum	x, x2, x3, x4, x5;
 	giant	g, g2, g3, g4;
 	int	i, num_squarings, num_inverses, stop_reason;
 	double	diff, maxdiff = 0.0;
@@ -526,6 +526,7 @@ void test_it (
 	x2 = gwalloc (gwdata);
 	x3 = gwalloc (gwdata);
 	x4 = gwalloc (gwdata);
+	x5 = gwalloc (gwdata);
 	g = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 4) + 20);
 	g2 = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 4) + 20);
 	g3 = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 4) + 20);
@@ -938,6 +939,15 @@ void test_it (
 	gwmuladd4 (gwdata, x, x, x4, x4, 0); squaregi (&gwdata->gdata, g); addg (g2, g); specialmodg (gwdata, g);
 	gwcopy (gwdata, x4, x);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "muladd4 s1 == s2, s3 == d");
+
+	gwcopy (gwdata, x2, x4); gtog (g2, g4);
+	gwmulmuladd5 (gwdata, x, x, x3, x4, x4, 0); squaregi (&gwdata->gdata, g); mulg (g3, g4); addg (g, g4); specialmodg (gwdata, g4);
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x4, g4, "mulmuladd5 s1 == s2, s4 == d");
+
+	gwcopy (gwdata, x3, x); gtog (g3, g);
+	gwmulmulsub5 (gwdata, x, x2, x3, x4, x4, 0); mulg (g2, g); mulg (g3, g4); subg (g4, g); specialmodg (gwdata, g);
+	gwcopy (gwdata, x4, x);
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "mulmulsub5 s1 != s2, s4 == d");
 
 	gwsetaddin (gwdata, 2);
 	gwfft_for_fma (gwdata, x2, x4);

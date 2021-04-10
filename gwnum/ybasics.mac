@@ -873,8 +873,8 @@ orig:	vmulsd	xmm0, xmm1, xmm14	;; Result0 = word-3 * word3
 	vmovsd	ZPAD6, xmm6
 
 	mov	r10, SRC3ARG		;; Distance to FFT(1)
-	and	r10, r10		;; Do we have an FFT(1)
-	jnz	short hard		;; Yes, do it the hard way
+	cmp	r10, 1			;; Do we have an FFT(1)
+	jne	short hard		;; Yes, do it the hard way
 
 	vmovsd	xmm0, Q [rsi+r9-88]	;; Load addin0
 	vmovsd	xmm1, Q [rsi+r9-80]	;; Load addin1

@@ -4321,8 +4321,8 @@ fma:	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
 	;jb	muladd				;; 3=muladd, fall through
 	je	mulsub				;; 4=mulsub
 
-muladd:	and	r10, r10			;; Check if we need to multiply add-in by FFT(1)
-	jnz	muladdhard			;; Yes, do it the hard way
+muladd:	cmp	r10, 1				;; Check if we need to multiply add-in by FFT(1)
+	jne	muladdhard			;; Yes, do it the hard way
 
 	vaddpd	ymm4, ymm4, [srcreg+r9+d2+d1]		;; R4 = R4 + MemR4
 	vaddpd	ymm7, ymm7, [srcreg+r9+d2+d1+32]	;; I4 = I4 + MemI4
@@ -4533,8 +4533,8 @@ muladdhard:
 
 	jmp	done
 
-mulsub:	and	r10, r10			;; Check if we need to multiply add-in by FFT(1)
-	jnz	mulsubhard			;; Yes, do it the hard way
+mulsub:	cmp	r10, 1				;; Check if we need to multiply add-in by FFT(1)
+	jne	mulsubhard			;; Yes, do it the hard way
 
 	vsubpd	ymm4, ymm4, [srcreg+r9+d2+d1]		;; R4 = R4 - MemR4
 	vsubpd	ymm7, ymm7, [srcreg+r9+d2+d1+32]	;; I4 = I4 - MemI4
@@ -5308,8 +5308,8 @@ fma:	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
 	;jb	muladd				;; 3=muladd, fall through
 	je	mulsub				;; 4=mulsub
 
-muladd:	and	r10, r10			;; Check if we need to multiply add-in by FFT(1)
-	jnz	muladdhard			;; Yes, do it the hard way
+muladd:	cmp	r10, 1				;; Check if we need to multiply add-in by FFT(1)
+	jne	muladdhard			;; Yes, do it the hard way
 
 	vaddpd	ymm4, ymm4, [srcreg+r9+d2+d1]		;; R4 = R4 + MemR4
 	vaddpd	ymm7, ymm7, [srcreg+r9+d2+d1+32]	;; I4 = I4 + MemI4
@@ -5590,8 +5590,8 @@ muladdhard:
 
 	jmp	done
 
-mulsub:	and	r10, r10			;; Check if we need to multiply add-in by FFT(1)
-	jnz	mulsubhard			;; Yes, do it the hard way
+mulsub:	cmp	r10, 1				;; Check if we need to multiply add-in by FFT(1)
+	jne	mulsubhard			;; Yes, do it the hard way
 
 	vsubpd	ymm4, ymm4, [srcreg+r9+d2+d1]		;; R4 = R4 - MemR4
 	vsubpd	ymm7, ymm7, [srcreg+r9+d2+d1+32]	;; I4 = I4 - MemI4
@@ -8307,8 +8307,8 @@ fmasave:
 	;jb	muladd				;; 83=muladd, fall through
 	je	mulsub				;; 84=mulsub
 
-muladd:	and	r10, r10			;; Check if we need to multiply add-in by FFT(1)
-	jnz	muladdhard			;; Yes, do it the hard way
+muladd:	cmp	r10, 1				;; Check if we need to multiply add-in by FFT(1)
+	jne	muladdhard			;; Yes, do it the hard way
 
 	vaddpd	ymm4, ymm4, [srcreg+r9+d2+d1]		;; R4 = R4 + MemR4
 	vaddpd	ymm7, ymm7, [srcreg+r9+d2+d1+32]	;; I4 = I4 + MemI4
@@ -8532,8 +8532,8 @@ muladdhard:
 
 	jmp	back_to_orig
 
-mulsub:	and	r10, r10			;; Check if we need to multiply add-in by FFT(1)
-	jnz	mulsubhard			;; Yes, do it the hard way
+mulsub:	cmp	r10, 1				;; Check if we need to multiply add-in by FFT(1)
+	jne	mulsubhard			;; Yes, do it the hard way
 
 	vsubpd	ymm4, ymm4, [srcreg+r9+d2+d1]		;; R4 = R4 - MemR4
 	vsubpd	ymm7, ymm7, [srcreg+r9+d2+d1+32]	;; I4 = I4 - MemI4
@@ -9613,8 +9613,8 @@ fma:	vmovapd	ymm3, [srcreg+d2+d1][rbp]	;; MemR4
 	;jb	muladd				;; 3=muladd, fall through
 	je	mulsub				;; 4=mulsub
 
-muladd:	and	r10, r10			;; Check if we need to multiply add-in by FFT(1)
-	jnz	muladdhard			;; Yes, do it the hard way
+muladd:	cmp	r10, 1				;; Check if we need to multiply add-in by FFT(1)
+	jne	muladdhard			;; Yes, do it the hard way
 
 	vaddpd	ymm4, ymm4, [srcreg+r9+d2+d1]		;; R4 = R4 + MemR4
 	vaddpd	ymm7, ymm7, [srcreg+r9+d2+d1+32]	;; I4 = I4 + MemI4
@@ -9839,8 +9839,8 @@ muladdhard:
 
 	jmp	back_to_orig
 
-mulsub:	and	r10, r10			;; Check if we need to multiply add-in by FFT(1)
-	jnz	mulsubhard			;; Yes, do it the hard way
+mulsub:	cmp	r10, 1				;; Check if we need to multiply add-in by FFT(1)
+	jne	mulsubhard			;; Yes, do it the hard way
 
 	vsubpd	ymm4, ymm4, [srcreg+r9+d2+d1]		;; R4 = R4 - MemR4
 	vsubpd	ymm7, ymm7, [srcreg+r9+d2+d1+32]	;; I4 = I4 - MemI4

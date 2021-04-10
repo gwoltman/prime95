@@ -676,8 +676,8 @@ zsquare7 MACRO	src1
 
 	mov	r9, SRC2ARG		;; Distance to s3 arg from gwmuladd4 and gwmulsub4
 	mov	r10, SRC3ARG		;; Distance to FFT(1)
-	and	r10, r10		;; Do we have an FFT(1)
-	jnz	short hard		;; Yes, do it the hard way
+	cmp	r10, 1			;; Do we have an FFT(1)
+	jne	short hard		;; Yes, do it the hard way
 
 	vmovsd	xmm7, Q [rsi+r9-88]	;; Load addin0
 	vmovsd	xmm8, Q [rsi+r9-80]	;; Load addin1
@@ -858,8 +858,8 @@ orig:	vmulsd	xmm0, xmm1, xmm14	;; Result0 = word-3 * word3
 	jl	done			;; No, we're done
 
 	mov	r10, SRC3ARG		;; Distance to FFT(1)
-	and	r10, r10		;; Do we have an FFT(1)
-	jnz	short hard		;; Yes, do it the hard way
+	cmp	r10, 1			;; Do we have an FFT(1)
+	jne	short hard		;; Yes, do it the hard way
 
 	vmovsd	xmm7, Q [rsi+r9-88]	;; Load addin0
 	vmovsd	xmm8, Q [rsi+r9-80]	;; Load addin1

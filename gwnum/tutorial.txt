@@ -425,10 +425,12 @@ the creation of each argument of gwsquare2, gwmul3, gwaddmul4, gwsubmul4, gwmula
 	square_safe(h,numadds1)                    Returns TRUE if gwsquare2 is safe with the specified number of unnormalized adds in the source argument
 	mul_safe(h,numadds1,numadds2)              Returns TRUE if gwmul3 is safe with the specified number of unnormalized adds in the two source arguments
 	addmul_safe(h,numadds1,numadds2,numadds3)  Returns TRUE if gwaddmul4 is safe with the specified number of unnormalized adds in the three source arguments
-	muladd_safe(h,numadds1,numadds2,numadds3)  Returns TRUE if gwmuladd4 is safe with the specified number of unnormalized adds in the three source arguments
+	muladd_safe(h,numadds1,numadds2,numadds3)     Returns TRUE if gwmuladd4 is safe with the specified number of unnormalized adds in the three source arguments
+	squareadd_safe(h,numadds1,numadds2,numadds3)  Returns TRUE if gwmuladd4 is safe with the specified number of unnormalized adds in the three source arguments
 
-Note that in muladd_safe, the third unnormalized add count is ignored.  The third source argument to gwmuladd4 and gwmulsub4 is safe with an almost unlimited
-number of unnormalized adds.
+Note that there are two possible macros for gwmuladd4. If the first two source arguments are different use muladd_safe, otherwise use squareadd_safe.
+Also note that in muladd_safe and squareadd_safe, the third unnormalized add count is ignored.  The third source argument to gwmuladd4 and gwmulsub4
+is safe with an almost unlimited number of unnormalized adds.
 
 The simplest example using the advanced GWADD options:
 
@@ -489,6 +491,46 @@ the second source argument in the final gwmul3 when necessary.
 We set mularg2_safe using the same mul_safe arguments as in the original example.  In setting mularg1_safe, we use zero for the mularg2's
 unnormalized add count because we know that mularg2 will be normalized if necessary which clears the unnormalized add count for mularg2.
 The astute reader will note that mul_safe (&gwdata, 1, 0) is always TRUE.  
+
+
+Yet another combo routine!
+--------------------------
+
+If calculating (a*b)+(c*d), the simple approach is to calculate (a*b) and (c*d) and add the result.  Roughly, these operations:
+	FFT(a)
+	FFT(b)
+	FFT(a*b) = point-wise multiplication of FFT(a) and FFT(b)
+	tmp1 = inverse FFT
+	FFT(c)
+	FFT(d)
+	FFT(c*d) = point-wise multiplication of FFT(c) and FFT(d)
+	tmp2 = inverse FFT
+	result = tmp1 + tmp2
+
+We've seen that some operations after an unnormalized add can be safe.  Thus, we can re-arrange the order of operations to save an inverse FFT:
+	FFT(a)
+	FFT(b)
+	FFT(a*b) = point-wise multiplication of FFT(a) and FFT(b)
+	FFT(c)
+	FFT(d)
+	FFT(c*d) = point-wise multiplication of FFT(c) and FFT(d)
+	FFT(res) = FFT(a*b) + FFT(c*d)
+	res = inverse FFT
+Even better, several reads and writes are saved because the addition takes place while FFT data is already in CPU registers.
+Futhermore, the result is fully normalized whereas in the first method the result is unnormalized.
+
+The two new routines are:
+	gwmulmuladd5 (gwdata, s1, s2, s3, s4, dest, mul_options);	/* Calculate (s1*s2)+(s3*s4) */
+	gwmulmulsub5 (gwdata, s1, s2, s3, s4, dest, mul_options);	/* Calculate (s1*s2)-(s3*s4) */
+And the companion safety routines are:
+	mulmuladd_safe(h,adds1,adds2,adds3,adds4)
+	squaremuladd_safe(h,adds1,adds2,adds3,adds4)
+	mulsquareadd_safe(h,adds1,adds2,adds3,adds4)
+	squaresquareadd_safe(h,adds1,adds2,adds3,adds4)
+
+The safety routines need to know if either or both of the multiplications in a mulmuladd operation is, in fact, a squaring.  Squaring has
+a significant impact on the round off error.  A mulmuladd operation is always safe if all four sources are normalized.  That is,
+mulmuladd_safe(h,0,0,0,0) always returns TRUE.
 
 
 Miscellaneous optimizations

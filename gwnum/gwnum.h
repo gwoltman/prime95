@@ -378,9 +378,11 @@ void gwfft_for_fma (		/* Forward FFT with extra processing for use in gwmuladd4 
 #define GWMUL_PRESERVE_S2	0x0008		/* Do not modify the second source */
 #define GWMUL_FFT_S3		0x0010		/* FFT the third source */
 #define GWMUL_PRESERVE_S3	0x0020		/* Do not modify the third source */
-#define GWMUL_ADDINCONST	0x0040		/* Addin the optional gwsetaddin value to the multiplication result */
-#define GWMUL_MULBYCONST	0x0080		/* Multiply the final result by the small mulbyconst */
-#define GWMUL_STARTNEXTFFT	0x0100		/* Start the forward FFT of the multiplication result (for better performance) */
+#define GWMUL_FFT_S4		0x0040		/* FFT the fourth source */
+#define GWMUL_PRESERVE_S4	0x0080		/* Do not modify the fourth source */
+#define GWMUL_ADDINCONST	0x0100		/* Addin the optional gwsetaddin value to the multiplication result */
+#define GWMUL_MULBYCONST	0x0200		/* Multiply the final result by the small mulbyconst */
+#define GWMUL_STARTNEXTFFT	0x0400		/* Start the forward FFT of the multiplication result (for better performance) */
 /* There are advanced GWMUL_ options described later */
 void gwmul3 (			/* Multiply two gwnums, one of s1 or s2 will be FFTed unless the PRESERVE option is set */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -422,6 +424,22 @@ void gwmulsub4 (		/* (s1*s2)-s3 */
 	gwnum	s3,		/* Third source */
 	gwnum	d,		/* Destination */
 	int	options);
+void gwmulmuladd5 (		/* Calculate (s1*s2)+(s3*s4) */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	s1,		/* First source */
+	gwnum	s2,		/* Second source */
+	gwnum	s3,		/* Third source */
+	gwnum	s4,		/* Fourth source */
+	gwnum	d,		/* Destination */
+	int	options);	/* See gwnum.h */
+void gwmulmulsub5 (		/* Calculate (s1*s2)-(s3*s4) */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	s1,		/* First source */
+	gwnum	s2,		/* Second source */
+	gwnum	s3,		/* Third source */
+	gwnum	s4,		/* Fourth source */
+	gwnum	d,		/* Destination */
+	int	options);	/* See gwnum.h */
 
 /* Simplified options for gwadd3o, gwsub3o, gwaddsub4o routines */
 /* This is complicated stuff.  Reading tutorial.txt is highly recommended! */
@@ -582,11 +600,25 @@ unsigned long gwnum_datasize (gwhandle *);
 
 /* The above three macros are combined with one of the following macros which return TRUE or FALSE depending on whether gwsquare, */
 /* gwmul, gwaddmul, or gwmuladd will be safe if the arguments to those routines have the designated number of unnormalized adds. */
+/* Note there are two different macros for gwmuladd.  If S1 != S2 use muladd_safe, otherwise use squareadd_safe */
 
 #define square_safe(h,numadds1)				((h)->EXTRA_BITS >= EB_GWMUL_SAVINGS + numadds_to_eb(numadds1) * 2.0f)
 #define mul_safe(h,numadds1,numadds2)			((h)->EXTRA_BITS >= numadds_to_eb(numadds1) + numadds_to_eb(numadds2))
 #define addmul_safe(h,numadds1,numadds2,numadds3)	mul_safe(h,(numadds1)+(numadds2)+1,numadds3)
 #define muladd_safe(h,numadds1,numadds2,numadds3)	mul_safe(h,numadds1,numadds2)
+#define squareadd_safe(h,numadds1,numadds2,numadds3)	square_safe(h,numadds1)
+
+/* These macros are for gwmulmuladd safety calculations.  If s1 == s2 or s3 == s4, then the gwmulmuladd is doing squarings which behaves very */
+/* differently in safety calculations.  Thus, there are four macros to handle the different gwmulmuladd possibilities.  WARNING: the impact of */
+/* unnormalized adds before a squaring is poorly understood. */
+
+#define mulmuladd_safe(h,adds1,adds2,adds3,adds4)	((h)->EXTRA_BITS >= numadds_to_eb(mma5_mul_pair(adds1,adds2)+mma5_mul_pair(adds3,adds4)+1))
+#define squaremuladd_safe(h,adds1,adds2,adds3,adds4)	((h)->EXTRA_BITS >= mma5_sqr_penalty+numadds_to_eb(mma5_sqr_pair(adds1)+mma5_mul_pair(adds3,adds4)+2))
+#define mulsquareadd_safe(h,adds1,adds2,adds3,adds4)	squaremuladd_safe(h,adds3,adds4,adds1,adds2)
+#define squaresquareadd_safe(h,adds1,adds2,adds3,adds4)	((h)->EXTRA_BITS >= mma5_sqr_penalty+numadds_to_eb(mma5_sqr_pair(adds1)+mma5_sqr_pair(adds3)+3))
+#define mma5_mul_pair(adds1,adds2)			((adds1) + (adds2) + ((adds1) != 0 && (adds2) != 0) ? 1 : 0)	/* helper macro */
+#define mma5_sqr_pair(adds1)				((adds1) * 4)							/* helper macro */
+#define mma5_sqr_penalty				(EB_GWMUL_SAVINGS - EB_FIRST_ADD)
 
 /*-----------------------------------------------------------------+
 |             **DANGEROUS**  GWNUM COMPARISON ROUTINES             |
