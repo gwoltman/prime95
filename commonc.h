@@ -326,7 +326,8 @@ int OutOfMemory (int);
 #define WORK_ADVANCEDTEST	3
 #define WORK_ECM		4
 #define WORK_PMINUS1		5
-#define WORK_PFACTOR		6
+#define WORK_PPLUS1		6
+#define WORK_PFACTOR		7
 #define WORK_PRP		10
 #define WORK_CERT		11
 #define WORK_NONE		100	/* Comment line in worktodo.ini */

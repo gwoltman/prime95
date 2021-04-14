@@ -4,7 +4,7 @@
 // THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
 // PARTICULAR PURPOSE.
 //
-// Copyright (c) 1997-2020 Mersenne Research, Inc. All Rights Reserved.
+// Copyright (c) 1997-2021 Mersenne Research, Inc. All Rights Reserved.
 //
 */
 
@@ -145,6 +145,7 @@ struct primenetProgramOptions {
 #define PRIMENET_WORK_TYPE_PMINUS1	3
 #define PRIMENET_WORK_TYPE_PFACTOR	4
 #define PRIMENET_WORK_TYPE_ECM		5
+#define PRIMENET_WORK_TYPE_PPLUS1	6		/* Not yet supported by the server */
 #define PRIMENET_WORK_TYPE_FIRST_LL	100
 #define PRIMENET_WORK_TYPE_DBLCHK	101
 #define PRIMENET_WORK_TYPE_PRP		150

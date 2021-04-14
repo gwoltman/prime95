@@ -3199,10 +3199,16 @@ int primeContinue (
 			stop_reason = ecm (thread_num, &sp_info, w);
 		}
 
-/* See if this is an P-1 factoring line */
+/* See if this is a P-1 factoring line */
 
 		if (w->work_type == WORK_PMINUS1 && pass == 2) {
 			stop_reason = pminus1 (thread_num, &sp_info, w);
+		}
+
+/* See if this is a P+1 factoring line */
+
+		if (w->work_type == WORK_PPLUS1 && pass == 2) {
+			stop_reason = pplus1 (thread_num, &sp_info, w);
 		}
 
 /* Run a PRP test */
@@ -8753,6 +8759,8 @@ static	int	time_all_complex = 0;	/* TRUE if we should time all-complex FFTs */
 
 		if (p >= 9994 && p <= 9999)
 			return (lucas_QA (thread_num, 9999 - p));
+		if (p == 9993)
+			return (pplus1_QA (thread_num, &sp_info));
 		if (p == 9992)
 			return (pminus1_QA (thread_num, &sp_info));
 		if (p == 9991)
