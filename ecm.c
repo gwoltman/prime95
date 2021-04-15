@@ -674,14 +674,11 @@ int isProbablePrime (
 /* ECM structures and setup/termination routines */
 /*************************************************/
 
-/* We compute ell_dbl and ell_add by computing (x+z) and (x-z).  We save these two values in FFTed form in */
-/* case they are needed for a later ell_dbl or ell_add.  The output is in standard x,z form.  This structure lets */
-/* us manage the state of an x,z pair. */
+/* We used to compute ell_dbl and ell_add by first computing (x+z) and (x-z).  This structure gave as a central place to keep track if addsub4 had been called. */
 
 struct xz {
 	gwnum	x;		/* x or FFT(x+z) */
 	gwnum	z;		/* z or FFT(x-z) */
-	int	added;		/* TRUE if x is really x+z and z is really x-z and they've been FFTed */
 };
 
 /* Data maintained during ECM process */
@@ -779,7 +776,6 @@ __inline int alloc_xz (			/* Returns TRUE if successful */
 	if (arg->x == NULL) return (FALSE);
 	arg->z = gwalloc (&ecmdata->gwdata);
 	if (arg->z == NULL) return (FALSE);
-	arg->added = FALSE;
 	return (TRUE);
 }
 
@@ -793,32 +789,12 @@ __inline void free_xz (
 	gwfree (&ecmdata->gwdata, arg->z); arg->z = NULL;
 }
 
-/* This routine converts from x,z format to x+z,x-z format */
-
-__inline void convert_xz (
-	ecmhandle *ecmdata,
-	struct xz *arg)
-{
-	if (arg->added) return;
-
-	// Super rare.  It is possible when following the lucas_mul rules for ell_add_xz to FFT the diff values and for us to later need a
-	// conversion to x+z,x-z format.  If this happens and we need to do normalized adds, undo the FFT of diff done in ell_add_xz.
-	if (gwnum_is_fully_ffted (&ecmdata->gwdata, arg->x) && !square_safe (&ecmdata->gwdata, 1)) {
-		gwunfft (&ecmdata->gwdata, arg->x, arg->x);
-		gwunfft (&ecmdata->gwdata, arg->z, arg->z);
-	}
-
-	// Convert to x + z, x - z format
-	gwaddsub4o (&ecmdata->gwdata, arg->x, arg->z, arg->x, arg->z, GWADD_SQUARE_INPUT);
-	arg->added = TRUE;
-}
-
 /* Macro to swap to xz structs */
 
 #define xzswap(a,b)	{ struct xz t; t = a; a = b; b = t; }
 
 /* Computes 2P=(out.x:out.z) from P=(in.x:in.z), uses the global variable Ad4. */
-/* Input argument may be in x+z, x-z format.  Out argument can be same as the input argument. */
+/* Input arguments may be in FFTed state.  Out argument can be same as input argument. */
 /* Scratch xz argument can equal in but cannot equal out. */
 
 void ell_dbl_xz_scr (
@@ -826,78 +802,49 @@ void ell_dbl_xz_scr (
 	struct xz *in,		/* Input value to double */
 	struct xz *out,		/* Output value */
 	struct xz *scr)		// Scratch registers (only the .x gwnum is used)
-{				/* 10 FFTs, 4 adds */
-	gwnum	t1, t2, t3, t4;
-	int	t3_addmul_safe; /* TRUE if t3 can be unnormalized when it is used in gwaddmul4 */
-	int	oneadd_square_safe; /* TRUE if using unnormalized adds to calculate (x+z)^2 is safe */
+{				/* 10 or 11 FFTs, 4 adds */
+	gwnum	t2, t3, t4;
 
 	ASSERTG (scr != out);
 
-	/* t3 will be used in the second and third argument to gwaddmul (first arg is normalized) */
-	t3_addmul_safe = addmul_safe (&ecmdata->gwdata,0,1,1);
-	/* Is one add squaring safe */
-	oneadd_square_safe = square_safe (&ecmdata->gwdata, 1);
-
-	/* If we have extra_bits to square the output of a gwadd and the input has not yet been converted, then we can use a slightly */
-	/* different algorithm that saves a gwsub3 to calculate t3 as well as generating a normalized t3. */
-	if (oneadd_square_safe && !in->added) {
+	/* If we have extra_bits to square the output of a gwadd, then we can use an algorithm that minimizes FFTs. */
+	if (square_safe (&ecmdata->gwdata, 1)) {
+		t3 = scr->x;
 		t2 = out->x;
-		if (in == out) t3 = scr->x, t4 = out->z;
-		else t3 = out->z, t4 = scr->x;
-		gwsetmulbyconst (&ecmdata->gwdata, 4);
-		/* Calc t3 = 4 * x * z which will be used in the second and third argument to gwaddmul (first arg is normalized) */
-		gwmul3 (&ecmdata->gwdata, in->x, in->z, t3, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT_IF(t3_addmul_safe));
-		if (in == out || in == scr) {
-			gwfftsub3 (&ecmdata->gwdata, in->x, in->z, in->z);	/* Compute x - z */
-		} else {
-			gwfftaddsub (&ecmdata->gwdata, in->x, in->z);		/* Convert to x + z, x - z format */
-			in->added = TRUE;
-		}
-		//GW: an asm impl of type-4 FFT that computes (s1-s2)*(s1-s2) would save a read/write in the in==out case
-		gwsquare2 (&ecmdata->gwdata, in->z, t2, GWMUL_STARTNEXTFFT);	/* t2 = (x - z)^2 */
-	}
-
-	/* Use the original algorithm */
-	else {
-		t1 = scr->x;
-		t2 = out->x;
-		t3 = t1;
 		t4 = out->z;
-		convert_xz (ecmdata, in);
-		/* If we have extra_bits then we can start next FFT of t1 and t2.  t1 and t2 are used to compute t3 */
-		if (in == out || in == scr) {
-			gwsquare2 (&ecmdata->gwdata, in->x, t1, GWMUL_STARTNEXTFFT_IF(t3_addmul_safe));			/* t1 = (x + z)^2 */
-			gwsquare2 (&ecmdata->gwdata, in->z, t2, GWMUL_STARTNEXTFFT_IF(t3_addmul_safe));			/* t2 = (x - z)^2 */
-		} else {
-			//GW: asm squaring that also outputs FFT would be useful (twice)! Hard for AVX
-			gwsquare2 (&ecmdata->gwdata, in->x, t1, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT_IF(t3_addmul_safe));	/* t1 = (x + z)^2 */
-			gwsquare2 (&ecmdata->gwdata, in->z, t2, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT_IF(t3_addmul_safe));	/* t2 = (x - z)^2 */
-		}
-		/* Calc t3 = t1 - t2 = 4 * x * z which will be used in the second and third argument to gwaddmul (first arg is normalized) */
-		gwsub3o (&ecmdata->gwdata, t1, t2, t3, GWADD_NORMALIZE_IF(!t3_addmul_safe));
+
+		gwsetmulbyconst (&ecmdata->gwdata, 4);
+		gwmul3 (&ecmdata->gwdata, in->x, in->z, t3, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT); /* t3 = 4*x*z */
+		gwsub3o (&ecmdata->gwdata, in->x, in->z, t2, GWADD_DELAY_NORMALIZE);			/* Compute x - z */
+		gwsquare2 (&ecmdata->gwdata, t2, t2, GWMUL_STARTNEXTFFT);				/* t2 = (x - z)^2 */
+		gwmul3 (&ecmdata->gwdata, t2, ecmdata->Ad4, t4, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);	/* t4 = t2 * Ad4 */
+		gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S2 | GWMUL_FFT_S3 | GWMUL_STARTNEXTFFT); /* outx = (t1 = t2 + t3) * t4 */
+		gwaddmul4 (&ecmdata->gwdata, t4, t3, t3, out->z, GWMUL_STARTNEXTFFT);			/* outz = (t4 + t3) * t3 */
 	}
 
-	/* Finish up */
-	gwmul3 (&ecmdata->gwdata, t2, ecmdata->Ad4, t4, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);		/* t4 = t2 * Ad4 */
-	/* If we have extra_bits then we can start next FFT of the outputs since future (x+z)^2 should not have too much roundoff error */
-	gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S2 | GWMUL_FFT_S3 | GWMUL_STARTNEXTFFT_IF(oneadd_square_safe)); /* outx = (t1 = t2 + t3) * t4 */
-	gwaddmul4 (&ecmdata->gwdata, t4, t3, t3, out->z, GWMUL_STARTNEXTFFT_IF(oneadd_square_safe));	/* outz = (t4 + t3) * t3 */
-	out->added = FALSE;
-}
+	/* This algorithm uses an extra FFT to assure that it will work even if there are no extra bits.  We've made a conscious decision to */
+	/* spend an extra FFT to make ell_add as clean as possible.  Ell_adds are ten times more common than ell_dbls.  This version lets */
+	/* ell_add FFT x and z without any worries. */
+	else {
+		int	t1_safe = addmul_safe (&ecmdata->gwdata, 2,0,0);
 
-// Like ell_dbl_xz_scr except that a scratch register is allocated.
+		t2 = out->x;
+		t3 = out->z;
+		t4 = scr->x;
 
-int ell_dbl_xz_noscr (
-	ecmhandle *ecmdata,
-	struct xz *in,
-	struct xz *out)
-{
-	struct xz scr;
-	scr.x = gwalloc (&ecmdata->gwdata);
-	if (scr.x == NULL) return (OutOfMemory (ecmdata->thread_num));
-	ell_dbl_xz_scr (ecmdata, in, out, &scr);
-	gwfree (&ecmdata->gwdata, scr.x);
-	return (0);
+		gwsquare2 (&ecmdata->gwdata, in->x, scr->x, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT_IF(t1_safe));	/* x^2 */
+		gwsquare2 (&ecmdata->gwdata, in->z, scr->z, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT_IF(t1_safe));	/* z^2 */
+		gwsetmulbyconst (&ecmdata->gwdata, 2);
+		gwmul3 (&ecmdata->gwdata, in->x, in->z, t3, GWMUL_MULBYCONST);					/* t3 = 2*x*z */
+
+		gwadd3o (&ecmdata->gwdata, scr->x, scr->z, t2, GWADD_DELAY_NORMALIZE);				/* x^2 + z^2 */
+		gwsub3o (&ecmdata->gwdata, t2, t3, t2, GWADD_DELAYNORM_IF(t1_safe));				/* t2 = x^2 - 2xz + z^2 */
+		gwadd3o (&ecmdata->gwdata, t3, t3, t3, GWADD_FORCE_NORMALIZE);					/* t3 = 4*x*z */
+
+		gwmul3 (&ecmdata->gwdata, t2, ecmdata->Ad4, t4, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);		/* t4 = t2 * Ad4 */
+		gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S2 | GWMUL_FFT_S3 | GWMUL_STARTNEXTFFT); /* outx = (t1 = t2 + t3) * t4 */
+		gwaddmul4 (&ecmdata->gwdata, t4, t3, t3, out->z, GWMUL_STARTNEXTFFT);				/* outz = (t4 + t3) * t3 */
+	}
 }
 
 /* Like ell_dbl_xz_scr, but the output arguments are not partially FFTed.  The input argument is assumed to never be used again. */
@@ -907,31 +854,54 @@ void ell_dbl_xz_scr_last (
 	struct xz *in,		/* Input value to double */
 	struct xz *out,		/* Output value */
 	struct xz *scr)		// Scratch registers (only the .x gwnum is used)
-{				/* 10 FFTs, 4 adds */
-	gwnum	t1, t2, t3, t4;
-	int	t3_addmul_safe; /* TRUE if t3 can be unnormalized when it is used in gwaddmul4 */
+{				/* 10 or 11 FFTs, 4 adds */
+	gwnum	t2, t3, t4;
 
-	/* t3 will be used in the second and third argument to gwaddmul (first arg is normalized) */
-	t3_addmul_safe = addmul_safe (&ecmdata->gwdata,0,1,1);
+	ASSERTG (scr != out);
 
-	t1 = scr->x;
-	t2 = out->x;
-	t3 = t1;
-	t4 = out->z;
-	convert_xz (ecmdata, in);
-	/* If we have extra_bits then we can start next FFT of t1 and t2.  t1 and t2 are used to compute t3 */
-	gwsquare2 (&ecmdata->gwdata, in->x, t1, GWMUL_STARTNEXTFFT_IF(t3_addmul_safe));		/* t1 = (x + z)^2 */
-	gwsquare2 (&ecmdata->gwdata, in->z, t2, GWMUL_STARTNEXTFFT_IF(t3_addmul_safe));		/* t2 = (x - z)^2 */
-	gwsub3o (&ecmdata->gwdata, t1, t2, t3, GWADD_NORMALIZE_IF(!t3_addmul_safe));		/* t3 = t1 - t2 = 4 * x * z */
-	gwmul3 (&ecmdata->gwdata, t2, ecmdata->Ad4, t4, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);	/* t4 = t2 * Ad4 */
-	gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S2 | GWMUL_FFT_S3);		/* outx = (t1 = t2 + t3) * t4 */
-	gwaddmul4 (&ecmdata->gwdata, t4, t3, t3, out->z, 0);					/* outz = (t4 + t3) * t3 */
-	out->added = FALSE;
+	/* If we have extra_bits to square the output of a gwadd, then we can use an algorithm that minimizes FFTs. */
+	if (square_safe (&ecmdata->gwdata, 1)) {
+		t3 = scr->x;
+		t2 = out->x;
+		t4 = out->z;
+
+		gwsetmulbyconst (&ecmdata->gwdata, 4);
+		gwmul3 (&ecmdata->gwdata, in->x, in->z, t3, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT); /* t3 = 4*x*z */
+		gwsub3o (&ecmdata->gwdata, in->x, in->z, t2, GWADD_DELAY_NORMALIZE);			/* Compute x - z */
+		gwsquare2 (&ecmdata->gwdata, t2, t2, GWMUL_STARTNEXTFFT);				/* t2 = (x - z)^2 */
+		gwmul3 (&ecmdata->gwdata, t2, ecmdata->Ad4, t4, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);	/* t4 = t2 * Ad4 */
+		gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S2 | GWMUL_FFT_S3);		/* outx = (t1 = t2 + t3) * t4 */
+		gwaddmul4 (&ecmdata->gwdata, t4, t3, t3, out->z, 0);					/* outz = (t4 + t3) * t3 */
+	}
+
+	/* This algorithm uses an extra FFT to assure that it will work even if there are no extra bits.  We've made a conscious decision to */
+	/* spend an extra FFT to make ell_add as clean as possible.  Ell_adds are ten times more common than ell_dbls.  This version lets */
+	/* ell_add FFT x and z without any worries. */
+	else {
+		int	t1_safe = addmul_safe (&ecmdata->gwdata, 2,0,0);
+
+		t2 = out->x;
+		t3 = out->z;
+		t4 = scr->x;
+
+		gwsquare2 (&ecmdata->gwdata, in->x, scr->x, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT_IF(t1_safe));	/* x^2 */
+		gwsquare2 (&ecmdata->gwdata, in->z, scr->z, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT_IF(t1_safe));	/* z^2 */
+		gwsetmulbyconst (&ecmdata->gwdata, 2);
+		gwmul3 (&ecmdata->gwdata, in->x, in->z, t3, GWMUL_MULBYCONST);					/* t3 = 2*x*z */
+
+		gwadd3o (&ecmdata->gwdata, scr->x, scr->z, t2, GWADD_DELAY_NORMALIZE);				/* x^2 + z^2 */
+		gwsub3o (&ecmdata->gwdata, t2, t3, t2, GWADD_DELAYNORM_IF(t1_safe));				/* t2 = x^2 - 2xz + z^2 */
+		gwadd3o (&ecmdata->gwdata, t3, t3, t3, GWADD_FORCE_NORMALIZE);					/* t3 = 4*x*z */
+
+		gwmul3 (&ecmdata->gwdata, t2, ecmdata->Ad4, t4, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);		/* t4 = t2 * Ad4 */
+		gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S2 | GWMUL_FFT_S3);			/* outx = (t1 = t2 + t3) * t4 */
+		gwaddmul4 (&ecmdata->gwdata, t4, t3, t3, out->z, 0);						/* outz = (t4 + t3) * t3 */
+	}
 }
 
 /* Adds Q=(in2.x:in2.z) and R=(in1.x:in1.z) and puts the result in (out.x:out.z).  Assumes that Q-R=P or R-Q=P where P=(diff.x:diff.z). */
-/* Input arguments may be in x+z, x-z format.  Out argument can be same as any of the 3 input arguments. */
-/* Scratch xz argument can equal in1, in2, or out but cannot equal diff. */
+/* Input arguments may be in FFTed format.  Out argument can be same as any of the 3 input arguments. */
+/* Scratch xz argument cannot equal in1, in2, or diff. */
 
 void ell_add_xz_scr (
 	ecmhandle *ecmdata,
@@ -942,52 +912,25 @@ void ell_add_xz_scr (
 	struct xz *scr)		// Scratch registers
 {				/* 12 FFTs, 6 adds */
 	gwnum	t1, t2;
-	int	options, oneadd_square_safe;
+	int	options;
 
-	/* Is one add squaring safe */
-	oneadd_square_safe = square_safe (&ecmdata->gwdata, 1);
-
-	ASSERTG (scr != diff);
-	if (scr != in2) t1 = scr->x, t2 = scr->z;
-	else t1 = scr->z, t2 = scr->x;
-	convert_xz (ecmdata, in1);
-	convert_xz (ecmdata, in2);
-	/* If we have extra_bits then we can start next FFT of t1 and t2 since (t2+t1)^2 will not have too much roundoff error */
-	options = GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT_IF(oneadd_square_safe);
-	if (in1 == out || in1 == scr) options &= ~GWMUL_FFT_S1;
-	if (in2 == out || in2 == scr) options &= ~GWMUL_FFT_S2;
-	gwmul3 (&ecmdata->gwdata, in1->x, in2->z, t1, options);					/* t1 = (x1 + z1)(x2 - z2) */
-	gwmul3 (&ecmdata->gwdata, in1->z, in2->x, t2, options);					/* t2 = (x1 - z1)(x2 + z2) */
-	gwaddsub4o (&ecmdata->gwdata, t2, t1, t2, t1, GWADD_SQUARE_INPUT);
-	gwsquare2 (&ecmdata->gwdata, t2, t2, GWMUL_STARTNEXTFFT);				/* t2 = (t2 + t1)^2 */
-	gwsquare2 (&ecmdata->gwdata, t1, t1, GWMUL_STARTNEXTFFT);				/* t1 = (t2 - t1)^2 */
-	/* If we have extra_bits then we can start next FFT of the outputs since future (x+z)^2 will not have too much roundoff error */
-	options = GWMUL_STARTNEXTFFT_IF(oneadd_square_safe);
-	if (diff->added) {
-		gwsubmul4 (&ecmdata->gwdata, diff->x, diff->z, t2, t2, options);		/* t2 = t2 * zdiff (will become outx) */
-		gwaddmul4 (&ecmdata->gwdata, diff->x, diff->z, t1, t1, options);		/* t1 = t1 * xdiff (will become outz) */
-	} else if (diff == out) {
-		gwmul3 (&ecmdata->gwdata, t2, diff->z, t2, options);				/* t2 = t2 * zdiff (will become outx) */
-		gwmul3 (&ecmdata->gwdata, t1, diff->x, t1, options);				/* t1 = t1 * xdiff (will become outz) */
-	} else if (in2 == out) {			/* In this lucas mul case, we find that diff is usually used next in x+z,x-z fmt */
-		convert_xz (ecmdata, diff);		/* Convert to x + z, x - z format */
-		gwsubmul4 (&ecmdata->gwdata, diff->x, diff->z, t2, t2, options);		/* t2 = t2 * zdiff (will become outx) */
-		gwaddmul4 (&ecmdata->gwdata, diff->x, diff->z, t1, t1, options);		/* t1 = t1 * xdiff (will become outz) */
-	} else {					/* In these lucas mul cases, we find that diff is usually used next as a diff */
-							/* If the FFTed diff is used as a regular in1/in2 arg then convert_xz will catch it */
-		gwmul3 (&ecmdata->gwdata, t2, diff->z, t2, GWMUL_FFT_S2 | options);		/* t2 = t2 * zdiff (will become outx) */
-		gwmul3 (&ecmdata->gwdata, t1, diff->x, t1, GWMUL_FFT_S2 | options);		/* t1 = t1 * xdiff (will become outz) */
-	}
-	scr->x = t2;
-	scr->z = t1;
-	scr->added = FALSE;
-	xzswap (*scr, *out);
+	ASSERTG (scr != in1 && scr != in2 && scr != diff);
+	t1 = scr->z;
+	t2 = scr->x;
+	gwmulmulsub5 (&ecmdata->gwdata, in1->x, in2->z, in1->z, in2->x, t1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	/* t1 = x1z2 - z1x2 */
+	gwmulmulsub5 (&ecmdata->gwdata, in1->x, in2->x, in1->z, in2->z, t2, GWMUL_STARTNEXTFFT);				/* t2 = x1x2 - z1z2 */
+	gwsquare2 (&ecmdata->gwdata, t1, t1, GWMUL_STARTNEXTFFT);				/* t1 = t1^2 */
+	gwsquare2 (&ecmdata->gwdata, t2, t2, GWMUL_STARTNEXTFFT);				/* t2 = t2^2 */
+	options = (diff == out) ? GWMUL_STARTNEXTFFT : GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT;
+	gwmul3 (&ecmdata->gwdata, t2, diff->z, t2, options);					/* t2 = t2 * zdiff (will become outx) */
+	gwmul3 (&ecmdata->gwdata, t1, diff->x, t1, options);					/* t1 = t1 * xdiff (will become outz) */
+	if (out != scr) xzswap (*scr, *out);
 }
 
 // Like ell_add_xz_scr except that in1 or in2 is the same as out or out is not equal any input so that scratch register can be inferred.
 // Scratch register cannot also be equal to diff.  This is simply a shortcut for better readability.
 
-#define ell_add_xz(h,i1,i2,dif,o)	ell_add_xz_scr(h,i1,i2,dif,o,((i1)==(o)?i1:(i2)==(o)?i2:o));
+#define ell_add_xz(h,i1,i2,dif,o)	ell_add_xz_scr(h,i1,i2,dif,o,o);
 
 // Like ell_add_xz_scr except that a scratch register is allocated.
 
@@ -1012,37 +955,21 @@ void ell_add_xz_last (
 	struct xz *in1,
 	struct xz *in2,
 	struct xz *diff,
-	struct xz *out)
+	struct xz *out,
+	struct xz *scr)
 {				/* 12 FFTs, 6 adds */
 	gwnum	t1, t2;
-	struct	xz *scr;
-	int	oneadd_square_safe; /* TRUE if using unnormalized adds to calculate (x+z)^2 is safe */
 
-	/* Is one add squaring safe */
-	oneadd_square_safe = square_safe (&ecmdata->gwdata, 1);
-
-	scr = (in1 != diff) ? in1 : in2;
-	if (scr != in2) t1 = scr->x, t2 = scr->z;
-	else t1 = scr->z, t2 = scr->x;
-	convert_xz (ecmdata, in1);
-	convert_xz (ecmdata, in2);
-	/* If we have extra_bits then we can start next FFT of t1 and t2 since (t2+t1)^2 will not have too much roundoff error */
-	gwmul3 (&ecmdata->gwdata, in1->x, in2->z, t1, GWMUL_STARTNEXTFFT_IF(oneadd_square_safe));	/* t1 = (x1 + z1)(x2 - z2) */
-	gwmul3 (&ecmdata->gwdata, in1->z, in2->x, t2, GWMUL_STARTNEXTFFT_IF(oneadd_square_safe));	/* t2 = (x1 - z1)(x2 + z2) */
-	gwaddsub4o (&ecmdata->gwdata, t2, t1, t2, t1, GWADD_SQUARE_INPUT);
-	gwsquare2 (&ecmdata->gwdata, t2, t2, GWMUL_STARTNEXTFFT);		/* t2 = (t2 + t1)^2 */
-	gwsquare2 (&ecmdata->gwdata, t1, t1, GWMUL_STARTNEXTFFT);		/* t1 = (t2 - t1)^2 */
-	if (diff->added) {
-		gwsubmul4 (&ecmdata->gwdata, diff->x, diff->z, t2, t2, 0);	/* t2 = t2 * zdiff (will become outx) */
-		gwaddmul4 (&ecmdata->gwdata, diff->x, diff->z, t1, t1, 0);	/* t1 = t1 * xdiff (will become outz) */
-	} else if (diff == out) {
-		gwmul3 (&ecmdata->gwdata, t2, diff->z, t2, 0);			/* t2 = t2 * zdiff (will become outx) */
-		gwmul3 (&ecmdata->gwdata, t1, diff->x, t1, 0);			/* t1 = t1 * xdiff (will become outz) */
-	}
-	scr->x = t2;
-	scr->z = t1;
-	scr->added = FALSE;
-	xzswap (*scr, *out);
+	ASSERTG (scr != in1 && scr != in2 && scr != diff);
+	t1 = scr->z;
+	t2 = scr->x;
+	gwmulmulsub5 (&ecmdata->gwdata, in1->x, in2->z, in1->z, in2->x, t1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	/* t1 = x1z2 - z1x2 */
+	gwmulmulsub5 (&ecmdata->gwdata, in1->x, in2->x, in1->z, in2->z, t2, GWMUL_STARTNEXTFFT);				/* t2 = x1x2 - z1z2 */
+	gwsquare2 (&ecmdata->gwdata, t1, t1, GWMUL_STARTNEXTFFT);				/* t1 = t1^2 */
+	gwsquare2 (&ecmdata->gwdata, t2, t2, GWMUL_STARTNEXTFFT);				/* t2 = t2^2 */
+	gwmul3 (&ecmdata->gwdata, t2, diff->z, t2, 0);						/* t2 = t2 * zdiff (will become outx) */
+	gwmul3 (&ecmdata->gwdata, t1, diff->x, t1, 0);						/* t1 = t1 * xdiff (will become outz) */
+	if (out != scr) xzswap (*scr, *out);
 }
 
 
@@ -1052,13 +979,13 @@ void ell_add_xz_last (
 /* The costing function assigns an ell_dbl call a cost of 10 and an ell_add call a cost of 12. */
 /* This cost estimates the number of forward and inverse transforms performed. */
 
-#define swap(a,b)	{t=a;a=b;b=t;}
+#define swap(a,b)	{uint64_t t=a;a=b;b=t;}
 
 int lucas_cost (
 	uint64_t n,
 	uint64_t d)
 {
-	uint64_t e, t;//, dmod3, emod3;
+	uint64_t e;//, dmod3, emod3;
 	unsigned long c;
 
 	if (d >= n || d <= n/2) return (999999999);		/* Catch invalid costings */
@@ -1126,7 +1053,7 @@ int lucas_mul (
 	uint64_t n,
 	uint64_t d)
 {
-	uint64_t e, t;//, dmod3, emod3;
+	uint64_t e;//, dmod3, emod3;
 	struct xz B, C, T;//, S
 
 	if (!alloc_xz (ecmdata, &B)) goto oom;
@@ -1156,8 +1083,7 @@ int lucas_mul (
 		d = d-e;
 	    } else {
 		gwcopy (&ecmdata->gwdata, A->x, C.x);
-		gwcopy (&ecmdata->gwdata, A->z, C.z);
-		C.added = A->added;						/* C = A */
+		gwcopy (&ecmdata->gwdata, A->z, C.z);				/* C = A */
 	    }
 
 	    while (d != e) {
@@ -1172,7 +1098,7 @@ int lucas_mul (
 //			if ((dmod3 = d%3) == 3 - (emod3 = e%3)) {
 //				ell_add_xz (ecmdata, A, &B, &C, &S);		/* S = A+B */
 //				ell_add_xz (ecmdata, A, &S, &B, &T);		/* T = A+S */
-//				ell_add_xz (ecmdata, &S, &B, A, &B);		/* B = B+S */
+//				ell_add_xz_scr (ecmdata, &S, &B, A, &B, &T);	/* B = B+S, scratch reg = T */
 //				xzswap (T, *A);					/* A = T */
 //				t = d;
 //				d = (d+d-e)/3;
@@ -1180,7 +1106,7 @@ int lucas_mul (
 //				continue;
 //			}
 //			if (dmod3 == emod3 && (d&1) == (e&1)) {
-//				ell_add_xz (ecmdata, A, &B, &C, &B);		/* B = A+B */
+//				ell_add_xz_scr (ecmdata, A, &B, &C, &B, &T);	/* B = A+B, scratch reg = T */
 //				ell_dbl_xz_scr (ecmdata, A, A, &T);		/* A = 2*A, scratch reg = T */
 //				d = (d-e) >> 1;
 //				continue;
@@ -1191,11 +1117,11 @@ int lucas_mul (
 			xzswap (B, C);						/* C = B */
 			d = d-e;
 		} else if ((d&1) == (e&1)) {
-			ell_add_xz (ecmdata, A, &B, &C, &B);			/* B = A+B */
+			ell_add_xz_scr (ecmdata, A, &B, &C, &B, &T);		/* B = A+B, scratch reg = T */
 			ell_dbl_xz_scr (ecmdata, A, A, &T);			/* A = 2*A, scratch reg = T */
 			d = (d-e) >> 1;
 		} else if ((d&1) == 0) {
-			ell_add_xz (ecmdata, A, &C, &B, &C);			/* C = A+C */
+			ell_add_xz_scr (ecmdata, A, &C, &B, &C, &T);		/* C = A+C, scratch reg = T */
 			ell_dbl_xz_scr (ecmdata, A, A, &T);			/* A = 2*A, scratch reg = T */
 			d = d >> 1;
 		}
@@ -1213,28 +1139,28 @@ int lucas_mul (
 //			ell_add_xz (ecmdata, A, &B, &C, &S);			/* S = A+B */
 //			ell_add_xz_scr (ecmdata, A, &S, &B, &B, &T);		/* B = A+S, scratch reg = T */
 //			ell_dbl_xz_scr (ecmdata, A, &S, &T);			/* S = 2*A, scratch reg = T */
-//			ell_add_xz_scr (ecmdata, &S, A, A, A, &S);		/* A = S+A, scratch reg = S */
+//			ell_add_xz_scr (ecmdata, &S, A, A, A, &T);		/* A = S+A, scratch reg = T */
 //			d = (d-e-e)/3;
 //		} else if (dmod3 == emod3) {
 //			ell_add_xz (ecmdata, A, &B, &C, &T);			/* T = A+B */
-//			ell_add_xz (ecmdata, A, &C, &B, &C);			/* C = A+C */
+//			ell_add_xz_scr (ecmdata, A, &C, &B, &C, &S);		/* C = A+C, scratch reg = S */
 //			xzswap (T, B);						/* B = T */
 //			ell_dbl_xz_scr (ecmdata, A, &S, &T);			/* S = 2*A, scratch reg = T */
-//			ell_add_xz_scr (ecmdata, &S, A, A, A, &S);		/* A = S+A, scratch reg = S */
+//			ell_add_xz_scr (ecmdata, &S, A, A, A, &T);		/* A = S+A, scratch reg = T */
 //			d = (d-e)/3;
 //		}
 		else {
-			ell_add_xz (ecmdata, &B, &C, A, &C);			/* C = C-B */
+			ell_add_xz_scr (ecmdata, &B, &C, A, &C, &T);		/* C = C-B, scratch reg = T */
 			ell_dbl_xz_scr (ecmdata, &B, &B, &T);			/* B = 2*B, scratch reg = T */
 			e = e >> 1;
 		}
 	    }
 
 	    if (d == 1) {
-		ell_add_xz_last (ecmdata, &B, A, &C, A);		/* A = A+B */
+		ell_add_xz_last (ecmdata, &B, A, &C, A, &T);			/* A = A+B, scratch reg = T */
 		break;
 	    } else {
-		ell_add_xz (ecmdata, &B, A, &C, A);			/* A = A+B */
+		ell_add_xz_scr (ecmdata, &B, A, &C, A, &T);			/* A = A+B, scratch reg = T */
 	    }
 
 	    n = d;
@@ -1251,86 +1177,6 @@ int lucas_mul (
 oom:	return (OutOfMemory (ecmdata->thread_num));
 }
 #undef swap
-
-/* Multiplies a point by n using a combination of ell_dbl and ell_add calls */
-
-#ifdef BIN_ELL_MUL_USED
-int bin_ell_mul (
-	ecmhandle *ecmdata,
-	struct xz *arg,
-	uint64_t n)
-{
-	uint64_t c;
-	unsigned long zeros;
-	struct xz s, t, scr;
-
-	if (!alloc_xz (ecmdata, &s)) goto oom;
-	if (!alloc_xz (ecmdata, &t)) goto oom;
-	scr.x = gwalloc (&ecmdata->gwdata);
-	if (scr.x == NULL) goto oom;
-
-	// Count trailing zeroes
-	for (zeros = 0; (n & 1) == 0; zeros++) n >>= 1;
-
-	if (n > 1) {
-		// Find topmost bit
-		c = 1; c <<= 63;
-		while ((c&n) == 0) c >>= 1;
-		c >>= 1;
-
-		/* In this loop, t = our multiplication result, s = t + 1
-
-		/* Process the second bit.  If the second bit is zero, we can save one ell_dbl call */
-		if (c&n) {
-			ell_dbl_xz_scr (ecmdata, arg, &s, &scr);		// s = 2
-			ell_add_xz (ecmdata, &s, arg, arg, &t);			// t = 3
-			ell_dbl_xz_scr (ecmdata, &s, &s, &scr);			// s = 4
-		} else {
-			ell_dbl_xz_scr (ecmdata, arg, &t, &scr);		// t = 2
-			ell_add_xz (ecmdata, &t, arg, arg, &s);			// s = 3
-		}
-		c >>= 1;
-
-		/* Do the rest of the bits */
-
-		while (c) {
-			if (c&n) {
-				if (c == 1) {
-					if (zeros) {
-						ell_add_xz (ecmdata, &s, &t, arg, &t);
-					} else {
-						ell_add_xz_last (ecmdata, &s, &t, arg, arg);
-					}
-				} else {
-					ell_add_xz (ecmdata, &s, &t, arg, &t);			// t = s + t
-					ell_dbl_xz_scr (ecmdata, &s, &s, &scr);			// s = 2 * s
-				}
-			} else {
-				ell_add_xz (ecmdata, &s, &t, arg, &s);				// s = t + s
-				ell_dbl_xz_scr (ecmdata, &t, &t, &scr);				// t = 2 * t
-			}
-			c >>= 1;
-		}
-	}
-
-	while (zeros--) {
-		if (zeros) {
-			ell_dbl_xz_scr (ecmdata, &t, &t, &scr);					// t = 2 * t
-		} else {
-			ell_dbl_xz_scr_last (ecmdata, &t, arg, &scr);
-		}
-	}
-
-	free_xz (ecmdata, &s);
-	free_xz (ecmdata, &t);
-	gwfree (&ecmdata->gwdata, scr.x);
-	return (0);
-
-/* Out of memory exit path */
-
-oom:	return (OutOfMemory (ecmdata->thread_num));
-}
-#endif
 
 /* Try a series of Lucas chains to find the cheapest. */
 /* First try v = (1+sqrt(5))/2, then (2+v)/(1+v), then (3+2*v)/(2+v), */
@@ -1405,10 +1251,9 @@ int ell_mul (
 	}
 	while (zeros--) {
 		struct xz scr;
-		scr.x = gwalloc (&ecmdata->gwdata);
-		if (scr.x == NULL) return (OutOfMemory (ecmdata->thread_num));
+		if (!alloc_xz (ecmdata, &scr)) return (OutOfMemory (ecmdata->thread_num));
 		ell_dbl_xz_scr_last (ecmdata, arg, arg, &scr);
-		gwfree (&ecmdata->gwdata, scr.x);
+		free_xz (ecmdata, &scr);
 	}
 	return (0);
 }
@@ -3055,13 +2900,13 @@ int mQ_init (
 	uint64_t m)
 {
 	uint64_t mask;
-	struct xz *V, *Vn, *Vn1;
-	int	stop_reason;
+	struct xz *V, *Vn, *Vn1, T;
 
 /* Allocate the two multiples of D needed for a string of ell_adds */
 
 	if (!alloc_xz (ecmdata, &ecmdata->Qm)) goto oom;
 	if (!alloc_xz (ecmdata, &ecmdata->Qprevm)) goto oom;
+	if (!alloc_xz (ecmdata, &T)) goto oom;
 
 /* Compute Q * (m - 2D) and Q * (m - D) */
 /* We know that m is divisible by D.  Find top bit in multiplier. */
@@ -3078,10 +2923,9 @@ int mQ_init (
 	Vn1 = &ecmdata->Qm;
 	mask >>= 1;
 	if (m & mask) {
-		ell_dbl_xz_scr (ecmdata, V, Vn1, Vn);				// V2, scratch Vn
+		ell_dbl_xz_scr (ecmdata, V, Vn1, &T);				// V2, scratch T
 		ell_add_xz_scr (ecmdata, V, Vn1, V, Vn, Vn);			// next n   = V3 = V1 + V2, diff 1, scratch Vn
-		stop_reason = ell_dbl_xz_noscr (ecmdata, Vn1, Vn1);		// next n+1 = V4 = V2 + V2
-		if (stop_reason) return (stop_reason);
+		ell_dbl_xz_scr (ecmdata, Vn1, Vn1, &T);				// next n+1 = V4 = V2 + V2, scratch T
 	}
 	else {
 		ell_dbl_xz_scr (ecmdata, V, Vn, Vn1);				// next n   = V2, scratch Vn1
@@ -3092,16 +2936,15 @@ int mQ_init (
 
 	for (mask >>= 1; mask; mask >>= 1) {
 	        if (m & mask) {
-			ell_add_xz_scr (ecmdata, Vn, Vn1, V, Vn, Vn);		// next n   = n + (n+1), diff 1, scratch Vn
-			stop_reason = ell_dbl_xz_noscr (ecmdata, Vn1, Vn1);	// next n+1 = (n+1) + (n+1)
-			if (stop_reason) return (stop_reason);
+			ell_add_xz_scr (ecmdata, Vn, Vn1, V, Vn, &T);		// next n   = n + (n+1), diff 1, scratch T
+			ell_dbl_xz_scr (ecmdata, Vn1, Vn1, &T);			// next n+1 = (n+1) + (n+1), scratch T
 		}
 		else {
-			ell_add_xz_scr (ecmdata, Vn, Vn1, V, Vn1, Vn1);		// next n+1 = n + (n+1), diff 1, scratch Vn1
-			stop_reason = ell_dbl_xz_noscr (ecmdata, Vn, Vn);	// next n   = n + n
-			if (stop_reason) return (stop_reason);
+			ell_add_xz_scr (ecmdata, Vn, Vn1, V, Vn1, &T);		// next n+1 = n + (n+1), diff 1, scratch T
+			ell_dbl_xz_scr (ecmdata, Vn, Vn, &T);			// next n   = n + n, scratch T
 		}
 	}
+	free_xz (ecmdata, &T);
 
 /* There will be no more ell_dbl calls */
 
@@ -4325,11 +4168,9 @@ if (w->n == 604) {
 	gwfft_description (&ecmdata.gwdata, fft_desc);
 	sprintf (buf, "\nUsing %s\n", fft_desc);
 	OutputStr (thread_num, buf);
-	if (ecmdata.gwdata.PASS1_SIZE) {
-		sprintf (buf, "%5.3f bits-per-word below FFT limit (more than %5.3f allows extra optimizations)\n",
-			 ecmdata.gwdata.fft_max_bits_per_word - virtual_bits_per_word (&ecmdata.gwdata), EB_FIRST_ADD);
-		OutputStr (thread_num, buf);
-	}
+	sprintf (buf, "%5.3f bits-per-word below FFT limit (more than %5.3f allows extra optimizations)\n",
+		 ecmdata.gwdata.fft_max_bits_per_word - virtual_bits_per_word (&ecmdata.gwdata), EB_FIRST_ADD);
+	OutputStr (thread_num, buf);
 
 /* Check for a continuation file.  Limit number of backup files we try to read in case there is an error deleting bad save files. */
 
@@ -4515,7 +4356,6 @@ restart1:
 
 		stop_reason = stopCheck (thread_num);
 		if (stop_reason || testSaveFilesFlag (thread_num)) {
-			ASSERTG (!xz.added);
 			ecm_save (&ecmdata, xz.x, xz.z);
 			if (stop_reason) goto exit;
 		}
@@ -4543,7 +4383,6 @@ restart1:
 
 	if (ecmdata.C <= ecmdata.B) {
 skip_stage_2:	start_timer (timers, 0);
-		ASSERTG (!xz.added);
 		stop_reason = gcd (&ecmdata.gwdata, thread_num, xz.z, N, &factor);
 		if (stop_reason) {
 			ecm_save (&ecmdata, xz.x, xz.z);
@@ -5287,7 +5126,6 @@ lowmem:
 	stop_reason = OutOfMemory (thread_num);
 possible_lowmem:
 	if (ecmdata.state == ECM_STATE_MIDSTAGE) {
-		ASSERTG (!stage2_init_save_var->added);
 		ecm_save (&ecmdata, stage2_init_save_var->x, stage2_init_save_var->z);
 	}
 	if (stop_reason != STOP_OUT_OF_MEM) goto exit;
@@ -9321,8 +9159,7 @@ restart1:
 				strcat (buf, " Time: ");
 				print_timer (timers, 0, buf, TIMER_NL | TIMER_OPT_CLR);
 			}
-//GW - we used to have an "if" here
-			OutputStr (thread_num, buf);
+			if (pp1data.stage1_prime != 2 || pp1data.B_done != 0) OutputStr (thread_num, buf);
 			start_timer (timers, 0);
 			last_output = gw_get_fft_count (&pp1data.gwdata);
 			first_iter_msg = FALSE;
