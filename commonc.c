@@ -2756,7 +2756,8 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 	    }
 
 /* Handle Pplus1 lines:							*/
-/*	Pplus1=k,b,n,c,B1,B2[,how_far_factored][,"factors"] */
+/*	Pplus1=k,b,n,c,B1,B2,nth_run,[,how_far_factored][,"factors"]	*/
+/* where nth_run is 1 for start 2/7, 2 for start 6/5, 3+ for random start */
 
 	    else if (_stricmp (keyword, "Pplus1") == 0) {
 		char	*q;
@@ -2769,6 +2770,11 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
 		w->B2 = atof (q+1);
 		q = strchr (q+1, ',');
+		w->nth_run = 1;
+		if (q != NULL && q[1] != '"') {
+			w->nth_run = atoi (q+1);
+			q = strchr (q+1, ',');
+		}
 		w->sieve_depth = 0.0;
 		if (q != NULL && q[1] != '"') {
 			double	j;
@@ -3190,7 +3196,7 @@ int writeWorkToDoFile (
 			break;
 
 		case WORK_PPLUS1:
-			sprintf (buf, "Pplus1=%s%.0f,%lu,%lu,%ld,%.0f,%.0f", idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2);
+			sprintf (buf, "Pplus1=%s%.0f,%lu,%lu,%ld,%.0f,%.0f,%d", idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2, w->nth_run);
 			if (w->sieve_depth > 0.0)
 				sprintf (buf + strlen (buf), ",%.0f", w->sieve_depth);
 			if (w->known_factors != NULL)

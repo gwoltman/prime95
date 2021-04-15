@@ -7852,23 +7852,6 @@ int pfactor (
 	return (pminus1 (thread_num, sp_info, w));
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /**************************************************************
  *	P+1 Functions
  **************************************************************/
@@ -7886,6 +7869,10 @@ typedef struct {
 	int	thread_num;	/* Worker thread number */
 	struct work_unit *w;	/* Worktodo.txt entry */
 	int	state;		/* One of the states listed above */
+	double	takeAwayBits;	/* Bits we get for free in smoothness of P+1 factor */
+	double	success_rate;	/* Percentage of smooth P+1 factors we expect to find.  Percentage goes down with each P+1 run. */
+	uint32_t numerator;	/* Starting point numerator */
+	uint32_t denominator;	/* Starting point denominator */
 	uint64_t B;		/* Bound #1 (a.k.a. B1) */
 	uint64_t C;		/* Bound #2 (a.k.a. B2 */
 	uint64_t interim_B;	/* B1 we are currently calculating (equals B except when finishing stage 1 from a save file using a different B1). */
@@ -8225,28 +8212,27 @@ void pp1_choose_B2 (
 	} best[3];
 	int	sieve_depth;
 	char	buf[160];
-	double	takeAwayBits;			/* Bits we get for free in smoothness of P-1 factor */
 
+// P+1 probability of success
+#define pp1prob(B1,B2)		(pm1prob (pp1data->takeAwayBits, sieve_depth, (double) (B1), (double) (B2)) * pp1data->success_rate)
 // Cost out a B2 value
 #define p1eval(x,B2mult)	x.i = B2mult; \
 				x.B2_cost = best_stage2_impl (pp1data->B, x.i * pp1data->B, numvals - 4, &pp1_stage2_cost, &cost_data); \
-				x.fac_pct = pm1prob (takeAwayBits, sieve_depth, (double) pp1data->B, (double) (x.i * pp1data->B));
+				x.fac_pct = pp1prob (pp1data->B, x.i * pp1data->B);
 
 //GW BUG - pass 1 cost estimate is wrong!
-//GW BUG - factor in smoothness savings from 2/7 6/5 like Pavel does,  mul pm1prob by 0.5
 
 // Return TRUE if x is better than y.  Determined by seeing if taking the increased cost of y's higher B2 and investing it in increasing x's bounds
 // results in a higher chance of finding a factor.
 #define B1increase(x,y)	(int) ((y.B2_cost - x.B2_cost) / 1.44)			// Each B1 increase costs 1.44 squarings
-#define p1compare(x,y)	(pm1prob (takeAwayBits, sieve_depth, (double) (pp1data->B + B1increase(x,y)), (double) (x.i * pp1data->B + B1increase(x,y))) > y.fac_pct)
+#define p1compare(x,y)	(pp1prob (pp1data->B + B1increase(x,y), x.i * pp1data->B + B1increase(x,y)) > y.fac_pct)
 
-/* Look for the best B2 which is likely between 5*B1 and 40*B1.  If optimal is not between these bounds, don't worry we'll locate the optimal spot anyway. */
+/* Look for the best B2 which is likely between 10*B1 and 80*B1.  If optimal is not between these bounds, don't worry we'll locate the optimal spot anyway. */
 
-	takeAwayBits = log2 (3.0);  //GW bug 2/7 6/5
 	sieve_depth = (int) pp1data->w->sieve_depth;
-	p1eval (best[0], 5);
-	p1eval (best[1], 20);
-	p1eval (best[2], 40);
+	p1eval (best[0], 10);
+	p1eval (best[1], 45);
+	p1eval (best[2], 80);
 
 /* Handle case where midpoint is worse than the start point */
 /* The search code requires best[1] is better than best[0] and best[2] */
@@ -8295,7 +8281,7 @@ void pp1_choose_B2 (
 	pp1data->C = best[1].i * pp1data->B;
 	sprintf (buf, "With trial factoring done to 2^%d, optimal B2 is %d*B1 = %" PRIu64 ".\n", sieve_depth, best[1].i, pp1data->C);
 	OutputStr (pp1data->thread_num, buf);
-	sprintf (buf, "If no prior P+1, chance of a new factor is %.3g%%\n", best[1].fac_pct * 100.0);
+	sprintf (buf, "Chance of a new factor is %.3g%%\n", best[1].fac_pct * 100.0);
 	OutputStr (pp1data->thread_num, buf);
 }
 #undef p1eval
@@ -8841,6 +8827,27 @@ int pplus1 (
 	if (pp1data.C < pp1data.B) pp1data.C = pp1data.B;
 	pp1data.pct_mem_to_use = 1.0;				// Use as much memory as we can unless we get allocation errors
 
+/* Convert run number into starting point */
+
+	if (w->nth_run <= 1) {				// Per Peter Montgomery, make 2/7 the first starting point to try
+		pp1data.numerator = 2;
+		pp1data.denominator = 7;
+		pp1data.takeAwayBits = log2 (6.0);	// 2/7 finds all factors that are 5 mod 6.  That is, p+1 is divisible by 6.
+		pp1data.success_rate = 1.0;
+	} else if (w->nth_run == 2) {			// Per Peter Montgomery, make 6/5 the second starting point to try
+		pp1data.numerator = 6;
+		pp1data.denominator = 5;
+		pp1data.takeAwayBits = log2 (4.0);	// 6/5 finds all factors that are 3 mod 4.  That is, p+1 is divisible by 4.
+		pp1data.success_rate = 0.5;		// Assume 2/7 has already been run.  It will have found half our 3 mod 4 factors.
+	} else {
+		unsigned char small_primes[16] = {11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71};
+		srand ((unsigned) time (NULL));
+		pp1data.numerator = 72 + (rand () & 0x7F);
+		pp1data.denominator = small_primes[rand() & 0xF];
+		pp1data.takeAwayBits = log2 (2.0);	// Random start point has no special characteristics.  That is, p+1 is divisible by 2.
+		pp1data.success_rate = pow (0.5, (double) w->nth_run); // This run and each previous P+1 run find only half the smooth factors.
+	}
+
 /* Decide if we will calculate an optimal B2 when stage 2 begins.  We do this by default for P+1 work where we know how much TF has been done. */
 
 	pp1data.optimal_B2 = (!QA_IN_PROGRESS && w->sieve_depth > 50 && IniGetInt (INI_FILE, "Pplus1BestB2", 1));
@@ -8864,11 +8871,7 @@ int pplus1 (
 		sprintf (buf, "P+1 on %s with B1=%" PRIu64 ", B2=%" PRIu64 "\n", testnum, pp1data.B, pp1data.C);
 	OutputStr (thread_num, buf);
 	if (w->sieve_depth > 0.0 && !pp1data.optimal_B2) {
-		int	free_factors_of_pplus1;
-if (pp1data.B & 1) free_factors_of_pplus1 = 4;		// 6/5
-else free_factors_of_pplus1 = 6;			// 2/7
-//GW else free_factors_of_pplus1 = 2;			// all other seeds, p+1 is divisible by 2
-		double prob = pm1prob (log2 ((double) free_factors_of_pplus1), (unsigned int) w->sieve_depth, (double) pp1data.B, (double) pp1data.C) * 0.5;
+		double prob = pm1prob (pp1data.takeAwayBits, (unsigned int) w->sieve_depth, (double) pp1data.B, (double) pp1data.C) * pp1data.success_rate;
 		sprintf (buf, "Chance of finding a factor is an estimated %.3g%%\n", prob * 100.0);
 		OutputStr (thread_num, buf);
 	}
@@ -9059,11 +9062,9 @@ restart:
 		goto done;
 	}
 
-/* Start this P+1 run from scratch starting with V = 2/7 or 6/5 */
+/* Start this P+1 run from scratch starting with V = 2/7 or 6/5 or random */
 
-if(pp1data.B & 1)	pp1_calc_start (&pp1data.gwdata, 6, 5, N, pp1data.V);	/* V = 6/5 mod N */
-else
-	pp1_calc_start (&pp1data.gwdata, 2, 7, N, pp1data.V);	/* V = 2/7 mod N */
+	pp1_calc_start (&pp1data.gwdata, pp1data.numerator, pp1data.denominator, N, pp1data.V);	/* V = 2/7 or 6/5 or random mod N */
 	pp1data.B_done = 0;
 	pp1data.interim_B = pp1data.B;
 	sieve_start = 2;
@@ -9663,7 +9664,7 @@ msg_and_exit:
 	writeResults (buf);
 
 /* Format a JSON version of the result.  An example follows: */
-/* {"status":"NF", "exponent":45581713, "worktype":"P+1", "b1":50000, "b2":5000000, */
+/* {"status":"NF", "exponent":45581713, "worktype":"P+1", "b1":50000, "b2":5000000, "start":"2/7", */
 /* "fft-length":5120, "security-code":"39AB1238", */
 /* "program":{"name":"prime95", "version":"30.6", "build":"1"}, "timestamp":"2021-04-15 23:28:16", */
 /* "user":"gw_2", "cpu":"work_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
@@ -9673,6 +9674,7 @@ msg_and_exit:
 	strcat (JSONbuf, ", \"worktype\":\"P+1\"");
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"b1\":%" PRIu64, pp1data.B);
 	if (pp1data.C > pp1data.B) sprintf (JSONbuf+strlen(JSONbuf), ", \"b2\":%" PRIu64, pp1data.C);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"start\":\"%" PRIu32 "/%" PRIu32 "\"", pp1data.numerator, pp1data.denominator);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", pp1data.gwdata.FFTLEN);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, pp1data.B, pp1data.C));
 	JSONaddProgramTimestamp (JSONbuf);
@@ -9788,7 +9790,7 @@ bingo:	if (pp1data.state < PP1_STATE_MIDSTAGE)
 
 /* Format a JSON version of the result.  An example follows: */
 /* {"status":"F", "exponent":45581713, "worktype":"P+1", "factors":["430639100587696027847"], */
-/* "b1":50000, "b2":5000000, "fft-length":5120, "security-code":"39AB1238", */
+/* "b1":50000, "b2":5000000, "start":"2/7", "fft-length":5120, "security-code":"39AB1238", */
 /* "program":{"name":"prime95", "version":"30.6", "build":"1"}, "timestamp":"2021-01-15 23:28:16", */
 /* "user":"gw_2", "cpu":"work_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
@@ -9798,6 +9800,7 @@ bingo:	if (pp1data.state < PP1_STATE_MIDSTAGE)
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"factors\":[\"%s\"]", str);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"b1\":%" PRIu64, pp1data.B);
 	if (pp1data.state > PP1_STATE_MIDSTAGE) sprintf (JSONbuf+strlen(JSONbuf), ", \"b2\":%" PRIu64, pp1data.C);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"start\":\"%" PRIu32 "/%" PRIu32 "\"", pp1data.numerator, pp1data.denominator);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", pp1data.gwdata.FFTLEN);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, pp1data.B, pp1data.C));
 	JSONaddProgramTimestamp (JSONbuf);
