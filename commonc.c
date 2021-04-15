@@ -4197,6 +4197,7 @@ int write_gwnum (
 	unsigned long *sum)
 {
 	giant	tmp;
+	gwnum	tmp_gwnum = NULL;
 	int	retcode;
 	unsigned long i, len, bytes;
 
@@ -4204,6 +4205,15 @@ int write_gwnum (
 	if (tmp == NULL) {
 		OutputBoth (MAIN_THREAD_NUM, "In write_gwnum, unexpected popg failure\n");
 		return (FALSE);
+	}
+	if (!gwnum_is_not_ffted (gwdata, g)) {
+		tmp_gwnum = gwalloc (gwdata);
+		if (tmp_gwnum == NULL) {
+			OutputBoth (MAIN_THREAD_NUM, "In write_gwnum, unexpected gwalloc failure\n");
+			goto err;
+		}
+		gwunfft (gwdata, g, tmp_gwnum);
+		g = tmp_gwnum;
 	}
 	retcode = gwtogiant (gwdata, g, tmp);
 	if (retcode) {
@@ -4231,8 +4241,10 @@ int write_gwnum (
 	*sum = (uint32_t) (*sum + len);
 	for (i = 0; i < len; i++) *sum = (uint32_t) (*sum + tmp->n[i]);
 	pushg (&gwdata->gdata, 1);
+	gwfree (gwdata, tmp_gwnum);
 	return (TRUE);
 err:	pushg (&gwdata->gdata, 1);
+	gwfree (gwdata, tmp_gwnum);
 	return (FALSE);
 }
 

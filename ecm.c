@@ -3575,11 +3575,9 @@ void ecm_save (
 	else if (ecmdata->state == ECM_STATE_GCD) {
 	}
 
-/* Write the data values, make sure they have not been FFTed or partially FFTed */
+/* Write the data values, write_gwnum can handle FFTed or partially FFTed */
 
-	gwunfft (&ecmdata->gwdata, x, x);
 	if (! write_gwnum (fd, &ecmdata->gwdata, x, &sum)) goto writeerr;
-	gwunfft (&ecmdata->gwdata, z, z);
 	if (! write_gwnum (fd, &ecmdata->gwdata, z, &sum)) goto writeerr;
 
 /* Write the checksum, we're done */
@@ -5665,12 +5663,8 @@ void pm1_save (
 
 /* Write the gwnum value used in stage 1 and stage 2.  There are occasions where x or gg may be in a partially FFTed state. */
 
-	gwunfft (&pm1data->gwdata, x, x);
 	if (! write_gwnum (fd, &pm1data->gwdata, x, &sum)) goto writeerr;
-	if (gg != NULL) {
-		gwunfft (&pm1data->gwdata, gg, gg);
-		if (! write_gwnum (fd, &pm1data->gwdata, gg, &sum)) goto writeerr;
-	}
+	if (gg != NULL && ! write_gwnum (fd, &pm1data->gwdata, gg, &sum)) goto writeerr;
 
 /* Write the checksum, we're done */
 
@@ -7014,10 +7008,8 @@ replan:	{
 
 /* Multiply this eQx - nQx value into the gg accumulator */
 
-//GW:  Move saving check outside the loop??
 			saving = testSaveFilesFlag (thread_num);
 			stop_reason = stopCheck (thread_num);
-//GW: dont start next FFT if this is the last set bit in the pairing array  -- once every 30 minute optimizations like this are pathetic
 			gwsubmul4 (&pm1data.gwdata, pm1data.eQx[0], pm1data.nQx[i], gg, gg, (!stop_reason && !saving) ? GWMUL_STARTNEXTFFT : 0);
 
 /* Clear pairing bit from the bitarray in case a save file is written.  Calculate stage 2 percentage. */
@@ -7945,8 +7937,10 @@ void pp1_save (
 	if (!write_header (fd, PP1_MAGICNUM, PP1_VERSION, w)) goto writeerr;
 
 /* Write the file data */
-#ifdef NOT_YET
+
 	if (! write_int (fd, pp1data->state, &sum)) goto writeerr;
+	if (! write_int (fd, pp1data->numerator, &sum)) goto writeerr;
+	if (! write_int (fd, pp1data->denominator, &sum)) goto writeerr;
 
 	if (pp1data->state == PP1_STATE_STAGE1) {
 		if (! write_longlong (fd, pp1data->B_done, &sum)) goto writeerr;
@@ -7968,7 +7962,6 @@ void pp1_save (
 		if (! write_int (fd, pp1data->stage2_numvals, &sum)) goto writeerr;
 		if (! write_int (fd, pp1data->totrels, &sum)) goto writeerr;
 		if (! write_int (fd, pp1data->D, &sum)) goto writeerr;
-		if (! write_int (fd, pp1data->E, &sum)) goto writeerr;
 		if (! write_longlong (fd, pp1data->first_relocatable, &sum)) goto writeerr;
 		if (! write_longlong (fd, pp1data->last_relocatable, &sum)) goto writeerr;
 		if (! write_longlong (fd, pp1data->B2_start, &sum)) goto writeerr;
@@ -7996,13 +7989,10 @@ void pp1_save (
 
 /* Write the gwnum value used in stage 1 and stage 2.  There are occasions where x or gg may be in a partially FFTed state. */
 
-	gwunfft (&pp1data->gwdata, x, x);
-	if (! write_gwnum (fd, &pp1data->gwdata, x, &sum)) goto writeerr;
-	if (gg != NULL) {
-		gwunfft (&pp1data->gwdata, gg, gg);
-		if (! write_gwnum (fd, &pp1data->gwdata, gg, &sum)) goto writeerr;
+	if (! write_gwnum (fd, &pp1data->gwdata, pp1data->V, &sum)) goto writeerr;
+	if (pp1data->state >= PP1_STATE_MIDSTAGE && pp1data->state <= PP1_STATE_GCD) {
+		if (! write_gwnum (fd, &pp1data->gwdata, pp1data->gg, &sum)) goto writeerr;
 	}
-#endif
 
 /* Write the checksum, we're done */
 
@@ -8023,7 +8013,7 @@ writeerr:
 int pp1_restore (
 	pp1handle *pp1data)
 {
-	int	fd;
+	int	fd, numerator, denominator;
 	struct work_unit *w = pp1data->w;
 	unsigned long version;
 	unsigned long sum = 0, filesum;
@@ -8042,7 +8032,16 @@ int pp1_restore (
 /* Read the first part of the save file */
 
 	if (! read_int (fd, &pp1data->state, &sum)) goto readerr;
-#ifdef NOT_YET
+	if (! read_int (fd, &numerator, &sum)) goto readerr;
+	if (! read_int (fd, &denominator, &sum)) goto readerr;
+	if (numerator != pp1data->numerator || denominator != pp1data->denominator) {
+		if (pp1data->w->nth_run <= 2) goto readerr;		// User wants to do 2/7 or 6/5 and save file does not match
+		if (numerator == 2 && denominator == 7) goto readerr;	// User wants a random start, not 2/7
+		if (numerator == 6 && denominator == 5) goto readerr;	// User wants a random start, not 6/5
+		pp1data->numerator = numerator;				// Replace random start with random start from save file
+		pp1data->denominator = denominator;
+	}
+
 /* Read state dependent data */
 
 	if (pp1data->state == PP1_STATE_STAGE1) {
@@ -8064,7 +8063,6 @@ int pp1_restore (
 		if (! read_int (fd, &pp1data->stage2_numvals, &sum)) goto readerr;
 		if (! read_int (fd, &pp1data->totrels, &sum)) goto readerr;
 		if (! read_int (fd, &pp1data->D, &sum)) goto readerr;
-		if (! read_int (fd, &pp1data->E, &sum)) goto readerr;
 		if (! read_longlong (fd, &pp1data->first_relocatable, &sum)) goto readerr;
 		if (! read_longlong (fd, &pp1data->last_relocatable, &sum)) goto readerr;
 		if (! read_longlong (fd, &pp1data->B2_start, &sum)) goto readerr;
@@ -8094,19 +8092,14 @@ int pp1_restore (
 
 /* Read the gwnum value used in stage 1 and stage 2 */
 
-	*x = gwalloc (&pp1data->gwdata);
-	if (*x == NULL) goto readerr;
-	if (! read_gwnum (fd, &pp1data->gwdata, *x, &sum)) goto readerr;
+	if (! read_gwnum (fd, &pp1data->gwdata, pp1data->V, &sum)) goto readerr;
 
 /* Read stage 2 accumulator gwnum */
 
-	*gg = NULL;
 	if (pp1data->state >= PP1_STATE_MIDSTAGE && pp1data->state <= PP1_STATE_GCD) {
-		*gg = gwalloc (&pp1data->gwdata);
-		if (*gg == NULL) goto readerr;
-		if (! read_gwnum (fd, &pp1data->gwdata, *gg, &sum)) goto readerr;
+		if (! read_gwnum (fd, &pp1data->gwdata, pp1data->gg, &sum)) goto readerr;
 	}
-#endif
+
 /* Read and compare the checksum */
 
 	if (filesum != sum) goto readerr;
@@ -9259,6 +9252,7 @@ more_B:		pp1data.interim_B = pp1data.B;
 restart3a:
 	pp1data.gg = gwalloc (&pp1data.gwdata);
 	if (pp1data.gg == NULL) goto oom;
+//GW: We could start gg with VD-2 later on -- reduces peak by one gwnum (ECM too?)  BUT VD is FFTed possibly FFTED_FOR_FMA
 	gwcopy (&pp1data.gwdata, pp1data.V, pp1data.gg);
 	gwaddsmall (&pp1data.gwdata, pp1data.gg, -2);
 
@@ -9331,7 +9325,7 @@ replan:	{
 /* A fast 1,5 mod 6 nQx initialization */
 
 	{
-		gwnum	t1, t2, t3, t4;
+		gwnum	t1, t2, t3;
 		gwnum	*V1, *V2, *V3, *V4, *V5, *V6, *V7, *V11, *V1mod6, *V1mod6minus6, *V5mod6, *V5mod6minus6;
 		int	totrels_calculated;
 		int	have_VD;
@@ -9340,43 +9334,42 @@ replan:	{
 /* We also need V_4 to compute V_D in the middle of the nQx init loop. */
 /* NOTE:  At end of the loop V_D is stored in pp1data.V */
 
-//GW:  Use pp1data.Vn1 for temps
 		t1 = gwalloc (&pp1data.gwdata);
 		if (t1 == NULL) goto lowmem;
 		t2 = gwalloc (&pp1data.gwdata);
 		if (t2 == NULL) goto lowmem;
 		t3 = gwalloc (&pp1data.gwdata);
 		if (t3 == NULL) goto lowmem;
-		t4 = gwalloc (&pp1data.gwdata);
-		if (t4 == NULL) goto lowmem;
 //GW  we could save more temps (perhaps) by doing all the 1 mod 6, then all the 5 mod 6
+
+/* Compute V_2 and place in pp1data.V.  This is the value we will save if init is aborted and we create a save file. */
+/* V_2 will be replaced by V_D later on in this loop.  At all times pp1data.V will be a save-able value! */
+
+		luc_dbl (&pp1data.gwdata, pp1data.V, t1);			// V2 = 2 * V1
+		gwswap (t1, pp1data.V);
+		V1 = &t1;
+		V2 = &pp1data.V;
 
 /* Copy V_1 -- the first nQx value */
 
-		gwswap (t1, pp1data.V);
-		V1 = &t1;
 		pp1data.nQx[0] = gwalloc (&pp1data.gwdata);
 		if (pp1data.nQx[0] == NULL) goto lowmem;
 //GW: rather than FFT into nQx, gwswap with nQx once the value is no longer needed in further calculations!
-//But wait til save files are settled as V1/nQx[0] may be used in save file creation
 		gwfft (&pp1data.gwdata, *V1, pp1data.nQx[0]);		//GW copy to nQx after used in luc_dbl  saves an FFT
 		totrels = 1;
 
 /* Compute V_5, V_6, V_7, V_11 */
 
-		V2 = &pp1data.Vn;
-		luc_dbl (&pp1data.gwdata, *V1, *V2);				// V2 = 2 * V1
-
-		V3 = &pp1data.Vn1;
+		V3 = &pp1data.Vn;
 		luc_add (&pp1data.gwdata, *V2, *V1, *V1, *V3);			// V3 = V2 + V1 (diff V1)
 
-		V5 = &t2;
+		V5 = &pp1data.Vn1;
 		luc_add (&pp1data.gwdata, *V3, *V2, *V1, *V5);			// V5 = V3 + V2 (diff V1)
-//		stage2_init_save_var = V5;
 
 		if (relatively_prime (5, pp1data.D)) {
 			pp1data.nQx[totrels] = gwalloc (&pp1data.gwdata);
 			if (pp1data.nQx[totrels] == NULL) goto lowmem;
+//GW: V (the output of stage 1 is inaccessible in the lowmem code right now!)
 //GW: rather than FFT into nQx, gwswap with nQx once the value is no longer needed in further calculations!
 			gwfft (&pp1data.gwdata, *V5, pp1data.nQx[totrels]);
 			totrels++;
@@ -9385,12 +9378,11 @@ replan:	{
 		V6 = V3;
 		luc_dbl (&pp1data.gwdata, *V3, *V6);				// V6 = 2 * V3, V3 no longer needed
 
-		V7 = &t3;
+		V7 = &t2;
 		luc_add (&pp1data.gwdata, *V6, *V1, *V5, *V7);			// V7 = V6 + V1 (diff V5)
 
-		V11 = &t4;
+		V11 = &t3;
 		luc_add (&pp1data.gwdata, *V6, *V5, *V1, *V11);			// V11 = V6 + V5 (diff V1)
-//		stage2_init_save_var = V11;
 
 /* Compute the rest of the nQx values (V_i for i >= 7) */
 
@@ -9421,11 +9413,11 @@ replan:	{
 /* This only works for D = 2 mod 4. */
 
 			if (i + i+4 == pp1data.D) {
+				ASSERTG (V2 == &pp1data.V);
 				V4 = V2;
 				luc_dbl (&pp1data.gwdata, *V2, *V4);					// V4 = 2 * V2, V2 no longer needed
 				luc_add (&pp1data.gwdata, *V1mod6, *V5mod6, *V4, pp1data.V);		// VD = Vi + V{i+4} (diff V4), V4 no longer needed
 				have_VD = TRUE;
-//				stage2_init_save_var = &pp1data.V;
 			}
 
 /* Break out of loop when we have all our nQx values */
@@ -9436,35 +9428,31 @@ replan:	{
 
 			luc_add (&pp1data.gwdata, *V1mod6, *V6, *V1mod6minus6, *V1mod6minus6);		// Next 1 mod 6 value
 			gwswap (*V1mod6, *V1mod6minus6);
-//			stage2_init_save_var = V1mod6;
 
-/* Compute V_D which we will need in mQ_init.  Do this with a single luc_add call when we reach the two values that are 2 apart that add to D. */
-/* This only works for D = 0 mod 4. */
+/* Compute V_D which we will need in pp1_luc_prep_for_additions.  Do this with a single luc_add call when we reach the two values that */
+/* are 2 apart that add to D.  This only works for D = 0 mod 4. */
 
 			if (i+6 + i+4 == pp1data.D) {
+				ASSERTG (V2 == &pp1data.V);
 				luc_add (&pp1data.gwdata, *V1mod6, *V5mod6, *V2, pp1data.V);		// VD = V{i+6} + V{i+4} (diff V2), V2 no longer needed
 				have_VD = TRUE;
-//				stage2_init_save_var = &pp1data.V;
 			}
 
 /* Break out of loop when we have VD and all our nQx values */
 
-			if (have_VD) {
-				if (totrels == pp1data.totrels) break;
-
-/* Check for errors and save file creation.  We cannot create save file until VD is calculated. */
-
-				if (gw_test_for_error (&pp1data.gwdata)) goto err;
-
-				stop_reason = stopCheck (thread_num);
-				if (stop_reason) goto possible_lowmem;
-			}
+			if (have_VD && totrels == pp1data.totrels) break;
 
 /* Get next 5 mod 6 value */
 
 			luc_add (&pp1data.gwdata, *V5mod6, *V6, *V5mod6minus6, *V5mod6minus6);		// Next 5 mod 6 value
 			gwswap (*V5mod6, *V5mod6minus6);
-//			stage2_init_save_var = V5mod6;
+
+/* Check for errors and save file creation */
+
+			if (gw_test_for_error (&pp1data.gwdata)) goto err;
+
+			stop_reason = stopCheck (thread_num);
+			if (stop_reason) goto possible_lowmem;
 		}
 
 /* Free memory used in computing nQx values */
@@ -9472,9 +9460,7 @@ replan:	{
 		gwfree (&pp1data.gwdata, t1);
 		gwfree (&pp1data.gwdata, t2);
 		gwfree (&pp1data.gwdata, t3);
-		gwfree (&pp1data.gwdata, t4);
 	}
-//	stage2_init_save_var = &pp1data.V;
 
 /* Initialize for computing successive multiples of V_D */
 
@@ -9515,10 +9501,8 @@ replan:	{
 
 /* Multiply this Vn1 - nQx value into the gg accumulator */
 
-//GW:  Move saving check outside the loop??
 			saving = testSaveFilesFlag (thread_num);
 			stop_reason = stopCheck (thread_num);
-//GW: dont start next FFT if this is the last set bit in the pairing array  -- once every 30 minute optimizations like this are pathetic
 			gwsubmul4 (&pp1data.gwdata, pp1data.Vn1, pp1data.nQx[i], pp1data.gg, pp1data.gg, (!stop_reason && !saving) ? GWMUL_STARTNEXTFFT : 0);
 
 /* Clear pairing bit from the bitarray in case a save file is written.  Calculate stage 2 percentage. */
@@ -9611,7 +9595,7 @@ replan:	{
 	free (pp1data.bitarray), pp1data.bitarray = NULL;
 
 /* Check for the rare cases where we need to do even more stage 2.  This happens when continuing a save file in the middle of stage 2 and */
-/* the save file's target bound #2 was smaller than our target bound #2. */
+/* the save file's target bound #2 is smaller than our target bound #2. */
 
 	if (pp1data.C > pp1data.C_done) {
 		pp1data.state = PP1_STATE_MIDSTAGE;
@@ -9703,9 +9687,10 @@ msg_and_exit:
 		spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
 	}
 
-/* Create save file so that we can expand bound 1 or bound 2 at a later date. */
+/* Create save file so that we can expand bound 1 or bound 2 at a later date.  Only allow this for 2/7 and 6/5 start. */
+/* If we don't delete random start save files, then a new random start attempt would use the existing random start save file. */ 
 
-	if (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "KeepPplus1SaveFiles", 0))
+	if (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "KeepPplus1SaveFiles", 0) && w->nth_run <= 2)
 		pp1_save (&pp1data);
 	else
 		unlinkSaveFiles (&pp1data.write_save_file_state);
@@ -9833,7 +9818,7 @@ bingo:	if (pp1data.state < PP1_STATE_MIDSTAGE)
 
 /* Free save files */
 
-	if (QA_IN_PROGRESS || !IniGetInt (INI_FILE, "KeepPplus1SaveFiles", 0)) {
+	if (QA_IN_PROGRESS || !IniGetInt (INI_FILE, "KeepPplus1SaveFiles", 0) || w->nth_run > 2) {
 		unlinkSaveFiles (&pp1data.write_save_file_state);
 	}
 
