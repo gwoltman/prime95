@@ -8781,16 +8781,14 @@ int pplus1 (
 	giant	factor;		/* Factor found, if any */
 	unsigned int memused;
 	unsigned long SQRT_B;
-	int	i, totrels;
+	int	i, res, stop_reason, first_iter_msg, saving, near_fft_limit, echk;
 	char	filename[32], buf[255], JSONbuf[4000], testnum[100];
-	int	res, stop_reason, saving, near_fft_limit, echk;
 	uint64_t sieve_start, next_prime;
 	double	one_over_B, base_pct_complete, one_bit_pct;
 	double	last_output, last_output_t, last_output_r;
 	double	allowable_maxerr, output_frequency, output_title_frequency;
-	int	first_iter_msg;
-	int	msglen;
 	char	*str, *msg;
+	int	msglen;
 	double	timers[2];
 
 /* Output a blank line to separate multiple P+1 runs making the result more readable */
@@ -9325,10 +9323,9 @@ replan:	{
 /* A fast 1,5 mod 6 nQx initialization */
 
 	{
-		gwnum	t1, t2, t3;
+		gwnum	t1, t2, t3, t4, t5;
 		gwnum	*V1, *V2, *V3, *V4, *V5, *V6, *V7, *V11, *V1mod6, *V1mod6minus6, *V5mod6, *V5mod6minus6;
-		int	totrels_calculated;
-		int	have_VD;
+		int	totrels, have_VD;
 
 /* Allocate memory and init values for computing nQx.  We need V_1, V_5, V_6, V_7, V_11. */
 /* We also need V_4 to compute V_D in the middle of the nQx init loop. */
@@ -9340,6 +9337,8 @@ replan:	{
 		if (t2 == NULL) goto lowmem;
 		t3 = gwalloc (&pp1data.gwdata);
 		if (t3 == NULL) goto lowmem;
+		t4 = pp1data.Vn;
+		t5 = pp1data.Vn1;
 //GW  we could save more temps (perhaps) by doing all the 1 mod 6, then all the 5 mod 6
 
 /* Compute V_2 and place in pp1data.V.  This is the value we will save if init is aborted and we create a save file. */
@@ -9349,40 +9348,27 @@ replan:	{
 		gwswap (t1, pp1data.V);
 		V1 = &t1;
 		V2 = &pp1data.V;
-
-/* Copy V_1 -- the first nQx value */
-
-		pp1data.nQx[0] = gwalloc (&pp1data.gwdata);
-		if (pp1data.nQx[0] == NULL) goto lowmem;
-//GW: rather than FFT into nQx, gwswap with nQx once the value is no longer needed in further calculations!
-		gwfft (&pp1data.gwdata, *V1, pp1data.nQx[0]);		//GW copy to nQx after used in luc_dbl  saves an FFT
-		totrels = 1;
+		pp1data.nQx[0] = *V1; totrels = 1;
 
 /* Compute V_5, V_6, V_7, V_11 */
 
-		V3 = &pp1data.Vn;
+		V3 = &t2;
 		luc_add (&pp1data.gwdata, *V2, *V1, *V1, *V3);			// V3 = V2 + V1 (diff V1)
 
-		V5 = &pp1data.Vn1;
+		V5 = &t3;
 		luc_add (&pp1data.gwdata, *V3, *V2, *V1, *V5);			// V5 = V3 + V2 (diff V1)
-
-		if (relatively_prime (5, pp1data.D)) {
-			pp1data.nQx[totrels] = gwalloc (&pp1data.gwdata);
-			if (pp1data.nQx[totrels] == NULL) goto lowmem;
-//GW: V (the output of stage 1 is inaccessible in the lowmem code right now!)
-//GW: rather than FFT into nQx, gwswap with nQx once the value is no longer needed in further calculations!
-			gwfft (&pp1data.gwdata, *V5, pp1data.nQx[totrels]);
-			totrels++;
-		}
+		if (relatively_prime (5, pp1data.D)) pp1data.nQx[totrels++] = *V5;
 
 		V6 = V3;
 		luc_dbl (&pp1data.gwdata, *V3, *V6);				// V6 = 2 * V3, V3 no longer needed
 
-		V7 = &t2;
+		V7 = &t4;
 		luc_add (&pp1data.gwdata, *V6, *V1, *V5, *V7);			// V7 = V6 + V1 (diff V5)
+		if (relatively_prime (7, pp1data.D)) pp1data.nQx[totrels++] = *V7;
 
-		V11 = &t3;
+		V11 = &t5;
 		luc_add (&pp1data.gwdata, *V6, *V5, *V1, *V11);			// V11 = V6 + V5 (diff V1)
+		if (relatively_prime (11, pp1data.D)) pp1data.nQx[totrels++] = *V11;
 
 /* Compute the rest of the nQx values (V_i for i >= 7) */
 
@@ -9393,24 +9379,8 @@ replan:	{
 		have_VD = FALSE;
 		for (i = 7; ; i += 6) {
 
-			if (relatively_prime (i, pp1data.D)) {
-				pp1data.nQx[totrels] = gwalloc (&pp1data.gwdata);
-				if (pp1data.nQx[totrels] == NULL) goto lowmem;
-//GW: rather than FFT into nQx, gwswap with nQx once the value is no longer needed in further calculations!
-				gwfft (&pp1data.gwdata, *V1mod6, pp1data.nQx[totrels]);
-				totrels++;
-			}
-
-			if (totrels < pp1data.totrels && relatively_prime (i+4, pp1data.D)) {
-				pp1data.nQx[totrels] = gwalloc (&pp1data.gwdata);
-				if (pp1data.nQx[totrels] == NULL) goto lowmem;
-//GW: rather than FFT into nQx, gwswap with nQx once the value is no longer needed in further calculations!
-				gwfft (&pp1data.gwdata, *V5mod6, pp1data.nQx[totrels]);
-				totrels++;
-			}
-
-/* Compute V_D which we will need in mQ_init.  Do this with a single luc_add call when we reach two values that are 4 apart that add to D. */
-/* This only works for D = 2 mod 4. */
+/* Compute V_D which we will need in pp1_luc_prep_for_additions.  Do this with a single luc_add call when we reach two values that */
+/* are 4 apart that add to D.  This only works for D = 2 mod 4. */
 
 			if (i + i+4 == pp1data.D) {
 				ASSERTG (V2 == &pp1data.V);
@@ -9422,12 +9392,21 @@ replan:	{
 
 /* Break out of loop when we have all our nQx values */
 
-			if (have_VD && totrels == pp1data.totrels) break;
+			if (have_VD && totrels >= pp1data.totrels) break;
 
-/* Get next 1 mod 6 value */
+/* Get next 1 mod 6 value.  Don't destroy V1mod6minus6 if it is an nQx value */
 
-			luc_add (&pp1data.gwdata, *V1mod6, *V6, *V1mod6minus6, *V1mod6minus6);		// Next 1 mod 6 value
-			gwswap (*V1mod6, *V1mod6minus6);
+			if (relatively_prime (i-6, pp1data.D)) {
+				gwnum	next1mod6 = gwalloc (&pp1data.gwdata);
+				if (next1mod6 == NULL) goto lowmem;
+				luc_add (&pp1data.gwdata, *V1mod6, *V6, *V1mod6minus6, next1mod6);	// Next 1 mod 6 value
+				*V1mod6minus6 = *V1mod6;
+				*V1mod6 = next1mod6;
+			} else {
+				luc_add (&pp1data.gwdata, *V1mod6, *V6, *V1mod6minus6, *V1mod6minus6);	// Next 1 mod 6 value
+				gwswap (*V1mod6, *V1mod6minus6);
+			}
+			if (relatively_prime (i+6, pp1data.D) && totrels < pp1data.totrels) pp1data.nQx[totrels++] = *V1mod6;
 
 /* Compute V_D which we will need in pp1_luc_prep_for_additions.  Do this with a single luc_add call when we reach the two values that */
 /* are 2 apart that add to D.  This only works for D = 0 mod 4. */
@@ -9440,12 +9419,21 @@ replan:	{
 
 /* Break out of loop when we have VD and all our nQx values */
 
-			if (have_VD && totrels == pp1data.totrels) break;
+			if (have_VD && totrels >= pp1data.totrels) break;
 
-/* Get next 5 mod 6 value */
+/* Get next 5 mod 6 value.  Don't destroy V5mod6minus6 if it is an nQx value */
 
-			luc_add (&pp1data.gwdata, *V5mod6, *V6, *V5mod6minus6, *V5mod6minus6);		// Next 5 mod 6 value
-			gwswap (*V5mod6, *V5mod6minus6);
+			if (relatively_prime (i+4-6, pp1data.D)) {
+				gwnum	next5mod6 = gwalloc (&pp1data.gwdata);
+				if (next5mod6 == NULL) goto lowmem;
+				luc_add (&pp1data.gwdata, *V5mod6, *V6, *V5mod6minus6, next5mod6);	// Next 5 mod 6 value
+				*V5mod6minus6 = *V5mod6;
+				*V5mod6 = next5mod6;
+			} else {
+				luc_add (&pp1data.gwdata, *V5mod6, *V6, *V5mod6minus6, *V5mod6minus6);	// Next 5 mod 6 value
+				gwswap (*V5mod6, *V5mod6minus6);
+			}
+			if (relatively_prime (i+4+6, pp1data.D) && totrels < pp1data.totrels) pp1data.nQx[totrels++] = *V5mod6;
 
 /* Check for errors and save file creation */
 
@@ -9455,11 +9443,16 @@ replan:	{
 			if (stop_reason) goto possible_lowmem;
 		}
 
-/* Free memory used in computing nQx values */
+/* Free memory used in computing nQx values, complicated by the fact some of these could be among the final three nQx values. */
+/* Replace the Vn and Vn1 gwnums that we used as temporaries. */
 
-		gwfree (&pp1data.gwdata, t1);
-		gwfree (&pp1data.gwdata, t2);
-		gwfree (&pp1data.gwdata, t3);
+		if (t1 != pp1data.nQx[totrels-1] && t1 != pp1data.nQx[totrels-2] && t1 != pp1data.nQx[totrels-3]) gwfree (&pp1data.gwdata, t1);
+		if (t2 != pp1data.nQx[totrels-1] && t2 != pp1data.nQx[totrels-2] && t2 != pp1data.nQx[totrels-3]) gwfree (&pp1data.gwdata, t2);
+		if (t3 != pp1data.nQx[totrels-1] && t3 != pp1data.nQx[totrels-2] && t3 != pp1data.nQx[totrels-3]) gwfree (&pp1data.gwdata, t3);
+		if (t4 != pp1data.nQx[totrels-1] && t4 != pp1data.nQx[totrels-2] && t4 != pp1data.nQx[totrels-3]) gwfree (&pp1data.gwdata, t4);
+		if (t5 != pp1data.nQx[totrels-1] && t5 != pp1data.nQx[totrels-2] && t5 != pp1data.nQx[totrels-3]) gwfree (&pp1data.gwdata, t5);
+		pp1data.Vn = gwalloc (&pp1data.gwdata);
+		pp1data.Vn1 = gwalloc (&pp1data.gwdata);
 	}
 
 /* Initialize for computing successive multiples of V_D */
