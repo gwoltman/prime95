@@ -461,7 +461,9 @@ int ProofFileNames (char filenames[50][255])	// Returns number of matching filen
 
 	num_files = 0;
 	if ((hFind = FindFirstFile ("*.proof", &FindFileData)) != INVALID_HANDLE_VALUE) do {
-		if (num_files < 50) strcpy (filenames[num_files++], FindFileData.cFileName);
+		int	len = (int) strlen (FindFileData.cFileName);
+		// MS thinks xxx.proof.tmp matches *.proof, so validate returned results.
+		if (num_files < 50 && len && FindFileData.cFileName[len-1] == 'f') strcpy (filenames[num_files++], FindFileData.cFileName);
 	} while (FindNextFile (hFind, &FindFileData));
 	FindClose (hFind);
 	return (num_files);
