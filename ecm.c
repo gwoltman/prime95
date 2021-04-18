@@ -4910,7 +4910,7 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 
 /* We do prime pairing with each loop iteration handling the range m-Q to m+Q where m is a multiple of D and Q is the */
 /* Q-th relative prime to D.  Totrels is often much larger than the number of relative primes less than D.  This Preda */
-/* optimization provides us with many more chances to find a prime pairing. */
+/* optimization (originally from Montgomery) provides us with many more chances to find a prime pairing. */
 
 /* Accumulate (mQx - nQx)(mQz + nQz) - mQx mQz + nQx nQz.		*/
 /* Since nQz = 1, we have (the 4 FFT per prime continuation)		*/
@@ -5458,6 +5458,9 @@ typedef struct {
 	void	*sieve_info;	/* Prime number sieve */
 	uint64_t stage1_prime;	/* Prime number being processed */
 
+	gwnum	x;		/* The stage 1 value being computed */
+	gwnum	gg;		/* The stage 2 accumulated value */
+
 	int	D;		/* Stage 2 loop size */
 	int	E;		/* Suyama's power in stage 2 */
 	int	totrels;	/* Number relatively prime nQx values used */
@@ -5642,9 +5645,7 @@ void fd_term (
 #define PM1_VERSION	4				/* Complete overhaul in 30.4.  New stage 2 code with Preda optimizations */
 
 void pm1_save (
-	pm1handle *pm1data,
-	gwnum	x,
-	gwnum	gg)
+	pm1handle *pm1data)
 {
 	int	fd;
 	struct work_unit *w = pm1data->w;
@@ -5717,8 +5718,10 @@ void pm1_save (
 
 /* Write the gwnum value used in stage 1 and stage 2.  There are occasions where x or gg may be in a partially FFTed state. */
 
-	if (! write_gwnum (fd, &pm1data->gwdata, x, &sum)) goto writeerr;
-	if (gg != NULL && ! write_gwnum (fd, &pm1data->gwdata, gg, &sum)) goto writeerr;
+	if (! write_gwnum (fd, &pm1data->gwdata, pm1data->x, &sum)) goto writeerr;
+	if (pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_GCD) {
+		if (! write_gwnum (fd, &pm1data->gwdata, pm1data->gg, &sum)) goto writeerr;
+	}
 
 /* Write the checksum, we're done */
 
@@ -5739,9 +5742,7 @@ int pm1_old_restore (
 	pm1handle *pm1data,
 	int	fd,
 	unsigned long version,
-	unsigned long filesum,
-	gwnum	*x,
-	gwnum	*gg)
+	unsigned long filesum)
 {
 	unsigned long sum = 0;
 	unsigned long state, bitarray_len, unused;
@@ -5807,15 +5808,15 @@ int pm1_old_restore (
 
 /* Read the gwnum values */
 
-	*x = gwalloc (&pm1data->gwdata);
-	if (*x == NULL) goto readerr;
-	if (! read_gwnum (fd, &pm1data->gwdata, *x, &sum)) goto readerr;
+	pm1data->x = gwalloc (&pm1data->gwdata);
+	if (pm1data->x == NULL) goto readerr;
+	if (! read_gwnum (fd, &pm1data->gwdata, pm1data->x, &sum)) goto readerr;
 
-	*gg = NULL;
+	pm1data->gg = NULL;
 	if (state == 1) {
-		*gg = gwalloc (&pm1data->gwdata);
-		if (*gg == NULL) goto readerr;
-		if (! read_gwnum (fd, &pm1data->gwdata, *gg, &sum)) goto readerr;
+		pm1data->gg = gwalloc (&pm1data->gwdata);
+		if (pm1data->gg == NULL) goto readerr;
+		if (! read_gwnum (fd, &pm1data->gwdata, pm1data->gg, &sum)) goto readerr;
 	}
 
 /* Read and compare the checksum */
@@ -5838,9 +5839,7 @@ readerr:
 /* Read a save file */
 
 int pm1_restore (			/* For version 30.4 and later save files */
-	pm1handle *pm1data,
-	gwnum	*x,
-	gwnum	*gg)
+	pm1handle *pm1data)
 {
 	int	fd;
 	struct work_unit *w = pm1data->w;
@@ -5857,7 +5856,7 @@ int pm1_restore (			/* For version 30.4 and later save files */
 	if (! read_magicnum (fd, PM1_MAGICNUM)) goto readerr;
 	if (! read_header (fd, &version, w, &filesum)) goto readerr;
 	if (version < 1 || version > PM1_VERSION) goto readerr;
-	if (version < 4) return (pm1_old_restore (pm1data, fd, version, filesum, x, gg));
+	if (version < 4) return (pm1_old_restore (pm1data, fd, version, filesum));
 
 /* Read the first part of the save file */
 
@@ -5920,17 +5919,17 @@ int pm1_restore (			/* For version 30.4 and later save files */
 
 /* Read the gwnum value used in stage 1 and stage 2 */
 
-	*x = gwalloc (&pm1data->gwdata);
-	if (*x == NULL) goto readerr;
-	if (! read_gwnum (fd, &pm1data->gwdata, *x, &sum)) goto readerr;
+	pm1data->x = gwalloc (&pm1data->gwdata);
+	if (pm1data->x == NULL) goto readerr;
+	if (! read_gwnum (fd, &pm1data->gwdata, pm1data->x, &sum)) goto readerr;
 
 /* Read stage 2 accumulator gwnum */
 
-	*gg = NULL;
+	pm1data->gg = NULL;
 	if (pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_GCD) {
-		*gg = gwalloc (&pm1data->gwdata);
-		if (*gg == NULL) goto readerr;
-		if (! read_gwnum (fd, &pm1data->gwdata, *gg, &sum)) goto readerr;
+		pm1data->gg = gwalloc (&pm1data->gwdata);
+		if (pm1data->gg == NULL) goto readerr;
+		if (! read_gwnum (fd, &pm1data->gwdata, pm1data->gg, &sum)) goto readerr;
 	}
 
 /* Read and compare the checksum */
@@ -6194,7 +6193,7 @@ int pm1_stage2_impl (
 		return (0);							// Use old plan
 
 /* Get the Brent-Suyama power.  We used to try various values of E (1, 2, 4, 6, 12). */
-/* With Preda's optimization using gwnum temporaries to improve prime pairing we are better off only supporting E = 2. */
+/* With Preda/Montgomery's optimization using gwnum temporaries to improve prime pairing we are better off only supporting E = 2. */
 
 	cost_data.E = IniGetInt (INI_FILE, "BrentSuyama", 2);
 	if (cost_data.E < 2) cost_data.E = 2;
@@ -6329,7 +6328,7 @@ int pminus1 (
 	int	i, totrels;
 	unsigned long len;
 	unsigned long error_recovery_mode = 0;
-	gwnum	x, gg, tmp_gwnum;
+	gwnum	tmp_gwnum;
 	char	filename[32], buf[255], JSONbuf[4000], testnum[100];
 	int	res, stop_reason, saving, near_fft_limit, echk;
 	double	one_over_len, one_over_B, base_pct_complete, one_bit_pct;
@@ -6493,7 +6492,7 @@ restart:
 			break;
 		}
 
-		if (!pm1_restore (&pm1data, &x, &gg)) {
+		if (!pm1_restore (&pm1data)) {
 			/* Close and rename the bad save file */
 			saveFileBad (&pm1data.read_save_file_state);
 			continue;
@@ -6510,8 +6509,8 @@ restart:
 
 //GW: This wont work if stage 1 is changed to sliding window
 		if (error_recovery_mode) {
-			gwmul3_carefully (&pm1data.gwdata, x, x, x, 0);
-			pm1_save (&pm1data, x, gg);
+			gwmul3_carefully (&pm1data.gwdata, pm1data.x, pm1data.x, pm1data.x, 0);
+			pm1_save (&pm1data);
 			error_recovery_mode = 0;
 		}
 
@@ -6526,7 +6525,7 @@ restart:
 
 		if (pm1data.state == PM1_STATE_MIDSTAGE) {
 			if (pm1data.B > pm1data.B_done) {
-				gwfree (&pm1data.gwdata, gg), gg = NULL;
+				gwfree (&pm1data.gwdata, pm1data.gg), pm1data.gg = NULL;
 				goto more_B;
 			}
 			goto restart3b;
@@ -6540,7 +6539,7 @@ restart:
 /* an LL/PRP tester that has already begun stage 2 only do this for the non-LL/PRP tester. */
 
 			if (pm1data.B > pm1data.B_done && w->work_type == WORK_PMINUS1) {
-				gwfree (&pm1data.gwdata, gg), gg = NULL;
+				gwfree (&pm1data.gwdata, pm1data.gg), pm1data.gg = NULL;
 				free (pm1data.bitarray), pm1data.bitarray = NULL;
 				goto more_B;
 			}
@@ -6608,9 +6607,9 @@ restart:
 	pm1data.state = PM1_STATE_STAGE0;
 	pm1data.interim_B = pm1data.B;
 	pm1data.stage0_bitnum = 0;
-	x = gwalloc (&pm1data.gwdata);
-	if (x == NULL) goto oom;
-	dbltogw (&pm1data.gwdata, 3.0, x);
+	pm1data.x = gwalloc (&pm1data.gwdata);
+	if (pm1data.x == NULL) goto oom;
+	dbltogw (&pm1data.gwdata, 3.0, pm1data.x);
 
 /* Stage 0 pre-calculates an exponent that is the product of small primes.  Our default uses only small */
 /* primes below 40,000,000 (roughly 60 million bits).  This is configurable starting in version 29.8 build 8. */
@@ -6650,7 +6649,7 @@ restart0:
 		if (error_recovery_mode && pm1data.stage0_bitnum == error_recovery_mode) {
 			gwstartnextfft (&pm1data.gwdata, FALSE);
 			gwsetnormroutine (&pm1data.gwdata, 0, 0, mpz_tstbit (exp, len - pm1data.stage0_bitnum - 1));
-			gwsquare_carefully (&pm1data.gwdata, x);
+			gwsquare_carefully (&pm1data.gwdata, pm1data.x);
 			error_recovery_mode = 0;
 			saving = TRUE;
 		}
@@ -6667,8 +6666,8 @@ restart0:
 #ifndef SERVER_TESTING
 			gwstartnextfft (&pm1data.gwdata, !stop_reason && !saving && pm1data.stage0_bitnum+1 != error_recovery_mode && pm1data.stage0_bitnum+1 != len);
 			gwsetnormroutine (&pm1data.gwdata, 0, echk, mpz_tstbit (exp, len - pm1data.stage0_bitnum - 1));
-			if (pm1data.stage0_bitnum < 30) gwsquare_carefully (&pm1data.gwdata, x);
-			else gwsquare (&pm1data.gwdata, x);
+			if (pm1data.stage0_bitnum < 30) gwsquare_carefully (&pm1data.gwdata, pm1data.x);
+			else gwsquare (&pm1data.gwdata, pm1data.x);
 #endif
 		}
 
@@ -6725,7 +6724,7 @@ restart0:
 /* Check for escape and/or if its time to write a save file */
 
 		if (stop_reason || saving) {
-			pm1_save (&pm1data, x, NULL);
+			pm1_save (&pm1data);
 			if (stop_reason) goto exit;
 		}
 	}
@@ -6735,8 +6734,8 @@ restart0:
 /* This won't affect our final results, but will change the FFT data. */
 
 	if (error_recovery_mode) {
-		gwmul3_carefully (&pm1data.gwdata, x, x, x, 0);
-		pm1_save (&pm1data, x, NULL);
+		gwmul3_carefully (&pm1data.gwdata, pm1data.x, pm1data.x, pm1data.x, 0);
+		pm1_save (&pm1data);
 		error_recovery_mode = 0;
 	}
 
@@ -6784,7 +6783,7 @@ restart1:
 /* Apply as many powers of prime as long as prime^n <= B */
 
 		if (pm1data.stage1_prime > pm1data.B_done) {
-			pm1_mul (&pm1data, x, tmp_gwnum, pm1data.stage1_prime);
+			pm1_mul (&pm1data, pm1data.x, tmp_gwnum, pm1data.stage1_prime);
 		}
 		if (pm1data.stage1_prime <= SQRT_B) {
 			uint64_t mult, max;
@@ -6793,7 +6792,7 @@ restart1:
 			for ( ; ; ) {
 				mult *= pm1data.stage1_prime;
 				if (mult > pm1data.B_done) {
-					pm1_mul (&pm1data, x, tmp_gwnum, pm1data.stage1_prime);
+					pm1_mul (&pm1data, pm1data.x, tmp_gwnum, pm1data.stage1_prime);
 				}
 				if (mult > max) break;
 			}
@@ -6850,7 +6849,7 @@ restart1:
 /* Check for escape and/or if its time to write a save file */
 
 		if (stop_reason || saving) {
-			pm1_save (&pm1data, x, NULL);
+			pm1_save (&pm1data);
 			if (stop_reason) goto exit;
 		}
 	}
@@ -6892,11 +6891,11 @@ more_B:		pm1data.interim_B = pm1data.B;
 	if (pm1data.C <= pm1data.B || (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "Stage1GCD", 1))) {
 		if (w->work_type != WORK_PMINUS1) OutputStr (thread_num, "Starting stage 1 GCD - please be patient.\n");
 		start_timer (timers, 0);
-		gwaddsmall (&pm1data.gwdata, x, -1);
-		stop_reason = gcd (&pm1data.gwdata, thread_num, x, N, &factor);
-		gwaddsmall (&pm1data.gwdata, x, 1);
+		gwaddsmall (&pm1data.gwdata, pm1data.x, -1);
+		stop_reason = gcd (&pm1data.gwdata, thread_num, pm1data.x, N, &factor);
+		gwaddsmall (&pm1data.gwdata, pm1data.x, 1);
 		if (stop_reason) {
-			pm1_save (&pm1data, x, NULL);
+			pm1_save (&pm1data);
 			goto exit;
 		}
 		end_timer (timers, 0);
@@ -6925,10 +6924,10 @@ more_B:		pm1data.interim_B = pm1data.B;
 /* Initialize variables for second stage.  We set gg to x-1 in case the user opted to skip the GCD after stage 1. */
 
 restart3a:
-	gg = gwalloc (&pm1data.gwdata);
-	if (gg == NULL) goto oom;
-	gwcopy (&pm1data.gwdata, x, gg);
-	gwaddsmall (&pm1data.gwdata, gg, -1);
+	pm1data.gg = gwalloc (&pm1data.gwdata);
+	if (pm1data.gg == NULL) goto oom;
+	gwcopy (&pm1data.gwdata, pm1data.x, pm1data.gg);
+	gwaddsmall (&pm1data.gwdata, pm1data.gg, -1);
 
 /* Restart here when in the middle of stage 2 */
 
@@ -6961,7 +6960,7 @@ replan:	{
 
 	stop_reason = pm1_stage2_impl (&pm1data);
 	if (stop_reason) {
-		if (pm1data.state == PM1_STATE_MIDSTAGE) pm1_save (&pm1data, x, gg);
+		if (pm1data.state == PM1_STATE_MIDSTAGE) pm1_save (&pm1data);
 		goto exit;
 	}
 
@@ -7001,7 +7000,7 @@ replan:	{
 /* Compute x^(first_relative_prime^e), x^(second_relative_prime^e), ..., x^(last_relative_prime^e) */
 
 //gw is there a 2/4 increment optimization available to reduce nQx init costs by 33%
-	stop_reason = fd_init (&pm1data, 1, 2, x);				// This FFTs x as a side effect
+	stop_reason = fd_init (&pm1data, 1, 2, pm1data.x);			// This FFTs x as a side effect
 	if (stop_reason) goto exit;
 	for (totrels = 0, i = 1; ; i += 2) {		/* Compute x^(i^e) */
 		if (relatively_prime (i, pm1data.D)) {
@@ -7016,7 +7015,7 @@ replan:	{
 		stop_reason = stopCheck (thread_num);
 		if (stop_reason) {
 			fd_term (&pm1data);
-			pm1_save (&pm1data, x, gg);
+			pm1_save (&pm1data);
 			goto exit;
 		}
 	}
@@ -7025,7 +7024,7 @@ replan:	{
 /* Initialize for computing successive x^(m^e) where m corresponds to the first D section we are working on. */
 
 //GW: Should we have nQx setup compute x^D (like ECM code does)?
-	fd_init (&pm1data, pm1data.B2_start + pm1data.Dsection * pm1data.D + pm1data.D / 2, pm1data.D, x);
+	fd_init (&pm1data, pm1data.B2_start + pm1data.Dsection * pm1data.D + pm1data.D / 2, pm1data.D, pm1data.x);
 
 /* Stage 2 init complete, change the title, output a message */
 
@@ -7040,7 +7039,7 @@ replan:	{
 	gw_clear_fft_count (&pm1data.gwdata);
 
 /* Since E >= 2, we do prime pairing with each loop iteration handling the range m-Q to m+Q where m is a multiple of D and Q is the */
-/* Q-th relative prime to D.  Totrels is often much larger than the number of relative primes less than D.  This Preda */
+/* Q-th relative prime to D.  Totrels is often much larger than the number of relative primes less than D.  This Preda/Montgomery */
 /* optimization provides us with many more chances to find a prime pairing. */
 
 	pm1data.state = PM1_STATE_STAGE2;
@@ -7064,7 +7063,7 @@ replan:	{
 
 			saving = testSaveFilesFlag (thread_num);
 			stop_reason = stopCheck (thread_num);
-			gwsubmul4 (&pm1data.gwdata, pm1data.eQx[0], pm1data.nQx[i], gg, gg, (!stop_reason && !saving) ? GWMUL_STARTNEXTFFT : 0);
+			gwsubmul4 (&pm1data.gwdata, pm1data.eQx[0], pm1data.nQx[i], pm1data.gg, pm1data.gg, (!stop_reason && !saving) ? GWMUL_STARTNEXTFFT : 0);
 
 /* Clear pairing bit from the bitarray in case a save file is written.  Calculate stage 2 percentage. */
 
@@ -7119,7 +7118,7 @@ replan:	{
 
 			if (stop_reason || saving) {
 				if (stop_reason) fd_term (&pm1data);
-				pm1_save (&pm1data, x, gg);
+				pm1_save (&pm1data);
 				if (stop_reason) goto exit;
 			}
 		}
@@ -7142,7 +7141,7 @@ replan:	{
 						  pm1data.first_relocatable, pm1data.last_relocatable, pm1data.C_done, pm1data.C,
 						  pm1data.bitarraymaxDsections, &pm1data.bitarray);
 		if (stop_reason) {
-			pm1_save (&pm1data, x, gg);
+			pm1_save (&pm1data);
 			goto exit;
 		}
 	}
@@ -7189,9 +7188,9 @@ restart4:
 	w->pct_complete = 1.0;
 	if (w->work_type != WORK_PMINUS1) OutputStr (thread_num, "Starting stage 2 GCD - please be patient.\n");
 	start_timer (timers, 0);
-	stop_reason = gcd (&pm1data.gwdata, thread_num, gg, N, &factor);
+	stop_reason = gcd (&pm1data.gwdata, thread_num, pm1data.gg, N, &factor);
 	if (stop_reason) {
-		pm1_save (&pm1data, x, gg);
+		pm1_save (&pm1data);
 		goto exit;
 	}
 	pm1data.state = PM1_STATE_DONE;
@@ -7262,7 +7261,7 @@ msg_and_exit:
 /* If this is pre-factoring for an LL or PRP test, then delete the large save file. */
 
 	if (!QA_IN_PROGRESS && w->work_type == WORK_PMINUS1 && IniGetInt (INI_FILE, "KeepPminus1SaveFiles", 1))
-		pm1_save (&pm1data, x, NULL);
+		pm1_save (&pm1data);
 	else
 		unlinkSaveFiles (&pm1data.write_save_file_state);
 
@@ -7290,7 +7289,7 @@ exit:	pm1_cleanup (&pm1data);
 /* Low on memory, reduce memory settings and try again */
 
 lowmem:	fd_term (&pm1data);
-	pm1_save (&pm1data, x, gg);
+	pm1_save (&pm1data);
 	pm1_cleanup (&pm1data);
 	OutputBoth (thread_num, "Memory allocation error.  Trying again using less memory.\n");
 	pm1data.pct_mem_to_use *= 0.8;
@@ -7411,7 +7410,7 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 /* Otherwise create save file so that we can expand bound 1 or bound 2 at a later date. */
 
 	else
-		pm1_save (&pm1data, x, NULL);
+		pm1_save (&pm1data);
 
 /* Since we found a factor, then we may have performed less work than */
 /* expected.  Make sure we do not update the rolling average with */
@@ -9530,7 +9529,7 @@ replan:	{
 	gw_clear_fft_count (&pp1data.gwdata);
 
 /* We do prime pairing with each loop iteration handling the range m-Q to m+Q where m is a multiple of D and Q is the */
-/* Q-th relative prime to D.  Totrels is often much larger than the number of relative primes less than D.  This Preda */
+/* Q-th relative prime to D.  Totrels is often much larger than the number of relative primes less than D.  This Preda/Montgomery */
 /* optimization provides us with many more chances to find a prime pairing. */
 
 	pp1data.state = PP1_STATE_STAGE2;
