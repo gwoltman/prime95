@@ -8269,7 +8269,7 @@ void pp1_choose_B2 (
 
 	sieve_depth = (int) pp1data->w->sieve_depth;
 	p1eval (best[0], 10);
-	p1eval (best[1], 45);
+	p1eval (best[1], 40);
 	p1eval (best[2], 80);
 
 /* Handle case where midpoint is worse than the start point */
@@ -8286,10 +8286,10 @@ void pp1_choose_B2 (
 	while (!p1compare (best[1], best[2])) {
 		best[0] = best[1];
 		best[1] = best[2];
-		p1eval (best[2], (int) (best[1].i + 10));
+		p1eval (best[2], (int) (best[1].i + 20));
 	}
 
-/* Find the best B2.  We use a binary-like search to speed things up (new in version 30.3b3). */
+/* Find the best B2.  We use a binary-like search to speed things up. */
 
 	while (best[0].i + 2 != best[2].i) {
 		struct pp1_stage2_efficiency midpoint;
@@ -8803,7 +8803,6 @@ void pp1_luc_prep_for_additions (
 
 /* Loop processing one multiplier bit at a time.  Each iteration computes V_n = V_{2n+bit}, V_{n+1} = V_{2n+bit+1} */
 
-	gwfft_for_fma (&pp1data->gwdata, V, V);
 	for (mask >>= 1; mask; mask >>= 1) {
 	        if (multiplier & mask) {
 			gwmulsub4 (&pp1data->gwdata, Vn, Vn1, V, Vn, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	// next n   = n + (n+1), diff 1
@@ -8896,6 +8895,12 @@ int pplus1 (
 
 	stop_reason = setN (thread_num, w, &N);
 	if (stop_reason) goto exit;
+
+/* Other initialization */
+
+	PRAC_SEARCH = IniGetInt (INI_FILE, "PracSearch", 7);
+	if (PRAC_SEARCH < 1) PRAC_SEARCH = 1;
+	if (PRAC_SEARCH > 50) PRAC_SEARCH = 50;
 
 /* Output startup message */
 
