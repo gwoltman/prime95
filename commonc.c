@@ -5124,6 +5124,9 @@ void kbnc_to_text (
 	case PRIMENET_WORK_TYPE_PMINUS1:
 		work_type_str = "P-1";
 		break;
+	case PRIMENET_WORK_TYPE_PPLUS1:
+		work_type_str = "P+1";
+		break;
 	case PRIMENET_WORK_TYPE_PRP:
 		work_type_str = prp_dblchk ? "PRPDC" : "PRP";
 		break;
@@ -6069,6 +6072,8 @@ retry:
 				pkt.work_type = PRIMENET_WORK_TYPE_FACTOR;
 			if (w->work_type == WORK_PMINUS1)
 				pkt.work_type = PRIMENET_WORK_TYPE_PMINUS1;
+			if (w->work_type == WORK_PPLUS1)
+				pkt.work_type = PRIMENET_WORK_TYPE_PPLUS1;
 			if (w->work_type == WORK_PFACTOR)
 				pkt.work_type = PRIMENET_WORK_TYPE_PFACTOR;
 			if (w->work_type == WORK_PPLUS1)
@@ -6308,6 +6313,7 @@ retry:
 			w.k = pkt1.k;
 			w.b = pkt1.b;
 			w.c = pkt1.c;
+			w.nth_run = pkt1.nth_run;
 			w.B1 = pkt1.B1;
 			w.B2 = pkt1.B2;
 			break;
