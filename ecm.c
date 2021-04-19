@@ -4314,6 +4314,7 @@ restart0:
 /* Allocate memory */
 
 	if (!alloc_xz (&ecmdata, &ecmdata.xz)) goto oom;
+	ecmdata.gg = NULL;
 
 /* Choose curve with order divisible by 16 and choose a point (x/z) on said curve. */
 
@@ -5116,6 +5117,9 @@ restart4:
 
 more_curves:
 	gwfreeall (&ecmdata.gwdata);
+	ecmdata.xz.x = NULL;
+	ecmdata.xz.z = NULL;
+	ecmdata.gg = NULL;
 	mallocFreeForOS ();
 	if (++ecmdata.curve <= w->curves_to_do) goto restart0;
 
