@@ -743,7 +743,8 @@ typedef struct {
 	struct xz Qm, Qprevm, QD; /* Values used to calculate successive D values in stage 2 */
 	int	Qm_state;	/* For 4-FFT continuation, TRUE if Qm has been returned by mQ_next */
 	gwnum	*mQx;		/* Array of calculated D values when modular inverse pooling is active */
-	int	mQx_count;	/* Count of values in the mQx array */
+	int	mQx_count;	/* Number of values remaining in the mQx array */
+	int	mQx_retcount;	/* Next mQx array entry to return */
 
 	double	pct_mem_to_use;	/* If we get memory allocation errors, we progressively try using less and less. */
 } ecmhandle;
@@ -3055,10 +3056,13 @@ int mQ_next (
 		if (stop_reason) return (stop_reason);
 		if (*factor != NULL) return (0);
 		mallocFreeForOS ();
+
+		// Return first entry in the mQx array
+		ecmdata->mQx_retcount = 0;
 	}
 
 	/// Return next entry from the pool
-	*retx = ecmdata->mQx[ecmdata->E - ecmdata->mQx_count];
+	*retx = ecmdata->mQx[ecmdata->mQx_retcount++];
 	ecmdata->mQx_count--;
 	return (0);
 }
@@ -4375,8 +4379,11 @@ restart1:
 
 		for ( ; count; count--) {
 			int	last_mul = (count == 1 && (saving || stop_reason || next_prime > ecmdata.B));
-			stop_reason = ell_mul (&ecmdata, &ecmdata.xz, ecmdata.stage1_prime, last_mul);
-			if (stop_reason) goto exit;
+			int	oom_stop_reason = ell_mul (&ecmdata, &ecmdata.xz, ecmdata.stage1_prime, last_mul);
+			if (oom_stop_reason) {	// Out of memory should be the only reason ell_mul fails.  Won't happen, but handle it gracefully anyway
+				stop_reason = oom_stop_reason;
+				goto exit;
+			}
 		}
 
 /* Calculate stage 1 percent complete */
