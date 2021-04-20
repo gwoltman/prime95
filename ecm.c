@@ -8330,7 +8330,7 @@ void pp1_choose_B2 (
 	pp1data->C = best[1].i * pp1data->B;
 	sprintf (buf, "With trial factoring done to 2^%d, optimal B2 is %d*B1 = %" PRIu64 ".\n", sieve_depth, best[1].i, pp1data->C);
 	OutputStr (pp1data->thread_num, buf);
-	sprintf (buf, "Chance of a new factor is %.3g%%\n", best[1].fac_pct * 100.0);
+	sprintf (buf, "Chance of a new factor assuming no ECM has been done is %.3g%%\n", best[1].fac_pct * 100.0);
 	OutputStr (pp1data->thread_num, buf);
 }
 #undef p1eval
@@ -8927,7 +8927,7 @@ int pplus1 (
 	OutputStr (thread_num, buf);
 	if (w->sieve_depth > 0.0 && !pp1data.optimal_B2) {
 		double prob = pm1prob (pp1data.takeAwayBits, (unsigned int) w->sieve_depth, (double) pp1data.B, (double) pp1data.C) * pp1data.success_rate;
-		sprintf (buf, "Chance of finding a factor is an estimated %.3g%%\n", prob * 100.0);
+		sprintf (buf, "Chance of finding a factor assuming no ECM has been done is an estimated %.3g%%\n", prob * 100.0);
 		OutputStr (thread_num, buf);
 	}
 
