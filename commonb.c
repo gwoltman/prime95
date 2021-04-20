@@ -1305,14 +1305,14 @@ int set_memory_usage (
 /* Wait for the stop to take effect so that we don't briefly over-allocate memory. */
 
 			MEM_FLAGS[thread_num] |= MEM_WAITING;
-			gwmutex_unlock (&MEM_MUTEX);
 			gwevent_init (&MEM_WAIT_OR_STOP[thread_num]);
 			gwevent_reset (&MEM_WAIT_OR_STOP[thread_num]);
 			MEM_WAIT_OR_STOP_INITIALIZED[thread_num] = 1;
+			gwmutex_unlock (&MEM_MUTEX);
 			gwevent_wait (&MEM_WAIT_OR_STOP[thread_num], 20);
+			gwmutex_lock (&MEM_MUTEX);
 			MEM_WAIT_OR_STOP_INITIALIZED[thread_num] = 0;
 			gwevent_destroy (&MEM_WAIT_OR_STOP[thread_num]);
-			gwmutex_lock (&MEM_MUTEX);
 			MEM_FLAGS[thread_num] &= ~MEM_WAITING;
 		}
 	}
@@ -1495,14 +1495,14 @@ int avail_mem (
 	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
 		if (i == thread_num) continue;
 		if (MEM_FLAGS[i] & MEM_USAGE_NOT_SET || MEM_FLAGS[i] & MEM_RESTARTING) {
-			gwmutex_unlock (&MEM_MUTEX);
 			gwevent_init (&MEM_WAIT_OR_STOP[thread_num]);
 			gwevent_reset (&MEM_WAIT_OR_STOP[thread_num]);
 			MEM_WAIT_OR_STOP_INITIALIZED[thread_num] = 1;
+			gwmutex_unlock (&MEM_MUTEX);
 			gwevent_wait (&MEM_WAIT_OR_STOP[thread_num], 5 + thread_num);
+			gwmutex_lock (&MEM_MUTEX);
 			MEM_WAIT_OR_STOP_INITIALIZED[thread_num] = 0;
 			gwevent_destroy (&MEM_WAIT_OR_STOP[thread_num]);
-			gwmutex_lock (&MEM_MUTEX);
 			break;
 		}
 	}
