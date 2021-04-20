@@ -4279,14 +4279,16 @@ if (w->n == 604) {
 			goto restart3;
 		}
 
-/* We've finished stage 1, resume stage 2.  Store normalized Q in QD.  Allocate and initialize the accumulator. */
+/* We've finished stage 1, resume stage 2.  Store normalized Q in QD.  Initialize the accumulator. */
 
 		if (ecmdata.state == ECM_STATE_STAGE2) {
-			gwswap (ecmdata.xz.x, ecmdata.QD.x);
+			ecmdata.QD.x = ecmdata.xz.x;
+			ecmdata.gg = ecmdata.xz.z;
+			ecmdata.xz.x = NULL;
+			ecmdata.xz.z = NULL;
+			ecmdata.QD.z = gwalloc (&ecmdata.gwdata);
+			if (ecmdata.QD.z == NULL) goto oom;
 			dbltogw (&ecmdata.gwdata, 1.0, ecmdata.QD.z);
-			ecmdata.gg = gwalloc (&ecmdata.gwdata);
-			if (ecmdata.gg == NULL) goto oom;
-			gwswap (ecmdata.xz.z, ecmdata.gg);
 			goto restart3;
 		}
 
