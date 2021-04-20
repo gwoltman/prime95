@@ -1364,7 +1364,6 @@ int set_memory_usage (
 			if (are_threads_using_lots_of_memory (i)) continue;
 			stop_worker_for_mem_changed (i);
 			all_threads_set = FALSE;
-			break;
 		}
 	}
 
