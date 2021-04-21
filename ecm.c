@@ -8163,6 +8163,8 @@ int pp1_restore (
 /* Read stage 2 accumulator gwnum */
 
 	if (pp1data->state >= PP1_STATE_MIDSTAGE && pp1data->state <= PP1_STATE_GCD) {
+		pp1data->gg = gwalloc (&pp1data->gwdata);
+		if (pp1data->gg == NULL) goto readerr;
 		if (! read_gwnum (fd, &pp1data->gwdata, pp1data->gg, &sum)) goto readerr;
 	}
 
