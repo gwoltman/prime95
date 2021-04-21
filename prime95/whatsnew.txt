@@ -2,7 +2,7 @@ New features in Version 30.6 of prime95.exe
 -------------------------------------------
 
 1) P+1 factoring.  A worktodo.txt entry looks like this:
-	Pplus1=k,b,n,c,B1,B2,nth_run,[,how_far_factored][,"known_factors"]
+	Pplus1=k,b,n,c,B1,B2,nth_run[,how_far_factored][,"known_factors"]
    Unlike P-1, the fact that factors of Mersenne numbers is 1 mod 2p is of no value.
    Thus, P-1 is vastly more effective at finding factors.  A P+1 run is about as
    valuable as running one ECM curve.  P+1 stage 1 is 50% slower than P-1 stage 1

@@ -2756,7 +2756,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 	    }
 
 /* Handle Pplus1 lines:							*/
-/*	Pplus1=k,b,n,c,B1,B2,nth_run,[,how_far_factored][,"factors"]	*/
+/*	Pplus1=k,b,n,c,B1,B2,nth_run[,how_far_factored][,"factors"]	*/
 /* where nth_run is 1 for start 2/7, 2 for start 6/5, 3+ for random start */
 
 	    else if (_stricmp (keyword, "Pplus1") == 0) {
