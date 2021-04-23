@@ -3575,7 +3575,7 @@ double work_estimate (
 		if (stage == 2) est = stage2_time * (1.0 - pct_complete);
 	}
 
-/* For P+1, estimate about the same as a P-1 */ 
+/* For P+1, stage 1 is 1.52 times P-1 stage 1, stage 2 is about the same */ 
 
 	if (w->work_type == WORK_PPLUS1) {
 		int	stage;
@@ -3589,7 +3589,7 @@ double work_estimate (
 		else stage = 0;
 
 		timing = gwmap_to_timing (w->k, w->b, w->n, w->c);
-		stage1_time = timing * (1.4545 * B1);
+		stage1_time = timing * (1.4545 * 1.52 * B1);
 		stage2_time = (B2 >= B1) ? timing * (0.06154 * (B2 - B1)) * 1.285 : 0.0;
 
 		if (stage == 0) est = stage1_time + stage2_time;
