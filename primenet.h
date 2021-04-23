@@ -297,6 +297,7 @@ struct primenetAssignmentResult {
 	char	JSONmessage[2000];	/* JSON message.  If not empty, this text is sent rather than the 201-byte message. */
 	uint32_t pp1_numerator;		/* P+1 starting numerator */
 	uint32_t pp1_denominator;	/* P+1 starting denominator */
+/* ADD NEW FIELDS HERE -- ELSE SPOOL FILES WILL BE CORRUPTED WHEN UPGRADING */
 
 	/* Returned by the server */
 
