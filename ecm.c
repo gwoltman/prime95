@@ -8101,10 +8101,10 @@ int pp1_restore (
 	if (! read_int (fd, &numerator, &sum)) goto readerr;
 	if (! read_int (fd, &denominator, &sum)) goto readerr;
 	if (numerator != pp1data->numerator || denominator != pp1data->denominator) {
-		if (pp1data->w->nth_run <= 2) goto readerr;		// User wants to do 2/7 or 6/5 and save file does not match
-		if (numerator == 2 && denominator == 7) goto readerr;	// User wants a random start, not 2/7
-		if (numerator == 6 && denominator == 5) goto readerr;	// User wants a random start, not 6/5
-		pp1data->numerator = numerator;				// Replace random start with random start from save file
+		if (pp1data->w->nth_run <= 2) goto bad_nth_run;			// User wants to do 2/7 or 6/5 and save file does not match
+		if (numerator == 2 && denominator == 7) goto bad_nth_run;	// User wants a random start, not 2/7
+		if (numerator == 6 && denominator == 5) goto bad_nth_run;	// User wants a random start, not 6/5
+		pp1data->numerator = numerator;					// Replace random start with random start from save file
 		pp1data->denominator = denominator;
 	}
 
@@ -8179,6 +8179,8 @@ int pp1_restore (
 
 /* An error occurred.  Cleanup and return. */
 
+bad_nth_run:
+	OutputBoth (pp1data->thread_num, "P+1 starting point in save file does not match nth_run parameter from worktodo.txt\n");
 readerr:
 	_close (fd);
 err:
@@ -8923,11 +8925,11 @@ int pplus1 (
 	sprintf (buf, "%s P+1", testnum);
 	title (thread_num, buf);
 	if (pp1data.C <= pp1data.B)
-		sprintf (buf, "P+1 on %s with B1=%" PRIu64 "\n", testnum, pp1data.B);
+		sprintf (buf, "P+1 on %s, start=%" PRIu32 "/%" PRIu32 ", B1=%" PRIu64 "\n", testnum, pp1data.numerator, pp1data.denominator, pp1data.B);
 	else if (pp1data.optimal_B2)
-		sprintf (buf, "P+1 on %s with B1=%" PRIu64 ", B2=TBD\n", testnum, pp1data.B);
+		sprintf (buf, "P+1 on %s, start=%" PRIu32 "/%" PRIu32 ", B1=%" PRIu64 ", B2=TBD\n", testnum, pp1data.numerator, pp1data.denominator, pp1data.B);
 	else
-		sprintf (buf, "P+1 on %s with B1=%" PRIu64 ", B2=%" PRIu64 "\n", testnum, pp1data.B, pp1data.C);
+		sprintf (buf, "P+1 on %s, start=%" PRIu32 "/%" PRIu32 ", B1=%" PRIu64 ", B2=%" PRIu64 "\n", testnum, pp1data.numerator, pp1data.denominator, pp1data.B, pp1data.C);
 	OutputStr (thread_num, buf);
 	if (w->sieve_depth > 0.0 && !pp1data.optimal_B2) {
 		double prob = pm1prob (pp1data.takeAwayBits, (unsigned int) w->sieve_depth, (double) pp1data.B, (double) pp1data.C) * pp1data.success_rate;
