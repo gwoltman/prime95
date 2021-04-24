@@ -2779,10 +2779,9 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		if (q != NULL && q[1] != '"') {
 			double	j;
 			j = atof (q+1);
-			if (j < 100.0) {
-				w->sieve_depth = j;
-				q = strchr (q+1, ',');
-			}
+			if (j >= 100.0) j = 0.0;
+			w->sieve_depth = j;
+			q = strchr (q+1, ',');
 		}
 		if (q != NULL && q[1] == '"') {
 			w->known_factors = (char *) malloc (strlen (q));
