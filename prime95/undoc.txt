@@ -322,11 +322,15 @@ pre-calculate the product of all small primes below 40 million.  The primes abov
 more memory to move the 40 million threshold higher.  In prime.txt enter:
 	MaxStage0Prime=n
 
-By default P-1, P+1 work does not delete the save files when the work unit completes.
+By default P-1 work does not delete the save files when the work unit completes.
 This lets you run P-1 to a higher bound at a later date.  You can force
 the program to delete save files by adding this line to prime.txt:
 	KeepPminus1SaveFiles=0
-	KeepPplus1SaveFiles=0
+
+By default P+1 work does delete the save files when the work unit completes.
+Should you want to run P+1 to a higher bound at a later date.  You can force
+the program to keep save files by adding this line to prime.txt:
+	KeepPplus1SaveFiles=1
 
 You can force the program to skip the trial factoring step prior to
 running a Lucas-Lehmer or PRP primality test.  In prime.txt add this line:
