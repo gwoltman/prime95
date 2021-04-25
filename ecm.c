@@ -2,7 +2,7 @@
  *
  *	ecm.c
  *
- *	ECM and P-1 factoring program
+ *	ECM, P-1, and P+1 factoring routines
  *
  *	Original author:  Richard Crandall - www.perfsci.com
  *	Adapted to Mersenne numbers and optimized by George Woltman
@@ -30,10 +30,10 @@ int	PRAC_SEARCH = 7;
 #define isPowerOf2(n)			(((n) & ((n)-1)) == 0)
 
 /**********************************************************************************************************************/
-/*                                     ECM and P-1 best stage 2 implementation routines                               */
+/*                                ECM, P-1, and P+1 best stage 2 implementation routines                              */
 /**********************************************************************************************************************/
 
-/* Various D values that we will consider in creating an ECM or P-1 plan */
+/* Various D values that we will consider in creating an ECM, P-1 or P+1 plan */
 
 #define NUM_D		21
 struct D_data {
@@ -72,7 +72,7 @@ struct D_data {
 #define MAX_RELPRIMES	720
 
 /* Select the best D value for the given the number of temporary gwnums that can be allocated.  We trade off more D steps vs. better */
-/* prime pairing vs. different B2 start points using the ECM or P-1 costing function. */
+/* prime pairing vs. different B2 start points using the ECM, P-1, or P+1 costing function. */
 /* Returns the cost.  Cost function can return more information, such as best D value, B2_start, B2_end. */
 
 double best_stage2_impl_internal (
@@ -81,7 +81,7 @@ double best_stage2_impl_internal (
 	int	totrels,		/* Number of gwnum temporaries used for storing relative prime data */
 	double	numprimes,		/* Estimated number of primes to be processed in stage 2 */
 	int	max_bitarray_size,	/* Maximum size of the work bit array in MB */
-	double	(*cost_func)(int, uint64_t, uint64_t, uint64_t, int, double, double, double, void *), /* ECM or P-1 costing function */
+	double	(*cost_func)(int, uint64_t, uint64_t, uint64_t, int, double, double, double, void *), /* ECM, P-1 or P+1 costing function */
 	void	*cost_func_data)	/* User-supplied data to pass to the costing function */
 {
 	uint64_t B2_start, B2_end, numDsections, bitarraymaxDsections;
@@ -90,7 +90,7 @@ double best_stage2_impl_internal (
 	int	D, i, best_i, j;
 
 /* Kludge to make one pass finding the best D value and a second pass to re-call the cost function using the best D. */
-/* Re-calling the cost function allows it to pass back any data that P-1 or ECM may need to save. */
+/* Re-calling the cost function allows it to pass back any data that P-1, P+1, or ECM may need to save. */
 
 	best_cost = 1.0e99;
 	for (j = 0; j < 2; j++) {
@@ -153,14 +153,14 @@ double best_stage2_impl_internal (
 }
 
 /* Binary search for the best number of gwnums to allocate and the best D value to use.  Caller specifies the maximum number of gwnums */
-/* that can be allocated.  We trade off more D steps vs. better prime pairing vs. different B2 start points using the ECM or P-1 costing function. */
+/* that can be allocated.  We trade off more D steps vs. better prime pairing vs. different B2 start points using the ECM, P-1, or P+1 costing function. */
 /* Returns the cost.  Cost function can return more information, such as best D value, B2_start, B2_end. */
 
 double best_stage2_impl (
 	uint64_t C_start,		/* Starting point for bound #2 */
 	uint64_t C,			/* Bound #2 */
 	int	maxtotrels,		/* Maximum number of gwnum temporaries that can be used for storing relative prime data */
-	double	(*cost_func)(int, uint64_t, uint64_t, uint64_t, int, double, double, double, void *), /* ECM or P-1 costing function */
+	double	(*cost_func)(int, uint64_t, uint64_t, uint64_t, int, double, double, double, void *), /* ECM, P-1, or P+1 costing function */
 	void	*cost_func_data)	/* User-supplied data to pass to the costing function */
 {
 	int	max_bitarray_size;	/* Maximum size of the work bit array in MB */
@@ -243,7 +243,7 @@ double best_stage2_impl (
 }
 
 /**********************************************************************************************************************/
-/*                                            ECM and P-1 prime pairing routines                                      */
+/*                                        ECM, P-1, and P+1 prime pairing routines                                    */
 /**********************************************************************************************************************/
 
 #define bitset_prime(array,p)	bitset (array, ((p) - C_start) / D * numrels * 2 + map_relprime_to_index ((p) % D, D, &reldata))
@@ -333,7 +333,7 @@ int count_possible_pairs (char *primes, char *relocated, uint64_t numDsections, 
 	return (count);
 }
 
-/* Allocate and fill a bit array in such a way that it maximizes stage 2 prime pairings in ECM and P-1.  Large B2 values will result */
+/* Allocate and fill a bit array in such a way that it maximizes stage 2 prime pairings in ECM, P-1, and P+1.  Large B2 values will result */
 /* in large bit arrays -- and if B2 is really large then the bit array must be created in chunks. */
 
 int fill_work_bitarray (
@@ -438,7 +438,7 @@ int fill_work_bitarray (
 	memset (work, 0, (size_t) divide_rounding_up (numDsections * totrels, 8));
 	bits_set = 0;
 
-/* Fill a work bit array in such a way that it maximizes stage 2 prime pairings in ECM and P-1. */
+/* Fill a work bit array in such a way that it maximizes stage 2 prime pairings in ECM, P-1, and P+1. */
 /* Input is a bit array of non-relocatable primes and a bit array of relocatable primes. */
 
 /* Pair primes making multiple passes over the input bit arrays.  We've tried several algorithms and may try several more! */
@@ -7270,13 +7270,12 @@ msg_and_exit:
 		spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
 	}
 
-/* Create save file so that we can expand bound 1 or bound 2 at a later date. */
 /* If this is pre-factoring for an LL or PRP test, then delete the large save file. */
+/* Create save file so that we can expand bound 1 or bound 2 at a later date. */
 
+	unlinkSaveFiles (&pm1data.write_save_file_state);
 	if (!QA_IN_PROGRESS && w->work_type == WORK_PMINUS1 && IniGetInt (INI_FILE, "KeepPminus1SaveFiles", 1))
 		pm1_save (&pm1data);
-	else
-		unlinkSaveFiles (&pm1data.write_save_file_state);
 
 /* Return stop code indicating success or work unit complete */ 
 
@@ -7412,17 +7411,15 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 		spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
 	}
 
-/* If LL testing, free all save files -- including possible LL save files */
+/* Free save files.  If LL testing, free those save files too. */
+/* Then create save file so that we can expand bound 1 or bound 2 at a later date. */
 
-	if (QA_IN_PROGRESS || w->work_type != WORK_PMINUS1 || !IniGetInt (INI_FILE, "KeepPminus1SaveFiles", 1)) {
-		unlinkSaveFiles (&pm1data.write_save_file_state);
+	unlinkSaveFiles (&pm1data.write_save_file_state);
+	if (w->work_type != WORK_PMINUS1) {
 		pm1data.write_save_file_state.base_filename[0] = 'p';
 		unlinkSaveFiles (&pm1data.write_save_file_state);
 	}
-
-/* Otherwise create save file so that we can expand bound 1 or bound 2 at a later date. */
-
-	else
+	if (!QA_IN_PROGRESS && w->work_type == WORK_PMINUS1 && IniGetInt (INI_FILE, "KeepPminus1SaveFiles", 1))
 		pm1_save (&pm1data);
 
 /* Since we found a factor, then we may have performed less work than */
@@ -9760,13 +9757,13 @@ msg_and_exit:
 		spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
 	}
 
+/* Free save files (especially big ones created during stage 2) */
 /* Create save file so that we can expand bound 1 or bound 2 at a later date.  Only allow this for 2/7 and 6/5 start. */
 /* If we don't delete random start save files, then a new random start attempt would use the existing random start save file. */ 
 
+	unlinkSaveFiles (&pp1data.write_save_file_state);
 	if (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "KeepPplus1SaveFiles", 0) && w->nth_run <= 2)
 		pp1_save (&pp1data);
-	else
-		unlinkSaveFiles (&pp1data.write_save_file_state);
 
 /* Return stop code indicating success or work unit complete */ 
 
@@ -9891,15 +9888,11 @@ bingo:	if (pp1data.state < PP1_STATE_MIDSTAGE)
 		spoolMessage (PRIMENET_ASSIGNMENT_RESULT, &pkt);
 	}
 
-/* Free save files */
+/* Free save files (especially big ones created during stage 2) */
+/* Then create save file so that we can expand bound 1 or bound 2 at a later date. */
 
-	if (QA_IN_PROGRESS || !IniGetInt (INI_FILE, "KeepPplus1SaveFiles", 0) || w->nth_run > 2) {
-		unlinkSaveFiles (&pp1data.write_save_file_state);
-	}
-
-/* Otherwise create save file so that we can expand bound 1 or bound 2 at a later date. */
-
-	else
+	unlinkSaveFiles (&pp1data.write_save_file_state);
+	if (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "KeepPplus1SaveFiles", 0) && w->nth_run <= 2)
 		pp1_save (&pp1data);
 
 /* Since we found a factor, then we may have performed less work than */
