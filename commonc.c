@@ -681,10 +681,10 @@ int isPrime (
 
 
 /* Routines that use a simple sieve to find "may be prime" numbers.  That is, numbers without any small factors. */
-/* This is used by ECM and P-1.  Also, used by 64-bit trial factoring setup code. */
+/* This is used by ECM, P-1, and P+1.  Also, used by 64-bit trial factoring setup code. */
 
 typedef struct {
-	unsigned int *primes;
+	uint32_t *primes;				// Sieving primes and the bit-to-clear
 	uint64_t first_number;
 	unsigned int bit_number;
 	unsigned int num_primes;
@@ -705,13 +705,13 @@ void fill_sieve (
 
 	fmax = (unsigned int) sqrt ((double) (si->first_number + sizeof (si->array) * 8 * 2));
 	for (i = si->num_primes; i < si->num_elimination_primes * 2; i += 2) {
-		unsigned long f, r, bit;
+		uint32_t f, r, bit;
 		f = si->primes[i];
 		if (f > fmax) break;
 		if (si->first_number == 3) {
 			bit = (f * f - 3) >> 1;
 		} else {
-			r = (unsigned long) (si->first_number % f);
+			r = (uint32_t) (si->first_number % f);
 			if (r == 0) bit = 0;
 			else if (r & 1) bit = (f - r) / 2;
 			else bit = (f + f - r) / 2;
@@ -725,7 +725,7 @@ void fill_sieve (
 
 	memset (si->array, 0xFF, sizeof (si->array));
 	for (i = 0; i < si->num_primes; i += 2) {
-		unsigned int f, bit;
+		uint32_t f, bit;
 		f = si->primes[i];
 		for (bit = si->primes[i+1]; bit < sizeof (si->array) * 8; bit += f) bitclr (si->array, bit);
 		si->primes[i+1] = bit - sizeof (si->array) * 8;
@@ -789,10 +789,10 @@ int start_sieve_with_limit (
 /* Initialize sieving primes */
 
 	if (si->primes == NULL) {
-		unsigned int f;
+		uint32_t f;
 		unsigned int estimated_num_primes;
 		estimated_num_primes = (unsigned int) ((double) max_elimination_factor / (log ((double) max_elimination_factor) - 1.0) * 1.01);
-		si->primes = (unsigned int *) malloc (estimated_num_primes * 2 * sizeof (unsigned int));
+		si->primes = (uint32_t *) malloc (estimated_num_primes * 2 * sizeof (uint32_t));
 		if (si->primes == NULL) goto oom;
 		for (i = 0, f = 3; f <= max_elimination_factor && i < estimated_num_primes; f += 2)
 			if (isPrime (f)) si->primes[i*2] = f, i++;
