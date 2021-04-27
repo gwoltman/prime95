@@ -699,11 +699,12 @@ typedef struct {
 void fill_sieve (
 	sieve_info *si)
 {
-	unsigned int i, fmax;
+	unsigned int i;
+	uint32_t fmax;
 
 /* Determine the first sieve bit to clear for each small prime */
 
-	fmax = (unsigned int) sqrt ((double) (si->first_number + sizeof (si->array) * 8 * 2));
+	fmax = (uint32_t) sqrt ((double) (si->first_number + sizeof (si->array) * 8 * 2));
 	for (i = si->num_primes; i < si->num_elimination_primes * 2; i += 2) {
 		uint32_t f, r, bit;
 		f = si->primes[i];
