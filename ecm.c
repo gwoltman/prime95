@@ -312,6 +312,8 @@ int map_is_relprime (int n, int D, struct relmap_data *data)
 }
 
 // Count the number of primes a particular prime can pair with
+// This was found to be slow for high multipliers (an N^2 algorithm) and worse pairing than just matching the first available prime!!
+#ifdef NOT_USED_ANYMORE
 int count_possible_pairs (char *primes, char *relocated, uint64_t numDsections, int numrels, int totrels, int multiplier, uint64_t k, int j)
 {
 	int	i, count, j_pair, work_j, work_j_pair;
@@ -332,6 +334,7 @@ int count_possible_pairs (char *primes, char *relocated, uint64_t numDsections, 
 	}
 	return (count);
 }
+#endif
 
 /* Allocate and fill a bit array in such a way that it maximizes stage 2 prime pairings in ECM, P-1, and P+1.  Large B2 values will result */
 /* in large bit arrays -- and if B2 is really large then the bit array must be created in chunks. */
@@ -456,7 +459,7 @@ int fill_work_bitarray (
 #define NO_MATCH	9999
 	multiplier = totrels / numrels;
 	for (loop_count = 0; loop_count <= 1001; loop_count++) {
-		int	i, j, j_pair, work_j, work_j_pair, match, match_optional, best_count;
+		int	i, j, j_pair, work_j, work_j_pair, match, match_relocatable;
 		uint64_t k, prime;
 		int64_t	bit, bit_pair;
 
@@ -469,67 +472,65 @@ int fill_work_bitarray (
 				if (loop_count < 1000) {
 					if (!bittst (primes, bit)) continue;
 				} else {
-					if (!bittst (primes, bit) && !bittst (relocated, bit)) continue;
+					if (!bittst (relocated, bit)) continue;
 				}
 
 				// j and j_pair are zero-based indices for accessing the input prime bit arrays
 				// for D=30 values are -13,-11,-7,-1,1,7,11,13
 				j_pair = numrels * 2 - 1 - j;
-				// work_j and work_j_pair are zero based indicies to aid in generating output bit array
+				// work_j and work_j_pair are zero based indices to aid in generating output bit array
 				// for D=30, multiplier=1, totrels=6 values are -19,-17,-13,-11,-7,-1,1,7,11,13,17,19
 				work_j = j + (totrels - numrels);
 				work_j_pair = j_pair + (totrels - numrels);
 				// bit indexes into the input prime bit arrays
 				bit_pair = k * numrels * 2 + j_pair;
 
+// Loop over all possible ways this prime can be represented by multiple of D +/- a relative prime.  If any of these possible representations
+// pair with a prime that is wonderful.  If multiple representations pair with a prime simply select the first.  We used to select the pairing that
+// gives us the most flexibility for other primes to pair up, but that actually led to a slightly lower pairing percentage.
+
 				match = NO_MATCH;	// no match yet
-				best_count = 999;
-//GW: Rather than recalculate matches each loop, have a bitarray for each multiplier
-//try pairing without relocatables.  then go back and see if the reloctables can pair the singles?
 
-// Loop over all possible ways this prime can be represented by multiple of D +/- a relative prime
-// If any of these possible representations pair with a prime that is wonderful.  If multiple representations pair with a prime
-// try to select the pairing that gives us the most flexibility for other primes to pair up.
-
-				// Find all the other possible represenations for this entry in the prime bit array
-			        for (i = -(multiplier / 2 + 1); i <= (multiplier / 2 + 1); i++) {
-					// Make sure this representation of the prime is possible
-					if (work_j - i * numrels * 2 < 0 || work_j - i * numrels * 2 >= totrels * 2) continue;
-					if (bit_pair + i * numrels * 4 < 0 || bit_pair + i * numrels * 4 >= (int64_t) numDsections * numrels * 2) continue;
+				// Find all the possible representations for this entry in the prime bit array
+				// We only need to do this when looking for pairs from the primes array and we only need to look ahead.
+				// Any possible matches against a smaller prime have already been matched with a different prime.
+				if (loop_count < 1000)
+			        for (i = 0; i <= (multiplier / 2 + 1); i++) {
+					// Make sure this representation of the pairing prime is possible
+					if (work_j - i * numrels * 2 < 0) continue;
+					if (bit_pair + i * numrels * 4 >= (int64_t) numDsections * numrels * 2) continue;
 
 					// See if the pair for this representation is also required in the output work bit array
 					if (bittst (primes, bit_pair + i * numrels * 4)) {
-						int	countp, countopt;
-						countp = count_possible_pairs (primes, NULL, numDsections, numrels, totrels, multiplier, k + i * 2, j_pair);
-						if (countp == 1) {
-							match = i;
-							match_optional = FALSE;
-							break;
-						}
-						countopt = count_possible_pairs (relocated, NULL, numDsections, numrels, totrels, multiplier, k + i * 2, j_pair);
-						if (match == NO_MATCH || match_optional || (countp*2 + countopt) <= best_count) {
-							best_count = countp*2 + countopt;
-							match = i;
-							match_optional = FALSE;
-						}
-					}
-					else if (match != NO_MATCH && !match_optional) continue;	// an optimization to skip count below
-					else if (bittst (relocated, bit_pair + i * numrels * 4)) {
-						int count = count_possible_pairs (primes, relocated, numDsections, numrels, totrels, multiplier, k + i * 2, j_pair);
-						if (match == NO_MATCH || (match_optional && count < best_count)) {
-							best_count = count;
-							match = i;
-							match_optional = TRUE;
-						}
+						match = i;
+						match_relocatable = FALSE;
+						break;
 					}
 				}
 
-				// On first pass doing relocatables, only process matches
+				// Find all the other possible representations for this entry in the relocatable bit array
+				if (match == NO_MATCH)
+			        for (i = -(multiplier / 2 + 1); i <= (multiplier / 2 + 1); i++) {
+					// Make sure this representation of the pairing prime is possible
+					if (work_j - i * numrels * 2 < 0 || work_j - i * numrels * 2 >= totrels * 2) continue;
+					if (bit_pair + i * numrels * 4 < 0 || bit_pair + i * numrels * 4 >= (int64_t) numDsections * numrels * 2) continue;
+
+					// See if there is a pairing using the relocatable primes
+					if (bittst (relocated, bit_pair + i * numrels * 4)) {
+						match = i;
+						match_relocatable = TRUE;
+						break;
+					}
+				}
+
+				// On first pass doing relocatables, only process matches.  A different multiple of the relocatable
+				// prime may have a pairing.
 				if (loop_count == 1000 && match == NO_MATCH) continue;
 
 				// Clear bit from the primes array
-				if (bittst (primes, bit)) {
-					bitclr (primes, bit);
+				if (loop_count < 1000) {
+//					Bit clear not necessary with our current algorithm that handles all primes in one-pass
+//					bitclr (primes, bit);
 				}
 				// Clear bit from the relocated array for all possible relocations of the small prime
 				else {
@@ -553,7 +554,7 @@ int fill_work_bitarray (
 				}
 
 				// Clear bit from the primes array for the matching prime of this pair
-				else if (!match_optional) {
+				else if (!match_relocatable) {
 					bitset_work (work, k + match, work_j - match * numrels * 2);
 					bits_set++;
 					ASSERTG (bittst (primes, bit_pair + match * numrels * 4));
