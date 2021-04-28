@@ -9181,6 +9181,11 @@ restart1:
 			}
 			/* Free the memory allocated for GW_RANDOM */
 			gwfree_internal_memory (&pp1data.gwdata);
+			/* Include the Mersenne (or generalized Fermat) exponent.  I was against this (encourages using P+1 to find P-1 factors */
+			/* rather than the more efficient P-1 factoring algorithm).  But just in case a P-1 run was done and a hardware error */
+			/* occurred, give P+1 a chance to find a missed factor. */
+			if (w->n > pp1data.B && (isMersenne (w->k, w->b, w->n, w->c) || isGeneralizedFermat (w->k, w->b, w->n, w->c)))
+				pp1_mul (&pp1data, w->n, FALSE);
 		}
 
 /* Apply the proper number of primes */
