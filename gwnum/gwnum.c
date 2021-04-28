@@ -1598,6 +1598,8 @@ next2:		jmptab = NEXT_SET_OF_JMPTABS (jmptab);
 				p2size = 48;
 			else if ((flags & 0x0000001FF) == 510)
 				p2size = 80;
+			else if ((flags & 0x0000001FF) == 509)
+				p2size = 32768;
 			else
 				p2size = (flags & 0x0000001FF) << 6;
 			if (internal_implementation_ids_match (best_impl_id, gwdata->FFTLEN, fft_type, no_prefetch, in_place, p2size, arch, clm)) break;
