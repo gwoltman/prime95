@@ -6923,6 +6923,10 @@ more_B:		pm1data.interim_B = pm1data.B;
 
 	if (pm1data.C <= pm1data.B) goto msg_and_exit;
 
+/* Since gwmul_carefully was called in stage 1, free the memory allocated for GW_RANDOM */
+
+	gwfree_internal_memory (&pm1data.gwdata);
+
 /*
    Stage 2:  Use ideas from Crandall, Zimmermann, Montgomery, and Preda on each prime below C.
    This code is more efficient the more memory you can give it.
@@ -9175,6 +9179,8 @@ restart1:
 			for ( ; count; count--) {
 				gwmul3_carefully (&pp1data.gwdata, pp1data.V, pp1data.V, pp1data.V, GWMUL_ADDINCONST);
 			}
+			/* Free the memory allocated for GW_RANDOM */
+			gwfree_internal_memory (&pp1data.gwdata);
 		}
 
 /* Apply the proper number of primes */
