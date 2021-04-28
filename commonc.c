@@ -2907,6 +2907,13 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		OutputBoth (MAIN_THREAD_NUM, buf);
 		goto illegal_line;
 	    }
+	    if ((w->work_type == WORK_PMINUS1 || w->work_type == WORK_PPLUS1 || w->work_type == WORK_ECM) &&
+		(w->B1 < 50000) && !IniGetInt (INI_FILE, "AllowLowB1", 0)) {
+		char	buf[100];
+		sprintf (buf, "Error: Worktodo.txt file has P-1/P+1/ECM with B1 < 50000 (exponent: %ld)\n", w->n);
+		OutputBoth (MAIN_THREAD_NUM, buf);
+		goto illegal_line;
+	    }
 
 /* A user discovered a case where a computer that dual boots between 32-bit prime95 */
 /* and 64-bit prime95 can run into problems.  If near the FFT limit an FFT length is */

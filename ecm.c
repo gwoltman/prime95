@@ -5155,7 +5155,7 @@ more_curves:
 
 /* Send ECM completed message to the server.  Although don't do it for puny B1 values. */
 
-	if (!QA_IN_PROGRESS && (ecmdata.B >= 10000 || IniGetInt (INI_FILE, "SendAllFactorData", 0))) {
+	if (!QA_IN_PROGRESS && (ecmdata.B >= 50000 || IniGetInt (INI_FILE, "SendAllFactorData", 0))) {
 		struct primenetAssignmentResult pkt;
 		memset (&pkt, 0, sizeof (pkt));
 		strcpy (pkt.computer_guid, COMPUTER_GUID);
@@ -7256,7 +7256,7 @@ msg_and_exit:
 
 /* Send P-1 completed message to the server.  Although don't do it for puny B1 values as this is just the user tinkering with P-1 factoring. */
 
-	if (!QA_IN_PROGRESS && (pm1data.B >= 10000 || IniGetInt (INI_FILE, "SendAllFactorData", 0))) {
+	if (!QA_IN_PROGRESS && (pm1data.B >= 50000 || IniGetInt (INI_FILE, "SendAllFactorData", 0))) {
 		struct primenetAssignmentResult pkt;
 		memset (&pkt, 0, sizeof (pkt));
 		strcpy (pkt.computer_guid, COMPUTER_GUID);
@@ -9748,7 +9748,7 @@ msg_and_exit:
 
 /* Send P+1 completed message to the server.  Although don't do it for puny B1 values as this is just the user tinkering with P+1 factoring. */
 
-	if (!QA_IN_PROGRESS && (pp1data.B >= 10000 || IniGetInt (INI_FILE, "SendAllFactorData", 0))) {
+	if (!QA_IN_PROGRESS && (pp1data.B >= 50000 || IniGetInt (INI_FILE, "SendAllFactorData", 0))) {
 		struct primenetAssignmentResult pkt;
 		memset (&pkt, 0, sizeof (pkt));
 		strcpy (pkt.computer_guid, COMPUTER_GUID);
