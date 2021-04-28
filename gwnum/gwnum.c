@@ -9918,7 +9918,7 @@ void gwfft_for_fma (		/* Forward FFT with post-processing for use in FMA */
 		pass2_size = gwdata->PASS2_SIZE ? gwdata->PASS2_SIZE * 2 : gwdata->FFTLEN;
 		for (i = 0; i < (int) gwdata->FFTLEN; i += doubles_per_vector * 2) {
 			for (j = 0; j < doubles_per_vector; j++) {
-				int	k = i + j + (i / pass2_size) * (gwdata->PASS2GAPSIZE / sizeof (double)) + ((i % pass2_size) / 512) * (gwdata->FOURKBGAPSIZE / sizeof (double));
+				int	k = i + j + (i / pass2_size) * (gwdata->PASS2GAPSIZE / sizeof (double)) + (i / 512) * (gwdata->FOURKBGAPSIZE / sizeof (double));
 				double	real1 = d[k];
 				double	imag1 = d[k + doubles_per_vector];
 				double	real2 = gwdata->GW_FFT1[k];
