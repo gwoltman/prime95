@@ -4663,6 +4663,7 @@ int internal_gwsetup (
 
 	gwdata->GW_FFT1 = NULL;
 	gwdata->FFT1_state = 0;
+	gwdata->FFT1_user_allocated = 0;
 	if (gwdata->cpu_flags & CPU_AVX512F) { if (gwdata->PASS1_SIZE && gwdata->k == 1.0 && gwdata->FFTLEN % 7 != 0) gwdata->FFT1_state = 2; }
 	else if (gwdata->cpu_flags & CPU_AVX) { if (gwdata->k == 1.0) gwdata->FFT1_state = 2; }
 
@@ -9449,10 +9450,28 @@ void init_FFT1 (		/* Calculate GW_FFT1 if necessary */
 
 /* Allocate and calculate FFT(1) */
 
-	gwdata->GW_FFT1 = gwalloc (gwdata);
-	dbltogw (gwdata, 1.0, gwdata->GW_FFT1);
-	gwfft (gwdata, gwdata->GW_FFT1, gwdata->GW_FFT1);
+	if (gwdata->GW_FFT1 == NULL) {	// FFT(1) may already be allocated at user's request
+		gwdata->GW_FFT1 = gwalloc (gwdata);
+		dbltogw (gwdata, 1.0, gwdata->GW_FFT1);
+		gwfft (gwdata, gwdata->GW_FFT1, gwdata->GW_FFT1);
+	}
 	gwdata->FFT1_state = 1;
+}
+
+/* Init GW_FFT1 at user's request */
+
+void gwuser_init_FFT1 (		/* Calculate GW_FFT1 at user's request */
+	gwhandle *gwdata)	/* Handle initialized by gwsetup */
+{
+
+/* Allocate and calculate FFT(1) */
+
+	if (gwdata->GW_FFT1 == NULL) {	// FFT(1) may already be allocated for FMA operations
+		gwdata->GW_FFT1 = gwalloc (gwdata);
+		dbltogw (gwdata, 1.0, gwdata->GW_FFT1);
+		gwfft (gwdata, gwdata->GW_FFT1, gwdata->GW_FFT1);
+	}
+	gwdata->FFT1_user_allocated = 1;
 }
 
 /* Special multiply routine that multiplies two numbers and adds/subtracts a third. */

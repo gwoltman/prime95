@@ -242,9 +242,14 @@ void gwfreeall (
 /* There may be some internal gwnum memory that can be safely freed. */
 #define gwfree_internal_memory(h) { \
 		gwfree((h), (h)->GW_RANDOM), (h)->GW_RANDOM = NULL; \
-		if ((h)->FFT1_state == 1) { gwfree((h), (h)->GW_FFT1), (h)->GW_FFT1 = NULL; (h)->FFT1_state = 0; } \
+		if ((h)->FFT1_state == 1 && !(h)->FFT1_user_allocated) { gwfree((h), (h)->GW_FFT1), (h)->GW_FFT1 = NULL; (h)->FFT1_state = 0; } \
 		if ((h)->to_radix_gwdata != NULL) gwdone ((h)->to_radix_gwdata), free ((h)->to_radix_gwdata), (h)->to_radix_gwdata = NULL; \
 		if ((h)->from_radix_gwdata != NULL) gwdone ((h)->from_radix_gwdata), free ((h)->from_radix_gwdata), (h)->from_radix_gwdata = NULL; }
+
+/* Highly specialized routine!  Allocates and initializes FFT(1).  Internally FFT(1) is used by gwmuladd4, gwmulsub4, and gwunfft.  Should */
+/* the user also need FFT(1) this let's you avoid allocating a second gwnum that holds the same value. */
+void gwuser_init_FFT1 (		/* Calculate GW_FFT1 at user's request */
+	gwhandle *gwdata);	/* Handle initialized by gwsetup */
 
 /*---------------------------------------------------------------------+
 |                        GWNUM CONVERSION ROUTINES                     |
@@ -490,6 +495,8 @@ void gwset_carefully_count (
 /* if k != 1 and abs(c) != 1 in k*b^n+c then emulation occurs.  If you also use the mul-by-const option, the multiply is done after the addition. */
 /* I think an add-in as large as 40 or 45 bits ought to work, but this is not tested. */
 void gwsetaddin (gwhandle *, long);
+/* Returns TRUE if gwsetaddin and GWMUL_ADDINCONST must be emulated with a gwmuladd4.  Caller may have a faster alternative if this is the case. */
+#define is_gwsetaddin_emulated(h)	((h)->k != 1.0 && labs ((h)->c) != 1)
 /* Prime95 uses the the specialized gwsetaddinatpowerofb.  k must be 1 and abs(c) must be 1.  This is not emulated. */
 void gwsetaddinatpowerofb (gwhandle *, long, unsigned long);
 
@@ -1020,7 +1027,9 @@ struct gwhandle_struct {
 	gwnum	GW_RANDOM;		/* A random number used in gwmul3_carefully. */
 	gwnum	GW_ADDIN;		/* The gwsetaddin value when we need to emulate GWMUL3_ADDINCONST. */
 	gwnum	GW_FFT1;		/* The number 1 FFTed.  Sometimes need by gwmuladd4 and gwmulsub4. */
-	int	FFT1_state;		/* 0 = uninitialized, 1 = FFT(1) is needed, 2 = FFT(1) is itself one. */
+	char	FFT1_state;		/* 0 = FFT(1) needed for FMA but not yet allocated, 1 = FFT(1) needed for FMA and allocated, */
+					/* 2 = FFT(1) is not needed for FMA. */
+	char	FFT1_user_allocated;	/* TRUE if FFT(1) was allocated at user's request */
 	unsigned long saved_copyz_n;	/* Used to reduce COPYZERO calculations */
 	char	GWSTRING_REP[60];	/* The gwsetup modulo number as a string. */
 	unsigned int NORMNUM;		/* The post-multiply normalize routine index */
