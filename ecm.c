@@ -4524,6 +4524,7 @@ restart1:
 	sprintf (w->stage, "C%luS1", ecmdata.curve);
 	w->pct_complete = sieve_start * one_over_B;
 	start_timer (timers, 0);
+	start_timer (timers, 1);
 	SQRT_B = (unsigned long) sqrt ((double) ecmdata.B);
 	// We guess the max sieve prime for stage 2.  If optimal B2 is less 256 * B, then max sieve prime will be less than 16 * sqrt(B).
 	// If our guess is wrong, that's no big deal -- sieve code is smart enough to handle it.
@@ -4617,8 +4618,9 @@ restart1:
 /* Stage 1 complete */
 
 	end_timer (timers, 0);
-	sprintf (buf, "Stage 1 complete. %.0f transforms, %lu modular inverses. Time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
-	print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+	end_timer (timers, 1);
+	sprintf (buf, "Stage 1 complete. %.0f transforms, %lu modular inverses. Total time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
+	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	last_output = last_output_t = ecmdata.modinv_count = 0;
 	gw_clear_fft_count (&ecmdata.gwdata);
@@ -5116,6 +5118,7 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 
 	ecmdata.state = ECM_STATE_STAGE2;
 	start_timer (timers, 0);
+	start_timer (timers, 1);
 	last_output = last_output_t = ecmdata.modinv_count = 0;
 	for ( ; ; ) {
 		uint64_t bitnum;
@@ -5265,8 +5268,9 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 /* Stage 2 is complete */
 
 	end_timer (timers, 0);
-	sprintf (buf, "Stage 2 complete. %.0f transforms, %lu modular inverses. Time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
-	print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+	end_timer (timers, 1);
+	sprintf (buf, "Stage 2 complete. %.0f transforms, %lu modular inverses. Total time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
+	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	last_output = last_output_t = ecmdata.modinv_count = 0;
 	gw_clear_fft_count (&ecmdata.gwdata);
@@ -7062,7 +7066,7 @@ more_B:		pm1data.interim_B = pm1data.B;
 
 /* Stage 1 complete, print a message */
 
-	sprintf (buf, "%s stage 1 complete. %.0f transforms. Time: ", gwmodulo_as_string (&pm1data.gwdata), gw_get_fft_count (&pm1data.gwdata));
+	sprintf (buf, "%s stage 1 complete. %.0f transforms. Total time: ", gwmodulo_as_string (&pm1data.gwdata), gw_get_fft_count (&pm1data.gwdata));
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
@@ -7240,7 +7244,6 @@ replan:	{
 
 	pm1data.state = PM1_STATE_STAGE2;
 	start_timer (timers, 0);
-//gw: ecm does not use timer1.  Change ECM to use timer 1 and P-1 to message "total time"
 	start_timer (timers, 1);
 	last_output = last_output_t = last_output_r = 0;
 	for ( ; ; ) {
@@ -7363,7 +7366,7 @@ replan:	{
 /* Stage 2 is complete */
 
 	end_timer (timers, 1);
-	sprintf (buf, "%s stage 2 complete. %.0f transforms. Time: ", gwmodulo_as_string (&pm1data.gwdata), gw_get_fft_count (&pm1data.gwdata));
+	sprintf (buf, "%s stage 2 complete. %.0f transforms. Total time: ", gwmodulo_as_string (&pm1data.gwdata), gw_get_fft_count (&pm1data.gwdata));
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
@@ -9453,7 +9456,7 @@ more_B:		pp1data.interim_B = pp1data.B;
 
 /* Stage 1 complete, print a message */
 
-	sprintf (buf, "%s stage 1 complete. %.0f transforms. Time: ", gwmodulo_as_string (&pp1data.gwdata), gw_get_fft_count (&pp1data.gwdata));
+	sprintf (buf, "%s stage 1 complete. %.0f transforms. Total time: ", gwmodulo_as_string (&pp1data.gwdata), gw_get_fft_count (&pp1data.gwdata));
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
@@ -9582,12 +9585,18 @@ replan:	{
 
 	{
 		gwnum	t1, t2, t3, t4, t5;
-		gwnum	*V1, *V2, *V3, *V4, *V5, *V6, *V7, *V11, *V1mod6, *V1mod6minus6, *V5mod6, *V5mod6minus6;
-		int	totrels, have_VD;
+		gwnum	*V1, *V2, *V3, *V5, *V6, *V7, *V11;
+		struct {
+			gwnum	*Vi;
+			gwnum	*Vi_minus6;
+			int	Vi_is_relp;
+			int	Vi_minus6_is_relp;
+		} V1mod6, V5mod6, *curr, *notcurr;
+		int	i_gap, totrels, have_VD;
 		int	numrels = map_D_to_numrels (pp1data.D);		// Relprimes less than D/2
 
 /* Allocate memory and init values for computing nQx.  We need V_1, V_5, V_6, V_7, V_11. */
-/* We also need V_4 to compute V_D in the middle of the nQx init loop. */
+/* We also need V_2 or V_4 to compute V_D in the middle of the nQx init loop. */
 /* NOTE:  By loop's end, V_D is stored in pp1data.V */
 
 		t1 = gwalloc (&pp1data.gwdata);
@@ -9606,7 +9615,6 @@ replan:	{
 		gwswap (t1, pp1data.V);
 		V1 = &t1;
 		V2 = &pp1data.V;
-		pp1data.nQx[0] = *V1; totrels = 1;
 
 /* Compute V_5, V_6, V_7, V_11 */
 
@@ -9615,36 +9623,50 @@ replan:	{
 
 		V5 = &t3;
 		luc_add (&pp1data.gwdata, *V3, *V2, *V1, *V5);			// V5 = V3 + V2 (diff V1)
-		if (relatively_prime (5, pp1data.D)) pp1data.nQx[totrels++] = *V5;
 
 		V6 = V3;
 		luc_dbl (&pp1data.gwdata, *V3, *V6);				// V6 = 2 * V3, V3 no longer needed
 
 		V7 = &t4;
 		luc_add (&pp1data.gwdata, *V6, *V1, *V5, *V7);			// V7 = V6 + V1 (diff V5)
-		if (relatively_prime (7, pp1data.D)) pp1data.nQx[totrels++] = *V7;
 
 		V11 = &t5;
 		luc_add (&pp1data.gwdata, *V6, *V5, *V1, *V11);			// V11 = V6 + V5 (diff V1)
-		if (relatively_prime (11, pp1data.D)) pp1data.nQx[totrels++] = *V11;
+
+/* Init structures used in the loop below */
+
+		V1mod6.Vi_minus6 = V1;
+		V1mod6.Vi_minus6_is_relp = 1;
+		pp1data.nQx[0] = *V1; totrels = 1;
+		V5mod6.Vi_minus6 = V5;
+		V5mod6.Vi_minus6_is_relp = relatively_prime (5, pp1data.D);
+		if (V5mod6.Vi_minus6_is_relp) pp1data.nQx[totrels++] = *V5;
+		V1mod6.Vi = V7;
+		V1mod6.Vi_is_relp = relatively_prime (7, pp1data.D);
+		if (V1mod6.Vi_is_relp) pp1data.nQx[totrels++] = *V7;
+		V5mod6.Vi = V11;
+		V5mod6.Vi_is_relp = relatively_prime (11, pp1data.D);
+		if (V5mod6.Vi_is_relp) pp1data.nQx[totrels++] = *V11;
 
 /* Compute the rest of the nQx values (V_i for i >= 7) */
 
-		V1mod6 = V7;
-		V1mod6minus6 = V1;
-		V5mod6 = V11;
-		V5mod6minus6 = V5;
 		have_VD = FALSE;
-		for (i = 7; ; i += 6) {
+		for (i = 7, i_gap = 4; ; i += i_gap, i_gap = 6 - i_gap) {
+			gwnum	next_i;
+			int	next_i_is_relp;
+
+/* Point to the i, i-6 pair to work on */
+
+			curr = (i_gap == 4) ? &V1mod6 : &V5mod6;
 
 /* Compute V_D which we will need in pp1_luc_prep_for_additions.  Do this with a single luc_add call when we reach two values that */
-/* are 4 apart that add to D.  This only works for D = 2 mod 4. */
+/* are 2 or 4 apart that add to D. */
 
-			if (i + i+4 == pp1data.D) {
-				ASSERTG (V2 == &pp1data.V);
-				V4 = V2;
-				luc_dbl (&pp1data.gwdata, *V2, *V4);					// V4 = 2 * V2, V2 no longer needed
-				luc_add (&pp1data.gwdata, *V1mod6, *V5mod6, *V4, pp1data.V);		// VD = Vi + V{i+4} (diff V4), V4 no longer needed
+			if (i + (i + i_gap) == pp1data.D) {
+				gwnum	*Vgap = V2;
+				ASSERTG (Vgap == &pp1data.V);
+				if (i_gap == 4) luc_dbl (&pp1data.gwdata, *Vgap, *Vgap);		// Vgap = V4 = 2 * V2, V2 no longer needed
+				luc_add (&pp1data.gwdata, *V1mod6.Vi, *V5mod6.Vi, *Vgap, pp1data.V);	// VD = V{i} + V{i+gap} (diff Vgap), Vgap no longer needed
 				have_VD = TRUE;
 			}
 
@@ -9652,69 +9674,53 @@ replan:	{
 
 			if (have_VD && (totrels >= pp1data.totrels || totrels >= numrels * 2)) break;
 
-/* Get next 1 mod 6 value.  Don't destroy V1mod6minus6 if it is an nQx value. */
+/* See if we are about to compute the next relative prime */
 
-			if (relatively_prime (i-6, pp1data.D)) {
-				gwnum	next1mod6 = gwalloc (&pp1data.gwdata);
-				if (next1mod6 == NULL) goto lowmem;
-				luc_add (&pp1data.gwdata, *V1mod6, *V6, *V1mod6minus6, next1mod6);	// Next 1 mod 6 value
-				*V1mod6minus6 = *V1mod6;
-				*V1mod6 = next1mod6;
-			} else {
-				luc_add (&pp1data.gwdata, *V1mod6, *V6, *V1mod6minus6, *V1mod6minus6);	// Next 1 mod 6 value
-				gwswap (*V1mod6, *V1mod6minus6);
-			}
-			if (relatively_prime (i+6, pp1data.D) && totrels < pp1data.totrels) pp1data.nQx[totrels++] = *V1mod6;
+			next_i_is_relp = (relatively_prime (i+6, pp1data.D) && totrels < pp1data.totrels);
 
-/* Compute V_D which we will need in pp1_luc_prep_for_additions.  Do this with a single luc_add call when we reach the two values that */
-/* are 2 apart that add to D.  This only works for D = 0 mod 4. */
+/* If so, and if it is the last relprime then free up the some resources to keep maximum number of temporaries to a minimum. */
+/* This is of marginal utility as peak will occur in the next loop whenever totrels > numrels * 2. */
+/* Also catch the case where we are using the dead minimum number of relative primes - the first i after D/2 is the last i. */
 
-			if (i+6 + i+4 == pp1data.D) {
-				ASSERTG (V2 == &pp1data.V);
-				luc_add (&pp1data.gwdata, *V1mod6, *V5mod6, *V2, pp1data.V);		// VD = V{i+6} + V{i+4} (diff V2), V2 no longer needed
-				have_VD = TRUE;
-			}
+			if ((next_i_is_relp && have_VD && (totrels+1 == pp1data.totrels || totrels+1 == numrels * 2)) ||
+			    (!have_VD && i+6 > pp1data.D/2 && totrels == numrels)) {
+				notcurr = (curr == &V5mod6) ? &V1mod6 : &V5mod6;
+				if (!notcurr->Vi_is_relp) gwfree (&pp1data.gwdata, *notcurr->Vi), *notcurr->Vi = NULL;
+				if (!notcurr->Vi_minus6_is_relp) gwfree (&pp1data.gwdata, *notcurr->Vi_minus6), *notcurr->Vi_minus6 = NULL;
+			}			
 
-/* Break out of loop when we have VD and all our nQx values */
+/* Get next i value.  Don't destroy Vi_minus6 if it is an nQx value. */
 
-			if (have_VD && (totrels >= pp1data.totrels || totrels >= numrels * 2)) break;
+			if (curr->Vi_minus6_is_relp) {
+				next_i = gwalloc (&pp1data.gwdata);
+				if (next_i == NULL) goto lowmem;
+			} else
+				next_i = *curr->Vi_minus6;
 
-/* Get next 5 mod 6 value.  Don't destroy V5mod6minus6 if it is an nQx value */
+			luc_add (&pp1data.gwdata, *curr->Vi, *V6, *curr->Vi_minus6, next_i);	// Next i
+			if (next_i_is_relp) pp1data.nQx[totrels++] = next_i;
 
-			if (relatively_prime (i+4-6, pp1data.D)) {
-				gwnum	next5mod6 = gwalloc (&pp1data.gwdata);
-				if (next5mod6 == NULL) goto lowmem;
-				luc_add (&pp1data.gwdata, *V5mod6, *V6, *V5mod6minus6, next5mod6);	// Next 5 mod 6 value
-				*V5mod6minus6 = *V5mod6;
-				*V5mod6 = next5mod6;
-			} else {
-				luc_add (&pp1data.gwdata, *V5mod6, *V6, *V5mod6minus6, *V5mod6minus6);	// Next 5 mod 6 value
-				gwswap (*V5mod6, *V5mod6minus6);
-			}
-			if (relatively_prime (i+4+6, pp1data.D) && totrels < pp1data.totrels) pp1data.nQx[totrels++] = *V5mod6;
+/* Shuffle i values along */
+
+			*curr->Vi_minus6 = *curr->Vi;
+			curr->Vi_minus6_is_relp = curr->Vi_is_relp;
+			*curr->Vi = next_i;
+			curr->Vi_is_relp = next_i_is_relp;
 
 /* Check for errors and save file creation */
 
 			if (gw_test_for_error (&pp1data.gwdata)) goto err;
-
 			stop_reason = stopCheck (thread_num);
 			if (stop_reason) goto possible_lowmem;
 		}
 
-/* Free memory used in computing nQx values, complicated by the fact some of these could be among the final four nQx values. */
+/* Free memory used in computing nQx values */
 
-		for (i = 1; i <= 4; i++) {
-			if (t1 == pp1data.nQx[totrels-i]) t1 = NULL;
-			if (t2 == pp1data.nQx[totrels-i]) t2 = NULL;
-			if (t3 == pp1data.nQx[totrels-i]) t3 = NULL;
-			if (t4 == pp1data.nQx[totrels-i]) t4 = NULL;
-			if (t5 == pp1data.nQx[totrels-i]) t5 = NULL;
-		}
-		gwfree (&pp1data.gwdata, t1);
-		gwfree (&pp1data.gwdata, t2);
-		gwfree (&pp1data.gwdata, t3);
-		gwfree (&pp1data.gwdata, t4);
-		gwfree (&pp1data.gwdata, t5);
+		if (!V1mod6.Vi_is_relp) gwfree (&pp1data.gwdata, *V1mod6.Vi);
+		if (!V1mod6.Vi_minus6_is_relp) gwfree (&pp1data.gwdata, *V1mod6.Vi_minus6);
+		if (!V5mod6.Vi_is_relp) gwfree (&pp1data.gwdata, *V5mod6.Vi);
+		if (!V5mod6.Vi_minus6_is_relp) gwfree (&pp1data.gwdata, *V5mod6.Vi_minus6);
+		gwfree (&pp1data.gwdata, *V6);
 
 /* Compute the remaining nQx values (those above D).  As an example, D=30, numrels=4, we've already computed nQx[0 to 7] for 1,7,11,13,17,19,23,29: */
 /* 31 = 1 + 30 diff 29, 61 = 31 + 30 diff 1, 91 = 61 + 30 diff 31, 121 = 91 + 30 diff 61 */
@@ -9877,7 +9883,7 @@ replan:	{
 /* Stage 2 is complete */
 
 	end_timer (timers, 1);
-	sprintf (buf, "%s stage 2 complete. %.0f transforms. Time: ", gwmodulo_as_string (&pp1data.gwdata), gw_get_fft_count (&pp1data.gwdata));
+	sprintf (buf, "%s stage 2 complete. %.0f transforms. Total time: ", gwmodulo_as_string (&pp1data.gwdata), gw_get_fft_count (&pp1data.gwdata));
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
