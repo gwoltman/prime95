@@ -3275,7 +3275,9 @@ double ecm_stage2_cost (
 #define MULT3_POOL_COST(n)	((double)(n) * 9 + cost_data->modinv_cost)
 #define MULT3POINT44_POOL_COST(n) ((double)(n) * 10.3333333333333 + cost_data->modinv_cost)
 #define MULT3POINT57_POOL_COST(n) ((double)(n) * 10.7142857142857 + cost_data->modinv_cost)
-#define NQX_SETUP_COST(fft4)	((((fft4) || D % 3 != 0) ? 1.0 : 0.666666666667) * multiplier * ((double) D / 4) * ELL_ADD_COST)
+#define NQX_SETUP_COST(fft4)	(((fft4) || D % 3 != 0) ? multiplier * ((double) D / 4) * ELL_ADD_COST : \
+				 (multiplier <= 2.0) ? multiplier * ((double) D / 6) * ELL_ADD_COST : \
+				 2.0 * ((double) D / 6) * ELL_ADD_COST + (totrels - numrels * 2) * ELL_ADD_COST)
 
 /* Calculate the number of temporaries used for relative primes.  This will leave some available for modinv pooling. */
 
@@ -3308,7 +3310,6 @@ double ecm_stage2_cost (
 	if (cost_data->impl == 1) {
 		// We need 8 + totrels * 2 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
 		if (8 + totrels * 2 > cost_data->numvals) return (1.0e99);
-//GW: seems shameful to dedicate many temporaries to use-once nQx setup computations
 		cost = NQX_SETUP_COST (TRUE) + MULT3_POOL_COST (totrels) + totrels +
 			(double) numDsections * ELL_ADD_COST + numDsections * 2 +
 			(numpairs + numsingles) * 4;
@@ -3321,7 +3322,6 @@ double ecm_stage2_cost (
 	if (cost_data->impl == 2) {
 		// We need 8 + totrels * 1.33 + 2 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
 		if (8 + totrels * 4 / 3 + 2 > cost_data->numvals) return (1.0e99);
-//GW: seems shameful to dedicate many temporaries to use-once nQx setup computations
 		cost = NQX_SETUP_COST (TRUE) + MULT3POINT44_POOL_COST (totrels) + totrels +
 			(double) numDsections * ELL_ADD_COST + numDsections * 2 +
 			(numpairs + numsingles) * 4;
@@ -3334,7 +3334,6 @@ double ecm_stage2_cost (
 	if (cost_data->impl == 3) {
 		// We need 8 + totrels * 1.14 + 5 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
 		if (8 + totrels * 8 / 7 + 5 > cost_data->numvals) return (1.0e99);
-//GW: seems shameful to dedicate many temporaries to use-once nQx setup computations
 		cost = NQX_SETUP_COST (TRUE) + MULT3POINT57_POOL_COST (totrels) + totrels +
 			(double) numDsections * ELL_ADD_COST + numDsections * 2 +
 			(numpairs + numsingles) * 4;
@@ -3354,10 +3353,10 @@ double ecm_stage2_cost (
 /*	(C-B)/D/E * (pool_cost (e) + modinv_cost) +									*/
 /*	#primes*2													*/
 /* The memory consumed will be:												*/
-/*	max (13 + totrels + 1,         5 + totrels + e + 1) gwnums if N^2 pooling					*/
-/* or	max (13 + totrels * 2,         5 + totrels + e * 2) gwnums if 3N pooling					*/
-/* or	max (13 + totrels * 4 / 3 + 2, 5 + totrels + e * 4 / 3 + 2) gwnums if 3.44N pooling				*/
-/* or	max (13 + totrels * 8 / 7 + 5, 5 + totrels + e * 8 / 7 + 5) gwnums if 3.57N pooling				*/
+/*	max (12 + totrels + 1,         5 + totrels + e + 1) gwnums if N^2 pooling					*/
+/* or	max (12 + totrels * 2,         5 + totrels + e * 2) gwnums if 3N pooling					*/
+/* or	max (12 + totrels * 4 / 3 + 2, 5 + totrels + e * 4 / 3 + 2) gwnums if 3.44N pooling				*/
+/* or	max (12 + totrels * 8 / 7 + 5, 5 + totrels + e * 8 / 7 + 5) gwnums if 3.57N pooling				*/
 
 /* Since computing mQx costs 12*E for the first mQx pool and just 9*E for subsequent mQx pools, we want to maximize the number of mQx pools as long */
 /* as the savings from reducing E in the first pool exceeds the cost of a modular inverse.  The best number of mQx pools is the maximum value satisfying */
@@ -3397,12 +3396,12 @@ double ecm_stage2_cost (
 		cost_data->TWO_FFT_STAGE2 = TRUE;
 		cost_data->pool_type = POOL_N_SQUARED;
 		cost_data->E = e;
-		cost_data->stage2_numvals = _intmax (13 + totrels + 1, 5 + totrels + e + 1);
+		cost_data->stage2_numvals = _intmax (12 + totrels + 1, 5 + totrels + e + 1);
 	}
 
 	if (cost_data->impl == 5) {
-		// We need 13 + totrels * 2 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
-		if (13 + totrels * 2 > cost_data->numvals) return (1.0e99);
+		// We need 12 + totrels * 2 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
+		if (12 + totrels * 2 > cost_data->numvals) return (1.0e99);
 		// In mQ_init, we use 5 + nQx gwnums for other purposes.  In stage 2 main loop, we use 4 + nQx gwnums for other purposes.
 		// Figure out the maximum even E value we can use.
 		e = ((cost_data->numvals - 5 - totrels) / 2) & ~1;
@@ -3421,12 +3420,12 @@ double ecm_stage2_cost (
 		cost_data->TWO_FFT_STAGE2 = TRUE;
 		cost_data->pool_type = POOL_3MULT;
 		cost_data->E = e;
-		cost_data->stage2_numvals = _intmax (13 + totrels * 2, 5 + totrels + e * 2);
+		cost_data->stage2_numvals = _intmax (12 + totrels * 2, 5 + totrels + e * 2);
 	}
 
 	if (cost_data->impl == 6) {
-		// We need 13 + totrels * 4 / 3 + 2 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
-		if (13 + totrels * 4 / 3 + 2 > cost_data->numvals) return (1.0e99);
+		// We need 12 + totrels * 4 / 3 + 2 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
+		if (12 + totrels * 4 / 3 + 2 > cost_data->numvals) return (1.0e99);
 		// In mQ_init, we use 5 + nQx gwnums for other purposes.  In stage 2 main loop, we use 4 + nQx gwnums for other purposes.
 		// Figure out the maximum even E value we can use.
 		e = ((cost_data->numvals - 5 - totrels - 2) * 3 / 4) & ~1;
@@ -3445,12 +3444,12 @@ double ecm_stage2_cost (
 		cost_data->TWO_FFT_STAGE2 = TRUE;
 		cost_data->pool_type = POOL_3POINT44MULT;
 		cost_data->E = e;
-		cost_data->stage2_numvals = _intmax (13 + totrels * 4 / 3 + 2, 5 + totrels + e * 4 / 3 + 2);
+		cost_data->stage2_numvals = _intmax (12 + totrels * 4 / 3 + 2, 5 + totrels + e * 4 / 3 + 2);
 	}
 
 	if (cost_data->impl == 7) {
-		// We need 13 + totrels * 8 / 7 + 5 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
-		if (13 + totrels * 8 / 7 + 5 > cost_data->numvals) return (1.0e99);
+		// We need 12 + totrels * 8 / 7 + 5 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
+		if (12 + totrels * 8 / 7 + 5 > cost_data->numvals) return (1.0e99);
 		// In mQ_init, we use 5 + nQx gwnums for other purposes.  In stage 2 main loop, we use 4 + nQx gwnums for other purposes.
 		// Figure out the maximum even E value we can use.
 		e = ((cost_data->numvals - 5 - totrels - 5) * 7 / 8) & ~1;
@@ -3469,7 +3468,7 @@ double ecm_stage2_cost (
 		cost_data->TWO_FFT_STAGE2 = TRUE;
 		cost_data->pool_type = POOL_3POINT57MULT;
 		cost_data->E = e;
-		cost_data->stage2_numvals = _intmax (13 + totrels * 8 / 7 + 5, 5 + totrels + e * 8 / 7 + 5);
+		cost_data->stage2_numvals = _intmax (12 + totrels * 8 / 7 + 5, 5 + totrels + e * 8 / 7 + 5);
 	}
 
 /* Return data ECM implementation will need */
@@ -4067,11 +4066,7 @@ int ecm (
 	PRAC_SEARCH = IniGetInt (INI_FILE, "PracSearch", 7);
 	if (PRAC_SEARCH < 1) PRAC_SEARCH = 1;
 	if (PRAC_SEARCH > 50) PRAC_SEARCH = 50;
-
-/* Clear all timers */
-
 restart:
-	clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
 
 /* Time the giants squaring and multiply code in order to select the */
 /* best crossover points.  This should only be done in the release code */
@@ -4079,6 +4074,7 @@ restart:
 
 /*#define TIMING1*/
 #ifdef TIMING1
+clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
 if (w->n == 598) {
 int i, j;
 giant	x, y, z, a, m;
@@ -4146,6 +4142,7 @@ return 0;
 /* This code lets us time various giants FFT squarings and multiplies */
 
 if (w->n == 601) {
+clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
 int i, j;
 giant	x, a, m;
 #define TESTSIZE2	260000
@@ -4191,6 +4188,7 @@ void *workbuf;
 int j, min_test, max_test, test, cnt, NUM_X87_TESTS, NUM_SSE2_TESTS, NUM_AVX_TESTS, NUM_AVX512_TESTS;
 #define timeit(a,n,w) (((void**)a)[0]=w,((uint32_t*)a)[2]=n,gwtimeit(a))
 
+clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
 gwinit (&gwdata); gwdata.cpu_flags &= ~CPU_AVX512F;
 gwsetup (&gwdata, 1.0, 2, 10000000, -1);
 workbuf = (void *) aligned_malloc (400000000, 4096);
@@ -4250,6 +4248,7 @@ if (w->n == 604) {
 	gmp_randstate_t rstate;
 	int	exp;
 
+	clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
 	gmp_randinit_default (rstate);
 	for (exp = 100000; exp < 300000000; exp *= 2) {
 		gwhandle gwdata;
@@ -4341,7 +4340,6 @@ if (w->n == 604) {
 	return (0);
 }
 #endif
-
 
 /* Init filename */
 
@@ -4523,8 +4521,8 @@ restart1:
 	one_over_B = 1.0 / (double) ecmdata.B;
 	sprintf (w->stage, "C%luS1", ecmdata.curve);
 	w->pct_complete = sieve_start * one_over_B;
-	start_timer (timers, 0);
-	start_timer (timers, 1);
+	start_timer_from_zero (timers, 0);
+	start_timer_from_zero (timers, 1);
 	SQRT_B = (unsigned long) sqrt ((double) ecmdata.B);
 	// We guess the max sieve prime for stage 2.  If optimal B2 is less 256 * B, then max sieve prime will be less than 16 * sqrt(B).
 	// If our guess is wrong, that's no big deal -- sieve code is smart enough to handle it.
@@ -4591,14 +4589,13 @@ restart1:
 			end_timer (timers, 0);
 			if (first_iter_msg) {
 				strcat (buf, "\n");
-				clear_timer (timers, 0);
 			} else {
 				strcat (buf, " Time: ");
-				print_timer (timers, 0, buf, TIMER_NL | TIMER_OPT_CLR);
+				print_timer (timers, 0, buf, TIMER_NL);
 			}
 			if (ecmdata.stage1_prime != 2)
 				OutputStr (thread_num, buf);
-			start_timer (timers, 0);
+			start_timer_from_zero (timers, 0);
 			last_output = gw_get_fft_count (&ecmdata.gwdata);
 			first_iter_msg = FALSE;
 		}
@@ -4637,7 +4634,7 @@ restart1:
 /* If we are doing a stage 2, then the stage 2 init will do this GCD for us. */
 
 	if (ecmdata.C <= ecmdata.B) {
-skip_stage_2:	start_timer (timers, 0);
+skip_stage_2:	start_timer_from_zero (timers, 0);
 		stop_reason = gcd (&ecmdata.gwdata, thread_num, ecmdata.xz.z, ecmdata.N, &ecmdata.factor);
 		if (stop_reason) {
 			ecm_save (&ecmdata);
@@ -4717,7 +4714,7 @@ skip_stage_2:	start_timer (timers, 0);
 /* Entry point for continuing stage 2 from a save file */
 
 restart3:
-	start_timer (timers, 0);
+	start_timer_from_zero (timers, 0);
 	sprintf (buf, "%s ECM curve %lu stage 2 init", gwmodulo_as_string (&ecmdata.gwdata), ecmdata.curve);
 	title (thread_num, buf);
 
@@ -4904,8 +4901,15 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 
 	else {
 		struct xz t1, t2, t3, t4, t5, t6;
-		struct xz *Q1, *Q2, *Q3, *Q5, *Q6, *Q7, *Q11, *Q1mod6, *Q1mod6minus6, *Q5mod6, *Q5mod6minus6, *Qscratch;
-		int	have_QD, totrels;
+		struct xz *Q1, *Q2, *Q3, *Q5, *Q6, *Q7, *Q11, *Qnext_i;
+		struct {
+			struct xz *Qi;
+			struct xz *Qi_minus6;
+			int	Qi_is_relp;
+			int	Qi_minus6_is_relp;
+		} Q1mod6, Q5mod6, *curr, *notcurr;
+		int	i_gap, have_QD, totrels, totrels_mate;
+		int	numrels = map_D_to_numrels (ecmdata.D);		// Relprimes less than D/2
 
 /* Allocate memory and init values for computing nQx.  We need Q^1, Q^5, Q^6, Q^7, Q^11. */
 /* We also need Q^4 to compute Q^D in the middle of the nQx init loop. */
@@ -4915,137 +4919,261 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 		if (!alloc_xz (&ecmdata, &t3)) goto lowmem;
 		if (!alloc_xz (&ecmdata, &t4)) goto lowmem;
 		if (!alloc_xz (&ecmdata, &t5)) goto lowmem;
-		if (!alloc_xz (&ecmdata, &t6)) goto lowmem;
 
 /* Compute Q^2 and place in ecmdata.QD.  This is the value we will save if init is aborted and we create a save file. */
 /* Q^2 will be replaced by Q^D later on in this loop.  At all times ecmdata.QD will be a save-able value! */
-/* Remember Q^1 as the first nQx value.  After the first stage 2 init, xz.x is already normalized. */
+/* After the first stage 2 init, QD.x is already normalized, but we do not take advantage of this fact. */
 
+		ell_dbl_xz_scr (&ecmdata, &ecmdata.QD, &t1, &t5);		// Q2 = 2 * Q1, scratch = t5
 		xzswap (t1, ecmdata.QD);					// Move Q^1 from QD to t1
 		Q1 = &t1;							// Q^1
 		Q2 = &ecmdata.QD;
-		ell_dbl_xz_scr (&ecmdata, Q1, Q2, &t6);				// Q2 = 2 * Q1, scratch = t6
-		ecmdata.nQx[0] = Q1->x; totrels = 1;
 
 /* Compute Q^5, Q^6, Q^7, Q^11 */
 
 		Q3 = &t2;
-		ell_add_xz_scr (&ecmdata, Q2, Q1, Q1, Q3, &t6);			// Q3 = Q2 + Q1 (diff Q1), scratch = t6
+		ell_add_xz (&ecmdata, Q2, Q1, Q1, Q3);				// Q3 = Q2 + Q1 (diff Q1)
 
 		Q5 = &t3;
-		ell_add_xz_scr (&ecmdata, Q3, Q2, Q1, Q5, &t6);			// Q5 = Q3 + Q2 (diff Q1), scratch = t6
-		if (relatively_prime (5, ecmdata.D)) ecmdata.nQx[totrels++] = Q5->x;
+		ell_add_xz (&ecmdata, Q3, Q2, Q1, Q5);				// Q5 = Q3 + Q2 (diff Q1)
 
 		Q6 = Q3;
-		ell_dbl_xz_scr (&ecmdata, Q3, Q6, &t6);				// Q6 = 2 * Q3, scratch = t6, Q3 no longer needed
+		ell_dbl_xz_scr (&ecmdata, Q3, Q6, &t5);				// Q6 = 2 * Q3, scratch = t5, Q3 no longer needed
 
 		Q7 = &t4;
-		ell_add_xz_scr (&ecmdata, Q6, Q1, Q5, Q7, &t6);			// Q7 = Q6 + Q1 (diff Q5), scratch = t6
-		if (relatively_prime (7, ecmdata.D)) ecmdata.nQx[totrels++] = Q7->x;
+		ell_add_xz (&ecmdata, Q6, Q1, Q5, Q7);				// Q7 = Q6 + Q1 (diff Q5)
 
 		Q11 = &t5;
-		ell_add_xz_scr (&ecmdata, Q6, Q5, Q1, Q11, &t6);		// Q11 = Q6 + Q5 (diff Q1), scratch = t6
-		if (relatively_prime (11, ecmdata.D)) ecmdata.nQx[totrels++] = Q11->x;
+		ell_add_xz (&ecmdata, Q6, Q5, Q1, Q11);				// Q11 = Q6 + Q5 (diff Q1)
+
+/* Init structures used in the loop below */
+
+		Q1mod6.Qi_minus6 = Q1;
+		Q1mod6.Qi_minus6_is_relp = 1;
+		Q5mod6.Qi_minus6 = Q5;
+		Q5mod6.Qi_minus6_is_relp = relatively_prime (5, ecmdata.D);
+		Q1mod6.Qi = Q7;
+		Q1mod6.Qi_is_relp = relatively_prime (7, ecmdata.D);
+		Q5mod6.Qi = Q11;
+		Q5mod6.Qi_is_relp = relatively_prime (11, ecmdata.D);
+
+/* For relprimes, we remember the .x value in the nQx pool.  In the loop below, if totrels <= numrels * 2 we will relinquish ownership of the .z value */
+/* when we call add_to_normalize_pool.  If totrels > numrels * 2, then we also remember the .z value in the nQx pool.  At some point, we'll use the saved */
+/* x and z values to compute nQx values aboce D. */
+
+		if (ecmdata.totrels <= numrels * 2) {
+			ecmdata.nQx[0] = Q1->x; totrels = 1;
+			if (Q5mod6.Qi_minus6_is_relp) ecmdata.nQx[totrels++] = Q5->x;
+			if (Q1mod6.Qi_is_relp) ecmdata.nQx[totrels++] = Q7->x;
+			if (Q5mod6.Qi_is_relp) ecmdata.nQx[totrels++] = Q11->x;
+		} else {
+			totrels = 0; totrels_mate = numrels * 2 - 1;
+			ecmdata.nQx[totrels++] = Q1->x; ecmdata.nQx[totrels_mate--] = Q1->z;
+			if (Q5mod6.Qi_minus6_is_relp) { ecmdata.nQx[totrels++] = Q5->x; ecmdata.nQx[totrels_mate--] = Q5->z; }
+			if (Q1mod6.Qi_is_relp) { ecmdata.nQx[totrels++] = Q7->x; ecmdata.nQx[totrels_mate--] = Q7->z; }
+			if (Q5mod6.Qi_is_relp) { ecmdata.nQx[totrels++] = Q11->x; ecmdata.nQx[totrels_mate--] = Q11->z; }
+		}
 
 /* Compute the rest of the nQx values (Q^i for i >= 7) */
 /* MEMPEAK: 15 (AD4, QD.x&z, 12 for t1 through t6) + nQx + pool_cost(nQx) */
 /* But at least 1 nQx and 1 poolz value are still in t1 through t6, so that reduces mempeak by at least two. */
 
-//GW: With 3N pooling, we are not handling case where totrels > 2 * E -- we exceed our memory allocation  (need 2 modinvs)
-// with 3.57N pooling this gets a lot better....
+#define normalize_or_free(xz,is_relp)	{ if (is_relp) { stop_reason = add_to_normalize_pool_ro (&ecmdata, xz->x, xz->z); if (stop_reason) goto possible_lowmem; \
+						       xz->x = NULL; xz->z = NULL; is_relp = FALSE; } else { free_xz (&ecmdata, xz); }}
 
-		Q1mod6 = Q7;
-		Q1mod6minus6 = Q1;
-		Q5mod6 = Q11;
-		Q5mod6minus6 = Q5;
-		Qscratch = &t6;
+		Qnext_i = &t6;
 		have_QD = FALSE;
-		for (i = 7; ; i += 6) {
+		for (i = 7, i_gap = 4; ; i += i_gap, i_gap = 6 - i_gap) {
+			int	next_i_is_relp;
 
-/* Compute Q^D which we will need in mQ_init.  Do this with a single ell_add_xz call when we reach two values that are 4 apart that add to D. */
-/* This only works for D = 2 mod 4. */
+/* Point to the i, i-6 pair to work on */
 
-			if (i + i+4 == ecmdata.D) {
-				ASSERTG (Q2 == &ecmdata.QD);
-				ell_dbl_xz_scr (&ecmdata, Q2, Q2, Qscratch);				// Q4 = 2 * Q2, Q2 no longer needed
-				ell_add_xz_scr (&ecmdata, Q1mod6, Q5mod6, Q2, &ecmdata.QD, Qscratch);	// QD = i + i+4 (diff Q4), Q4 no longer needed
+			curr = (i_gap == 4) ? &Q1mod6 : &Q5mod6;
+
+/* See if we are about to compute the next relative prime */
+
+			next_i_is_relp = (relatively_prime (i+6, ecmdata.D) && totrels < ecmdata.totrels);
+
+/* If so, and if it is the last relprime then free up the some resources to keep maximum number of temporaries to a minimum. */
+/* This is of marginal utility as memory peak will ususally occur in mQ_init. */
+/* Also catch the case where we are using the dead minimum number of relative primes - the first i after D/2 is the last i. */
+
+			if ((next_i_is_relp && have_QD && (totrels+1 == ecmdata.totrels || totrels+1 == numrels * 2)) ||
+			    (i+6 > ecmdata.D/2 && ecmdata.totrels == numrels)) {
+				notcurr = (curr == &Q5mod6) ? &Q1mod6 : &Q5mod6;
+				if (have_QD) normalize_or_free (notcurr->Qi, notcurr->Qi_is_relp);
+				normalize_or_free (notcurr->Qi_minus6, notcurr->Qi_minus6_is_relp);
+			}
+
+/* Get next i value.  Don't destroy Qi_minus6 in case it is an nQx value. */
+/* If totrels <= numrels * 2, our peak memory usage occurs here.  In the penultimate case, assume two of Qi, Qi_minus6, other Qi, other Qi_minus6 are relp */
+/* MEMPEAK for penultimate i value: 12 + nQx + pool_cost (AD4, QD.x&z, Qi, Q6, Qi_minus6, Qnext_i, other Qi, other Qi_minus6 + nQx-3 + pool_cost(nQx-3)) */
+/* MEMPEAK for last i value: 10 + nQx + pool_cost (AD4, QD.x&z, Qi, Q6, Qi_minus6, Qnext_i + nQx-1 + pool_cost(nQx-1)) */
+
+			if (!alloc_xz (&ecmdata, Qnext_i)) goto lowmem;
+			ell_add_xz (&ecmdata, curr->Qi, Q6, curr->Qi_minus6, Qnext_i);		// Next_Qi = Qi + Q6 (diff Q{i-6})
+
+/* If we do not need Qi_minus6 later for calculating nQx values above D, then dispose of Qi_minus6 by normalizing or freeing it */
+
+			if (ecmdata.totrels <= numrels * 2 || i > ecmdata.D/2)
+				normalize_or_free (curr->Qi_minus6, curr->Qi_minus6_is_relp);
+
+/* Shuffle i values along */
+
+			{
+				struct xz *shuffle;
+				shuffle = curr->Qi_minus6;
+				curr->Qi_minus6 = curr->Qi;
+				curr->Qi_minus6_is_relp = curr->Qi_is_relp;
+				curr->Qi = Qnext_i;
+				curr->Qi_is_relp = next_i_is_relp;
+				Qnext_i = shuffle;
+			}
+
+/* Compute Q^D which we will need in mQ_init.  Do this with a single ell_add_xz call when we reach two values that are 2 or 4 apart that add to D. */
+
+			if ((i+6) + (i+i_gap) == ecmdata.D) {
+				struct xz tmp;
+				struct xz *Qgap = Q2;
+				ASSERTG (Qgap == &ecmdata.QD);
+				if (!alloc_xz (&ecmdata, &tmp)) goto lowmem;
+				if (6 - i_gap == 4) ell_dbl_xz_scr (&ecmdata, Q2, Qgap, &tmp);		  // Qgap = Q4 = 2 * Q2, Q2 no longer needed
+				ell_add_xz_scr (&ecmdata, Q1mod6.Qi, Q5mod6.Qi, Qgap, &ecmdata.QD, &tmp); // QD = i+6 + i+i_gap (diff Qgap), Qgap no longer needed
+				free_xz (&ecmdata, &tmp);
 				have_QD = TRUE;
 			}
 
-/* Break out of loop when we have all our nQx values */
+/* If the newly computed i is a relative prime, then 1) if all relprimes are below D, remember .x for a later add_to_nomalize, */
+/* or 2) if i < D/2, remember the .x and .z in the nQx array for a later calculation of nQx values above D, or 3) calc nQx values above D. */
 
-			if (have_QD && totrels == ecmdata.totrels) break;
+			if (next_i_is_relp) {
+				if (ecmdata.totrels <= numrels * 2) {
+					ecmdata.nQx[totrels++] = curr->Qi->x;
+				}
+				else if (totrels < numrels) {
+					ecmdata.nQx[totrels++] = curr->Qi->x;
+					ecmdata.nQx[totrels_mate--] = curr->Qi->z;
+				}
 
-/* Get next 1 mod 6 value, but don't destroy Q1mod6minus6 in case it is an nQx value. */
+/* The newly computed i value is above D/2 and there are relprimes above D.  Use the new i value and i's previously computed "mate" to */
+/* calculate nQx values above D.  For example, with D=30, relprimes=1,7,11,13: */
+/* When we calc relprime 17, we compute 43 = 30+13 diff 17, 73 = 43 + 30 diff 13, ... AND 47 = 30+17 diff 13, 77 = 47 + 30 diff 17, ... */
+/* When we calc relprime 19, we compute 41 = 30+11 diff 19, 71 = 41 + 30 diff 11, ... AND 49 = 30+19 diff 11, 79 = 49 + 30 diff 19, ... */
+/* MEMPEAK: 8 + nQx + pool_cost (AD4, QD.x&z, Qj, Qjdiff, Qjplus1 + nQx-1 + pool_cost(nQx-1)) */
 
-			ell_add_xz (&ecmdata, Q1mod6, Q6, Q1mod6minus6, Qscratch);			// Next 1 mod 6 value, save in scratch
-			if (relatively_prime (i-6, ecmdata.D)) {
-				stop_reason = add_to_normalize_pool_ro (&ecmdata, Q1mod6minus6->x, Q1mod6minus6->z);
-				if (stop_reason) goto possible_lowmem;
-				if (!alloc_xz (&ecmdata, Q1mod6minus6)) goto lowmem;
+				else {
+					struct xz Qsmall, *Qlarge, tmp1, tmp2, tmp3, *Qjdiff, *Qj, *Qjplus1;
+					int	j;
+
+					// For last relprime pair free up the some resources to keep maximum number of temporaries to a minimum
+					if (totrels_mate == 0) {
+						normalize_or_free (curr->Qi_minus6, curr->Qi_minus6_is_relp);
+						free_xz (&ecmdata, Q6);
+					}
+
+					// Gather the two relprimes that will calculate nQx values above D
+					Qsmall.x = ecmdata.nQx[totrels_mate];					// e.g. 13
+					Qsmall.z = ecmdata.nQx[totrels];
+					Qlarge = curr->Qi;							// e.g. 17
+
+					// Compute the smaller set of nQx values, e.g. 13 + 30 diff 17, 43 + 30 diff 13, 73 + 30 diff 43
+					tmp1 = *Qlarge; Qjdiff = &tmp1;						// e.g. 17
+					tmp2 = Qsmall; Qj = &tmp2;						// e.g. 13
+					Qjplus1 = &tmp3;							// e.g. will be 43
+					for (j = 0; ; j++) {
+						// Break out of loop when the Qjdiff value we'd be saving is not needed
+						if (j > 0 && (j-1)*numrels*2 + totrels_mate >= ecmdata.totrels) break;
+						// Compute next j value if it will be needed
+						if ((j+1)*numrels*2 + totrels_mate < ecmdata.totrels) {
+							if (!alloc_xz (&ecmdata, Qjplus1)) goto lowmem;
+							ell_add_xz (&ecmdata, Qj, &ecmdata.QD, Qjdiff, Qjplus1); // Qjplus1 = Qj + D, e.g. 43+30 or 73+30
+						}
+						// Normalize the Qjdiff value
+						if (j-1 >= 1) {
+							ecmdata.nQx[(j-1)*numrels*2 + totrels_mate] = Qjdiff->x;
+							stop_reason = add_to_normalize_pool_ro (&ecmdata, Qjdiff->x, Qjdiff->z);
+							if (stop_reason) goto possible_lowmem;
+						}
+						// Shuffle the j values down
+						{
+							struct xz *shuffle;
+							shuffle = Qjdiff;
+							Qjdiff = Qj;
+							Qj = Qjplus1;
+							Qjplus1 = shuffle;
+						}
+					}
+
+					// Compute the larger set of nQx values, e.g. 17 + 30 diff 13, 47 + 30 diff 17, 77 + 30 diff 47
+					tmp1 = Qsmall; Qjdiff = &tmp1;						// e.g. 13
+					tmp2 = *Qlarge; Qj = &tmp2;						// e.g. 17
+					Qjplus1 = &tmp3;							// e.g. will be 47
+					for (j = 0; ; j++) {
+						// Break out of loop when the Qjdiff value we'd be saving is not needed
+						if (j > 0 && (j-1)*numrels*2 + totrels >= ecmdata.totrels) break;
+						// Compute next j value if it will be needed
+						if ((j+1)*numrels*2 + totrels < ecmdata.totrels) {
+							if (!alloc_xz (&ecmdata, Qjplus1)) goto lowmem;
+							ell_add_xz (&ecmdata, Qj, &ecmdata.QD, Qjdiff, Qjplus1); // Qjplus1 = Qj + D, e.g. 47+30 or 77+30
+						}
+						// Normalize the Qjdiff value when Qjdiff = Qsmall.  Note we cannot normalize Qsmall if it is
+						// still used by Q1mod6 or Q5mod6.  Also note that nQx[totrels_mate] already points to Qjdiff->x.
+						if (j == 0 && i > ecmdata.D/2) {
+							stop_reason = add_to_normalize_pool_ro (&ecmdata, Qjdiff->x, Qjdiff->z);
+							if (stop_reason) goto possible_lowmem;
+						}
+						// Normalize the Qjdiff value when Qjdiff = Qlarge.  We only do this on the last relprime pair
+						// to reduce our peak memory usage.  In all other cases, Qlarge is still used by Q1mod6 or Q5mod6.
+						else if (j == 1) {
+							ecmdata.nQx[totrels] = Qjdiff->x;
+							if (totrels_mate == 0) {
+								stop_reason = add_to_normalize_pool_ro (&ecmdata, Qjdiff->x, Qjdiff->z);
+								if (stop_reason) goto possible_lowmem;
+								curr->Qi->x = NULL;
+								curr->Qi->z = NULL;
+								curr->Qi_is_relp = FALSE;
+							}
+						}
+						// Normalize Qjdiff when Qjdiff is larger than QD
+						else if (j-1 >= 1) {
+							ecmdata.nQx[(j-1)*numrels*2 + totrels] = Qjdiff->x;
+							stop_reason = add_to_normalize_pool_ro (&ecmdata, Qjdiff->x, Qjdiff->z);
+							if (stop_reason) goto possible_lowmem;
+						}
+						// Shuffle the j values down
+						{
+							struct xz *shuffle;
+							shuffle = Qjdiff;
+							Qjdiff = Qj;
+							Qj = Qjplus1;
+							Qjplus1 = shuffle;
+						}
+					}
+
+					// Bump totrels count
+					totrels++;
+					totrels_mate--;
+				}
 			}
-			xzswap (*Q1mod6minus6, *Q1mod6);
-			xzswap (*Q1mod6, *Qscratch);
-			if (relatively_prime (i+6, ecmdata.D) && totrels < ecmdata.totrels) ecmdata.nQx[totrels++] = Q1mod6->x;
 
-/* Compute Q^D which we will need in mQ_init.  Do this with a single ell_add_xz call when we reach the two values that are 2 apart that add to D. */
-/* This only works for D = 0 mod 4. */
+/* Break out of loop when we have all our nQx values less than D */
 
-			if (i+6 + i+4 == ecmdata.D) {
-				ASSERTG (Q2 == &ecmdata.QD);
-				ell_add_xz_scr (&ecmdata, Q1mod6, Q5mod6, Q2, &ecmdata.QD, Qscratch);	// QD = i+6 + i+4 (diff Q2), Q2 no longer needed
-				have_QD = TRUE;
-			}
-
-/* Break out of loop when we have QD and all our nQx values */
-
-			if (have_QD && totrels == ecmdata.totrels) break;
-
-/* Get next 5 mod 6 value, but don't destroy Q5mod6minus6 in case it is an nQx value. */
-
-			ell_add_xz (&ecmdata, Q5mod6, Q6, Q5mod6minus6, Qscratch);			// Next 5 mod 6 value, save in scratch
-			if (relatively_prime (i+4-6, ecmdata.D)) {
-				stop_reason = add_to_normalize_pool_ro (&ecmdata, Q5mod6minus6->x, Q5mod6minus6->z);
-				if (stop_reason) goto possible_lowmem;
-				if (!alloc_xz (&ecmdata, Q5mod6minus6)) goto lowmem;
-			}
-			xzswap (*Q5mod6minus6, *Q5mod6);
-			xzswap (*Q5mod6, *Qscratch);
-			if (relatively_prime (i+4+6, ecmdata.D) && totrels < ecmdata.totrels) ecmdata.nQx[totrels++] = Q5mod6->x;
+			if (have_QD && (totrels == ecmdata.totrels || totrels >= numrels * 2)) break;
 
 /* Check for errors and save file creation */
 
 			if (gw_test_for_error (&ecmdata.gwdata)) goto err;
-
 			stop_reason = stopCheck (thread_num);
 			if (stop_reason) goto possible_lowmem;
 		}
 
-/* If needed, add any of the last four computed values to the normalization pool */
-
-		for (i = 1; i <= 4; i++) {
-			struct xz *needs_work;
-			if (t1.x == ecmdata.nQx[totrels-i]) needs_work = &t1;
-			else if (t2.x == ecmdata.nQx[totrels-i]) needs_work = &t2;
-			else if (t3.x == ecmdata.nQx[totrels-i]) needs_work = &t3;
-			else if (t4.x == ecmdata.nQx[totrels-i]) needs_work = &t4;
-			else if (t5.x == ecmdata.nQx[totrels-i]) needs_work = &t5;
-			else if (t6.x == ecmdata.nQx[totrels-i]) needs_work = &t6;
-			else continue;
-			stop_reason = add_to_normalize_pool_ro (&ecmdata, needs_work->x, needs_work->z);
-			if (stop_reason) goto possible_lowmem;
-			needs_work->x = NULL;
-			needs_work->z = NULL;
-		}
-
 /* Free memory used in computing nQx values */
 
-		free_xz (&ecmdata, &t1);
-		free_xz (&ecmdata, &t2);
-		free_xz (&ecmdata, &t3);
-		free_xz (&ecmdata, &t4);
-		free_xz (&ecmdata, &t5);
-		free_xz (&ecmdata, &t6);
+		normalize_or_free (Q1mod6.Qi, Q1mod6.Qi_is_relp);
+		normalize_or_free (Q1mod6.Qi_minus6, Q1mod6.Qi_minus6_is_relp);
+		normalize_or_free (Q5mod6.Qi, Q5mod6.Qi_is_relp);
+		normalize_or_free (Q5mod6.Qi_minus6, Q5mod6.Qi_minus6_is_relp);
+		free_xz (&ecmdata, Q6);
 	}
 
 /* Normalize all the nQx values */
@@ -5117,8 +5245,8 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 /*		== mQx - nQx						*/
 
 	ecmdata.state = ECM_STATE_STAGE2;
-	start_timer (timers, 0);
-	start_timer (timers, 1);
+	start_timer_from_zero (timers, 0);
+	start_timer_from_zero (timers, 1);
 	last_output = last_output_t = ecmdata.modinv_count = 0;
 	for ( ; ; ) {
 		uint64_t bitnum;
@@ -5199,13 +5327,12 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 				end_timer (timers, 0);
 				if (first_iter_msg) {
 					strcat (buf, "\n");
-					clear_timer (timers, 0);
 				} else {
 					strcat (buf, " Time: ");
-					print_timer (timers, 0, buf, TIMER_NL | TIMER_OPT_CLR);
+					print_timer (timers, 0, buf, TIMER_NL);
 				}
 				OutputStr (thread_num, buf);
-				start_timer (timers, 0);
+				start_timer_from_zero (timers, 0);
 				last_output = gw_get_fft_count (&ecmdata.gwdata);
 				first_iter_msg = FALSE;
 			}
@@ -5267,7 +5394,6 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 
 /* Stage 2 is complete */
 
-	end_timer (timers, 0);
 	end_timer (timers, 1);
 	sprintf (buf, "Stage 2 complete. %.0f transforms, %lu modular inverses. Total time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
@@ -5289,7 +5415,7 @@ restart4:
 	ecmdata.state = ECM_STATE_GCD;
 	sprintf (w->stage, "C%luS2", ecmdata.curve);
 	w->pct_complete = 1.0;
-	start_timer (timers, 0);
+	start_timer_from_zero (timers, 0);
 	stop_reason = gcd (&ecmdata.gwdata, thread_num, ecmdata.gg, ecmdata.N, &ecmdata.factor);
 	if (stop_reason) {
 		ecm_save (&ecmdata);
@@ -5502,8 +5628,6 @@ bad_factor_recovery:
 	free (str); str = NULL;
 	free (msg); msg = NULL;
 	free (ecmdata.factor); ecmdata.factor = NULL;
-
-	clear_timer (timers, 0);
 
 /* Since we found a factor, then we likely performed much fewer curves than expected.  Make sure we do not update the rolling average with */
 /* this inaccurate data. */
@@ -6596,14 +6720,10 @@ int pminus1 (
 		}
 	}
 
-/* Clear all timers */
-
-restart:
-	clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
-
 /* Init filename.  This is a little kludgy as we want to generate a P-1 save file that does not conflict with an LL or PRP save file name. */
 /* Both save files can exist at the same time when stage 2 is delayed waiting for more memory. */
 
+restart:
 	tempFileName (w, filename);
 	filename[0] = 'm';
 
@@ -6820,8 +6940,8 @@ restart:
 restart0:
 	pm1data.B_done = 0;
 	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pm1data.gwdata, 1));
-	start_timer (timers, 0);
-	start_timer (timers, 1);
+	start_timer_from_zero (timers, 0);
+	start_timer_from_zero (timers, 1);
 	stop_reason = start_sieve_with_limit (thread_num, 2, (uint32_t) sqrt ((double) pm1data.C), &pm1data.sieve_info);
 	if (stop_reason) goto exit;
 	pm1data.stage1_prime = sieve (pm1data.sieve_info);
@@ -6895,14 +7015,13 @@ restart0:
 			end_timer (timers, 0);
 			if (first_iter_msg) {
 				strcat (buf, "\n");
-				clear_timer (timers, 0);
 			} else {
 				strcat (buf, " Time: ");
-				print_timer (timers, 0, buf, TIMER_NL | TIMER_OPT_CLR);
+				print_timer (timers, 0, buf, TIMER_NL);
 			}
 			if (pm1data.stage0_bitnum > 1)
 				OutputStr (thread_num, buf);
-			start_timer (timers, 0);
+			start_timer_from_zero (timers, 0);
 			last_output = gw_get_fft_count (&pm1data.gwdata);
 			first_iter_msg = FALSE;
 		}
@@ -6956,8 +7075,8 @@ restart1:
 	strcpy (w->stage, "S1");
 	one_over_B = 1.0 / (double) pm1data.B;
 	w->pct_complete = (double) pm1data.stage1_prime * one_over_B;
-	start_timer (timers, 0);
-	start_timer (timers, 1);
+	start_timer_from_zero (timers, 0);
+	start_timer_from_zero (timers, 1);
 	pm1data.state = PM1_STATE_STAGE1;
 	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pm1data.gwdata, 2));
 	tmp_gwnum = gwalloc (&pm1data.gwdata);
@@ -7021,13 +7140,12 @@ restart1:
 			end_timer (timers, 0);
 			if (first_iter_msg) {
 				strcat (buf, "\n");
-				clear_timer (timers, 0);
 			} else {
 				strcat (buf, " Time: ");
-				print_timer (timers, 0, buf, TIMER_NL | TIMER_OPT_CLR);
+				print_timer (timers, 0, buf, TIMER_NL);
 			}
 			OutputStr (thread_num, buf);
-			start_timer (timers, 0);
+			start_timer_from_zero (timers, 0);
 			last_output = gw_get_fft_count (&pm1data.gwdata);
 			first_iter_msg = FALSE;
 		}
@@ -7069,7 +7187,6 @@ more_B:		pm1data.interim_B = pm1data.B;
 	sprintf (buf, "%s stage 1 complete. %.0f transforms. Total time: ", gwmodulo_as_string (&pm1data.gwdata), gw_get_fft_count (&pm1data.gwdata));
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
-	clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
 	gw_clear_fft_count (&pm1data.gwdata);
 
 /* Print out round off error */
@@ -7086,7 +7203,7 @@ more_B:		pm1data.interim_B = pm1data.B;
 	w->pct_complete = 1.0;
 	if (pm1data.C <= pm1data.B || (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "Stage1GCD", 1))) {
 		if (w->work_type != WORK_PMINUS1) OutputStr (thread_num, "Starting stage 1 GCD - please be patient.\n");
-		start_timer (timers, 0);
+		start_timer_from_zero (timers, 0);
 		gwaddsmall (&pm1data.gwdata, pm1data.x, -1);
 		stop_reason = gcd (&pm1data.gwdata, thread_num, pm1data.x, N, &factor);
 		gwaddsmall (&pm1data.gwdata, pm1data.x, 1);
@@ -7133,7 +7250,7 @@ restart3a:
 
 restart3b:
 more_C:
-	start_timer (timers, 0);
+	start_timer_from_zero (timers, 0);
 	sprintf (buf, "%s P-1 stage 2 init", gwmodulo_as_string (&pm1data.gwdata));
 	title (thread_num, buf);
 
@@ -7243,8 +7360,8 @@ replan:	{
 /* optimization provides us with many more chances to find a prime pairing. */
 
 	pm1data.state = PM1_STATE_STAGE2;
-	start_timer (timers, 0);
-	start_timer (timers, 1);
+	start_timer_from_zero (timers, 0);
+	start_timer_from_zero (timers, 1);
 	last_output = last_output_t = last_output_r = 0;
 	for ( ; ; ) {
 		uint64_t bitnum;
@@ -7292,13 +7409,12 @@ replan:	{
 				end_timer (timers, 0);
 				if (first_iter_msg) {
 					strcat (buf, "\n");
-					clear_timer (timers, 0);
 				} else {
 					strcat (buf, " Time: ");
-					print_timer (timers, 0, buf, TIMER_NL | TIMER_OPT_CLR);
+					print_timer (timers, 0, buf, TIMER_NL);
 				}
 				OutputStr (thread_num, buf);
-				start_timer (timers, 0);
+				start_timer_from_zero (timers, 0);
 				last_output = gw_get_fft_count (&pm1data.gwdata);
 				first_iter_msg = FALSE;
 			}
@@ -7369,7 +7485,6 @@ replan:	{
 	sprintf (buf, "%s stage 2 complete. %.0f transforms. Total time: ", gwmodulo_as_string (&pm1data.gwdata), gw_get_fft_count (&pm1data.gwdata));
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
-	clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
 
 /* Print out round off error */
 
@@ -7386,7 +7501,7 @@ restart4:
 	strcpy (w->stage, "S2");
 	w->pct_complete = 1.0;
 	if (w->work_type != WORK_PMINUS1) OutputStr (thread_num, "Starting stage 2 GCD - please be patient.\n");
-	start_timer (timers, 0);
+	start_timer_from_zero (timers, 0);
 	stop_reason = gcd (&pm1data.gwdata, thread_num, pm1data.gg, N, &factor);
 	if (stop_reason) {
 		pm1_save (&pm1data);
@@ -9122,13 +9237,9 @@ int pplus1 (
 		OutputStr (thread_num, buf);
 	}
 
-/* Clear all timers */
-
-restart:
-	clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
-
 /* Init filename */
 
+restart:
 	tempFileName (w, filename);
 	filename[0] = 'n';
 
@@ -9321,8 +9432,8 @@ restart1:
 	strcpy (w->stage, "S1");
 	pp1data.state = PP1_STATE_STAGE1;
 	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pp1data.gwdata, 3));
-	start_timer (timers, 0);
-	start_timer (timers, 1);
+	start_timer_from_zero (timers, 0);
+	start_timer_from_zero (timers, 1);
 	stop_reason = start_sieve_with_limit (thread_num, sieve_start, (uint32_t) sqrt ((double) pp1data.C), &pp1data.sieve_info);
 	if (stop_reason) goto exit;
 	pp1data.stage1_prime = sieve (pp1data.sieve_info);
@@ -9407,13 +9518,12 @@ restart1:
 			end_timer (timers, 0);
 			if (first_iter_msg) {
 				strcat (buf, "\n");
-				clear_timer (timers, 0);
 			} else {
 				strcat (buf, " Time: ");
-				print_timer (timers, 0, buf, TIMER_NL | TIMER_OPT_CLR);
+				print_timer (timers, 0, buf, TIMER_NL);
 			}
 			if (pp1data.stage1_prime != 2 || pp1data.B_done != 0) OutputStr (thread_num, buf);
-			start_timer (timers, 0);
+			start_timer_from_zero (timers, 0);
 			last_output = gw_get_fft_count (&pp1data.gwdata);
 			first_iter_msg = FALSE;
 		}
@@ -9459,7 +9569,6 @@ more_B:		pp1data.interim_B = pp1data.B;
 	sprintf (buf, "%s stage 1 complete. %.0f transforms. Total time: ", gwmodulo_as_string (&pp1data.gwdata), gw_get_fft_count (&pp1data.gwdata));
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
-	clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
 	gw_clear_fft_count (&pp1data.gwdata);
 
 /* Print out round off error */
@@ -9475,7 +9584,7 @@ more_B:		pp1data.interim_B = pp1data.B;
 	strcpy (w->stage, "S1");
 	w->pct_complete = 1.0;
 	if (pp1data.C <= pp1data.B || (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "Stage1GCD", 1))) {
-		start_timer (timers, 0);
+		start_timer_from_zero (timers, 0);
 		gwaddsmall (&pp1data.gwdata, pp1data.V, -2);
 		stop_reason = gcd (&pp1data.gwdata, thread_num, pp1data.V, N, &factor);
 		gwaddsmall (&pp1data.gwdata, pp1data.V, 2);
@@ -9485,7 +9594,7 @@ more_B:		pp1data.interim_B = pp1data.B;
 		}
 		end_timer (timers, 0);
 		strcpy (buf, "Stage 1 GCD complete. Time: ");
-		print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+		print_timer (timers, 0, buf, TIMER_NL);
 		OutputStr (thread_num, buf);
 		if (factor != NULL) goto bingo;
 	}
@@ -9519,7 +9628,7 @@ restart3a:
 
 restart3b:
 more_C:
-	start_timer (timers, 0);
+	start_timer_from_zero (timers, 0);
 	sprintf (buf, "%s P+1 stage 2 init", gwmodulo_as_string (&pp1data.gwdata));
 	title (thread_num, buf);
 
@@ -9585,10 +9694,10 @@ replan:	{
 
 	{
 		gwnum	t1, t2, t3, t4, t5;
-		gwnum	*V1, *V2, *V3, *V5, *V6, *V7, *V11;
+		gwnum	V1, V2, V3, V5, V6, V7, V11;
 		struct {
-			gwnum	*Vi;
-			gwnum	*Vi_minus6;
+			gwnum	Vi;
+			gwnum	Vi_minus6;
 			int	Vi_is_relp;
 			int	Vi_minus6_is_relp;
 		} V1mod6, V5mod6, *curr, *notcurr;
@@ -9613,40 +9722,40 @@ replan:	{
 
 		luc_dbl (&pp1data.gwdata, pp1data.V, t1);			// V2 = 2 * V1
 		gwswap (t1, pp1data.V);
-		V1 = &t1;
-		V2 = &pp1data.V;
+		V1 = t1;
+		V2 = pp1data.V;
 
 /* Compute V_5, V_6, V_7, V_11 */
 
-		V3 = &t2;
-		luc_add (&pp1data.gwdata, *V2, *V1, *V1, *V3);			// V3 = V2 + V1 (diff V1)
+		V3 = t2;
+		luc_add (&pp1data.gwdata, V2, V1, V1, V3);			// V3 = V2 + V1 (diff V1)
 
-		V5 = &t3;
-		luc_add (&pp1data.gwdata, *V3, *V2, *V1, *V5);			// V5 = V3 + V2 (diff V1)
+		V5 = t3;
+		luc_add (&pp1data.gwdata, V3, V2, V1, V5);			// V5 = V3 + V2 (diff V1)
 
 		V6 = V3;
-		luc_dbl (&pp1data.gwdata, *V3, *V6);				// V6 = 2 * V3, V3 no longer needed
+		luc_dbl (&pp1data.gwdata, V3, V6);				// V6 = 2 * V3, V3 no longer needed
 
-		V7 = &t4;
-		luc_add (&pp1data.gwdata, *V6, *V1, *V5, *V7);			// V7 = V6 + V1 (diff V5)
+		V7 = t4;
+		luc_add (&pp1data.gwdata, V6, V1, V5, V7);			// V7 = V6 + V1 (diff V5)
 
-		V11 = &t5;
-		luc_add (&pp1data.gwdata, *V6, *V5, *V1, *V11);			// V11 = V6 + V5 (diff V1)
+		V11 = t5;
+		luc_add (&pp1data.gwdata, V6, V5, V1, V11);			// V11 = V6 + V5 (diff V1)
 
 /* Init structures used in the loop below */
 
 		V1mod6.Vi_minus6 = V1;
 		V1mod6.Vi_minus6_is_relp = 1;
-		pp1data.nQx[0] = *V1; totrels = 1;
+		pp1data.nQx[0] = V1; totrels = 1;
 		V5mod6.Vi_minus6 = V5;
 		V5mod6.Vi_minus6_is_relp = relatively_prime (5, pp1data.D);
-		if (V5mod6.Vi_minus6_is_relp) pp1data.nQx[totrels++] = *V5;
+		if (V5mod6.Vi_minus6_is_relp) pp1data.nQx[totrels++] = V5;
 		V1mod6.Vi = V7;
 		V1mod6.Vi_is_relp = relatively_prime (7, pp1data.D);
-		if (V1mod6.Vi_is_relp) pp1data.nQx[totrels++] = *V7;
+		if (V1mod6.Vi_is_relp) pp1data.nQx[totrels++] = V7;
 		V5mod6.Vi = V11;
 		V5mod6.Vi_is_relp = relatively_prime (11, pp1data.D);
-		if (V5mod6.Vi_is_relp) pp1data.nQx[totrels++] = *V11;
+		if (V5mod6.Vi_is_relp) pp1data.nQx[totrels++] = V11;
 
 /* Compute the rest of the nQx values (V_i for i >= 7) */
 
@@ -9663,10 +9772,10 @@ replan:	{
 /* are 2 or 4 apart that add to D. */
 
 			if (i + (i + i_gap) == pp1data.D) {
-				gwnum	*Vgap = V2;
-				ASSERTG (Vgap == &pp1data.V);
-				if (i_gap == 4) luc_dbl (&pp1data.gwdata, *Vgap, *Vgap);		// Vgap = V4 = 2 * V2, V2 no longer needed
-				luc_add (&pp1data.gwdata, *V1mod6.Vi, *V5mod6.Vi, *Vgap, pp1data.V);	// VD = V{i} + V{i+gap} (diff Vgap), Vgap no longer needed
+				gwnum	Vgap = V2;
+				ASSERTG (Vgap == pp1data.V);
+				if (i_gap == 4) luc_dbl (&pp1data.gwdata, Vgap, Vgap);			// Vgap = V4 = 2 * V2, V2 no longer needed
+				luc_add (&pp1data.gwdata, V1mod6.Vi, V5mod6.Vi, Vgap, pp1data.V);	// VD = V{i} + V{i+gap} (diff Vgap), Vgap no longer needed
 				have_VD = TRUE;
 			}
 
@@ -9683,10 +9792,10 @@ replan:	{
 /* Also catch the case where we are using the dead minimum number of relative primes - the first i after D/2 is the last i. */
 
 			if ((next_i_is_relp && have_VD && (totrels+1 == pp1data.totrels || totrels+1 == numrels * 2)) ||
-			    (!have_VD && i+6 > pp1data.D/2 && totrels == numrels)) {
+			    (!have_VD && i+6 > pp1data.D/2 && pp1data.totrels == numrels)) {
 				notcurr = (curr == &V5mod6) ? &V1mod6 : &V5mod6;
-				if (!notcurr->Vi_is_relp) gwfree (&pp1data.gwdata, *notcurr->Vi), *notcurr->Vi = NULL;
-				if (!notcurr->Vi_minus6_is_relp) gwfree (&pp1data.gwdata, *notcurr->Vi_minus6), *notcurr->Vi_minus6 = NULL;
+				if (!notcurr->Vi_is_relp) gwfree (&pp1data.gwdata, notcurr->Vi), notcurr->Vi = NULL;
+				if (!notcurr->Vi_minus6_is_relp) gwfree (&pp1data.gwdata, notcurr->Vi_minus6), notcurr->Vi_minus6 = NULL;
 			}			
 
 /* Get next i value.  Don't destroy Vi_minus6 if it is an nQx value. */
@@ -9695,16 +9804,16 @@ replan:	{
 				next_i = gwalloc (&pp1data.gwdata);
 				if (next_i == NULL) goto lowmem;
 			} else
-				next_i = *curr->Vi_minus6;
+				next_i = curr->Vi_minus6;
 
-			luc_add (&pp1data.gwdata, *curr->Vi, *V6, *curr->Vi_minus6, next_i);	// Next i
+			luc_add (&pp1data.gwdata, curr->Vi, V6, curr->Vi_minus6, next_i);	// Next i
 			if (next_i_is_relp) pp1data.nQx[totrels++] = next_i;
 
 /* Shuffle i values along */
 
-			*curr->Vi_minus6 = *curr->Vi;
+			curr->Vi_minus6 = curr->Vi;
 			curr->Vi_minus6_is_relp = curr->Vi_is_relp;
-			*curr->Vi = next_i;
+			curr->Vi = next_i;
 			curr->Vi_is_relp = next_i_is_relp;
 
 /* Check for errors and save file creation */
@@ -9716,11 +9825,11 @@ replan:	{
 
 /* Free memory used in computing nQx values */
 
-		if (!V1mod6.Vi_is_relp) gwfree (&pp1data.gwdata, *V1mod6.Vi);
-		if (!V1mod6.Vi_minus6_is_relp) gwfree (&pp1data.gwdata, *V1mod6.Vi_minus6);
-		if (!V5mod6.Vi_is_relp) gwfree (&pp1data.gwdata, *V5mod6.Vi);
-		if (!V5mod6.Vi_minus6_is_relp) gwfree (&pp1data.gwdata, *V5mod6.Vi_minus6);
-		gwfree (&pp1data.gwdata, *V6);
+		if (!V1mod6.Vi_is_relp) gwfree (&pp1data.gwdata, V1mod6.Vi);
+		if (!V1mod6.Vi_minus6_is_relp) gwfree (&pp1data.gwdata, V1mod6.Vi_minus6);
+		if (!V5mod6.Vi_is_relp) gwfree (&pp1data.gwdata, V5mod6.Vi);
+		if (!V5mod6.Vi_minus6_is_relp) gwfree (&pp1data.gwdata, V5mod6.Vi_minus6);
+		gwfree (&pp1data.gwdata, V6);
 
 /* Compute the remaining nQx values (those above D).  As an example, D=30, numrels=4, we've already computed nQx[0 to 7] for 1,7,11,13,17,19,23,29: */
 /* 31 = 1 + 30 diff 29, 61 = 31 + 30 diff 1, 91 = 61 + 30 diff 31, 121 = 91 + 30 diff 61 */
@@ -9762,8 +9871,8 @@ replan:	{
 /* optimization provides us with many more chances to find a prime pairing. */
 
 	pp1data.state = PP1_STATE_STAGE2;
-	start_timer (timers, 0);
-	start_timer (timers, 1);
+	start_timer_from_zero (timers, 0);
+	start_timer_from_zero (timers, 1);
 	last_output = last_output_t = last_output_r = 0;
 	for ( ; ; ) {
 		uint64_t bitnum;
@@ -9811,13 +9920,12 @@ replan:	{
 				end_timer (timers, 0);
 				if (first_iter_msg) {
 					strcat (buf, "\n");
-					clear_timer (timers, 0);
 				} else {
 					strcat (buf, " Time: ");
-					print_timer (timers, 0, buf, TIMER_NL | TIMER_OPT_CLR);
+					print_timer (timers, 0, buf, TIMER_NL);
 				}
 				OutputStr (thread_num, buf);
-				start_timer (timers, 0);
+				start_timer_from_zero (timers, 0);
 				last_output = gw_get_fft_count (&pp1data.gwdata);
 				first_iter_msg = FALSE;
 			}
@@ -9886,7 +9994,6 @@ replan:	{
 	sprintf (buf, "%s stage 2 complete. %.0f transforms. Total time: ", gwmodulo_as_string (&pp1data.gwdata), gw_get_fft_count (&pp1data.gwdata));
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
-	clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
 
 /* Print out round off error */
 
@@ -9902,7 +10009,7 @@ restart4:
 	pp1data.state = PP1_STATE_GCD;
 	strcpy (w->stage, "S2");
 	w->pct_complete = 1.0;
-	start_timer (timers, 0);
+	start_timer_from_zero (timers, 0);
 	stop_reason = gcd (&pp1data.gwdata, thread_num, pp1data.gg, N, &factor);
 	if (stop_reason) {
 		pp1_save (&pp1data);
@@ -9911,7 +10018,7 @@ restart4:
 	pp1data.state = PP1_STATE_DONE;
 	end_timer (timers, 0);
 	strcpy (buf, "Stage 2 GCD complete. Time: ");
-	print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+	print_timer (timers, 0, buf, TIMER_NL);
 	OutputStr (thread_num, buf);
 	if (factor != NULL) goto bingo;
 

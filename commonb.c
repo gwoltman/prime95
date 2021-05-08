@@ -228,6 +228,14 @@ void start_timer (
 	}
 }
 
+void start_timer_from_zero (
+	double	*timers,
+	int	i)
+{
+	clear_timer (timers, i);
+	start_timer (timers, i);
+}
+
 void end_timer (
 	double	*timers,
 	int	i)
