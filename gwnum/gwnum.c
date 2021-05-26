@@ -11159,15 +11159,19 @@ void gwsmalladd (
 /* that any carry can successfully spread over 3 FFT words. */
 
 	if (gwdata->GWPROCPTRS[8] == NULL || gwdata->k > 1.0 || gwdata->NUM_B_PER_SMALL_WORD < 1 || cant_handle) {
+		float	norm_count = unnorms (g);
+		int	add_options = (gwdata->k > 1.0 && labs(gwdata->c) > 1) ? GWADD_FORCE_NORMALIZE : GWADD_DELAY_NORMALIZE; 
 		gwnum	tmp = gwalloc (gwdata);
 		if (addin >= 0.0) {
 			dbltogw (gwdata, addin, tmp);
-			gwadd3o (gwdata, g, tmp, g, GWADD_DELAY_NORMALIZE);
+			gwadd3o (gwdata, g, tmp, g, add_options);
 		} else {
 			dbltogw (gwdata, -addin, tmp);
-			gwsub3o (gwdata, g, tmp, g, GWADD_DELAY_NORMALIZE);
+			gwsub3o (gwdata, g, tmp, g, add_options);
 		}
 		gwfree (gwdata, tmp);
+		// When k=1 or abs(c)=1 only a few words in the tmp addin value were non-zero so do not change the unnormalized add count
+		if (add_options == GWADD_DELAY_NORMALIZE) unnorms (g) = norm_count;
 	}
 
 /* The assembler optimized version */
