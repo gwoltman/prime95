@@ -9228,8 +9228,10 @@ int pplus1 (
 		sprintf (buf, "P+1 on %s, start=%" PRIu32 "/%" PRIu32 ", B1=%" PRIu64 "\n", testnum, pp1data.numerator, pp1data.denominator, pp1data.B);
 	else if (pp1data.optimal_B2)
 		sprintf (buf, "P+1 on %s, start=%" PRIu32 "/%" PRIu32 ", B1=%" PRIu64 ", B2=TBD\n", testnum, pp1data.numerator, pp1data.denominator, pp1data.B);
+	// Don't output random start value because on a restart the starting point will be overwritten with data from the save file.
+	// User can see the start point once the run completes by looking at the results.json.txt file.
 	else
-		sprintf (buf, "P+1 on %s, start=%" PRIu32 "/%" PRIu32 ", B1=%" PRIu64 ", B2=%" PRIu64 "\n", testnum, pp1data.numerator, pp1data.denominator, pp1data.B, pp1data.C);
+		sprintf (buf, "P+1 on %s, random start, B1=%" PRIu64 ", B2=%" PRIu64 "\n", testnum, pp1data.B, pp1data.C);
 	OutputStr (thread_num, buf);
 	if (w->sieve_depth > 0.0 && !pp1data.optimal_B2) {
 		double prob = pm1prob (pp1data.takeAwayBits, (unsigned int) w->sieve_depth, (double) pp1data.B, (double) pp1data.C) * pp1data.success_rate;
