@@ -6654,6 +6654,7 @@ int pminus1 (
 	double	one_over_len, one_over_B, base_pct_complete, one_bit_pct;
 	double	last_output, last_output_t, last_output_r;
 	double	allowable_maxerr, output_frequency, output_title_frequency;
+	double	restart_maxerr = 0.0;
 	int	first_iter_msg;
 	int	msglen;
 	char	*str, *msg;
@@ -6786,6 +6787,7 @@ restart:
 /* running the first-test and double-check simultaneously. */
 
 	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) (near_fft_limit ? 0.421875 : 0.40625));
+	if (restart_maxerr > allowable_maxerr) allowable_maxerr = restart_maxerr;
 
 /* Check for a save file and read the save file.  If there is an error */
 /* reading the file then restart the P-1 factoring job from scratch. */
@@ -7740,6 +7742,8 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 err:	if (gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) {
 		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file.\n", gw_get_maxerr (&pm1data.gwdata));
 		OutputStr (thread_num, buf);
+		// Restart with an abnormally high allowable maxerr (avoids loops for barely over the limit roundoff errors)
+		if (gw_get_maxerr (&pm1data.gwdata) < 0.46 && allowable_maxerr < 0.46) restart_maxerr = 0.46;
 	} else {
 		OutputBoth (thread_num, "SUMOUT error occurred.\n");
 		stop_reason = SleepFive (thread_num);
@@ -9151,6 +9155,7 @@ int pplus1 (
 	double	one_over_B, base_pct_complete, one_bit_pct;
 	double	last_output, last_output_t, last_output_r;
 	double	allowable_maxerr, output_frequency, output_title_frequency;
+	double	restart_maxerr = 0.0;
 	char	*str, *msg;
 	int	msglen;
 	double	timers[2];
@@ -9314,6 +9319,7 @@ restart:
 /* running the first-test and double-check simultaneously. */
 
 	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) (near_fft_limit ? 0.421875 : 0.40625));
+	if (restart_maxerr > allowable_maxerr) allowable_maxerr = restart_maxerr;
 
 /* Check for a save file and read the save file.  If there is an error reading the file then restart the P+1 factoring job from scratch. */
 /* Limit number of backup files we try to read in case there is an error deleting bad save files. */
@@ -10231,6 +10237,8 @@ bingo:	if (pp1data.state < PP1_STATE_MIDSTAGE)
 err:	if (gw_get_maxerr (&pp1data.gwdata) > allowable_maxerr) {
 		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file.\n", gw_get_maxerr (&pp1data.gwdata));
 		OutputStr (thread_num, buf);
+		// Restart with an abnormally high allowable maxerr (avoids loops for barely over the limit roundoff errors)
+		if (gw_get_maxerr (&pp1data.gwdata) < 0.46 && allowable_maxerr < 0.46) restart_maxerr = 0.46;
 	} else {
 		OutputBoth (thread_num, "SUMOUT error occurred.\n");
 		stop_reason = SleepFive (thread_num);
