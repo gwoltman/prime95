@@ -6781,12 +6781,12 @@ restart:
 	near_fft_limit = exponent_near_fft_limit (&pm1data.gwdata);
 	gwsetnormroutine (&pm1data.gwdata, 0, ERRCHK || near_fft_limit, 0);
 
-/* Figure out the maximum round-off error we will allow.  By default this is 27/64 when near the FFT limit and 26/64 otherwise. */
+/* Figure out the maximum round-off error we will allow.  By default this is 28/64 when near the FFT limit and 26/64 otherwise. */
 /* We've found that this default catches errors without raising too many spurious error messages.  We let the user override */
 /* this default for user "Never Odd Or Even" who tests exponents well beyond an FFT's limit.  He does his error checking by */
 /* running the first-test and double-check simultaneously. */
 
-	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) (near_fft_limit ? 0.421875 : 0.40625));
+	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) (near_fft_limit ? 0.4375 : 0.40625));
 	if (restart_maxerr > allowable_maxerr) allowable_maxerr = restart_maxerr;
 
 /* Check for a save file and read the save file.  If there is an error */
@@ -7067,9 +7067,9 @@ restart0:
 
 	pm1data.stage1_prime--;				// Stage1_prime was not included by calc_exp.  Back up one for next sieve call.
 
-/* Do the larger primes of stage 1.  This stage uses 2.5 transforms per exponent bit.  Proceed until interim_B is finished. */
+/* Do the larger primes of stage 1.  This stage uses 3 transforms per exponent bit.  Proceed until interim_B is finished. */
 
-//GW  more efficient would be to build another big exponent and do a sliding window exponentiate!  Far less than 2.5 transforms / bit.
+//GW  more efficient would be to build another big exponent and do a sliding window exponentiate!  Far less than 3 transforms / bit.
 // We could (possibly) eliminate interim_B and put it's primes in the big exponent.
 // For really large B, repeat until done
 
@@ -7744,6 +7744,7 @@ err:	if (gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) {
 		OutputStr (thread_num, buf);
 		// Restart with an abnormally high allowable maxerr (avoids loops for barely over the limit roundoff errors)
 		if (gw_get_maxerr (&pm1data.gwdata) < 0.46 && allowable_maxerr < 0.46) restart_maxerr = 0.46;
+//GW: BUG - can we instead alter the restart value so that we operate on different FFT data?
 	} else {
 		OutputBoth (thread_num, "SUMOUT error occurred.\n");
 		stop_reason = SleepFive (thread_num);
@@ -9313,12 +9314,12 @@ restart:
 	near_fft_limit = exponent_near_fft_limit (&pp1data.gwdata);
 	gwerror_checking (&pp1data.gwdata, ERRCHK || near_fft_limit);
 
-/* Figure out the maximum round-off error we will allow.  By default this is 27/64 when near the FFT limit and 26/64 otherwise. */
+/* Figure out the maximum round-off error we will allow.  By default this is 28/64 when near the FFT limit and 26/64 otherwise. */
 /* We've found that this default catches errors without raising too many spurious error messages.  We let the user override */
 /* this default for user "Never Odd Or Even" who tests exponents well beyond an FFT's limit.  He does his error checking by */
 /* running the first-test and double-check simultaneously. */
 
-	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) (near_fft_limit ? 0.421875 : 0.40625));
+	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) (near_fft_limit ? 0.4375 : 0.40625));
 	if (restart_maxerr > allowable_maxerr) allowable_maxerr = restart_maxerr;
 
 /* Check for a save file and read the save file.  If there is an error reading the file then restart the P+1 factoring job from scratch. */
@@ -10239,6 +10240,7 @@ err:	if (gw_get_maxerr (&pp1data.gwdata) > allowable_maxerr) {
 		OutputStr (thread_num, buf);
 		// Restart with an abnormally high allowable maxerr (avoids loops for barely over the limit roundoff errors)
 		if (gw_get_maxerr (&pp1data.gwdata) < 0.46 && allowable_maxerr < 0.46) restart_maxerr = 0.46;
+//GW: BUG - can we instead alter the restart value so that we operate on different FFT data?
 	} else {
 		OutputBoth (thread_num, "SUMOUT error occurred.\n");
 		stop_reason = SleepFive (thread_num);
