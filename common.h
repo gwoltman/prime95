@@ -3,7 +3,7 @@
 |
 | This file contains handy #defines that I use in all my projects
 | 
-|  Copyright 2005-2020 Mersenne Research, Inc.
+|  Copyright 2005-2021 Mersenne Research, Inc.
 |  All Rights Reserved.
 +---------------------------------------------------------------------*/
 
@@ -56,6 +56,10 @@
 #define one_based_modulo(a,b)		((((a) - 1) % (b)) + 1)					// Return value between 1 and b
 #define _intmin(a,b)			(((int)(a) < (int)(b)) ? (int)(a) : (int)(b))
 #define _intmax(a,b)			(((int)(a) > (int)(b)) ? (int)(a) : (int)(b))
+#define primes_less_than(x)		((double)(x) / (log ((double)(x)) - 1.0))		// This is only an estimate
+#define isMersenne(k,b,n,c)		((k) == 1.0 && (b) == 2 && (c) == -1)
+#define isGeneralizedFermat(k,b,n,c)	((k) == 1.0 && isPowerOf2 (n) && (c) == 1)
+#define isPowerOf2(n)			(((n) & ((n)-1)) == 0)
 
 /* Define a "safe" strcpy.  The official C runtime library says that overlapping */
 /* buffers produce undefined results.  This safe strcpy allows overlapping */
