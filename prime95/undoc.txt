@@ -279,9 +279,9 @@ And P+1 can also override the B2 value in worktodo.txt.  Turn this feature off i
 prime.txt with:
 	Pplus1BestB2=0
 
-In P-1, P+1, and ECM stage 2 a bit array is allocated for finding prime pairs.  The default
-maximum size for this bit array is 250MB.  Only very large B2 values would need a
-bit array this large.  You can change the maximum bit array size with this prime.txt entry:
+In P-1, P+1, and ECM stage 2 a pairing map is allocated for recording prime pairs.  The default
+maximum size for this map is 250MB.  Only very large B2 values need a map this large.
+You can change the maximum map size with this poorly named prime.txt entry:
 	MaximumBitArraySize=n	(default is 250)
 Values from 1 to 2000 are supported.
 
