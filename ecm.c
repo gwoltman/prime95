@@ -15,6 +15,12 @@
  *
  *************************************************************/
 
+/* Includes */
+
+#include "pair.h"
+#include <iterator>
+#include <map>
+
 /* Global variables */
 
 int	QA_IN_PROGRESS = FALSE;
@@ -22,12 +28,327 @@ int	QA_TYPE = 0;
 giant	QA_FACTOR = NULL;
 int	PRAC_SEARCH = 7;
 
-/* Macros for readability */
+/* Forward declaration for a structure used to track a Montgomery ECM point -- needed for Dmultiple class */
 
-#define primes_less_than(x)		((double)(x) / (log ((double)(x)) - 1.0))
-#define isMersenne(k,b,n,c)		((k) == 1.0 && (b) == 2 && (c) == -1)
-#define isGeneralizedFermat(k,b,n,c)	((k) == 1.0 && isPowerOf2 (n) && (c) == 1)
-#define isPowerOf2(n)			(((n) & ((n)-1)) == 0)
+struct xz {
+	gwnum	x;		/* x or FFT(x) */
+	gwnum	z;		/* z or FFT(z) */
+};
+
+/**********************************************************************************************************************/
+/*                                Manage sets of relative primes to D/2
+/**********************************************************************************************************************/
+
+/* Experimentally derived sets of D/2 relative primes.  Balancing good pairing % with faster initialization times. */
+/* Data came from analyzing pairing percentage for B1=700000, B2=23100000, D=210, density = 0.29. */
+
+/* This set of data requires some intermediate calculations during initialization. */
+// The first value is the number of extra full sets, the second value is the number of extra partial sets.  The final values are the extra sets.
+
+// For now we are not using these relp sets that require intermediate calculations during init.  Someday we should try incorporating them.
+#ifdef BETTER_RELP_SETS
+int16_t relp_set_hard4[]  = {4,1,1,  0,1,4,10  ,2,7};			// 69.89%
+int16_t relp_set_hard4a[] = {4,0,1,  0,1,3,9   ,6};			// 69.88%
+//int16_t relp_set_hard4b[] = {4,1,0, 0,1,4,9  ,2};			// 69.88%
+//int16_t relp_set_hard4c[] = {4,1,1, 0,1,4,16 ,2,8};			// 69.87%
+int16_t relp_set_hard5[]  = {5,1,1,  0,1,4,9,36   ,2,18};		// 77.00%
+//int16_t relp_set_hard5a[] = {5,2,1, 0,1,4,10,25  ,2,6,12};		// 76.99%
+//int16_t relp_set_hard5b[] = {5,2,1, 0,1,4,10,28  ,2,7,14};		// 76.97%
+//int16_t relp_set_hard5c[] = {5,2,1, 0,1,4,16,64  ,2,8,32};		// 76.96%
+//int16_t relp_set_hard5d[] = {5,1,1, 0,1,4,9,25   ,2,17};		// 76.95%
+int16_t relp_set_hard5e[] = {5,0,1,  0,1,3,7,28   ,14};			// 76.89%
+int16_t relp_set_hard6[]  = {6,2,1,  0,1,3,9,21,84  ,6,12,42};		// 82.89%
+//int16_t relp_set_hard6a[] = {xxx,  0,1,4,9,36,84};			// 82.87%
+//int16_t relp_set_hard6b[] = {xxx,  0,1,3,10,28,73};			// 82.87%
+int16_t relp_set_hard6c[] = {6,1,1,  0,1,3,7,21,63  ,14,42};		// 82.72%
+int16_t relp_set_hard6d[] = {6,0,1,  0,1,3,7,15,63  ,31};		// 82.64%
+int16_t relp_set_hard7[]  = {7,4,1,  0,1,3,9,21,84,49   ,6,7,14,42,28};	// 87.70%
+//int16_t relp_set_hard7a[]  = {xxx, 0,1,4,9,36,84,109};		// 87.70%
+//int16_t relp_set_hard7b[] = {xxx,  0,1,3,9,21,84,129};		// 87.68%
+int16_t relp_set_hard7c[] = {7,0,1,  0,1,3,7,15,31,127  ,63};		// 87.50%
+//int16_t relp_set_hard8[] = {xxx,   0,1,3,9,21,84,49,129};		// 91.58%
+//int16_t relp_set_hard8a[] = {xxx,  0,1,3,9,21,84,49,109};		// 91.51%
+//int16_t relp_set_hard9[] = {xxx,   0,1,3,7,15,31,63,127,90};		// 94.26%
+// This "typo" easy9 produced better results sometimes, like 1% better for B1=10000, B2=500000, buffers=2160
+//int16_t relp_set_NOTeasy9[]  = {9,0,0,  0,1,3,7,15,31,47,63,27};
+#endif
+
+/* This set of data requires no intermediate calculations (except for discarding the usable set -1) during initialization. */
+/* That is, every D/2 set can be calculated be adding a multiple-of-D to a previous D/2 set, where the difference is also a previous D/2 set. */
+/* NOTE: We might eek out a little more performance by using "negative sets".  Try building on 0,1,-3 = 61.13%.  If we do explore negative sets, */
+/* beware that there are optimizations dealing with relocs near B2_start and B2_end in pair.cpp that assumes sets are predominately positive. */
+
+int16_t relp_set_easy2[]  = {2,0,0,  0,-1};								// 33.16% 49.57%
+int16_t relp_set_easy3[]  = {3,0,0,  0,1,-3};								// 61.13%
+int16_t relp_set_easy4[]  = {4,0,0,  0,1,3,7};								// 69.69%
+int16_t relp_set_easy5[]  = {5,0,0,  0,1,3,7,15};							// 76.74%
+int16_t relp_set_easy6[]  = {6,0,0,  0,1,3,7,15,31};							// 82.51%
+int16_t relp_set_easy7[]  = {7,0,0,  0,1,3,7,15,31,63};							// 87.40%
+int16_t relp_set_easy8[]  = {8,0,0,  0,1,3,7,15,31,63,127};						// 91.43%
+int16_t relp_set_easy9[]  = {9,0,0,  0,1,3,7,15,31,63,127,47};						// 93.13%
+int16_t relp_set_easy10[] = {10,0,0,  0,1,3,6,13,27,55,111,223,51};					// 96.04%
+int16_t relp_set_easy11[] = {11,0,0,  0,1,3,6,13,27,48,55,111,223,5};					// 97.36%
+int16_t relp_set_easy12[] = {12,0,0,  0,1,3,5,6,13,27,48,55,111,223,96};				// 98.17%
+int16_t relp_set_easy13[] = {13,0,0,  0,1,3,5,6,13,21,27,48,55,111,223,219};				// 98.70%
+int16_t relp_set_easy14[] = {14,0,0,  0,1,3,5,6,13,21,27,48,55,111,219,223,209};			// 99.03%
+int16_t relp_set_easy15[] = {15,0,0,  0,1,3,5,6,13,21,27,48,55,111,219,223,209,83};			// 99.25%
+int16_t relp_set_easy16[] = {16,0,0,  0,1,3,5,6,13,21,27,48,55,83,111,209,219,223,201};			// 99.39%
+int16_t relp_set_easy17[] = {17,0,0,  0,1,3,5,6,13,21,27,48,55,83,111,201,209,219,223,216};		// 99.48%
+int16_t relp_set_easy18[] = {18,0,0,  0,1,3,5,6,13,21,27,48,55,83,111,201,209,216,219,223,231};		// 99.55%
+int16_t relp_set_easy19[] = {19,0,0,  0,1,3,5,6,13,21,27,48,55,83,111,201,209,216,219,223,231,20};	// 99.59%
+int16_t relp_set_easy20[] = {20,0,0,  0,1,3,5,6,13,20,21,27,48,55,83,111,201,209,216,219,223,231,222};	// 99.62%
+
+/* Return a relp_set that will work with the given multiplier */
+/* Over time we may enhance this to return different relp_sets based on the bounds and/or cost of computing intermediate sets. */
+
+int16_t *relp_set_selection (int L) {
+	if (L <= 2) return relp_set_easy2;
+	if (L <= 3) return relp_set_easy3;
+	if (L <= 4) return relp_set_easy4;
+	if (L <= 5) return relp_set_easy5;
+	if (L <= 6) return relp_set_easy6;
+	if (L <= 7) return relp_set_easy7;
+	if (L <= 8) return relp_set_easy8;
+	if (L <= 9) return relp_set_easy9;
+	if (L <= 10) return relp_set_easy10;
+	if (L <= 11) return relp_set_easy11;
+	if (L <= 12) return relp_set_easy12;
+	if (L <= 13) return relp_set_easy13;
+	if (L <= 14) return relp_set_easy14;
+	if (L <= 15) return relp_set_easy15;
+	if (L <= 16) return relp_set_easy16;
+	if (L <= 17) return relp_set_easy17;
+	if (L <= 18) return relp_set_easy18;
+	if (L <= 19) return relp_set_easy19;
+	return relp_set_easy20;
+}
+
+/* Return the maximum relp_set from the array of relp_sets */
+
+int16_t get_max_relp_set (
+	int16_t *relp_sets)
+{
+	int16_t	num_permanent_sets = *relp_sets;
+	int16_t max_set;
+	for (int16_t i = 0; i < num_permanent_sets; i++) {
+		if (i == 0 || max_set < relp_sets[3 + i]) max_set = relp_sets[3 + i];
+	}
+	return (max_set);
+}
+
+// Data stored for each relative prime set to compute.  These are stored in a map sorted by relp set number
+class relp_set_data {
+public:
+	// Constructor	
+	relp_set_data (int16_t b, bool c, bool d) { last_used_by = b; nQx_store = base = Dmultiple = diff = 0; permanent = c; partial = d; }
+	// Data
+	int16_t		nQx_store;		// Where this relp_set is stored in the nQx array
+	int16_t		last_used_by;		// The largest relp_set that used this relp_set as base or diff
+	int16_t		base;			// Set will be computed by base + Dmultiple and diff
+	int16_t		Dmultiple;		// Set will be computed by base + Dmultiple and diff
+	int16_t		diff;			// Set will be computed by base + Dmultiple and diff
+	bool		permanent;		// TRUE if this relp_set is used in creating prime pairings
+	bool		partial;		// TRUE if only part of the relp_set must be calculated
+};
+// Custom sort order so that relp_sets are ordered 0,-1,1,-2,...  This mimics the order in which the sets need to be computed.
+struct relpclasscomp {
+	bool operator() (const int16_t &lhs, const int16_t &rhs) const {
+		return (abs(lhs) < abs(rhs) || (abs(lhs) == abs(rhs) && lhs < rhs));
+	}
+};
+using relp_set_data_map = std::map<int16_t,relp_set_data,relpclasscomp>;
+
+// Data stored for each multiple-of-D used in calculating relp_sets.  These are stored in a sorted map.
+class Dmultiple_data {
+public:
+	// Constructor
+	Dmultiple_data (int16_t rlub, uint64_t dlub) {val.x = NULL; val.z = NULL; relp_last_used_by = rlub; Dmult_last_used_by = dlub; base = addin = diff = 0; }
+	// Destructor
+	~Dmultiple_data () { if (!do_not_free_val) { gwfree (gwdata, val.x); gwfree (gwdata, val.z); } }
+	// Set val buffers
+	void set_val_buffers (gwhandle *gw, gwnum x, bool do_not_free_flag) { gwdata = gw; val.x = x; val.z = NULL; do_not_free_val = do_not_free_flag; }
+	void set_val_buffers (gwhandle *gw, gwnum x, gwnum z, bool do_not_free_flag) { gwdata = gw; val.x = x; val.z = z; do_not_free_val = do_not_free_flag; }
+	// Update Dmult_last_used_by
+	void set_Dmult_last_used_by (uint64_t x) { if (Dmult_last_used_by < x) Dmult_last_used_by = x; }
+	// Free value if Dmult_last_used_by satisfied
+	void free_if_Dmult_last_used_by (uint64_t x) {
+		if (do_not_free_val) return;
+		if (relp_last_used_by == 0 && Dmult_last_used_by == x) {
+			gwfree (gwdata, val.x);
+			gwfree (gwdata, val.z);
+			val.x = val.z = NULL;
+		}
+	}
+	// Free value if relp_last_used_by satisfied
+	void free_if_relp_last_used_by (int16_t x) {
+		if (do_not_free_val) return;
+		if (relp_last_used_by == x) {
+			gwfree (gwdata, val.x);
+			gwfree (gwdata, val.z);
+			val.x = val.z = NULL;
+		}
+	}
+	// Data
+	int16_t		relp_last_used_by;	// The largest relp_set that needs this Dmultiple.  Zero if not needed by any relp_sets.
+	uint64_t	Dmult_last_used_by;	// The largest Dmultiple calculation that needs this Dmultiple
+	uint64_t	base;			// Dmultiple will be computed by base + addin and diff
+	uint64_t	addin;			// Dmultiple will be computed by base + Dmultiple and diff
+	uint64_t	diff;			// Dmultiple will be computed by base + Dmultiple and diff
+	struct xz	val;			// Ptr to multiple-of-D value stored as a struct xz for ECM (P-1/P+1 stores the value in val.x)
+	gwhandle	*gwdata;		// Handle used to free val's gwnums
+	bool		do_not_free_val;	// Flag to prohibit freeing val's gwnums
+};
+using Dmultiple_data_map = std::map<uint64_t,Dmultiple_data>;
+
+// Populate the relp_set_data and Dmultiple_data structures based on the relp_set that has been selected
+
+void process_relp_sets (
+	int	totrels,
+	int	numrels,
+	int16_t *relp_sets,
+	relp_set_data_map &relp_set_map,
+	Dmultiple_data_map &Dmultiple_map)
+{
+	int16_t	num_permanent_sets = *relp_sets++;
+	int16_t num_intermediate_full_sets = *relp_sets++;
+	int16_t num_intermediate_parital_sets = *relp_sets++;
+	int16_t num_sets = num_permanent_sets + num_intermediate_full_sets + num_intermediate_parital_sets;
+
+	// Create an entry for each relp_set plus the special -1 relp_set which is always calculated.
+	for (int16_t i = 0; i < num_sets + 1; i++) {
+		bool	permanent = (i < num_permanent_sets);
+		bool	partial = (i == num_permanent_sets - 1) || (i >= num_sets - num_intermediate_parital_sets && i < num_sets);
+		int16_t	set;
+
+		// Get the relp_set #, the last iteration through this loop processes the special -1 relp_set
+		if (i == num_sets) { if (relp_set_map.find(-1) != relp_set_map.end()) continue; set = -1; }
+		else set = relp_sets[i];
+
+		// Add relp_set to the map
+		relp_set_map.insert ({set, {set, permanent, partial}});
+	}
+
+	// Loop through relp_sets to decide where each set is stored in the nQx array.  The nQx array indexes must match the ordering used by
+	// fill_pairmap in pair.cpp.  The pairing routine sorts the relative primes.
+	int	relps_in_partial_set = one_based_modulo (totrels, numrels);
+	int	permanent_nQx_index = 0;
+	int	temporary_nQx_index = (num_permanent_sets - 1) * numrels + relps_in_partial_set;
+	for (auto this_set = relp_set_map.begin(); this_set != relp_set_map.end(); ++this_set) {
+		if (this_set->second.permanent) {
+			this_set->second.nQx_store = permanent_nQx_index;
+			permanent_nQx_index += this_set->second.partial ? relps_in_partial_set : numrels;
+		} else {
+			this_set->second.nQx_store = temporary_nQx_index;
+			temporary_nQx_index += this_set->second.partial ? relps_in_partial_set : numrels;
+		}
+	}
+
+	// Now loop through relp_sets calculating how each will be constructed
+	for (auto this_set = relp_set_map.begin(); this_set != relp_set_map.end(); ++this_set) {
+		// Relp sets 0 and -1 are precomputed
+		if (this_set->first == 0 || this_set->first == -1) continue;
+		// Scan through smaller sets looking for a base set and diff set that lets us create this set using a Dmultiple and Lucas additions
+		for (auto base_set = std::make_reverse_iterator(this_set); ; ++base_set) {
+			// This relp_set and base relp_set must have the same sign
+			if (((this_set->first < 0) ^ (base_set->first < 0)) == 1) continue;
+			// Check if a diff_set exists such that base_set can be used to calculate this_set
+			int16_t	Dmultiple = abs(this_set->first) - abs(base_set->first);
+			int16_t diff = (this_set->first > 0) ? base_set->first - Dmultiple : base_set->first + Dmultiple;
+			auto diff_set = relp_set_map.find(diff);
+			if (diff_set == relp_set_map.end()) continue;
+			// Don't build a full relp set from a partial relp set
+			if (!this_set->second.partial && (base_set->second.partial || diff_set->second.partial)) continue;
+			// Don't build a negative partial relp set from a partial diff relp set.  Reverse indexing into the partial diff set will not work.
+			if (this_set->first < 0 && this_set->second.partial && diff_set->second.partial) continue;
+			// We've found our Lucas addition, remember it
+			this_set->second.base = base_set->first;
+			this_set->second.Dmultiple = Dmultiple;
+			this_set->second.diff = diff;
+			base_set->second.last_used_by = this_set->first;
+			diff_set->second.last_used_by = this_set->first;
+			// Update or create Dmultiple data
+			auto Dfind = Dmultiple_map.find(Dmultiple);
+			if (Dfind != Dmultiple_map.end()) Dfind->second.relp_last_used_by = this_set->first;
+			else Dmultiple_map.insert ({(uint64_t) Dmultiple, {this_set->first, (uint64_t) Dmultiple}});
+			break;
+		}
+	}
+}
+
+// Process the Dmultiple_data_map, finding best way to calculate the needed D-multiples
+
+void process_Dmult_map (
+	Dmultiple_data_map &Dmultiple_map)
+{
+
+// Determine how all the multiples-of-D will be calculated
+
+	for (auto this_Dmult = Dmultiple_map.rbegin(); this_Dmult != Dmultiple_map.rend(); ++this_Dmult) {
+		if (this_Dmult->first == 1) break;
+
+		// Create a default Lucas addition solution in case no better plan is found
+		uint64_t proposed_base, proposed_addin, proposed_diff, create_1, create_2;
+		if ((this_Dmult->first & 1) == 0) {	// Even multiple of D
+			proposed_base = this_Dmult->first / 2;
+			proposed_addin = this_Dmult->first / 2;
+			proposed_diff = 0;
+			create_1 = proposed_base;
+			create_2 = 0;
+		} else {				// Odd multiple of D
+			proposed_base = this_Dmult->first / 2 + 1;
+			proposed_addin = this_Dmult->first / 2;
+			proposed_diff = 1;
+			create_1 = proposed_base;
+			create_2 = proposed_addin;
+		}
+
+		// Scan through smaller D-multiples looking for a base, addin, and diff that lets us compute this D-multiple using Lucas addition
+		// We scan in the forward direction to find a doubling solution first (ell_dbl is cheaper than ell_add).
+		for (auto base_Dmult = Dmultiple_map.lower_bound((this_Dmult->first+1)/2); base_Dmult->first < this_Dmult->first; base_Dmult++) {
+			// Computed the needed addin and diff
+			uint64_t addin = this_Dmult->first - base_Dmult->first;
+			uint64_t diff = base_Dmult->first - addin;
+			bool	addin_exists = (Dmultiple_map.find(addin) != Dmultiple_map.end());
+			bool	diff_exists = (diff == 0 || Dmultiple_map.find(diff) != Dmultiple_map.end());
+			// If we've found a suitable Lucas addition, remember it
+			if (addin_exists && diff_exists) {
+				proposed_base = base_Dmult->first;
+				proposed_addin = addin;
+				proposed_diff = diff;
+				create_1 = create_2 = 0;
+				break;
+			}
+			// If we have addin, remember diff as a possible route to computing this_Dmult
+			if (addin_exists && diff < create_1) {
+				proposed_base = base_Dmult->first;
+				proposed_addin = addin;
+				proposed_diff = diff;
+				create_1 = diff;
+				create_2 = 0;
+			}
+			// If we have diff, remember addin as a possible route to computing this_Dmult
+			if (diff_exists && addin < create_1) {
+				proposed_base = base_Dmult->first;
+				proposed_addin = addin;
+				proposed_diff = diff;
+				create_1 = addin;
+				create_2 = 0;
+			}
+		}
+		// Record the best proposed solution
+		this_Dmult->second.base = proposed_base;
+		this_Dmult->second.addin = proposed_addin;
+		this_Dmult->second.diff = proposed_diff;
+		if (create_1) Dmultiple_map.insert ({create_1, {0, create_1}});		// Create new D-multiple not used by any relp set
+		if (create_2) Dmultiple_map.insert ({create_2, {0, create_2}});		// Create new D-multiple not used by any relp set
+		// Maintain Dmult_last_used_by
+		Dmultiple_map.find (proposed_base)->second.set_Dmult_last_used_by (this_Dmult->first);
+		if (proposed_diff != 0) {
+			Dmultiple_map.find (proposed_addin)->second.set_Dmult_last_used_by (this_Dmult->first);
+			Dmultiple_map.find (proposed_diff)->second.set_Dmult_last_used_by (this_Dmult->first);
+		}
+	}
+}
 
 /**********************************************************************************************************************/
 /*                                ECM, P-1, and P+1 best stage 2 implementation routines                              */
@@ -35,41 +356,42 @@ int	PRAC_SEARCH = 7;
 
 /* Various D values that we will consider in creating an ECM, P-1 or P+1 plan */
 
-#define NUM_D		21
+#define NUM_D		24
 struct D_data {
 	int	D;
 	int	numrels;			// Number of values less than D/2 that are relatively prime to D
 	int	first_missing_prime;		// First prime that does not divide D
 	int	second_missing_prime;		// Second prime that does not divide D
 } D_data[NUM_D] = {
-	{ 2 * 3 * 5, 2 * 4 / 2, 7, 11 },				// 30, 4
-	{ 2 * 3 * 7, 2 * 6 / 2, 5, 11 },				// 42, 6
-	{ 2 * 3 * 5 * 2, 2 * 4 / 2 * 2, 7, 11 },			// 60, 8
-//	{ 2 * 5 * 7, 4 * 6 / 2, 3, 11 },				// 70, 12
-	{ 2 * 3 * 5 * 3, 2 * 4 / 2 * 3, 7, 11 },			// 90, 12
-	{ 2 * 3 * 5 * 4, 2 * 4 / 2 * 4, 7, 11 },			// 120, 16
-	{ 2 * 3 * 5 * 5, 2 * 4 / 2 * 5, 7, 11 },			// 150, 20
-	{ 2 * 3 * 5 * 7, 2 * 4 * 6 / 2, 11, 13 },			// 210, 24
-	{ 2 * 3 * 5 * 11, 2 * 4 * 10 / 2, 7, 13 },			// 330, 40
-	{ 2 * 3 * 5 * 7 * 2, 2 * 4 * 6 / 2 * 2, 11, 13 },		// 420, 48
-	{ 2 * 3 * 7 * 11, 2 * 6 * 10 / 2, 5, 13 },			// 462, 60
-	{ 2 * 3 * 5 * 7 * 3, 2 * 4 * 6 / 2 * 3, 11, 13 },		// 630, 72
-	{ 2 * 3 * 5 * 7 * 4, 2 * 4 * 6 / 2 * 4, 11, 13 },		// 840, 96
-//	{ 2 * 5 * 7 * 11, 4 * 6 * 10 / 2, 3, 13 },			// 770, 120
-	{ 2 * 3 * 5 * 7 * 5, 2 * 4 * 6 / 2 * 5, 11, 13 },		// 1050, 120
-	{ 2 * 3 * 5 * 7 * 6, 2 * 4 * 6 / 2 * 6, 11, 13 },		// 1260, 144
-	{ 2 * 3 * 5 * 7 * 7, 2 * 4 * 6 / 2 * 7, 11, 13 },		// 1470, 168
-	{ 2 * 3 * 5 * 7 * 8, 2 * 4 * 6 / 2 * 8, 11, 13 },		// 1680, 192
-	{ 2 * 3 * 5 * 7 * 9, 2 * 4 * 6 / 2 * 9, 11, 13 },		// 1890, 216
-	{ 2 * 3 * 5 * 7 * 11, 2 * 4 * 6 * 10 / 2, 13, 17 },		// 2310, 240
-	{ 2 * 3 * 5 * 7 * 13, 2 * 4 * 6 * 12 / 2, 11, 17 },		// 2730, 288
-//	{ 2 * 3 * 5 * 11 * 13, 2 * 4 * 10 * 12 / 2, 7, 17 },		// 4290, 480
-	{ 2 * 3 * 5 * 7 * 11 * 2, 2 * 4 * 6 * 10 / 2 * 2, 13, 17 },	// 4620, 480
-//	{ 2 * 3 * 7 * 11 * 13, 2 * 6 * 10 * 12 / 2, 5, 17 },		// 6006, 720
-	{ 2 * 3 * 5 * 7 * 11 * 3, 2 * 4 * 6 * 10 / 2 * 3, 13, 17 }	// 6930, 720
+	{ 2 * 3 * 5                  , 2 * 4 / 2, 7, 11 },			// 30, 4
+	{ 2 * 3     * 7              , 2 * 6 / 2, 5, 11 },			// 42, 6
+	{ 2 * 3 * 5               * 2, 2 * 4 / 2 * 2, 7, 11 },			// 60, 8
+	{ 2 * 3 * 5               * 3, 2 * 4 / 2 * 3, 7, 11 },			// 90, 12
+	{ 2 * 3 * 5               * 4, 2 * 4 / 2 * 4, 7, 11 },			// 120, 16
+	{ 2 * 3 * 5               * 5, 2 * 4 / 2 * 5, 7, 11 },			// 150, 20
+	{ 2 * 3 * 5 * 7              , 2 * 4 * 6 / 2, 11, 13 },			// 210, 24
+	{ 2 * 3 * 5     * 11         , 2 * 4 * 10 / 2, 7, 13 },			// 330, 40
+	{ 2 * 3     * 7           * 7, 2 * 6 / 2 * 7, 5, 11 },			// 294, 42
+	{ 2 * 3 * 5 * 7           * 2, 2 * 4 * 6 / 2 * 2, 11, 13 },		// 420, 48
+	{ 2 * 3     * 7 * 11         , 2 * 6 * 10 / 2, 5, 13 },			// 462, 60
+	{ 2 * 3 * 5 * 7           * 3, 2 * 4 * 6 / 2 * 3, 11, 13 },		// 630, 72
+	{ 2 * 3     * 7           *14, 2 * 6 / 2 * 7 * 2, 5, 11 },		// 588, 84
+	{ 2 * 3 * 5 * 7           * 4, 2 * 4 * 6 / 2 * 4, 11, 13 },		// 840, 96
+	{ 2 * 3 * 5 * 7           * 5, 2 * 4 * 6 / 2 * 5, 11, 13 },		// 1050, 120
+	{ 2 * 3 * 5 * 7           * 6, 2 * 4 * 6 / 2 * 6, 11, 13 },		// 1260, 144
+	{ 2 * 3 * 5 * 7           * 7, 2 * 4 * 6 / 2 * 7, 11, 13 },		// 1470, 168
+	{ 2 * 3 * 5 * 7           * 8, 2 * 4 * 6 / 2 * 8, 11, 13 },		// 1680, 192
+	{ 2 * 3 * 5 * 7           * 9, 2 * 4 * 6 / 2 * 9, 11, 13 },		// 1890, 216
+	{ 2 * 3 * 5 * 7 * 11         , 2 * 4 * 6 * 10 / 2, 13, 17 },		// 2310, 240
+	{ 2 * 3 * 5 * 7      * 13    , 2 * 4 * 6 * 12 / 2, 11, 17 },		// 2730, 288
+//	{ 2 * 3 * 5     * 11 * 13    , 2 * 4 * 10 * 12 / 2, 7, 17 },		// 4290, 480
+	{ 2 * 3 * 5 * 7 * 11      * 2, 2 * 4 * 6 * 10 / 2 * 2, 13, 17 },	// 4620, 480
+//	{ 2 * 3     * 7 * 11 * 13    , 2 * 6 * 10 * 12 / 2, 5, 17 },		// 6006, 720
+	{ 2 * 3 * 5 * 7 * 11      * 3, 2 * 4 * 6 * 10 / 2 * 3, 13, 17 },	// 6930, 720
+	{ 2 * 3 * 5 * 7 * 11      * 4, 2 * 4 * 6 * 10 / 2 * 4, 13, 17 }		// 9240, 960
 };
-#define MAX_D		6930
-#define MAX_RELPRIMES	720
+#define MAX_D		9240
+#define MAX_RELPRIMES	960
 
 // Map a D value to the D_data index
 int map_D_to_index (int D)
@@ -83,68 +405,134 @@ int map_D_to_index (int D)
 // Return minimum number of relprimes for a D (same as number of relative primes less than D/2)
 #define map_D_to_numrels(D)	D_data[map_D_to_index(D)].numrels
 
+/* Structure used to pass data to and return data from ECM, P-1, P+1 stage 2 costing routines */
+
+struct common_cost_data {
+	/* Data sent to cost function follows */
+	long	fftlen;			/* FFT length being used */
+	int	threads;		/* Number of threads used during FFTs */
+	int	numvals;		/* Maximum number of gwnum temporaries that can be allocated for relative prime data, pairmaps, */
+					/* ECM pooling.  Additional gwnums needed by ECM/P-1/P+1 are not included in this maximum number. */
+	uint64_t gap_start;		/* last_relocatable or zero (when pairmaps are split, c_start to gap_start are the remaining relocatables to pair) */
+	uint64_t gap_end;		/* a.k.a C_done (when pairmaps are split, gap_end to C are the remaining primes to pair) */
+	/* Data returned from cost function follows */
+	double	max_pairmap_size;	/* Maximum size of the pairing map */
+	int	D;			/* D value for big steps */
+	int	totrels;		/* Total number of relative primes used for pairing */
+	int	numrels;		/* Number of relative primes less than D / 2 */
+	double	multiplier;		/* Totrels / numrels */
+	int16_t *relp_sets;		/* The relp_sets to use in stage 2 */
+	uint64_t B2_start;		/* Stage 2 start */
+	uint64_t numDsections;		/* Number of D sections to process */
+	uint64_t max_pairmap_Dsections;	/* Number of D sections that can fit in a pairing map */
+	int	numvals_consumed_by_pairmap; /* Number of gwnums no longer available due to large pairing map */
+	double	est_pair_pct;		/* Estimated pairing percentage */
+	double	est_numprimes;		/* Expected number of primes in stage 2 */
+	double	est_numpairs;		/* Expected number of pairs in stage 2 */
+	double	est_numsingles;		/* Expected number of singles in stage 2 */
+	double	est_pairing_runtime;	/* Estimated stage 2 pairing cost (expressed as equivalent number of transforms) */
+	double	est_init_transforms;	/* Estimated stage 2 init cost (expressed as number of transforms) */
+	double	est_stage2_transforms;	/* Estimated stage 2 main loop cost (expressed as number of transforms) */
+	int	stage2_numvals;		/* Returned total number of gwnum temporaries that will be used in stage 2 */
+};
+
 /* Select the best D value for the given the number of temporary gwnums that can be allocated.  We trade off more D steps vs. better */
 /* prime pairing vs. different B2 start points using the ECM, P-1, or P+1 costing function. */
-/* Returns the cost.  Cost function can return more information, such as best D value, B2_start, B2_end. */
+/* Returns the cost.  Cost function can return more information, such as best ECM pooling type. */
 
 double best_stage2_impl_internal (
-	uint64_t C_start,		/* Starting point for bound #2 */
+	uint64_t C_start,		/* Starting point for bound #2 (usually B1, but can be different when multiple pairmaps are required) */
 	uint64_t C,			/* Bound #2 */
-	int	totrels,		/* Number of gwnum temporaries used for storing relative prime data */
-	double	numprimes,		/* Estimated number of primes to be processed in stage 2 */
-	int	max_bitarray_size,	/* Maximum size of the work bit array in MB */
-	double	(*cost_func)(int, uint64_t, uint64_t, uint64_t, int, double, double, double, void *), /* ECM, P-1 or P+1 costing function */
+	int	max_totrels,		/* Number of gwnum temporaries that can be used for storing relative prime data */
+	double	(*cost_func)(void *),	/* ECM, P-1 or P+1 costing function */
 	void	*cost_func_data)	/* User-supplied data to pass to the costing function */
 {
-	uint64_t B2_start, B2_end, numDsections, bitarraymaxDsections;
-	double	density, multiplier, pairing_percentage, numpairs, numsingles;
+	struct common_cost_data *c = (struct common_cost_data *) cost_func_data;
+	uint64_t B2_end;
+	float	pairing_percentage, pairing_runtime;
 	double	cost, best_cost;
 	int	D, i, best_i, j;
 
 /* Kludge to make one pass finding the best D value and a second pass to re-call the cost function using the best D. */
-/* Re-calling the cost function allows it to pass back any data that P-1, P+1, or ECM may need to save. */
+/* Re-calling the cost function allows us to pass back any data that P-1, P+1, or ECM may need to save. */
 
-	best_cost = 1.0e99;
+	cost = best_cost = 1.0e99;
 	for (j = 0; j < 2; j++) {
 
 /* Try various values of D until we find the best one. */
 
 	    for (i = 0; i < NUM_D; i++) {
+		int	totrels;	/* Actual number of gwnum temporaries that used for storing relative prime data */
 
 /* On second pass only cost the best D from the first pass */
 
 		if (j == 1) {
-			if (best_cost > 1.0e98) break;    
+			if (best_cost > 1.0e98) break;
 			i = best_i;
 		}
 
 /* Check if this D value would require using too many gwnum temporaries */
 
-		if (D_data[i].numrels > totrels) break;
+		if (D_data[i].numrels > max_totrels) break;
+
+/* We only support relp_sets up to 20 entries. */
+
+		totrels = max_totrels;
+		if (totrels > 20 * D_data[i].numrels) totrels = 20 * D_data[i].numrels;
 
 /* We move the smaller primes to a composite value higher up in the B1 to B2 range to improve our pairing chances and */
-/* reduce the number of D sections to process.  Calculate B2_start - the first prime that cannot be moved higher up. */
+/* reduce the number of D sections to process.  Calculate B2_start - the first prime that cannot be relocated higher. */
 
 		D = D_data[i].D;
 		B2_end = round_up_to_multiple_of (C - D / 2, D) + D / 2;
-		B2_start = (uint64_t) floor ((double) (B2_end / (double) D_data[i].first_missing_prime));
-		if (B2_start < C_start) B2_start = C_start;
-		B2_start = round_down_to_multiple_of (B2_start + D / 2, D) - D / 2;
-		numDsections = (B2_end - B2_start) / D;
-		bitarraymaxDsections = divide_rounding_down ((uint64_t) max_bitarray_size * 8000000, (uint64_t) totrels);
+		// Compute values needed by the costing functions
+		c->B2_start = (uint64_t) floor ((double) (B2_end / (double) D_data[i].first_missing_prime));
+		if (c->B2_start < C_start) c->B2_start = C_start;
+		if (c->B2_start < D / 2) break;		// Protects against next line returning negative result
+		c->B2_start = round_down_to_multiple_of (c->B2_start + D / 2, D) - D / 2;
+		c->D = D;
+		c->numrels = D_data[i].numrels;
+		c->numDsections = (B2_end - c->B2_start) / D;
 
-/* Estimate our prime pairing percentage from the prime density and excess number of relative primes. */
-/* This formula is by no means perfect, but seems to be reasonably accurate over the range of 1x to 7x relative primes. */
+/* When pairmaps are split, the last_relocatable set by the first pairmap restricts which D values can now be used */
 
-		density = (numprimes / (B2_end - B2_start)) * ((double) D / ((double) D_data[i].numrels * 2));
-		multiplier = (double) totrels / (double) D_data[i].numrels;
-		pairing_percentage = 1.0 - pow (1.0 - density, (5.0 - multiplier) * 0.05 + pow (multiplier, 0.85));
-		numpairs = (pairing_percentage * numprimes) / 2.0;
-		numsingles = numprimes - numpairs * 2.0;
+		if (c->gap_start && c->gap_start * D_data[i].first_missing_prime > B2_end) continue;
+
+/* Estimate our prime pairing percentage and number of D sections that can fit in a pairing map */
+
+		estimate_pairing (D_data[i].second_missing_prime, C_start, C, totrels, D_data[i].numrels, &pairing_percentage, &pairing_runtime);
+		c->est_pair_pct = pairing_percentage;
+		c->est_numpairs = (pairing_percentage * c->est_numprimes) / 2.0;
+		c->est_numsingles = c->est_numprimes - c->est_numpairs * 2.0;
+		double	est_totpairs = c->est_numpairs + c->est_numsingles;		// Also acts as estimated size of the pairing map
+		c->max_pairmap_Dsections = estimate_max_pairmap_Dsections (c->max_pairmap_size, c->numDsections, est_totpairs);
+		c->numvals_consumed_by_pairmap = (int) ((est_totpairs > c->max_pairmap_size ? c->max_pairmap_size : est_totpairs) / (c->fftlen * sizeof (double)));
+		// Catch cases where not enough memory for totrels and the pairing map
+		if (totrels + c->numvals_consumed_by_pairmap > c->numvals) continue;
+
+/* Estimate our cost of finding all the prime pairs.  These formulas came from running single threaded timings on 12K, 512K, 5760K FFTs on the */
+/* same machine that did the pairing runtimes.  Thus, this converts (roughly) pairing runtimes into an equivalent cost in number-of-transforms. */
+/* Squaring timings up to 512K:	1.69ms * 2^(log2(FFTsize/512K)*1.0407) */
+/* Squaring timings above 512K:	1.69ms * 2^(log2(FFTsize/512K)*1.093) */
+
+		if (c->fftlen < 512*1024) c->est_pairing_runtime = pairing_runtime / (0.00169 * pow(2.0,log2((double)c->fftlen/(512.0*1024.0))*1.0407)) * 2.0;
+		else c->est_pairing_runtime = pairing_runtime / (0.00169 * pow(2.0,log2((double)c->fftlen/(512.0*1024.0))*1.093)) * 2.0;
+		// Make some adjustments for multi-threaded FFTs vs. single-threaded pairing
+		if (c->threads == 2) c->est_pairing_runtime *= 1.9;
+		else if (c->threads == 3) c->est_pairing_runtime *= 2.7;
+		else if (c->threads >= 4) c->est_pairing_runtime *= 3.2;
+
+/* Pick the relp_sets to use.  Someday we should expand the options for which relp_sets are tried (don't limit to just the easy sets). */
+
+		c->totrels = totrels;
+		c->multiplier = (double) totrels / (double) c->numrels;
+		c->relp_sets = relp_set_selection ((int) ceil (c->multiplier));
 
 /* Calculate the cost of this stage 2 plan */
 
-		cost = (*cost_func) (D, B2_start, numDsections, bitarraymaxDsections, D_data[i].numrels, multiplier, numpairs, numsingles, cost_func_data);
+		cost = (*cost_func) (cost_func_data);
+//{char buf[200];sprintf (buf, "D: %d, totrels/numrels: %.2f, cost: %.2f (%.5f%% %.2f %.2f %.2f)\n", D, c->multiplier, cost,
+// c->est_pair_pct*100.0,c->est_pairing_runtime,c->est_init_transforms,c->est_stage2_transforms); OutputStr(MAIN_THREAD_NUM, buf);}
 
 /* On second pass, break out of loop after costing the best D from the first pass */
 
@@ -155,6 +543,12 @@ double best_stage2_impl_internal (
 		if (cost < best_cost) {
 			best_cost = cost;
 			best_i = i;
+		}
+
+/* Break out of loop after a couple of failed attempts at improving our best (we're going in the wrong direction) */
+
+		else {
+			if (best_cost < 1.0e98 && i > best_i + 2) break;
 		}
 	    }
 	}
@@ -169,69 +563,85 @@ double best_stage2_impl_internal (
 /* Returns the cost.  Cost function can return more information, such as best D value, B2_start, B2_end. */
 
 double best_stage2_impl (
-	uint64_t C_start,		/* Starting point for bound #2 */
+	uint64_t C_start,		/* Starting point for bound #2 -- usually bound #1 */
+	uint64_t gap_start,		/* last_relocatable or zero (when pairmaps are split, c_start to gap_start are the remaining relocatables to pair) */
+	uint64_t gap_end,		/* a.k.a C_done (when pairmaps are split, gap_end to C are the remaining primes to pair) */
 	uint64_t C,			/* Bound #2 */
-	int	maxtotrels,		/* Maximum number of gwnum temporaries that can be used for storing relative prime data */
-	double	(*cost_func)(int, uint64_t, uint64_t, uint64_t, int, double, double, double, void *), /* ECM, P-1, or P+1 costing function */
+	int	numvals,		/* Number of gwnum temporaries that can be used for storing relative prime data (or other uses such as pooling) */
+	double	(*cost_func)(void *),	/* ECM, P-1, or P+1 costing function */
 	void	*cost_func_data)	/* User-supplied data to pass to the costing function */
 {
-	int	max_bitarray_size;	/* Maximum size of the work bit array in MB */
-	double	numprimes;		/* Estimated number of primes */
+	struct common_cost_data *c = (struct common_cost_data *) cost_func_data;
 	struct best_stage2_cost {
 		int	totrels;
 		double	cost;
 	} best[3], midpoint;
 
-/* Return infinite cost if maxtotrels is less than D=30 needs */
+/* Sanity check and save the gap parameters */
 
-	if (maxtotrels < 4) return (1.0e99);
+	ASSERT (gap_start == 0 || (gap_start > C_start && gap_start <= gap_end));
+	ASSERT (gap_start == 0 || (gap_end >= gap_start && gap_end < C));
+	c->gap_start = gap_start;
+	c->gap_end = gap_end;
 
-/* Determine the maximum bit arraysize.  The costing functions must double (or more) the stage 2 setup costs if the bit array must be split in chunks. */
+/* Return infinite cost if numvals is less than D=30 needs */
 
-	max_bitarray_size = IniGetInt (INI_FILE, "MaximumBitArraySize", 250);
-	if (max_bitarray_size > 2000) max_bitarray_size = 2000;
-	if (max_bitarray_size < 1) max_bitarray_size = 1;
+	c->numvals = numvals;
+	if (c->numvals < 4) return (1.0e99);
+
+/* Determine the maximum pairmap size.  The costing functions may increase the stage 2 setup costs if the pairmap must be split in chunks. */
+
+	{
+		int max_pairmap_size = IniGetInt (INI_FILE, "MaximumBitArraySize", 250);
+		if (max_pairmap_size > 2000) max_pairmap_size = 2000;
+		if (max_pairmap_size < 1) max_pairmap_size = 1;
+		c->max_pairmap_size = (double) max_pairmap_size * 1000000.0;
+	}
 
 /* Estimate the number of primes between B1 and B2 */
 
-	numprimes = primes_less_than (C) - primes_less_than (C_start);
+	c->est_numprimes = primes_less_than (C) - primes_less_than (C_start);
+	if (gap_start) c->est_numprimes -= primes_less_than (gap_end) - primes_less_than (gap_start);
 
-/* Prepare for a possible binary search looking for the lowest cost stage 2 implementation varying the number of gwnums */
-/* available for relative primes data. */
-
-	if (maxtotrels > 4) {
-		best[1].totrels = maxtotrels - 1;
-		best[1].cost = best_stage2_impl_internal (C_start, C, best[1].totrels, numprimes, max_bitarray_size, cost_func, cost_func_data);
-	}
-	best[2].totrels = maxtotrels;
-	best[2].cost = best_stage2_impl_internal (C_start, C, best[2].totrels, numprimes, max_bitarray_size, cost_func, cost_func_data);
-
-/* We hope that most of the time a binary search is not necessary.  That is, using all available memory is best */
-
-	if (maxtotrels == 4 || best[1].cost > best[2].cost) return (best[2].cost);
-
-/* A binary search is required */
+/* Prepare for a binary search looking for the lowest cost stage 2 implementation varying the number of gwnums available for relative primes data. */
 
 	best[0].totrels = 4;
-	best[0].cost = best_stage2_impl_internal (C_start, C, best[0].totrels, numprimes, max_bitarray_size, cost_func, cost_func_data);
+	best[0].cost = best_stage2_impl_internal (C_start, C, best[0].totrels, cost_func, cost_func_data);
+	if (numvals == 4) return (best[0].cost);
+	best[2].totrels = c->numvals;
+	best[2].cost = best_stage2_impl_internal (C_start, C, best[2].totrels, cost_func, cost_func_data);
+	if (numvals == 5) return (best[2].cost);
+	best[1].totrels = (c->numvals + 4) / 2;
+	best[1].cost = best_stage2_impl_internal (C_start, C, best[1].totrels, cost_func, cost_func_data);
+//for (int i = 200; i < 1685; i++) {
+//char buf[200];
+//double cost=	best_stage2_impl_internal (C_start, C, i, cost_func, cost_func_data);
+//sprintf (buf, "best %d, d: %d, cost: %g\n", i, c->D, cost);
+//writeResults (buf);
+//}
 
-/* Work until midpoint is better than the start point. */
-/* The search code requires best[1] is better than best[0] and best[2]. */
-
-	while (best[0].cost < best[1].cost) {
-		best[2] = best[1];
-		best[1].totrels = (best[0].totrels + best[2].totrels) / 2;
-		best[1].cost = best_stage2_impl_internal (C_start, C, best[1].totrels, numprimes, max_bitarray_size, cost_func, cost_func_data);
-	}
-
-/* Now we can do a binary search */
+/* Now do a binary search */
 
 	while (best[2].totrels - best[0].totrels > 2) {
+		// If midpoint is worse than start point OR midpoint equals endpoint, make midpoint the new end point.
+		if (best[1].cost > best[0].cost || best[1].cost == best[2].cost) {
+			ASSERTG (best[1].cost <= best[2].cost);
+			best[2] = best[1];
+			best[1].totrels = (best[0].totrels + best[2].totrels) / 2;
+			best[1].cost = best_stage2_impl_internal (C_start, C, best[1].totrels, cost_func, cost_func_data);
+		}
+		// If midpoint is worse than end point, make midpoint the new start point.
+		else if (best[1].cost > best[2].cost) {
+			ASSERTG (best[1].cost <= best[0].cost);
+			best[0] = best[1];
+			best[1].totrels = (best[0].totrels + best[2].totrels) / 2;
+			best[1].cost = best_stage2_impl_internal (C_start, C, best[1].totrels, cost_func, cost_func_data);
+		}
 		// Work on the bigger of the lower section and upper section
-		if (best[1].totrels - best[0].totrels > best[2].totrels - best[1].totrels) {		// Work on lower section
+		else if (best[1].totrels - best[0].totrels > best[2].totrels - best[1].totrels) {	// Work on lower section
 			midpoint.totrels = (best[0].totrels + best[1].totrels) / 2;
-			midpoint.cost = best_stage2_impl_internal (C_start, C, midpoint.totrels, numprimes, max_bitarray_size, cost_func, cost_func_data);
-			if (midpoint.cost < best[1].cost) {			// Make middle the new end point
+			midpoint.cost = best_stage2_impl_internal (C_start, C, midpoint.totrels, cost_func, cost_func_data);
+			if (midpoint.cost < best[1].cost || best[1].cost == best[2].cost) {		// Make middle the new end point
 				best[2] = best[1];
 				best[1] = midpoint;
 			} else {						// Create new start point
@@ -239,7 +649,7 @@ double best_stage2_impl (
 			}
 		} else {							// Work on upper section
 			midpoint.totrels = (best[1].totrels + best[2].totrels) / 2;
-			midpoint.cost = best_stage2_impl_internal (C_start, C, midpoint.totrels, numprimes, max_bitarray_size, cost_func, cost_func_data);
+			midpoint.cost = best_stage2_impl_internal (C_start, C, midpoint.totrels, cost_func, cost_func_data);
 			if (midpoint.cost < best[1].cost) {			// Make middle the new start point
 				best[0] = best[1];
 				best[1] = midpoint;
@@ -251,384 +661,265 @@ double best_stage2_impl (
 
 /* Redo the best stage 2 implementation.  This lets the costing function return the best data.  Return best cost. */
 
-	return (best_stage2_impl_internal (C_start, C, best[1].totrels, numprimes, max_bitarray_size, cost_func, cost_func_data));
+	if (best[2].cost < best[1].cost) best[1] = best[2];
+//{char buf[200];
+//double cost=	best_stage2_impl_internal (C_start, C, best[1].totrels, cost_func, cost_func_data);
+//sprintf (buf, "best %d, d: %d, cost: %g\n", best[1].totrels, c->D, cost);
+//writeResults (buf);}
+	return (best_stage2_impl_internal (C_start, C, best[1].totrels, cost_func, cost_func_data));
 }
 
 /**********************************************************************************************************************/
-/*                                        ECM, P-1, and P+1 prime pairing routines                                    */
+/*                                   ECM, P-1, and P+1 common general utility routines                                */
 /**********************************************************************************************************************/
 
-#define bitset_prime(array,p)	bitset (array, ((p) - C_start) / D * numrels * 2 + map_relprime_to_index ((p) % D, D, &reldata))
-#define bitclr_prime(array,p)	bitclr (array, ((p) - C_start) / D * numrels * 2 + map_relprime_to_index ((p) % D, D, &reldata))
-#define bittst_prime(array,p)	bittst (array, ((p) - C_start) / D * numrels * 2 + map_relprime_to_index ((p) % D, D, &reldata))
-#define bit_prime(k,j)		(C_start + (k) * D + D / 2 + map_index_to_relprime (j, D, &reldata))
-#define bitset_work(array,k,j)	bitset (array, (k) * totrels + ((j) < totrels ? totrels - 1 - (j) : (j) - totrels))
+/* Set N, the number we are trying to factor */
 
-// Data for mapping relprimes
-struct relmap_data {
-	int	relmap1[MAX_RELPRIMES];
-	int	relmap2[MAX_D];
-	int	map_relprimes;
-};
-
-// Routines to manage relative primes to d (we only calculate half of the relative primes)
-void initmap (int D, struct relmap_data *data)
+int setN (
+	int	thread_num,
+	struct work_unit *w,
+	giant	*N)		/* k*b^n+c as a giant */
 {
-	int	relp;
-	data->map_relprimes = 0;
-	memset (data->relmap1, 0, sizeof (data->relmap1));
-	memset (data->relmap2, 0, sizeof (data->relmap2));
-	for (relp = 1; relp < D / 2; relp += 2) {
-		if (_intgcd (relp, D) != 1) continue;
-		data->relmap1[data->map_relprimes] = relp;
-		data->relmap2[relp] = data->map_relprimes;
-		data->map_relprimes++;
-	}
-}
-// Take number between 1 and d - 1, return the index for the prime bitmap
-int map_relprime_to_index (int n, int D, struct relmap_data *data)
-{
-	ASSERTG (n < D);
-	if (n < D / 2) return (data->map_relprimes + data->relmap2[n]);
-	else return (data->map_relprimes - 1 - data->relmap2[D - n]);
-}
-// Take index between 0 and relprimes * 2 - 1 from the prime bitmap, return the relative prime
-int map_index_to_relprime (int n, int D, struct relmap_data *data)
-{
-	ASSERTG (n < D);
-	if (n < data->map_relprimes) return (- data->relmap1[data->map_relprimes - 1 - n]);
-	else return (data->relmap1[n - data->map_relprimes]);
-}
-// Return nth relative prime to d
-int map_nth_relprime (int n, int D, struct relmap_data *data)
-{
-	ASSERTG (n < data->map_relprimes);
-	if (n < data->map_relprimes) return (data->relmap1[n]);
-	else return (D - data->relmap1[data->map_relprimes - 1 - n]);
-}
-// Return true if n is relative prime to d
-int map_is_relprime (int n, int D, struct relmap_data *data)
-{
-	if (n > D) n = n % D;
-	if (n > D / 2) n = D - n;
-	return (n == 1 || data->relmap2[n]);
-}
+	unsigned long bits, p;
+	char	buf[2500];
 
-// Count the number of primes a particular prime can pair with
-// This was found to be slow for high multipliers (an N^2 algorithm) and worse pairing than just matching the first available prime!!
-#ifdef NOT_USED_ANYMORE
-int count_possible_pairs (char *primes, char *relocated, uint64_t numDsections, int numrels, int totrels, int multiplier, uint64_t k, int j)
-{
-	int	i, count, j_pair, work_j, work_j_pair;
-	int64_t	bit, bit_pair;
+/* Create the binary representation of the number we are factoring */
+/* Allocate 5 extra words to handle any possible k value. */
 
-	j_pair = numrels * 2 - 1 - j;
-	bit = k * numrels * 2 + j;
-	bit_pair = k * numrels * 2 + j_pair;
-	work_j = j + (totrels - numrels);
-	work_j_pair = j_pair + (totrels - numrels);
+	bits = (unsigned long) (w->n * _log2 (w->b));
+	*N = allocgiant ((bits >> 5) + 5);
+	if (*N == NULL) return (OutOfMemory (thread_num));
 
-	count = 0;
-	for (i = -(multiplier / 2 + 1); i <= (multiplier / 2 + 1); i++) {
-		if (work_j + i * numrels * 2 < 0 || work_j + i * numrels * 2 >= totrels * 2) continue;
-		if (bit + i * numrels * 4 < 0 || bit + i * numrels * 4 >= (int64_t) numDsections * numrels * 2) continue;
-		if (bittst (primes, bit_pair + i * numrels * 4)) count++;
-		else if (relocated != NULL && bittst (relocated, bit_pair + i * numrels * 4)) count++;
-	}
-	return (count);
-}
-#endif
+/* This special code comes from Serge Batalov */
 
-/* Allocate and fill a bit array in such a way that it maximizes stage 2 prime pairings in ECM, P-1, and P+1.  Large B2 values will result */
-/* in large bit arrays -- and if B2 is really large then the bit array must be created in chunks. */
-
-int fill_work_bitarray (
-	int	thread_num,		/* For outputting informative messages */
-	void	**sieve_info,		/* Prime number sieve to use / initialize */
-	int	D,			/* Calculated by best_stage2_impl, best D value ("big step") */
-	int	totrels,		/* Calculated by best_stage2_impl, number of relative primes to use for pairing */
-	uint64_t first_relocatable,	/* First relocatable prime (same as B1 unless bit arrays must be split or mem change caused a replan) */
-	uint64_t last_relocatable,	/* End of relocatable primes (same as B2_start unless a change in available memory caused a new stage 2 plan) */
-	uint64_t C_start,		/* First D section to place in the bit array (set to B2_start for first bit array) */
-	uint64_t C,			/* Bound #2, end sieving for primes here */
-	uint64_t maxDsections,		/* Maximum number of D sections to put in the bit array */
-	char	**bitarray)		/* Pointer to work bit array pointer -- may be allocated here */
-{
-	int	D_index, numrels;
-	uint64_t B2_end;		/* D section just after the last D section */
-	uint64_t numDsections;		/* Number of D sections in the bit array */
-	char	*primes, *relocated;
-	uint64_t len;
-	uint64_t prime, numprimes;
-	char	*work;			/* Work bit array to fill in */
-	uint64_t bits_set;		/* Bits set in the work array */
-	int	multiplier, loop_count;
-	struct relmap_data reldata;
-
-/* Clear pointers to make error cleanup easier */
-
-	primes = relocated = NULL;
-
-/* Look up D in D_data so that we can access number of relative primes to D that are less than D */
-
-	D_index = map_D_to_index (D);
-	numrels = D_data[D_index].numrels;
-
-/* Figure out how many D sections will be in this bit array, adjust B2_end and C if we're only processing some of the primes (a split bit array) */
-
-	C_start = round_down_to_multiple_of (C_start - D / 2, D) + D / 2;
-	B2_end = round_up_to_multiple_of (C + D / 2, D) - D / 2;
-	numDsections = (B2_end - C_start) / D;
-	if (numDsections > maxDsections) {
-		numDsections = maxDsections;
-		B2_end = C = C_start + numDsections * D;
-	}
-
-/* Allocate the work bit array if necessary */
-
-	if (*bitarray == NULL) {
-		len = divide_rounding_up (totrels * numDsections, 8);
-		*bitarray = (char *) malloc ((size_t) len);
-		if (*bitarray == NULL) goto oom;
-	}
-
-/* Allocate two bit arrays for the primes and relocated primes */
-
-	len = divide_rounding_up (numDsections * numrels * 2, 8);
-	primes = (char *) malloc ((size_t) len);
-	if (primes == NULL) goto oom;
-	relocated = (char *) malloc ((size_t) len);
-	if (relocated == NULL) goto oom;
-
-/* Set one bit (or more for relocatables) for each prime between C_start and C. */
-
-	memset (primes, 0, (size_t) len);
-	memset (relocated, 0, (size_t) len);
-	start_sieve_with_limit (thread_num, first_relocatable, (uint32_t) sqrt((double) C), sieve_info);
-	initmap (D, &reldata);
-	numprimes = 0;
-	while ((prime = sieve (*sieve_info)) <= C) {
-		if (prime >= C_start) {
-			numprimes++;
-			bitset_prime (primes, prime);
-		}
-		else if (prime >= last_relocatable ||						// Prime is not one we care about
-			 D_data[D_index].first_missing_prime * prime > B2_end) {		// No place to relocate prime - do in future bit array
-			start_sieve_with_limit (thread_num, C_start, (uint32_t) sqrt((double) C), sieve_info);
-			continue;
-		}
-		else if (D_data[D_index].second_missing_prime * prime > B2_end) {		// Only one place to relocate prime
-			do {
-				prime = prime * D_data[D_index].first_missing_prime;
-			} while (prime < C_start);
-			if (prime < B2_end) {
-				numprimes++;
-				bitset_prime (primes, prime);
+	if (IniGetInt (INI_FILE, "PhiExtensions", 0) &&
+	    w->k == 1.0 && w->b == 2 && w->c == -1) {		/*=== this input means Phi(n,2) with n semiprime ===*/
+		unsigned int i,k,q,knownSmallMers[] = {3, 5, 7, 13, 17, 19, 31, 61, 89, 107, 127, 521, 607, 1279, 2203, 2281, 3217,
+						       4253, 4423, 9689, 9941, 11213, 19937, 999999999}; /* for now, just the cases where w->n = p * q, and 2^q-1 is prime */
+		for (i=0; (q=knownSmallMers[i]) < w->n || q*q <= w->n; i++) if ((w->n%q) == 0) {
+			giant tmp = allocgiant ((bits >> 5) + 5);
+			if (!tmp) return (OutOfMemory (thread_num));
+			ultog (1, tmp);
+			ultog (1, *N);
+			gshiftleft (w->n-w->n/q, *N);
+			for (k=2; k < q; k++) {
+				gshiftleft (w->n/q, tmp);
+				addg (tmp, *N);
 			}
-		} else {									// Mark all possible relocations
-			int	i;
-			int	set_a_bit = 0;
-			for (i = D_data[D_index].first_missing_prime; i * prime < B2_end; i += 2) {
-				if (map_is_relprime (i, D, &reldata) && i * prime >= C_start) {
-					bitset_prime (relocated, i * prime);
-					set_a_bit = 1;
-				}
+			iaddg (1, *N);
+			if (q != w->n/q) {
+				ultog (w->b, tmp);
+				power (tmp, w->n/q);
+				iaddg (w->c, tmp);
+				divg (tmp, *N);
 			}
-			numprimes += set_a_bit;
-		}
-	}
-
-/* Clear the work array */
-
-	work = *bitarray;
-	memset (work, 0, (size_t) divide_rounding_up (numDsections * totrels, 8));
-	bits_set = 0;
-
-/* Fill a work bit array in such a way that it maximizes stage 2 prime pairings in ECM, P-1, and P+1. */
-/* Input is a bit array of non-relocatable primes and a bit array of relocatable primes. */
-
-/* Pair primes making multiple passes over the input bit arrays.  We've tried several algorithms and may try several more! */
-/* When loop_count is 1000 we've paired all the bits in the primes array leaving just relocatables -- pair any that can be paired. */
-/* When loop_count is 1001 we're left with only unpairable relocatables.  Just output the first occurrence and we're done. */
-
-// An example to help visualize what the code below is doing.  For D=30, numrels=4, multiplier=3:
-// The 8 relprimes used for a "j" index are: -13,-11,-7,-1,1,7,11,13.  The 24 relprimes used for a "work_j" index that a particular
-// multiple of D can access are: -43,-41,-37,-31,-29,-23,-19,-17,-13,-11,-7,-1,1,7,11,13,17,19,23,29,31,37,41,43
-// Prime == 49 has three representations:
-//	30 accesses -15 to 75,	relprime = 19 (work_j #17)		pair is 11	-16 bits in the prime bitmap
-//	60 accesses 15 to 105,	relprime = -11 (work_j #9)		pair is 71	(the i=0 entry in the prime bitmap)
-//	90 accesses 45 to 135,  relprime = -41 (work_j #1)		pair is 131	+16 bits in the prime bitmap
-
-#define NO_MATCH	9999
-	multiplier = totrels / numrels;
-	for (loop_count = 0; loop_count <= 1001; loop_count++) {
-		int	i, j, j_pair, work_j, work_j_pair, match, match_relocatable;
-		uint64_t k, prime;
-		int64_t	bit, bit_pair;
-
-//GW - we could start at k = multiplier-1 and end at numDsections - multiplier (for a little cost in reduced pairs) but gain in reduced D multiplications
-		for (k = 0; k < numDsections; k++) {				// loop through all sections of size D
-			for (j = 0; j < numrels * 2; j++) {			// loop through each relative prime to find a possible pairing
-				bit = k * numrels * 2 + j;
-
-				// See if this entry in the prime bit array (or relocated array) needs to be paired up
-				if (loop_count < 1000) {
-					if (!bittst (primes, bit)) continue;
-				} else {
-					if (!bittst (relocated, bit)) continue;
-				}
-
-				// j and j_pair are zero-based indices for accessing the input prime bit arrays
-				// for D=30 values are -13,-11,-7,-1,1,7,11,13
-				j_pair = numrels * 2 - 1 - j;
-				// work_j and work_j_pair are zero based indices to aid in generating output bit array
-				// for D=30, multiplier=1, totrels=6 values are -19,-17,-13,-11,-7,-1,1,7,11,13,17,19
-				work_j = j + (totrels - numrels);
-				work_j_pair = j_pair + (totrels - numrels);
-				// bit indexes into the input prime bit arrays
-				bit_pair = k * numrels * 2 + j_pair;
-
-// Loop over all possible ways this prime can be represented by multiple of D +/- a relative prime.  If any of these possible representations
-// pair with a prime that is wonderful.  If multiple representations pair with a prime simply select the first.  We used to select the pairing that
-// gives us the most flexibility for other primes to pair up, but that actually led to a slightly lower pairing percentage.
-
-				match = NO_MATCH;	// no match yet
-
-				// Find all the possible representations for this entry in the prime bit array
-				// We only need to do this when looking for pairs from the primes array and we only need to look ahead.
-				// Any possible matches against a smaller prime have already been matched with a different prime.
-				if (loop_count < 1000)
-			        for (i = 0; i <= (multiplier / 2 + 1); i++) {
-					// Make sure this representation of the pairing prime is possible
-					if (work_j - i * numrels * 2 < 0) continue;
-					if (bit_pair + i * numrels * 4 >= (int64_t) numDsections * numrels * 2) continue;
-
-					// See if the pair for this representation is also required in the output work bit array
-					if (bittst (primes, bit_pair + i * numrels * 4)) {
-						match = i;
-						match_relocatable = FALSE;
-						break;
-					}
-				}
-
-				// Find all the other possible representations for this entry in the relocatable bit array
-				if (match == NO_MATCH)
-			        for (i = -(multiplier / 2 + 1); i <= (multiplier / 2 + 1); i++) {
-					// Make sure this representation of the pairing prime is possible
-					if (work_j - i * numrels * 2 < 0 || work_j - i * numrels * 2 >= totrels * 2) continue;
-					if (bit_pair + i * numrels * 4 < 0 || bit_pair + i * numrels * 4 >= (int64_t) numDsections * numrels * 2) continue;
-
-					// See if there is a pairing using the relocatable primes
-					if (bittst (relocated, bit_pair + i * numrels * 4)) {
-						match = i;
-						match_relocatable = TRUE;
-						break;
-					}
-				}
-
-				// On first pass doing relocatables, only process matches.  A different multiple of the relocatable
-				// prime may have a pairing.
-				if (loop_count == 1000 && match == NO_MATCH) continue;
-
-				// Clear bit from the primes array
-				if (loop_count < 1000) {
-//					Bit clear not necessary with our current algorithm that handles all primes in one-pass
-//					bitclr (primes, bit);
-				}
-				// Clear bit from the relocated array for all possible relocations of the small prime
-				else {
-					ASSERTG (bittst (relocated, bit));
-					prime = bit_prime (k, j);
-					for (i = D_data[D_index].first_missing_prime; prime >= i * first_relocatable; i += 2) {
-						if (map_is_relprime (i, D, &reldata)) while (prime % i == 0) prime = prime / i;
-					}
-					for (i = D_data[D_index].first_missing_prime; i * prime < B2_end; i += 2) {
-						if (map_is_relprime (i, D, &reldata) && i * prime >= C_start) {
-							ASSERTG (bittst_prime (relocated, i * prime));
-							bitclr_prime (relocated, i * prime);
-						}
-					}
-				}
-
-				// Set the work output bit for this unpaired prime
-				if (match == NO_MATCH) {
-					bitset_work (work, k, work_j);
-					bits_set++;
-				}
-
-				// Clear bit from the primes array for the matching prime of this pair
-				else if (!match_relocatable) {
-					bitset_work (work, k + match, work_j - match * numrels * 2);
-					bits_set++;
-					ASSERTG (bittst (primes, bit_pair + match * numrels * 4));
-					bitclr (primes, bit_pair + match * numrels * 4);
-				}
-
-				// Clear bit from the relocated array for all possible relocations of the matching small prime
-				else {						//matching an optional
-					bitset_work (work, k + match, work_j - match * numrels * 2);
-					bits_set++;
-					ASSERTG (bittst (relocated, bit_pair + match * numrels * 4));
-					prime = bit_prime (k, j_pair) + match * D * 2;
-					for (i = D_data[D_index].first_missing_prime; prime >= i * first_relocatable; i += 2) {	// Reduce optional composite to underlying prime
-						if (map_is_relprime (i, D, &reldata)) while (prime % i == 0) prime = prime / i;
-					}
-					ASSERTG (prime >= first_relocatable);
-					for (i = D_data[D_index].first_missing_prime; i * prime < B2_end; i += 2) {
-						if (map_is_relprime (i, D, &reldata) && i * prime >= C_start) {
-							ASSERTG (bittst_prime (relocated, i * prime));
-							bitclr_prime (relocated, i * prime);
-						}
-					}
-				}
+			free (tmp);
+			/* w->minimum_fftlen = w->n; */ /*=== too late to do this here. Moved before gwsetup() --SB. */
+			if (!w->known_factors || !strcmp (w->known_factors, "1")) {
+				p = sprintf (buf, "M%lu", w->n/q); if(q != w->n/q) p += sprintf (buf+p, "/M%d", q);
+				w->known_factors = (char *) malloc (p+1);
+				memcpy (w->known_factors, buf, p+1);
 			}
+			return (0);
 		}
-		// This rather odd loop_count test is a holdover from tests that did multiple passes looking for better pairing
-		if (loop_count < 999) loop_count = 999;
+        }
+
+	if (IniGetInt (INI_FILE, "PhiExtensions", 0) &&
+	    w->k == 1.0 && labs(w->c) == 1 && (w->n%3) == 0) {		/*=== this input means Phi(3,-b^(n/3)) ===*/
+		giant	tmp = allocgiant ((bits >> 5) + 5);
+		if (tmp == NULL) return (OutOfMemory (thread_num));
+		ultog (w->b, tmp);
+		power (tmp, w->n/3);
+		gtog (tmp, *N);
+		squareg (*N);
+		if (w->c == 1) subg (tmp, *N); else addg (tmp, *N);
+		iaddg (1, *N);
+		free (tmp);
+		/* w->minimum_fftlen = w->n; */ /*=== too late to do this here. Moved before gwsetup() --SB. */
+		if (!w->known_factors) {
+			p = sprintf (buf, "(%lu^%lu%+ld)", w->b, w->n/3, w->c);
+			w->known_factors = (char *) malloc (p+1);
+			memcpy (w->known_factors, buf, p+1);
+		}
+		return (0);
 	}
 
-/* Free two temporary bit arrays */
+/* Standard code for working on k*b^n+c */
 
-	free (primes);
-	free (relocated);
+	ultog (w->b, *N);
+	power (*N, w->n);
+	dblmulg (w->k, *N);
+	iaddg (w->c, *N);
 
-/* Output an informational message on our pairing efficiency */
+/* If we have a list of known factors then process it */
 
-	{
-		char buf[120];
-		sprintf (buf, "D: %d, relative primes: %d, stage 2 primes: %" PRIu64 ", pair%%=%5.2f\n",
-			 D, totrels, numprimes, (double) (numprimes - bits_set) * 2.0 / (double) numprimes * 100.0);
-		OutputStr (thread_num, buf);
+	if (w->known_factors != NULL) {
+		char	*comma, *p;
+		giant	tmp, f;
+
+		tmp = allocgiant ((bits >> 5) + 5);
+		if (tmp == NULL) return (OutOfMemory (thread_num));
+		f = allocgiant ((bits >> 5) + 5);
+		if (f == NULL) return (OutOfMemory (thread_num));
+
+/* Process each factor */
+
+		for (p = w->known_factors; ; ) {
+
+/* Get the factor - raise error is it is less than or equal to one */
+
+			ctog (p, f);
+			if (gsign (f) < 1 || isone (f)) {
+				char	msg[1000], kbnc[80];
+				strcpy (buf, p);
+				buf[10] = 0;
+				gw_as_string (kbnc, w->k, w->b, w->n, w->c);
+				sprintf (msg, "Error parsing known factors of %s near: '%s'\n", kbnc, buf);
+				OutputStr (thread_num, msg);
+				free (f);
+				free (tmp);
+				deleteWorkToDoLine (thread_num, w, FALSE);
+				return (STOP_ABORT);
+			}
+
+/* Divide N by factor - then verify the factor */
+
+			gtog (*N, tmp);
+			divg (f, tmp);
+			mulg (tmp, f);
+			if (gcompg (f, *N)) {
+				char	kbnc[80];
+				strcpy (buf, p);
+				comma = strchr (buf, ',');
+				if (comma != NULL) *comma = 0;
+				gw_as_string (kbnc, w->k, w->b, w->n, w->c);
+				sprintf (buf+strlen(buf), " does not divide %s\n", kbnc);
+				OutputBoth (thread_num, buf);
+				free (f);
+				free (tmp);
+				deleteWorkToDoLine (thread_num, w, FALSE);
+				return (STOP_ABORT);
+			}
+			gtog (tmp, *N);
+
+/* Skip to next factor in list */
+
+			comma = strchr (p, ',');
+			if (comma == NULL) break;
+			p = comma + 1;
+		}
+		free (f);
+		free (tmp);
+		return (0);
 	}
 
-/* All done */
+/* Return success */
 
 	return (0);
-
-/* Out of memory exit */
-
-oom:	free (primes);
-	free (relocated);
-	return (OutOfMemory (thread_num));
 }
 
-/* When a bit array completes, we know that all relocatable primes that could be relocated to that bit array are processed. */
-/* Calculate the new first prime that needs relocating. */
+/* Test if factor divides N, return TRUE if it does */
 
-uint64_t calc_new_first_relocatable (
-	int	D,			/* Calculated by best_stage2_impl, best D value ("big step") */
-	uint64_t C_done)		/* Bit arrays have been completed to this point */
+int testFactor (
+	gwhandle *gwdata,
+	struct work_unit *w,
+	giant	f)		/* Factor to test */
 {
-	int	D_index = map_D_to_index (D);
-	return (C_done / D_data[D_index].first_missing_prime);
+	giant	tmp;
+	int	divides_ok;
+
+/* See if this is a valid factor */
+
+	tmp = popg (&gwdata->gdata, f->sign + 5);	/* Allow room for mul by KARG */
+	itog (w->b, tmp);
+	powermod (tmp, w->n, f);
+	dblmulg (w->k, tmp);
+	iaddg (w->c, tmp);
+	modgi (&gwdata->gdata, f, tmp);
+	divides_ok = isZero (tmp);
+	pushg (&gwdata->gdata, 1);
+	if (!divides_ok) return (FALSE);
+
+/* If QAing, see if we found the expected factor */
+
+	if (QA_IN_PROGRESS) {
+		tmp = popg (&gwdata->gdata, f->sign + 5);
+		gtog (f, tmp);
+		modg (QA_FACTOR, tmp);
+		divides_ok = isZero (tmp);
+		pushg (&gwdata->gdata, 1);
+		if (!divides_ok) {
+			char	buf[200];
+			strcpy (buf, "ERROR: Factor not found. Expected ");
+			gtoc (QA_FACTOR, buf+strlen(buf), 150);
+			strcat (buf, "\n");
+			OutputBoth (MAIN_THREAD_NUM, buf);
+		}
+	}
+
+/* All done, return success */
+
+	return (TRUE);
 }
 
-/********************/
-/* Utility routines */
-/********************/
+/* Do a GCD of the input value and N to see if a factor was found. */
+/* The GCD is returned in factor iff a factor is found. */
+/* This routine used to be interruptible and thus returns a stop_reason. */
+/* Since switching to GMP's mpz code to implement the GCD this routine is no longer interruptible. */
 
-/* Test if N is a probable prime */
-/* Compute i^(N-1) mod N for i = 3,5,7 */
+int gcd (
+	gwhandle *gwdata,
+	int	thread_num,
+	gwnum	gg,
+	giant	N,		/* Number we are factoring */
+	giant	*factor)	/* Factor found if any */
+{
+	giant	v;
+	mpz_t	a, b;
+
+/* Assume a factor will not be found */
+
+	*factor = NULL;
+
+/* Convert input number to binary */
+
+	v = popg (&gwdata->gdata, ((int) gwdata->bit_length >> 5) + 10);
+	if (v == NULL) goto oom;
+	gwunfft (gwdata, gg, gg);		// Just in case caller partially FFTed gg
+	if (gwtogiant (gwdata, gg, v)) {	// On unexpected error, return no factor found
+		pushg (&gwdata->gdata, 1);
+		return (0);
+	}
+
+/* Do the GCD */
+
+	mpz_init (a);
+	mpz_init (b);
+	gtompz (v, a);
+	gtompz (N, b);
+	pushg (&gwdata->gdata, 1);
+	mpz_gcd (a, a, b);
+
+/* If a factor was found, save it in FAC */
+
+	if (mpz_cmp_ui (a, 1) && mpz_cmp (a, b)) {
+		*factor = allocgiant ((int) divide_rounding_up (mpz_sizeinbase (a, 2), 32));
+		if (*factor == NULL) goto oom;
+		mpztog (a, *factor);
+	}
+
+/* Cleanup and return */
+
+	mpz_clear (a);
+	mpz_clear (b);
+	return (0);
+
+/* Out of memory exit path */
+
+oom:	return (OutOfMemory (thread_num));
+}
+
+/* Test if N is a probable prime.  Compute i^(N-1) mod N for i = 3,5,7 */
 
 int isProbablePrime (
 	gwhandle *gwdata,
@@ -674,16 +965,20 @@ int isProbablePrime (
 #define kruppa_adjust(B2,B1)		kruppa_adjust_ratio ((double)(B2) / (double)(B1))
 #define kruppa_unadjust(worth,B1)	(uint64_t) round((B1) * pow (10.0, (pow (((worth) - 0.11) / 0.89, 1.0 / 1.5) * 2)))
 
+/* When a pairmap completes, we know that all relocatable primes that could be relocated to that pairmap are processed. */
+/* Calculate the new first prime that needs relocating. */
+
+uint64_t calc_new_first_relocatable (
+	int	D,			/* Calculated by best_stage2_impl, best D value ("big step") */
+	uint64_t C_done)		/* Pairmaps have been completed to this point */
+{
+	int	D_index = map_D_to_index (D);
+	return (divide_rounding_up (C_done, D_data[D_index].first_missing_prime));
+}
+
 /*************************************************/
 /* ECM structures and setup/termination routines */
 /*************************************************/
-
-/* We used to compute ell_dbl and ell_add by first computing (x+z) and (x-z).  This structure gave as a place to keep track if addsub4 had been called. */
-
-struct xz {
-	gwnum	x;		/* x or FFT(x) */
-	gwnum	z;		/* z or FFT(z) */
-};
 
 /* Data maintained during ECM process */
 
@@ -695,7 +990,7 @@ struct xz {
 #define ECM_STATE_STAGE1_INIT		0	/* Selecting sigma for curve */
 #define ECM_STATE_STAGE1		1	/* In middle of stage 1 */
 #define ECM_STATE_MIDSTAGE		2	/* Stage 2 initialization for the first time */
-#define ECM_STATE_STAGE2		3	/* In middle of stage 2 (processing a bit array) */
+#define ECM_STATE_STAGE2		3	/* In middle of stage 2 (processing a pairmap) */
 #define ECM_STATE_GCD			4	/* Stage 2 GCD */
 
 typedef struct {
@@ -735,18 +1030,22 @@ typedef struct {
 	uint64_t B2_start;	/* Starting point of first D section to be processed in stage 2 (an odd multiple of D/2) */
 	uint64_t numDsections;	/* Number of D sections to process in stage 2 */
 	uint64_t Dsection;	/* Current D section being processed in stage 2 */
+	int	relp;		/* Last relative prime processed in the current D section */
 
-	char	*bitarray;	/* Bit array for prime pairings in each D section */
-	uint64_t bitarraymaxDsections;	/* Maximum number of D sections per bit array */
-	uint64_t bitarrayfirstDsection; /* First D section in the bit array */
-	uint64_t first_relocatable; /* First relocatable prime (same as B1 unless bit arrays must be split or mem change caused a replan) */
-	uint64_t last_relocatable; /* Last relocatable prime for filling bit arrays (unless mem change causes a replan) */
+	uint64_t max_pairmap_Dsections;	/* Number of D sections that can fit in a pairing map */
+	uint8_t	*pairmap;	/* Pairing map for prime pairs and singles in each D section */
+	uint64_t pairmap_size;	/* Size of the pairing map */
+	uint8_t *pairmap_ptr;	/* Pointer to the next byte to process in the pairing map */
+	uint64_t first_relocatable; /* First relocatable prime (same as B1 unless pairmaps must be split or mem change caused a replan) */
+	uint64_t last_relocatable; /* Last relocatable prime for filling pairmaps (unless mem change causes a replan) */
 	uint64_t C_done;	/* Stage 2 completed thusfar (updated every D section that is completed) */
 
 	int	stage2_numvals;	/* Number of gwnums used in stage 2 */
 	int	TWO_FFT_STAGE2;	/* Type of ECM stage 2 to execute */
+	int16_t relp_sets[32];	/* The relp sets we are using in stage 2 */
 	gwnum	*nQx;		/* Array of relative primes data used in stage 2 */
 	struct xz Qm, Qprevm, QD; /* Values used to calculate successive D values in stage 2 */
+	struct xz QD_Eover2;	/* Normalized value used to second and later mQx blocks in two-FFT stage 2 */
 	int	Qm_state;	/* For 4-FFT continuation, TRUE if Qm has been returned by mQ_next */
 	gwnum	*mQx;		/* Array of calculated D values when modular inverse pooling is active */
 	int	mQx_count;	/* Number of values remaining in the mQx array */
@@ -768,16 +1067,16 @@ void ecm_cleanup (
 	normalize_pool_term (ecmdata);
 	mQ_term (ecmdata);
 	free (ecmdata->nQx), ecmdata->nQx = NULL;
-	free (ecmdata->bitarray), ecmdata->bitarray = NULL;
+	free (ecmdata->pairmap), ecmdata->pairmap = NULL;
 	gwdone (&ecmdata->gwdata);
 	end_sieve (ecmdata->sieve_info), ecmdata->sieve_info = NULL;
 	free (ecmdata->N), ecmdata->N = NULL;
 	free (ecmdata->factor), ecmdata->factor = NULL;
 }
 
-/**************************************************************
- *	ECM Functions
- **************************************************************/
+/**********************************************************************************************************************/
+/*                                Manage buffers for a Montgomery ECM point
+/**********************************************************************************************************************/
 
 /* This routine initializes an xz pair with two allocated gwnums */
 
@@ -805,6 +1104,10 @@ __inline void free_xz (
 /* Macro to swap to xz structs */
 
 #define xzswap(a,b)	{ struct xz t; t = a; a = b; b = t; }
+
+/**************************************************************
+ *	ECM Functions
+ **************************************************************/
 
 /* Computes 2P=(out.x:out.z) from P=(in.x:in.z), uses the global variable Ad4. */
 /* Input arguments may be in FFTed state.  Out argument can be same as input argument. */
@@ -1320,252 +1623,6 @@ int ell_mul (
 		free_xz (ecmdata, &scr);
 	}
 	return (0);
-}
-
-/* Test if factor divides N, return TRUE if it does */
-
-int testFactor (
-	gwhandle *gwdata,
-	struct work_unit *w,
-	giant	f)		/* Factor to test */
-{
-	giant	tmp;
-	int	divides_ok;
-
-/* See if this is a valid factor */
-
-	tmp = popg (&gwdata->gdata, f->sign + 5);	/* Allow room for mul by KARG */
-	itog (w->b, tmp);
-	powermod (tmp, w->n, f);
-	dblmulg (w->k, tmp);
-	iaddg (w->c, tmp);
-	modgi (&gwdata->gdata, f, tmp);
-	divides_ok = isZero (tmp);
-	pushg (&gwdata->gdata, 1);
-	if (!divides_ok) return (FALSE);
-
-/* If QAing, see if we found the expected factor */
-
-	if (QA_IN_PROGRESS) {
-		tmp = popg (&gwdata->gdata, f->sign + 5);
-		gtog (f, tmp);
-		modg (QA_FACTOR, tmp);
-		divides_ok = isZero (tmp);
-		pushg (&gwdata->gdata, 1);
-		if (!divides_ok) {
-			char	buf[200];
-			strcpy (buf, "ERROR: Factor not found. Expected ");
-			gtoc (QA_FACTOR, buf+strlen(buf), 150);
-			strcat (buf, "\n");
-			OutputBoth (MAIN_THREAD_NUM, buf);
-		}
-	}
-
-/* All done, return success */
-
-	return (TRUE);
-}
-
-/* Set N, the number we are trying to factor */
-
-int setN (
-	int	thread_num,
-	struct work_unit *w,
-	giant	*N)		/* k*b^n+c as a giant */
-{
-	unsigned long bits, p;
-	char	buf[2500];
-
-/* Create the binary representation of the number we are factoring */
-/* Allocate 5 extra words to handle any possible k value. */
-
-	bits = (unsigned long) (w->n * _log2 (w->b));
-	*N = allocgiant ((bits >> 5) + 5);
-	if (*N == NULL) return (OutOfMemory (thread_num));
-
-/* This special code comes from Serge Batalov */
-
-	if (IniGetInt (INI_FILE, "PhiExtensions", 0) &&
-	    w->k == 1.0 && w->b == 2 && w->c == -1) {		/*=== this input means Phi(n,2) with n semiprime ===*/
-		unsigned int i,k,q,knownSmallMers[] = {3, 5, 7, 13, 17, 19, 31, 61, 89, 107, 127, 521, 607, 1279, 2203, 2281, 3217,
-						       4253, 4423, 9689, 9941, 11213, 19937, 999999999}; /* for now, just the cases where w->n = p * q, and 2^q-1 is prime */
-		for (i=0; (q=knownSmallMers[i]) < w->n || q*q <= w->n; i++) if ((w->n%q) == 0) {
-			giant tmp = allocgiant ((bits >> 5) + 5);
-			if (!tmp) return (OutOfMemory (thread_num));
-			ultog (1, tmp);
-			ultog (1, *N);
-			gshiftleft (w->n-w->n/q, *N);
-			for (k=2; k < q; k++) {
-				gshiftleft (w->n/q, tmp);
-				addg (tmp, *N);
-			}
-			iaddg (1, *N);
-			if (q != w->n/q) {
-				ultog (w->b, tmp);
-				power (tmp, w->n/q);
-				iaddg (w->c, tmp);
-				divg (tmp, *N);
-			}
-			free (tmp);
-			/* w->minimum_fftlen = w->n; */ /*=== too late to do this here. Moved before gwsetup() --SB. */
-			if (!w->known_factors || !strcmp (w->known_factors, "1")) {
-				p = sprintf (buf, "M%lu", w->n/q); if(q != w->n/q) p += sprintf (buf+p, "/M%d", q);
-				w->known_factors = (char *) malloc (p+1);
-				memcpy (w->known_factors, buf, p+1);
-			}
-			return (0);
-		}
-        }
-
-	if (IniGetInt (INI_FILE, "PhiExtensions", 0) &&
-	    w->k == 1.0 && labs(w->c) == 1 && (w->n%3) == 0) {		/*=== this input means Phi(3,-b^(n/3)) ===*/
-		giant	tmp = allocgiant ((bits >> 5) + 5);
-		if (tmp == NULL) return (OutOfMemory (thread_num));
-		ultog (w->b, tmp);
-		power (tmp, w->n/3);
-		gtog (tmp, *N);
-		squareg (*N);
-		if (w->c == 1) subg (tmp, *N); else addg (tmp, *N);
-		iaddg (1, *N);
-		free (tmp);
-		/* w->minimum_fftlen = w->n; */ /*=== too late to do this here. Moved before gwsetup() --SB. */
-		if (!w->known_factors) {
-			p = sprintf (buf, "(%lu^%lu%+ld)", w->b, w->n/3, w->c);
-			w->known_factors = (char *) malloc (p+1);
-			memcpy (w->known_factors, buf, p+1);
-		}
-		return (0);
-	}
-
-/* Standard code for working on k*b^n+c */
-
-	ultog (w->b, *N);
-	power (*N, w->n);
-	dblmulg (w->k, *N);
-	iaddg (w->c, *N);
-
-/* If we have a list of known factors then process it */
-
-	if (w->known_factors != NULL) {
-		char	*comma, *p;
-		giant	tmp, f;
-
-		tmp = allocgiant ((bits >> 5) + 5);
-		if (tmp == NULL) return (OutOfMemory (thread_num));
-		f = allocgiant ((bits >> 5) + 5);
-		if (f == NULL) return (OutOfMemory (thread_num));
-
-/* Process each factor */
-
-		for (p = w->known_factors; ; ) {
-
-/* Get the factor - raise error is it is less than or equal to one */
-
-			ctog (p, f);
-			if (gsign (f) < 1 || isone (f)) {
-				char	msg[1000], kbnc[80];
-				strcpy (buf, p);
-				buf[10] = 0;
-				gw_as_string (kbnc, w->k, w->b, w->n, w->c);
-				sprintf (msg, "Error parsing known factors of %s near: '%s'\n", kbnc, buf);
-				OutputStr (thread_num, msg);
-				free (f);
-				free (tmp);
-				deleteWorkToDoLine (thread_num, w, FALSE);
-				return (STOP_ABORT);
-			}
-
-/* Divide N by factor - then verify the factor */
-
-			gtog (*N, tmp);
-			divg (f, tmp);
-			mulg (tmp, f);
-			if (gcompg (f, *N)) {
-				char	kbnc[80];
-				strcpy (buf, p);
-				comma = strchr (buf, ',');
-				if (comma != NULL) *comma = 0;
-				gw_as_string (kbnc, w->k, w->b, w->n, w->c);
-				sprintf (buf+strlen(buf), " does not divide %s\n", kbnc);
-				OutputBoth (thread_num, buf);
-				free (f);
-				free (tmp);
-				deleteWorkToDoLine (thread_num, w, FALSE);
-				return (STOP_ABORT);
-			}
-			gtog (tmp, *N);
-
-/* Skip to next factor in list */
-
-			comma = strchr (p, ',');
-			if (comma == NULL) break;
-			p = comma + 1;
-		}
-		free (f);
-		free (tmp);
-		return (0);
-	}
-
-/* Return success */
-
-	return (0);
-}
-
-/* Do a GCD of the input value and N to see if a factor was found. */
-/* The GCD is returned in factor iff a factor is found. */
-/* This routine used to be interruptible and thus returns a stop_reason. */
-/* Since switching to GMP's mpz code to implement the GCD this routine is no longer interruptible. */
-
-int gcd (
-	gwhandle *gwdata,
-	int	thread_num,
-	gwnum	gg,
-	giant	N,		/* Number we are factoring */
-	giant	*factor)	/* Factor found if any */
-{
-	giant	v;
-	mpz_t	a, b;
-
-/* Assume a factor will not be found */
-
-	*factor = NULL;
-
-/* Convert input number to binary */
-
-	v = popg (&gwdata->gdata, ((int) gwdata->bit_length >> 5) + 10);
-	if (v == NULL) goto oom;
-	gwunfft (gwdata, gg, gg);		// Just in case caller partially FFTed gg
-	if (gwtogiant (gwdata, gg, v)) {	// On unexpected error, return no factor found
-		pushg (&gwdata->gdata, 1);
-		return (0);
-	}
-
-/* Do the GCD */
-
-	mpz_init (a);
-	mpz_init (b);
-	gtompz (v, a);
-	gtompz (N, b);
-	pushg (&gwdata->gdata, 1);
-	mpz_gcd (a, a, b);
-
-/* If a factor was found, save it in FAC */
-
-	if (mpz_cmp_ui (a, 1) && mpz_cmp (a, b)) {
-		*factor = allocgiant ((int) divide_rounding_up (mpz_sizeinbase (a, 2), 32));
-		if (*factor == NULL) goto oom;
-		mpztog (a, *factor);
-	}
-
-/* Cleanup and return */
-
-	mpz_clear (a);
-	mpz_clear (b);
-	return (0);
-
-/* Out of memory exit path */
-
-oom:	return (OutOfMemory (thread_num));
 }
 
 /* Computes the modular inverse of a number.  This is done using the */
@@ -2933,84 +2990,55 @@ void curve_start_msg (
 	OutputStr (ecmdata->thread_num, buf);
 }
 
-/* These routines manage the computing of Q^m in stage 2 */
+/* These routines manage the computing of Q^m (m stands for multiple od D) in stage 2 */
 
-int mQ_init (
+int mQ_preinit (
 	ecmhandle *ecmdata,
-	uint64_t m)
+	Dmultiple_data_map &Dmultiple_map)	// Map used to track the Q^(multiples-of-D) that need to be computed during stage 2 init
 {
-	int	stop_reason;
-	uint64_t mask;
-	struct xz *V, *Vn, *Vn1, T, nextQD;
+	uint64_t m;				// The first multiple-of-D needed by stage 2
+	Dmultiple_data_map::iterator it_Dmult;
 
-/* Allocate the two multiples of D needed for a string of ell_adds */
+/* Calculate the first needed multiple of D (the first D section in stage 2) */
+
+	m = divide_rounding_up (ecmdata->B2_start, ecmdata->D) + ecmdata->Dsection;
+	ASSERTG (m > 1); // Would require special code to the collision between QD and Qprevm
+
+/* The two multiples of D needed for a string of ell_adds are Q^mD and Q^(m+1)D. */
+/* Schedule their computation using buffers for the D multiples allocated here. */
+
+	if (!alloc_xz (ecmdata, &ecmdata->Qprevm)) goto oom;
+	it_Dmult = Dmultiple_map.find (m);
+	if (it_Dmult == Dmultiple_map.end()) it_Dmult = Dmultiple_map.insert({m, {0, m}}).first;
+	it_Dmult->second.set_val_buffers (&ecmdata->gwdata, ecmdata->Qprevm.x, ecmdata->Qprevm.z, TRUE);
 
 	if (!alloc_xz (ecmdata, &ecmdata->Qm)) goto oom;
-	if (!alloc_xz (ecmdata, &ecmdata->Qprevm)) goto oom;
-	if (!alloc_xz (ecmdata, &T)) goto oom;
+	it_Dmult = Dmultiple_map.find (m+1);
+	if (it_Dmult == Dmultiple_map.end()) it_Dmult = Dmultiple_map.insert({m+1, {0, m+1}}).first;
+	it_Dmult->second.set_val_buffers (&ecmdata->gwdata, ecmdata->Qm.x, ecmdata->Qm.z, TRUE);
 
-/* Compute Q * mD and Q * (m+1)D) */
-/* We know that m is divisible by D.  Find top bit in multiplier. */
-
-	m = m / ecmdata->D;
-	for (mask = 1ULL << 63; (m & mask) == 0; mask >>= 1);
-
-/* Init V values processing second mask bit.  Caller has computed Q * D and stored it in QD. */
-
-	V = &ecmdata->QD;
-	Vn = &ecmdata->Qprevm;
-	Vn1 = &ecmdata->Qm;
-	mask >>= 1;
-	if (m & mask) {
-		ell_dbl_xz_scr (ecmdata, V, Vn1, &T);				// V2, scratch T
-		ell_add_xz_scr (ecmdata, V, Vn1, V, Vn, Vn);			// next n   = V3 = V1 + V2, diff 1, scratch Vn
-		ell_dbl_xz_scr (ecmdata, Vn1, Vn1, &T);				// next n+1 = V4 = V2 + V2, scratch T
-	}
-	else {
-		ell_dbl_xz_scr (ecmdata, V, Vn, Vn1);				// next n   = V2, scratch Vn1
-		ell_add_xz_scr (ecmdata, V, Vn, V, Vn1, Vn1);			// next n+1 = V3 = V1 + V2, diff 1, scratch Vn1
-	}
-
-/* Loop processing one multiplier bit at a time.  Each iteration computes V_n = V_{2n+bit}, V_{n+1} = V_{2n+bit+1} */
-
-	for (mask >>= 1; mask; mask >>= 1) {
-	        if (m & mask) {
-			ell_add_xz_scr (ecmdata, Vn, Vn1, V, Vn, &T);		// next n   = n + (n+1), diff 1, scratch T
-			ell_dbl_xz_scr (ecmdata, Vn1, Vn1, &T);			// next n+1 = (n+1) + (n+1), scratch T
-		}
-		else {
-			ell_add_xz_scr (ecmdata, Vn, Vn1, V, Vn1, &T);		// next n+1 = n + (n+1), diff 1, scratch T
-			ell_dbl_xz_scr (ecmdata, Vn, Vn, &T);			// next n   = n + n, scratch T
-		}
-	}
-
-/* Since lucas_mul requires 6 gwnum temporaries, compute QD * E/2 before computing the batch of Q^m values. */
-/* We need QD * E/2 to compute subsequent batches of mQx values. */
+/* If needed, precompute QD^(E/2) before computing the first batch of Q^multiples-of-D values. */
+/* We will need QD^(E/2) to compute subsequent batches of mQx values. */
 
 	if (ecmdata->TWO_FFT_STAGE2 && ecmdata->Dsection + ecmdata->E < ecmdata->numDsections) {
-		if (!alloc_xz (ecmdata, &nextQD)) goto oom;
-		if ((ecmdata->E & 3) == 0) {	// Use ell_dbl to avoid two gwcopy calls
-			ell_dbl_xz_scr (ecmdata, &ecmdata->QD, &nextQD, &T);
-			stop_reason = ell_mul (ecmdata, &nextQD, ecmdata->E / 4, FALSE);
-			if (stop_reason) return (stop_reason);
-		} else {
-			gwcopy (&ecmdata->gwdata, ecmdata->QD.x, nextQD.x);
-			gwcopy (&ecmdata->gwdata, ecmdata->QD.z, nextQD.z);
-			stop_reason = ell_mul (ecmdata, &nextQD, ecmdata->E / 2, FALSE);
-			if (stop_reason) return (stop_reason);
-		}
-		stop_reason = add_to_normalize_pool_ro (ecmdata, nextQD.x, nextQD.z);
-		if (stop_reason) return (stop_reason);
-	} else {
-		nextQD.x = NULL;
-		nextQD.z = NULL;
+		if (!alloc_xz (ecmdata, &ecmdata->QD_Eover2)) goto oom;
+		it_Dmult = Dmultiple_map.find ((uint64_t)(ecmdata->E/2));
+		if (it_Dmult == Dmultiple_map.end()) it_Dmult = Dmultiple_map.insert({(uint64_t)(ecmdata->E/2), {0,(uint64_t)(ecmdata->E/2)}}).first;
+		it_Dmult->second.set_val_buffers (&ecmdata->gwdata, ecmdata->QD_Eover2.x, ecmdata->QD_Eover2.z, TRUE);
 	}
 
-/* There will be no more ell_dbl calls, so free T and Ad4 */
+/* All done */
 
-	free_xz (ecmdata, &T);
-	gwfree (&ecmdata->gwdata, ecmdata->Ad4);
-	ecmdata->Ad4 = NULL;
+	return (0);
+
+/* Out of memory exit path */
+
+oom:	return (OutOfMemory (ecmdata->thread_num));
+}
+int mQ_init (
+	ecmhandle *ecmdata)
+{
+	int	stop_reason;
 
 /* Init the arrays and compute first pool of normalized mQx values */
 
@@ -3024,7 +3052,7 @@ int mQ_init (
 		for (i = 0; i < ecmdata->E; i++) ecmdata->mQx[i] = NULL;
 
 /* Batch up a bunch of Q^m values and normalize them. */
-// MEMPEAK occurs at mQx_count = E-2:  5 + nQx + E + pooling_cost (7 for QD,Qm,Qprevm,nextQD + nQx + E-2 + pooling_cost)
+// MEMPEAK occurs at mQx_count = E-2:  5 + nQx + E + pooling_cost (7 for QD,Qm,Qprevm,QD_Eover2.x + nQx + E-2 + pooling_cost)
 
 		for (ecmdata->mQx_count = 0; ecmdata->mQx_count < ecmdata->E; ecmdata->mQx_count++) {
 			struct xz nextQm;
@@ -3061,16 +3089,14 @@ int mQ_init (
 			if (stop_reason) return (stop_reason);
 		}
 
-		// Normalize the entire pool (nQx + E + 1 values), freeing some gwnums (amount depends on pool type)
+		// Normalize the entire pool (E + 1 values), freeing some gwnums (amount depends on pool type)
 		stop_reason = normalize_pool (ecmdata);
 		if (stop_reason) return (stop_reason);
 		if (ecmdata->factor != NULL) return (0);
 		mallocFreeForOS ();
 
 /* QD is no longer needed except that we cannot delete it yet because ecm_save accesses QD if an error occurs during stage 2 init. */
-/* So for now, save nextQD.x.  As the very last step of stage 2 init, we'll replace QD.x with the saved nextQD.x. */
-
-		ecmdata->xz.x = nextQD.x;
+/* So for now, do not not free ecmdata.QD to QD^(E/2).  As the very last step of stage 2 init, we'll free ecmdata.QD. */
 
 		// Return first entry in the mQx array
 		ecmdata->mQx_retcount = 0;
@@ -3106,7 +3132,7 @@ int mQ_next (
 {
 	int	stop_reason;
 
-/* The non-normalized case - multiply the last Q^m value by Q^D to get the next Q^m value */
+/* The non-normalized 4FFT case - multiply the last Q^m value by Q^D to get the next Q^m value */
 
 	if (!ecmdata->TWO_FFT_STAGE2) {
 		// On first call return the Q^mD value calculated by mQ_init and stored in Qprevm
@@ -3133,7 +3159,7 @@ int mQ_next (
 		return (0);
 	}
 
-/* The normalized case - if mQx pool is empty, compute next batch of Q^m values and normalize them.  Then return them one at a time. */
+/* The normalized 2FFT case - if mQx pool is empty, compute next batch of Q^m values and normalize them.  Then return them one at a time. */
 /* Obviously retz need not be returned since it is always one. */
 
 	if (ecmdata->mQx_count == 0) {
@@ -3145,7 +3171,7 @@ int mQ_next (
 		else ecmdata->mQx_count = (int) (ecmdata->numDsections - ecmdata->Dsection);
 
 		// Loop computing two mQx values
-		// MEMPEAK occur at i=E/2-1: 4 + nQx + E + pooling_cost (Qd.x, i*2, nextQm, nextQm2, gg, nQx, pooling_cost)
+		// MEMPEAK occurs at i=E/2-1: 4 + nQx + E + pooling_cost (QD_Eover2.x, i*2, nextQm, nextQm2, gg, nQx, pooling_cost)
 
 		for (i = 0; i < ecmdata->E/2; i++) {
 			struct xz nextQm, nextQm2;
@@ -3159,7 +3185,7 @@ int mQ_next (
 			nextQm.z = ecmdata->mQx[i];
 
 			// Calc next mQx[i] = mQx[i+E/2] + QD*E/2, diff mQx[i]
-			ell_add_xz_3norm (ecmdata, ecmdata->mQx[i+ecmdata->E/2], ecmdata->QD.x, ecmdata->mQx[i], &nextQm);
+			ell_add_xz_3norm (ecmdata, ecmdata->mQx[i+ecmdata->E/2], ecmdata->QD_Eover2.x, ecmdata->mQx[i], &nextQm);
 
 			// Compute mQx[i+E/2] if it will be needed
 			if (i + ecmdata->E/2 < ecmdata->mQx_count) {
@@ -3169,7 +3195,7 @@ int mQ_next (
 				if (nextQm.z == NULL) return (OutOfMemory (ecmdata->thread_num));
 
 				// Calc next mQx[i+E/2] = next mQx[i] + QD*E/2, diff mQx[i+E/2]
-				ell_add_xz_2norm (ecmdata, &nextQm, ecmdata->QD.x, ecmdata->mQx[i+ecmdata->E/2], &nextQm2);
+				ell_add_xz_2norm (ecmdata, &nextQm, ecmdata->QD_Eover2.x, ecmdata->mQx[i+ecmdata->E/2], &nextQm2);
 
 				// Add nextQm2 to normalize pool
 				ecmdata->mQx[i+ecmdata->E/2] = nextQm2.x;
@@ -3227,68 +3253,54 @@ void ecm_stage1_memory_usage (
 /* Cost out a stage 2 plan with the given D, normalize_pool algorithm, and 2 vs. 4 FFT stage 2 setting. */
 
 struct ecm_stage2_cost_data {
-	int	impl;		/* 4 possible implementations.  2 vs. 4 FFT, N^2 vs. 3-mult pooling. */
-	int	numvals;	/* Total number of gwnum temporaries available */
+	/* Cost data common to ECM, P-1, P+1 */
+	struct common_cost_data c;
+	/* ECM specific data sent to cost function follows */
+	int	impl;		/* Many possible implementations.  2 vs. 4 FFT, N^2 or several 3-or-more-mult poolings. */
 	double	gcd_cost;	/* Cost (in FFTs) of a GCD */
 	double	modinv_cost;	/* Cost (in FFTs) of a modular inverse */
-				/* Data returned from cost function follows */
-	int	D;		/* D value for big steps */
-	int	totrels;	/* Total number of relative primes used for pairing */
-	int	stage2_numvals;	/* Total number of gwnum temporaries to be used in stage 2 */
-	uint64_t B2_start;	/* Stage 2 start */
-	uint64_t numDsections;	/* Number of D sections to process */
-	uint64_t bitarraymaxDsections; /* Maximum number of D sections per bit array (in case work bit array must be split) */
+	/* ECM specific data returned from cost function follows */
 	int	pool_type;	/* Modular inverse pooling implementation */
 	int	TWO_FFT_STAGE2;	/* 2 vs. 4 FFT implementation */
 	int	E;		/* In 2-FFT stage 2, number of D sections pooled for a single modular inverse */
 };
 
 double ecm_stage2_cost (
-	int	D,		/* Stage 2 big step */
-	uint64_t B2_start,	/* Stage 2 start point */
-	uint64_t numDsections,	/* Number of stage 2 D sections */
-	uint64_t bitarraymaxDsections, /* Maximum number of D sections per bit array (in case work bit array must be split) */
-	int	numrels,	/* Number of relative primes less than D/2 */
-	double	multiplier,	/* Multiplier * numrels relative primes will be used in stage 2 */
-	double	numpairs,	/* Estimated number of paired primes in stage 2 */
-	double	numsingles,	/* Estimated number of prime singles in stage 2 */
 	void	*data)		/* ECM specific costing data */
 {
-	int	totrels;	/* Total number of relative primes in use */
+	struct ecm_stage2_cost_data *cost_data = (struct ecm_stage2_cost_data *) data;
 	int	e;
 	int	beste;		/* The best E value when using mQx pooling */
 	double	numgcdsections;
-	double	cost;
-	struct ecm_stage2_cost_data *cost_data = (struct ecm_stage2_cost_data *) data;
+	double	cost, cost_modinv;
 
 /* MQ_init requires B2_start is at least 4 times D */
 
-	if (B2_start < 4 * D) return (1.0e99);
+	if (cost_data->c.B2_start < 4 * cost_data->c.D) return (1.0e99);
 
 /* Define constants for the number of transforms for various operations. */
+/* The ELL_ADD and ELL_DBL costs assume FFT inputs and adds 2 transforms for FFTing the outputs */
+/* The pooling costs assume the two inputs are FFTed (saving two transforms) AND does not add one transform for the cost of FFTing the output! */
 
 #define ELL_ADD_COST		12
 #define ELL_ADD_2NORM_COST	10
 #define ELL_ADD_3NORM_COST	8
+#define ELL_DBL_COST		11
 #define	AVG_ELL_ADD_NORM_COST	((ELL_ADD_3NORM_COST + ELL_ADD_2NORM_COST) / 2)
-#define N_SQUARED_POOL_COST(n)	(((double)((n)+3)) * ((double)((n)+3)) - 13.0 + cost_data->modinv_cost)
-#define MULT3_POOL_COST(n)	((double)(n) * 9 + cost_data->modinv_cost)
-#define MULT3POINT44_POOL_COST(n) ((double)(n) * 10.3333333333333 + cost_data->modinv_cost)
-#define MULT3POINT57_POOL_COST(n) ((double)(n) * 10.7142857142857 + cost_data->modinv_cost)
-#define NQX_SETUP_COST(fft4)	(((fft4) || D % 3 != 0) ? multiplier * ((double) D / 4) * ELL_ADD_COST : \
-				 (multiplier <= 2.0) ? multiplier * ((double) D / 6) * ELL_ADD_COST : \
-				 2.0 * ((double) D / 6) * ELL_ADD_COST + (totrels - numrels * 2) * ELL_ADD_COST)
-
-/* Calculate the number of temporaries used for relative primes.  This will leave some available for modinv pooling. */
-
-	totrels = (int) (numrels * multiplier);
+#define	AVG_ELL_DBLADD_COST	((ELL_DBL_COST + ELL_ADD_COST) / 2)
+#define N_SQUARED_POOL_COST(n)	(((double)((n)+3)) * ((double)((n)+3)) - 13.0)
+#define MULT3_POOL_COST(n)	((double)(n) * (9-2))
+#define MULT3POINT44_POOL_COST(n) ((double)(n) * (10.3333333333333-2.0))
+#define MULT3POINT57_POOL_COST(n) ((double)(n) * (10.7142857142857-2.0))
+#define NQX_SETUP_COST(fft4)	(((fft4) || cost_data->c.D % 3 != 0) ? \
+				 1.0 * ELL_ADD_COST + 2.0 * ELL_DBL_COST + ((double) (cost_data->c.D / 2 - 1)) * ELL_ADD_COST : \
+				 5.0 * ELL_ADD_COST + 3.0 * ELL_DBL_COST + ((double) (cost_data->c.D / 6 - 2)) * 2.0 * ELL_ADD_COST)
 
 /* Cost (in FFTs) of a 4FFT stage 2 using this D		*/
 /* The cost will be:						*/
 /*	multiplier * D / 4 ell_add_xzs + pool_cost (totrels) +	*/
-/*	totrels (each nQx must be FFTed) +			*/
+/*	totrels (each normalized nQx must be FFTed) +		*/
 /*	(C-B)/D ell_add_xzs +					*/
-/*	(C-B)/D * 2 (each mQx mQz must be FFTed) +		*/
 /*	#primes*4						*/
 /* The memory consumed will be:					*/
 /*	9 + totrels gwnums in main stage 2 loop if N^2 pooling	*/
@@ -3298,65 +3310,65 @@ double ecm_stage2_cost (
 
 //GW:  what about doing the pool in chunks O(n^2) grows quickly!  There is a best "e" value
 	if (cost_data->impl == 0) {
-		cost = NQX_SETUP_COST (TRUE) + N_SQUARED_POOL_COST (totrels) + totrels +
-			(double) numDsections * ELL_ADD_COST + numDsections * 2 +
-			(numpairs + numsingles) * 4;
+		cost_data->c.est_init_transforms = NQX_SETUP_COST (TRUE) + N_SQUARED_POOL_COST (cost_data->c.totrels);  // Cost of nQx calculations
+		cost_data->c.est_stage2_transforms = (double) cost_data->c.numDsections * ELL_ADD_COST;
+		cost_modinv = cost_data->modinv_cost;
 		cost_data->TWO_FFT_STAGE2 = FALSE;
 		cost_data->pool_type = POOL_N_SQUARED;
 		cost_data->E = 0;
-		cost_data->stage2_numvals = 9 + totrels;
+		cost_data->c.stage2_numvals = 9 + cost_data->c.totrels;
 	}
 
 	if (cost_data->impl == 1) {
 		// We need 8 + totrels * 2 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
-		if (8 + totrels * 2 > cost_data->numvals) return (1.0e99);
-		cost = NQX_SETUP_COST (TRUE) + MULT3_POOL_COST (totrels) + totrels +
-			(double) numDsections * ELL_ADD_COST + numDsections * 2 +
-			(numpairs + numsingles) * 4;
+		if (8 + cost_data->c.totrels * 2 + cost_data->c.numvals_consumed_by_pairmap > cost_data->c.numvals) return (1.0e99);
+		cost_data->c.est_init_transforms = NQX_SETUP_COST (TRUE) + MULT3_POOL_COST (cost_data->c.totrels);  // Cost of nQx calculations
+		cost_data->c.est_stage2_transforms = (double) cost_data->c.numDsections * ELL_ADD_COST;
+		cost_modinv = cost_data->modinv_cost;
 		cost_data->TWO_FFT_STAGE2 = FALSE;
 		cost_data->pool_type = POOL_3MULT;
 		cost_data->E = 0;
-		cost_data->stage2_numvals = 8 + totrels * 2;
+		cost_data->c.stage2_numvals = 8 + cost_data->c.totrels * 2;
 	}
 
 	if (cost_data->impl == 2) {
 		// We need 8 + totrels * 1.33 + 2 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
-		if (8 + totrels * 4 / 3 + 2 > cost_data->numvals) return (1.0e99);
-		cost = NQX_SETUP_COST (TRUE) + MULT3POINT44_POOL_COST (totrels) + totrels +
-			(double) numDsections * ELL_ADD_COST + numDsections * 2 +
-			(numpairs + numsingles) * 4;
+		if (8 + cost_data->c.totrels * 4 / 3 + 2 + cost_data->c.numvals_consumed_by_pairmap > cost_data->c.numvals) return (1.0e99);
+		cost_data->c.est_init_transforms = NQX_SETUP_COST (TRUE) + MULT3POINT44_POOL_COST (cost_data->c.totrels);  // Cost of nQx calculations
+		cost_data->c.est_stage2_transforms = (double) cost_data->c.numDsections * ELL_ADD_COST;
+		cost_modinv = cost_data->modinv_cost;
 		cost_data->TWO_FFT_STAGE2 = FALSE;
 		cost_data->pool_type = POOL_3POINT44MULT;
 		cost_data->E = 0;
-		cost_data->stage2_numvals = 8 + totrels * 4 / 3 + 2;
+		cost_data->c.stage2_numvals = 8 + cost_data->c.totrels * 4 / 3 + 2;
 	}
 
 	if (cost_data->impl == 3) {
 		// We need 8 + totrels * 1.14 + 5 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
-		if (8 + totrels * 8 / 7 + 5 > cost_data->numvals) return (1.0e99);
-		cost = NQX_SETUP_COST (TRUE) + MULT3POINT57_POOL_COST (totrels) + totrels +
-			(double) numDsections * ELL_ADD_COST + numDsections * 2 +
-			(numpairs + numsingles) * 4;
+		if (8 + cost_data->c.totrels * 8 / 7 + 5 + cost_data->c.numvals_consumed_by_pairmap > cost_data->c.numvals) return (1.0e99);
+		cost_data->c.est_init_transforms = NQX_SETUP_COST (TRUE) + MULT3POINT57_POOL_COST (cost_data->c.totrels);  // Cost of nQx calculations
+		cost_data->c.est_stage2_transforms = (double) cost_data->c.numDsections * ELL_ADD_COST;
+		cost_modinv = cost_data->modinv_cost;
 		cost_data->TWO_FFT_STAGE2 = FALSE;
 		cost_data->pool_type = POOL_3POINT57MULT;
 		cost_data->E = 0;
-		cost_data->stage2_numvals = 8 + totrels * 8 / 7 + 5;
+		cost_data->c.stage2_numvals = 8 + cost_data->c.totrels * 8 / 7 + 5;
 	}
 
-/* Cost (in FFTs) of a 2FFT stage 2 using this D									*/
-/* The cost will be:													*/
-/*	multiplier * D / 6 ell_add_xzs + pool_cost (totrels) +								*/
-/*	totrels (each nQx must be FFTed) +										*/
-/*	first pool cost: E ell_add_xzs + pool_cost (E+1) + E (each mQx must FFTed which reduces next pool cost) +	*/
-/*	(numgcdsections-1) * subsequent pool cost:  E/2 ell_add_3norms + E/2 ell_add_2norms + pool_cost (E) +		*/
-/*	(C-B)/D/E (first mQx pool must be FFTed) +									*/
-/*	(C-B)/D/E * (pool_cost (e) + modinv_cost) +									*/
-/*	#primes*2													*/
-/* The memory consumed will be:												*/
-/*	max (12 + totrels + 1,         5 + totrels + e + 1) gwnums if N^2 pooling					*/
-/* or	max (12 + totrels * 2,         5 + totrels + e * 2) gwnums if 3N pooling					*/
-/* or	max (12 + totrels * 4 / 3 + 2, 5 + totrels + e * 4 / 3 + 2) gwnums if 3.44N pooling				*/
-/* or	max (12 + totrels * 8 / 7 + 5, 5 + totrels + e * 8 / 7 + 5) gwnums if 3.57N pooling				*/
+/* Cost (in FFTs) of a 2FFT stage 2 using this D								*/
+/* The cost will be:												*/
+/*	multiplier * D / 6 ell_add_xzs + pool_cost (totrels) +							*/
+/*	totrels (each normalized nQx must be FFTed) +								*/
+/*	first pool cost: E ell_add_xzs + pool_cost (E+1) +							*/
+/*	(numgcdsections-1) * subsequent pool cost:  E/2 ell_add_3norms + E/2 ell_add_2norms + pool_cost (E) +	*/
+/*	(C-B)/D (each normalized mQx must be FFTed) +								*/
+/*	(C-B)/D/E * (pool_cost (e) + modinv_cost) +								*/
+/*	#primes*2												*/
+/* The memory consumed will be:											*/
+/*	max (12 + totrels + 1,         5 + totrels + e + 1) gwnums if N^2 pooling				*/
+/* or	max (12 + totrels * 2,         5 + totrels + e * 2) gwnums if 3N pooling				*/
+/* or	max (12 + totrels * 4 / 3 + 2, 5 + totrels + e * 4 / 3 + 2) gwnums if 3.44N pooling			*/
+/* or	max (12 + totrels * 8 / 7 + 5, 5 + totrels + e * 8 / 7 + 5) gwnums if 3.57N pooling			*/
 
 /* Since computing mQx costs 12*E for the first mQx pool and just 9*E for subsequent mQx pools, we want to maximize the number of mQx pools as long */
 /* as the savings from reducing E in the first pool exceeds the cost of a modular inverse.  The best number of mQx pools is the maximum value satisfying */
@@ -3365,121 +3377,148 @@ double ecm_stage2_cost (
 /* From #pools value, generate the smallest even E value that creates the desired number of mQx pools. */
 
 	if (cost_data->impl >= 4) {
-		numgcdsections = floor ((1.0 + sqrt (1.0 + 12.0 * (double) numDsections / cost_data->modinv_cost)) / 2.0);
-		beste = (int) ceil ((double) numDsections / numgcdsections);
+		numgcdsections = floor ((1.0 + sqrt (1.0 + 12.0 * (double) cost_data->c.numDsections / cost_data->modinv_cost)) / 2.0);
+		beste = (int) ceil ((double) cost_data->c.numDsections / numgcdsections);
 		if ((beste & 1) && numgcdsections > 1.0) beste++;
 	}
 
-//GW: feedback loop that might make optimizing faster.  choose e such that every gcd section is the same size
 	if (cost_data->impl == 4) {
 		int	max_n_squared_e = (int) sqrt (2 * (cost_data->modinv_cost + 9)); // Maximum sensible value for E using O(N^2) pooling
 		// We need 13 + totrels + 1 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
-		if (13 + totrels + 1 > cost_data->numvals) return (1.0e99);
+		if (13 + cost_data->c.totrels + 1 + cost_data->c.numvals_consumed_by_pairmap > cost_data->c.numvals) return (1.0e99);
 		// In mQ_init, we use 5 + nQx gwnums for other purposes. In stage 2 main loop, we use 4 + nQx gwnums for other purposes.
 		// Pooling cost is just one.  Figure out the maximum even E value we can use.
-		e = (cost_data->numvals - 5 - totrels - 1) & ~1;
+		e = (cost_data->c.numvals - 5 - cost_data->c.totrels - 1) & ~1;
 		if (e <= 0) return (1.0e99);
 		// If e exceeds the maximum sensible value for N^2 pooling, use the maximum sensible E value
 		if (e > max_n_squared_e) e = max_n_squared_e;
 		// If this lets us select beste do so.  Otherwise, pick the smallest even E that generates the same number of pools as using the maximum E.
 		if (e >= beste) e = beste;
 		else {
-			numgcdsections = ceil ((double) numDsections / (double) e);
-			e = (int) ceil ((double) numDsections / numgcdsections);
+			numgcdsections = ceil ((double) cost_data->c.numDsections / (double) e);
+			e = (int) ceil ((double) cost_data->c.numDsections / numgcdsections);
 			if (e & 1) e++;
 		}
 		// Cost out this E value
-		cost = NQX_SETUP_COST (FALSE) + N_SQUARED_POOL_COST (totrels) + totrels +
-		       e * ELL_ADD_COST + N_SQUARED_POOL_COST (e+1) + e +
-		       (numgcdsections - 1.0) * (e * AVG_ELL_ADD_NORM_COST + N_SQUARED_POOL_COST (e)) +
-		       (numpairs + numsingles) * 2.0;
+		cost_data->c.est_init_transforms = NQX_SETUP_COST (FALSE) +					// Cost of nQx below D setup
+						   N_SQUARED_POOL_COST (cost_data->c.totrels) +			// pool cost for nQx
+						   e * ELL_ADD_COST + N_SQUARED_POOL_COST (e+1);		// Cost of first GCD section in mQ_init
+		cost_data->c.est_stage2_transforms = (double) cost_data->c.numDsections +			// Cost of FFTing each normalized mQx value
+			(numgcdsections - 1.0) * (e * AVG_ELL_ADD_NORM_COST + N_SQUARED_POOL_COST (e));		// Cost of remaining GCD sections
+		cost_modinv = cost_data->modinv_cost * (1 + numgcdsections);
 		cost_data->TWO_FFT_STAGE2 = TRUE;
 		cost_data->pool_type = POOL_N_SQUARED;
 		cost_data->E = e;
-		cost_data->stage2_numvals = _intmax (12 + totrels + 1, 5 + totrels + e + 1);
+		cost_data->c.stage2_numvals = _intmax (12 + cost_data->c.totrels + 1, 5 + cost_data->c.totrels + e + 1);
 	}
 
 	if (cost_data->impl == 5) {
 		// We need 12 + totrels * 2 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
-		if (12 + totrels * 2 > cost_data->numvals) return (1.0e99);
+		if (12 + cost_data->c.totrels * 2 + cost_data->c.numvals_consumed_by_pairmap > cost_data->c.numvals) return (1.0e99);
 		// In mQ_init, we use 5 + nQx gwnums for other purposes.  In stage 2 main loop, we use 4 + nQx gwnums for other purposes.
 		// Figure out the maximum even E value we can use.
-		e = ((cost_data->numvals - 5 - totrels) / 2) & ~1;
+		e = ((cost_data->c.numvals - 5 - cost_data->c.totrels) / 2) & ~1;
 		// If this lets us select beste do so.  Otherwise, pick the smallest even E that generates the same number of pools as using the maximum E.
 		if (e >= beste) e = beste;
 		else {
-			numgcdsections = ceil ((double) numDsections / (double) e);
-			e = (int) ceil ((double) numDsections / numgcdsections);
+			numgcdsections = ceil ((double) cost_data->c.numDsections / (double) e);
+			e = (int) ceil ((double) cost_data->c.numDsections / numgcdsections);
 			if (e & 1) e++;
 		}
 		// Cost out this E value
-		cost = NQX_SETUP_COST (FALSE) + MULT3_POOL_COST (totrels) + totrels +
-		       e * ELL_ADD_COST + MULT3_POOL_COST (e+1) + e +
-		       (numgcdsections - 1.0) * (e * AVG_ELL_ADD_NORM_COST + MULT3_POOL_COST (e)) +
-		       (numpairs + numsingles) * 2.0;
+		cost_data->c.est_init_transforms = NQX_SETUP_COST (FALSE) +					// Cost of nQx below D setup
+						   MULT3_POOL_COST (cost_data->c.totrels) +			// pool cost for nQx
+						   e * ELL_ADD_COST + MULT3_POOL_COST (e+1);			// Cost of first GCD section in mQ_init
+		cost_data->c.est_stage2_transforms = (double) cost_data->c.numDsections +			// Cost of FFTing each normalized mQx value
+			(numgcdsections - 1.0) * (e * AVG_ELL_ADD_NORM_COST + MULT3_POOL_COST (e));		// Cost of remaining GCD sections
+		cost_modinv = cost_data->modinv_cost * (1 + numgcdsections);
 		cost_data->TWO_FFT_STAGE2 = TRUE;
 		cost_data->pool_type = POOL_3MULT;
 		cost_data->E = e;
-		cost_data->stage2_numvals = _intmax (12 + totrels * 2, 5 + totrels + e * 2);
+		cost_data->c.stage2_numvals = _intmax (12 + cost_data->c.totrels * 2, 5 + cost_data->c.totrels + e * 2);
 	}
 
 	if (cost_data->impl == 6) {
 		// We need 12 + totrels * 4 / 3 + 2 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
-		if (12 + totrels * 4 / 3 + 2 > cost_data->numvals) return (1.0e99);
+		if (12 + cost_data->c.totrels * 4 / 3 + 2 + cost_data->c.numvals_consumed_by_pairmap > cost_data->c.numvals) return (1.0e99);
 		// In mQ_init, we use 5 + nQx gwnums for other purposes.  In stage 2 main loop, we use 4 + nQx gwnums for other purposes.
 		// Figure out the maximum even E value we can use.
-		e = ((cost_data->numvals - 5 - totrels - 2) * 3 / 4) & ~1;
+		e = ((cost_data->c.numvals - 5 - cost_data->c.totrels - 2) * 3 / 4) & ~1;
 		// If this lets us select beste do so.  Otherwise, pick the smallest even E that generates the same number of pools as using the maximum E.
 		if (e >= beste) e = beste;
 		else {
-			numgcdsections = ceil ((double) numDsections / (double) e);
-			e = (int) ceil ((double) numDsections / numgcdsections);
+			numgcdsections = ceil ((double) cost_data->c.numDsections / (double) e);
+			e = (int) ceil ((double) cost_data->c.numDsections / numgcdsections);
 			if (e & 1) e++;
 		}
 		// Cost out this E value
-		cost = NQX_SETUP_COST (FALSE) + MULT3POINT44_POOL_COST (totrels) + totrels +
-		       e * ELL_ADD_COST + MULT3POINT44_POOL_COST (e+1) + e +
-		       (numgcdsections - 1.0) * (e * AVG_ELL_ADD_NORM_COST + MULT3POINT44_POOL_COST (e)) +
-		       (numpairs + numsingles) * 2.0;
+		cost_data->c.est_init_transforms = NQX_SETUP_COST (FALSE) +					// Cost of nQx below D setup
+						   MULT3POINT44_POOL_COST (cost_data->c.totrels) +		// pool cost for nQx
+						   e * ELL_ADD_COST + MULT3POINT44_POOL_COST (e+1);		// Cost of first GCD section in mQ_init
+		cost_data->c.est_stage2_transforms = (double) cost_data->c.numDsections +			// Cost of FFTing each normalized mQx value
+			(numgcdsections - 1.0) * (e * AVG_ELL_ADD_NORM_COST + MULT3POINT44_POOL_COST (e));	// Cost of remaining GCD sections
+		cost_modinv = cost_data->modinv_cost * (1 + numgcdsections);
 		cost_data->TWO_FFT_STAGE2 = TRUE;
 		cost_data->pool_type = POOL_3POINT44MULT;
 		cost_data->E = e;
-		cost_data->stage2_numvals = _intmax (12 + totrels * 4 / 3 + 2, 5 + totrels + e * 4 / 3 + 2);
+		cost_data->c.stage2_numvals = _intmax (12 + cost_data->c.totrels * 4 / 3 + 2, 5 + cost_data->c.totrels + e * 4 / 3 + 2);
 	}
 
 	if (cost_data->impl == 7) {
 		// We need 12 + totrels * 8 / 7 + 5 available gwnums for the nQx setup.  Return infinite cost if there aren't enough temporaries available.
-		if (12 + totrels * 8 / 7 + 5 > cost_data->numvals) return (1.0e99);
+		if (12 + cost_data->c.totrels * 8 / 7 + 5 + cost_data->c.numvals_consumed_by_pairmap > cost_data->c.numvals) return (1.0e99);
 		// In mQ_init, we use 5 + nQx gwnums for other purposes.  In stage 2 main loop, we use 4 + nQx gwnums for other purposes.
 		// Figure out the maximum even E value we can use.
-		e = ((cost_data->numvals - 5 - totrels - 5) * 7 / 8) & ~1;
+		e = ((cost_data->c.numvals - 5 - cost_data->c.totrels - 5) * 7 / 8) & ~1;
 		// If this lets us select beste do so.  Otherwise, pick the smallest even E that generates the same number of pools as using the maximum E.
 		if (e >= beste) e = beste;
 		else {
-			numgcdsections = ceil ((double) numDsections / (double) e);
-			e = (int) ceil ((double) numDsections / numgcdsections);
+			numgcdsections = ceil ((double) cost_data->c.numDsections / (double) e);
+			e = (int) ceil ((double) cost_data->c.numDsections / numgcdsections);
 			if (e & 1) e++;
 		}
 		// Cost out this E value
-		cost = NQX_SETUP_COST (FALSE) + MULT3POINT57_POOL_COST (totrels) + totrels +
-		       e * ELL_ADD_COST + MULT3POINT57_POOL_COST (e+1) + e +
-		       (numgcdsections - 1.0) * (e * AVG_ELL_ADD_NORM_COST + MULT3POINT57_POOL_COST (e)) +
-		       (numpairs + numsingles) * 2.0;
+		cost_data->c.est_init_transforms = NQX_SETUP_COST (FALSE) +					// Cost of nQx below D setup
+						   MULT3POINT57_POOL_COST (cost_data->c.totrels) +		// pool cost for nQx
+						   e * ELL_ADD_COST + MULT3POINT57_POOL_COST (e+1);		// Cost of first GCD section in mQ_init
+		cost_data->c.est_stage2_transforms = (double) cost_data->c.numDsections +			// Cost of FFTing each normalized mQx value
+			(numgcdsections - 1.0) * (e * AVG_ELL_ADD_NORM_COST + MULT3POINT57_POOL_COST (e));	// Cost of remaining GCD sections
+		cost_modinv = cost_data->modinv_cost * (1 + numgcdsections);
 		cost_data->TWO_FFT_STAGE2 = TRUE;
 		cost_data->pool_type = POOL_3POINT57MULT;
 		cost_data->E = e;
-		cost_data->stage2_numvals = _intmax (12 + totrels * 8 / 7 + 5, 5 + totrels + e * 8 / 7 + 5);
+		cost_data->c.stage2_numvals = _intmax (12 + cost_data->c.totrels * 8 / 7 + 5, 5 + cost_data->c.totrels + e * 8 / 7 + 5);
 	}
 
-/* Return data ECM implementation will need */
+/* We've only calculated the cost of the relprimes less than D.  For the relative primes above D, we perform one ell_add for each rel_prime to calculate. */
+/* We assume relp set -1 is not used, which means there are totrels - numrels relative primes above D to calculate. */
 
-	cost_data->D = D;
-	cost_data->totrels = totrels;
-	cost_data->B2_start = B2_start;
-	cost_data->numDsections = numDsections;
-	cost_data->bitarraymaxDsections = bitarraymaxDsections;
+	cost_data->c.est_init_transforms += (cost_data->c.totrels - cost_data->c.numrels) * ELL_ADD_COST;		// Cost for relprimes above D
 
-/* Return the cost of executing this stage 2 */
+/* Any intermediate relp_sets also cost one luc_add for each relprime.  Partial intermediate sets also must be accounted for. */
+
+	cost_data->c.est_init_transforms +=
+		cost_data->c.numrels * cost_data->c.relp_sets[1] * ELL_ADD_COST +					  // Cost for full intermediate relp_sets
+		one_based_modulo (cost_data->c.totrels, cost_data->c.numrels) * cost_data->c.relp_sets[2] * ELL_ADD_COST; // Cost for partial intermediate relp_sets
+
+/* Each Dmultiple costs either an ell_dbl or ell_add.  Here we have to guess how many Dmultiples are needed.  The most expensive D-multiple is likely the */
+/* calculation of B2_start -- 2*log2(B2_start/D).  In addition, we'll assume one more D-multiple for each relp_set. */
+
+	cost_data->c.est_init_transforms += (2.0 * _log2((cost_data->c.B2_start + cost_data->c.D / 2) / cost_data->c.D) + cost_data->c.multiplier) * AVG_ELL_DBLADD_COST;
+
+/* Each normalized nQx value will be FFTed once */
+
+	cost_data->c.est_stage2_transforms += cost_data->c.totrels;
+
+/* Finally, each prime pair and prime single costs one or two 2-FFT multiplies */
+
+	cost_data->c.est_stage2_transforms += (cost_data->c.est_numpairs + cost_data->c.est_numsingles) * (cost_data->impl >= 4 ? 2.0 : 4.0);
+
+/* Compute the total cost including pairing runtime and modular inverses */
+
+	cost = cost_data->c.est_pairing_runtime + cost_modinv + cost_data->c.est_init_transforms + cost_data->c.est_stage2_transforms;
+
+/* Return the cost of executing this stage 2.  Convert from number-of-FFTs to number-of-squarings to be consistent with P-1/P+1 cost functions. */
 
 	return (cost);
 }
@@ -3514,6 +3553,9 @@ double ecm_stage2_impl_given_numvals (
 /* Find the least costly stage 2 plan looking at the four combinations of 2 vs. 4 FFT and pool type N^2 vs. 3-MULT vs. 3.44-MULT vs. 3.57-MULT. */
 
 	best_cost = 1.0e99;
+	cost_data.c.numvals = numvals;
+	cost_data.c.fftlen = gwfftlen (&ecmdata->gwdata);
+	cost_data.c.threads = gwget_num_threads (&ecmdata->gwdata);
 	for (impl = 0; impl <= 7; impl++) {
 
 /* Check for QA'ing a specific ECM implementation type */
@@ -3524,8 +3566,7 @@ double ecm_stage2_impl_given_numvals (
 /* temporaries required by the main stage 2 loop (6 for computing mQx, gg, 2 for ell_add_xz_noscr temps).  Keep track of the best implementation. */
 
 		cost_data.impl = impl;
-		cost_data.numvals = numvals;
-		cost = best_stage2_impl (ecmdata->C_done, ecmdata->C, numvals - 9, &ecm_stage2_cost, &cost_data);
+		cost = best_stage2_impl (ecmdata->first_relocatable, ecmdata->last_relocatable, ecmdata->C_done, ecmdata->C, numvals - 9, &ecm_stage2_cost, &cost_data);
 		if (cost < best_cost) {
 			best_cost = cost;
 			*return_cost_data = cost_data;
@@ -3631,25 +3672,17 @@ int ecm_stage2_impl (
 	ecmhandle *ecmdata)
 {
 	unsigned int memory, min_memory, desired_memory;	/* Memory is in MB */
-	unsigned int bitarray_size, max_bitarray_size;		/* Bitarray memory in MB */
-	int	numvals;			/* Number of gwnums we can allocate */
-	struct ecm_stage2_cost_data cost_data;	/* Extra data passed returned from ECM costing function */
+	int	numvals;					/* Number of gwnums we can allocate */
+	struct ecm_stage2_cost_data cost_data;			/* Data passed to and returned from ECM costing function */
 	int	stop_reason;
 
-/* Calculate (roughly) the memory required for the bit-array.  A typical stage 2 implementation is D=210, B2_start=B2/11, numrels=24, totrels=7*24. */
-/* A typical optimal B2 is 130*B1.  This means bitarray memory = B2 * 10/11 / 210 * 24 * 7 / 8 bytes. */
+/* Calculate the amount of memory we can use in stage 2.  We must have 1MB for a pairing map + a minimum of 13 temporaries (D = 30). */
+/* If not continuing from a stage 2 save file then assume 149 temporaries (D = 210, multiplier = 5) and a few MB for a pairing map will */
+/* provide us with a reasonable execution speed.  Otherwise, we desire enough memory to use the save file's pairing map. */
 
-	bitarray_size = divide_rounding_up ((unsigned int) ((ecmdata->optimal_B2 ? 130 * ecmdata->B : ecmdata->C) * 1680 / 18480), 1 << 20);
-	max_bitarray_size = IniGetInt (INI_FILE, "MaximumBitArraySize", 250);
-	if (bitarray_size > max_bitarray_size) bitarray_size = max_bitarray_size;
-
-/* Get available memory.  We need 13 gwnums to do the smallest stage 2. */
-/* If continuing from a stage 2 save file then we desire as many temporaries as the save file used.  Otherwise, assume 120 temporaries will */
-/* allow us to do a reasonable efficient stage 2 implementation. */
-//gw: is 120 reasonable?
-
-	min_memory = bitarray_size + cvt_gwnums_to_mem (&ecmdata->gwdata, 13);
-	desired_memory = bitarray_size + cvt_gwnums_to_mem (&ecmdata->gwdata, ecmdata->state >= ECM_STATE_STAGE2 ? ecmdata->stage2_numvals : 120);
+	min_memory = 1 + cvt_gwnums_to_mem (&ecmdata->gwdata, 13);
+	if (ecmdata->state < ECM_STATE_STAGE2) desired_memory = 3 + cvt_gwnums_to_mem (&ecmdata->gwdata, 149);
+	else desired_memory = (unsigned int) (ecmdata->pairmap_size >> 20) + cvt_gwnums_to_mem (&ecmdata->gwdata, ecmdata->stage2_numvals);
 	stop_reason = avail_mem (ecmdata->thread_num, min_memory, desired_memory, &memory);
 	if (stop_reason) return (stop_reason);
 
@@ -3669,17 +3702,19 @@ int ecm_stage2_impl (
 	}
 
 /* Figure out how many gwnum values fit in our memory limit.  User nordi had over-allocating memory troubles on Linux testing M1277, presumably */
-/* because our estimate genum size was too low.  As a work-around limit numvals to 100,000 by default. */
+/* because our estimate gwnum size was too low.  As a work-around limit numvals to 100,000 by default. */
 
-	numvals = cvt_mem_to_gwnums (&ecmdata->gwdata, memory - bitarray_size);
+	numvals = cvt_mem_to_gwnums (&ecmdata->gwdata, memory);
 	if (numvals < 13) numvals = 13;
 	if (numvals > 100000) numvals = 100000;
 
-/* Set C_done for future best_stage2_impl calls. */
+/* Set first_relocatable for future best_stage2_impl calls. */
 /* Override B2 with optimal B2 based on amount of memory available. */
 
 	if (ecmdata->state == ECM_STATE_MIDSTAGE) {
-		ecmdata->C_done = ecmdata->B;
+		// Note: differs from P-1 and P+1 code in that "more C" is not supported
+		ecmdata->first_relocatable = ecmdata->B;
+		ecmdata->last_relocatable = 0;
 		if (ecmdata->optimal_B2) ecm_choose_B2 (ecmdata, numvals);
 	}
 
@@ -3694,51 +3729,69 @@ int ecm_stage2_impl (
 	     ecmdata->Dsection >= ecmdata->numDsections / 2))			// stage 2 more than half done
 		return (0);							// Use old plan
 
+/* If we are contemplating ditching the save file pairmap, figure out how which non-relocatable primes are definitely included in the stage 2 */
+/* accumulator.  Set C_done appropriately, but do not change first_relocatable as there is no guarantee which relocatables are in the accumulator. */
+
+	if (ecmdata->state == ECM_STATE_STAGE2) {
+		int	max_relp_set = get_max_relp_set (ecmdata->relp_sets);
+		if (ecmdata->Dsection > max_relp_set) ecmdata->C_done = ecmdata->B2_start + (ecmdata->Dsection - max_relp_set) * ecmdata->D;
+		else ecmdata->C_done = ecmdata->B2_start;
+	}
+
 /* Find the least costly stage 2 plan */
 
 	ecm_stage2_impl_given_numvals (ecmdata, numvals, &cost_data);
 
 /* If are continuing from a save file that was in stage 2 and the new plan doesn't look significant better than the old plan, then */
-/* we use the old plan and its partially completed bit array. */
+/* we use the old plan and its partially completed pairmap. */
 
 	if (ecmdata->state >= ECM_STATE_STAGE2 &&				// Continuing a stage 2 save file and
 	    numvals >= ecmdata->stage2_numvals &&				// We have enough memory and
-	    cost_data.stage2_numvals < ecmdata->stage2_numvals * 2)		// new plan does not use significantly more memory
+	    cost_data.c.stage2_numvals < ecmdata->stage2_numvals * 2)		// new plan does not use significantly more memory
 		return (0);							// Use old plan
 
-/* If are continuing from a save file that was in stage 2, toss the save file's bit array. */
+/* If are continuing from a save file that was in stage 2, toss the save file's pair map. */
 
 	if (ecmdata->state >= ECM_STATE_STAGE2) {
-		free (ecmdata->bitarray);
-		ecmdata->bitarray = NULL;
+		free (ecmdata->pairmap);
+		ecmdata->pairmap = NULL;
 	}
 
 /* Set all the variables needed for this stage 2 plan */
 
-	ecmdata->stage2_numvals = cost_data.stage2_numvals;
-	ecmdata->totrels = cost_data.totrels;
+	ecmdata->stage2_numvals = cost_data.c.stage2_numvals;
+	ecmdata->totrels = cost_data.c.totrels;
 	ecmdata->TWO_FFT_STAGE2 = cost_data.TWO_FFT_STAGE2;
 	ecmdata->pool_type = cost_data.pool_type;
-	ecmdata->D = cost_data.D;
+	ecmdata->D = cost_data.c.D;
 	ecmdata->E = cost_data.E;
-	ecmdata->B2_start = cost_data.B2_start;
-	ecmdata->numDsections = cost_data.numDsections;
-	ecmdata->bitarraymaxDsections = cost_data.bitarraymaxDsections;
-	ecmdata->Dsection = 0;
+	ecmdata->B2_start = cost_data.c.B2_start;
+	ecmdata->numDsections = cost_data.c.numDsections;
+	ecmdata->max_pairmap_Dsections = cost_data.c.max_pairmap_Dsections;
+	memcpy (ecmdata->relp_sets, cost_data.c.relp_sets, sizeof (ecmdata->relp_sets));
 
 	if (ecmdata->state < ECM_STATE_STAGE2) {
-		ecmdata->first_relocatable = ecmdata->B;
 		ecmdata->last_relocatable = ecmdata->B2_start;
-		ecmdata->C_done = ecmdata->B2_start;
+	}
+	
+/* Output some debugging data so we can compare estimateds to actuals */
+
+	if (IniGetInt (INI_FILE, "Stage2Estimates", 0)) {
+		char	buf[120];
+		sprintf (buf, "Est pair%%: %5.2f, init transforms: %.0f, main loop transforms: %.0f\n",
+			 cost_data.c.est_pair_pct * 100.0, cost_data.c.est_init_transforms, cost_data.c.est_stage2_transforms);
+		OutputStr (ecmdata->thread_num, buf);
 	}
 
-/* Once the plan is selected, create a bit array maximizing the prime pairings. */
+/* Create a map of (hopefully) close-to-optimal prime pairings */
 
-	ecmdata->bitarrayfirstDsection = ecmdata->Dsection;
-	stop_reason = fill_work_bitarray (ecmdata->thread_num, &ecmdata->sieve_info, ecmdata->D, ecmdata->totrels,
-					  ecmdata->first_relocatable, ecmdata->last_relocatable, ecmdata->C_done, ecmdata->C,
-					  ecmdata->bitarraymaxDsections, &ecmdata->bitarray);
+	stop_reason = fill_pairmap (ecmdata->thread_num, &ecmdata->sieve_info, ecmdata->D, 0,0,0, ecmdata->totrels, ecmdata->relp_sets+3,
+				    ecmdata->first_relocatable, ecmdata->last_relocatable, ecmdata->B2_start, ecmdata->C,
+				    ecmdata->max_pairmap_Dsections, &ecmdata->pairmap, &ecmdata->pairmap_size);
 	if (stop_reason) return (stop_reason);
+	ecmdata->pairmap_ptr = ecmdata->pairmap;
+	ecmdata->Dsection = 0;
+	ecmdata->relp = -1;
 
 	return (0);
 }
@@ -3746,7 +3799,8 @@ int ecm_stage2_impl (
 /* Routines to create and read save files for an ECM factoring job */
 
 #define ECM_MAGICNUM	0x1725bcd9
-#define ECM_VERSION	2
+//#define ECM_VERSION	2			// Version 30.4.  Better pairing using relative primes above D/2. */
+#define ECM_VERSION	3			// Version 30.7.  Better pairing with relp_sets, compressed pairing map. */
 
 void ecm_save (
 	ecmhandle *ecmdata)
@@ -3767,14 +3821,14 @@ void ecm_save (
 /* Write the file data */
 
 	if (! write_long (fd, ecmdata->curve, &sum)) goto writeerr;
-	if (! write_longlong (fd, ecmdata->average_B2, NULL)) goto writeerr;
+	if (! write_uint64 (fd, ecmdata->average_B2, NULL)) goto writeerr;
 	if (! write_int (fd, ecmdata->state, &sum)) goto writeerr;
 	if (! write_double (fd, ecmdata->sigma, NULL)) goto writeerr;
-	if (! write_longlong (fd, ecmdata->B, &sum)) goto writeerr;
-	if (! write_longlong (fd, ecmdata->C, &sum)) goto writeerr;
+	if (! write_uint64 (fd, ecmdata->B, &sum)) goto writeerr;
+	if (! write_uint64 (fd, ecmdata->C, &sum)) goto writeerr;
 
 	if (ecmdata->state == ECM_STATE_STAGE1) {
-		if (! write_longlong (fd, ecmdata->stage1_prime, &sum)) goto writeerr;
+		if (! write_uint64 (fd, ecmdata->stage1_prime, &sum)) goto writeerr;
 	}
 
 	else if (ecmdata->state == ECM_STATE_MIDSTAGE) {
@@ -3782,27 +3836,27 @@ void ecm_save (
 
 	// Save everything necessary to restart stage 2 without calling ecm_stage2_impl again
 	else if (ecmdata->state == ECM_STATE_STAGE2) {
-		uint64_t bitarray_numDsections, bitarray_start, bitarray_len;
+		uint64_t remaining_pairmap_size;
 		if (! write_int (fd, ecmdata->stage2_numvals, &sum)) goto writeerr;
 		if (! write_int (fd, ecmdata->totrels, &sum)) goto writeerr;
 		if (! write_int (fd, ecmdata->D, &sum)) goto writeerr;
 		if (! write_int (fd, ecmdata->E, &sum)) goto writeerr;
 		if (! write_int (fd, ecmdata->TWO_FFT_STAGE2, &sum)) goto writeerr;
 		if (! write_int (fd, ecmdata->pool_type, &sum)) goto writeerr;
-		if (! write_longlong (fd, ecmdata->first_relocatable, &sum)) goto writeerr;
-		if (! write_longlong (fd, ecmdata->last_relocatable, &sum)) goto writeerr;
-		if (! write_longlong (fd, ecmdata->B2_start, &sum)) goto writeerr;
-		if (! write_longlong (fd, ecmdata->C_done, &sum)) goto writeerr;
-		if (! write_longlong (fd, ecmdata->numDsections, &sum)) goto writeerr;
-		if (! write_longlong (fd, ecmdata->Dsection, &sum)) goto writeerr;
-		if (! write_longlong (fd, ecmdata->bitarraymaxDsections, &sum)) goto writeerr;
-		if (! write_longlong (fd, ecmdata->bitarrayfirstDsection, &sum)) goto writeerr;
-		// Output the truncated bit array
-		bitarray_numDsections = ecmdata->numDsections - ecmdata->bitarrayfirstDsection;
-		if (bitarray_numDsections > ecmdata->bitarraymaxDsections) bitarray_numDsections = ecmdata->bitarraymaxDsections; 		
-		bitarray_len = divide_rounding_up (bitarray_numDsections * ecmdata->totrels, 8);
-		bitarray_start = divide_rounding_down ((ecmdata->Dsection - ecmdata->bitarrayfirstDsection) * ecmdata->totrels, 8);
-		if (! write_array (fd, ecmdata->bitarray + bitarray_start, (unsigned long) (bitarray_len - bitarray_start), &sum)) goto writeerr;
+		if (! write_uint64 (fd, ecmdata->first_relocatable, &sum)) goto writeerr;
+		if (! write_uint64 (fd, ecmdata->last_relocatable, &sum)) goto writeerr;
+		if (! write_uint64 (fd, ecmdata->B2_start, &sum)) goto writeerr;
+		if (! write_uint64 (fd, ecmdata->C_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, ecmdata->numDsections, &sum)) goto writeerr;
+		if (! write_uint64 (fd, ecmdata->Dsection, &sum)) goto writeerr;
+		if (! write_uint64 (fd, ecmdata->max_pairmap_Dsections, &sum)) goto writeerr;
+		if (! write_int (fd, ecmdata->relp, &sum)) goto writeerr;
+		if (! write_array (fd, (char *) ecmdata->relp_sets, 32 * sizeof (int16_t), &sum)) goto writeerr;
+		// Output the truncated pairmap
+//GW:  handle NULL pairmap?
+		remaining_pairmap_size = ecmdata->pairmap_size - (ecmdata->pairmap_ptr - ecmdata->pairmap);
+		if (! write_uint64 (fd, remaining_pairmap_size, &sum)) goto writeerr;
+		if (! write_array (fd, (char *) ecmdata->pairmap_ptr, (size_t) remaining_pairmap_size, &sum)) goto writeerr;
 	}
 
 	else if (ecmdata->state == ECM_STATE_GCD) {
@@ -3854,9 +3908,9 @@ int ecm_old_restore (			/* For version 25 save files */
 	if (! read_long (fd, &state, &sum)) goto readerr;
 	if (! read_long (fd, &ecmdata->curve, &sum)) goto readerr;
 	if (! read_double (fd, &ecmdata->sigma, NULL)) goto readerr;
-	if (! read_longlong (fd, &savefile_B, &sum)) goto readerr;
-	if (! read_longlong (fd, &ecmdata->stage1_prime, &sum)) goto readerr;
-	if (! read_longlong (fd, &unused64, &sum)) goto readerr;	// C_processed
+	if (! read_uint64 (fd, &savefile_B, &sum)) goto readerr;
+	if (! read_uint64 (fd, &ecmdata->stage1_prime, &sum)) goto readerr;
+	if (! read_uint64 (fd, &unused64, &sum)) goto readerr;	// C_processed
 
 /* Handle the should-never-happen case where we have a save file with a smaller bound #1 than the bound #1 we are presently working on. */
 /* Restart the curve (and curve counts) from scratch. */
@@ -3922,12 +3976,12 @@ int ecm_restore (			/* For version 30.4 and later save files */
 /* Read the file data */
 
 	if (! read_long (fd, &ecmdata->curve, &sum)) goto readerr;
-	if (! read_longlong (fd, &ecmdata->average_B2, NULL)) goto readerr;
+	if (! read_uint64 (fd, &ecmdata->average_B2, NULL)) goto readerr;
 	if (! read_int (fd, &ecmdata->state, &sum)) goto readerr;
 	if (! read_double (fd, &ecmdata->sigma, NULL)) goto readerr;
-	if (! read_longlong (fd, &savefile_B, &sum)) goto readerr;
+	if (! read_uint64 (fd, &savefile_B, &sum)) goto readerr;
 //GW: should we be overwriting C with savefile_C?
-	if (! read_longlong (fd, &ecmdata->C, &sum)) goto readerr;
+	if (! read_uint64 (fd, &ecmdata->C, &sum)) goto readerr;
 
 /* Handle the case where we have a save file with a smaller bound #1 than the bound #1 we are presently working on. */
 /* Restart the curve (and curve counts) from scratch. */
@@ -3940,36 +3994,49 @@ int ecm_restore (			/* For version 30.4 and later save files */
 /* Read state dependent data */
 
 	if (ecmdata->state == ECM_STATE_STAGE1) {
-		if (! read_longlong (fd, &ecmdata->stage1_prime, &sum)) goto readerr;
+		if (! read_uint64 (fd, &ecmdata->stage1_prime, &sum)) goto readerr;
 	}
 
 	else if (ecmdata->state == ECM_STATE_MIDSTAGE) {
 	}
 
 	else if (ecmdata->state == ECM_STATE_STAGE2) {
-		uint64_t bitarray_numDsections, bitarray_start, bitarray_len;
 		if (! read_int (fd, &ecmdata->stage2_numvals, &sum)) goto readerr;
 		if (! read_int (fd, &ecmdata->totrels, &sum)) goto readerr;
 		if (! read_int (fd, &ecmdata->D, &sum)) goto readerr;
 		if (! read_int (fd, &ecmdata->E, &sum)) goto readerr;
 		if (! read_int (fd, &ecmdata->TWO_FFT_STAGE2, &sum)) goto readerr;
 		if (! read_int (fd, &ecmdata->pool_type, &sum)) goto readerr;
-		if (! read_longlong (fd, &ecmdata->first_relocatable, &sum)) goto readerr;
-		if (! read_longlong (fd, &ecmdata->last_relocatable, &sum)) goto readerr;
-		if (! read_longlong (fd, &ecmdata->B2_start, &sum)) goto readerr;
-		if (! read_longlong (fd, &ecmdata->C_done, &sum)) goto readerr;
-		if (! read_longlong (fd, &ecmdata->numDsections, &sum)) goto readerr;
-		if (! read_longlong (fd, &ecmdata->Dsection, &sum)) goto readerr;
-		if (! read_longlong (fd, &ecmdata->bitarraymaxDsections, &sum)) goto readerr;
-		if (! read_longlong (fd, &ecmdata->bitarrayfirstDsection, &sum)) goto readerr;
-		// Read the truncated bit array
-		bitarray_numDsections = ecmdata->numDsections - ecmdata->bitarrayfirstDsection;
-		if (bitarray_numDsections > ecmdata->bitarraymaxDsections) bitarray_numDsections = ecmdata->bitarraymaxDsections;
-		bitarray_len = divide_rounding_up (bitarray_numDsections * ecmdata->totrels, 8);
-		bitarray_start = divide_rounding_down ((ecmdata->Dsection - ecmdata->bitarrayfirstDsection) * ecmdata->totrels, 8);
-		ecmdata->bitarray = (char *) malloc ((size_t) bitarray_len);
-		if (ecmdata->bitarray == NULL) goto readerr;
-		if (! read_array (fd, ecmdata->bitarray + bitarray_start, (unsigned long) (bitarray_len - bitarray_start), &sum)) goto readerr;
+		if (! read_uint64 (fd, &ecmdata->first_relocatable, &sum)) goto readerr;
+		if (! read_uint64 (fd, &ecmdata->last_relocatable, &sum)) goto readerr;
+		if (! read_uint64 (fd, &ecmdata->B2_start, &sum)) goto readerr;
+		if (! read_uint64 (fd, &ecmdata->C_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &ecmdata->numDsections, &sum)) goto readerr;
+		if (! read_uint64 (fd, &ecmdata->Dsection, &sum)) goto readerr;
+		if (version == 2) {			// 30.4 save files
+			uint64_t bitarraymaxDsections, bitarrayfirstDsection, bitarray_numDsections, bitarray_start, bitarray_len;
+			char	*bitarray;
+			if (! read_uint64 (fd, &bitarraymaxDsections, &sum)) goto readerr;
+			if (! read_uint64 (fd, &bitarrayfirstDsection, &sum)) goto readerr;
+			// Read the truncated bitarray
+			bitarray_numDsections = ecmdata->numDsections - bitarrayfirstDsection;
+			if (bitarray_numDsections > bitarraymaxDsections) bitarray_numDsections = bitarraymaxDsections;
+			bitarray_len = divide_rounding_up (bitarray_numDsections * ecmdata->totrels, 8);
+			bitarray_start = divide_rounding_down ((ecmdata->Dsection - bitarrayfirstDsection) * ecmdata->totrels, 8);
+			bitarray = (char *) malloc ((size_t) bitarray_len);
+			if (bitarray == NULL) goto readerr;
+			if (! read_array (fd, bitarray, (size_t) (bitarray_len - bitarray_start), &sum)) goto readerr;
+			free (bitarray);
+		} else {				// 30.7 save files
+			if (! read_uint64 (fd, &ecmdata->max_pairmap_Dsections, &sum)) goto readerr;
+			if (! read_int (fd, &ecmdata->relp, &sum)) goto readerr;
+			if (! read_array (fd, (char *) ecmdata->relp_sets, 32 * sizeof (int16_t), &sum)) goto readerr;
+			if (! read_uint64 (fd, &ecmdata->pairmap_size, &sum)) goto readerr;
+			ecmdata->pairmap = (uint8_t *) malloc ((size_t) ecmdata->pairmap_size);
+			if (ecmdata->pairmap == NULL) goto readerr;
+			if (! read_array (fd, (char *) ecmdata->pairmap, (size_t) ecmdata->pairmap_size, &sum)) goto readerr;
+			ecmdata->pairmap_ptr = ecmdata->pairmap;
+		}
 	}
 
 	else if (ecmdata->state == ECM_STATE_GCD) {
@@ -3979,6 +4046,14 @@ int ecm_restore (			/* For version 30.4 and later save files */
 
 	if (! read_gwnum (fd, &ecmdata->gwdata, ecmdata->xz.x, &sum)) goto readerr;
 	if (! read_gwnum (fd, &ecmdata->gwdata, ecmdata->xz.z, &sum)) goto readerr;
+
+/* Version 30.4 save files cannot continue in stage 2 */
+
+	if (version == 2 && ecmdata->state == ECM_STATE_STAGE2) {
+		ecmdata->state = ECM_STATE_MIDSTAGE;
+		OutputStr (ecmdata->thread_num, "Old ECM save file was in stage 2.  Restarting stage 2 from scratch.\n");
+		dbltogw (&ecmdata->gwdata, 1.0, ecmdata->xz.z);
+	}
 
 /* Read and compare the checksum */
 
@@ -4011,7 +4086,7 @@ int ecm (
 	unsigned long SQRT_B;
 	double	last_output, last_output_t, one_over_B;
 	double	output_frequency, output_title_frequency;
-	double	base_pct_complete, one_bit_pct;
+	double	base_pct_complete, one_relp_pct;
 	int	i, min_memory;
 	unsigned int memused;
 	char	filename[32], buf[255], JSONbuf[4000], fft_desc[200];
@@ -4019,6 +4094,11 @@ int ecm (
 	int	msglen, continueECM, prpAfterEcmFactor;
 	char	*str, *msg;
 	double	timers[10];
+	bool	near_fft_limit, saving;
+	double	allowable_maxerr;
+	int	maxerr_restart_count = 0;
+	relp_set_data_map relp_set_map;
+	Dmultiple_data_map Dmultiple_map;
 
 /* Clear pointers to allocated memory */
 
@@ -4026,7 +4106,7 @@ int ecm (
 	msg = NULL;
 
 /* Begin initializing ECM data structure */
-/* MQ_init requires that B is at least 120 (4 times the minimum D) */
+/* MQ_init used to require that B is at least 120 (4 times the minimum D) */
 /* Choose a default value for the second bound if none was specified */
 
 	memset (&ecmdata, 0, sizeof (ecmhandle));
@@ -4058,6 +4138,7 @@ int ecm (
 
 /* Compute the number we are factoring */
 
+restart:
 	stop_reason = setN (thread_num, w, &ecmdata.N);
 	if (stop_reason) goto exit;
 
@@ -4066,7 +4147,6 @@ int ecm (
 	PRAC_SEARCH = IniGetInt (INI_FILE, "PracSearch", 7);
 	if (PRAC_SEARCH < 1) PRAC_SEARCH = 1;
 	if (PRAC_SEARCH > 50) PRAC_SEARCH = 50;
-restart:
 
 /* Time the giants squaring and multiply code in order to select the */
 /* best crossover points.  This should only be done in the release code */
@@ -4369,6 +4449,7 @@ if (w->n == 604) {
 	gwset_thread_callback (&ecmdata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&ecmdata.gwdata, sp_info);
 	gwset_safety_margin (&ecmdata.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
+	gwset_larger_fftlen_count (&ecmdata.gwdata, maxerr_restart_count < 3 ? maxerr_restart_count : 3);
 	gwset_minimum_fftlen (&ecmdata.gwdata, w->minimum_fftlen);
 	res = gwsetup (&ecmdata.gwdata, w->k, w->b, w->n, w->c);
 	if (res) {
@@ -4383,7 +4464,6 @@ if (w->n == 604) {
 
 /* More random initializations */
 
-	gwsetnormroutine (&ecmdata.gwdata, 0, ERRCHK, 0);
 	last_output = last_output_t = ecmdata.modinv_count = 0;
 	gw_clear_fft_count (&ecmdata.gwdata);
 	first_iter_msg = TRUE;
@@ -4404,6 +4484,16 @@ if (w->n == 604) {
 	sprintf (buf, "%5.3f bits-per-word below FFT limit (more than %5.3f allows extra optimizations)\n",
 		 ecmdata.gwdata.fft_max_bits_per_word - virtual_bits_per_word (&ecmdata.gwdata), EB_FIRST_ADD);
 	OutputStr (thread_num, buf);
+
+/* If we are near the maximum exponent this fft length can test, then we will roundoff check all multiplies */
+
+	near_fft_limit = exponent_near_fft_limit (&ecmdata.gwdata);
+	gwerror_checking (&ecmdata.gwdata, ERRCHK || near_fft_limit);
+
+/* Figure out the maximum round-off error we will allow.  By default this is 28/64 when near the FFT limit and 26/64 otherwise. */
+/* We've found that this default catches errors without raising too many spurious error messages.  The user can override this default. */
+
+	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) (near_fft_limit ? 0.4375 : 0.40625));
 
 /* Check for a continuation file.  Limit number of backup files we try to read in case there is an error deleting bad save files. */
 
@@ -4529,7 +4619,7 @@ restart1:
 	stop_reason = start_sieve_with_limit (thread_num, sieve_start, 16 * SQRT_B, &ecmdata.sieve_info);
 	if (stop_reason) goto exit;
 	for (ecmdata.stage1_prime = sieve (ecmdata.sieve_info); ecmdata.stage1_prime <= ecmdata.B; ecmdata.stage1_prime = next_prime) {
-		int	saving, count;
+		int	count;
 
 		next_prime = sieve (ecmdata.sieve_info);
 
@@ -4602,7 +4692,7 @@ restart1:
 
 /* Check for errors */
 
-		if (gw_test_for_error (&ecmdata.gwdata)) goto err;
+		if (gw_test_for_error (&ecmdata.gwdata) || gw_get_maxerr (&ecmdata.gwdata) > allowable_maxerr) goto err;
 
 /* Write a save file when the user interrupts the calculation and every DISK_WRITE_TIME minutes. */
 
@@ -4733,15 +4823,21 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 	stop_reason = ecm_stage2_impl (&ecmdata);
 	if (stop_reason) goto possible_lowmem;
 
+/* Do preliminary processing of the relp_sets */
+
+	int	numrels;		// Number of relative primes less than D/2 (the number of relative primes in one full relp_set)
+	numrels = map_D_to_numrels (ecmdata.D);
+	process_relp_sets (ecmdata.totrels, numrels, ecmdata.relp_sets, relp_set_map, Dmultiple_map);
+
 /* Record the amount of memory this thread will be using in stage 2. */
 
 	memused = cvt_gwnums_to_mem (&ecmdata.gwdata, ecmdata.stage2_numvals);
-	memused += (_intmin (ecmdata.numDsections - ecmdata.bitarrayfirstDsection, ecmdata.bitarraymaxDsections) * ecmdata.totrels) >> 23;
+	memused += (int) (ecmdata.pairmap_size >> 20);
 	// To dodge possible infinite loop if ecm_stage2_impl allocates too much memory (it shouldn't), decrease the percentage of memory we are allowed to use
-	// Beware that replaning may allocate a larger bitarray
+	// Beware that replaning may allocate a larger pairmap
 	if (set_memory_usage (thread_num, MEM_VARIABLE_USAGE, memused)) {
 		ecmdata.pct_mem_to_use *= 0.99;
-		free (ecmdata.bitarray); ecmdata.bitarray = NULL;
+		free (ecmdata.pairmap); ecmdata.pairmap = NULL;
 		goto replan;
 	}
 	gw_set_max_allocs (&ecmdata.gwdata, ecmdata.stage2_numvals);
@@ -4768,16 +4864,19 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 
 /* Initialize variables for second stage.  Ideally we fill up the nQx array with Q^relprime normalized with only one modular inverse. */
 
-	// Calculate the percent completed by previous bit arrays
+	// Calculate the percent completed by previous pairmaps
 	base_pct_complete = (double) (ecmdata.B2_start - ecmdata.last_relocatable) / (double) (ecmdata.C - ecmdata.last_relocatable);
-	// Calculate the percent completed by each bit in this bit array
-	one_bit_pct = (1.0 - base_pct_complete) / (double) (ecmdata.numDsections * ecmdata.totrels);
-	// Calculate the percent completed by previous bit arrays and the current bit array
-	w->pct_complete = base_pct_complete + (double) (ecmdata.Dsection * ecmdata.totrels) * one_bit_pct;
+	// Calculate the percent completed by each relative prime in this pairmap
+	one_relp_pct = (1.0 - base_pct_complete) / (double) (ecmdata.numDsections * ecmdata.totrels);
+	// Calculate the percent completed by previous pairmaps and the current pairmap
+	w->pct_complete = base_pct_complete + (double) (ecmdata.Dsection * ecmdata.totrels) * one_relp_pct;
 
-/* Allocate nQx array of pointers to relative prime gwnums */
+/* Allocate nQx array of pointers to relative prime gwnums.  Allocate an array large enough to hold x & z values for all relp sets. */
+/* This is much more than we will need once stage 2 init completes. */
 
-	ecmdata.nQx = (gwnum *) malloc (ecmdata.totrels * sizeof (gwnum));
+	int	num_relp_sets;		// Total number of relp_sets including intermediate relp_sets
+	num_relp_sets = (int) relp_set_map.size();
+	ecmdata.nQx = (gwnum *) malloc (num_relp_sets * numrels * 2 * sizeof (gwnum));
 	if (ecmdata.nQx == NULL) goto lowmem;
 
 /* Allocate some of the memory for modular inverse pooling */
@@ -4785,8 +4884,17 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 	stop_reason = normalize_pool_init (&ecmdata, ecmdata.stage2_numvals);
 	if (stop_reason) goto possible_lowmem;
 
+/* Calculate some handy values for computing the first two relp sets: (0,-1) */
+
+	int	z_offset;		// Offset in nQx array from .x value to .z value
+	int	set_minus1_nQx_index;	// Index into nQx array for the -1 relp set
+	z_offset = num_relp_sets * numrels;
+	set_minus1_nQx_index = relp_set_map.find(-1)->second.nQx_store;
+	// Map nth relp to either set 0 nQx index or set -1 nQx index
+	#define nqxmap(relp)	((relp) < numrels ? (relp) : set_minus1_nQx_index + (relp) - numrels)
+
 /* We have two approaches for computing nQx, if memory is really tight we compute every odd multiple of x. */
-/* Otherwise, if D is divisible by 3 we compute the 1,5 mod 6 multiples which reduces initialization cost by 33%. */
+/* Otherwise, if D is divisible by 3 we compute the 1,5 mod 6 multiples which reduces initialization cost by up to 33%. */
 
 	if (!ecmdata.TWO_FFT_STAGE2 || ecmdata.D % 3 != 0) {
 		struct xz t1, t2, t3, t4;
@@ -4798,7 +4906,7 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 		if (!alloc_xz (&ecmdata, &t1)) goto lowmem;
 		if (!alloc_xz (&ecmdata, &t2)) goto lowmem;
 		if (!alloc_xz (&ecmdata, &t3)) goto lowmem;
-		t4.x = NULL; t4.z = NULL;					// Only needed if more Q2 is needed after QD is calculated
+		t4.x = NULL; t4.z = NULL;					// Only needed if Q2 is needed after QD is calculated
 
 /* Compute Q^2 and place in ecmdata.QD.  This is the value we will save if init is aborted and we create a save file. */
 /* Q^2 will be replaced by Q^D later on in this loop.  At all times ecmdata.QD will be a save-able value! */
@@ -4808,12 +4916,13 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 		Q1 = &t1;							// Q^1
 		Q2 = &ecmdata.QD;
 		ell_dbl_xz_scr (&ecmdata, Q1, Q2, &t3);				// Q2 = 2 * Q1, scratch = t3
-		ecmdata.nQx[0] = Q1->x; totrels = 1;
+		ecmdata.nQx[0] = Q1->x; ecmdata.nQx[z_offset] = Q1->z; totrels = 1;
 
 /* Compute Q^3 */
 
 		Q3 = &t2;
 		ell_add_xz_scr (&ecmdata, Q2, Q1, Q1, Q3, &t3);			// Q3 = Q2 + Q1 (diff Q1), scratch = t3
+		ASSERTG (ecmdata.D % 3 == 0);					// We have to add Q3 to nQx array if we ever support this
 
 /* Compute the rest of the nQx values (Q^i for i >= 3) */
 /* MEMPEAK: 9 + nQx + 1 (AD4, QD.x&z, 6 for t1 through t3, nQx vals, and 1 for modinv_value assuming N^2 pooling) */
@@ -4839,34 +4948,41 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 				have_QD = TRUE;
 			}
 			if (i + i-2 == ecmdata.D) {
+				ASSERTG (Q2 == &ecmdata.QD);
 				// In tightest memory case we can overwrite Q2 as it will no longer be needed.  Otherwise, move Q2 to fourth temporary.
 				if (totrels != ecmdata.totrels) {
 					t4 = ecmdata.QD; Q2 = &t4;				// Move Q2 out of ecmdata.QD
 					if (!alloc_xz (&ecmdata, &ecmdata.QD)) goto lowmem;	// Allocate QD
 				}
-				ell_add_xz (&ecmdata, Qi, Qiminus2, Q2, &ecmdata.QD);		// QD = i + (i-2), diff Q2
+				ell_add_xz (&ecmdata, Qi, Qiminus2, Q2, &ecmdata.QD);		// QD = Qi + Qi-2, diff 2
 				have_QD = TRUE;
 			}
 
-/* Break out of loop when we have all our nQx values */
+/* Break out of loop when we have all our nQx values less than D */
 
-			if (have_QD && totrels == ecmdata.totrels) break;
+			if (have_QD && (totrels == ecmdata.totrels || totrels == numrels * 2)) break;
 
 /* Get next odd value, but don't destroy Qiminus2 in case it is an nQx value. */
 
-			ell_add_xz (&ecmdata, Qi, Q2, Qiminus2, Qscratch);			// Next odd value,  save in scratch
+			ell_add_xz (&ecmdata, Qi, Q2, Qiminus2, Qscratch);			// Next odd value, save in scratch
 			if (relatively_prime (i-2, ecmdata.D)) {
-				stop_reason = add_to_normalize_pool_ro (&ecmdata, Qiminus2->x, Qiminus2->z);
-				if (stop_reason) goto possible_lowmem;
+				if (ecmdata.totrels <= numrels * 2) {
+					stop_reason = add_to_normalize_pool_ro (&ecmdata, Qiminus2->x, Qiminus2->z);
+					if (stop_reason) goto possible_lowmem;
+				}
 				if (!alloc_xz (&ecmdata, Qiminus2)) goto lowmem;
 			}
 			xzswap (*Qiminus2, *Qi);
 			xzswap (*Qi, *Qscratch);
-			if (relatively_prime (i+2, ecmdata.D) && totrels < ecmdata.totrels) ecmdata.nQx[totrels++] = Qi->x;
+			if (relatively_prime (i+2, ecmdata.D)) {
+				ecmdata.nQx[nqxmap(totrels)] = Qi->x;
+				ecmdata.nQx[nqxmap(totrels) + z_offset] = Qi->z;
+				totrels++;
+			}
 
 /* Check for errors and save file creation */
 
-			if (gw_test_for_error (&ecmdata.gwdata)) goto err;
+			if (gw_test_for_error (&ecmdata.gwdata) || gw_get_maxerr (&ecmdata.gwdata) > allowable_maxerr) goto err;
 
 			stop_reason = stopCheck (thread_num);
 			if (stop_reason) goto possible_lowmem;
@@ -4876,16 +4992,18 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 
 		free_xz (&ecmdata, &t4);
 
-/* If needed, add any of the last two computed values to the normalization pool */
+/* If needed, add any of the last computed values to the normalization pool */
 
 		for (i = 1; i <= 2; i++) {
 			struct xz *needs_work;
-			if (t1.x == ecmdata.nQx[totrels-i]) needs_work = &t1;
-			else if (t2.x == ecmdata.nQx[totrels-i]) needs_work = &t2;
-			else if (t3.x == ecmdata.nQx[totrels-i]) needs_work = &t3;
+			if (t1.x == ecmdata.nQx[nqxmap(totrels-i)]) needs_work = &t1;
+			else if (t2.x == ecmdata.nQx[nqxmap(totrels-i)]) needs_work = &t2;
+			else if (t3.x == ecmdata.nQx[nqxmap(totrels-i)]) needs_work = &t3;
 			else continue;
-			stop_reason = add_to_normalize_pool_ro (&ecmdata, needs_work->x, needs_work->z);
-			if (stop_reason) goto possible_lowmem;
+			if (ecmdata.totrels <= numrels * 2) {
+				stop_reason = add_to_normalize_pool_ro (&ecmdata, needs_work->x, needs_work->z);
+				if (stop_reason) goto possible_lowmem;
+			}
 			needs_work->x = NULL;
 			needs_work->z = NULL;
 		}
@@ -4908,8 +5026,7 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 			int	Qi_is_relp;
 			int	Qi_minus6_is_relp;
 		} Q1mod6, Q5mod6, *curr, *notcurr;
-		int	i_gap, have_QD, totrels, totrels_mate;
-		int	numrels = map_D_to_numrels (ecmdata.D);		// Relprimes less than D/2
+		int	i_gap, have_QD, totrels;
 
 /* Allocate memory and init values for computing nQx.  We need Q^1, Q^5, Q^6, Q^7, Q^11. */
 /* We also need Q^4 to compute Q^D in the middle of the nQx init loop. */
@@ -4958,28 +5075,24 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 		Q5mod6.Qi_is_relp = relatively_prime (11, ecmdata.D);
 
 /* For relprimes, we remember the .x value in the nQx pool.  In the loop below, if totrels <= numrels * 2 we will relinquish ownership of the .z value */
-/* when we call add_to_normalize_pool.  If totrels > numrels * 2, then we also remember the .z value in the nQx pool.  At some point, we'll use the saved */
-/* x and z values to compute nQx values aboce D. */
+/* when we call add_to_normalize_pool.  If totrels > numrels * 2, we remember the .z value in the nQx pool.  After computing the relprimes below D */
+/* we'll use the saved x and z values to compute nQx values above D. */
 
-		if (ecmdata.totrels <= numrels * 2) {
-			ecmdata.nQx[0] = Q1->x; totrels = 1;
-			if (Q5mod6.Qi_minus6_is_relp) ecmdata.nQx[totrels++] = Q5->x;
-			if (Q1mod6.Qi_is_relp) ecmdata.nQx[totrels++] = Q7->x;
-			if (Q5mod6.Qi_is_relp) ecmdata.nQx[totrels++] = Q11->x;
-		} else {
-			totrels = 0; totrels_mate = numrels * 2 - 1;
-			ecmdata.nQx[totrels++] = Q1->x; ecmdata.nQx[totrels_mate--] = Q1->z;
-			if (Q5mod6.Qi_minus6_is_relp) { ecmdata.nQx[totrels++] = Q5->x; ecmdata.nQx[totrels_mate--] = Q5->z; }
-			if (Q1mod6.Qi_is_relp) { ecmdata.nQx[totrels++] = Q7->x; ecmdata.nQx[totrels_mate--] = Q7->z; }
-			if (Q5mod6.Qi_is_relp) { ecmdata.nQx[totrels++] = Q11->x; ecmdata.nQx[totrels_mate--] = Q11->z; }
-		}
+		ecmdata.nQx[0] = Q1->x; ecmdata.nQx[z_offset] = Q1->z; totrels = 1;
+		if (Q5mod6.Qi_minus6_is_relp) { ecmdata.nQx[totrels] = Q5->x; ecmdata.nQx[totrels+z_offset] = Q5->z; totrels++; }
+		if (Q1mod6.Qi_is_relp) { ecmdata.nQx[totrels] = Q7->x; ecmdata.nQx[totrels+z_offset] = Q7->z; totrels++; }
+		if (Q5mod6.Qi_is_relp) { ecmdata.nQx[totrels] = Q11->x; ecmdata.nQx[totrels+z_offset] = Q11->z; totrels++; }
 
-/* Compute the rest of the nQx values (Q^i for i >= 7) */
+//GW: For ecmdata.totrels between 2*numrels and 3*numrels, we could normalize some of the .x/.z pairs
+#define normalize_or_free(xz,is_relp)	{ if (is_relp) { if (ecmdata.totrels <= numrels * 2) { \
+								stop_reason = add_to_normalize_pool_ro (&ecmdata, xz->x, xz->z); \
+								if (stop_reason) goto possible_lowmem; } \
+							 xz->x = NULL; xz->z = NULL; is_relp = FALSE; } \
+					  else free_xz (&ecmdata, xz); }
+
+/* Compute the rest of the nQx values below D (Q^i for i >= 7) */
 /* MEMPEAK: 15 (AD4, QD.x&z, 12 for t1 through t6) + nQx + pool_cost(nQx) */
 /* But at least 1 nQx and 1 poolz value are still in t1 through t6, so that reduces mempeak by at least two. */
-
-#define normalize_or_free(xz,is_relp)	{ if (is_relp) { stop_reason = add_to_normalize_pool_ro (&ecmdata, xz->x, xz->z); if (stop_reason) goto possible_lowmem; \
-						       xz->x = NULL; xz->z = NULL; is_relp = FALSE; } else { free_xz (&ecmdata, xz); }}
 
 		Qnext_i = &t6;
 		have_QD = FALSE;
@@ -4995,7 +5108,7 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 			next_i_is_relp = (relatively_prime (i+6, ecmdata.D) && totrels < ecmdata.totrels);
 
 /* If so, and if it is the last relprime then free up the some resources to keep maximum number of temporaries to a minimum. */
-/* This is of marginal utility as memory peak will ususally occur in mQ_init. */
+/* This is of marginal utility as memory peak will usually occur in mQ_init. */
 /* Also catch the case where we are using the dead minimum number of relative primes - the first i after D/2 is the last i. */
 
 			if ((next_i_is_relp && have_QD && (totrels+1 == ecmdata.totrels || totrels+1 == numrels * 2)) ||
@@ -5013,10 +5126,9 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 			if (!alloc_xz (&ecmdata, Qnext_i)) goto lowmem;
 			ell_add_xz (&ecmdata, curr->Qi, Q6, curr->Qi_minus6, Qnext_i);		// Next_Qi = Qi + Q6 (diff Q{i-6})
 
-/* If we do not need Qi_minus6 later for calculating nQx values above D, then dispose of Qi_minus6 by normalizing or freeing it */
+/* We no longer need Qi_minus6.  Normalize it, save it for later calculating nQx values above D, or free it */
 
-			if (ecmdata.totrels <= numrels * 2 || i > ecmdata.D/2)
-				normalize_or_free (curr->Qi_minus6, curr->Qi_minus6_is_relp);
+			normalize_or_free (curr->Qi_minus6, curr->Qi_minus6_is_relp);
 
 /* Shuffle i values along */
 
@@ -5044,125 +5156,21 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 			}
 
 /* If the newly computed i is a relative prime, then 1) if all relprimes are below D, remember .x for a later add_to_nomalize, */
-/* or 2) if i < D/2, remember the .x and .z in the nQx array for a later calculation of nQx values above D, or 3) calc nQx values above D. */
+/* or 2) if there are relprimes above D, remember .x and .z in the nQx array for a later calculation of nQx values above D. */
 
 			if (next_i_is_relp) {
-				if (ecmdata.totrels <= numrels * 2) {
-					ecmdata.nQx[totrels++] = curr->Qi->x;
-				}
-				else if (totrels < numrels) {
-					ecmdata.nQx[totrels++] = curr->Qi->x;
-					ecmdata.nQx[totrels_mate--] = curr->Qi->z;
-				}
-
-/* The newly computed i value is above D/2 and there are relprimes above D.  Use the new i value and i's previously computed "mate" to */
-/* calculate nQx values above D.  For example, with D=30, relprimes=1,7,11,13: */
-/* When we calc relprime 17, we compute 43 = 30+13 diff 17, 73 = 43 + 30 diff 13, ... AND 47 = 30+17 diff 13, 77 = 47 + 30 diff 17, ... */
-/* When we calc relprime 19, we compute 41 = 30+11 diff 19, 71 = 41 + 30 diff 11, ... AND 49 = 30+19 diff 11, 79 = 49 + 30 diff 19, ... */
-/* MEMPEAK: 8 + nQx + pool_cost (AD4, QD.x&z, Qj, Qjdiff, Qjplus1 + nQx-1 + pool_cost(nQx-1)) */
-
-				else {
-					struct xz Qsmall, *Qlarge, tmp1, tmp2, tmp3, *Qjdiff, *Qj, *Qjplus1;
-					int	j;
-
-					// For last relprime pair free up the some resources to keep maximum number of temporaries to a minimum
-					if (totrels_mate == 0) {
-						normalize_or_free (curr->Qi_minus6, curr->Qi_minus6_is_relp);
-						free_xz (&ecmdata, Q6);
-					}
-
-					// Gather the two relprimes that will calculate nQx values above D
-					Qsmall.x = ecmdata.nQx[totrels_mate];					// e.g. 13
-					Qsmall.z = ecmdata.nQx[totrels];
-					Qlarge = curr->Qi;							// e.g. 17
-
-					// Compute the smaller set of nQx values, e.g. 13 + 30 diff 17, 43 + 30 diff 13, 73 + 30 diff 43
-					tmp1 = *Qlarge; Qjdiff = &tmp1;						// e.g. 17
-					tmp2 = Qsmall; Qj = &tmp2;						// e.g. 13
-					Qjplus1 = &tmp3;							// e.g. will be 43
-					for (j = 0; ; j++) {
-						// Break out of loop when the Qjdiff value we'd be saving is not needed
-						if (j > 0 && (j-1)*numrels*2 + totrels_mate >= ecmdata.totrels) break;
-						// Compute next j value if it will be needed
-						if ((j+1)*numrels*2 + totrels_mate < ecmdata.totrels) {
-							if (!alloc_xz (&ecmdata, Qjplus1)) goto lowmem;
-							ell_add_xz (&ecmdata, Qj, &ecmdata.QD, Qjdiff, Qjplus1); // Qjplus1 = Qj + D, e.g. 43+30 or 73+30
-						}
-						// Normalize the Qjdiff value
-						if (j-1 >= 1) {
-							ecmdata.nQx[(j-1)*numrels*2 + totrels_mate] = Qjdiff->x;
-							stop_reason = add_to_normalize_pool_ro (&ecmdata, Qjdiff->x, Qjdiff->z);
-							if (stop_reason) goto possible_lowmem;
-						}
-						// Shuffle the j values down
-						{
-							struct xz *shuffle;
-							shuffle = Qjdiff;
-							Qjdiff = Qj;
-							Qj = Qjplus1;
-							Qjplus1 = shuffle;
-						}
-					}
-
-					// Compute the larger set of nQx values, e.g. 17 + 30 diff 13, 47 + 30 diff 17, 77 + 30 diff 47
-					tmp1 = Qsmall; Qjdiff = &tmp1;						// e.g. 13
-					tmp2 = *Qlarge; Qj = &tmp2;						// e.g. 17
-					Qjplus1 = &tmp3;							// e.g. will be 47
-					for (j = 0; ; j++) {
-						// Break out of loop when the Qjdiff value we'd be saving is not needed
-						if (j > 0 && (j-1)*numrels*2 + totrels >= ecmdata.totrels) break;
-						// Compute next j value if it will be needed
-						if ((j+1)*numrels*2 + totrels < ecmdata.totrels) {
-							if (!alloc_xz (&ecmdata, Qjplus1)) goto lowmem;
-							ell_add_xz (&ecmdata, Qj, &ecmdata.QD, Qjdiff, Qjplus1); // Qjplus1 = Qj + D, e.g. 47+30 or 77+30
-						}
-						// Normalize the Qjdiff value when Qjdiff = Qsmall.  Note we cannot normalize Qsmall if it is
-						// still used by Q1mod6 or Q5mod6.  Also note that nQx[totrels_mate] already points to Qjdiff->x.
-						if (j == 0 && i > ecmdata.D/2) {
-							stop_reason = add_to_normalize_pool_ro (&ecmdata, Qjdiff->x, Qjdiff->z);
-							if (stop_reason) goto possible_lowmem;
-						}
-						// Normalize the Qjdiff value when Qjdiff = Qlarge.  We only do this on the last relprime pair
-						// to reduce our peak memory usage.  In all other cases, Qlarge is still used by Q1mod6 or Q5mod6.
-						else if (j == 1) {
-							ecmdata.nQx[totrels] = Qjdiff->x;
-							if (totrels_mate == 0) {
-								stop_reason = add_to_normalize_pool_ro (&ecmdata, Qjdiff->x, Qjdiff->z);
-								if (stop_reason) goto possible_lowmem;
-								curr->Qi->x = NULL;
-								curr->Qi->z = NULL;
-								curr->Qi_is_relp = FALSE;
-							}
-						}
-						// Normalize Qjdiff when Qjdiff is larger than QD
-						else if (j-1 >= 1) {
-							ecmdata.nQx[(j-1)*numrels*2 + totrels] = Qjdiff->x;
-							stop_reason = add_to_normalize_pool_ro (&ecmdata, Qjdiff->x, Qjdiff->z);
-							if (stop_reason) goto possible_lowmem;
-						}
-						// Shuffle the j values down
-						{
-							struct xz *shuffle;
-							shuffle = Qjdiff;
-							Qjdiff = Qj;
-							Qj = Qjplus1;
-							Qjplus1 = shuffle;
-						}
-					}
-
-					// Bump totrels count
-					totrels++;
-					totrels_mate--;
-				}
+				ecmdata.nQx[nqxmap(totrels)] = curr->Qi->x;
+				ecmdata.nQx[nqxmap(totrels) + z_offset] = curr->Qi->z;
+				totrels++;
 			}
 
 /* Break out of loop when we have all our nQx values less than D */
 
-			if (have_QD && (totrels == ecmdata.totrels || totrels >= numrels * 2)) break;
+			if (have_QD && (totrels == ecmdata.totrels || totrels == numrels * 2)) break;
 
 /* Check for errors and save file creation */
 
-			if (gw_test_for_error (&ecmdata.gwdata)) goto err;
+			if (gw_test_for_error (&ecmdata.gwdata) || gw_get_maxerr (&ecmdata.gwdata) > allowable_maxerr) goto err;
 			stop_reason = stopCheck (thread_num);
 			if (stop_reason) goto possible_lowmem;
 		}
@@ -5176,8 +5184,152 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 		free_xz (&ecmdata, Q6);
 	}
 
+/* Add Q^D computed above to the D-multiples map */
+
+	{
+		auto it_Dmult = Dmultiple_map.find (1);
+		if (it_Dmult == Dmultiple_map.end()) it_Dmult = Dmultiple_map.insert({1, {0, 1}}).first;
+		it_Dmult->second.set_val_buffers (&ecmdata.gwdata, ecmdata.QD.x, ecmdata.QD.z, TRUE);
+	}
+
+/* Init for computing Q^(multiples of D).  We simply add the starting multiples of D that need to be computed to the D-multiples map. */
+
+	stop_reason = mQ_preinit (&ecmdata, Dmultiple_map);
+	if (stop_reason) goto possible_lowmem;
+
+// Calculate all the needed Q^(multiples-of-D).  This is needed even if multiplier<=2 case (Q^mD and Q^(m+1)D are needed) so we must be memory conscious.
+
+	process_Dmult_map (Dmultiple_map);
+	for (auto this_Dmult = Dmultiple_map.begin(); this_Dmult != Dmultiple_map.end(); ++this_Dmult) {
+		// Ignore the already computed Q^D
+		if (this_Dmult->first == 1) continue;
+		// If necessary, allocate buffers for this Q^multiple-of-D
+		if (this_Dmult->second.val.x == NULL) {
+			struct xz tmp;
+			if (!alloc_xz (&ecmdata, &tmp)) goto lowmem;
+			this_Dmult->second.set_val_buffers (&ecmdata.gwdata, tmp.x, tmp.z, FALSE);
+		}
+		// Compute using ell_dbl if diff is zero
+		auto it_base = Dmultiple_map.find (this_Dmult->second.base);
+		if (this_Dmult->second.diff == 0) {
+			struct xz tmp;
+			if (!alloc_xz (&ecmdata, &tmp)) goto lowmem;
+			ell_dbl_xz_scr (&ecmdata, &it_base->second.val, &this_Dmult->second.val, &tmp);
+			free_xz (&ecmdata, &tmp);
+		}
+		// Compute using ell_add if diff is non-zero
+		else {
+			auto it_addin = Dmultiple_map.find (this_Dmult->second.addin);
+			auto it_diff = Dmultiple_map.find (this_Dmult->second.diff);
+			ell_add_xz (&ecmdata, &it_base->second.val, &it_addin->second.val, &it_diff->second.val, &this_Dmult->second.val);
+			// Free addin, diff if no longer needed
+			it_addin->second.free_if_Dmult_last_used_by (this_Dmult->first);
+			it_diff->second.free_if_Dmult_last_used_by (this_Dmult->first);
+		}
+		// Free base if no longer needed
+		it_base->second.free_if_Dmult_last_used_by (this_Dmult->first);
+	}
+//GW: are xz buffers allocated by Dmultiple map properly cleaned up (especially in oom case)?  use class to do it? 
+
+/* For the 2-FFT stage 2, mQ_preinit wants the QD^(E/2) value normalized.  Do so now that we've computed the value. */
+
+	if (ecmdata.QD_Eover2.x != NULL) {
+		stop_reason = add_to_normalize_pool_ro (&ecmdata, ecmdata.QD_Eover2.x, ecmdata.QD_Eover2.z);
+		if (stop_reason) goto possible_lowmem;
+		ecmdata.QD_Eover2.z = NULL;
+	}
+
+/* There will be no more ell_dbl calls, so free Ad4 */
+//GW: the last ell_dbl call may have happened before the last dmult calculation (free earlier if that makes a MEMPEAK difference)
+
+	gwfree (&ecmdata.gwdata, ecmdata.Ad4);
+	ecmdata.Ad4 = NULL;
+
+/* Compute relp sets other than 0,-1 */
+/* MEMPEAK in this code is tricky to calculate.  We do free D-multiples and intermediate relps as soon as possible.  We also normalize as soon as possible. */
+/* Peak should occur at last relp calculation where we have up to 6 extra gwnums in play -- 2 for Qbase (1 if base is a permanent set), 2 for Qdiff (1 if */
+/* diff is a permanent set), 2 for D-multiple, 1 for Qnew.z), I believe either base or diff must be a permanent set.  Giving us this: */
+/* 2FFT MEMPEAK: 14 + nQx gwnums (6 extra gwnums, 8 for computing mQx, QD_Eover2, nQx values) + pooling cost */
+/* 4FFT MEMPEAK: 12 + nQx gwnums (6 extra gwnums, 6 for computing mQx, nQx values) + pooling cost */
+
+	int	num_partials;
+	num_partials = one_based_modulo (ecmdata.totrels, numrels);
+	// Loop over every relp_set we need to calculate
+	for (auto it_relp_set = relp_set_map.begin (); it_relp_set != relp_set_map.end (); ++it_relp_set) {
+		// Relp sets 0 and -1 are already computed
+		if (it_relp_set->first == 0 || it_relp_set->first == -1) continue;
+		// Find the base relp_set and diff relp_set needed to create this relp_set
+		auto it_base_relp_set = relp_set_map.find (it_relp_set->second.base);
+		auto it_diff_relp_set = relp_set_map.find (it_relp_set->second.diff);
+		// Find the Dmultiple needed to create this relp_set
+		auto it_Dmultiple = Dmultiple_map.find (it_relp_set->second.Dmultiple);
+		// Loop over all relative primes below D/2
+		for (i = 0; i < numrels; i++) {
+			struct xz Qbase, Qdiff, Qnew;
+			int	ni;
+
+			// Recreate the base struct xz from the two base nQx entries
+			ni = it_base_relp_set->second.nQx_store + i;
+			Qbase.x = ecmdata.nQx[ni];
+			Qbase.z = ecmdata.nQx[ni + z_offset];
+			// Recreate the diff struct xz from the two diff nQx entries
+			// If diff has a different sign bit than base, then we need to index the diff relp_set in reverse order
+			ni = it_diff_relp_set->second.nQx_store;
+			if (((it_base_relp_set->first < 0) ^ (it_diff_relp_set->first < 0)) == 0) ni += i; else ni += (numrels-1)-i;
+			Qdiff.x = ecmdata.nQx[ni];
+			Qdiff.z = ecmdata.nQx[ni + z_offset];
+
+			// Calculate this relp if needed
+			if (!it_relp_set->second.partial || i < num_partials) {
+				// Allocate the new relp value
+				if (!alloc_xz (&ecmdata, &Qnew)) goto lowmem;
+
+				// Compute the new relp value
+				ell_add_xz (&ecmdata, &Qbase, &it_Dmultiple->second.val, &Qdiff, &Qnew);	// Qnew = base + Dmult, diff e.g. 47+30 or 29+30
+
+				// Add the relp to the nQx array.  If this relp_set is not used by anyone else, then we can also normalize.
+				ni = it_relp_set->second.nQx_store + i;
+				ecmdata.nQx[ni] = Qnew.x;
+				ecmdata.nQx[ni + z_offset] = Qnew.z;
+				if (it_relp_set->second.last_used_by == it_relp_set->first) {
+					stop_reason = add_to_normalize_pool_ro (&ecmdata, Qnew.x, Qnew.z);
+					if (stop_reason) goto possible_lowmem;
+				}
+			}
+
+			// If base is not needed for further relp_set calculations, then free or add_to_normalize Qbase
+			if (it_base_relp_set->second.last_used_by == it_relp_set->first && (!it_base_relp_set->second.partial || i < num_partials)) {
+				if (it_base_relp_set->second.permanent) {
+					stop_reason = add_to_normalize_pool_ro (&ecmdata, Qbase.x, Qbase.z);
+					if (stop_reason) goto possible_lowmem;
+				} else {
+					free_xz (&ecmdata, &Qbase);
+				}
+			}
+
+			// If diff is not needed for further relp_set calculations, then free or add_to_normalize Qdiff
+			if (it_diff_relp_set->second.last_used_by == it_relp_set->first && (!it_diff_relp_set->second.partial || i < num_partials)) {
+				if (it_diff_relp_set->second.permanent) {
+					stop_reason = add_to_normalize_pool_ro (&ecmdata, Qdiff.x, Qdiff.z);
+					if (stop_reason) goto possible_lowmem;
+				} else {
+					free_xz (&ecmdata, &Qdiff);
+				}
+			}
+
+		}
+		// Free the Dmultiple if this is the last time it will be used
+		it_Dmultiple->second.free_if_relp_last_used_by (it_relp_set->first);
+	}
+
+/* Clear the maps used to build relp sets */
+
+	Dmultiple_map.clear ();
+	relp_set_map.clear ();
+
 /* Normalize all the nQx values */
-/* MEMPEAK: 3 + nQx gwnums (AD4, QD.x&z, nQx values) + 1 or nQx for pooled_modinv */
+/* 2FFT MEMPEAK: 7 + nQx gwnums (6 for computing mQx, QD_Eover2.x, nQx values) + pooling cost */
+/* 4FFT MEMPEAK: 6 + nQx gwnums (6 for computing mQx, nQx values) + pooling cost */
 
 	stop_reason = normalize_pool (&ecmdata);
 	if (stop_reason) goto possible_lowmem;
@@ -5187,16 +5339,15 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 	if (ecmdata.factor != NULL) goto bingo;
 
 /* Init code that computes Q^m, where m is the first D section we are working on */
-/* 4FFT MEMPEAK: 9 + nQx (Ad4, 6 for computing mQx, 2 for mQ_init temporaries, nQx) + another one for gg if resuming a stage 2 */
-/* 2FFT MEMPEAK: 5 + nQx + E + modinv pooling cost (see mQ_init) + another one for gg if resuming a stage 2 */
+/* 2FFT MEMPEAK: 5 + nQx + E + pooling cost (see mQ_init) + another one for gg if resuming a stage 2 */
+/* 4FFT MEMPEAK: 6 + nQx (6 for computing mQx, nQx) + another one for gg if resuming a stage 2 */
 
-	stop_reason = mQ_init (&ecmdata, ecmdata.B2_start + ecmdata.Dsection * ecmdata.D + ecmdata.D / 2);
+	stop_reason = mQ_init (&ecmdata);
 	if (stop_reason) goto possible_lowmem;
-	if (ecmdata.factor != NULL) goto bingo;
 
 /* Now init the accumulator unless this value was read from a continuation file */
+/* 2FFT MEMUSED: 2 + nQx + E (QD_Eover2.x, gg, nQx, mQx) */
 /* 4FFT MEMUSED: 7 + nQx gwnums (6 for computing mQx, gg, nQx values) */
-/* 2FFT MEMUSED: 4 + nQx + E (QD.x&z, xz.x, gg, nQx, mQx) */
 
 	if (ecmdata.gg == NULL) {
 		ecmdata.gg = gwalloc (&ecmdata.gwdata);
@@ -5204,13 +5355,9 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 		dbltogw (&ecmdata.gwdata, 1.0, ecmdata.gg);
 	}
 
-/* For the 2-FFT stage 2, mQ_init wanted to replace QD with nextQD but could not because of potential ecm_save issues.  Now that stage 2 init is */
-/* finished do the replacement that mQ_init postponed. */
+/* For 2-FFT stage 2, mQ_init wanted to free QD but could not because of potential ecm_save issues.  Now that stage 2 init is finished, free QD. */
 
-	if (ecmdata.TWO_FFT_STAGE2) {
-		free_xz (&ecmdata, &ecmdata.QD);
-		gwswap (ecmdata.QD.x, ecmdata.xz.x);
-	}
+	if (ecmdata.TWO_FFT_STAGE2) free_xz (&ecmdata, &ecmdata.QD);
 
 /* Last chance to create a save file that doesn't lock us into a particular stage 2 implementation.  Check for user requesting a stop. */
 
@@ -5244,132 +5391,138 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 /* If mQz also = 1 (the 2 FFT per prime continuation) then we accumulate*/
 /*		== mQx - nQx						*/
 
+	gwnum	mQx, mQz, t1;
 	ecmdata.state = ECM_STATE_STAGE2;
 	start_timer_from_zero (timers, 0);
 	start_timer_from_zero (timers, 1);
 	last_output = last_output_t = ecmdata.modinv_count = 0;
+	ecmdata.Dsection--, ecmdata.relp += ecmdata.totrels;		// Funky hack to make sure mQ_next is called on first time through this loop
+	t1 = NULL;
 	for ( ; ; ) {
-		uint64_t bitnum;
-		gwnum	mQx, mQz, t1;
+
+/* Get next pairing from the pairmap */
+
+		ecmdata.relp += next_pair (&ecmdata.pairmap_ptr);
+
+/* Make a quick check for end of the pairmap and no more pairmaps needed (i.e. we're done with stage 2) */
+
+		if (ecmdata.relp >= ecmdata.totrels && ecmdata.Dsection + ecmdata.relp / ecmdata.totrels >= ecmdata.numDsections) break;
+
+/* Move to next D section when appropriate */
+
+		while (ecmdata.relp >= ecmdata.totrels) {
+			ecmdata.Dsection++;
+			ecmdata.relp -= ecmdata.totrels;
 
 /* Compute this Q^m value */
-/* 2FFT MEMUSED: 2 + nQx + E gwnums (QD.x, gg, nQx, E normalized D values) */
+/* 2FFT MEMUSED: 2 + nQx + E gwnums (QD_Eover2.x, gg, nQx, E normalized D values) */
 /* 2FFT MEMPEAK: 4 + nQx + E + pooling cost (see mQ_next) */
 /* 4FFT MEMUSED: 7 + nQx gwnums (6 for computing mQx, gg, nQx) */
 /* 4FFT MEMPEAK: 9 + nQx (2 for ell_add temporaries) */
 
-		stop_reason = mQ_next (&ecmdata, &mQx, &mQz);
-		if (stop_reason) {
-			// In case stop_reason is out-of-memory, free some up before calling ecm_save.
-			mQ_term (&ecmdata);
-			ecm_save (&ecmdata);
-			goto exit;
-		}
-		if (ecmdata.factor != NULL) goto bingo;
+			gwfree (&ecmdata.gwdata, t1);			/* Free 4 FFT temporary so that mQ_next can use it */
+			stop_reason = mQ_next (&ecmdata, &mQx, &mQz);
+			if (stop_reason) {
+				// In case stop_reason is out-of-memory, free some up before calling ecm_save.
+				mQ_term (&ecmdata);
+				ecm_save (&ecmdata);
+				goto exit;
+			}
+			if (ecmdata.factor != NULL) goto bingo;
 
 /* 4 FFT implementation requires another temporary.  Allocate it here (after mQ_next has freed its 2 ell_add_xz_noscr temporaries) */
 
-		if (!ecmdata.TWO_FFT_STAGE2) {
-			t1 = gwalloc (&ecmdata.gwdata);
-			if (t1 == NULL) goto oom;
+			if (!ecmdata.TWO_FFT_STAGE2) {
+				t1 = gwalloc (&ecmdata.gwdata);
+				if (t1 == NULL) goto oom;
+			}
 		}
 
-/* Test which relprimes in this D section need to be processed */
+/* Check for end of pairing map.  If so, generate next pairing map. */
 
-		bitnum = (ecmdata.Dsection - ecmdata.bitarrayfirstDsection) * ecmdata.totrels;
-		for (i = 0; i < ecmdata.totrels; i++) {
+		if (ecmdata.pairmap_ptr == ecmdata.pairmap + ecmdata.pairmap_size) {
+			ASSERTG (ecmdata.relp == 0);
+			ecmdata.C_done = ecmdata.B2_start + ecmdata.Dsection * ecmdata.D;
+			ecmdata.first_relocatable = calc_new_first_relocatable (ecmdata.D, ecmdata.C_done);
+			stop_reason = fill_pairmap (ecmdata.thread_num, &ecmdata.sieve_info, ecmdata.D, 0,0,0, ecmdata.totrels, ecmdata.relp_sets+3,
+						    ecmdata.first_relocatable, ecmdata.last_relocatable, ecmdata.C_done, ecmdata.C,
+						    ecmdata.max_pairmap_Dsections, &ecmdata.pairmap, &ecmdata.pairmap_size);
+			if (stop_reason) {
+//GW:				is save possible here with no pairmap generated?
+				ecm_save (&ecmdata);
+				goto exit;
+			}
+			ecmdata.pairmap_ptr = ecmdata.pairmap;
+			ecmdata.relp = -1;
+			continue;
+		}
 
-/* Skip this relprime if the pairing routine did not set the corresponding bit in the bitarray. */
+/* Check for ESC or save file timer going off */
 
-			if (! bittst (ecmdata.bitarray, bitnum + i)) continue;
+		saving = testSaveFilesFlag (thread_num);
+		stop_reason = stopCheck (thread_num);
 
 /* 2 FFT per prime continuation - deals with all normalized values */
 
-//GW:dont start next fft if saving,stopping,processing last bit (like p-1)
-			if (ecmdata.TWO_FFT_STAGE2) {
-				gwsubmul4 (&ecmdata.gwdata, mQx, ecmdata.nQx[i], ecmdata.gg, ecmdata.gg, GWMUL_STARTNEXTFFT);
-			}
+		if (ecmdata.TWO_FFT_STAGE2) {
+			gwsubmul4 (&ecmdata.gwdata, mQx, ecmdata.nQx[ecmdata.relp], ecmdata.gg, ecmdata.gg, (!stop_reason && !saving) ? GWMUL_STARTNEXTFFT : 0);
+		}
 
 /* 4 FFT per prime continuation - deals with only nQx values normalized */
 
-			else {
-				gwmul3 (&ecmdata.gwdata, ecmdata.nQx[i], mQz, t1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
-				gwsubmul4 (&ecmdata.gwdata, mQx, t1, ecmdata.gg, ecmdata.gg, GWMUL_STARTNEXTFFT);
-			}
+		else {
+			gwmul3 (&ecmdata.gwdata, ecmdata.nQx[ecmdata.relp], mQz, t1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwsubmul4 (&ecmdata.gwdata, mQx, t1, ecmdata.gg, ecmdata.gg, (!stop_reason && !saving) ? GWMUL_STARTNEXTFFT : 0);
+		}
 
-/* Clear pairing bit from the bitarray in case a save file is written.  Calculate stage 2 percentage. */
+/* Calculate stage 2 percentage. */
 
-			bitclr (ecmdata.bitarray, bitnum + i);
-			w->pct_complete = base_pct_complete + (double) (ecmdata.Dsection * ecmdata.totrels + i) * one_bit_pct;
-			
+		w->pct_complete = base_pct_complete + (double) (ecmdata.Dsection * ecmdata.totrels + ecmdata.relp) * one_relp_pct;
+
 /* Check for errors */
 
-			if (gw_test_for_error (&ecmdata.gwdata)) goto err;
+		if (gw_test_for_error (&ecmdata.gwdata) || gw_get_maxerr (&ecmdata.gwdata) > allowable_maxerr) goto err;
 
 /* Output the title every so often */
 
-			if (first_iter_msg ||
-			    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
-				sprintf (buf, "%.*f%% of %s ECM curve %lu stage 2 (using %uMB)",
-					 (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&ecmdata.gwdata), ecmdata.curve, memused);
-				title (thread_num, buf);
-				last_output_t = gw_get_fft_count (&ecmdata.gwdata);
-			}
+		if (first_iter_msg ||
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
+			sprintf (buf, "%.*f%% of %s ECM curve %lu stage 2 (using %uMB)",
+				 (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&ecmdata.gwdata), ecmdata.curve, memused);
+			title (thread_num, buf);
+			last_output_t = gw_get_fft_count (&ecmdata.gwdata);
+		}
 
 /* Print a message every so often */
 
-			if (first_iter_msg ||
-			    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
-				sprintf (buf, "%s curve %lu stage 2 in D-block=%" PRIu64 " [%.*f%%].",
-					 gwmodulo_as_string (&ecmdata.gwdata), ecmdata.curve,
-					 ecmdata.B2_start + ecmdata.Dsection * ecmdata.D + ecmdata.D / 2,
-					 (int) PRECISION, trunc_percent (w->pct_complete));
-				end_timer (timers, 0);
-				if (first_iter_msg) {
-					strcat (buf, "\n");
-				} else {
-					strcat (buf, " Time: ");
-					print_timer (timers, 0, buf, TIMER_NL);
-				}
-				OutputStr (thread_num, buf);
-				start_timer_from_zero (timers, 0);
-				last_output = gw_get_fft_count (&ecmdata.gwdata);
-				first_iter_msg = FALSE;
+		if (first_iter_msg ||
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
+			sprintf (buf, "%s curve %lu stage 2 in D-block=%" PRIu64 " [%.*f%%].",
+				 gwmodulo_as_string (&ecmdata.gwdata), ecmdata.curve,
+				 ecmdata.B2_start + ecmdata.Dsection * ecmdata.D + ecmdata.D / 2,
+				 (int) PRECISION, trunc_percent (w->pct_complete));
+			end_timer (timers, 0);
+			if (first_iter_msg) {
+				strcat (buf, "\n");
+			} else {
+				strcat (buf, " Time: ");
+				print_timer (timers, 0, buf, TIMER_NL);
 			}
+			OutputStr (thread_num, buf);
+			start_timer_from_zero (timers, 0);
+			last_output = gw_get_fft_count (&ecmdata.gwdata);
+			first_iter_msg = FALSE;
+		}
 
 /* Write a save file when the user interrupts the calculation and every DISK_WRITE_TIME minutes. */
 
-			stop_reason = stopCheck (thread_num);
-			if (stop_reason || testSaveFilesFlag (thread_num)) {
-				ecm_save (&ecmdata);
-				if (stop_reason) goto exit;
-			}
-		}
-
-/* Free 4 FFT temporary so that mQ_next can use it */
-
-		if (!ecmdata.TWO_FFT_STAGE2) gwfree (&ecmdata.gwdata, t1);
-
-/* Move onto the next D section when we are done with all the relprimes */
-
-		ecmdata.Dsection++;
-		ecmdata.C_done = ecmdata.B2_start + ecmdata.Dsection * ecmdata.D;
-		if (ecmdata.Dsection >= ecmdata.numDsections) break;
-
-/* See if more bitarrays are required to get us to bound #2 */
-
-		if (ecmdata.Dsection < ecmdata.bitarrayfirstDsection + ecmdata.bitarraymaxDsections) continue;
-
-		ecmdata.first_relocatable = calc_new_first_relocatable (ecmdata.D, ecmdata.C_done);
-		ecmdata.bitarrayfirstDsection = ecmdata.Dsection;
-		stop_reason = fill_work_bitarray (ecmdata.thread_num, &ecmdata.sieve_info, ecmdata.D, ecmdata.totrels,
-						  ecmdata.first_relocatable, ecmdata.last_relocatable, ecmdata.C_done, ecmdata.C,
-						  ecmdata.bitarraymaxDsections, &ecmdata.bitarray);
-		if (stop_reason) {
+		stop_reason = stopCheck (thread_num);
+		if (stop_reason || testSaveFilesFlag (thread_num)) {
 			ecm_save (&ecmdata);
-			goto exit;
+			if (stop_reason) goto exit;
 		}
 	}
+	gwfree (&ecmdata.gwdata, t1);
 
 /* Move nQx[0] to xz.x in case GCD code calls ecm_save.  Free lots of other stage 2 data. */
 
@@ -5378,7 +5531,7 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 	ecmdata.xz.x = ecmdata.nQx[0];
 	for (i = 1; i < ecmdata.totrels; i++) gwfree (&ecmdata.gwdata, ecmdata.nQx[i]);
 	free (ecmdata.nQx); ecmdata.nQx = NULL;
-	free (ecmdata.bitarray); ecmdata.bitarray = NULL;
+	free (ecmdata.pairmap); ecmdata.pairmap = NULL;
 	mallocFreeForOS ();
 	ecm_stage1_memory_usage (thread_num, &ecmdata);		// With the default 10 freed gwnums cached, this should be close to the correct mem usage
 
@@ -5540,7 +5693,7 @@ bingo:	stage = (ecmdata.state > ECM_STATE_MIDSTAGE) ? 2 : (ecmdata.state > ECM_S
 		OutputStr (thread_num, "Restarting ECM curve from scratch.\n");
 		continueECM = TRUE;
 		ecmdata.curve--;
-		goto bad_factor_recovery;
+		goto error_restart;
 	}
 
 /* Output the validated factor */
@@ -5585,9 +5738,9 @@ bingo:	stage = (ecmdata.state > ECM_STATE_MIDSTAGE) ? 2 : (ecmdata.state > ECM_S
 	}
 
 /* Send assignment result to the server.  To avoid flooding the server with small factors from users needlessly redoing */
-/* factoring work, make sure the factor is more than 60 bits or so. */
+/* factoring work, make sure the factor is more than 67 bits or so. */
 
-	if (!QA_IN_PROGRESS && (strlen (str) >= 18 || IniGetInt (INI_FILE, "SendAllFactorData", 0))) {
+	if (!QA_IN_PROGRESS && (strlen (str) >= 21 || IniGetInt (INI_FILE, "SendAllFactorData", 0))) {
 		struct primenetAssignmentResult pkt;
 		memset (&pkt, 0, sizeof (pkt));
 		strcpy (pkt.computer_guid, COMPUTER_GUID);
@@ -5624,10 +5777,11 @@ bingo:	stage = (ecmdata.state > ECM_STATE_MIDSTAGE) ? 2 : (ecmdata.state > ECM_S
 
 /* Free memory */
 
-bad_factor_recovery:
 	free (str); str = NULL;
 	free (msg); msg = NULL;
 	free (ecmdata.factor); ecmdata.factor = NULL;
+
+	clear_timer (timers, 0);
 
 /* Since we found a factor, then we likely performed much fewer curves than expected.  Make sure we do not update the rolling average with */
 /* this inaccurate data. */
@@ -5643,20 +5797,22 @@ bad_factor_recovery:
 
 	goto more_curves;
 
-/* Output a message saying we are restarting */
+/* Output an error message saying we are restarting. */
+/* Sleep five minutes before restarting from last save file. */
 
-err:	OutputBoth (thread_num, "SUMOUT error occurred.\n");
-
-/* Sleep five minutes before restarting */
-
+err:	if (gw_get_maxerr (&ecmdata.gwdata) > allowable_maxerr) {
+		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file.\n", gw_get_maxerr (&ecmdata.gwdata));
+		OutputStr (thread_num, buf);
+		maxerr_restart_count++;
+	} else {
+		OutputBoth (thread_num, "SUMOUT error occurred.\n");
+		stop_reason = SleepFive (thread_num);
+		if (stop_reason) goto exit;
+	}
+error_restart:
+	ecm_cleanup (&ecmdata);
 	free (str); str = NULL;
 	free (msg); msg = NULL;
-	ecm_cleanup (&ecmdata);
-	stop_reason = SleepFive (thread_num);
-	if (stop_reason) return (stop_reason);
-
-/* Restart from last save file */
-
 	goto restart;
 }
 
@@ -5748,6 +5904,16 @@ print out each test case (all relevant data)*/
 }
 
 /**************************************************************
+ *	P-1 and P+1 functions
+ **************************************************************/
+
+/* Handy macros for Lucas doubling and adding */
+
+#define luc_dbl(h,s,d)			gwsquare2 (h, s, d, GWMUL_FFT_S1 | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT)
+#define luc_add(h,s1,s2,diff,d)		gwmulsub4 (h, s1, s2, diff, d, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT)
+#define luc_add_last(h,s1,s2,diff,d)	gwmulsub4 (h, s1, s2, diff, d, GWMUL_FFT_S1 | GWMUL_FFT_S2)
+
+/**************************************************************
  *	P-1 Functions
  **************************************************************/
 
@@ -5756,7 +5922,7 @@ print out each test case (all relevant data)*/
 #define PM1_STATE_STAGE0	0	/* In stage 1, computing 3^exp using a precomputed mpz exp */
 #define PM1_STATE_STAGE1	1	/* In stage 1, processing larger primes */
 #define PM1_STATE_MIDSTAGE	2	/* Between stage 1 and stage 2 */
-#define PM1_STATE_STAGE2	3	/* In middle of stage 2 (processing a bit array) */
+#define PM1_STATE_STAGE2	3	/* In middle of stage 2 (processing a pairmap) */
 #define PM1_STATE_GCD		4	/* Stage 2 GCD */
 #define PM1_STATE_DONE		5	/* P-1 job complete */
 
@@ -5768,6 +5934,7 @@ typedef struct {
 	uint64_t B;		/* Bound #1 (a.k.a. B1) */
 	uint64_t C;		/* Bound #2 (a.k.a. B2 */
 	uint64_t interim_B;	/* B1 we are currently calculating (equals B except when finishing stage 1 from a save file using a different B1). */
+	uint64_t interim_C;	/* B2 we are currently calculating (equals C except when finishing stage 2 a save file using different B2) */
 	uint64_t B_done;	/* We have completed calculating 3^e to this bound #1 */
 	uint64_t first_C_start;	/* First stage 2 starting point (equals B except when worktodo.txt specifies starting point for bound #2). */
 	int	optimal_B2;	/* TRUE if we calculate optimal bound #2 given currently available memory.  FALSE for a fixed bound #2. */
@@ -5778,29 +5945,32 @@ typedef struct {
 	void	*sieve_info;	/* Prime number sieve */
 	uint64_t stage1_prime;	/* Prime number being processed */
 
-	gwnum	x;		/* The stage 1 value being computed */
-	gwnum	gg;		/* The stage 2 accumulated value */
-
 	int	D;		/* Stage 2 loop size */
-	int	E;		/* Suyama's power in stage 2 */
 	int	totrels;	/* Number relatively prime nQx values used */
 	uint64_t B2_start;	/* Starting point of first D section to be processed in stage 2 (an odd multiple of D/2) */
 	uint64_t numDsections;	/* Number of D sections to process in stage 2 */
 	uint64_t Dsection;	/* Current D section being processed in stage 2 */
-	uint64_t interim_C;	/* B2 we are currently calculating (equals C except when finishing stage 2 a save file using different B2) */
+	int	relp;		/* Last relative prime processed in the current D section */
 
-	char	*bitarray;	/* Bit array for prime pairings in each D section */
-	uint64_t bitarraymaxDsections;	/* Maximum number of D sections per bit array */
-	uint64_t bitarrayfirstDsection; /* First D section in the bit array */
-	uint64_t first_relocatable; /* First relocatable prime (same as B1 unless bit arrays must be split or mem change caused a replan) */
-	uint64_t last_relocatable; /* Last relocatable prime for filling bit arrays (unless mem change causes a replan) */
+	uint64_t max_pairmap_Dsections;	/* Number of D sections that can fit in a pairing map */
+	uint8_t	*pairmap;	/* Pairing map for prime pairings in each D section */
+	uint64_t pairmap_size;	/* Size of the pairing map */
+	uint8_t *pairmap_ptr;	/* Pointer to the next byte to process in the pairing map */
+	uint64_t first_relocatable; /* First relocatable prime (same as B1 unless pairmaps must be split or mem change caused a replan) */
+	uint64_t last_relocatable; /* Last relocatable prime for filling pairmaps (unless mem change causes a replan) */
 	uint64_t C_done;	/* Stage 2 completed thusfar (updated every D section that is completed) */
 
 	int	stage2_numvals;	/* Number of gwnums used in stage 2 */
+	int16_t relp_sets[32];	/* The relp sets we are using in stage 2 */
 	gwnum	*nQx;		/* Array of relprime data used in stage 2 */
-	gwnum	*eQx;		/* Array of data used in stage 2 to compute multiples of D. */
 
 	double	pct_mem_to_use;	/* If we get memory allocation errors, we progressively try using less and less. */
+
+	gwnum	x;		/* The stage 1 value being computed */
+	gwnum	V;		/* V_1 in a stage 2 Lucas sequence */
+	gwnum	Vn;		/* V_n in a stage 2 Lucas sequence */
+	gwnum	Vn1;		/* V_{n+1} in a stage 2 Lucas sequence */
+	gwnum	gg;		/* The stage 2 accumulated value */
 } pm1handle;
 
 /* Perform cleanup functions. */
@@ -5812,8 +5982,7 @@ void pm1_cleanup (
 /* Free memory */
 
 	free (pm1data->nQx), pm1data->nQx = NULL;
-	free (pm1data->eQx), pm1data->eQx = NULL;
-	free (pm1data->bitarray), pm1data->bitarray = NULL;
+	free (pm1data->pairmap), pm1data->pairmap = NULL;
 	gwdone (&pm1data->gwdata);
 	end_sieve (pm1data->sieve_info), pm1data->sieve_info = NULL;
 }
@@ -5854,107 +6023,77 @@ void pm1_mul (
 	}
 }
 
-/* Code to init "finite differences" for computing successive values of x^(start+i*incr)^E */
+/* Computes the modular inverse of a number.  This is done using the extended GCD algorithm.  If a factor is accidentally found, it is */
+/* returned in factor.  Function returns stop_reason if there is an allocation error. */
 
-int fd_init (
+int pm1_modinv (
 	pm1handle *pm1data,
-	uint64_t start,
-	unsigned long incr,
-	gwnum	x)
+	gwnum	b,
+	giant	N,
+	giant	&factor)
 {
-	int	i, j;
-	giant	p;
+	giant	v;
 
-/* Treat each eQx[i] as a binary value and compute (start+i*incr)^e */
+/* Convert input number to binary */
 
-	for (i = 0; i <= (int) pm1data->E; i++) {
-		uint64_t val;
-		p = allocgiant (pm1data->E * 2);
-		if (p == NULL) goto oom;
-		val = start + i * incr;
-		ulltog (val, p);
-		for (j = 2; j <= (int) pm1data->E; j++) ullmulg (val, p);
-		pm1data->eQx[i] = (gwnum) p;
-	}		
-
-/* Now do the finite differences */
-
-	for (i = 1; i <= (int) pm1data->E; i++) {
-		for (j = (int) pm1data->E; j >= i; j--) {
-			subg ((giant) pm1data->eQx[j-1], (giant) pm1data->eQx[j]);
-		}
+	v = popg (&pm1data->gwdata.gdata, ((int) pm1data->gwdata.bit_length >> 5) + 10);
+	if (v == NULL) goto oom;
+	if (gwtogiant (&pm1data->gwdata, b, v)) {
+		// On unexpected, should-never-happen error, return out-of-memory for lack of a better error message
+		goto oom;
 	}
 
-/* Now compute each x^difference */
+/* Use the faster GMP library to do an extended GCD which gives us 1/v mod N */
 
-	for (i = 0; i <= (int) pm1data->E; i++) {
-		p = (giant) pm1data->eQx[i];
-		pm1data->eQx[i] = gwalloc (&pm1data->gwdata);
-		if (pm1data->eQx[i] == NULL) goto oom;
+	{
+	mpz_t	__v, __N, __gcd, __inv;
 
-/* Test for easy cases */
+/* Do the extended GCD */
 
-		ASSERTG (!isZero (p));
-		if (isone (p)) {
-			gwcopy (&pm1data->gwdata, x, pm1data->eQx[i]);
-		}
+	mpz_init (__v);
+	mpz_init (__N);
+	mpz_init (__gcd);
+	mpz_init (__inv);
+	gtompz (v, __v);
+	gtompz (N, __N);
+	mpz_gcdext (__gcd, __inv, NULL, __v, __N);
+	mpz_clear (__v);
 
-/* Find most significant bit and then ignore it */
+/* If a factor was found (gcd != 1 && gcd != N), save it in FAC */
 
-//GW: use exponentiate???  convert exponentiate to gwmul3
-//GW: exponentiate uses 4 gwnum temps which may be OK from a working set perspective
-		else {
-			int	len;
-
-			len = bitlen (p);
-			len--;
-
-/* Perform the first squaring using the already FFTed value of x */
-/* Then process the second and remaining bits of p */
-
-//GW:  We can reuse this x^2 value (and if we use exponentiate, we could reuse the x^1,3,5,7 values)
-			gwsquare2 (&pm1data->gwdata, x, pm1data->eQx[i], GWMUL_STARTNEXTFFT);
-			for ( ; ; ) {
-				if (bitval (p, len-1))
-					gwmul3 (&pm1data->gwdata, x, pm1data->eQx[i], pm1data->eQx[i], GWMUL_STARTNEXTFFT);
-				len--;
-				if (len == 0) break;
-				gwsquare2 (&pm1data->gwdata, pm1data->eQx[i], pm1data->eQx[i], GWMUL_STARTNEXTFFT);
-			}
-		}
-		free (p);
+	if (mpz_cmp_ui (__gcd, 1) && mpz_cmp (__gcd, __N)) {
+		factor = allocgiant ((int) divide_rounding_up (mpz_sizeinbase (__gcd, 2), 32));
+		if (factor == NULL) goto oom;
+		mpztog (__gcd, factor);
 	}
+
+/* Otherwise, convert the inverse to FFT-ready form */
+
+	else {
+		factor = NULL;
+		if (mpz_sgn (__inv) < 0) mpz_add (__inv, __inv, __N);
+		mpztog (__inv, v);
+		gianttogw (&pm1data->gwdata, v, b);
+	}
+
+/* Cleanup and return */
+
+	mpz_clear (__gcd);
+	mpz_clear (__inv);
+	mpz_clear (__N);
+	}
+
+/* Clean up */
+
+	pushg (&pm1data->gwdata.gdata, 1);
+
+/* Return */
+
 	return (0);
 
 /* Out of memory exit path */
 
-oom:	free (p);
-	return (OutOfMemory (pm1data->thread_num));
-}
-
-/* Code to compute next x^(start+i*incr)^E value.  Value is returned in eQx[0] partially FFTed. */
-
-void fd_next (
-	pm1handle *pm1data)
-{
-	int	i;
-
-	for (i = 0; i < (int) pm1data->E; i++) {
-		gwmul3 (&pm1data->gwdata, pm1data->eQx[i], pm1data->eQx[i+1], pm1data->eQx[i], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
-	}
-}
-
-/* Terminate finite differences code */
-
-void fd_term (
-	pm1handle *pm1data)
-{
-	int	i;
-
-/* Free each eQx[i] */
-
-	for (i = 0; i <= (int) pm1data->E; i++)
-		gwfree (&pm1data->gwdata, pm1data->eQx[i]);
+oom:	return (OutOfMemory (pm1data->thread_num));
 }
 
 /* Routines to create and read save files for a P-1 factoring job */
@@ -5962,7 +6101,8 @@ void fd_term (
 #define PM1_MAGICNUM	0x317a394b
 //#define PM1_VERSION	2				/* Changed in 29.4 build 7 -- corrected calc_exp bug */
 //#define PM1_VERSION	3				/* Changed in 29.8 build 8.  Configurable calc_exp max exponent */
-#define PM1_VERSION	4				/* Complete overhaul in 30.4.  New stage 2 code with Preda optimizations */
+//#define PM1_VERSION	4				/* Complete overhaul in 30.4.  New stage 2 code with Preda optimizations */
+#define PM1_VERSION	5				/* Stage 2 overhaul in 30.7.  P+1 style stage 2, pairing with relp_sets, compressed pairing map */
 
 void pm1_save (
 	pm1handle *pm1data)
@@ -5985,60 +6125,73 @@ void pm1_save (
 	if (! write_int (fd, pm1data->state, &sum)) goto writeerr;
 
 	if (pm1data->state == PM1_STATE_STAGE0) {
-		if (! write_longlong (fd, pm1data->interim_B, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->interim_B, &sum)) goto writeerr;
 		if (! write_long (fd, pm1data->max_stage0_prime, &sum)) goto writeerr;
 		if (! write_long (fd, pm1data->stage0_bitnum, &sum)) goto writeerr;
 	}
 
 	else if (pm1data->state == PM1_STATE_STAGE1) {
-		if (! write_longlong (fd, pm1data->B_done, &sum)) goto writeerr;
-		if (! write_longlong (fd, pm1data->interim_B, &sum)) goto writeerr;
-		if (! write_longlong (fd, pm1data->stage1_prime, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->B_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->interim_B, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->stage1_prime, &sum)) goto writeerr;
 	}
 
 	else if (pm1data->state == PM1_STATE_MIDSTAGE) {
-		if (! write_longlong (fd, pm1data->B_done, &sum)) goto writeerr;
-		if (! write_longlong (fd, pm1data->C_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->B_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->C_done, &sum)) goto writeerr;
 	}
 
 	// Save everything necessary to restart stage 2 without calling pm1_stage2_impl again
 	else if (pm1data->state == PM1_STATE_STAGE2) {
-		uint64_t bitarray_numDsections, bitarray_start, bitarray_len;
-		if (! write_longlong (fd, pm1data->B_done, &sum)) goto writeerr;
-		if (! write_longlong (fd, pm1data->C_done, &sum)) goto writeerr;
-		if (! write_longlong (fd, pm1data->interim_C, &sum)) goto writeerr;
+		uint64_t remaining_pairmap_size;
+		if (! write_uint64 (fd, pm1data->B_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->C_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->interim_C, &sum)) goto writeerr;
 		if (! write_int (fd, pm1data->stage2_numvals, &sum)) goto writeerr;
 		if (! write_int (fd, pm1data->totrels, &sum)) goto writeerr;
 		if (! write_int (fd, pm1data->D, &sum)) goto writeerr;
-		if (! write_int (fd, pm1data->E, &sum)) goto writeerr;
-		if (! write_longlong (fd, pm1data->first_relocatable, &sum)) goto writeerr;
-		if (! write_longlong (fd, pm1data->last_relocatable, &sum)) goto writeerr;
-		if (! write_longlong (fd, pm1data->B2_start, &sum)) goto writeerr;
-		if (! write_longlong (fd, pm1data->numDsections, &sum)) goto writeerr;
-		if (! write_longlong (fd, pm1data->Dsection, &sum)) goto writeerr;
-		if (! write_longlong (fd, pm1data->bitarraymaxDsections, &sum)) goto writeerr;
-		if (! write_longlong (fd, pm1data->bitarrayfirstDsection, &sum)) goto writeerr;
-		// Output the truncated bit array
-		bitarray_numDsections = pm1data->numDsections - pm1data->bitarrayfirstDsection;
-		if (bitarray_numDsections > pm1data->bitarraymaxDsections) bitarray_numDsections = pm1data->bitarraymaxDsections; 		
-		bitarray_len = divide_rounding_up (bitarray_numDsections * pm1data->totrels, 8);
-		bitarray_start = divide_rounding_down ((pm1data->Dsection - pm1data->bitarrayfirstDsection) * pm1data->totrels, 8);
-		if (! write_array (fd, pm1data->bitarray + bitarray_start, (unsigned long) (bitarray_len - bitarray_start), &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->first_relocatable, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->last_relocatable, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->B2_start, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->numDsections, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->Dsection, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->max_pairmap_Dsections, &sum)) goto writeerr;
+		if (! write_int (fd, pm1data->relp, &sum)) goto writeerr;
+		if (! write_array (fd, (char *) pm1data->relp_sets, 32 * sizeof (int16_t), &sum)) goto writeerr;
+		// Output the truncated pairmap
+//GW:  handle NULL pairmap?
+		remaining_pairmap_size = pm1data->pairmap_size - (pm1data->pairmap_ptr - pm1data->pairmap);
+		if (! write_uint64 (fd, remaining_pairmap_size, &sum)) goto writeerr;
+		if (! write_array (fd, (char *) pm1data->pairmap_ptr, (size_t) remaining_pairmap_size, &sum)) goto writeerr;
 	}
 
 	else if (pm1data->state == PM1_STATE_GCD) {
-		if (! write_longlong (fd, pm1data->B_done, &sum)) goto writeerr;
-		if (! write_longlong (fd, pm1data->C_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->B_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->C_done, &sum)) goto writeerr;
 	}
 
 	else if (pm1data->state == PM1_STATE_DONE) {
-		if (! write_longlong (fd, pm1data->B_done, &sum)) goto writeerr;
-		if (! write_longlong (fd, pm1data->C_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->B_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->C_done, &sum)) goto writeerr;
 	}
 
-/* Write the gwnum value used in stage 1 and stage 2.  There are occasions where x or gg may be in a partially FFTed state. */
+/* Write the gwnum values used in stage 1 and stage 2.  There are occasions where x or gg may be in a partially FFTed state. */
 
-	if (! write_gwnum (fd, &pm1data->gwdata, pm1data->x, &sum)) goto writeerr;
+	// Usually x is freed in stage 2.  However, we sometimes don't free x in stage 2 to allow expanding stage 1 bounds at a later date.
+	{
+		int	have_x = (pm1data->x != NULL);
+		if (! write_int (fd, have_x, &sum)) goto writeerr;
+		if (have_x) {
+			if (! write_gwnum (fd, &pm1data->gwdata, pm1data->x, &sum)) goto writeerr;
+		}
+	}
+
+	// Save stage 2's x + 1/x value that allows us to do a P+1 style stage 2
+	if (pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_STAGE2) {
+		if (! write_gwnum (fd, &pm1data->gwdata, pm1data->V, &sum)) goto writeerr;
+	}
+
+	// Save the stage 2 accumulator
 	if (pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_GCD) {
 		if (! write_gwnum (fd, &pm1data->gwdata, pm1data->gg, &sum)) goto writeerr;
 	}
@@ -6071,14 +6224,14 @@ int pm1_old_restore (
 /* Read the first part of the save file, much will be ignored but must be read for backward compatibility */
 
 	if (! read_long (fd, &state, &sum)) goto readerr;
-	if (version == 2) pm1data->max_stage0_prime = 13333333;	// The hardwired value prior to version 29.8 build 8
+	if (version == 2) pm1data->max_stage0_prime = 13333333;		// The hardwired value prior to version 29.8 build 8
 	else if (! read_long (fd, &pm1data->max_stage0_prime, &sum)) goto readerr;
-	if (! read_longlong (fd, &B_done, &sum)) goto readerr;
-	if (! read_longlong (fd, &B, &sum)) goto readerr;
-	if (! read_longlong (fd, &C_done, &sum)) goto readerr;
-	if (! read_longlong (fd, &unused64, &sum)) goto readerr;	// C_start
-	if (! read_longlong (fd, &unused64, &sum)) goto readerr;	// C_done
-	if (! read_longlong (fd, &processed, &sum)) goto readerr;
+	if (! read_uint64 (fd, &B_done, &sum)) goto readerr;
+	if (! read_uint64 (fd, &B, &sum)) goto readerr;
+	if (! read_uint64 (fd, &C_done, &sum)) goto readerr;
+	if (! read_uint64 (fd, &unused64, &sum)) goto readerr;		// C_start
+	if (! read_uint64 (fd, &unused64, &sum)) goto readerr;		// C_done
+	if (! read_uint64 (fd, &processed, &sum)) goto readerr;
 	if (! read_long (fd, &unused, &sum)) goto readerr;		// D
 	if (! read_long (fd, &unused, &sum)) goto readerr;		// E
 	if (! read_long (fd, &unused, &sum)) goto readerr;		// rels_done
@@ -6086,10 +6239,10 @@ int pm1_old_restore (
 	if (bitarray_len) {
 		char *bitarray = (char *) malloc (bitarray_len);
 		if (bitarray == NULL) goto readerr;
-		if (! read_array (fd, bitarray, bitarray_len, &sum)) goto readerr;
+		if (! read_array (fd, bitarray, (size_t) bitarray_len, &sum)) goto readerr;
 		free (bitarray);
 	}
-	if (! read_longlong (fd, &unused64, &sum)) goto readerr;	// bitarray_first_number
+	if (! read_uint64 (fd, &unused64, &sum)) goto readerr;	// bitarray_first_number
 	if (! read_long (fd, &unused, &sum)) goto readerr;		// pairs_set
 	if (! read_long (fd, &unused, &sum)) goto readerr;		// pairs_done
 
@@ -6185,71 +6338,106 @@ int pm1_restore (			/* For version 30.4 and later save files */
 /* Read state dependent data */
 
 	if (pm1data->state == PM1_STATE_STAGE0) {
-		if (! read_longlong (fd, &pm1data->interim_B, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->interim_B, &sum)) goto readerr;
 		if (! read_long (fd, &pm1data->max_stage0_prime, &sum)) goto readerr;
 		if (! read_long (fd, &pm1data->stage0_bitnum, &sum)) goto readerr;
 	}
 
 	else if (pm1data->state == PM1_STATE_STAGE1) {
-		if (! read_longlong (fd, &pm1data->B_done, &sum)) goto readerr;
-		if (! read_longlong (fd, &pm1data->interim_B, &sum)) goto readerr;
-		if (! read_longlong (fd, &pm1data->stage1_prime, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->B_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->interim_B, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->stage1_prime, &sum)) goto readerr;
 	}
 
 	else if (pm1data->state == PM1_STATE_MIDSTAGE) {
-		if (! read_longlong (fd, &pm1data->B_done, &sum)) goto readerr;
-		if (! read_longlong (fd, &pm1data->C_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->B_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->C_done, &sum)) goto readerr;
 	}
 
 	else if (pm1data->state == PM1_STATE_STAGE2) {
-		uint64_t bitarray_numDsections, bitarray_start, bitarray_len;
-		if (! read_longlong (fd, &pm1data->B_done, &sum)) goto readerr;
-		if (! read_longlong (fd, &pm1data->C_done, &sum)) goto readerr;
-		if (! read_longlong (fd, &pm1data->interim_C, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->B_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->C_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->interim_C, &sum)) goto readerr;
 		if (! read_int (fd, &pm1data->stage2_numvals, &sum)) goto readerr;
 		if (! read_int (fd, &pm1data->totrels, &sum)) goto readerr;
 		if (! read_int (fd, &pm1data->D, &sum)) goto readerr;
-		if (! read_int (fd, &pm1data->E, &sum)) goto readerr;
-		if (! read_longlong (fd, &pm1data->first_relocatable, &sum)) goto readerr;
-		if (! read_longlong (fd, &pm1data->last_relocatable, &sum)) goto readerr;
-		if (! read_longlong (fd, &pm1data->B2_start, &sum)) goto readerr;
-		if (! read_longlong (fd, &pm1data->numDsections, &sum)) goto readerr;
-		if (! read_longlong (fd, &pm1data->Dsection, &sum)) goto readerr;
-		if (! read_longlong (fd, &pm1data->bitarraymaxDsections, &sum)) goto readerr;
-		if (! read_longlong (fd, &pm1data->bitarrayfirstDsection, &sum)) goto readerr;
-		// Read the truncated bit array
-		bitarray_numDsections = pm1data->numDsections - pm1data->bitarrayfirstDsection;
-		if (bitarray_numDsections > pm1data->bitarraymaxDsections) bitarray_numDsections = pm1data->bitarraymaxDsections;
-		bitarray_len = divide_rounding_up (bitarray_numDsections * pm1data->totrels, 8);
-		bitarray_start = divide_rounding_down ((pm1data->Dsection - pm1data->bitarrayfirstDsection) * pm1data->totrels, 8);
-		pm1data->bitarray = (char *) malloc ((size_t) bitarray_len);
-		if (pm1data->bitarray == NULL) goto readerr;
-		if (! read_array (fd, pm1data->bitarray + bitarray_start, (unsigned long) (bitarray_len - bitarray_start), &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->first_relocatable, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->last_relocatable, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->B2_start, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->numDsections, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->Dsection, &sum)) goto readerr;
+		if (version == 4) {		// 30.4 save files
+			uint64_t bitarraymaxDsections, bitarrayfirstDsection, bitarray_numDsections, bitarray_start, bitarray_len;
+			char	*bitarray;
+			if (! read_uint64 (fd, &bitarraymaxDsections, &sum)) goto readerr;
+			if (! read_uint64 (fd, &bitarrayfirstDsection, &sum)) goto readerr;
+			// Read the truncated bit array
+			bitarray_numDsections = pm1data->numDsections - bitarrayfirstDsection;
+			if (bitarray_numDsections > bitarraymaxDsections) bitarray_numDsections = bitarraymaxDsections;
+			bitarray_len = divide_rounding_up (bitarray_numDsections * pm1data->totrels, 8);
+			bitarray_start = divide_rounding_down ((pm1data->Dsection - bitarrayfirstDsection) * pm1data->totrels, 8);
+			bitarray = (char *) malloc ((size_t) bitarray_len);
+			if (bitarray == NULL) goto readerr;
+			if (! read_array (fd, bitarray, (size_t) (bitarray_len - bitarray_start), &sum)) goto readerr;
+			free (bitarray);
+		} else {				// 30.7 save files
+			if (! read_uint64 (fd, &pm1data->max_pairmap_Dsections, &sum)) goto readerr;
+			if (! read_int (fd, &pm1data->relp, &sum)) goto readerr;
+			if (! read_array (fd, (char *) pm1data->relp_sets, 32 * sizeof (int16_t), &sum)) goto readerr;
+			if (! read_uint64 (fd, &pm1data->pairmap_size, &sum)) goto readerr;
+			pm1data->pairmap = (uint8_t *) malloc ((size_t) pm1data->pairmap_size);
+			if (pm1data->pairmap == NULL) goto readerr;
+			if (! read_array (fd, (char *) pm1data->pairmap, (size_t) pm1data->pairmap_size, &sum)) goto readerr;
+			pm1data->pairmap_ptr = pm1data->pairmap;
+		}
 	}
 
 	else if (pm1data->state == PM1_STATE_GCD) {
-		if (! read_longlong (fd, &pm1data->B_done, &sum)) goto readerr;
-		if (! read_longlong (fd, &pm1data->C_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->B_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->C_done, &sum)) goto readerr;
 	}
 
 	else if (pm1data->state == PM1_STATE_DONE) {
-		if (! read_longlong (fd, &pm1data->B_done, &sum)) goto readerr;
-		if (! read_longlong (fd, &pm1data->C_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->B_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->C_done, &sum)) goto readerr;
 	}
 
-/* Read the gwnum value used in stage 1 and stage 2 */
+/* Read the gwnum value used in stage 1 */
 
-	pm1data->x = gwalloc (&pm1data->gwdata);
-	if (pm1data->x == NULL) goto readerr;
-	if (! read_gwnum (fd, &pm1data->gwdata, pm1data->x, &sum)) goto readerr;
+	{
+		int	have_x;
+		if (version == 4) have_x = TRUE;				// 30.4 save files
+		else if (! read_int (fd, &have_x, &sum)) goto readerr;		// 30.7 save files
+		if (have_x) {
+			pm1data->x = gwalloc (&pm1data->gwdata);
+			if (pm1data->x == NULL) goto readerr;
+			if (! read_gwnum (fd, &pm1data->gwdata, pm1data->x, &sum)) goto readerr;
+		}
+	}
+
+/* Read the gwnum x + 1/x value used in stage 2 */
+
+	if (version >= 5 && pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_STAGE2) {
+		pm1data->V = gwalloc (&pm1data->gwdata);
+		if (pm1data->V == NULL) goto readerr;
+		if (! read_gwnum (fd, &pm1data->gwdata, pm1data->V, &sum)) goto readerr;
+	}
 
 /* Read stage 2 accumulator gwnum */
 
-	pm1data->gg = NULL;
 	if (pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_GCD) {
 		pm1data->gg = gwalloc (&pm1data->gwdata);
 		if (pm1data->gg == NULL) goto readerr;
 		if (! read_gwnum (fd, &pm1data->gwdata, pm1data->gg, &sum)) goto readerr;
+	}
+
+/* Version 30.4 save files cannot continue in stage 2 */
+
+	if (version == 4 && pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_GCD) {
+		pm1data->state = PM1_STATE_MIDSTAGE;
+		OutputStr (pm1data->thread_num, "Old P-1 save file was in stage 2.  Restarting stage 2 from scratch.\n");
+		gwfree (&pm1data->gwdata, pm1data->gg);
+		pm1data->gg = NULL;
 	}
 
 /* Read and compare the checksum */
@@ -6273,79 +6461,69 @@ err:
 /* Compute the cost (in squarings) of a particular P-1 stage 2 implementation. */
 
 struct pm1_stage2_cost_data {
-	int	E;		/* Brent-Suyama power */
-				/* Data returned from cost function follows */
-	int	D;		/* D value for big steps */
-	int	totrels;	/* Total number of relative primes used for pairing */
-	int	stage2_numvals;	/* Total number of gwnum temporaries to be used in stage 2 */
-	uint64_t B2_start;	/* Stage 2 start */
-	uint64_t numDsections;	/* Number of D sections to process */
-	uint64_t bitarraymaxDsections; /* Maximum number of D sections per bit array (in case work bit array must be split) */
+	/* Cost data common to ECM, P-1, P+1 */
+	struct common_cost_data c;
+	/* P-1 specific data sent to cost function follows */
+//GW: modinv cost???  not needed sice it is constant for all stage 2 impls
+	/* P-1 specific data returned from cost function follows */
 };
 
 double pm1_stage2_cost (
-	int	D,		/* Stage 2 big step */
-	uint64_t B2_start,	/* Stage 2 start point */
-	uint64_t numDsections,	/* Number of D sections to process */
-	uint64_t bitarraymaxDsections, /* Maximum number of D sections per bit array (if work bit array must be split) */
-	int	numrels,	/* Number of relative primes less than D/2 */
-	double	multiplier,	/* Multiplier * numrels relative primes will be used in stage 2 */
-	double	numpairs,	/* Estimated number of paired primes in stage 2 */
-	double	numsingles,	/* Estimated number of prime singles in stage 2 */
 	void	*data)		/* P-1 specific costing data */
 {
-	int	totrels;	/* Total number of relative primes in use */
 	struct pm1_stage2_cost_data *cost_data = (struct pm1_stage2_cost_data *) data;
 	double	cost;
 
-	ASSERTG (cost_data->E >= 2);
+/* Compute the stage 2 init costs */
 
-/* Calculate the number of temporaries used for relative primes.  This will leave some available for modinv pooling. */
+/* For the relative primes below D there are 2 luc_add calls for each increment of 6 in the nQx setup loop (plus 6 luc_dbls/luc_adds for setup). */
+/* Computing VD is another luc_dbl and luc_add.  For the relative primes above D, we perform one luc_add for each rel_prime to calculate. */
+/* We assume relp set -1 is not used, which means there are totrels - numrels relative primes above D to calculate.  Also, each nQx value will */
+/* be FFTed once but this usually happens as a by-product of the luc_add calls.  Each luc_add/luc_dbl is 2 transforms. */
 
-	totrels = (int) (numrels * multiplier);
+	cost_data->c.est_init_transforms = 6.0 * 2.0;						// Setup costs, 6 luc_adds at 2 transforms each
+	cost_data->c.est_init_transforms += (double) (cost_data->c.D / 6 - 2) * 2.0 * 2.0;	// From 12 to D stepping by 6 is 2 luc_adds at 2 transforms each
+	cost_data->c.est_init_transforms += 2.0 * 2.0;						// Cost to calculate VD, 1 luc_add and 1 luc_dbl
+	cost_data->c.est_init_transforms += (cost_data->c.totrels - cost_data->c.numrels) * 2.0; // Cost for relprimes above D
 
-/* Compute the nQx setup costs.  They are tiny and if inaccurately estimated can be safely ignored. */
+/* Any intermediate relp_sets also cost one luc_add for each relprime.  Partial intermediate sets also must be accounted for. */
 
-	cost = (cost_data->E + 1) +
+	cost_data->c.est_init_transforms +=
+		cost_data->c.numrels * cost_data->c.relp_sets[1] * 2.0 +					 // Cost for full intermediate relp_sets
+		one_based_modulo (cost_data->c.totrels, cost_data->c.numrels) * cost_data->c.relp_sets[2] * 2.0; // Cost for partial intermediate relp_sets
 
-/* For the minimum number of relative primes for a D, there are D / 4 fd_next calls at a cost of E multiplies each fd_next call. */
-/* If using more than the minimum number of relative primes, increase the cost proportionally. */
-/* Also, each nQx value will be FFTed once (a half squaring). */
+/* Each Dmultiple costs either a luc_dbl or luc_add.  Here we have to guess how many Dmultiples are needed.  The most expensive D-multiple is likely the */
+/* calculation of B2_start -- 2*log2(B2_start/D).  In addition, we'll assume one more D-multiple for each relp_set. */
 
-		multiplier * ((double) D / 4) * (cost_data->E) + totrels * 0.5 +
+	cost_data->c.est_init_transforms += (2.0 * _log2((cost_data->c.B2_start + cost_data->c.D / 2) / cost_data->c.D) + cost_data->c.multiplier) * 2.0;
 
-/* Compute the eQx setup costs.  To calculate eQx values, one fd_init is required with a start point of B. */
+/* Start main loop cost with one luc_add for each D section */
 
-		(cost_data->E + 1) * cost_data->E * _log2 (B2_start) * 1.5;
+	cost_data->c.est_stage2_transforms = (double) cost_data->c.numDsections * 2.0;
 
-/* Add in the cost of fd_next calls (#sections * E multiplies) */
+/* Each nQx value will be FFTed once, but most nQx values are FFTed during the computation of other nQx values.  We'll assume one */
+/* relp_set of nQx values will need this half squaring. */
 
-	cost += (double) (numDsections * cost_data->E);
+	cost_data->c.est_stage2_transforms += cost_data->c.numrels;
 
-/* Finally, each prime pair and prime single costs one multiply */
+/* Finally, each prime pair and prime single costs one 2-FFT multiply */
 
-	cost += numpairs + numsingles;
+	cost_data->c.est_stage2_transforms += (cost_data->c.est_numpairs + cost_data->c.est_numsingles) * 2.0;
+
+/* Return data P-1 implementation will need */
+/* Stage 2 memory is totrels gwnums for the nQx array, 4 gwnums for V,Vn,Vn1,gg values. */
+
+//GW: plus one more if x is kept around???
+	cost_data->c.stage2_numvals = cost_data->c.totrels + 4;
 
 /* Pass 2 FFT multiplications seem to be at least 20% slower than the squarings in pass 1.  This is probably due */
 /* to several factors.  These include: better L2 cache usage and no calls to the faster gwsquare routine. */
 /* Nov, 2009: On my Macbook Pro, with exponents around 45M and using 800MB memory, pass2 squarings are 40% slower. */
 /* Sept. 2020: gwsubmul4 implemented in assembly for AVX and later reducing the overhead to about 10%. */
+/* P-1 wants a cost in terms of squarings -- to accurately compare P-1 stage 1 times to P-1 stage 2 times. */
 
-	cost = cost * 1.10;
-
-/* Return data P-1 implementation will need */
-/* Stage 2 memory is totrels gwnums for the nQx array, E+1 gwnums to calculate eQx values, one gwnum for gg. */
-
-	cost_data->stage2_numvals = totrels + cost_data->E + 2;
-	cost_data->D = D;
-	cost_data->totrels = (int) (numrels * multiplier);
-	cost_data->B2_start = B2_start;
-	cost_data->numDsections = numDsections;
-	cost_data->bitarraymaxDsections = bitarraymaxDsections;
-
-/* Return the resulting cost */
-
-	return (cost);
+	cost = cost_data->c.est_pairing_runtime + (cost_data->c.est_init_transforms + cost_data->c.est_stage2_transforms) * 1.10;
+	return (cost / 2.0);
 }
 
 /* Choose the most effective B2 for a P-1 run with a fixed B1 given the number of gwnums we are allowed to allocate. */
@@ -6366,8 +6544,11 @@ void pm1_choose_B2 (
 	double	takeAwayBits;			/* Bits we get for free in smoothness of P-1 factor */
 
 // Cost out a B2 value
+	cost_data.c.numvals = numvals;
+	cost_data.c.fftlen = gwfftlen (&pm1data->gwdata);
+	cost_data.c.threads = gwget_num_threads (&pm1data->gwdata);
 #define p1eval(x,B2mult)	x.i = B2mult; \
-				x.B2_cost = best_stage2_impl (pm1data->B, x.i * pm1data->B, numvals - (cost_data.E + 2), &pm1_stage2_cost, &cost_data); \
+				x.B2_cost = best_stage2_impl (pm1data->B, 0, 0, x.i * pm1data->B, numvals - 4, &pm1_stage2_cost, &cost_data); \
 				x.fac_pct = pm1prob (takeAwayBits, sieve_depth, (double) pm1data->B, (double) (x.i * pm1data->B));
 
 // Return TRUE if x is better than y.  Determined by seeing if taking the increased cost of y's higher B2 and investing it in increasing x's bounds
@@ -6377,9 +6558,6 @@ void pm1_choose_B2 (
 
 /* Look for the best B2 which is likely between 5*B1 and 40*B1.  If optimal is not between these bounds, don't worry we'll locate the optimal spot anyway. */
 
-	cost_data.E = IniGetInt (INI_FILE, "BrentSuyama", 2);
-	if (cost_data.E < 2) cost_data.E = 2;
-	if (cost_data.E > 24) cost_data.E = 24;
 	takeAwayBits = isMersenne (pm1data->w->k, pm1data->w->b, pm1data->w->n, pm1data->w->c) ? log2 (pm1data->w->n) + 1.0 :
 		       isGeneralizedFermat (pm1data->w->k, pm1data->w->b, pm1data->w->n, pm1data->w->c) ? log2 (pm1data->w->n) : 0.0;
 	sieve_depth = (int) pm1data->w->sieve_depth;
@@ -6449,24 +6627,17 @@ int pm1_stage2_impl (
 	pm1handle *pm1data)
 {
 	unsigned int memory, min_memory, desired_memory;	/* Memory is in MB */
-	unsigned int bitarray_size, max_bitarray_size;		/* Bitarray memory in MB */
 	int	numvals;			/* Number of gwnums we can allocate */
 	struct pm1_stage2_cost_data cost_data;
 	int	stop_reason;
 
-/* Calculate (roughly) the memory required for the bit-array.  A typical stage 2 implementation is D=210, B2_start=B2/11, numrels=24, totrels=7*24. */
-/* A typical optimal B2 is 40*B1.  This means bitarray memory = B2 * 10/11 / 210 * 24 * 7 / 8 bytes. */
+/* Calculate the amount of memory we can use in stage 2.  We must have 1MB for a pairing map + a minimum of 8 temporaries (D = 30). */
+/* If not continuing from a stage 2 save file then assume 144 temporaries (D = 210, multiplier = 5) and a few MB for a pairing map will */
+/* provide us with a reasonable execution speed.  Otherwise, we desire enough memory to use the save file's pairing map. */
 
-	bitarray_size = divide_rounding_up ((unsigned int) ((pm1data->optimal_B2 ? 130 * pm1data->B : pm1data->C) * 1680 / 18480), 1 << 20);
-	max_bitarray_size = IniGetInt (INI_FILE, "MaximumBitArraySize", 250);
-	if (bitarray_size > max_bitarray_size) bitarray_size = max_bitarray_size;
-
-/* Calculate the number of temporaries we can use in stage 2.  Base our decision on the current amount of memory available. */
-/* If continuing from a stage 2 save file then we desire as many temporaries as the save file used.  Otherwise, assume 28 temporaries will */
-/* provide us with a reasonable execution speed (D = 210).  We must have a minimum of 8 temporaries (D = 30). */
-
-	min_memory = bitarray_size + cvt_gwnums_to_mem (&pm1data->gwdata, 8);
-	desired_memory = bitarray_size + cvt_gwnums_to_mem (&pm1data->gwdata, pm1data->state >= PM1_STATE_STAGE2 ? pm1data->stage2_numvals : 28);
+	min_memory = 1 + cvt_gwnums_to_mem (&pm1data->gwdata, 8);
+	if (pm1data->state < PM1_STATE_STAGE2) desired_memory = 3 + cvt_gwnums_to_mem (&pm1data->gwdata, 144);
+	else desired_memory = (unsigned int) (pm1data->pairmap_size >> 20) + cvt_gwnums_to_mem (&pm1data->gwdata, pm1data->stage2_numvals);
 	stop_reason = avail_mem (pm1data->thread_num, min_memory, desired_memory, &memory);
 	if (stop_reason) return (stop_reason);
 
@@ -6486,19 +6657,23 @@ int pm1_stage2_impl (
 	}
 
 /* Compute the number of gwnum temporaries we can allocate.  User nordi had over-allocating memory troubles on Linux testing M1277, presumably */
-/* because our estimate genum size was too low.  As a work-around limit numvals to 100,000 by default. */
+/* because our estimate gwnum size was too low.  As a work-around limit numvals to 100,000 by default. */
 
-	numvals = cvt_mem_to_gwnums (&pm1data->gwdata, memory - bitarray_size);
+	numvals = cvt_mem_to_gwnums (&pm1data->gwdata, memory);
 	if (numvals < 8) numvals = 8;
 	if (numvals > 100000) numvals = 100000;
 	if (QA_TYPE) numvals = QA_TYPE;			/* Optionally override numvals for QA purposes */
 
-/* Set C_done for future best_stage2_impl calls. */
+/* Set first_relocatable for future best_stage2_impl calls. */
 /* Override B2 with optimal B2 based on amount of memory available. */
 
-	if (pm1data->state == PM1_STATE_MIDSTAGE && pm1data->C_done == pm1data->B) {
-		pm1data->C_done = pm1data->first_C_start;
-		if (pm1data->optimal_B2) pm1_choose_B2 (pm1data, numvals);
+	if (pm1data->state == PM1_STATE_MIDSTAGE) {
+		if (pm1data->C_done == pm1data->B) {
+			pm1data->first_relocatable = pm1data->first_C_start;
+			if (pm1data->optimal_B2) pm1_choose_B2 (pm1data, numvals);
+		} else
+			pm1data->first_relocatable = pm1data->C_done;
+		pm1data->last_relocatable = 0;
 	}
 
 /* If are continuing from a save file that was in stage 2, check to see if we currently have enough memory to continue with the save file's */
@@ -6512,64 +6687,77 @@ int pm1_stage2_impl (
 	     pm1data->Dsection >= pm1data->numDsections / 2))			// stage 2 more than half done
 		return (0);							// Use old plan
 
-/* Get the Brent-Suyama power.  We used to try various values of E (1, 2, 4, 6, 12). */
-/* With Preda/Montgomery's optimization using gwnum temporaries to improve prime pairing we are better off only supporting E = 2. */
+/* If we are contemplating ditching the save file pairmap, figure out how which non-relocatable primes are definitely included in the stage 2 */
+/* accumulator.  Set C_done appropriately, but do not change first_relocatable as there is no guarantee which relocatables are in the accumulator. */
 
-	cost_data.E = IniGetInt (INI_FILE, "BrentSuyama", 2);
-	if (cost_data.E < 2) cost_data.E = 2;
-	if (cost_data.E > 24) cost_data.E = 24;
+	if (pm1data->state == PM1_STATE_STAGE2) {
+		int	max_relp_set = get_max_relp_set (pm1data->relp_sets);
+		if (pm1data->Dsection > max_relp_set) pm1data->C_done = pm1data->B2_start + (pm1data->Dsection - max_relp_set) * pm1data->D;
+		else pm1data->C_done = pm1data->B2_start;
+	}
 
 /* Find the least costly stage 2 plan. */
-/* Try various values of D until we find the best one.  E+1 gwnums are required for eQx calculations and one gwnum for gg. */
+/* Try various values of D until we find the best one.  gwnums are required for V,Vn,Vn1,gg. */
 
-	best_stage2_impl (pm1data->C_done, pm1data->C, numvals - (cost_data.E + 2), &pm1_stage2_cost, &cost_data);
+	cost_data.c.numvals = numvals;
+	cost_data.c.fftlen = gwfftlen (&pm1data->gwdata);
+	cost_data.c.threads = gwget_num_threads (&pm1data->gwdata);
+	best_stage2_impl (pm1data->first_relocatable, pm1data->last_relocatable, pm1data->C_done, pm1data->C, numvals - 4, &pm1_stage2_cost, &cost_data);
 
 /* If are continuing from a save file that was in stage 2 and the new plan doesn't look significant better than the old plan, then */
-/* we use the old plan and its partially completed bit array. */
+/* we use the old plan and its partially completed pairmap. */
 
 	if (pm1data->state >= PM1_STATE_STAGE2 &&				// Continuing a stage 2 save file and
 	    numvals >= pm1data->stage2_numvals &&				// We have enough memory and
-	    cost_data.stage2_numvals < pm1data->stage2_numvals * 2)		// new plan does not use significantly more memory
+	    cost_data.c.stage2_numvals < pm1data->stage2_numvals * 2)		// new plan does not use significantly more memory
 		return (0);							// Use old plan
 
-/* If are continuing from a save file that was in stage 2, toss the save file's bit array. */
+/* If are continuing from a save file that was in stage 2, toss the save file's pairing map. */
 
 	if (pm1data->state >= PM1_STATE_STAGE2) {
-		free (pm1data->bitarray);
-		pm1data->bitarray = NULL;
+		free (pm1data->pairmap);
+		pm1data->pairmap = NULL;
 	}
 
 /* Set all the variables needed for this stage 2 plan */
 
 	pm1data->interim_C = pm1data->C;
-	pm1data->stage2_numvals = cost_data.stage2_numvals;
-	pm1data->D = cost_data.D;
-	pm1data->E = cost_data.E;
-	pm1data->totrels = cost_data.totrels;
-	pm1data->B2_start = cost_data.B2_start;
-	pm1data->numDsections = cost_data.numDsections;
-	pm1data->bitarraymaxDsections = cost_data.bitarraymaxDsections;
-	pm1data->Dsection = 0;
+	pm1data->stage2_numvals = cost_data.c.stage2_numvals;
+	pm1data->D = cost_data.c.D;
+	pm1data->totrels = cost_data.c.totrels;
+	pm1data->B2_start = cost_data.c.B2_start;
+	pm1data->numDsections = cost_data.c.numDsections;
+	pm1data->max_pairmap_Dsections = cost_data.c.max_pairmap_Dsections;
+	memcpy (pm1data->relp_sets, cost_data.c.relp_sets, sizeof (pm1data->relp_sets));
 
-	if (pm1data->state < PM1_STATE_STAGE2) {
-		pm1data->first_relocatable = pm1data->first_C_start;
+	if (pm1data->state == PM1_STATE_MIDSTAGE) {
 		pm1data->last_relocatable = pm1data->B2_start;
-		pm1data->C_done = pm1data->B2_start;
 	}
 
-/* Create a bitmap maximizing the prime pairings */
+/* Output some debugging data so we can compare estimateds to actuals */
 
-	pm1data->bitarrayfirstDsection = pm1data->Dsection;
-	stop_reason = fill_work_bitarray (pm1data->thread_num, &pm1data->sieve_info, pm1data->D, pm1data->totrels,
-					  pm1data->first_relocatable, pm1data->last_relocatable, pm1data->C_done, pm1data->C,
-					  pm1data->bitarraymaxDsections, &pm1data->bitarray);
+	if (IniGetInt (INI_FILE, "Stage2Estimates", 0)) {
+		char	buf[120];
+		sprintf (buf, "Est pair%%: %5.2f, init transforms: %.0f, main loop transforms: %.0f\n",
+			 cost_data.c.est_pair_pct * 100.0, cost_data.c.est_init_transforms, cost_data.c.est_stage2_transforms);
+		OutputStr (pm1data->thread_num, buf);
+	}
+
+/* Create a map of (hopefully) close-to-optimal prime pairings */
+
+	stop_reason = fill_pairmap (pm1data->thread_num, &pm1data->sieve_info, pm1data->D, 0,0,0, pm1data->totrels, pm1data->relp_sets+3,
+				    pm1data->first_relocatable, pm1data->last_relocatable, pm1data->B2_start, pm1data->C,
+				    pm1data->max_pairmap_Dsections, &pm1data->pairmap, &pm1data->pairmap_size);
 	if (stop_reason) return (stop_reason);
+	pm1data->pairmap_ptr = pm1data->pairmap;
+	pm1data->Dsection = 0;
+	pm1data->relp = -1;
 
 	return (0);
 }
 
 
-/* Recursively compute exp used in initial 3^exp calculation of a P-1 or P+1 factoring run.  We include 2*n in exp, since P-1 factoring */
+/* Recursively compute exp used in initial 3^exp calculation of a P-1 factoring run.  We include 2*n in exp, since P-1 factoring */
 /* benefits from Mersenne number factors being 1 mod 2n.  Generalized Fermats also benefit in P-1 factoring. */
 
 void calc_exp (
@@ -6645,20 +6833,21 @@ int pminus1 (
 	uint64_t stage0_limit;
 	unsigned int memused;
 	unsigned long SQRT_B;
-	int	i, totrels;
+	int	i;
 	unsigned long len;
-	unsigned long error_recovery_mode = 0;
+	int	maxerr_restart_count = 0;
 	gwnum	tmp_gwnum;
 	char	filename[32], buf[255], JSONbuf[4000], testnum[100];
 	int	res, stop_reason, saving, near_fft_limit, echk;
-	double	one_over_len, one_over_B, base_pct_complete, one_bit_pct;
+	double	one_over_len, one_over_B, base_pct_complete, one_relp_pct;
 	double	last_output, last_output_t, last_output_r;
 	double	allowable_maxerr, output_frequency, output_title_frequency;
-	double	restart_maxerr = 0.0;
 	int	first_iter_msg;
 	int	msglen;
 	char	*str, *msg;
 	double	timers[2];
+	relp_set_data_map relp_set_map;
+	Dmultiple_data_map Dmultiple_map;
 
 /* Output a blank line to separate multiple P-1 runs making the result more readable */
 
@@ -6680,9 +6869,9 @@ int pminus1 (
 	pm1data.w = w;
 	pm1data.B = (uint64_t) w->B1;
 	pm1data.C = (uint64_t) w->B2;
-	if (pm1data.B < 30) {
-		OutputStr (thread_num, "Using minimum bound #1 of 30\n");
-		pm1data.B = 30;
+	if (pm1data.B < 90) {
+		OutputStr (thread_num, "Using minimum bound #1 of 90\n");
+		pm1data.B = 90;
 	}
 	if (pm1data.C == 0) pm1data.C = pm1data.B * 100;
 	if (pm1data.C < pm1data.B) pm1data.C = pm1data.B;
@@ -6748,6 +6937,7 @@ restart:
 	gwset_thread_callback (&pm1data.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&pm1data.gwdata, sp_info);
 	gwset_safety_margin (&pm1data.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
+	gwset_larger_fftlen_count (&pm1data.gwdata, maxerr_restart_count < 3 ? maxerr_restart_count : 3);
 	gwset_minimum_fftlen (&pm1data.gwdata, w->minimum_fftlen);
 	res = gwsetup (&pm1data.gwdata, w->k, w->b, w->n, w->c);
 	if (res) {
@@ -6779,15 +6969,12 @@ restart:
 /* If we are near the maximum exponent this fft length can test, then we will roundoff check all multiplies */
 
 	near_fft_limit = exponent_near_fft_limit (&pm1data.gwdata);
-	gwsetnormroutine (&pm1data.gwdata, 0, ERRCHK || near_fft_limit, 0);
+	gwerror_checking (&pm1data.gwdata, ERRCHK || near_fft_limit);
 
 /* Figure out the maximum round-off error we will allow.  By default this is 28/64 when near the FFT limit and 26/64 otherwise. */
-/* We've found that this default catches errors without raising too many spurious error messages.  We let the user override */
-/* this default for user "Never Odd Or Even" who tests exponents well beyond an FFT's limit.  He does his error checking by */
-/* running the first-test and double-check simultaneously. */
+/* We've found that this default catches errors without raising too many spurious error messages.  The user can override this default. */
 
 	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) (near_fft_limit ? 0.4375 : 0.40625));
-	if (restart_maxerr > allowable_maxerr) allowable_maxerr = restart_maxerr;
 
 /* Check for a save file and read the save file.  If there is an error */
 /* reading the file then restart the P-1 factoring job from scratch. */
@@ -6822,16 +7009,6 @@ restart:
 			goto restart0;
 		}
 
-/* To avoid an infinite loop of repeatable roundoff errors, we square the value read in from the P-1 save file. */
-/* This won't affect our final results, but will change the FFT data. */
-
-//GW: This wont work if stage 1 is changed to sliding window
-		if (error_recovery_mode) {
-			gwmul3_carefully (&pm1data.gwdata, pm1data.x, pm1data.x, pm1data.x, 0);
-			pm1_save (&pm1data);
-			error_recovery_mode = 0;
-		}
-
 /* Handle stage 1 save files.  If the save file that had a higher B1 target then we can reduce the target B1 to the desired B1. */
 
 		if (pm1data.state == PM1_STATE_STAGE1) {
@@ -6858,7 +7035,7 @@ restart:
 
 			if (pm1data.B > pm1data.B_done && w->work_type == WORK_PMINUS1) {
 				gwfree (&pm1data.gwdata, pm1data.gg), pm1data.gg = NULL;
-				free (pm1data.bitarray), pm1data.bitarray = NULL;
+				free (pm1data.pairmap), pm1data.pairmap = NULL;
 				goto more_B;
 			}
 
@@ -6962,32 +7139,20 @@ restart0:
 	gwsetmulbyconst (&pm1data.gwdata, 3);
 	while (pm1data.stage0_bitnum < len) {
 
-/* To avoid an infinite loop of repeatable roundoff errors, carefully get us past the offending iteration. */
-
-		if (error_recovery_mode && pm1data.stage0_bitnum == error_recovery_mode) {
-			gwstartnextfft (&pm1data.gwdata, FALSE);
-			gwsetnormroutine (&pm1data.gwdata, 0, 0, mpz_tstbit (exp, len - pm1data.stage0_bitnum - 1));
-			gwsquare_carefully (&pm1data.gwdata, pm1data.x);
-			error_recovery_mode = 0;
-			saving = TRUE;
-		}
-
 /* Set various flags.  They control whether error-checking or the next FFT can be started. */
 
-		else {
-			stop_reason = stopCheck (thread_num);
-			saving = testSaveFilesFlag (thread_num);
-			echk = stop_reason || saving || ERRCHK || near_fft_limit || ((pm1data.stage0_bitnum & 127) == 64);
+		stop_reason = stopCheck (thread_num);
+		saving = testSaveFilesFlag (thread_num);
+		echk = stop_reason || saving || ERRCHK || near_fft_limit || ((pm1data.stage0_bitnum & 127) == 64);
 
 /* Either square x or square x and multiply it by three. */
 
 #ifndef SERVER_TESTING
-			gwstartnextfft (&pm1data.gwdata, !stop_reason && !saving && pm1data.stage0_bitnum+1 != error_recovery_mode && pm1data.stage0_bitnum+1 != len);
-			gwsetnormroutine (&pm1data.gwdata, 0, echk, mpz_tstbit (exp, len - pm1data.stage0_bitnum - 1));
-			if (pm1data.stage0_bitnum < 30) gwsquare_carefully (&pm1data.gwdata, pm1data.x);
-			else gwsquare (&pm1data.gwdata, pm1data.x);
+		gwstartnextfft (&pm1data.gwdata, !stop_reason && !saving && pm1data.stage0_bitnum+1 != len);
+		gwsetnormroutine (&pm1data.gwdata, 0, echk, mpz_tstbit (exp, len - pm1data.stage0_bitnum - 1));
+		if (pm1data.stage0_bitnum < 30) gwsquare_carefully (&pm1data.gwdata, pm1data.x);
+		else gwsquare (&pm1data.gwdata, pm1data.x);
 #endif
-		}
 
 /* Test for an error */
 
@@ -7046,19 +7211,9 @@ restart0:
 		}
 	}
 
-/* If roundoff error recovery returned to restart0, but the roundoff error */
-/* occurs after the above loop, then square the value and create a save file. */
-/* This won't affect our final results, but will change the FFT data. */
-
-	if (error_recovery_mode) {
-		gwmul3_carefully (&pm1data.gwdata, pm1data.x, pm1data.x, pm1data.x, 0);
-		pm1_save (&pm1data);
-		error_recovery_mode = 0;
-	}
-
 /* Do stage 0 cleanup */
 
-	gwsetnormroutine (&pm1data.gwdata, 0, ERRCHK || near_fft_limit, 0);
+	gwerror_checking (&pm1data.gwdata, ERRCHK || near_fft_limit);
 	mpz_clear (exp), exp_initialized = FALSE;
 	end_timer (timers, 0);
 	end_timer (timers, 1);
@@ -7095,7 +7250,7 @@ restart1:
 		stop_reason = stopCheck (thread_num);
 		saving = testSaveFilesFlag (thread_num);
 		echk = stop_reason || saving || ERRCHK || near_fft_limit || ((pm1data.stage1_prime & 127) == 127);
-		gwsetnormroutine (&pm1data.gwdata, 0, echk, 0);
+		gwerror_checking (&pm1data.gwdata, echk);
 
 /* Apply as many powers of prime as long as prime^n <= B */
 
@@ -7229,7 +7384,7 @@ more_B:		pm1data.interim_B = pm1data.B;
 	gwfree_internal_memory (&pm1data.gwdata);
 
 /*
-   Stage 2:  Use ideas from Crandall, Zimmermann, Montgomery, and Preda on each prime below C.
+   Stage 2:  Use ideas from Crandall, Zimmermann, Montgomery, Preda, and Atnashev on each prime below C.
    This code is more efficient the more memory you can give it.
    Inputs: x, the value at the end of stage 1
 */
@@ -7248,6 +7403,26 @@ restart3a:
 	gwcopy (&pm1data.gwdata, pm1data.x, pm1data.gg);
 	gwaddsmall (&pm1data.gwdata, pm1data.gg, -1);
 
+// GW:  create (optional) P-1 save file containing x for extending stage 1 at a later date
+//GW: OR keep x around (and write/read from save file) if we are creating a continuation save file when finished
+
+/* Create V = x + 1/x.  We can use V in a P+1 stage 2 which uses one multiply instead of two to go from D section to D section */
+
+	pm1data.V = gwalloc (&pm1data.gwdata);
+	if (pm1data.V == NULL) goto oom;
+	gwcopy (&pm1data.gwdata, pm1data.x, pm1data.V);
+	stop_reason = pm1_modinv (&pm1data, pm1data.V, N, factor);
+	if (factor != NULL) goto bingo;
+	if (stop_reason) goto exit;
+	gwadd3o (&pm1data.gwdata, pm1data.x, pm1data.V, pm1data.V, GWADD_SQUARE_INPUT);
+
+/* Free the stage 1 value, it is no longer needed (unless user is exercising option of keeping P-1 save files to expand bounds later) */
+
+	if (QA_IN_PROGRESS || w->work_type != WORK_PMINUS1 || !IniGetInt (INI_FILE, "KeepPminus1SaveFiles", 1)) {
+		gwfree (&pm1data.gwdata, pm1data.x);
+		pm1data.x = NULL;
+	}
+
 /* Restart here when in the middle of stage 2 */
 
 restart3b:
@@ -7260,6 +7435,10 @@ more_C:
 /* Prior to this point we allow changing the optimal bounds of a Pfactor assignment. */
 
 	clear_restart_if_max_memory_change (thread_num);
+
+/* Set addin for future lucas_dbl and lucas_add calls */ 
+
+	gwsetaddin (&pm1data.gwdata, -2);
 
 /* Test if we will ever have enough memory to do stage 2 based on the maximum available memory. */
 /* Our minimum working set is one gwnum for gg, 4 for nQx, 3 for eQx. */
@@ -7283,15 +7462,21 @@ replan:	{
 		goto exit;
 	}
 
+/* Do preliminary processing of the relp_sets */
+
+	int	numrels;		// Number of relative primes less than D/2 (the number of relative primes in one full relp_set)
+	numrels = map_D_to_numrels (pm1data.D);
+	process_relp_sets (pm1data.totrels, numrels, pm1data.relp_sets, relp_set_map, Dmultiple_map);
+
 /* Record the amount of memory this thread will be using in stage 2. */
 
 	memused = cvt_gwnums_to_mem (&pm1data.gwdata, pm1data.stage2_numvals);
-	memused += (_intmin (pm1data.numDsections - pm1data.bitarrayfirstDsection, pm1data.bitarraymaxDsections) * pm1data.totrels) >> 23;
+	memused += (int) (pm1data.pairmap_size >> 20);
 	// To dodge possible infinite loop if pm1_stage2_impl allocates too much memory (it shouldn't), decrease the percentage of memory we are allowed to use
-	// Beware that replaning may allocate a larger bitarray
+	// Beware that replaning may allocate a larger pairing map
 	if (set_memory_usage (thread_num, MEM_VARIABLE_USAGE, memused)) {
 		pm1data.pct_mem_to_use *= 0.99;
-		free (pm1data.bitarray); pm1data.bitarray = NULL;
+		free (pm1data.pairmap); pm1data.pairmap = NULL;
 		goto replan;
 	}
 
@@ -7302,48 +7487,297 @@ replan:	{
 
 /* Initialize variables for second stage */
 
-	// Calculate the percent completed by previous bit arrays
+	// Calculate the percent completed by previous pairmaps
 	base_pct_complete = (double) (pm1data.B2_start - pm1data.last_relocatable) / (double) (pm1data.C - pm1data.last_relocatable);
-	// Calculate the percent completed by each bit in this bit array
-	one_bit_pct = (1.0 - base_pct_complete) / (double) (pm1data.numDsections * pm1data.totrels);
-	// Calculate the percent completed by previous bit arrays and the current bit array
-	w->pct_complete = base_pct_complete + (double) (pm1data.Dsection * pm1data.totrels) * one_bit_pct;
+	// Calculate the percent completed by each relative prime in this pairmap
+	one_relp_pct = (1.0 - base_pct_complete) / (double) (pm1data.numDsections * pm1data.totrels);
+	// Calculate the percent completed by previous pairmaps and the current pairmap
+	w->pct_complete = base_pct_complete + (double) (pm1data.Dsection * pm1data.totrels) * one_relp_pct;
 
-/* Allocate arrays of pointers to stage 2 gwnums */
+/* Allocate nQx array of pointers to relative prime gwnums.  Allocate an array large enough to hold values for all relp sets. */
+/* This is more than we will need once stage 2 init completes. */
 
-	pm1data.nQx = (gwnum *) malloc (pm1data.totrels * sizeof (gwnum));
+	int	num_relp_sets;		// Total number of relp_sets including intermediate relp_sets
+	num_relp_sets = (int) relp_set_map.size();
+	pm1data.nQx = (gwnum *) malloc (num_relp_sets * numrels * sizeof (gwnum));
 	if (pm1data.nQx == NULL) goto lowmem;
-	pm1data.eQx = (gwnum *) malloc ((pm1data.E + 1) * sizeof (gwnum));
-	if (pm1data.eQx == NULL) goto lowmem;
 
-/* Compute x^(first_relative_prime^e), x^(second_relative_prime^e), ..., x^(last_relative_prime^e) */
+/* Calculate some handy values for computing the first two relp sets: (0,-1) */
 
-//gw is there a 2/4 increment optimization available to reduce nQx init costs by 33%
-	stop_reason = fd_init (&pm1data, 1, 2, pm1data.x);			// This FFTs x as a side effect
-	if (stop_reason) goto exit;
-	for (totrels = 0, i = 1; ; i += 2) {		/* Compute x^(i^e) */
-		if (relatively_prime (i, pm1data.D)) {
-			pm1data.nQx[totrels] = gwalloc (&pm1data.gwdata);
-			if (pm1data.nQx[totrels] == NULL) goto lowmem;
-			gwfft (&pm1data.gwdata, pm1data.eQx[0], pm1data.nQx[totrels]);
-			totrels++;
-			if (totrels == pm1data.totrels) break;
+	int	set_minus1_nQx_index;	// Index into nQx array for the -1 relp set
+	set_minus1_nQx_index = relp_set_map.find(-1)->second.nQx_store;
+	// Map nth relp to either set 0 nQx index or set -1 nQx index
+	#define nqxmap(relp)	((relp) < numrels ? (relp) : set_minus1_nQx_index + (relp) - numrels)
+
+/* A fast 1,5 mod 6 nQx initialization for relative primes less than D */
+
+	ASSERTG (pm1data.D % 3 == 0);
+	{
+		gwnum	t1, t2, t3, t4, t5;
+		gwnum	V1, V2, V3, V5, V6, V7, V11;
+		struct {
+			gwnum	Vi;
+			gwnum	Vi_minus6;
+			int	Vi_is_relp;
+			int	Vi_minus6_is_relp;
+		} V1mod6, V5mod6, *curr, *notcurr;
+		int	i_gap, totrels, have_VD;
+
+/* Allocate memory and init values for computing nQx.  We need V_1, V_5, V_6, V_7, V_11. */
+/* We also need V_2 or V_4 to compute V_D in the middle of the nQx init loop. */
+/* NOTE:  By loop's end, V_D is stored in pm1data.V */
+
+		t1 = gwalloc (&pm1data.gwdata);
+		if (t1 == NULL) goto lowmem;
+		t2 = gwalloc (&pm1data.gwdata);
+		if (t2 == NULL) goto lowmem;
+		t3 = gwalloc (&pm1data.gwdata);
+		if (t3 == NULL) goto lowmem;
+		t4 = gwalloc (&pm1data.gwdata);
+		if (t4 == NULL) goto lowmem;
+		t5 = gwalloc (&pm1data.gwdata);
+		if (t5 == NULL) goto lowmem;
+
+/* Compute V_2 and place in pm1data.V.  This is the value we will save if init is aborted and we create a save file. */
+/* V_2 will be replaced by V_D later on in this loop.  At all times pm1data.V will be a save-able value! */
+
+		luc_dbl (&pm1data.gwdata, pm1data.V, t1);			// V2 = 2 * V1
+		gwswap (t1, pm1data.V);
+		V1 = t1;
+		V2 = pm1data.V;
+
+/* Compute V_5, V_6, V_7, V_11 */
+
+		V3 = t2;
+		luc_add (&pm1data.gwdata, V2, V1, V1, V3);			// V3 = V2 + V1 (diff V1)
+
+		V5 = t3;
+		luc_add (&pm1data.gwdata, V3, V2, V1, V5);			// V5 = V3 + V2 (diff V1)
+
+		V6 = V3;
+		luc_dbl (&pm1data.gwdata, V3, V6);				// V6 = 2 * V3, V3 no longer needed
+
+		V7 = t4;
+		luc_add (&pm1data.gwdata, V6, V1, V5, V7);			// V7 = V6 + V1 (diff V5)
+
+		V11 = t5;
+		luc_add (&pm1data.gwdata, V6, V5, V1, V11);			// V11 = V6 + V5 (diff V1)
+
+/* Init structures used in the loop below */
+
+		V1mod6.Vi_minus6 = V1;
+		V1mod6.Vi_minus6_is_relp = 1;
+		V5mod6.Vi_minus6 = V5;
+		V5mod6.Vi_minus6_is_relp = relatively_prime (5, pm1data.D);
+		V1mod6.Vi = V7;
+		V1mod6.Vi_is_relp = relatively_prime (7, pm1data.D);
+		V5mod6.Vi = V11;
+		V5mod6.Vi_is_relp = relatively_prime (11, pm1data.D);
+		pm1data.nQx[0] = V1; totrels = 1;
+		if (V5mod6.Vi_minus6_is_relp) pm1data.nQx[totrels++] = V5;
+		if (V1mod6.Vi_is_relp) pm1data.nQx[totrels++] = V7;
+		if (V5mod6.Vi_is_relp) pm1data.nQx[totrels++] = V11;
+
+/* Compute the rest of the nQx values (V_i for i >= 7) */
+
+		have_VD = FALSE;
+		for (i = 7, i_gap = 4; ; i += i_gap, i_gap = 6 - i_gap) {
+			gwnum	next_i;
+			int	next_i_is_relp;
+
+/* Point to the i, i-6 pair to work on */
+
+			curr = (i_gap == 4) ? &V1mod6 : &V5mod6;
+
+/* Compute V_D which we will need in computing multiples of V_D.  Do this with a single luc_add call when we reach two values that are 2 or 4 apart that add to D. */
+
+			if (i + (i + i_gap) == pm1data.D) {
+				gwnum	Vgap = V2;
+				ASSERTG (Vgap == pm1data.V);
+				if (i_gap == 4) luc_dbl (&pm1data.gwdata, Vgap, Vgap);			// Vgap = V4 = 2 * V2, V2 no longer needed
+				luc_add (&pm1data.gwdata, V1mod6.Vi, V5mod6.Vi, Vgap, pm1data.V);	// VD = V{i} + V{i+gap} (diff Vgap), Vgap no longer needed
+				have_VD = TRUE;
+			}
+
+/* Break out of loop when we have all our nQx values less than D */
+
+			if (have_VD && (totrels == pm1data.totrels || totrels == numrels * 2)) break;
+
+/* See if we are about to compute the next relative prime */
+
+			next_i_is_relp = (relatively_prime (i+6, pm1data.D) && totrels < pm1data.totrels);
+
+/* If so, and if it is the last relprime then free up the some resources to keep maximum number of temporaries to a minimum. */
+/* This is of marginal utility as peak will occur in the next loop whenever totrels > numrels * 2. */
+/* Also catch the case where we are using the dead minimum number of relative primes - the first i after D/2 is the last i. */
+
+			if ((next_i_is_relp && have_VD && (totrels+1 == pm1data.totrels || totrels+1 == numrels * 2)) ||
+			    (!have_VD && i+6 > pm1data.D/2 && pm1data.totrels == numrels)) {
+				notcurr = (curr == &V5mod6) ? &V1mod6 : &V5mod6;
+				if (!notcurr->Vi_is_relp) gwfree (&pm1data.gwdata, notcurr->Vi), notcurr->Vi = NULL;
+				if (!notcurr->Vi_minus6_is_relp) gwfree (&pm1data.gwdata, notcurr->Vi_minus6), notcurr->Vi_minus6 = NULL;
+			}			
+
+/* Get next i value.  Don't destroy Vi_minus6 if it is an nQx value. */
+
+			if (curr->Vi_minus6_is_relp) {
+				next_i = gwalloc (&pm1data.gwdata);
+				if (next_i == NULL) goto lowmem;
+			} else
+				next_i = curr->Vi_minus6;
+
+			luc_add (&pm1data.gwdata, curr->Vi, V6, curr->Vi_minus6, next_i);	// Next i
+			if (next_i_is_relp) {
+				pm1data.nQx[nqxmap(totrels)] = next_i;
+				totrels++;
+			}
+
+/* Shuffle i values along */
+
+			curr->Vi_minus6 = curr->Vi;
+			curr->Vi_minus6_is_relp = curr->Vi_is_relp;
+			curr->Vi = next_i;
+			curr->Vi_is_relp = next_i_is_relp;
+
+/* Check for errors and save file creation */
+
+			if (gw_test_for_error (&pm1data.gwdata)) goto err;
+			stop_reason = stopCheck (thread_num);
+			if (stop_reason) goto possible_lowmem;
 		}
-		fd_next (&pm1data);
-		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) goto err;
-		stop_reason = stopCheck (thread_num);
-		if (stop_reason) {
-			fd_term (&pm1data);
-			pm1_save (&pm1data);
-			goto exit;
-		}
+
+/* Free memory used in computing nQx values */
+
+		if (!V1mod6.Vi_is_relp) gwfree (&pm1data.gwdata, V1mod6.Vi);
+		if (!V1mod6.Vi_minus6_is_relp) gwfree (&pm1data.gwdata, V1mod6.Vi_minus6);
+		if (!V5mod6.Vi_is_relp) gwfree (&pm1data.gwdata, V5mod6.Vi);
+		if (!V5mod6.Vi_minus6_is_relp) gwfree (&pm1data.gwdata, V5mod6.Vi_minus6);
+		gwfree (&pm1data.gwdata, V6);
 	}
-	fd_term (&pm1data);
 
-/* Initialize for computing successive x^(m^e) where m corresponds to the first D section we are working on. */
+/* Add V_D computed above to the D-multiples map */
 
-//GW: Should we have nQx setup compute x^D (like ECM code does)?
-	fd_init (&pm1data, pm1data.B2_start + pm1data.Dsection * pm1data.D + pm1data.D / 2, pm1data.D, pm1data.x);
+	{
+		auto it_Dmult = Dmultiple_map.find (1);
+		if (it_Dmult == Dmultiple_map.end()) it_Dmult = Dmultiple_map.insert({1, {0, 1}}).first;
+		it_Dmult->second.set_val_buffers (&pm1data.gwdata, pm1data.V, TRUE);
+
+/* Init for computing Q^(multiples of D).  We simply add the starting multiples of D that need to be computed to the D-multiples map. */
+/* Vn = V_{Dsection-1}, Vn1 = V_{Dsection} */
+
+//GW: Rather than allocating Vn and Vn1, we should allocate it when we compute it (and only if we aren't deleting one of the lucas inputs)
+// Then once all multiples of D are calculated, set pm1data.Vn and Vn1.  Do this for P+1 (and ECM?) too.  Reduces mempeak when L<=2.
+		uint64_t D_multiplier = (pm1data.B2_start + pm1data.D / 2) / pm1data.D + pm1data.Dsection;
+		ASSERTG (D_multiplier > 2); // Would require special code to the collision between V and (Vn or Vn1)
+		it_Dmult = Dmultiple_map.find (D_multiplier - 1);
+		if (it_Dmult == Dmultiple_map.end()) it_Dmult = Dmultiple_map.insert({D_multiplier - 1, {0, D_multiplier - 1}}).first;
+		pm1data.Vn = gwalloc (&pm1data.gwdata);
+		if (pm1data.Vn == NULL) goto lowmem;
+		it_Dmult->second.set_val_buffers (&pm1data.gwdata, pm1data.Vn, TRUE);
+
+		it_Dmult = Dmultiple_map.find (D_multiplier);
+		if (it_Dmult == Dmultiple_map.end()) it_Dmult = Dmultiple_map.insert({D_multiplier, {0, D_multiplier}}).first;
+		pm1data.Vn1 = gwalloc (&pm1data.gwdata);
+		if (pm1data.Vn1 == NULL) goto lowmem;
+		it_Dmult->second.set_val_buffers (&pm1data.gwdata, pm1data.Vn1, TRUE);
+	}
+
+// Calculate all the needed V_D^(multiples-of-D)
+
+	process_Dmult_map (Dmultiple_map);
+	for (auto this_Dmult = Dmultiple_map.begin(); this_Dmult != Dmultiple_map.end(); ++this_Dmult) {
+		// Ignore the already computed V_D
+		if (this_Dmult->first == 1) continue;
+		// If necessary, allocate buffer for this V_D^multiple-of-D
+		if (this_Dmult->second.val.x == NULL) {
+			gwnum	tmp = gwalloc (&pm1data.gwdata);
+			if (tmp == NULL) goto lowmem;
+			this_Dmult->second.set_val_buffers (&pm1data.gwdata, tmp, FALSE);
+		}
+		// Compute via luc_dbl if diff is zero
+		auto it_base = Dmultiple_map.find (this_Dmult->second.base);
+		if (this_Dmult->second.diff == 0) {
+			luc_dbl (&pm1data.gwdata, it_base->second.val.x, this_Dmult->second.val.x);
+		}
+		// Compute using luc_add if diff is non-zero
+		else {
+			auto it_addin = Dmultiple_map.find (this_Dmult->second.addin);
+			auto it_diff = Dmultiple_map.find (this_Dmult->second.diff);
+			luc_add (&pm1data.gwdata, it_base->second.val.x, it_addin->second.val.x, it_diff->second.val.x, this_Dmult->second.val.x);
+			// Free addin, diff if no longer needed
+			it_addin->second.free_if_Dmult_last_used_by (this_Dmult->first);
+			it_diff->second.free_if_Dmult_last_used_by (this_Dmult->first);
+		}
+		// Free base if no longer needed
+		it_base->second.free_if_Dmult_last_used_by (this_Dmult->first);
+	}
+//GW: are xz buffers allocated by Dmultiple map properly cleaned up (especially in oom case)?  use class to do it? 
+
+/* Compute relp sets other than 0,-1 */
+
+	int	num_partials;
+	num_partials = one_based_modulo (pm1data.totrels, numrels);
+	// Loop over every relp_set we need to calculate
+	for (auto it_relp_set = relp_set_map.begin (); it_relp_set != relp_set_map.end (); ++it_relp_set) {
+		// Relp sets 0 and -1 are already computed
+		if (it_relp_set->first == 0 || it_relp_set->first == -1) continue;
+		// Find the base relp_set and diff relp_set needed to create this relp_set
+		auto it_base_relp_set = relp_set_map.find (it_relp_set->second.base);
+		auto it_diff_relp_set = relp_set_map.find (it_relp_set->second.diff);
+		// Find the Dmultiple needed to create this relp_set
+		auto it_Dmultiple = Dmultiple_map.find (it_relp_set->second.Dmultiple);
+		// Loop over all relative primes below D/2
+		for (i = 0; i < numrels; i++) {
+			gwnum	Vbase, Vdiff, Vnew;
+			int	ni;
+
+			// Get the base gwnum from the nQx entry
+			ni = it_base_relp_set->second.nQx_store + i;
+			Vbase = pm1data.nQx[ni];
+			// Get the diff gwnum from the diff nQx entry
+			// If diff has a different sign bit than base, then we need to index the diff relp_set in reverse order
+			ni = it_diff_relp_set->second.nQx_store;
+			if (((it_base_relp_set->first < 0) ^ (it_diff_relp_set->first < 0)) == 0) ni += i; else ni += (numrels-1)-i;
+			Vdiff = pm1data.nQx[ni];
+
+			// Calculate this relp if needed
+			if (!it_relp_set->second.partial || i < num_partials) {
+//GW: ECM and P+1 too.  Don't alloc Vnew if we can overwrite it_Dmultiple  or it_base or it_diff
+// helps mempeak -- try to end on calculation where Vnew does not need allocating
+				// Allocate the new relp value
+				Vnew = gwalloc (&pm1data.gwdata);
+				if (Vnew == NULL) goto lowmem;
+
+				// Compute the new relp value
+				luc_add (&pm1data.gwdata, Vbase, it_Dmultiple->second.val.x, Vdiff, Vnew);	// Vnew = Vbase + Dmult, Vdiff e.g. 47+30 or 29+30
+
+				// Add the relp to the nQx array.
+				ni = it_relp_set->second.nQx_store + i;
+				pm1data.nQx[ni] = Vnew;
+			}
+
+			// If base is not needed for further relp_set calculations, then free Vbase
+			if (it_base_relp_set->second.last_used_by == it_relp_set->first && (!it_base_relp_set->second.partial || i < num_partials)) {
+				if (!it_base_relp_set->second.permanent) {
+					gwfree (&pm1data.gwdata, Vbase);
+				}
+			}
+
+			// If diff is not needed for further relp_set calculations, then free Vdiff
+			if (it_diff_relp_set->second.last_used_by == it_relp_set->first && (!it_diff_relp_set->second.partial || i < num_partials)) {
+				if (!it_diff_relp_set->second.permanent) {
+					gwfree (&pm1data.gwdata, Vdiff);
+				}
+			}
+		}
+		// Free the Dmultiple if this is the last time it will be used
+		it_Dmultiple->second.free_if_relp_last_used_by (it_relp_set->first);
+	}
+
+/* Clear the maps used to build relp sets */
+
+	Dmultiple_map.clear ();
+	relp_set_map.clear ();
 
 /* Stage 2 init complete, change the title, output a message */
 
@@ -7357,7 +7791,7 @@ replan:	{
 	OutputStr (thread_num, buf);
 	gw_clear_fft_count (&pm1data.gwdata);
 
-/* Since E >= 2, we do prime pairing with each loop iteration handling the range m-Q to m+Q where m is a multiple of D and Q is the */
+/* We do prime pairing with each loop iteration handling the range m-Q to m+Q where m is a multiple of D and Q is the */
 /* Q-th relative prime to D.  Totrels is often much larger than the number of relative primes less than D.  This Preda/Montgomery */
 /* optimization provides us with many more chances to find a prime pairing. */
 
@@ -7366,118 +7800,117 @@ replan:	{
 	start_timer_from_zero (timers, 1);
 	last_output = last_output_t = last_output_r = 0;
 	for ( ; ; ) {
-		uint64_t bitnum;
 
-/* Test which relprimes in this D section need to be processed */
+/* Get next pairing from the pairmap */
 
-		bitnum = (pm1data.Dsection - pm1data.bitarrayfirstDsection) * pm1data.totrels;
-		for (i = 0; i < pm1data.totrels; i++) {
+		pm1data.relp += next_pair (&pm1data.pairmap_ptr);
 
-/* Skip this relprime if the pairing routine did not set the corresponding bit in the bitarray. */
+/* Make a quick check for end of the pairmap and no more pairmaps needed (i.e. we're done with stage 2) */
 
-			if (! bittst (pm1data.bitarray, bitnum + i)) continue;
+		if (pm1data.relp >= pm1data.totrels && pm1data.Dsection + pm1data.relp / pm1data.totrels >= pm1data.numDsections) break;
 
-/* Multiply this eQx - nQx value into the gg accumulator */
+/* Move to next D section when appropriate */
 
-			saving = testSaveFilesFlag (thread_num);
-			stop_reason = stopCheck (thread_num);
-			gwsubmul4 (&pm1data.gwdata, pm1data.eQx[0], pm1data.nQx[i], pm1data.gg, pm1data.gg, (!stop_reason && !saving) ? GWMUL_STARTNEXTFFT : 0);
+		while (pm1data.relp >= pm1data.totrels) {
+			pm1data.Dsection++;
+			pm1data.relp -= pm1data.totrels;
+			luc_add (&pm1data.gwdata, pm1data.Vn1, pm1data.V, pm1data.Vn, pm1data.Vn);	// Vn2 = Vn1 + V, diff = Vn
+			gwswap (pm1data.Vn, pm1data.Vn1);						// Vn = Vn1, Vn1 = Vn2
+//GW: check for errors?
+		}
 
-/* Clear pairing bit from the bitarray in case a save file is written.  Calculate stage 2 percentage. */
+/* Check for end of pairing map.  If so, generate next pairing map. */
 
-			bitclr (pm1data.bitarray, bitnum + i);
-			w->pct_complete = base_pct_complete + (double) (pm1data.Dsection * pm1data.totrels + i) * one_bit_pct;
+		if (pm1data.pairmap_ptr == pm1data.pairmap + pm1data.pairmap_size) {
+			ASSERTG (pm1data.relp == 0);
+			pm1data.C_done = pm1data.B2_start + pm1data.Dsection * pm1data.D;
+			pm1data.first_relocatable = calc_new_first_relocatable (pm1data.D, pm1data.C_done);
+			stop_reason = fill_pairmap (pm1data.thread_num, &pm1data.sieve_info, pm1data.D, 0,0,0, pm1data.totrels, pm1data.relp_sets+3,
+						    pm1data.first_relocatable, pm1data.last_relocatable, pm1data.C_done, pm1data.C,
+						    pm1data.max_pairmap_Dsections, &pm1data.pairmap, &pm1data.pairmap_size);
+			if (stop_reason) {
+//GW:				is save possible here with no pairmap generated?
+				pm1_save (&pm1data);
+				goto exit;
+			}
+			pm1data.pairmap_ptr = pm1data.pairmap;
+			pm1data.relp = -1;
+			continue;
+		}
+
+/* Multiply this Vn1 - nQx value into the gg accumulator */
+
+		saving = testSaveFilesFlag (thread_num);
+		stop_reason = stopCheck (thread_num);
+		gwsubmul4 (&pm1data.gwdata, pm1data.Vn1, pm1data.nQx[pm1data.relp], pm1data.gg, pm1data.gg, (!stop_reason && !saving) ? GWMUL_STARTNEXTFFT : 0);
+
+/* Calculate stage 2 percentage. */
+
+		w->pct_complete = base_pct_complete + (double) (pm1data.Dsection * pm1data.totrels + pm1data.relp) * one_relp_pct;
 
 /* Test for errors */
 
-			if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) goto err;
+		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) goto err;
 
 /* Output the title every so often */
 
-			if (first_iter_msg ||
-			    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
-				sprintf (buf, "%.*f%% of %s P-1 stage 2 (using %uMB)",
-					 (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&pm1data.gwdata), memused);
-				title (thread_num, buf);
-				last_output_t = gw_get_fft_count (&pm1data.gwdata);
-			}
+		if (first_iter_msg ||
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
+			sprintf (buf, "%.*f%% of %s P-1 stage 2 (using %uMB)",
+				 (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&pm1data.gwdata), memused);
+			title (thread_num, buf);
+			last_output_t = gw_get_fft_count (&pm1data.gwdata);
+		}
 
 /* Write out a message every now and then */
 
-			if (first_iter_msg ||
-			    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
-				sprintf (buf, "%s stage 2 is %.*f%% complete.",
-					 gwmodulo_as_string (&pm1data.gwdata), (int) PRECISION, trunc_percent (w->pct_complete));
-				end_timer (timers, 0);
-				if (first_iter_msg) {
-					strcat (buf, "\n");
-				} else {
-					strcat (buf, " Time: ");
-					print_timer (timers, 0, buf, TIMER_NL);
-				}
-				OutputStr (thread_num, buf);
-				start_timer_from_zero (timers, 0);
-				last_output = gw_get_fft_count (&pm1data.gwdata);
-				first_iter_msg = FALSE;
+		if (first_iter_msg ||
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
+			sprintf (buf, "%s stage 2 is %.*f%% complete.",
+				 gwmodulo_as_string (&pm1data.gwdata), (int) PRECISION, trunc_percent (w->pct_complete));
+			end_timer (timers, 0);
+			if (first_iter_msg) {
+				strcat (buf, "\n");
+			} else {
+				strcat (buf, " Time: ");
+				print_timer (timers, 0, buf, TIMER_NL);
 			}
+			OutputStr (thread_num, buf);
+			start_timer_from_zero (timers, 0);
+			last_output = gw_get_fft_count (&pm1data.gwdata);
+			first_iter_msg = FALSE;
+		}
 
 /* Write out a message to the results file every now and then */
 
-			if ((ITER_OUTPUT_RES != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output_r + 2 * ITER_OUTPUT_RES) ||
-			    (NO_GUI && stop_reason)) {
-				sprintf (buf, "%s stage 2 is %.*f%% complete.\n",
-					 gwmodulo_as_string (&pm1data.gwdata), (int) PRECISION, trunc_percent (w->pct_complete));
-				writeResults (buf);
-				last_output_r = gw_get_fft_count (&pm1data.gwdata);
-			}
-
-/* Periodicly write a save file.  If we escaped, free eQx memory so that pm1_save can reuse it to convert x and gg to binary. */
-
-			if (stop_reason || saving) {
-				if (stop_reason) fd_term (&pm1data);
-				pm1_save (&pm1data);
-				if (stop_reason) goto exit;
-			}
+		if ((ITER_OUTPUT_RES != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output_r + 2 * ITER_OUTPUT_RES) ||
+		    (NO_GUI && stop_reason)) {
+			sprintf (buf, "%s stage 2 is %.*f%% complete.\n",
+				 gwmodulo_as_string (&pm1data.gwdata), (int) PRECISION, trunc_percent (w->pct_complete));
+			writeResults (buf);
+			last_output_r = gw_get_fft_count (&pm1data.gwdata);
 		}
 
-/* Move onto the next D section when we are done with all the relprimes */
+/* Periodicly write a save file */
 
-		pm1data.Dsection++;
-		pm1data.C_done = pm1data.B2_start + pm1data.Dsection * pm1data.D;
-		if (pm1data.Dsection >= pm1data.numDsections) break;
-		fd_next (&pm1data);
-//GW: check for errors?
-
-/* See if more bitarrays are required to get us to bound #2 */
-
-		if (pm1data.Dsection < pm1data.bitarrayfirstDsection + pm1data.bitarraymaxDsections) continue;
-
-		pm1data.first_relocatable = calc_new_first_relocatable (pm1data.D, pm1data.C_done);
-		pm1data.bitarrayfirstDsection = pm1data.Dsection;
-		stop_reason = fill_work_bitarray (pm1data.thread_num, &pm1data.sieve_info, pm1data.D, pm1data.totrels,
-						  pm1data.first_relocatable, pm1data.last_relocatable, pm1data.C_done, pm1data.C,
-						  pm1data.bitarraymaxDsections, &pm1data.bitarray);
-		if (stop_reason) {
+		if (stop_reason || saving) {
 			pm1_save (&pm1data);
-			goto exit;
+			if (stop_reason) goto exit;
 		}
 	}
 	pm1data.C_done = pm1data.interim_C;
-	fd_term (&pm1data);
 
 /* Free up memory */
 
 	for (i = 0; i < pm1data.totrels; i++) gwfree (&pm1data.gwdata, pm1data.nQx[i]);
 	free (pm1data.nQx), pm1data.nQx = NULL;
-	free (pm1data.eQx), pm1data.eQx = NULL;
-	free (pm1data.bitarray), pm1data.bitarray = NULL;
+	free (pm1data.pairmap), pm1data.pairmap = NULL;
 
 /* Check for the rare cases where we need to do even more stage 2.  This happens when continuing a save file in the middle of stage 2 and */
-/* the save file's target bound #2 was smaller than our target bound #2. */
+/* the save file's target bound #2 is smaller than our target bound #2. */
 
 	if (pm1data.C > pm1data.C_done) {
 		pm1data.state = PM1_STATE_MIDSTAGE;
-		pm1data.first_C_start = pm1data.C_done;
 		goto more_C;
 	}
 
@@ -7520,20 +7953,14 @@ restart4:
 
 msg_and_exit:
 	sprintf (buf, "%s completed P-1, B1=%" PRIu64, gwmodulo_as_string (&pm1data.gwdata), pm1data.B);
-	if (pm1data.C > pm1data.B) {
-		if (pm1data.E <= 2)
-			sprintf (buf+strlen(buf), ", B2=%" PRIu64, pm1data.C);
-		else
-			sprintf (buf+strlen(buf), ", B2=%" PRIu64 ", E=%d", pm1data.C, pm1data.E);
-	}
+	if (pm1data.C > pm1data.B) sprintf (buf+strlen(buf), ", B2=%" PRIu64, pm1data.C);
 	sprintf (buf+strlen(buf), ", Wi%d: %08lX\n", PORT, SEC5 (w->n, pm1data.B, pm1data.C));
 	OutputStr (thread_num, buf);
 	formatMsgForResultsFile (buf, w);
 	writeResults (buf);
 
 /* Format a JSON version of the result.  An example follows: */
-/* {"status":"NF", "exponent":45581713, "worktype":"P-1", "b1":50000, "b2":5000000, "brent-suyama":6, */
-/* "fft-length":5120, "security-code":"39AB1238", */
+/* {"status":"NF", "exponent":45581713, "worktype":"P-1", "b1":50000, "b2":5000000, "fft-length":5120, "security-code":"39AB1238", */
 /* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "user":"gw_2", "cpu":"work_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
@@ -7541,10 +7968,7 @@ msg_and_exit:
 	JSONaddExponent (JSONbuf, w);
 	strcat (JSONbuf, ", \"worktype\":\"P-1\"");
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"b1\":%" PRIu64, pm1data.B);
-	if (pm1data.C > pm1data.B) {
-		sprintf (JSONbuf+strlen(JSONbuf), ", \"b2\":%" PRIu64, pm1data.C);
-		if (pm1data.E > 2) sprintf (JSONbuf+strlen(JSONbuf), ", \"brent-suyama\":%d", pm1data.E);
-	}
+	if (pm1data.C > pm1data.B) sprintf (JSONbuf+strlen(JSONbuf), ", \"b2\":%" PRIu64, pm1data.C);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", pm1data.gwdata.FFTLEN);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, pm1data.B, pm1data.C));
 	JSONaddProgramTimestamp (JSONbuf);
@@ -7574,7 +7998,7 @@ msg_and_exit:
 	}
 
 /* If this is pre-factoring for an LL or PRP test, then delete the large save file. */
-/* Create save file so that we can expand bound 1 or bound 2 at a later date. */
+/* Optionally create save file so that we can expand bound 1 or bound 2 at a later date. */
 
 	unlinkSaveFiles (&pm1data.write_save_file_state);
 	if (!QA_IN_PROGRESS && w->work_type == WORK_PMINUS1 && IniGetInt (INI_FILE, "KeepPminus1SaveFiles", 1))
@@ -7601,9 +8025,13 @@ exit:	pm1_cleanup (&pm1data);
 	if (exp_initialized) mpz_clear (exp);
 	return (stop_reason);
 
-/* Low on memory, reduce memory settings and try again */
+/* Low or possibly low on memory in stage 2 init, create save file, reduce memory settings, and try again */
 
-lowmem:	fd_term (&pm1data);
+lowmem:	stop_reason = OutOfMemory (thread_num);
+possible_lowmem:
+	if (pm1data.state == PM1_STATE_MIDSTAGE) pm1_save (&pm1data);
+	if (stop_reason != STOP_OUT_OF_MEM) goto exit;
+//GW: saving file twice?
 	pm1_save (&pm1data);
 	pm1_cleanup (&pm1data);
 	OutputBoth (thread_num, "Memory allocation error.  Trying again using less memory.\n");
@@ -7619,10 +8047,8 @@ oom:	stop_reason = OutOfMemory (thread_num);
 
 bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 		sprintf (buf, "P-1 found a factor in stage #1, B1=%" PRIu64 ".\n", pm1data.B);
-	else if (pm1data.E <= 2)
-		sprintf (buf, "P-1 found a factor in stage #2, B1=%" PRIu64 ", B2=%" PRIu64 ".\n", pm1data.B, pm1data.C);
 	else
-		sprintf (buf, "P-1 found a factor in stage #2, B1=%" PRIu64 ", B2=%" PRIu64 ", E=%d.\n", pm1data.B, pm1data.C, pm1data.E);
+		sprintf (buf, "P-1 found a factor in stage #2, B1=%" PRIu64 ", B2=%" PRIu64 ".\n", pm1data.B, pm1data.C);
 	OutputBoth (thread_num, buf);
 
 /* Allocate memory for the string representation of the factor and for */
@@ -7658,20 +8084,16 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 	if (pm1data.state < PM1_STATE_MIDSTAGE)
 		sprintf (msg, "%s has a factor: %s (P-1, B1=%" PRIu64 ")\n",
 			 gwmodulo_as_string (&pm1data.gwdata), str, pm1data.B);
-	else if (pm1data.E <= 2)
+	else
 		sprintf (msg, "%s has a factor: %s (P-1, B1=%" PRIu64 ", B2=%" PRIu64 ")\n",
 			 gwmodulo_as_string (&pm1data.gwdata), str, pm1data.B, pm1data.C);
-	else
-		sprintf (msg, "%s has a factor: %s (P-1, B1=%" PRIu64 ", B2=%" PRIu64 ", E=%d)\n",
-			 gwmodulo_as_string (&pm1data.gwdata), str, pm1data.B, pm1data.C, pm1data.E);
 	OutputStr (thread_num, msg);
 	formatMsgForResultsFile (msg, w);
 	writeResults (msg);
 
 /* Format a JSON version of the result.  An example follows: */
 /* {"status":"F", "exponent":45581713, "worktype":"P-1", "factors":["430639100587696027847"], */
-/* "b1":50000, "b2":5000000, "brent-suyama":6, */
-/* "fft-length":5120, "security-code":"39AB1238", */
+/* "b1":50000, "b2":5000000, "fft-length":5120, "security-code":"39AB1238", */
 /* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "user":"gw_2", "cpu":"work_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
@@ -7680,10 +8102,7 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 	strcat (JSONbuf, ", \"worktype\":\"P-1\"");
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"factors\":[\"%s\"]", str);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"b1\":%" PRIu64, pm1data.B);
-	if (pm1data.state > PM1_STATE_MIDSTAGE) {
-		sprintf (JSONbuf+strlen(JSONbuf), ", \"b2\":%" PRIu64, pm1data.C);
-		if (pm1data.E > 2) sprintf (JSONbuf+strlen(JSONbuf), ", \"brent-suyama\":%d", pm1data.E);
-	}
+	if (pm1data.state > PM1_STATE_MIDSTAGE) sprintf (JSONbuf+strlen(JSONbuf), ", \"b2\":%" PRIu64, pm1data.C);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", pm1data.gwdata.FFTLEN);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, pm1data.B, pm1data.C));
 	JSONaddProgramTimestamp (JSONbuf);
@@ -7692,9 +8111,9 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* Send assignment result to the server.  To avoid flooding the server with small factors from users needlessly redoing */
-/* factoring work, make sure the factor is more than 60 bits or so. */
+/* factoring work, make sure the factor is more than 67 bits or so. */
 
-	if (!QA_IN_PROGRESS && (strlen (str) >= 18 || IniGetInt (INI_FILE, "SendAllFactorData", 0))) {
+	if (!QA_IN_PROGRESS && (strlen (str) >= 21 || IniGetInt (INI_FILE, "SendAllFactorData", 0))) {
 		struct primenetAssignmentResult pkt;
 		memset (&pkt, 0, sizeof (pkt));
 		strcpy (pkt.computer_guid, COMPUTER_GUID);
@@ -7742,9 +8161,7 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 err:	if (gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) {
 		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file.\n", gw_get_maxerr (&pm1data.gwdata));
 		OutputStr (thread_num, buf);
-		// Restart with an abnormally high allowable maxerr (avoids loops for barely over the limit roundoff errors)
-		if (gw_get_maxerr (&pm1data.gwdata) < 0.46 && allowable_maxerr < 0.46) restart_maxerr = 0.46;
-//GW: BUG - can we instead alter the restart value so that we operate on different FFT data?
+		maxerr_restart_count++;
 	} else {
 		OutputBoth (thread_num, "SUMOUT error occurred.\n");
 		stop_reason = SleepFive (thread_num);
@@ -7852,9 +8269,11 @@ struct global_pm1_cost_data {
 	double	takeAwayBits;				// Bits we get for free in smoothness of P-1 factor
 	double	how_far_factored;			// How far the number has been trial factored
 	double	gcd_cost;				// Cost (in squarings) of running GCD
+	double	modinv_cost;				// Cost (in squarings) of running a modular inverse
 	double	ll_testing_cost;			// Cost (in squarings) of running LL/PRP tests should we fail to find a factor
+	unsigned long fftlen;				// FFT length that will be used
+	int	threads;				// Number of threads that will be used
 	unsigned long vals;				// Number of temporaries we can allocate in pass 2
-	int	E;					// Brent-Suyama
 };
 
 struct cost_pm1_data {
@@ -7880,11 +8299,13 @@ void cost_pm1 (
 		c->pass2_squarings = 0.0;
 	}
 
-/* Compute how many squarings will be required in the best implementation of pass 2 given gg and (E+1) gwnum temporaries will be needed. */
+/* Compute how many squarings will be required in the best implementation of pass 2 given V,Vn,Vn1,gg gwnum temporaries will be needed. */
 
 	else {
-		cost_data.E = g->E;
-		c->pass2_squarings = best_stage2_impl (c->B1, c->B2, g->vals - (cost_data.E + 2), &pm1_stage2_cost, &cost_data);
+		cost_data.c.numvals = g->vals;
+		cost_data.c.fftlen = g->fftlen;
+		cost_data.c.threads = g->threads;
+		c->pass2_squarings = best_stage2_impl (c->B1, 0, 0, c->B2, g->vals - 4, &pm1_stage2_cost, &cost_data);
 	}
 
 /* Calculate probability of finding a factor (courtesy of Mihai Preda) */
@@ -7894,6 +8315,7 @@ void cost_pm1 (
 /* Calculate our savings using this B1/B2.  Savings is success_probability * cost_of_LL_tests - cost_of_Pminus1. */
 
 	c->savings = c->prob * g->ll_testing_cost - (c->pass1_squarings + c->pass2_squarings + g->gcd_cost);
+	if (c->B2 > c->B1) c->savings -= g->modinv_cost;
 }
 
 /* For a given B1, find the best B2 */
@@ -8026,24 +8448,23 @@ void guess_pminus1_bounds (
 
 	g.ll_testing_cost = (tests_saved + 2 * ERROR_RATE) * n;
 
-/* The GCD cost comes from the timing code running ECM on M604 and a spreadsheet. */
-/* Since GCDs are single-threaded we double the GCD cost for multi-threaded P-1 runs. */
+/* The GCD and modular inverse cost comes from the timing code running ECM on M604 and a spreadsheet. */
+/* Since GCDs are single-threaded we increase the GCD cost for multi-threaded P-1 runs. */
 
+	g.fftlen = gwmap_to_fftlen (k, b, n, c);
+	g.threads = CORES_PER_TEST[thread_num];
 	g.gcd_cost = 160.265 * log ((double) n) - 1651.0;
 	if (g.gcd_cost < 50.0) g.gcd_cost = 50.0;
-	if (CORES_PER_TEST[thread_num] > 1) g.gcd_cost *= 2.0;
+	g.modinv_cost = 285.08 * log ((double) n) - 3094.2;
+	if (g.modinv_cost < 1.25 * g.gcd_cost) g.modinv_cost = 1.25 * g.gcd_cost;
+	if (g.threads == 2) g.gcd_cost *= 1.9, g.modinv_cost *= 1.9;
+	else if (g.threads == 3) g.gcd_cost *= 2.7, g.modinv_cost *= 2.7;
+	else if (g.threads >= 4) g.gcd_cost *= 3.2, g.modinv_cost *= 3.2;
 
-/* Compute how many temporaries we can use given our memory constraints. */
-/* Allow 1MB for code and data structures. */
+/* Compute how many temporaries we can use given our memory constraints.  Allow 1MB for code and data structures. */
 
 	g.vals = cvt_mem_to_estimated_gwnums (max_mem (thread_num), k, b, n, c);
 	if (g.vals < 1) g.vals = 1;
-
-/* Let the user force a Brent-Suyama stage 2 */
-
-	g.E = IniGetInt (INI_FILE, "BrentSuyama", 2);
-	if (g.E < 2) g.E = 2;
-	if (g.E > 24) g.E = 24;
 
 /* Find the best B1 somewhere between n/3300 and 250*(n/3300). */
 
@@ -8126,6 +8547,7 @@ void guess_pminus1_bounds (
 		*bound1 = best[1].B1;
 		*bound2 = best[1].B2;
 		*squarings = (unsigned long) (best[1].pass1_squarings + best[1].pass2_squarings + g.gcd_cost);
+		if (*bound2 > *bound1) *squarings += (unsigned long) g.modinv_cost;
 		*success_rate = best[1].prob;
 	} else {
 		*bound1 = 0;
@@ -8221,7 +8643,7 @@ int pfactor (
 
 #define PP1_STATE_STAGE1	1	/* In stage 1 */
 #define PP1_STATE_MIDSTAGE	2	/* Between stage 1 and stage 2 */
-#define PP1_STATE_STAGE2	3	/* In middle of stage 2 (processing a bit array) */
+#define PP1_STATE_STAGE2	3	/* In middle of stage 2 (processing a pairmap) */
 #define PP1_STATE_GCD		4	/* Stage 2 GCD */
 #define PP1_STATE_DONE		5	/* P+1 job complete */
 
@@ -8237,6 +8659,7 @@ typedef struct {
 	uint64_t B;		/* Bound #1 (a.k.a. B1) */
 	uint64_t C;		/* Bound #2 (a.k.a. B2 */
 	uint64_t interim_B;	/* B1 we are currently calculating (equals B except when finishing stage 1 from a save file using a different B1). */
+	uint64_t interim_C;	/* B2 we are currently calculating (equals C except when finishing stage 2 a save file using different B2) */
 	uint64_t B_done;	/* We have completed calculating 3^e to this bound #1 */
 	int	optimal_B2;	/* TRUE if we calculate optimal bound #2 given currently available memory.  FALSE for a fixed bound #2. */
 
@@ -8250,16 +8673,18 @@ typedef struct {
 	uint64_t B2_start;	/* Starting point of first D section to be processed in stage 2 (an odd multiple of D/2) */
 	uint64_t numDsections;	/* Number of D sections to process in stage 2 */
 	uint64_t Dsection;	/* Current D section being processed in stage 2 */
-	uint64_t interim_C;	/* B2 we are currently calculating (equals C except when finishing stage 2 a save file using different B2) */
+	int	relp;		/* Last relative prime processed in the current D section */
 
-	char	*bitarray;	/* Bit array for prime pairings in each D section */
-	uint64_t bitarraymaxDsections;	/* Maximum number of D sections per bit array */
-	uint64_t bitarrayfirstDsection; /* First D section in the bit array */
-	uint64_t first_relocatable; /* First relocatable prime (same as B1 unless bit arrays must be split or mem change caused a replan) */
-	uint64_t last_relocatable; /* Last relocatable prime for filling bit arrays (unless mem change causes a replan) */
+	uint64_t max_pairmap_Dsections;	/* Number of D sections that can fit in a pairing map */
+	uint8_t	*pairmap;	/* Pairing map for prime pairings and singles in each D section */
+	uint64_t pairmap_size;	/* Size of the pairing map */
+	uint8_t *pairmap_ptr;	/* Pointer to the next byte to process in the pairing map */
+	uint64_t first_relocatable; /* First relocatable prime (same as B1 unless pairmaps must be split or mem change caused a replan) */
+	uint64_t last_relocatable; /* Last relocatable prime for filling pairmaps (unless mem change causes a replan) */
 	uint64_t C_done;	/* Stage 2 completed thusfar (updated every D section that is completed) */
 
 	int	stage2_numvals;	/* Number of gwnums used in stage 2 */
+	int16_t relp_sets[32];	/* The relp sets we are using in stage 2 */
 	gwnum	*nQx;		/* Array of relprime data used in stage 2 */
 
 	double	pct_mem_to_use;	/* If we get memory allocation errors, we progressively try using less and less. */
@@ -8279,7 +8704,7 @@ void pp1_cleanup (
 /* Free memory */
 
 	free (pp1data->nQx), pp1data->nQx = NULL;
-	free (pp1data->bitarray), pp1data->bitarray = NULL;
+	free (pp1data->pairmap), pp1data->pairmap = NULL;
 	gwdone (&pp1data->gwdata);
 	end_sieve (pp1data->sieve_info), pp1data->sieve_info = NULL;
 }
@@ -8287,7 +8712,8 @@ void pp1_cleanup (
 /* Routines to create and read save files for a P+1 factoring job */
 
 #define PP1_MAGICNUM	0x912a374a
-#define PP1_VERSION	1				/* New in 30.6 */
+//#define PP1_VERSION	1				/* New in 30.6 */
+#define PP1_VERSION	2				/* 30.7.  Improved pairing, compressed bitmaps */
 
 void pp1_save (
 	pp1handle *pp1data)
@@ -8312,48 +8738,48 @@ void pp1_save (
 	if (! write_int (fd, pp1data->denominator, &sum)) goto writeerr;
 
 	if (pp1data->state == PP1_STATE_STAGE1) {
-		if (! write_longlong (fd, pp1data->B_done, &sum)) goto writeerr;
-		if (! write_longlong (fd, pp1data->interim_B, &sum)) goto writeerr;
-		if (! write_longlong (fd, pp1data->stage1_prime, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pp1data->B_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pp1data->interim_B, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pp1data->stage1_prime, &sum)) goto writeerr;
 	}
 
 	else if (pp1data->state == PP1_STATE_MIDSTAGE) {
-		if (! write_longlong (fd, pp1data->B_done, &sum)) goto writeerr;
-		if (! write_longlong (fd, pp1data->C_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pp1data->B_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pp1data->C_done, &sum)) goto writeerr;
 	}
 
 	// Save everything necessary to restart stage 2 without calling pp1_stage2_impl again
 	else if (pp1data->state == PP1_STATE_STAGE2) {
-		uint64_t bitarray_numDsections, bitarray_start, bitarray_len;
-		if (! write_longlong (fd, pp1data->B_done, &sum)) goto writeerr;
-		if (! write_longlong (fd, pp1data->C_done, &sum)) goto writeerr;
-		if (! write_longlong (fd, pp1data->interim_C, &sum)) goto writeerr;
+		uint64_t remaining_pairmap_size;
+		if (! write_uint64 (fd, pp1data->B_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pp1data->C_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pp1data->interim_C, &sum)) goto writeerr;
 		if (! write_int (fd, pp1data->stage2_numvals, &sum)) goto writeerr;
 		if (! write_int (fd, pp1data->totrels, &sum)) goto writeerr;
 		if (! write_int (fd, pp1data->D, &sum)) goto writeerr;
-		if (! write_longlong (fd, pp1data->first_relocatable, &sum)) goto writeerr;
-		if (! write_longlong (fd, pp1data->last_relocatable, &sum)) goto writeerr;
-		if (! write_longlong (fd, pp1data->B2_start, &sum)) goto writeerr;
-		if (! write_longlong (fd, pp1data->numDsections, &sum)) goto writeerr;
-		if (! write_longlong (fd, pp1data->Dsection, &sum)) goto writeerr;
-		if (! write_longlong (fd, pp1data->bitarraymaxDsections, &sum)) goto writeerr;
-		if (! write_longlong (fd, pp1data->bitarrayfirstDsection, &sum)) goto writeerr;
-		// Output the truncated bit array
-		bitarray_numDsections = pp1data->numDsections - pp1data->bitarrayfirstDsection;
-		if (bitarray_numDsections > pp1data->bitarraymaxDsections) bitarray_numDsections = pp1data->bitarraymaxDsections; 		
-		bitarray_len = divide_rounding_up (bitarray_numDsections * pp1data->totrels, 8);
-		bitarray_start = divide_rounding_down ((pp1data->Dsection - pp1data->bitarrayfirstDsection) * pp1data->totrels, 8);
-		if (! write_array (fd, pp1data->bitarray + bitarray_start, (unsigned long) (bitarray_len - bitarray_start), &sum)) goto writeerr;
+		if (! write_uint64 (fd, pp1data->first_relocatable, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pp1data->last_relocatable, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pp1data->B2_start, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pp1data->numDsections, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pp1data->Dsection, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pp1data->max_pairmap_Dsections, &sum)) goto writeerr;
+		if (! write_int (fd, pp1data->relp, &sum)) goto writeerr;
+		if (! write_array (fd, (char *) pp1data->relp_sets, 32 * sizeof (int16_t), &sum)) goto writeerr;
+		// Output the truncated pairmap
+//GW:  handle NULL pairmap?
+		remaining_pairmap_size = pp1data->pairmap_size - (pp1data->pairmap_ptr - pp1data->pairmap);
+		if (! write_uint64 (fd, remaining_pairmap_size, &sum)) goto writeerr;
+		if (! write_array (fd, (char *) pp1data->pairmap_ptr, (size_t) remaining_pairmap_size, &sum)) goto writeerr;
 	}
 
 	else if (pp1data->state == PP1_STATE_GCD) {
-		if (! write_longlong (fd, pp1data->B_done, &sum)) goto writeerr;
-		if (! write_longlong (fd, pp1data->C_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pp1data->B_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pp1data->C_done, &sum)) goto writeerr;
 	}
 
 	else if (pp1data->state == PP1_STATE_DONE) {
-		if (! write_longlong (fd, pp1data->B_done, &sum)) goto writeerr;
-		if (! write_longlong (fd, pp1data->C_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pp1data->B_done, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pp1data->C_done, &sum)) goto writeerr;
 	}
 
 /* Write the gwnum value used in stage 1 and stage 2.  There are occasions where x or gg may be in a partially FFTed state. */
@@ -8414,49 +8840,62 @@ int pp1_restore (
 /* Read state dependent data */
 
 	if (pp1data->state == PP1_STATE_STAGE1) {
-		if (! read_longlong (fd, &pp1data->B_done, &sum)) goto readerr;
-		if (! read_longlong (fd, &pp1data->interim_B, &sum)) goto readerr;
-		if (! read_longlong (fd, &pp1data->stage1_prime, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pp1data->B_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pp1data->interim_B, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pp1data->stage1_prime, &sum)) goto readerr;
 	}
 
 	else if (pp1data->state == PP1_STATE_MIDSTAGE) {
-		if (! read_longlong (fd, &pp1data->B_done, &sum)) goto readerr;
-		if (! read_longlong (fd, &pp1data->C_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pp1data->B_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pp1data->C_done, &sum)) goto readerr;
 	}
 
 	else if (pp1data->state == PP1_STATE_STAGE2) {
-		uint64_t bitarray_numDsections, bitarray_start, bitarray_len;
-		if (! read_longlong (fd, &pp1data->B_done, &sum)) goto readerr;
-		if (! read_longlong (fd, &pp1data->C_done, &sum)) goto readerr;
-		if (! read_longlong (fd, &pp1data->interim_C, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pp1data->B_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pp1data->C_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pp1data->interim_C, &sum)) goto readerr;
 		if (! read_int (fd, &pp1data->stage2_numvals, &sum)) goto readerr;
 		if (! read_int (fd, &pp1data->totrels, &sum)) goto readerr;
 		if (! read_int (fd, &pp1data->D, &sum)) goto readerr;
-		if (! read_longlong (fd, &pp1data->first_relocatable, &sum)) goto readerr;
-		if (! read_longlong (fd, &pp1data->last_relocatable, &sum)) goto readerr;
-		if (! read_longlong (fd, &pp1data->B2_start, &sum)) goto readerr;
-		if (! read_longlong (fd, &pp1data->numDsections, &sum)) goto readerr;
-		if (! read_longlong (fd, &pp1data->Dsection, &sum)) goto readerr;
-		if (! read_longlong (fd, &pp1data->bitarraymaxDsections, &sum)) goto readerr;
-		if (! read_longlong (fd, &pp1data->bitarrayfirstDsection, &sum)) goto readerr;
-		// Read the truncated bit array
-		bitarray_numDsections = pp1data->numDsections - pp1data->bitarrayfirstDsection;
-		if (bitarray_numDsections > pp1data->bitarraymaxDsections) bitarray_numDsections = pp1data->bitarraymaxDsections;
-		bitarray_len = divide_rounding_up (bitarray_numDsections * pp1data->totrels, 8);
-		bitarray_start = divide_rounding_down ((pp1data->Dsection - pp1data->bitarrayfirstDsection) * pp1data->totrels, 8);
-		pp1data->bitarray = (char *) malloc ((size_t) bitarray_len);
-		if (pp1data->bitarray == NULL) goto readerr;
-		if (! read_array (fd, pp1data->bitarray + bitarray_start, (unsigned long) (bitarray_len - bitarray_start), &sum)) goto readerr;
+		if (! read_uint64 (fd, &pp1data->first_relocatable, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pp1data->last_relocatable, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pp1data->B2_start, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pp1data->numDsections, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pp1data->Dsection, &sum)) goto readerr;
+		if (version == 1) {		// 30.6 save files
+			uint64_t bitarraymaxDsections, bitarrayfirstDsection, bitarray_numDsections, bitarray_start, bitarray_len;
+			char	*bitarray;
+			if (! read_uint64 (fd, &bitarraymaxDsections, &sum)) goto readerr;
+			if (! read_uint64 (fd, &bitarrayfirstDsection, &sum)) goto readerr;
+			// Read the truncated bit array
+			bitarray_numDsections = pp1data->numDsections - bitarrayfirstDsection;
+			if (bitarray_numDsections > bitarraymaxDsections) bitarray_numDsections = bitarraymaxDsections;
+			bitarray_len = divide_rounding_up (bitarray_numDsections * pp1data->totrels, 8);
+			bitarray_start = divide_rounding_down ((pp1data->Dsection - bitarrayfirstDsection) * pp1data->totrels, 8);
+			bitarray = (char *) malloc ((size_t) bitarray_len);
+			if (bitarray == NULL) goto readerr;
+			if (! read_array (fd, bitarray, (size_t) (bitarray_len - bitarray_start), &sum)) goto readerr;
+			free (bitarray);
+		} else {				// 30.7 save files
+			if (! read_uint64 (fd, &pp1data->max_pairmap_Dsections, &sum)) goto readerr;
+			if (! read_int (fd, &pp1data->relp, &sum)) goto readerr;
+			if (! read_array (fd, (char *) pp1data->relp_sets, 32 * sizeof (int16_t), &sum)) goto readerr;
+			if (! read_uint64 (fd, &pp1data->pairmap_size, &sum)) goto readerr;
+			pp1data->pairmap = (uint8_t *) malloc ((size_t) pp1data->pairmap_size);
+			if (pp1data->pairmap == NULL) goto readerr;
+			if (! read_array (fd, (char *) pp1data->pairmap, (size_t) pp1data->pairmap_size, &sum)) goto readerr;
+			pp1data->pairmap_ptr = pp1data->pairmap;
+		}
 	}
 
 	else if (pp1data->state == PP1_STATE_GCD) {
-		if (! read_longlong (fd, &pp1data->B_done, &sum)) goto readerr;
-		if (! read_longlong (fd, &pp1data->C_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pp1data->B_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pp1data->C_done, &sum)) goto readerr;
 	}
 
 	else if (pp1data->state == PP1_STATE_DONE) {
-		if (! read_longlong (fd, &pp1data->B_done, &sum)) goto readerr;
-		if (! read_longlong (fd, &pp1data->C_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pp1data->B_done, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pp1data->C_done, &sum)) goto readerr;
 	}
 
 /* Read the gwnum value used in stage 1 and stage 2 */
@@ -8469,6 +8908,15 @@ int pp1_restore (
 		pp1data->gg = gwalloc (&pp1data->gwdata);
 		if (pp1data->gg == NULL) goto readerr;
 		if (! read_gwnum (fd, &pp1data->gwdata, pp1data->gg, &sum)) goto readerr;
+	}
+
+/* Version 30.6 save files cannot continue in stage 2 */
+
+	if (version == 1 && pp1data->state == PP1_STATE_STAGE2) {
+		pp1data->state = PP1_STATE_MIDSTAGE;
+		OutputStr (pp1data->thread_num, "Old P+1 save file was in stage 2.  Restarting stage 2 from scratch.\n");
+		gwfree (&pp1data->gwdata, pp1data->gg);
+		pp1data->gg = NULL;
 	}
 
 /* Read and compare the checksum */
@@ -8494,69 +8942,61 @@ err:
 /* Compute the cost (in squarings) of a particular P+1 stage 2 implementation. */
 
 struct pp1_stage2_cost_data {
-				/* Data returned from cost function follows */
-	int	D;		/* D value for big steps */
-	int	totrels;	/* Total number of relative primes used for pairing */
-	int	stage2_numvals;	/* Total number of gwnum temporaries to be used in stage 2 */
-	uint64_t B2_start;	/* Stage 2 start */
-	uint64_t numDsections;	/* Number of D sections to process */
-	uint64_t bitarraymaxDsections; /* Maximum number of D sections per bit array (in case work bit array must be split) */
+	/* Cost data common to ECM, P-1, P+1 */
+	struct common_cost_data c;
+	/* P+1 specific data sent to cost function follows */
+	/* P+1 specific data returned from cost function follows */
 };
 
 double pp1_stage2_cost (
-	int	D,		/* Stage 2 big step */
-	uint64_t B2_start,	/* Stage 2 start point */
-	uint64_t numDsections,	/* Number of D sections to process */
-	uint64_t bitarraymaxDsections, /* Maximum number of D sections per bit array (if work bit array must be split) */
-	int	numrels,	/* Number of relative primes less than D/2 */
-	double	multiplier,	/* Multiplier * numrels relative primes will be used in stage 2 */
-	double	numpairs,	/* Estimated number of paired primes in stage 2 */
-	double	numsingles,	/* Estimated number of prime singles in stage 2 */
 	void	*data)		/* P+1 specific costing data */
 {
-	int	totrels;	/* Total number of relative primes in use */
 	struct pp1_stage2_cost_data *cost_data = (struct pp1_stage2_cost_data *) data;
-	double	cost;
 
-/* Calculate the number of temporaries used for relative primes.  This will leave some available for modinv pooling. */
+/* Compute the stage 2 init costs */
 
-	totrels = (int) (numrels * multiplier);
+/* For the relative primes below D there are 2 luc_add calls for each increment of 6 in the nQx setup loop (plus 6 luc_dbls/luc_adds for setup). */
+/* Computing VD is another luc_dbl and luc_add.  For the relative primes above D, we perform one luc_add for each rel_prime to calculate. */
+/* We assume relp set -1 is not used, which means there are totrels - numrels relative primes above D to calculate.  Also, each nQx value will */
+/* be FFTed once but this usually happens as a by-product of the luc_add calls.  Each luc_add/luc_dbl is 2 transforms. */
 
-/* Compute the stage 2 setup costs.  They are tiny and if inaccurately estimated can be safely ignored. */
+	cost_data->c.est_init_transforms = 6.0 * 2.0;						// Setup costs, 6 luc_adds at 2 transforms each
+	cost_data->c.est_init_transforms += (double) (cost_data->c.D / 6 - 2) * 2.0 * 2.0;	// From 12 to D stepping by 6 is 2 luc_adds at 2 transforms each
+	cost_data->c.est_init_transforms += 2.0 * 2.0;						// Cost to calculate VD, 1 luc_add and 1 luc_dbl
+	cost_data->c.est_init_transforms += (cost_data->c.totrels - cost_data->c.numrels) * 2.0; // Cost for relprimes above D
 
-/* For the minimum number of relative primes for a D (max rel_prime is D/2) there are 2 luc_add calls for each increment of 6 in the nQx setup loop. */
-/* Each luc_add costs 1 multiply.  If using more than the minimum number of relative primes, increase the cost proportionally until multiplier exceeds 2. */
-/* Once we reach D, we perform one luc_add for each rel_prime to calculate. */
-/* Also, each nQx value will be FFTed once but this usually happens as a by-product of the luc_add calls. */
+/* Any intermediate relp_sets also cost one luc_add for each relprime.  Partial intermediate sets also must be accounted for. */
 
-	if (multiplier <= 2.0) cost = multiplier * ((double) D / 6.0);
-	else cost = 2.0 * ((double) D / 6.0) + (totrels - 2 * numrels);
+	cost_data->c.est_init_transforms +=
+		cost_data->c.numrels * cost_data->c.relp_sets[1] * 2.0 +					 // Cost for full intermediate relp_sets
+		one_based_modulo (cost_data->c.totrels, cost_data->c.numrels) * cost_data->c.relp_sets[2] * 2.0; // Cost for partial intermediate relp_sets
 
-/* Compute the Vn, Vn1 setup costs in pp1_luc_prep_for_additions (2 squarings per bit) */
+/* Each Dmultiple costs either a luc_dbl or luc_add.  Here we have to guess how many Dmultiples are needed.  The most expensive D-multiple is likely the */
+/* calculation of B2_start -- 2*log2(B2_start/D).  In addition, we'll assume one more D-multiple for each relp_set. */
 
-	cost += _log2 (B2_start / D) * 2.0;
+	cost_data->c.est_init_transforms += (2.0 * _log2((cost_data->c.B2_start + cost_data->c.D / 2) / cost_data->c.D) + cost_data->c.multiplier) * 2.0;
 
-/* Add in the cost of luc_add calls (#sections * 1 multiply) */
+/* Start main loop cost with one luc_add for each D section */
 
-	cost += (double) (numDsections * 1);
+	cost_data->c.est_stage2_transforms = (double) cost_data->c.numDsections * 2.0;
 
-/* Finally, each prime pair and prime single costs one multiply */
+/* Each nQx value will be FFTed once, but most nQx values are FFTed during the computation of other nQx values.  We'll assume one */
+/* relp_set of nQx values will need this half squaring. */
 
-	cost += numpairs + numsingles;
+	cost_data->c.est_stage2_transforms += cost_data->c.numrels;
 
-/* Return data P+1 implementation will need */
+/* Finally, each prime pair and prime single costs one 2-FFT multiply */
+
+	cost_data->c.est_stage2_transforms += (cost_data->c.est_numpairs + cost_data->c.est_numsingles) * 2.0;
+
+/* Return data P+1 implementation will need. */
 /* Stage 2 memory is totrels gwnums for the nQx array, 3 gwnums to calculate multiples of D values, one gwnum for gg. */
 
-	cost_data->stage2_numvals = totrels + 4;
-	cost_data->D = D;
-	cost_data->totrels = (int) (numrels * multiplier);
-	cost_data->B2_start = B2_start;
-	cost_data->numDsections = numDsections;
-	cost_data->bitarraymaxDsections = bitarraymaxDsections;
+	cost_data->c.stage2_numvals = cost_data->c.totrels + 4;
 
 /* Return the resulting cost */
 
-	return (cost);
+	return (cost_data->c.est_pairing_runtime + cost_data->c.est_init_transforms + cost_data->c.est_stage2_transforms);
 }
 
 /* Choose the most effective B2 for a P+1 run with a fixed B1 given the number of gwnums we are allowed to allocate. */
@@ -8577,9 +9017,13 @@ void pp1_choose_B2 (
 
 // P+1 probability of success
 #define pp1prob(B1,B2)		(pm1prob (pp1data->takeAwayBits, sieve_depth, (double) (B1), (double) (B2)) * pp1data->success_rate)
+
 // Cost out a B2 value
+	cost_data.c.numvals = numvals;
+	cost_data.c.fftlen = gwfftlen (&pp1data->gwdata);
+	cost_data.c.threads = gwget_num_threads (&pp1data->gwdata);
 #define p1eval(x,B2mult)	x.i = B2mult; \
-				x.B2_cost = best_stage2_impl (pp1data->B, x.i * pp1data->B, numvals - 4, &pp1_stage2_cost, &cost_data); \
+				x.B2_cost = best_stage2_impl (pp1data->B, 0, 0, x.i * pp1data->B, numvals - 4, &pp1_stage2_cost, &cost_data); \
 				x.fac_pct = pp1prob (pp1data->B, x.i * pp1data->B);
 
 // Return TRUE if x is better than y.  Determined by seeing if taking the increased cost of y's higher B2 and investing it in increasing x's bounds
@@ -8656,24 +9100,17 @@ int pp1_stage2_impl (
 	pp1handle *pp1data)
 {
 	unsigned int memory, min_memory, desired_memory;	/* Memory is in MB */
-	unsigned int bitarray_size, max_bitarray_size;		/* Bitarray memory in MB */
-	int	numvals;			/* Number of gwnums we can allocate */
+	int	numvals;					/* Number of gwnums we can allocate */
 	struct pp1_stage2_cost_data cost_data;
 	int	stop_reason;
 
-/* Calculate (roughly) the memory required for the bit-array.  A typical stage 2 implementation is D=210, B2_start=B2/11, numrels=24, totrels=7*24. */
-/* A typical optimal B2 is 40*B1.  This means bitarray memory = B2 * 10/11 / 210 * 24 * 7 / 8 bytes. */
+/* Calculate the amount of memory we can use in stage 2.  We must have 1MB for a pairing map + a minimum of 8 temporaries (D = 30). */
+/* If not continuing from a stage 2 save file then assume 144 temporaries (D = 210, multiplier = 5) and a few MB for a pairing map will */
+/* provide us with a reasonable execution speed.  Otherwise, we desire enough memory to use the save file's pairing map. */
 
-	bitarray_size = divide_rounding_up ((unsigned int) ((pp1data->optimal_B2 ? 130 * pp1data->B : pp1data->C) * 1680 / 18480), 1 << 20);
-	max_bitarray_size = IniGetInt (INI_FILE, "MaximumBitArraySize", 250);
-	if (bitarray_size > max_bitarray_size) bitarray_size = max_bitarray_size;
-
-/* Calculate the number of temporaries we can use in stage 2.  Base our decision on the current amount of memory available. */
-/* If continuing from a stage 2 save file then we desire as many temporaries as the save file used.  Otherwise, assume 28 temporaries will */
-/* provide us with a reasonable execution speed (D = 210).  We must have a minimum of 8 temporaries (D = 30). */
-
-	min_memory = bitarray_size + cvt_gwnums_to_mem (&pp1data->gwdata, 8);
-	desired_memory = bitarray_size + cvt_gwnums_to_mem (&pp1data->gwdata, pp1data->state >= PP1_STATE_STAGE2 ? pp1data->stage2_numvals : 28);
+	min_memory = 1 + cvt_gwnums_to_mem (&pp1data->gwdata, 8);
+	if (pp1data->state < PP1_STATE_STAGE2) desired_memory = 3 + cvt_gwnums_to_mem (&pp1data->gwdata, 144);
+	else desired_memory = (unsigned int) (pp1data->pairmap_size >> 20) + cvt_gwnums_to_mem (&pp1data->gwdata, pp1data->stage2_numvals);
 	stop_reason = avail_mem (pp1data->thread_num, min_memory, desired_memory, &memory);
 	if (stop_reason) return (stop_reason);
 
@@ -8693,19 +9130,23 @@ int pp1_stage2_impl (
 	}
 
 /* Compute the number of gwnum temporaries we can allocate.  User nordi had over-allocating memory troubles on Linux testing M1277, presumably */
-/* because our estimate genum size was too low.  As a work-around limit numvals to 100,000 by default. */
+/* because our estimated gwnum size was too low.  As a work-around limit numvals to 100,000 by default. */
 
-	numvals = cvt_mem_to_gwnums (&pp1data->gwdata, memory - bitarray_size);
+	numvals = cvt_mem_to_gwnums (&pp1data->gwdata, memory);
 	if (numvals < 8) numvals = 8;
 	if (numvals > 100000) numvals = 100000;
 	if (QA_TYPE) numvals = QA_TYPE;			/* Optionally override numvals for QA purposes */
 
-/* Set C_done for future best_stage2_impl calls. */
+/* Set first_relocatable for future best_stage2_impl calls. */
 /* Override B2 with optimal B2 based on amount of memory available. */
 
 	if (pp1data->state == PP1_STATE_MIDSTAGE) {
-		pp1data->C_done = pp1data->B;
-		if (pp1data->optimal_B2) pp1_choose_B2 (pp1data, numvals);
+		if (pp1data->C_done == pp1data->B) {
+			pp1data->first_relocatable = pp1data->B;
+			if (pp1data->optimal_B2) pp1_choose_B2 (pp1data, numvals);
+		} else
+			pp1data->first_relocatable = pp1data->C_done;
+		pp1data->last_relocatable = 0;
 	}
 
 /* If are continuing from a save file that was in stage 2, check to see if we currently have enough memory to continue with the save file's */
@@ -8719,50 +9160,71 @@ int pp1_stage2_impl (
 	     pp1data->Dsection >= pp1data->numDsections / 2))			// stage 2 more than half done
 		return (0);							// Use old plan
 
+/* If we are contemplating ditching the save file pairmap, figure out how which non-relocatable primes are definitely included in the stage 2 */
+/* accumulator.  Set C_done appropriately, but do not change first_relocatable as there is no guarantee which relocatables are in the accumulator. */
+
+	if (pp1data->state == PP1_STATE_STAGE2) {
+		int	max_relp_set = get_max_relp_set (pp1data->relp_sets);
+		if (pp1data->Dsection > max_relp_set) pp1data->C_done = pp1data->B2_start + (pp1data->Dsection - max_relp_set) * pp1data->D;
+		else pp1data->C_done = pp1data->B2_start;
+	}
+
 /* Find the least costly stage 2 plan. */
 /* Try various values of D until we find the best one.  3 gwnums are required for multiples of V_D calculations and one gwnum for gg. */
 
-	best_stage2_impl (pp1data->C_done, pp1data->C, numvals - 4, &pp1_stage2_cost, &cost_data);
+	cost_data.c.numvals = numvals;
+	cost_data.c.fftlen = gwfftlen (&pp1data->gwdata);
+	cost_data.c.threads = gwget_num_threads (&pp1data->gwdata);
+	best_stage2_impl (pp1data->first_relocatable, pp1data->last_relocatable, pp1data->C_done, pp1data->C, numvals - 4, &pp1_stage2_cost, &cost_data);
 
 /* If are continuing from a save file that was in stage 2 and the new plan doesn't look significant better than the old plan, then */
-/* we use the old plan and its partially completed bit array. */
+/* we use the old plan and its partially completed pairmap. */
 
 	if (pp1data->state >= PP1_STATE_STAGE2 &&				// Continuing a stage 2 save file and
 	    numvals >= pp1data->stage2_numvals &&				// We have enough memory and
-	    cost_data.stage2_numvals < pp1data->stage2_numvals * 2)		// new plan does not use significantly more memory
+	    cost_data.c.stage2_numvals < pp1data->stage2_numvals * 2)		// new plan does not use significantly more memory
 		return (0);							// Use old plan
 
-/* If are continuing from a save file that was in stage 2, toss the save file's bit array. */
+/* If are continuing from a save file that was in stage 2, toss the save file's pair map. */
 
 	if (pp1data->state >= PP1_STATE_STAGE2) {
-		free (pp1data->bitarray);
-		pp1data->bitarray = NULL;
+		free (pp1data->pairmap);
+		pp1data->pairmap = NULL;
 	}
 
 /* Set all the variables needed for this stage 2 plan */
 
 	pp1data->interim_C = pp1data->C;
-	pp1data->stage2_numvals = cost_data.stage2_numvals;
-	pp1data->D = cost_data.D;
-	pp1data->totrels = cost_data.totrels;
-	pp1data->B2_start = cost_data.B2_start;
-	pp1data->numDsections = cost_data.numDsections;
-	pp1data->bitarraymaxDsections = cost_data.bitarraymaxDsections;
-	pp1data->Dsection = 0;
+	pp1data->stage2_numvals = cost_data.c.stage2_numvals;
+	pp1data->D = cost_data.c.D;
+	pp1data->totrels = cost_data.c.totrels;
+	pp1data->B2_start = cost_data.c.B2_start;
+	pp1data->numDsections = cost_data.c.numDsections;
+	pp1data->max_pairmap_Dsections = cost_data.c.max_pairmap_Dsections;
+	memcpy (pp1data->relp_sets, cost_data.c.relp_sets, sizeof (pp1data->relp_sets));
 
 	if (pp1data->state < PP1_STATE_STAGE2) {
-		pp1data->first_relocatable = pp1data->B;
 		pp1data->last_relocatable = pp1data->B2_start;
-		pp1data->C_done = pp1data->B2_start;
 	}
 
-/* Create a bitmap maximizing the prime pairings */
+/* Output some debugging data so we can compare estimateds to actuals */
 
-	pp1data->bitarrayfirstDsection = pp1data->Dsection;
-	stop_reason = fill_work_bitarray (pp1data->thread_num, &pp1data->sieve_info, pp1data->D, pp1data->totrels,
-					  pp1data->first_relocatable, pp1data->last_relocatable, pp1data->C_done, pp1data->C,
-					  pp1data->bitarraymaxDsections, &pp1data->bitarray);
+	if (IniGetInt (INI_FILE, "Stage2Estimates", 0)) {
+		char	buf[120];
+		sprintf (buf, "Est pair%%: %5.2f, init transforms: %.0f, main loop transforms: %.0f\n",
+			 cost_data.c.est_pair_pct * 100.0, cost_data.c.est_init_transforms, cost_data.c.est_stage2_transforms);
+		OutputStr (pp1data->thread_num, buf);
+	}
+
+/* Create a map of (hopefully) close-to-optimal prime pairings */
+
+	stop_reason = fill_pairmap (pp1data->thread_num, &pp1data->sieve_info, pp1data->D, 0,0,0, pp1data->totrels, pp1data->relp_sets+3,
+				    pp1data->first_relocatable, pp1data->last_relocatable, pp1data->B2_start, pp1data->C,
+				    pp1data->max_pairmap_Dsections, &pp1data->pairmap, &pp1data->pairmap_size);
 	if (stop_reason) return (stop_reason);
+	pp1data->pairmap_ptr = pp1data->pairmap;
+	pp1data->Dsection = 0;
+	pp1data->relp = -1;
 
 	return (0);
 }
@@ -8805,12 +9267,6 @@ void pp1_calc_start (
 	mpz_clear (__inv);
 	mpz_clear (__frac);
 }
-
-/* Handy macros for Lucas doubling and adding */
-
-#define luc_dbl(h,s,d)			gwsquare2 (h, s, d, GWMUL_FFT_S1 | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT)
-#define luc_add(h,s1,s2,diff,d)		gwmulsub4 (h, s1, s2, diff, d, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT)
-#define luc_add_last(h,s1,s2,diff,d)	gwmulsub4 (h, s1, s2, diff, d, GWMUL_FFT_S1 | GWMUL_FFT_S2)
 
 /* Helper routines for implementing a PRAC-like lucas multiply */
 
@@ -9094,49 +9550,6 @@ void pp1_mul (
 	}
 }
 
-/* Compute V_{D*i} and V_{D*(i+1)} from V_D and i.  Use this to prepare for a series of lucas additions. */
-
-void pp1_luc_prep_for_additions (
-	pp1handle *pp1data,
-	uint64_t multiplier)
-{
-	gwnum	V, Vn, Vn1;
-	uint64_t mask;
-
-/* Find top bit in multiplier */
-
-	for (mask = 1ULL << 63; (multiplier & mask) == 0; mask >>= 1);
-
-/* Init V values processing second mask bit */
-
-	V = pp1data->V;
-	Vn = pp1data->Vn;
-	Vn1 = pp1data->Vn1;
-	mask >>= 1;
-	if (multiplier & mask) {
-		gwsquare2 (&pp1data->gwdata, V, Vn1, GWMUL_FFT_S1 | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT);	// V2
-		gwmulsub4 (&pp1data->gwdata, V, Vn1, V, Vn, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);			// next n   = V3 = V1 + V2, diff 1
-		gwsquare2 (&pp1data->gwdata, Vn1, Vn1, GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT);			// next n+1 = V4 = V2 + V2
-	}
-	else {
-		gwsquare2 (&pp1data->gwdata, V, Vn, GWMUL_FFT_S1 | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT);	// next n   = V2
-		gwmulsub4 (&pp1data->gwdata, V, Vn, V, Vn1, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);			// next n+1 = V3 = V1 + V2, diff 1
-	}
-
-/* Loop processing one multiplier bit at a time.  Each iteration computes V_n = V_{2n+bit}, V_{n+1} = V_{2n+bit+1} */
-
-	for (mask >>= 1; mask; mask >>= 1) {
-	        if (multiplier & mask) {
-			gwmulsub4 (&pp1data->gwdata, Vn, Vn1, V, Vn, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	// next n   = n + (n+1), diff 1
-			gwsquare2 (&pp1data->gwdata, Vn1, Vn1, GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT);		// next n+1 = (n+1) + (n+1)
-		}
-		else {
-			gwmulsub4 (&pp1data->gwdata, Vn, Vn1, V, Vn1, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);	// next n+1 = n + (n+1), diff 1
-			gwsquare2 (&pp1data->gwdata, Vn, Vn, GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT);		// next n   = n + n
-		}
-	}
-}
-
 /*****************************************************************************/
 /*                         Main P+1 routine				     */
 /*****************************************************************************/
@@ -9153,13 +9566,15 @@ int pplus1 (
 	int	i, res, stop_reason, first_iter_msg, saving, near_fft_limit, echk;
 	char	filename[32], buf[255], JSONbuf[4000], testnum[100];
 	uint64_t sieve_start, next_prime;
-	double	one_over_B, base_pct_complete, one_bit_pct;
+	double	one_over_B, base_pct_complete, one_relp_pct;
 	double	last_output, last_output_t, last_output_r;
 	double	allowable_maxerr, output_frequency, output_title_frequency;
-	double	restart_maxerr = 0.0;
+	int	maxerr_restart_count = 0;
 	char	*str, *msg;
 	int	msglen;
 	double	timers[2];
+	relp_set_data_map relp_set_map;
+	Dmultiple_data_map Dmultiple_map;
 
 /* Output a blank line to separate multiple P+1 runs making the result more readable */
 
@@ -9180,9 +9595,9 @@ int pplus1 (
 	pp1data.w = w;
 	pp1data.B = (uint64_t) w->B1;
 	pp1data.C = (uint64_t) w->B2;
-	if (pp1data.B < 30) {
-		OutputStr (thread_num, "Using minimum bound #1 of 30\n");
-		pp1data.B = 30;
+	if (pp1data.B < 90) {
+		OutputStr (thread_num, "Using minimum bound #1 of 90\n");
+		pp1data.B = 90;
 	}
 	if (pp1data.C == 0) pp1data.C = pp1data.B * 100;
 	if (pp1data.C < pp1data.B) pp1data.C = pp1data.B;
@@ -9230,14 +9645,15 @@ int pplus1 (
 	gw_as_string (testnum, w->k, w->b, w->n, w->c);
 	sprintf (buf, "%s P+1", testnum);
 	title (thread_num, buf);
-	if (pp1data.C <= pp1data.B)
-		sprintf (buf, "P+1 on %s, start=%" PRIu32 "/%" PRIu32 ", B1=%" PRIu64 "\n", testnum, pp1data.numerator, pp1data.denominator, pp1data.B);
-	else if (pp1data.optimal_B2)
-		sprintf (buf, "P+1 on %s, start=%" PRIu32 "/%" PRIu32 ", B1=%" PRIu64 ", B2=TBD\n", testnum, pp1data.numerator, pp1data.denominator, pp1data.B);
+	// Assemble startup message
+	sprintf (buf, "P+1 on %s, ", testnum);
 	// Don't output random start value because on a restart the starting point will be overwritten with data from the save file.
 	// User can see the start point once the run completes by looking at the results.json.txt file.
-	else
-		sprintf (buf, "P+1 on %s, random start, B1=%" PRIu64 ", B2=%" PRIu64 "\n", testnum, pp1data.B, pp1data.C);
+	if (w->nth_run <= 2) sprintf (buf+strlen(buf), "start=%" PRIu32 "/%" PRIu32 ", ", pp1data.numerator, pp1data.denominator);
+	else sprintf (buf+strlen(buf), "random start, ");
+	if (pp1data.C <= pp1data.B) sprintf (buf+strlen(buf), "B1=%" PRIu64 "\n", pp1data.B);
+	else if (pp1data.optimal_B2) sprintf (buf+strlen(buf), "B1=%" PRIu64 ", B2=TBD\n", pp1data.B);
+	else sprintf (buf+strlen(buf), "B1=%" PRIu64 ", B2=%" PRIu64 "\n", pp1data.B, pp1data.C);
 	OutputStr (thread_num, buf);
 	if (w->sieve_depth > 0.0 && !pp1data.optimal_B2) {
 		double prob = pm1prob (pp1data.takeAwayBits, (unsigned int) w->sieve_depth, (double) pp1data.B, (double) pp1data.C) * pp1data.success_rate;
@@ -9271,6 +9687,7 @@ restart:
 	gwset_thread_callback (&pp1data.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&pp1data.gwdata, sp_info);
 	gwset_safety_margin (&pp1data.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
+	gwset_larger_fftlen_count (&pp1data.gwdata, maxerr_restart_count < 3 ? maxerr_restart_count : 3);
 	gwset_minimum_fftlen (&pp1data.gwdata, w->minimum_fftlen);
 	res = gwsetup (&pp1data.gwdata, w->k, w->b, w->n, w->c);
 	if (res) {
@@ -9315,12 +9732,9 @@ restart:
 	gwerror_checking (&pp1data.gwdata, ERRCHK || near_fft_limit);
 
 /* Figure out the maximum round-off error we will allow.  By default this is 28/64 when near the FFT limit and 26/64 otherwise. */
-/* We've found that this default catches errors without raising too many spurious error messages.  We let the user override */
-/* this default for user "Never Odd Or Even" who tests exponents well beyond an FFT's limit.  He does his error checking by */
-/* running the first-test and double-check simultaneously. */
+/* We've found that this default catches errors without raising too many spurious error messages.  The user can override this default. */
 
 	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) (near_fft_limit ? 0.4375 : 0.40625));
-	if (restart_maxerr > allowable_maxerr) allowable_maxerr = restart_maxerr;
 
 /* Check for a save file and read the save file.  If there is an error reading the file then restart the P+1 factoring job from scratch. */
 /* Limit number of backup files we try to read in case there is an error deleting bad save files. */
@@ -9373,7 +9787,7 @@ restart:
 
 			if (pp1data.B > pp1data.B_done) {
 				gwfree (&pp1data.gwdata, pp1data.gg), pp1data.gg = NULL;
-				free (pp1data.bitarray), pp1data.bitarray = NULL;
+				free (pp1data.pairmap), pp1data.pairmap = NULL;
 				goto more_B;
 			}
 
@@ -9613,9 +10027,9 @@ more_B:		pp1data.interim_B = pp1data.B;
 	if (pp1data.C <= pp1data.B) goto msg_and_exit;
 
 /*
-   Stage 2:  Use ideas from Crandall, Zimmermann, Montgomery, and Preda on each prime below C.
+   Stage 2:  Use ideas from Crandall, Zimmermann, Montgomery, Preda, and Atnashev on each prime below C.
    This code is more efficient the more memory you can give it.
-   Inputs: x, the value at the end of stage 1
+   Inputs: V, the value at the end of stage 1
 */
 
 /* Change state to between stage 1 and 2 */
@@ -9668,15 +10082,21 @@ replan:	{
 		goto exit;
 	}
 
+/* Do preliminary processing of the relp_sets */
+
+	int	numrels;		// Number of relative primes less than D/2 (the number of relative primes in one full relp_set)
+	numrels = map_D_to_numrels (pp1data.D);
+	process_relp_sets (pp1data.totrels, numrels, pp1data.relp_sets, relp_set_map, Dmultiple_map);
+
 /* Record the amount of memory this thread will be using in stage 2. */
 
 	memused = cvt_gwnums_to_mem (&pp1data.gwdata, pp1data.stage2_numvals);
-	memused += (_intmin (pp1data.numDsections - pp1data.bitarrayfirstDsection, pp1data.bitarraymaxDsections) * pp1data.totrels) >> 23;
+	memused += (int) (pp1data.pairmap_size >> 20);
 	// To dodge possible infinite loop if pp1_stage2_impl allocates too much memory (it shouldn't), decrease the percentage of memory we are allowed to use
-	// Beware that replaning may allocate a larger bitarray
+	// Beware that replaning may allocate a larger pairmap
 	if (set_memory_usage (thread_num, MEM_VARIABLE_USAGE, memused)) {
 		pp1data.pct_mem_to_use *= 0.99;
-		free (pp1data.bitarray); pp1data.bitarray = NULL;
+		free (pp1data.pairmap); pp1data.pairmap = NULL;
 		goto replan;
 	}
 
@@ -9687,20 +10107,31 @@ replan:	{
 
 /* Initialize variables for second stage */
 
-	// Calculate the percent completed by previous bit arrays
+	// Calculate the percent completed by previous pairmaps
 	base_pct_complete = (double) (pp1data.B2_start - pp1data.last_relocatable) / (double) (pp1data.C - pp1data.last_relocatable);
-	// Calculate the percent completed by each bit in this bit array
-	one_bit_pct = (1.0 - base_pct_complete) / (double) (pp1data.numDsections * pp1data.totrels);
-	// Calculate the percent completed by previous bit arrays and the current bit array
-	w->pct_complete = base_pct_complete + (double) (pp1data.Dsection * pp1data.totrels) * one_bit_pct;
+	// Calculate the percent completed by each relative prime in this pairmap
+	one_relp_pct = (1.0 - base_pct_complete) / (double) (pp1data.numDsections * pp1data.totrels);
+	// Calculate the percent completed by previous pairmaps and the current pairmap
+	w->pct_complete = base_pct_complete + (double) (pp1data.Dsection * pp1data.totrels) * one_relp_pct;
 
-/* Allocate arrays of pointers to stage 2 gwnums */
+/* Allocate nQx array of pointers to relative prime gwnums.  Allocate an array large enough to hold values for all relp sets. */
+/* This is more than we will need once stage 2 init completes. */
 
-	pp1data.nQx = (gwnum *) malloc (pp1data.totrels * sizeof (gwnum));
+	int	num_relp_sets;		// Total number of relp_sets including intermediate relp_sets
+	num_relp_sets = (int) relp_set_map.size();
+	pp1data.nQx = (gwnum *) malloc (num_relp_sets * numrels * sizeof (gwnum));
 	if (pp1data.nQx == NULL) goto lowmem;
+
+/* Calculate some handy values for computing the first two relp sets: (0,-1) */
+
+	int	set_minus1_nQx_index;	// Index into nQx array for the -1 relp set
+	set_minus1_nQx_index = relp_set_map.find(-1)->second.nQx_store;
+	// Map nth relp to either set 0 nQx index or set -1 nQx index
+	#define nqxmap(relp)	((relp) < numrels ? (relp) : set_minus1_nQx_index + (relp) - numrels)
 
 /* A fast 1,5 mod 6 nQx initialization for relative primes less than D */
 
+	ASSERTG (pp1data.D % 3 == 0);
 	{
 		gwnum	t1, t2, t3, t4, t5;
 		gwnum	V1, V2, V3, V5, V6, V7, V11;
@@ -9711,7 +10142,6 @@ replan:	{
 			int	Vi_minus6_is_relp;
 		} V1mod6, V5mod6, *curr, *notcurr;
 		int	i_gap, totrels, have_VD;
-		int	numrels = map_D_to_numrels (pp1data.D);		// Relprimes less than D/2
 
 /* Allocate memory and init values for computing nQx.  We need V_1, V_5, V_6, V_7, V_11. */
 /* We also need V_2 or V_4 to compute V_D in the middle of the nQx init loop. */
@@ -9755,15 +10185,15 @@ replan:	{
 
 		V1mod6.Vi_minus6 = V1;
 		V1mod6.Vi_minus6_is_relp = 1;
-		pp1data.nQx[0] = V1; totrels = 1;
 		V5mod6.Vi_minus6 = V5;
 		V5mod6.Vi_minus6_is_relp = relatively_prime (5, pp1data.D);
-		if (V5mod6.Vi_minus6_is_relp) pp1data.nQx[totrels++] = V5;
 		V1mod6.Vi = V7;
 		V1mod6.Vi_is_relp = relatively_prime (7, pp1data.D);
-		if (V1mod6.Vi_is_relp) pp1data.nQx[totrels++] = V7;
 		V5mod6.Vi = V11;
 		V5mod6.Vi_is_relp = relatively_prime (11, pp1data.D);
+		pp1data.nQx[0] = V1; totrels = 1;
+		if (V5mod6.Vi_minus6_is_relp) pp1data.nQx[totrels++] = V5;
+		if (V1mod6.Vi_is_relp) pp1data.nQx[totrels++] = V7;
 		if (V5mod6.Vi_is_relp) pp1data.nQx[totrels++] = V11;
 
 /* Compute the rest of the nQx values (V_i for i >= 7) */
@@ -9777,7 +10207,7 @@ replan:	{
 
 			curr = (i_gap == 4) ? &V1mod6 : &V5mod6;
 
-/* Compute V_D which we will need in pp1_luc_prep_for_additions.  Do this with a single luc_add call when we reach two values that */
+/* Compute V_D which we will need in computing multiples of V_D.  Do this with a single luc_add call when we reach two values that */
 /* are 2 or 4 apart that add to D. */
 
 			if (i + (i + i_gap) == pp1data.D) {
@@ -9790,7 +10220,7 @@ replan:	{
 
 /* Break out of loop when we have all our nQx values less than D */
 
-			if (have_VD && (totrels >= pp1data.totrels || totrels >= numrels * 2)) break;
+			if (have_VD && (totrels == pp1data.totrels || totrels == numrels * 2)) break;
 
 /* See if we are about to compute the next relative prime */
 
@@ -9816,7 +10246,10 @@ replan:	{
 				next_i = curr->Vi_minus6;
 
 			luc_add (&pp1data.gwdata, curr->Vi, V6, curr->Vi_minus6, next_i);	// Next i
-			if (next_i_is_relp) pp1data.nQx[totrels++] = next_i;
+			if (next_i_is_relp) {
+				pp1data.nQx[nqxmap(totrels)] = next_i;
+				totrels++;
+			}
 
 /* Shuffle i values along */
 
@@ -9840,28 +10273,127 @@ replan:	{
 		if (!V5mod6.Vi_minus6_is_relp) gwfree (&pp1data.gwdata, V5mod6.Vi_minus6);
 		gwfree (&pp1data.gwdata, V6);
 
-/* Compute the remaining nQx values (those above D).  As an example, D=30, numrels=4, we've already computed nQx[0 to 7] for 1,7,11,13,17,19,23,29: */
-/* 31 = 1 + 30 diff 29, 61 = 31 + 30 diff 1, 91 = 61 + 30 diff 31, 121 = 91 + 30 diff 61 */
-
-		for (i = numrels * 2; i < pp1data.totrels; i++) {
-			pp1data.nQx[i] = gwalloc (&pp1data.gwdata);
-			if (pp1data.nQx[i] == NULL) goto lowmem;
-			if (i < numrels * 4)
-				luc_add (&pp1data.gwdata, pp1data.nQx[i-numrels*2], pp1data.V, pp1data.nQx[numrels*4-1-i], pp1data.nQx[i]);
-			else
-				luc_add (&pp1data.gwdata, pp1data.nQx[i-numrels*2], pp1data.V, pp1data.nQx[i-numrels*4], pp1data.nQx[i]);
-		}
-
 /* Replace the Vn and Vn1 gwnums that we used as temporaries. */
 
 		pp1data.Vn = gwalloc (&pp1data.gwdata);
 		pp1data.Vn1 = gwalloc (&pp1data.gwdata);
 	}
 
-/* Initialize for computing successive multiples of V_D */
+/* Add V_D computed above to the D-multiples map */
 
-	uint64_t D_multiplier = (pp1data.B2_start + pp1data.D / 2) / pp1data.D + pp1data.Dsection;
-	pp1_luc_prep_for_additions (&pp1data, D_multiplier - 1);	// Vn = V_{Dsection-1}, Vn1 = V_{Dsection}
+	{
+		auto it_Dmult = Dmultiple_map.find (1);
+		if (it_Dmult == Dmultiple_map.end()) it_Dmult = Dmultiple_map.insert({1, {0, 1}}).first;
+		it_Dmult->second.set_val_buffers (&pp1data.gwdata, pp1data.V, TRUE);
+
+/* Init for computing Q^(multiples of D).  We simply add the starting multiples of D that need to be computed to the D-multiples map. */
+/* Vn = V_{Dsection-1}, Vn1 = V_{Dsection} */
+
+		uint64_t D_multiplier = (pp1data.B2_start + pp1data.D / 2) / pp1data.D + pp1data.Dsection;
+		ASSERTG (D_multiplier > 2); // Would require special code to the collision between V and (Vn or Vn1)
+		it_Dmult = Dmultiple_map.find (D_multiplier - 1);
+		if (it_Dmult == Dmultiple_map.end()) it_Dmult = Dmultiple_map.insert({D_multiplier - 1, {0, D_multiplier - 1}}).first;
+		it_Dmult->second.set_val_buffers (&pp1data.gwdata, pp1data.Vn, TRUE);
+
+		it_Dmult = Dmultiple_map.find (D_multiplier);
+		if (it_Dmult == Dmultiple_map.end()) it_Dmult = Dmultiple_map.insert({D_multiplier, {0, D_multiplier}}).first;
+		it_Dmult->second.set_val_buffers (&pp1data.gwdata, pp1data.Vn1, TRUE);
+	}
+
+// Calculate all the needed V_D^(multiples-of-D)
+
+	process_Dmult_map (Dmultiple_map);
+	for (auto this_Dmult = Dmultiple_map.begin(); this_Dmult != Dmultiple_map.end(); ++this_Dmult) {
+		// Ignore the already computed V_D
+		if (this_Dmult->first == 1) continue;
+		// If necessary, allocate buffer for this V_D^multiple-of-D
+		if (this_Dmult->second.val.x == NULL) {
+			gwnum	tmp = gwalloc (&pp1data.gwdata);
+			if (tmp == NULL) goto lowmem;
+			this_Dmult->second.set_val_buffers (&pp1data.gwdata, tmp, FALSE);
+		}
+		// Compute via luc_dbl if diff is zero
+		auto it_base = Dmultiple_map.find (this_Dmult->second.base);
+		if (this_Dmult->second.diff == 0) {
+			luc_dbl (&pp1data.gwdata, it_base->second.val.x, this_Dmult->second.val.x);
+		}
+		// Compute using luc_add if diff is non-zero
+		else {
+			auto it_addin = Dmultiple_map.find (this_Dmult->second.addin);
+			auto it_diff = Dmultiple_map.find (this_Dmult->second.diff);
+			luc_add (&pp1data.gwdata, it_base->second.val.x, it_addin->second.val.x, it_diff->second.val.x, this_Dmult->second.val.x);
+			// Free addin, diff if no longer needed
+			it_addin->second.free_if_Dmult_last_used_by (this_Dmult->first);
+			it_diff->second.free_if_Dmult_last_used_by (this_Dmult->first);
+		}
+		// Free base if no longer needed
+		it_base->second.free_if_Dmult_last_used_by (this_Dmult->first);
+	}
+//GW: are xz buffers allocated by Dmultiple map properly cleaned up (especially in oom case)?  use class to do it? 
+
+/* Compute relp sets other than 0,-1 */
+
+	int	num_partials;
+	num_partials = one_based_modulo (pp1data.totrels, numrels);
+	// Loop over every relp_set we need to calculate
+	for (auto it_relp_set = relp_set_map.begin (); it_relp_set != relp_set_map.end (); ++it_relp_set) {
+		// Relp sets 0 and -1 are already computed
+		if (it_relp_set->first == 0 || it_relp_set->first == -1) continue;
+		// Find the base relp_set and diff relp_set needed to create this relp_set
+		auto it_base_relp_set = relp_set_map.find (it_relp_set->second.base);
+		auto it_diff_relp_set = relp_set_map.find (it_relp_set->second.diff);
+		// Find the Dmultiple needed to create this relp_set
+		auto it_Dmultiple = Dmultiple_map.find (it_relp_set->second.Dmultiple);
+		// Loop over all relative primes below D/2
+		for (i = 0; i < numrels; i++) {
+			gwnum	Vbase, Vdiff, Vnew;
+			int	ni;
+
+			// Get the base gwnum from the nQx entry
+			ni = it_base_relp_set->second.nQx_store + i;
+			Vbase = pp1data.nQx[ni];
+			// Get the diff gwnum from the diff nQx entry
+			// If diff has a different sign bit than base, then we need to index the diff relp_set in reverse order
+			ni = it_diff_relp_set->second.nQx_store;
+			if (((it_base_relp_set->first < 0) ^ (it_diff_relp_set->first < 0)) == 0) ni += i; else ni += (numrels-1)-i;
+			Vdiff = pp1data.nQx[ni];
+
+			// Calculate this relp if needed
+			if (!it_relp_set->second.partial || i < num_partials) {
+				// Allocate the new relp value
+				Vnew = gwalloc (&pp1data.gwdata);
+				if (Vnew == NULL) goto lowmem;
+
+				// Compute the new relp value
+				luc_add (&pp1data.gwdata, Vbase, it_Dmultiple->second.val.x, Vdiff, Vnew);	// Vnew = Vbase + Dmult, Vdiff e.g. 47+30 or 29+30
+
+				// Add the relp to the nQx array.
+				ni = it_relp_set->second.nQx_store + i;
+				pp1data.nQx[ni] = Vnew;
+			}
+
+			// If base is not needed for further relp_set calculations, then free Vbase
+			if (it_base_relp_set->second.last_used_by == it_relp_set->first && (!it_base_relp_set->second.partial || i < num_partials)) {
+				if (!it_base_relp_set->second.permanent) {
+					gwfree (&pp1data.gwdata, Vbase);
+				}
+			}
+
+			// If diff is not needed for further relp_set calculations, then free Vdiff
+			if (it_diff_relp_set->second.last_used_by == it_relp_set->first && (!it_diff_relp_set->second.partial || i < num_partials)) {
+				if (!it_diff_relp_set->second.permanent) {
+					gwfree (&pp1data.gwdata, Vdiff);
+				}
+			}
+		}
+		// Free the Dmultiple if this is the last time it will be used
+		it_Dmultiple->second.free_if_relp_last_used_by (it_relp_set->first);
+	}
+
+/* Clear the maps used to build relp sets */
+
+	Dmultiple_map.clear ();
+	relp_set_map.clear ();
 
 /* Stage 2 init complete, change the title, output a message */
 
@@ -9884,101 +10416,102 @@ replan:	{
 	start_timer_from_zero (timers, 1);
 	last_output = last_output_t = last_output_r = 0;
 	for ( ; ; ) {
-		uint64_t bitnum;
 
-/* Test which relprimes in this D section need to be processed */
+/* Get next pairing from the pairmap */
 
-		bitnum = (pp1data.Dsection - pp1data.bitarrayfirstDsection) * pp1data.totrels;
-		for (i = 0; i < pp1data.totrels; i++) {
+		pp1data.relp += next_pair (&pp1data.pairmap_ptr);
 
-/* Skip this relprime if the pairing routine did not set the corresponding bit in the bitarray. */
+/* Make a quick check for end of the pairmap and no more pairmaps needed (i.e. we're done with stage 2) */
 
-			if (! bittst (pp1data.bitarray, bitnum + i)) continue;
+		if (pp1data.relp >= pp1data.totrels && pp1data.Dsection + pp1data.relp / pp1data.totrels >= pp1data.numDsections) break;
+
+/* Move to next D section when appropriate */
+
+		while (pp1data.relp >= pp1data.totrels) {
+			pp1data.Dsection++;
+			pp1data.relp -= pp1data.totrels;
+			luc_add (&pp1data.gwdata, pp1data.Vn1, pp1data.V, pp1data.Vn, pp1data.Vn);	// Vn2 = Vn1 + V, diff = Vn
+			gwswap (pp1data.Vn, pp1data.Vn1);						// Vn = Vn1, Vn1 = Vn2
+//GW: check for errors?
+		}
+
+/* Check for end of pairing map.  If so, generate next pairing map. */
+
+		if (pp1data.pairmap_ptr == pp1data.pairmap + pp1data.pairmap_size) {
+			ASSERTG (pp1data.relp == 0);
+			pp1data.C_done = pp1data.B2_start + pp1data.Dsection * pp1data.D;
+			pp1data.first_relocatable = calc_new_first_relocatable (pp1data.D, pp1data.C_done);
+			stop_reason = fill_pairmap (pp1data.thread_num, &pp1data.sieve_info, pp1data.D, 0,0,0, pp1data.totrels, pp1data.relp_sets+3,
+						    pp1data.first_relocatable, pp1data.last_relocatable, pp1data.C_done, pp1data.C,
+						    pp1data.max_pairmap_Dsections, &pp1data.pairmap, &pp1data.pairmap_size);
+			if (stop_reason) {
+//GW:				is save possible here with no pairmap generated?
+				pp1_save (&pp1data);
+				goto exit;
+			}
+			pp1data.pairmap_ptr = pp1data.pairmap;
+			pp1data.relp = -1;
+			continue;
+		}
 
 /* Multiply this Vn1 - nQx value into the gg accumulator */
 
-			saving = testSaveFilesFlag (thread_num);
-			stop_reason = stopCheck (thread_num);
-			gwsubmul4 (&pp1data.gwdata, pp1data.Vn1, pp1data.nQx[i], pp1data.gg, pp1data.gg, (!stop_reason && !saving) ? GWMUL_STARTNEXTFFT : 0);
+		saving = testSaveFilesFlag (thread_num);
+		stop_reason = stopCheck (thread_num);
+		gwsubmul4 (&pp1data.gwdata, pp1data.Vn1, pp1data.nQx[pp1data.relp], pp1data.gg, pp1data.gg, (!stop_reason && !saving) ? GWMUL_STARTNEXTFFT : 0);
 
-/* Clear pairing bit from the bitarray in case a save file is written.  Calculate stage 2 percentage. */
+/* Calculate stage 2 percentage. */
 
-			bitclr (pp1data.bitarray, bitnum + i);
-			w->pct_complete = base_pct_complete + (double) (pp1data.Dsection * pp1data.totrels + i) * one_bit_pct;
+		w->pct_complete = base_pct_complete + (double) (pp1data.Dsection * pp1data.totrels + pp1data.relp) * one_relp_pct;
 
 /* Test for errors */
 
-			if (gw_test_for_error (&pp1data.gwdata) || gw_get_maxerr (&pp1data.gwdata) > allowable_maxerr) goto err;
+		if (gw_test_for_error (&pp1data.gwdata) || gw_get_maxerr (&pp1data.gwdata) > allowable_maxerr) goto err;
 
 /* Output the title every so often */
 
-			if (first_iter_msg ||
-			    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pp1data.gwdata) >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
-				sprintf (buf, "%.*f%% of %s P+1 stage 2 (using %uMB)",
-					 (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&pp1data.gwdata), memused);
-				title (thread_num, buf);
-				last_output_t = gw_get_fft_count (&pp1data.gwdata);
-			}
+		if (first_iter_msg ||
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pp1data.gwdata) >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
+			sprintf (buf, "%.*f%% of %s P+1 stage 2 (using %uMB)",
+				 (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&pp1data.gwdata), memused);
+			title (thread_num, buf);
+			last_output_t = gw_get_fft_count (&pp1data.gwdata);
+		}
 
 /* Write out a message every now and then */
 
-			if (first_iter_msg ||
-			    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pp1data.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
-				sprintf (buf, "%s stage 2 is %.*f%% complete.",
-					 gwmodulo_as_string (&pp1data.gwdata), (int) PRECISION, trunc_percent (w->pct_complete));
-				end_timer (timers, 0);
-				if (first_iter_msg) {
-					strcat (buf, "\n");
-				} else {
-					strcat (buf, " Time: ");
-					print_timer (timers, 0, buf, TIMER_NL);
-				}
-				OutputStr (thread_num, buf);
-				start_timer_from_zero (timers, 0);
-				last_output = gw_get_fft_count (&pp1data.gwdata);
-				first_iter_msg = FALSE;
+		if (first_iter_msg ||
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pp1data.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
+			sprintf (buf, "%s stage 2 is %.*f%% complete.",
+				 gwmodulo_as_string (&pp1data.gwdata), (int) PRECISION, trunc_percent (w->pct_complete));
+			end_timer (timers, 0);
+			if (first_iter_msg) {
+				strcat (buf, "\n");
+			} else {
+				strcat (buf, " Time: ");
+				print_timer (timers, 0, buf, TIMER_NL);
 			}
+			OutputStr (thread_num, buf);
+			start_timer_from_zero (timers, 0);
+			last_output = gw_get_fft_count (&pp1data.gwdata);
+			first_iter_msg = FALSE;
+		}
 
 /* Write out a message to the results file every now and then */
 
-			if ((ITER_OUTPUT_RES != 999999999 && gw_get_fft_count (&pp1data.gwdata) >= last_output_r + 2 * ITER_OUTPUT_RES) ||
-			    (NO_GUI && stop_reason)) {
-				sprintf (buf, "%s stage 2 is %.*f%% complete.\n",
-					 gwmodulo_as_string (&pp1data.gwdata), (int) PRECISION, trunc_percent (w->pct_complete));
-				writeResults (buf);
-				last_output_r = gw_get_fft_count (&pp1data.gwdata);
-			}
+		if ((ITER_OUTPUT_RES != 999999999 && gw_get_fft_count (&pp1data.gwdata) >= last_output_r + 2 * ITER_OUTPUT_RES) ||
+		    (NO_GUI && stop_reason)) {
+			sprintf (buf, "%s stage 2 is %.*f%% complete.\n",
+				 gwmodulo_as_string (&pp1data.gwdata), (int) PRECISION, trunc_percent (w->pct_complete));
+			writeResults (buf);
+			last_output_r = gw_get_fft_count (&pp1data.gwdata);
+		}
 
 /* Periodicly write a save file */
 
-			if (stop_reason || saving) {
-				pp1_save (&pp1data);
-				if (stop_reason) goto exit;
-			}
-		}
-
-/* Move onto the next D section when we are done with all the relprimes */
-
-		pp1data.Dsection++;
-		pp1data.C_done = pp1data.B2_start + pp1data.Dsection * pp1data.D;
-		if (pp1data.Dsection >= pp1data.numDsections) break;
-
-		luc_add (&pp1data.gwdata, pp1data.Vn1, pp1data.V, pp1data.Vn, pp1data.Vn);	// Vn2 = Vn1 + V, diff = Vn
-		gwswap (pp1data.Vn, pp1data.Vn1);						// Vn = Vn1, Vn1 = Vn2
-//GW: check for errors?
-
-/* See if more bitarrays are required to get us to bound #2 */
-
-		if (pp1data.Dsection < pp1data.bitarrayfirstDsection + pp1data.bitarraymaxDsections) continue;
-
-		pp1data.first_relocatable = calc_new_first_relocatable (pp1data.D, pp1data.C_done);
-		pp1data.bitarrayfirstDsection = pp1data.Dsection;
-		stop_reason = fill_work_bitarray (pp1data.thread_num, &pp1data.sieve_info, pp1data.D, pp1data.totrels,
-						  pp1data.first_relocatable, pp1data.last_relocatable, pp1data.C_done, pp1data.C,
-						  pp1data.bitarraymaxDsections, &pp1data.bitarray);
-		if (stop_reason) {
+		if (stop_reason || saving) {
 			pp1_save (&pp1data);
-			goto exit;
+			if (stop_reason) goto exit;
 		}
 	}
 	pp1data.C_done = pp1data.interim_C;
@@ -9987,7 +10520,7 @@ replan:	{
 
 	for (i = 0; i < pp1data.totrels; i++) gwfree (&pp1data.gwdata, pp1data.nQx[i]);
 	free (pp1data.nQx), pp1data.nQx = NULL;
-	free (pp1data.bitarray), pp1data.bitarray = NULL;
+	free (pp1data.pairmap), pp1data.pairmap = NULL;
 
 /* Check for the rare cases where we need to do even more stage 2.  This happens when continuing a save file in the middle of stage 2 and */
 /* the save file's target bound #2 is smaller than our target bound #2. */
@@ -10110,6 +10643,7 @@ lowmem:	stop_reason = OutOfMemory (thread_num);
 possible_lowmem:
 	if (pp1data.state == PP1_STATE_MIDSTAGE) pp1_save (&pp1data);
 	if (stop_reason != STOP_OUT_OF_MEM) goto exit;
+//GW: saving file twice?
 	pp1_save (&pp1data);
 	pp1_cleanup (&pp1data);
 	OutputBoth (thread_num, "Memory allocation error.  Trying again using less memory.\n");
@@ -10190,9 +10724,9 @@ bingo:	if (pp1data.state < PP1_STATE_MIDSTAGE)
 	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* Send assignment result to the server.  To avoid flooding the server with small factors from users needlessly redoing */
-/* factoring work, make sure the factor is more than 60 bits or so. */
+/* factoring work, make sure the factor is more than 67 bits or so. */
 
-	if (!QA_IN_PROGRESS && (strlen (str) >= 18 || IniGetInt (INI_FILE, "SendAllFactorData", 0))) {
+	if (!QA_IN_PROGRESS && (strlen (str) >= 21 || IniGetInt (INI_FILE, "SendAllFactorData", 0))) {
 		struct primenetAssignmentResult pkt;
 		memset (&pkt, 0, sizeof (pkt));
 		strcpy (pkt.computer_guid, COMPUTER_GUID);
@@ -10238,9 +10772,7 @@ bingo:	if (pp1data.state < PP1_STATE_MIDSTAGE)
 err:	if (gw_get_maxerr (&pp1data.gwdata) > allowable_maxerr) {
 		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file.\n", gw_get_maxerr (&pp1data.gwdata));
 		OutputStr (thread_num, buf);
-		// Restart with an abnormally high allowable maxerr (avoids loops for barely over the limit roundoff errors)
-		if (gw_get_maxerr (&pp1data.gwdata) < 0.46 && allowable_maxerr < 0.46) restart_maxerr = 0.46;
-//GW: BUG - can we instead alter the restart value so that we operate on different FFT data?
+		maxerr_restart_count++;
 	} else {
 		OutputBoth (thread_num, "SUMOUT error occurred.\n");
 		stop_reason = SleepFive (thread_num);
@@ -10256,7 +10788,7 @@ error_restart:
 
 /* Read a file of P+1 tests to run as part of a QA process */
 /* The format of this file is: */
-/*	k, n, c, B1, B2_start, B2_end, factor */
+/*	k, n, c, B1, B2, start, factor */
 /* Use Advanced/Time 9993 to run the QA suite */
 
 int pplus1_QA (
@@ -10283,7 +10815,7 @@ int pplus1_QA (
 	for ( ; ; ) {
 		struct work_unit w;
 		double	k;
-		unsigned long b, n, B1, B2_start, B2_end;
+		unsigned long b, n, B1, B2, start;
 		signed long c;
 		char	fac_str[80];
 		int	stop_reason;
@@ -10291,7 +10823,7 @@ int pplus1_QA (
 /* Read a line from the file */
 
 		n = 0;
-		(void) fscanf (fd, "%lf,%lu,%lu,%ld,%lu,%lu,%lu,%s\n", &k, &b, &n, &c, &B1, &B2_start, &B2_end, fac_str);
+		(void) fscanf (fd, "%lf,%lu,%lu,%ld,%lu,%lu,%lu,%s\n", &k, &b, &n, &c, &B1, &B2, &start, fac_str);
 		if (n == 0) break;
 
 /* If p is 1, set QA_TYPE */
@@ -10312,7 +10844,6 @@ print out each test case (all relevant data)*/
 
 /* Do the P+1 */
 
-		if (B2_start < B1) B2_start = B1;
 		memset (&w, 0, sizeof (w));
 		w.work_type = WORK_PPLUS1;
 		w.k = k;
@@ -10320,8 +10851,8 @@ print out each test case (all relevant data)*/
 		w.n = n;
 		w.c = c;
 		w.B1 = B1;
-		w.B2_start = B2_start;
-		w.B2 = B2_end;
+		w.B2 = B2;
+		w.nth_run = start;
 		QA_IN_PROGRESS = TRUE;
 		stop_reason = pplus1 (0, sp_info, &w);
 		QA_IN_PROGRESS = FALSE;
