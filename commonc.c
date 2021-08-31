@@ -2773,7 +2773,8 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		q = strchr (q+1, ',');
 		w->nth_run = 1;
 		if (q != NULL && q[1] != '"') {
-			w->nth_run = atoi (q+1);
+			int nth_run = atoi (q+1);
+			if (nth_run >= 1 && nth_run <= 3) w->nth_run = nth_run;
 			q = strchr (q+1, ',');
 		}
 		w->sieve_depth = 0.0;
@@ -4128,35 +4129,31 @@ void DirPlusFilename (
 int read_array (
 	int	fd,
 	char	*buf,
-	unsigned long len,
+	size_t	len,
 	unsigned long *sum)
 {
-	unsigned long i;
+	size_t	i;
 	unsigned char *ubuf;
 
-	if (_read (fd, buf, len) != len) return (FALSE);
+	if (__read (fd, buf, len) != len) return (FALSE);
 	ubuf = (unsigned char *) buf;
-	if (sum != NULL)
-		for (i = 0; i < len; i++)
-			*sum = (uint32_t) (*sum + ubuf[i]);
+	if (sum != NULL) for (i = 0; i < len; i++) *sum = (uint32_t) (*sum + ubuf[i]);
 	return (TRUE);
 }
 
 int write_array (
 	int	fd,
 	const char *buf,
-	unsigned long len,
+	size_t	len,
 	unsigned long *sum)
 {
-	unsigned long i;
+	size_t	i;
 	unsigned char *ubuf;
 
 	if (len == 0) return (TRUE);
-	if (_write (fd, buf, len) != len) return (FALSE);
+	if (__write (fd, buf, len) != len) return (FALSE);
 	ubuf = (unsigned char *) buf;
-	if (sum != NULL)
-		for (i = 0; i < len; i++)
-			*sum = (uint32_t) (*sum + ubuf[i]);
+	if (sum != NULL) for (i = 0; i < len; i++) *sum = (uint32_t) (*sum + ubuf[i]);
 	return (TRUE);
 }
 
@@ -4257,6 +4254,46 @@ err:	pushg (&gwdata->gdata, 1);
 
 /* Routines to read and write values from and to a save file */
 
+int read_uint32 (
+	int	fd,
+	uint32_t *val,
+	unsigned long *sum)
+{
+	if (_read (fd, val, sizeof (uint32_t)) != sizeof (uint32_t)) return (FALSE);
+	if (sum != NULL) *sum = (uint32_t) (*sum + *val);
+	return (TRUE);
+}
+
+int write_uint32 (
+	int	fd,
+	uint32_t val,
+	unsigned long *sum)
+{
+	if (_write (fd, &val, sizeof (uint32_t)) != sizeof (uint32_t)) return (FALSE);
+	if (sum != NULL) *sum = (uint32_t) (*sum + val);
+	return (TRUE);
+}
+
+int read_uint64 (
+	int	fd,
+	uint64_t *val,
+	unsigned long *sum)
+{
+	if (_read (fd, val, sizeof (uint64_t)) != sizeof (uint64_t)) return (FALSE);
+	if (sum != NULL) *sum = (uint32_t) (*sum + (*val >> 32) + *val);
+	return (TRUE);
+}
+
+int write_uint64 (
+	int	fd,
+	uint64_t val,
+	unsigned long *sum)
+{
+	if (_write (fd, &val, sizeof (uint64_t)) != sizeof (uint64_t)) return (FALSE);
+	if (sum != NULL) *sum = (uint32_t) (*sum + (val >> 32) + val);
+	return (TRUE);
+}
+
 int read_short (			/* Used for old-style save files */
 	int	fd,
 	short	*val)
@@ -4339,28 +4376,6 @@ int write_int (
 	unsigned long *sum)
 {
 	return (write_slong (fd, val, sum));
-}
-
-int read_longlong (
-	int	fd,
-	uint64_t *val,
-	unsigned long *sum)
-{
-	if (_read (fd, val, sizeof (uint64_t)) != sizeof (uint64_t))
-		return (FALSE);
-	if (sum != NULL) *sum = (uint32_t) (*sum + (*val >> 32) + *val);
-	return (TRUE);
-}
-
-int write_longlong (
-	int	fd,
-	uint64_t val,
-	unsigned long *sum)
-{
-	if (_write (fd, &val, sizeof (uint64_t)) != sizeof (uint64_t))
-		return (FALSE);
-	if (sum != NULL) *sum = (uint32_t) (*sum + (val >> 32) + val);
-	return (TRUE);
 }
 
 int read_double (
