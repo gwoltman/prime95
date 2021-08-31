@@ -673,6 +673,15 @@ double best_stage2_impl (
 /*                                   ECM, P-1, and P+1 common general utility routines                                */
 /**********************************************************************************************************************/
 
+// Return the window size for the prime pairing routine.  This is user-configurable based on the size of the number being worked on.
+
+int pair_window_size (
+	double	bit_length)
+{
+	bool windowed = (bit_length < IniGetInt (INI_FILE, "MaxPairingWindowExponent", 80000000));
+	return (windowed ? IniGetInt (INI_FILE, "PairingWindowSize", 1000) : 0);
+}
+
 /* Set N, the number we are trying to factor */
 
 int setN (
@@ -3785,9 +3794,9 @@ int ecm_stage2_impl (
 
 /* Create a map of (hopefully) close-to-optimal prime pairings */
 
-	stop_reason = fill_pairmap (ecmdata->thread_num, &ecmdata->sieve_info, ecmdata->D, 0,0,0, ecmdata->totrels, ecmdata->relp_sets+3,
-				    ecmdata->first_relocatable, ecmdata->last_relocatable, ecmdata->B2_start, ecmdata->C,
-				    ecmdata->max_pairmap_Dsections, &ecmdata->pairmap, &ecmdata->pairmap_size);
+	stop_reason = fill_pairmap (ecmdata->thread_num, &ecmdata->sieve_info, ecmdata->D, pair_window_size (ecmdata->gwdata.bit_length),0,0,0,
+				    ecmdata->totrels, ecmdata->relp_sets+3, ecmdata->first_relocatable, ecmdata->last_relocatable,
+				    ecmdata->B2_start, ecmdata->C, ecmdata->max_pairmap_Dsections, &ecmdata->pairmap, &ecmdata->pairmap_size);
 	if (stop_reason) return (stop_reason);
 	ecmdata->pairmap_ptr = ecmdata->pairmap;
 	ecmdata->Dsection = 0;
@@ -5444,9 +5453,9 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 			ASSERTG (ecmdata.relp == 0);
 			ecmdata.C_done = ecmdata.B2_start + ecmdata.Dsection * ecmdata.D;
 			ecmdata.first_relocatable = calc_new_first_relocatable (ecmdata.D, ecmdata.C_done);
-			stop_reason = fill_pairmap (ecmdata.thread_num, &ecmdata.sieve_info, ecmdata.D, 0,0,0, ecmdata.totrels, ecmdata.relp_sets+3,
-						    ecmdata.first_relocatable, ecmdata.last_relocatable, ecmdata.C_done, ecmdata.C,
-						    ecmdata.max_pairmap_Dsections, &ecmdata.pairmap, &ecmdata.pairmap_size);
+			stop_reason = fill_pairmap (ecmdata.thread_num, &ecmdata.sieve_info, ecmdata.D, pair_window_size (ecmdata.gwdata.bit_length),0,0,0,
+						    ecmdata.totrels, ecmdata.relp_sets+3, ecmdata.first_relocatable, ecmdata.last_relocatable,
+						    ecmdata.C_done, ecmdata.C, ecmdata.max_pairmap_Dsections, &ecmdata.pairmap, &ecmdata.pairmap_size);
 			if (stop_reason) {
 //GW:				is save possible here with no pairmap generated?
 				ecm_save (&ecmdata);
@@ -6745,9 +6754,9 @@ int pm1_stage2_impl (
 
 /* Create a map of (hopefully) close-to-optimal prime pairings */
 
-	stop_reason = fill_pairmap (pm1data->thread_num, &pm1data->sieve_info, pm1data->D, 0,0,0, pm1data->totrels, pm1data->relp_sets+3,
-				    pm1data->first_relocatable, pm1data->last_relocatable, pm1data->B2_start, pm1data->C,
-				    pm1data->max_pairmap_Dsections, &pm1data->pairmap, &pm1data->pairmap_size);
+	stop_reason = fill_pairmap (pm1data->thread_num, &pm1data->sieve_info, pm1data->D, pair_window_size (pm1data->gwdata.bit_length),0,0,0,
+				    pm1data->totrels, pm1data->relp_sets+3, pm1data->first_relocatable, pm1data->last_relocatable,
+				    pm1data->B2_start, pm1data->C, pm1data->max_pairmap_Dsections, &pm1data->pairmap, &pm1data->pairmap_size);
 	if (stop_reason) return (stop_reason);
 	pm1data->pairmap_ptr = pm1data->pairmap;
 	pm1data->Dsection = 0;
@@ -7825,9 +7834,9 @@ replan:	{
 			ASSERTG (pm1data.relp == 0);
 			pm1data.C_done = pm1data.B2_start + pm1data.Dsection * pm1data.D;
 			pm1data.first_relocatable = calc_new_first_relocatable (pm1data.D, pm1data.C_done);
-			stop_reason = fill_pairmap (pm1data.thread_num, &pm1data.sieve_info, pm1data.D, 0,0,0, pm1data.totrels, pm1data.relp_sets+3,
-						    pm1data.first_relocatable, pm1data.last_relocatable, pm1data.C_done, pm1data.C,
-						    pm1data.max_pairmap_Dsections, &pm1data.pairmap, &pm1data.pairmap_size);
+			stop_reason = fill_pairmap (pm1data.thread_num, &pm1data.sieve_info, pm1data.D, pair_window_size (pm1data.gwdata.bit_length),0,0,0,
+						    pm1data.totrels, pm1data.relp_sets+3, pm1data.first_relocatable, pm1data.last_relocatable,
+						    pm1data.C_done, pm1data.C, pm1data.max_pairmap_Dsections, &pm1data.pairmap, &pm1data.pairmap_size);
 			if (stop_reason) {
 //GW:				is save possible here with no pairmap generated?
 				pm1_save (&pm1data);
@@ -9218,9 +9227,9 @@ int pp1_stage2_impl (
 
 /* Create a map of (hopefully) close-to-optimal prime pairings */
 
-	stop_reason = fill_pairmap (pp1data->thread_num, &pp1data->sieve_info, pp1data->D, 0,0,0, pp1data->totrels, pp1data->relp_sets+3,
-				    pp1data->first_relocatable, pp1data->last_relocatable, pp1data->B2_start, pp1data->C,
-				    pp1data->max_pairmap_Dsections, &pp1data->pairmap, &pp1data->pairmap_size);
+	stop_reason = fill_pairmap (pp1data->thread_num, &pp1data->sieve_info, pp1data->D, pair_window_size (pp1data->gwdata.bit_length),0,0,0,
+				    pp1data->totrels, pp1data->relp_sets+3, pp1data->first_relocatable, pp1data->last_relocatable,
+				    pp1data->B2_start, pp1data->C, pp1data->max_pairmap_Dsections, &pp1data->pairmap, &pp1data->pairmap_size);
 	if (stop_reason) return (stop_reason);
 	pp1data->pairmap_ptr = pp1data->pairmap;
 	pp1data->Dsection = 0;
@@ -10441,9 +10450,9 @@ replan:	{
 			ASSERTG (pp1data.relp == 0);
 			pp1data.C_done = pp1data.B2_start + pp1data.Dsection * pp1data.D;
 			pp1data.first_relocatable = calc_new_first_relocatable (pp1data.D, pp1data.C_done);
-			stop_reason = fill_pairmap (pp1data.thread_num, &pp1data.sieve_info, pp1data.D, 0,0,0, pp1data.totrels, pp1data.relp_sets+3,
-						    pp1data.first_relocatable, pp1data.last_relocatable, pp1data.C_done, pp1data.C,
-						    pp1data.max_pairmap_Dsections, &pp1data.pairmap, &pp1data.pairmap_size);
+			stop_reason = fill_pairmap (pp1data.thread_num, &pp1data.sieve_info, pp1data.D, pair_window_size (pp1data.gwdata.bit_length),0,0,0,
+						    pp1data.totrels, pp1data.relp_sets+3, pp1data.first_relocatable, pp1data.last_relocatable,
+						    pp1data.C_done, pp1data.C, pp1data.max_pairmap_Dsections, &pp1data.pairmap, &pp1data.pairmap_size);
 			if (stop_reason) {
 //GW:				is save possible here with no pairmap generated?
 				pp1_save (&pp1data);

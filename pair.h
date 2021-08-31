@@ -28,6 +28,7 @@ int fill_pairmap (			/* Generate a pairing map */
 	int	thread_num,		/* For outputting informative messages */
 	void	**sieve_info,		/* Prime number sieve to use / initialize */
 	int	D,			/* Calculated by best_stage2_impl, best D value ("big step") */
+	int	WINDOW_SIZE,		/* Size (in number of D values) of the prime window.  Use zero for non-windowed pairing (slower but optimal). */
 	int	ALT_D,			/* Calculated by best_stage2_impl, best additional D value (if any) */
 	int	ALT_D_OFFSET,		/* Calculated by best_stage2_impl, best additional D value "offset" (if any) */
 	int	ALT_MORE_RELPS,		/* Calculated by best_stage2_impl, include relative primes divisible by this value in support of additional D value */

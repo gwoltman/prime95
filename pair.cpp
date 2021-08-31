@@ -34,20 +34,10 @@
 uint32_t next_pow2 (uint32_t v) { v--; v |= v >> 1; v |= v >> 2; v |= v >> 4; v |= v >> 8; v |= v >> 16; v++; return (v); }
 
 #define ONE_TIMES_BASE	1
-#define WINDOWED	01
 #define MAX_PASSES	1
 #define ON_THE_FLY_CAN_PAIR_TO			// Turn off if doing a non-windowed search (off is not fully implemented for windowed)
 #define FIRST_EXIT	0
 #define MAX_LINKS	500			// Controls how hard we search for another pairing (especially useful when there are lots of relocs)
-
-#if WINDOWED != 0
-#define WINDOW_SIZE		1000
-#define WINDOW_REDUCTION_SIZE	1
-//GW:  Consider a window of N values rather than N * D values, make configurable.  A=1 may prefer different window sizing.
-#else
-#define WINDOW_SIZE		10000000
-#define WINDOW_REDUCTION_SIZE	10000000
-#endif
 
 /**********************************************************************************************************************/
 /*                                      Data and routines to estimate pairing percentage                              */
@@ -535,6 +525,7 @@ int fill_pairmap (			/* Generate a pairing map */
 	int	thread_num,		/* For outputting informative messages */
 	void	**sieve_info,		/* Prime number sieve to use / initialize */
 	int	D,			/* Calculated by best_stage2_impl, best D value ("big step") */
+	int	WINDOW_SIZE,		/* Size (in number of D values) of the prime window.  Use zero for non-windowed pairing (slower but optimal). */
 	int	ALT_D,			/* Calculated by best_stage2_impl, best additional D value (if any) */
 	int	ALT_D_OFFSET,		/* Calculated by best_stage2_impl, best additional D value "offset" (if any) */
 	int	ALT_MORE_RELPS,		/* Calculated by best_stage2_impl, include relative primes divisible by this value in support of additional D value */
@@ -559,6 +550,18 @@ int fill_pairmap (			/* Generate a pairing map */
 	int	tot_pairs, tot_singles, reloc_singles;
 	int	i, int_multiplier, max_relp;
 	std::vector<int> relps;		/* A set of all possible positive relative primes */
+	bool	WINDOWED;		/* True if faster prime window will be used, reduces prime pairing a little bit */
+	int	WINDOW_REDUCTION_SIZE;	/* Number of D rows to process in the prime window */
+
+/* Do some prep work for windowed vs. non-windowed pairing */
+
+	if (WINDOW_SIZE) {
+		WINDOWED = TRUE;			// This used to be a #define, which is why it in caps
+		WINDOW_REDUCTION_SIZE = 1;		// We originally tried processing half the window at a time.  This was better.
+	} else {
+		WINDOWED = FALSE;			// All primes and relocs are put into one window -- no matter how large that might be
+		WINDOW_REDUCTION_SIZE = 0;		// All rows are processed in the prime window are processed
+	}
 
 /* Sanitize inputs */
 
@@ -841,7 +844,7 @@ int fill_pairmap (			/* Generate a pairing map */
 		}
 
 		// Fill the prime window.  After loading the last row, load all the relocatables above b2_end
-		uint64_t next_prime_window_base = prime_window_base + WINDOW_SIZE * D;
+		uint64_t next_prime_window_base = WINDOWED ? prime_window_base + WINDOW_SIZE * D : B2_end;
 		while ((next_prime = pgen.peek ()) != 0 && (next_prime < next_prime_window_base || next_prime_window_base >= B2_end)) {
 			uint64_t prime, base_prime;
 			uint64_t D_block;
@@ -979,7 +982,7 @@ int fill_pairmap (			/* Generate a pairing map */
 				for (auto && dist : *d) {
 					uint64_t next_in_chain = it->prime + dist;
 					// Ignore possible nexts above the end of the prime window
-					if (next_in_chain > prime_window_base + WINDOW_SIZE * D) continue;
+					if (WINDOWED && next_in_chain > prime_window_base + WINDOW_SIZE * D) continue;
 					// Make sure the next in chain is generated using a D value that is between B2_start and B2_end
 					if ((it->prime + next_in_chain) / 2 < B2_start || (it->prime + next_in_chain) / 2 >= B2_end) continue;
 					// We can't safely use the fast prime_map for primes below prime_window_base.
@@ -1044,7 +1047,7 @@ int fill_pairmap (			/* Generate a pairing map */
 			next_backlink_id ();
 			for (int num_examined = 0; !unexamined.empty(); num_examined++) {
 //GW fine tune this
-				if (WINDOWED && /* next_prime == 0 && */ MAX_LINKS && num_examined > MAX_LINKS) break;
+				if (WINDOWED && MAX_LINKS && num_examined > MAX_LINKS) break;
 
 				// Pop the unexamined link endpoint from the queue
 				auto p_unexamined = unexamined.front();
@@ -1098,7 +1101,7 @@ int fill_pairmap (			/* Generate a pairing map */
 					for (auto && dist : *d) {
 						uint64_t next_in_chain = p_unexamined->prime + dist;
 						// Ignore possible nexts above the end of the prime window
-						if (next_in_chain > prime_window_base + WINDOW_SIZE * D) continue;
+						if (WINDOWED && next_in_chain > prime_window_base + WINDOW_SIZE * D) continue;
 						// Make sure the next in chain is generated using a D value that is between B2_start and B2_end
 						if ((p_unexamined->prime + next_in_chain) / 2 < B2_start ||
 						    (p_unexamined->prime + next_in_chain) / 2 >= B2_end) continue;
