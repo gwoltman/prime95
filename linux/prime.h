@@ -1,4 +1,4 @@
-/* Copyright 1995-2020 Mersenne Research, Inc. */
+/* Copyright 1995-2021 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -48,6 +48,8 @@
 #define _commit(f)	fsync(f)
 #define _open		open
 #define _close		close
+#define __read		read
+#define __write		write
 #define _read		read
 #define _write		write
 #define _lseek		lseek
