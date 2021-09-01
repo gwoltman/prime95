@@ -1,5 +1,14 @@
 /* Copyright 1995-2021 Mersenne Research, Inc.  All rights reserved */
 
+#ifndef _COMMONC_H
+#define _COMMONC_H
+
+/* This is used by C and C++ code.  If used in a C++ program, don't let the C++ compiler mangle names. */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Constants */
 
 #define VERSION		"30.7"
@@ -135,6 +144,7 @@ extern char RESFILE[260];		/* Name of the results file */
 extern char RESFILEBENCH[260];		/* Name of the results.bench file */
 extern char SPOOL_FILE[260];		/* Name of the spool file */
 extern char LOGFILE[260];		/* Name of the server log file */
+extern int NO_GUI;			/* True if there is no graphical user interface */
 
 extern char USERID[21];			/* User's ID */
 extern char COMPID[21];			/* Computer name */
@@ -512,3 +522,9 @@ time_t timed_event_fire_time (
 #define TE_THROTTLE_FREQ	 5	/* Throttle every 5 sec. */
 #define TE_ROLLING_AVERAGE_FREQ	 12*60*60 /* Adjust rolling every 12 hr. */
 #define TE_BENCH_FREQ		 21*60*60 /* Generate auto-benchmark data every 21 hrs. */
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

@@ -106,18 +106,18 @@ void rangeStatusMessage (
 		if (bits < 32) bits = 32;
 		if (w->work_type == WORK_TEST) {
 			ll_and_prp_cnt++;
-			prob += (bits - 1) * 1.733 * (w->pminus1ed ? 1.04 : 1.0) / (_log2(w->k) + _log2(w->b) * w->n);
+			prob += (bits - 1) * 1.733 * (w->pminus1ed ? 1.04 : 1.0) / (log2(w->k) + log2(w->b) * w->n);
 		}
 		if (w->work_type == WORK_DBLCHK) {
 			ll_and_prp_cnt++;
-			prob += (bits - 1) * 1.733 * ERROR_RATE * (w->pminus1ed ? 1.04 : 1.0) / (_log2(w->k) + _log2(w->b) * w->n);
+			prob += (bits - 1) * 1.733 * ERROR_RATE * (w->pminus1ed ? 1.04 : 1.0) / (log2(w->k) + log2(w->b) * w->n);
 		}
 		if (w->work_type == WORK_PRP) {
 			ll_and_prp_cnt++;
 			if (!w->prp_dblchk)
-				prob += (bits - 1) * 1.733 * (w->pminus1ed ? 1.04 : 1.0) / (_log2(w->k) + _log2(w->b) * w->n);
+				prob += (bits - 1) * 1.733 * (w->pminus1ed ? 1.04 : 1.0) / (log2(w->k) + log2(w->b) * w->n);
 			else
-				prob += (bits - 1) * 1.733 * PRP_ERROR_RATE * (w->pminus1ed ? 1.04 : 1.0) / (_log2(w->k) + _log2(w->b) * w->n);
+				prob += (bits - 1) * 1.733 * PRP_ERROR_RATE * (w->pminus1ed ? 1.04 : 1.0) / (log2(w->k) + log2(w->b) * w->n);
 		}
 
 /* Adjust our time estimate */

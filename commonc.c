@@ -22,6 +22,7 @@ char	RESFILEJSON[260] = {0};
 char	SPOOL_FILE[260] = {0};
 char	LOGFILE[260] = {0};
 char	*RESFILES[3] = {RESFILE, RESFILEBENCH, RESFILEJSON};
+int	NO_GUI = 1;
 
 char	USERID[21] = {0};
 char	COMPID[21] = {0};
@@ -3525,7 +3526,7 @@ double work_estimate (
 		}
 
 		timing = gwmap_to_timing (w->k, w->b, w->n, w->c);
-		bits = (int) (w->n * _log2 (w->b));
+		bits = (int) (w->n * log2 (w->b));
 		if (bits <= 80000) overhead = 1.10;
 		else if (bits >= 1500000) overhead = 1.20;
 		else overhead = 1.10 + ((double) bits - 80000.0) / 1420000.0 * (1.20 - 1.10);
@@ -6236,7 +6237,7 @@ retry:
 			// My dream machine CPUs from that era can do 110,000 squarings of 97.3M in 1/100th of a day.
 			daily_MB_limit_remaining -= (float) w.n / (float) 8388608.0;	// Expected MB to download
 			daily_CPU_quota_used = (float) w.cert_squarings / (float) 110000.0;	// Adjust for num_squarings 
-			daily_CPU_quota_used *= (float) pow (2.1, _log2 ((float) w.n / (float) 97300000.0));	// Adjust (roughly) for FFT timing difference
+			daily_CPU_quota_used *= (float) pow (2.1, log2 ((float) w.n / (float) 97300000.0));	// Adjust (roughly) for FFT timing difference
 			daily_CPU_limit_remaining -= daily_CPU_quota_used;
 
 			// Save the updated quotas

@@ -103,6 +103,7 @@ END_MESSAGE_MAP()
 
 CPrime95Doc::CPrime95Doc()
 {
+	NO_GUI = 0;
 }
 
 CPrime95Doc::~CPrime95Doc()
@@ -1189,30 +1190,13 @@ void flashWindowAndBeep ()
 
 #include <ctype.h>
 #include <dos.h>
-#include <fcntl.h>
-#include <io.h>
-#include <memory.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <gwutil.h>
 
-#ifdef X86_64
-#define PORT	4
-#else
-#define PORT	1
-#endif
-#include "cJSON.h"
-#include "cJSON.c"
-#include "pm1prob.h"
-#include "pm1prob.c"
 #include "md5.c"
 #include "comm95b.c"
 #include "comm95c.c"
 #include "commona.c"
 #include "commonb.c"
 #include "commonc.c"
-#include "ecm.c"
 #include "primenet.c"
 #include "proof_upload.c"
 #include "proof_getdata.c"

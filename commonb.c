@@ -10,6 +10,8 @@
 | Commonc contains information used during setup and execution
 +---------------------------------------------------------------------*/
 
+#include "ecm.h"
+
 /* Globals for error messages */
 
 static const char ERRMSG0[] = "Iteration: %ld/%ld, %s";
@@ -32,7 +34,7 @@ static const char ERROK[] = "Disregard last error.  Result is reproducible and t
 static const char READFILEERR[] = "Error reading intermediate file: %s\n";
 static const char WRITEFILEERR[] = "Error writing intermediate file: %s\n";
 static const char ALTSAVE_MSG[] = "Trying backup intermediate file: %s\n";
-static const char ALLSAVEBAD_MSG[] = "All intermediate files bad.  Temporarily abandoning work unit.\n";
+const char ALLSAVEBAD_MSG[] = "All intermediate files bad.  Temporarily abandoning work unit.\n";
 
 /* PauseWhileRunning globals */
 
@@ -135,58 +137,22 @@ gwevent MEM_WAIT_OR_STOP[MAX_NUM_WORKER_THREADS] = {0};
 #define DEFAULT_MEM_USAGE 48	/* 48MB default */
 unsigned long AVAIL_MEM = 0;	/* Memory available now */
 unsigned long MAX_MEM = 0;	/* Max memory available */
-unsigned long AVAIL_MEM_PER_WORKER[MAX_NUM_WORKER_THREADS] = {0};
-				/* Maximum memory each worker can use */
-unsigned long MAX_HIGH_MEM_WORKERS =  0; /* Maximum number of workers */
-				/* allowed to use lots of memory */
-#define MEM_USAGE_NOT_SET 0x1	/* The mem_in_use value is just a guess */
-				/* as the work unit for the thread has not */
-				/* started yet or is restarting. */
-#define MEM_RESTARTING	0x2	/* The mem_in_use value will be changing */
-				/* soon as the thread is being restarted */
-				/* because it was using too much memory. */
-#define MEM_WILL_BE_VARIABLE_USAGE 0x4
-				/* The current work unit will be a */
-				/* variable memory user.  We just don't */
-				/* know how much it will use yet. */
-#define	MEM_VARIABLE_USAGE 0x8	/* The current work unit is using a */
-				/* lot of memory now and if needed could */
-				/* use less if restarted. */
-#define MEM_WAITING	0x10	/* Set if thread is waiting for another thread */
-				/* to stop before returning from set_memory_usage */
-char	MEM_FLAGS[MAX_NUM_WORKER_THREADS] = {0};
-				/* Flags indicating which threads will be */
-				/* affected by a change in memory settings. */
-unsigned int MEM_IN_USE[MAX_NUM_WORKER_THREADS] = {0};
-				/* Array containing memory in use by each */
-				/* worker thread */
+unsigned long AVAIL_MEM_PER_WORKER[MAX_NUM_WORKER_THREADS] = {0};	/* Maximum memory each worker can use */
+unsigned long MAX_HIGH_MEM_WORKERS =  0;				/* Maximum number of workers allowed to use lots of memory */
+char	MEM_FLAGS[MAX_NUM_WORKER_THREADS] = {0};			/* Flags indicating which threads will be affected by a change in memory settings. */
+unsigned int MEM_IN_USE[MAX_NUM_WORKER_THREADS] = {0};			/* Array containing memory in use by each worker thread */
 
-#define MEM_RESTART_LOWMEM_ENDS 0x1
-				/* Worker needs to restart when */
-				/* the LowMemWhileRunning program ends. */
-#define MEM_RESTART_MAX_MEM_AVAILABLE 0x2
-				/* Worker needs to restart when available memory */
-				/* equals maximum memory.  This happens when */
-				/* stage 2 is delayed until max memory is available. */
-#define MEM_RESTART_MAX_MEM_CHANGE 0x4
-				/* Current work unit needs to restart if */
-				/* max mem changes.  P-1 may choose different */
-				/* bounds because of the change */
-#define MEM_RESTART_TOO_MANY_HIGHMEM 0x8
-				/* Worker needs to restart because */
-				/* MAX_HIGH_MEM_WORKERS exceeded. */
-#define MEM_RESTART_MORE_AVAIL 0x10 /* One of the worker's work units did not */
-				/* have enough memory to run.  If memory */
-				/* becomes available restart the worker. */
-#define MEM_RESTART_IF_MORE 0x20 /* The current work unit could use more memory */
-				/* and should be restarted if more becomes */
-				/* available. */
+#define MEM_RESTART_LOWMEM_ENDS 0x1		/* Worker needs to restart when the LowMemWhileRunning program ends. */
+#define MEM_RESTART_MAX_MEM_AVAILABLE 0x2	/* Worker needs to restart when available memory equals maximum memory.  This happens when */
+						/* stage 2 is delayed until max memory is available. */
+#define MEM_RESTART_MAX_MEM_CHANGE 0x4		/* Current work unit needs to restart if max mem changes.  P-1 may choose different bounds because of the change */
+#define MEM_RESTART_TOO_MANY_HIGHMEM 0x8	/* Worker needs to restart because MAX_HIGH_MEM_WORKERS exceeded. */
+#define MEM_RESTART_MORE_AVAIL 0x10		/* One of the worker's work units did not have enough memory to run.  If memory becomes available restart the worker. */
+#define MEM_RESTART_IF_MORE 0x20		/* The current work unit could use more memory and should be restarted if more becomes available. */
 
 char	MEM_RESTART_FLAGS[MAX_NUM_WORKER_THREADS] = {0};
 unsigned int MEM_RESTART_MIN_AMOUNT[MAX_NUM_WORKER_THREADS] = {0};
-unsigned int MEM_RESTART_DESIRED_AMOUNT[MAX_NUM_WORKER_THREADS] = {0};
-				/* Only restart if this amount of memory  */
-				/* is available */
+unsigned int MEM_RESTART_DESIRED_AMOUNT[MAX_NUM_WORKER_THREADS] = {0};	/* Only restart if this amount of memory is available */
 unsigned int MEM_RESTART_IF_MORE_AMOUNT[MAX_NUM_WORKER_THREADS] = {0};
 
 int	MEM_MUTEX_INITIALIZED = FALSE;
@@ -272,11 +238,6 @@ double timer_value (
 	else
 		return (timers[i] / 1000000.0);
 }
-
-#define TIMER_NL	0x1
-#define TIMER_CLR	0x2
-#define TIMER_OPT_CLR	0x4
-#define TIMER_MS	0x8
 
 void print_timer (
 	double	*timers,
@@ -3487,20 +3448,6 @@ void uniquifySaveFile (
 	}
 }
 
-/* Data structure used in reading save files and their backups as well as */
-/* renaming bad save files. */
-
-typedef struct read_save_file_state {
-	int	thread_num;
-	int	read_attempt;
-	int	a_save_file_existed;
-	int	a_non_bad_save_file_existed;
-	int	num_original_bad_files;
-	int	num_save_files_renamed;
-	char	base_filename[80];
-	char	current_filename[80];
-} readSaveFileState;
-
 /* Prepare for reading save files */
 
 void readSaveFileStateInit (
@@ -3656,15 +3603,6 @@ void saveFileBad (
 	rename (state->current_filename, filename);
 	state->num_save_files_renamed++;
 }
-
-/* Data structure used in writing save files and their backups */
-
-typedef struct write_save_file_state {
-	char	base_filename[80];
-	int	num_ordinary_save_files;
-	int	num_special_save_files;		/* Example: Number of save files to keep that passed the Jacobi error check */
-	uint64_t special;			/* Bit array for which ordinary save files are special */
-} writeSaveFileState;
 
 /* Prepare for writing save files */
 
@@ -5436,7 +5374,7 @@ begin:	factor_found = 0;
 /* chosen the difficulty in trial factoring M100000000 to 2^64 as the */
 /* point where it is worthwhile to report results one bit at a time. */
 
-	report_bits = (unsigned long) (64.0 + _log2 ((double) p / 100000000.0));
+	report_bits = (unsigned long) (64.0 + log2 ((double) p / 100000000.0));
 	if (report_bits >= test_bits) report_bits = test_bits;
 
 /* Loop testing larger and larger factors until we've tested to the */
@@ -8615,7 +8553,7 @@ int primeSieveTest (
 		{
 			double	fltfac;
 			fltfac = ((double) fachi * 4294967296.0 + (double) facmid) * 4294967296.0 + (double) faclo;
-			facdata.endpt = pow (2.0, ceil (_log2 (fltfac)));
+			facdata.endpt = pow (2.0, ceil (log2 (fltfac)));
 			if (facdata.endpt > fltfac * 1.1) facdata.endpt = fltfac * 1.1;
 		}
 		facdata.asm_data->FACHSW = fachi;
@@ -11465,7 +11403,7 @@ int prp (
 	unsigned long excess_squarings;		/* Number of extra squarings we are doing in order to generate a PRP proof */
 	int	proof_next_interim_residue;	/* The next interim residue to output */
 	unsigned long proof_next_interim_residue_iter; /* The iteration where the next interim residue occurs */
-	unsigned long initial_log2k_iters, initial_nonproof_iters, final_residue_counter;
+	unsigned long initiallog2k_iters, initial_nonproof_iters, final_residue_counter;
 	int	proof_residue;			/* True if this iteration must output a PRP proof residue */
 	char	proof_hash[33];			/* 128-bit MD5 hash of the proof file */
 
@@ -11571,7 +11509,7 @@ int prp (
 		if (ps.residue_type == PRIMENET_PRP_TYPE_FERMAT_VAR) ps.residue_type = PRIMENET_PRP_TYPE_FERMAT;
 		else if (ps.residue_type == PRIMENET_PRP_TYPE_SPRP_VAR) ps.residue_type = PRIMENET_PRP_TYPE_SPRP;
 	}
-	initial_log2k_iters = (int) floor (_log2 (w->k));
+	initiallog2k_iters = (int) floor (log2 (w->k));
 
 /* If k=1,b=2 and we are doing a traditional Fermat PRP implementation, then interim residues are output based on the bit */
 /* representation of N = 2^n + c - 1.  N looks like this:
@@ -11908,7 +11846,7 @@ begin:	N = exp = NULL;
 /* Calculate the number of squarings in a full or partial proof and number of squarings that are handled outside of the proof */
 
 		ps.proof_num_iters = (w->n + excess_squarings) / ps.proof_power_mult;
-		initial_nonproof_iters = initial_log2k_iters + (w->n + excess_squarings) % ps.proof_power_mult;
+		initial_nonproof_iters = initiallog2k_iters + (w->n + excess_squarings) % ps.proof_power_mult;
 
 /* Map the current iteration (from the save file) into the next interim residue to output */
 
@@ -11940,7 +11878,7 @@ begin:	N = exp = NULL;
 
 /* Calculate the exponent we will use to do our left-to-right binary exponentiation */
 
-	exp = allocgiant (((unsigned long) (w->n * _log2 (w->b) + excess_squarings) >> 5) + 5);
+	exp = allocgiant (((unsigned long) (w->n * log2 (w->b) + excess_squarings) >> 5) + 5);
 	if (exp == NULL) {
 		stop_reason = OutOfMemory (thread_num);
 		goto exit;
@@ -12091,7 +12029,7 @@ begin:	N = exp = NULL;
 			if (w->k != 1.0) {
 				ps.state = PRP_STATE_DCHK_PASS1;
 				ps.start_counter = 0;
-				ps.end_counter = initial_log2k_iters;
+				ps.end_counter = initiallog2k_iters;
 			} else {
 				ps.state = PRP_STATE_GERB_START_BLOCK;
 			}
@@ -12729,7 +12667,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 
 		if ((ps.state == PRP_STATE_NORMAL || ps.state == PRP_STATE_DCHK_PASS1 || ps.state == PRP_STATE_GERB_START_BLOCK) &&
 		    ps.proof_power && ps.counter != final_counter && ps.counter == initial_nonproof_iters + ps.proof_num_iters) {
-			int proof_number = (ps.counter - initial_log2k_iters) / ps.proof_num_iters;
+			int proof_number = (ps.counter - initiallog2k_iters) / ps.proof_num_iters;
 			stop_reason = generateProofFile (&gwdata, &ps, w, proof_number, proof_hash);
 			if (stop_reason) goto exit;
 			initial_nonproof_iters += ps.proof_num_iters;

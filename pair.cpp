@@ -655,7 +655,7 @@ int fill_pairmap (			/* Generate a pairing map */
 		if (last_relocatable < first_relocatable) last_relocatable = first_relocatable;
 	}
 	B2_end_reloc = B2_end - D / 2 + max_relp;
-	ASSERT (first_relocatable == last_relocatable || (last_relocatable * relps[1] >= B2_start && last_relocatable * relps[1] <= B2_end));
+	ASSERTG (first_relocatable == last_relocatable || (last_relocatable * relps[1] >= B2_start && last_relocatable * relps[1] <= B2_end));
 
 /* Init class to generate each prime (or more than one for relocatables) between B2_start and B2_end. */
 
