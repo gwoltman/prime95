@@ -1188,9 +1188,6 @@ void flashWindowAndBeep ()
 /////////////////////////////////////////////////////////////////////////////
 // CPrime95Doc public routines
 
-#include <ctype.h>
-#include <dos.h>
-
 #include "md5.c"
 #include "comm95b.c"
 #include "comm95c.c"

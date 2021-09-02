@@ -16,7 +16,7 @@ LDFLAGS += -fpie -L$(LOCALBASE)/lib -Wl,-M
 LIBS += ../gwnum/gwnum.a ../gwnum/gwnum.ld -lm -lpthread -lhwloc -lcurl -lstdc++ -lcompat -lgmp
 
 FACTOROBJ = factor32.o
-OBJS = prime.o menu.o cJSON.o ecm.o pm1prob.o
+OBJS = prime.o menu.o cJSON.o ecm.o pair.o pm1prob.o
 EXE      = mprime
 
 #########################################################################
