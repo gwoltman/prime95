@@ -6293,7 +6293,9 @@ int pm1_old_restore (
 		pm1data->interim_B = B;
 		pm1data->stage1_prime = processed;
 	} else if (state == 1) {			// PM1_STATE_STAGE2
-		pm1data->state = PM1_STATE_MIDSTAGE;
+		pm1data->state = PM1_STATE_STAGE1;
+		pm1data->stage1_prime = B_done;
+		pm1data->interim_B = B_done;
 		pm1data->B_done = B_done;
 		pm1data->C_done = B_done;
 		// Current stage 2 code is incompatible with older save files
@@ -6386,6 +6388,10 @@ int pm1_restore (			/* For version 30.4 and later save files */
 		if (! read_int (fd, &pm1data->stage2_numvals, &sum)) goto readerr;
 		if (! read_int (fd, &pm1data->totrels, &sum)) goto readerr;
 		if (! read_int (fd, &pm1data->D, &sum)) goto readerr;
+		if (version == 4) {		// 30.4 save files
+			int	E;
+			if (! read_int (fd, &E, &sum)) goto readerr;
+		}
 		if (! read_uint64 (fd, &pm1data->first_relocatable, &sum)) goto readerr;
 		if (! read_uint64 (fd, &pm1data->last_relocatable, &sum)) goto readerr;
 		if (! read_uint64 (fd, &pm1data->B2_start, &sum)) goto readerr;
@@ -6458,8 +6464,10 @@ int pm1_restore (			/* For version 30.4 and later save files */
 
 /* Version 30.4 save files cannot continue in stage 2 */
 
-	if (version == 4 && pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_GCD) {
-		pm1data->state = PM1_STATE_MIDSTAGE;
+	if (version == 4 && pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_STAGE2) {
+		pm1data->state = PM1_STATE_STAGE1;		/* Can't set state to mid-stage because x+1/x has not been computed */
+		pm1data->stage1_prime = pm1data->B_done;
+		pm1data->interim_B = pm1data->B_done;
 		OutputStr (pm1data->thread_num, "Old P-1 save file was in stage 2.  Restarting stage 2 from scratch.\n");
 		gwfree (&pm1data->gwdata, pm1data->gg);
 		pm1data->gg = NULL;
@@ -7358,7 +7366,7 @@ restart1:
 
 	if (pm1data.B > pm1data.B_done) {
 more_B:		pm1data.interim_B = pm1data.B;
-		pm1data.stage1_prime = 2;
+		pm1data.stage1_prime = 1;
 //GW - pct_complete resets  to 0 because of setting stage1_prime to 2
 		goto restart1;
 	}
@@ -8938,7 +8946,9 @@ int pp1_restore (
 /* Version 30.6 save files cannot continue in stage 2 */
 
 	if (version == 1 && pp1data->state == PP1_STATE_STAGE2) {
-		pp1data->state = PP1_STATE_MIDSTAGE;
+		pp1data->state = PP1_STATE_STAGE1;
+		pp1data->stage1_prime = pp1data->B_done;
+		pp1data->interim_B = pp1data->B_done;
 		OutputStr (pp1data->thread_num, "Old P+1 save file was in stage 2.  Restarting stage 2 from scratch.\n");
 		gwfree (&pp1data->gwdata, pp1data->gg);
 		pp1data->gg = NULL;
@@ -10002,7 +10012,7 @@ restart1:
 
 	if (pp1data.B > pp1data.B_done) {
 more_B:		pp1data.interim_B = pp1data.B;
-		sieve_start = 2;
+		sieve_start = 1;
 //GW - pct_complete resets  to 0 because of setting stage1_prime to 2
 		goto restart1;
 	}
