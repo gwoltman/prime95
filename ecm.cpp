@@ -371,19 +371,25 @@ void process_Dmult_map (
 /**********************************************************************************************************************/
 
 /* Various D values that we will consider in creating an ECM, P-1 or P+1 plan */
+/* Selecting the best D value is tricky.  There are (at least) 5 different factors at play) */
+/* 1) The more primes in D, the higher the density of primes among the remaining relative primes, which helps pairing */
+/* 2) The higher D is the less cost there is moving from D-section to D-section */
+/* 3) For a given amount of memory, a higher D means lower multiplier (totrels/numrels) which hurts pairing */
+/* 4) A lower first missing prime, means a higher B2 start which translates to fewer D sections (great for ECM) and more relocatables for better pairing */
+/* 5) A lower second missing prime means more relocatables with multiple relocations, better for pairing */
 
-#define NUM_D		24
 struct D_data {
 	int	D;
 	int	numrels;			// Number of values less than D/2 that are relatively prime to D
 	int	first_missing_prime;		// First prime that does not divide D
 	int	second_missing_prime;		// Second prime that does not divide D
-} D_data[NUM_D] = {
+} D_data[] = {
 	{ 2 * 3 * 5                  , 2 * 4 / 2, 7, 11 },			// 30, 4
 	{ 2 * 3     * 7              , 2 * 6 / 2, 5, 11 },			// 42, 6
 	{ 2 * 3 * 5               * 2, 2 * 4 / 2 * 2, 7, 11 },			// 60, 8
 	{ 2 * 3 * 5               * 3, 2 * 4 / 2 * 3, 7, 11 },			// 90, 12
 	{ 2 * 3 * 5               * 4, 2 * 4 / 2 * 4, 7, 11 },			// 120, 16
+	{ 2 * 3     * 7           * 3, 2 * 6 / 2 * 3, 5, 11 },			// 126, 18
 	{ 2 * 3 * 5               * 5, 2 * 4 / 2 * 5, 7, 11 },			// 150, 20
 	{ 2 * 3 * 5 * 7              , 2 * 4 * 6 / 2, 11, 13 },			// 210, 24
 	{ 2 * 3 * 5     * 11         , 2 * 4 * 10 / 2, 7, 13 },			// 330, 40
@@ -391,21 +397,29 @@ struct D_data {
 	{ 2 * 3 * 5 * 7           * 2, 2 * 4 * 6 / 2 * 2, 11, 13 },		// 420, 48
 	{ 2 * 3     * 7 * 11         , 2 * 6 * 10 / 2, 5, 13 },			// 462, 60
 	{ 2 * 3 * 5 * 7           * 3, 2 * 4 * 6 / 2 * 3, 11, 13 },		// 630, 72
-	{ 2 * 3     * 7           *14, 2 * 6 / 2 * 7 * 2, 5, 11 },		// 588, 84
+	{ 2 * 3     * 7           *14, 2 * 6 / 2 * 14, 5, 11 },			// 588, 84
 	{ 2 * 3 * 5 * 7           * 4, 2 * 4 * 6 / 2 * 4, 11, 13 },		// 840, 96
+	{ 2 * 3     * 7           *16, 2 * 6 / 2 * 16, 5, 11 },			// 672, 96
+	{ 2 * 3     * 7           *18, 2 * 6 / 2 * 18, 5, 11 },			// 756, 108
 	{ 2 * 3 * 5 * 7           * 5, 2 * 4 * 6 / 2 * 5, 11, 13 },		// 1050, 120
+	{ 2 * 3     * 7 * 11      * 2, 2 * 6 * 10 / 2 * 2, 5, 13 },		// 924, 120
+	{ 2 * 3     * 7           *21, 2 * 6 / 2 * 21, 5, 11 },			// 882, 126
 	{ 2 * 3 * 5 * 7           * 6, 2 * 4 * 6 / 2 * 6, 11, 13 },		// 1260, 144
 	{ 2 * 3 * 5 * 7           * 7, 2 * 4 * 6 / 2 * 7, 11, 13 },		// 1470, 168
+	{ 2 * 3     * 7 * 11      * 3, 2 * 6 * 10 / 2 * 3, 5, 13 },		// 1386, 180
 	{ 2 * 3 * 5 * 7           * 8, 2 * 4 * 6 / 2 * 8, 11, 13 },		// 1680, 192
 	{ 2 * 3 * 5 * 7           * 9, 2 * 4 * 6 / 2 * 9, 11, 13 },		// 1890, 216
+	{ 2 * 3     * 7 * 11      * 4, 2 * 6 * 10 / 2 * 4, 5, 13 },		// 1848, 240
 	{ 2 * 3 * 5 * 7 * 11         , 2 * 4 * 6 * 10 / 2, 13, 17 },		// 2310, 240
 	{ 2 * 3 * 5 * 7      * 13    , 2 * 4 * 6 * 12 / 2, 11, 17 },		// 2730, 288
-//	{ 2 * 3 * 5     * 11 * 13    , 2 * 4 * 10 * 12 / 2, 7, 17 },		// 4290, 480
+	{ 2 * 3     * 7 * 11      * 6, 2 * 6 * 10 / 2 * 6, 5, 13 },		// 2772, 360
 	{ 2 * 3 * 5 * 7 * 11      * 2, 2 * 4 * 6 * 10 / 2 * 2, 13, 17 },	// 4620, 480
-//	{ 2 * 3     * 7 * 11 * 13    , 2 * 6 * 10 * 12 / 2, 5, 17 },		// 6006, 720
+	{ 2 * 3 * 5     * 11 * 13    , 2 * 4 * 10 * 12 / 2, 7, 17 },		// 4290, 480
 	{ 2 * 3 * 5 * 7 * 11      * 3, 2 * 4 * 6 * 10 / 2 * 3, 13, 17 },	// 6930, 720
+	{ 2 * 3     * 7 * 11 * 13    , 2 * 6 * 10 * 12 / 2, 5, 17 },		// 6006, 720
 	{ 2 * 3 * 5 * 7 * 11      * 4, 2 * 4 * 6 * 10 / 2 * 4, 13, 17 }		// 9240, 960
 };
+#define NUM_D		(sizeof(D_data)/sizeof(struct D_data))
 #define MAX_D		9240
 #define MAX_RELPRIMES	960
 
