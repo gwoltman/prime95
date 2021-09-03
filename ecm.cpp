@@ -7293,7 +7293,7 @@ restart1:
 	one_over_B = 1.0 / (double) pm1data.B;
 	w->pct_complete = (double) pm1data.stage1_prime * one_over_B;
 	start_timer_from_zero (timers, 0);
-	start_timer_from_zero (timers, 1);
+	start_timer (timers, 1);
 	pm1data.state = PM1_STATE_STAGE1;
 	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pm1data.gwdata, 2));
 	tmp_gwnum = gwalloc (&pm1data.gwdata);
@@ -7458,6 +7458,7 @@ more_B:		pm1data.interim_B = pm1data.B;
 /* Initialize variables for second stage.  We set gg to x-1 in case the user opted to skip the GCD after stage 1. */
 
 restart3a:
+	start_timer_from_zero (timers, 0);
 	pm1data.gg = gwalloc (&pm1data.gwdata);
 	if (pm1data.gg == NULL) goto oom;
 	gwcopy (&pm1data.gwdata, pm1data.x, pm1data.gg);
@@ -7482,6 +7483,13 @@ restart3a:
 		gwfree (&pm1data.gwdata, pm1data.x);
 		pm1data.x = NULL;
 	}
+
+/* Conversion to x+1/x format complete */
+
+	sprintf (buf, "Conversion of stage 1 result complete. %.0f transforms, 1 modular inverse. Time: ", gw_get_fft_count (&pm1data.gwdata));
+	print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+	OutputStr (thread_num, buf);
+	gw_clear_fft_count (&pm1data.gwdata);
 
 /* Restart here when in the middle of stage 2 */
 
