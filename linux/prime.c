@@ -129,6 +129,7 @@ int main (
 	char	buf[256];
 	int	named_ini_files = -1;
 	int	contact_server = 0;
+	int	bench_quick = 0;
 	int	torture_test = 0;
 	int	i, nice_level;
 	int	pid_fd;
@@ -212,6 +213,13 @@ int main (
 				named_ini_files = named_ini_files * 10 + (*p - '0');
 				p++;
 			}
+			break;
+
+/* -B - Predefined benchmark */
+
+		case 'B':
+		case 'b':
+			bench_quick = TRUE;
 			break;
 
 /* -C - contact the server now, then exit */
@@ -322,9 +330,37 @@ int main (
 	}
 #endif
 
+/* If running the predefined benchmark, do so now. */
+
+	if (bench_quick) {
+		char	m_cores[32], m_workers[64], *m_workers_loc;
+
+		VERBOSE = TRUE;
+		NO_GUI = FALSE;
+
+		sprintf (m_cores, "%lu", NUM_CPUS);
+		m_workers_loc = m_workers;
+		m_workers_loc += sprintf (m_workers_loc, "1");
+		if (NUM_CPUS > 2) m_workers_loc += sprintf (m_workers_loc, ",2");
+		if (NUM_CPUS > 4) m_workers_loc += sprintf (m_workers_loc, ",4");
+		if (NUM_CPUS > 1) m_workers_loc += sprintf (m_workers_loc, ",%d", NUM_CPUS);
+
+		IniWriteInt (INI_FILE, "MinBenchFFT", 3072);
+		IniWriteInt (INI_FILE, "MaxBenchFFT", 8192);
+		IniWriteInt (INI_FILE, "BenchErrorCheck", 0);
+		IniWriteInt (INI_FILE, "BenchAllComplex", 0);
+		IniWriteInt (INI_FILE, "OnlyBench5678", 1);
+		IniWriteString (INI_FILE, "BenchCores", m_cores);
+		IniWriteInt (INI_FILE, "BenchHyperthreads", 1);
+		IniWriteString (INI_FILE, "BenchWorkers", m_workers);
+		IniWriteInt (INI_FILE, "AllBench", 0);
+		IniWriteInt (INI_FILE, "BenchTime", 15);
+		LaunchBench (0, TRUE);
+	}
+
 /* If running the torture test, do so now. */
 
-	if (torture_test) {
+	else if (torture_test) {
 		int	num_threads;
 
 		VERBOSE = TRUE;
@@ -391,7 +427,8 @@ int main (
 
 /* Invalid args message */
 
-usage:	printf ("Usage: mprime [-cdhmstv] [-aN] [-wDIR] [-pPIDFILE]\n");
+usage:	printf ("Usage: mprime [-bcdhmstv] [-aN] [-wDIR] [-pPIDFILE]\n");
+	printf ("-b\tRun a predefined throughput benchmark, then exit.\n");
 	printf ("-c\tContact the PrimeNet server, then exit.\n");
 	printf ("-d\tPrint detailed information to stdout.\n");
 	printf ("-h\tPrint this.\n");
