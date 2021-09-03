@@ -704,11 +704,15 @@ double best_stage2_impl (
 /**********************************************************************************************************************/
 
 // Return the window size for the prime pairing routine.  This is user-configurable based on the size of the number being worked on.
+// When totrels/numrels multiplier is large, non-windowed pairing gets very slow.  Switching off ON_THE_FLY_CAN_PAIR_TO would help.
+// We need to carefully study non-windowed timings and optimizations before making non-windowed pairing the default more often.
 
 int pair_window_size (
-	double	bit_length)
+	double	bit_length,
+	int16_t	*relp_sets)
 {
-	bool windowed = (bit_length < IniGetInt (INI_FILE, "MaxPairingWindowExponent", 80000000));
+	bool acceptable_multiplier = (relp_sets[0] <= IniGetInt (INI_FILE, "MaxPairingWindowMultiplier", 8));
+	bool windowed = (!acceptable_multiplier || bit_length < IniGetInt (INI_FILE, "MaxPairingWindowExponent", 80000000));
 	return (windowed ? IniGetInt (INI_FILE, "PairingWindowSize", 1000) : 0);
 }
 
@@ -3626,6 +3630,7 @@ void ecm_choose_B2 (
 	ecmhandle *ecmdata,
 	unsigned long numvals)
 {
+	int	max_B2mult;
 	struct ecm_stage2_cost_data cost_data;	/* Extra data passed to ECM costing function */
 	double	B1_cost, B2_cost;
 	struct ecm_stage2_efficiency {
@@ -3637,7 +3642,9 @@ void ecm_choose_B2 (
 // From Alex Kruppa, master of all things ECM, the following formula compensates for using B2 values that are not 100 * B1.
 // curve_worth = 0.11 + 0.89 * (log10(B2 / B1) / 2) ^ 1.5
 
+	max_B2mult = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", 1000);
 #define kruppa(x,B2mult)	x.i = B2mult; \
+				if (x.i > max_B2mult) x.i = max_B2mult; \
 				ecmdata->C = x.i * ecmdata->B; \
 				B2_cost = ecm_stage2_impl_given_numvals (ecmdata, numvals, &cost_data); \
 				x.efficiency = kruppa_adjust_ratio (x.i) / (B1_cost + B2_cost + cost_data.gcd_cost);
@@ -3664,7 +3671,7 @@ void ecm_choose_B2 (
 /* Handle case where midpoint has worse efficiency than the end point */
 /* The search code requires best[1] is better than best[0] and best[2] */
 
-	while (best[2].efficiency > best[1].efficiency) {
+	while (best[2].efficiency > best[1].efficiency && best[2].i < max_B2mult) {
 		best[0] = best[1];
 		best[1] = best[2];
 		kruppa (best[2], best[1].i * 2);
@@ -3824,7 +3831,8 @@ int ecm_stage2_impl (
 
 /* Create a map of (hopefully) close-to-optimal prime pairings */
 
-	stop_reason = fill_pairmap (ecmdata->thread_num, &ecmdata->sieve_info, ecmdata->D, pair_window_size (ecmdata->gwdata.bit_length),0,0,0,
+	int fill_window = pair_window_size (ecmdata->gwdata.bit_length, ecmdata->relp_sets);
+	stop_reason = fill_pairmap (ecmdata->thread_num, &ecmdata->sieve_info, ecmdata->D, fill_window,0,0,0,
 				    ecmdata->totrels, ecmdata->relp_sets+3, ecmdata->first_relocatable, ecmdata->last_relocatable,
 				    ecmdata->B2_start, ecmdata->C, ecmdata->max_pairmap_Dsections, &ecmdata->pairmap, &ecmdata->pairmap_size);
 	if (stop_reason) return (stop_reason);
@@ -5483,7 +5491,8 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 			ASSERTG (ecmdata.relp == 0);
 			ecmdata.C_done = ecmdata.B2_start + ecmdata.Dsection * ecmdata.D;
 			ecmdata.first_relocatable = calc_new_first_relocatable (ecmdata.D, ecmdata.C_done);
-			stop_reason = fill_pairmap (ecmdata.thread_num, &ecmdata.sieve_info, ecmdata.D, pair_window_size (ecmdata.gwdata.bit_length),0,0,0,
+			int fill_window = pair_window_size (ecmdata.gwdata.bit_length, ecmdata.relp_sets);
+			stop_reason = fill_pairmap (ecmdata.thread_num, &ecmdata.sieve_info, ecmdata.D, fill_window,0,0,0,
 						    ecmdata.totrels, ecmdata.relp_sets+3, ecmdata.first_relocatable, ecmdata.last_relocatable,
 						    ecmdata.C_done, ecmdata.C, ecmdata.max_pairmap_Dsections, &ecmdata.pairmap, &ecmdata.pairmap_size);
 			if (stop_reason) {
@@ -6580,6 +6589,7 @@ void pm1_choose_B2 (
 	pm1handle *pm1data,
 	unsigned long numvals)
 {
+	int	max_B2mult;
 	struct pm1_stage2_cost_data cost_data;	/* Extra data passed to P-1 costing function */
 	struct pm1_stage2_efficiency {
 		int	i;
@@ -6591,10 +6601,12 @@ void pm1_choose_B2 (
 	double	takeAwayBits;			/* Bits we get for free in smoothness of P-1 factor */
 
 // Cost out a B2 value
+	max_B2mult = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", 1000);
 	cost_data.c.numvals = numvals;
 	cost_data.c.fftlen = gwfftlen (&pm1data->gwdata);
 	cost_data.c.threads = gwget_num_threads (&pm1data->gwdata);
 #define p1eval(x,B2mult)	x.i = B2mult; \
+				if (x.i > max_B2mult) x.i = max_B2mult; \
 				x.B2_cost = best_stage2_impl (pm1data->B, 0, 0, x.i * pm1data->B, numvals - 4, &pm1_stage2_cost, &cost_data); \
 				x.fac_pct = pm1prob (takeAwayBits, sieve_depth, (double) pm1data->B, (double) (x.i * pm1data->B));
 
@@ -6623,10 +6635,10 @@ void pm1_choose_B2 (
 /* Handle case where midpoint is worse than the end point */
 /* The search code requires best[1] is better than best[0] and best[2] */
 
-	while (!p1compare (best[1], best[2])) {
+	while (!p1compare (best[1], best[2]) && best[2].i < max_B2mult) {
 		best[0] = best[1];
 		best[1] = best[2];
-		p1eval (best[2], (int) (best[1].i + 10));
+		p1eval (best[2], best[1].i * 2);
 	}
 
 /* Find the best B2.  We use a binary-like search to speed things up (new in version 30.3b3). */
@@ -6792,7 +6804,8 @@ int pm1_stage2_impl (
 
 /* Create a map of (hopefully) close-to-optimal prime pairings */
 
-	stop_reason = fill_pairmap (pm1data->thread_num, &pm1data->sieve_info, pm1data->D, pair_window_size (pm1data->gwdata.bit_length),0,0,0,
+	int fill_window = pair_window_size (pm1data->gwdata.bit_length, pm1data->relp_sets);
+	stop_reason = fill_pairmap (pm1data->thread_num, &pm1data->sieve_info, pm1data->D, fill_window,0,0,0,
 				    pm1data->totrels, pm1data->relp_sets+3, pm1data->first_relocatable, pm1data->last_relocatable,
 				    pm1data->B2_start, pm1data->C, pm1data->max_pairmap_Dsections, &pm1data->pairmap, &pm1data->pairmap_size);
 	if (stop_reason) return (stop_reason);
@@ -7872,7 +7885,8 @@ replan:	{
 			ASSERTG (pm1data.relp == 0);
 			pm1data.C_done = pm1data.B2_start + pm1data.Dsection * pm1data.D;
 			pm1data.first_relocatable = calc_new_first_relocatable (pm1data.D, pm1data.C_done);
-			stop_reason = fill_pairmap (pm1data.thread_num, &pm1data.sieve_info, pm1data.D, pair_window_size (pm1data.gwdata.bit_length),0,0,0,
+			int fill_window = pair_window_size (pm1data.gwdata.bit_length, pm1data.relp_sets);
+			stop_reason = fill_pairmap (pm1data.thread_num, &pm1data.sieve_info, pm1data.D, fill_window,0,0,0,
 						    pm1data.totrels, pm1data.relp_sets+3, pm1data.first_relocatable, pm1data.last_relocatable,
 						    pm1data.C_done, pm1data.C, pm1data.max_pairmap_Dsections, &pm1data.pairmap, &pm1data.pairmap_size);
 			if (stop_reason) {
@@ -8401,10 +8415,12 @@ void pminus1_choose_B2 (
 /* Handle case where midpoint has worse savings than the end point */
 /* The search code requires best[1] is better than best[0] and best[2] */
 
-	while (best[2].savings > best[1].savings) {
+	unsigned long max_B2 = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", 1000) * c->B1;
+	while (best[2].savings > best[1].savings && best[2].B2 < max_B2) {
 		best[0] = best[1];
 		best[1] = best[2];
 		best[2].B2 = best[1].B2 * 2;
+		if (best[2].B2 > max_B2) best[2].B2 = max_B2;
 		cost_pm1 (g, &best[2]);
 	}
 
@@ -9055,6 +9071,7 @@ void pp1_choose_B2 (
 	pp1handle *pp1data,
 	unsigned long numvals)
 {
+	int	max_B2mult;
 	struct pp1_stage2_cost_data cost_data;	/* Extra data passed to P+1 costing function */
 	struct pp1_stage2_efficiency {
 		int	i;
@@ -9068,10 +9085,12 @@ void pp1_choose_B2 (
 #define pp1prob(B1,B2)		(pm1prob (pp1data->takeAwayBits, sieve_depth, (double) (B1), (double) (B2)) * pp1data->success_rate)
 
 // Cost out a B2 value
+	max_B2mult = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", 1000);
 	cost_data.c.numvals = numvals;
 	cost_data.c.fftlen = gwfftlen (&pp1data->gwdata);
 	cost_data.c.threads = gwget_num_threads (&pp1data->gwdata);
 #define p1eval(x,B2mult)	x.i = B2mult; \
+				if (x.i > max_B2mult) x.i = max_B2mult; \
 				x.B2_cost = best_stage2_impl (pp1data->B, 0, 0, x.i * pp1data->B, numvals - 4, &pp1_stage2_cost, &cost_data); \
 				x.fac_pct = pp1prob (pp1data->B, x.i * pp1data->B);
 
@@ -9098,10 +9117,10 @@ void pp1_choose_B2 (
 /* Handle case where midpoint is worse than the end point */
 /* The search code requires best[1] is better than best[0] and best[2] */
 
-	while (!p1compare (best[1], best[2])) {
+	while (!p1compare (best[1], best[2]) && best[2].i < max_B2mult) {
 		best[0] = best[1];
 		best[1] = best[2];
-		p1eval (best[2], (int) (best[1].i + 20));
+		p1eval (best[2], best[1].i * 2);
 	}
 
 /* Find the best B2.  We use a binary-like search to speed things up. */
@@ -9267,7 +9286,8 @@ int pp1_stage2_impl (
 
 /* Create a map of (hopefully) close-to-optimal prime pairings */
 
-	stop_reason = fill_pairmap (pp1data->thread_num, &pp1data->sieve_info, pp1data->D, pair_window_size (pp1data->gwdata.bit_length),0,0,0,
+	int fill_window = pair_window_size (pp1data->gwdata.bit_length, pp1data->relp_sets);
+	stop_reason = fill_pairmap (pp1data->thread_num, &pp1data->sieve_info, pp1data->D, fill_window,0,0,0,
 				    pp1data->totrels, pp1data->relp_sets+3, pp1data->first_relocatable, pp1data->last_relocatable,
 				    pp1data->B2_start, pp1data->C, pp1data->max_pairmap_Dsections, &pp1data->pairmap, &pp1data->pairmap_size);
 	if (stop_reason) return (stop_reason);
@@ -10490,7 +10510,8 @@ replan:	{
 			ASSERTG (pp1data.relp == 0);
 			pp1data.C_done = pp1data.B2_start + pp1data.Dsection * pp1data.D;
 			pp1data.first_relocatable = calc_new_first_relocatable (pp1data.D, pp1data.C_done);
-			stop_reason = fill_pairmap (pp1data.thread_num, &pp1data.sieve_info, pp1data.D, pair_window_size (pp1data.gwdata.bit_length),0,0,0,
+			int fill_window = pair_window_size (pp1data.gwdata.bit_length, pp1data.relp_sets);
+			stop_reason = fill_pairmap (pp1data.thread_num, &pp1data.sieve_info, pp1data.D, fill_window,0,0,0,
 						    pp1data.totrels, pp1data.relp_sets+3, pp1data.first_relocatable, pp1data.last_relocatable,
 						    pp1data.C_done, pp1data.C, pp1data.max_pairmap_Dsections, &pp1data.pairmap, &pp1data.pairmap_size);
 			if (stop_reason) {
