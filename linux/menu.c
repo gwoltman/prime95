@@ -1270,7 +1270,7 @@ void options_benchmark (void)
 			IniWriteInt (INI_FILE, "AllBench", m_all_FFT_impl);
 			IniWriteInt (INI_FILE, "BenchTime", m_bench_time);
 		}
-		LaunchBench (m_bench_type);
+		LaunchBench (m_bench_type, FALSE);
 	}
 }
 

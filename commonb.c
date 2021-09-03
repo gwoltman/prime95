@@ -2690,10 +2690,8 @@ void create_worker_windows (
 /* Launch the worker threads to process work units */
 
 int LaunchWorkerThreads (
-	int	thread_num,		/* Specific worker to launch or */
-					/* special value ALL_WORKERS */
-	int	wait_flag)		/* TRUE if we wait for workers to */
-					/* end before returning. */
+	int	thread_num,		/* Specific worker to launch or special value ALL_WORKERS */
+	int	wait_flag)		/* TRUE if we wait for workers to end before returning. */
 {
 	struct LaunchData *ld;
 	gwthread thread_handle;
@@ -2730,8 +2728,7 @@ int LaunchWorkerThreads (
 
 int LaunchTortureTest (
 	unsigned long num_threads,	/* Number of torture tests to run */
-	int	wait_flag)		/* TRUE if we wait for workers to */
-					/* end before returning. */
+	int	wait_flag)		/* TRUE if we wait for workers to end before returning. */
 {
 	struct LaunchData *ld;
 	gwthread thread_handle;
@@ -2753,7 +2750,8 @@ int LaunchTortureTest (
 /* Launch a thread to do a benchmark */
 
 int LaunchBench (
-	int	bench_type)		/* 0 = Throughput, 1 = FFT timings, 2 = Trial factoring */
+	int	bench_type,		/* 0 = Throughput, 1 = FFT timings, 2 = Trial factoring */
+	int	wait_flag)		/* TRUE if we wait for workers to end before returning. */
 {
 	struct LaunchData *ld;
 	gwthread thread_handle;
@@ -2765,7 +2763,11 @@ int LaunchBench (
 	LAUNCH_TYPE = LD_BENCH;
 	create_worker_windows (1);
 	ld->num_to_mark_active = 1;
-	gwthread_create (&thread_handle, &Launcher, ld);
+	if (wait_flag) {
+		gwthread_create_waitable (&thread_handle, &Launcher, ld);
+		gwthread_wait_for_exit (&thread_handle);
+	} else
+		gwthread_create (&thread_handle, &Launcher, ld);
 	return (0);
 }
 

@@ -31,7 +31,7 @@ extern "C" {
 #define ALL_WORKERS 8888	// Special value for first arg of LaunchWorkerThreads
 int LaunchWorkerThreads (int, int);
 int LaunchTortureTest (unsigned long, int);
-int LaunchBench (int);
+int LaunchBench (int, int);
 int LaunchAdvancedTime (unsigned long, unsigned long);
 
 /* Callback routines */

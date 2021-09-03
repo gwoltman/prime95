@@ -838,7 +838,7 @@ void CPrime95Doc::OnBenchmark()
 			IniWriteInt (INI_FILE, "AllBench", dlg.m_all_FFT_impl);
 			IniWriteInt (INI_FILE, "BenchTime", dlg.m_bench_time);
 		}
-		LaunchBench (dlg.m_bench_type);
+		LaunchBench (dlg.m_bench_type, FALSE);
 	}
 }
 
