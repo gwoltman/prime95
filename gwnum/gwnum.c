@@ -7575,7 +7575,7 @@ unsigned long gwmap_to_estimated_size (
 /* Speed of other AVX processors compared to a Sandy Bridge */
 
 #define REL_BULLDOZER_SPEED	1.9	/* Bulldozer is slower than Sandy Bridge */
-#define REL_ZEN_SPEED		1.4	/* Zen is likely slower than Sandy Bridge which has true 256-bit AVX support whereas Zen has FMA3 */
+#define REL_ZEN_SPEED		0.8	/* Zen is better than Haswell */
 
 /* Make a guess as to how long a squaring will take.  If the number cannot */
 /* be handled, then kludgily return 100.0.  Does not use benchmarking data. */
