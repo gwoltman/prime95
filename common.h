@@ -64,8 +64,9 @@
 
 //#define _log2(n)			(log ((double)(n)) / log ((double)2.0))
 #define _log10(n)			(log ((double)(n)) / log ((double)10.0))
-#define divide_rounding_up(a,b)		((a + (b) - 1) / (b))
+#define divide_rounding_up(a,b)		(((a) + (b) - 1) / (b))
 #define divide_rounding_down(a,b)	((a) / (b))
+#define divide_rounding(a,b)		(((a) + (b) / 2) / (b))
 #define round_up_to_multiple_of(a,b)	(divide_rounding_up (a, b) * (b))
 #define round_down_to_multiple_of(a,b)	(divide_rounding_down (a, b) * (b))
 #define is_multiple_of(a,b)		((a) % (b) == 0)

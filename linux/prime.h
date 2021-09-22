@@ -4,7 +4,12 @@
 
 /* Handy definitions */
 
+#define _XOPEN_SOURCE 500
+typedef int bool;
 #include "common.h"
+#include <strings.h>
+#include <time.h>
+#include <unistd.h>
 
 /* Port number used in version numbers and result reporting. */
 
@@ -50,9 +55,7 @@
 
 #include <gmp.h>
 
-#include <time.h>
 /*#define SERVER_TESTING*/
-#include "common.h"
 #include "cpuid.h"
 #include "gwnum.h"
 #include "gwbench.h"

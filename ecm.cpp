@@ -4485,14 +4485,11 @@ if (w->n == 604) {
 	gwset_sum_inputs_checking (&ecmdata.gwdata, SUM_INPUTS_ERRCHK);
 	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&ecmdata.gwdata);
-	if (HYPERTHREAD_LL) {
-		sp_info->normal_work_hyperthreads = IniGetInt (LOCALINI_FILE, "HyperthreadLLcount", CPU_HYPERTHREADS);
-		gwset_will_hyperthread (&ecmdata.gwdata, sp_info->normal_work_hyperthreads);
-	}
-	gwset_bench_cores (&ecmdata.gwdata, NUM_CPUS);
+	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&ecmdata.gwdata, 2);
+	gwset_bench_cores (&ecmdata.gwdata, HW_NUM_CORES);
 	gwset_bench_workers (&ecmdata.gwdata, NUM_WORKER_THREADS);
 	if (ERRCHK) gwset_will_error_check (&ecmdata.gwdata);
-	gwset_num_threads (&ecmdata.gwdata, CORES_PER_TEST[thread_num] * sp_info->normal_work_hyperthreads);
+	gwset_num_threads (&ecmdata.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
 	gwset_thread_callback (&ecmdata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&ecmdata.gwdata, sp_info);
 	gwset_safety_margin (&ecmdata.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
@@ -6985,15 +6982,12 @@ restart:
 	gwset_sum_inputs_checking (&pm1data.gwdata, SUM_INPUTS_ERRCHK);
 	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pm1data.gwdata);
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pm1data.gwdata);
-	if (HYPERTHREAD_LL) {
-		sp_info->normal_work_hyperthreads = IniGetInt (LOCALINI_FILE, "HyperthreadLLcount", CPU_HYPERTHREADS);
-		gwset_will_hyperthread (&pm1data.gwdata, sp_info->normal_work_hyperthreads);
-	}
-	gwset_bench_cores (&pm1data.gwdata, NUM_CPUS);
+	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&pm1data.gwdata, 2);
+	gwset_bench_cores (&pm1data.gwdata, HW_NUM_CORES);
 	gwset_bench_workers (&pm1data.gwdata, NUM_WORKER_THREADS);
 	if (ERRCHK) gwset_will_error_check (&pm1data.gwdata);
 	else gwset_will_error_check_near_limit (&pm1data.gwdata);
-	gwset_num_threads (&pm1data.gwdata, CORES_PER_TEST[thread_num] * sp_info->normal_work_hyperthreads);
+	gwset_num_threads (&pm1data.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
 	gwset_thread_callback (&pm1data.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&pm1data.gwdata, sp_info);
 	gwset_safety_margin (&pm1data.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
@@ -9752,15 +9746,12 @@ restart:
 	gwset_sum_inputs_checking (&pp1data.gwdata, SUM_INPUTS_ERRCHK);
 	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pp1data.gwdata);
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pp1data.gwdata);
-	if (HYPERTHREAD_LL) {
-		sp_info->normal_work_hyperthreads = IniGetInt (LOCALINI_FILE, "HyperthreadLLcount", CPU_HYPERTHREADS);
-		gwset_will_hyperthread (&pp1data.gwdata, sp_info->normal_work_hyperthreads);
-	}
-	gwset_bench_cores (&pp1data.gwdata, NUM_CPUS);
+	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&pp1data.gwdata, 2);
+	gwset_bench_cores (&pp1data.gwdata, HW_NUM_CORES);
 	gwset_bench_workers (&pp1data.gwdata, NUM_WORKER_THREADS);
 	if (ERRCHK) gwset_will_error_check (&pp1data.gwdata);
 	else gwset_will_error_check_near_limit (&pp1data.gwdata);
-	gwset_num_threads (&pp1data.gwdata, CORES_PER_TEST[thread_num] * sp_info->normal_work_hyperthreads);
+	gwset_num_threads (&pp1data.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
 	gwset_thread_callback (&pp1data.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&pp1data.gwdata, sp_info);
 	gwset_safety_margin (&pp1data.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));

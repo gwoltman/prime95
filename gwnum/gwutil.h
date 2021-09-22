@@ -23,7 +23,7 @@ extern "C" {
 //#define log2(n)				(log((double)(n)) * CONST_ONE_OVER_LOG2)
 //#define log2f(n)			(logf((float)(n)) * (float) CONST_ONE_OVER_LOG2)
 //#define logb(n)				(log((double)(n)) / log ((double)(b)))
-#define divide_rounding_up(a,b)		((a + (b) - 1) / (b))
+#define divide_rounding_up(a,b)		(((a) + (b) - 1) / (b))
 #define divide_rounding_down(a,b)	((a) / (b))
 #define round_up_to_multiple_of(a,b)	(divide_rounding_up (a, b) * (b))
 #define round_down_to_multiple_of(a,b)	(divide_rounding_down (a, b) * (b))

@@ -21,7 +21,7 @@
 #	LIBS = ../gwnum/gwnum.a ../gwnum/gwnum.ld -lm -lpthread -Wl,-Bstatic $(shell pkg-config --static --libs libhwloc) -Wl,-Bstatic $(shell pkg-config --static --libs libcurl) -lstdc++ -Wl,-Bdynamic -ldl
 
 CC = gcc
-CFLAGS = -I.. -I../gwnum -I/usr/local/include -Wno-unused-result -march=i486 -malign-double -O2 -DPORT=2
+CFLAGS = -I.. -I../gwnum -I/usr/local/include -std=gnu99 -Wno-unused-result -march=i486 -malign-double -O2 -DPORT=2
 
 CPP = g++
 CPPFLAGS = -I.. -I../gwnum -I../../boost_1_76_0 -Wno-unused-result -march=i486 -malign-double -std=c++11 -O2 -DPORT=2

@@ -210,14 +210,14 @@ int min_cores_for_work_pref (
 // If LL or PRP testing 100M digit numbers, use at least 4 cores (or all cores)
 
 	if (work_pref == PRIMENET_WP_LL_100M || work_pref == PRIMENET_WP_PRP_100M) {
-		if (NUM_CPUS < 8) cores = NUM_CPUS;
+		if (HW_NUM_CORES < 8) cores = HW_NUM_CORES;
 		else cores = 4;
 	}
 
 // If we aren't using the computer 24 hours a day, then scale the minimum number of cores up
 
 	cores = cores * 24 / CPU_HOURS;
-	if (cores > (int) NUM_CPUS) cores = NUM_CPUS;
+	if (cores > (int) HW_NUM_CORES) cores = HW_NUM_CORES;
 
 // Return the minimum number of cores
 

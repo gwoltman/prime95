@@ -1,3 +1,22 @@
+New features in Version 30.7 of prime95.exe
+-------------------------------------------
+
+1) Better prime pairing in stage 2 of ECM/P-1/P+1.  This usually results in slightly better
+   stage 2 timings or less memory used.  Save file formats changed - upgrading to 30.7 while
+   ECM/P-1/P+1 work is in stage 2 will result in stage 2 being restarted from scratch.
+2) P-1 converted to use P+1 style stage 2.  From the users perpective there is no difference.
+   Internally a modular inverse is required at stage 2 init, but there is one multiplication
+   saved for every D-block processed.  For all common P-1 cases, this is a little faster.
+3) ECM/P-1/P+1 no longer use a bit map for prime pairs.  Instead a compressed pairing map is
+   created to save memory.  For large B2 values this also results in fewer calls to generate
+   pairing maps.  It also makes stage 2 save files smaller.
+4) Some minor changes in AVX-512 FFT crossovers.  ECM/P-1/P+1 all changed to rollback to the
+   last save file and switch to a larger FFT size should an excessive roundoff error be
+   encountered.
+5) Support for asymmetric processor architectures such as Intel's Alder Lake.
+6) Torture test dialog now asks for number of cores to test along with a "Use hyperthreading"
+   checkbox.  Previously, the dialog box asked for total number of torture threads to execute.
+
 New features in Version 30.6 of prime95.exe
 -------------------------------------------
 

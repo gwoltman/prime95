@@ -56,33 +56,43 @@ void checkPauseListCallback (void);
 #define SET_PRIORITY_QA			5
 #define SET_PRIORITY_BUSY_LOOP		6
 struct PriorityInfo {
- 	int	type;			/* Type defined above */
-	int	worker_num;		/* Worker number -- output informative messages to this worker's window */
-	int	verbose_flag;		/* Output affinity messages to the worker window */
-	int	aux_thread_num;		/* Set when gwnum launches auxiliary threads */
-	int	aux_hyperthread;	/* Set when gwnum launches auxiliary hyperthreads */
+ 	uint32_t type;			/* Type defined above */
+	uint32_t worker_num;		/* Worker number -- output informative messages to this worker's window */
+	uint32_t verbosity;		/* Output affinity messages to the worker window */
+	uint32_t aux_thread_num;	/* Set when gwnum launches auxiliary threads */
+	bool	aux_hyperthread;	/* Set when gwnum launches auxiliary prefetching hyperthread */
 	union {
 		struct {		/* Normal work info */
-			int	normal_work_hyperthreads;	/* Number of hyperthreads to be assigned to same core */
+			int	normal_work_hyperthreading;	/* True if worker will use hyperthreading */
 		};
 		struct {		/* Torture test info */
 			int	torture_num_workers;		/* Total number of torture test worker windows */
-			int	torture_threads_per_test;	/* Number of threads per torture test (usually one) */
+			int	torture_core_num;		/* CPU core to torture */
+			int	torture_thread_num;		/* Hyperthread number (nth torture test for this core) */
+			bool	torture_hyperthreading;		/* True if doing a hyperthreaded torture test */
 		};
 		struct {		/* Advanced/Time info */
-			int	time_hyperthreads;		/* Number of hyperthreads to be assigned to same core */
+			bool	time_hyperthreading;		/* True if doing a hyperthreaded timing */
 		};
 		struct {		/* Benchmark info */
-			int	bench_base_cpu_num;		/* First CPU core to set affinity to */
-			int	bench_hyperthreads;		/* Number of hyperthreads to be assigned to same core */
+			int	bench_base_core_num;		/* First CPU core to set affinity to */
+			bool	bench_hyperthreading;		/* True if doing a hyperthreaded benchmark */
 		};
 		struct {		/* Busy loop info */
-			int	busy_loop_cpu;			/* CPU core to keep busy */
+			int	busy_loop_core;			/* CPU core to keep busy */
 		};
 	};
 };
 void SetPriority (struct PriorityInfo *);
 void SetAuxThreadPriority (int aux_thread_num, int action, void *data);
+/* The hwloc library numbers cores from 0 to HW_NUM_CORES-1.  But we do not necessarily assign cores in that order. */
+/* With the introduction of Alder Lake, we first assign compute/performance cores.  Then assign efficiency cores. */
+/* This routine maps "prime95 core numbers" into "hwloc core numbers", returning the index into the HW_CORES array */
+uint32_t get_ranked_core (uint32_t core_num);
+/* Return the number of threads gwnum will need to use when running on several possibly hyperthreaded cores */
+uint32_t get_ranked_num_threads (uint32_t base_core_num, uint32_t num_cores, bool hyperthreading);
+/* Return the number of threads gwnum will need to use when a worker is running on several possibly hyperthreaded cores */
+uint32_t get_worker_num_threads (uint32_t worker_num, bool hyperthreading);
 
 /* Internal routines that do the real work */
 

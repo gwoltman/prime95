@@ -227,16 +227,13 @@ extern int THROTTLE_PCT;		/* Percent CPU time prog should run */
 
 extern int STARTUP_IN_PROGRESS;		/* TRUE if startup dialogs are up */
 
-extern unsigned long NUM_CPUS;		/* Number of CPUs/Cores in computer */
-
 extern int LAUNCH_TYPE;			/* Type of worker threads launched */
 extern unsigned int WORKER_THREADS_ACTIVE;/* Num worker threads running */
 extern int WORKER_THREADS_STOPPING;	/* TRUE iff worker threads stopping */
 
 extern unsigned int WORKTODO_COUNT;	/* Count of valid work lines */
 
-extern int GIMPS_QUIT;			/* TRUE if we just successfully */
-					/* quit the GIMPS project */
+extern int GIMPS_QUIT;			/* TRUE if we just successfully quit the GIMPS project */
 
 extern gwthread COMMUNICATION_THREAD;	/* Handle for comm thread.  Set when comm thread is active. */
 extern gwthread UPLOAD_THREAD;		/* Handle for proof file upload thread */
@@ -257,10 +254,24 @@ extern uint32_t CPU_NUM_L4_CACHES;	/* Number of L4 caches as determined by hwloc
 extern int	CPU_L2_CACHE_INCLUSIVE;	/* 1 if inclusive, 0 if exclusive, -1 if not known */
 extern int	CPU_L3_CACHE_INCLUSIVE;	/* 1 if inclusive, 0 if exclusive, -1 if not known */
 extern int	CPU_L4_CACHE_INCLUSIVE;	/* 1 if inclusive, 0 if exclusive, -1 if not known */
-extern unsigned int NUM_NUMA_NODES;	/* Number of NUMA nodes in the computer */
-extern unsigned int NUM_THREADING_NODES;/* Number of nodes where it might be beneficial to keep a worker's threads in the same node */
 extern int OS_CAN_SET_AFFINITY;		/* hwloc supports setting CPU affinity (known exception is Apple) */
 void topology_print_children (hwloc_obj_t obj, int);
+
+/* New in 30.7, HW_ globals to describe the underlying hardware.  Earlier versions of prime95 did not deal well with asymmetric cores/threads/caches. */
+
+extern uint32_t HW_NUM_CORES;		/* Total number of cores (physical processors) available */
+extern uint32_t HW_NUM_THREADS;		/* Total number of threads (logical processors) available */
+extern uint32_t HW_NUM_COMPUTE_CORES;	/* Number of high-performance cores that a program like ours should use (i.e. not AlderLake efficiency cores) */
+extern uint32_t HW_NUM_THREADING_NODES;	/* Total number of nodes where it should be beneficial to assign a worker's cores within the same node */
+extern uint32_t HW_NUM_COMPUTE_THREADING_NODES;	/* Same as HW_NUM_THREADING_NODES but only counting nodes governing compute cores */
+extern uint32_t HW_NUM_NUMA_NODES;	/* Total number of NUMA nodes in the computer */
+
+struct hw_core_info {
+	uint16_t num_threads;		/* Number of threads (logical processors) running on this physical processor */
+	uint16_t ranking;		/* For now, only two values are supported for Alder Lake.  1=compute, 0=efficiency. */
+};
+extern struct hw_core_info *HW_CORES;	/* Information on every core */
+
 
 /* Common routines */
 

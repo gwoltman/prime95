@@ -316,16 +316,14 @@ int main (
 	nameAndReadIniFiles (named_ini_files);
 	if (MENUING != 2 && !torture_test) initCommCode ();
 
-/* If not running a torture test, set the program to nice priority. */
-/* Technically, this is not necessary since worker threads are set to */
-/* the lowest possible priority.  However, sysadmins might be alarmed */
-/* to see a CPU intensive program not running at nice priority when */
-/* executing a ps command. */
+/* If not running a torture test or benchmark, set the program to nice priority.  Technically, this is not */
+/* necessary since worker threads are set to the lowest possible priority.  However, sysadmins might be alarmed */
+/* to see a CPU intensive program not running at nice priority when executing a ps command. */
 
 #if defined (__linux__) || defined (__APPLE__) || defined (__FreeBSD__)
 	/* Linux/FreeBSD ranges from -20 to +19, lower values give more favorable scheduling */
 	nice_level = IniGetInt (INI_FILE, "Nice", 10);
-	if (!torture_test && nice_level) {
+	if (!torture_test && !bench_quick && nice_level) {
 		setpriority (PRIO_PROCESS, 0, nice_level);
 	}
 #endif
@@ -338,12 +336,12 @@ int main (
 		VERBOSE = TRUE;
 		NO_GUI = FALSE;
 
-		sprintf (m_cores, "%lu", NUM_CPUS);
+		sprintf (m_cores, "%" PRIu32, HW_NUM_COMPUTE_CORES);
 		m_workers_loc = m_workers;
 		m_workers_loc += sprintf (m_workers_loc, "1");
-		if (NUM_CPUS > 2) m_workers_loc += sprintf (m_workers_loc, ",2");
-		if (NUM_CPUS > 4) m_workers_loc += sprintf (m_workers_loc, ",4");
-		if (NUM_CPUS > 1) m_workers_loc += sprintf (m_workers_loc, ",%d", NUM_CPUS);
+		if (HW_NUM_COMPUTE_CORES > 2) m_workers_loc += sprintf (m_workers_loc, ",2");
+		if (HW_NUM_COMPUTE_CORES > 4) m_workers_loc += sprintf (m_workers_loc, ",4");
+		if (HW_NUM_COMPUTE_CORES > 1) m_workers_loc += sprintf (m_workers_loc, ",%" PRIu32, HW_NUM_COMPUTE_CORES);
 
 		IniWriteInt (INI_FILE, "MinBenchFFT", 3072);
 		IniWriteInt (INI_FILE, "MaxBenchFFT", 8192);
@@ -351,7 +349,7 @@ int main (
 		IniWriteInt (INI_FILE, "BenchAllComplex", 0);
 		IniWriteInt (INI_FILE, "OnlyBench5678", 1);
 		IniWriteString (INI_FILE, "BenchCores", m_cores);
-		IniWriteInt (INI_FILE, "BenchHyperthreads", 1);
+		IniWriteInt (INI_FILE, "BenchHyperthreads", 0);
 		IniWriteString (INI_FILE, "BenchWorkers", m_workers);
 		IniWriteInt (INI_FILE, "AllBench", 0);
 		IniWriteInt (INI_FILE, "BenchTime", 15);
@@ -361,14 +359,14 @@ int main (
 /* If running the torture test, do so now. */
 
 	else if (torture_test) {
-		int	num_threads;
+		int	num_cores;
 
 		VERBOSE = TRUE;
 		NO_GUI = FALSE;
-		num_threads = IniGetInt (INI_FILE, "TortureThreads", NUM_CPUS * CPU_HYPERTHREADS);
-		if (num_threads < 1) num_threads = 1;
-		if (num_threads > MAX_NUM_WORKER_THREADS) num_threads = MAX_NUM_WORKER_THREADS;
- 		LaunchTortureTest (num_threads, TRUE);
+		num_cores = IniGetInt (INI_FILE, "TortureCores", HW_NUM_CORES);
+		if (num_cores < 1) num_cores = 1;
+		if (num_cores > HW_NUM_CORES) num_cores = HW_NUM_CORES;
+ 		LaunchTortureTest (num_cores, TRUE);
 	}
 
 /* If this is a stress tester, then turn on menuing. */
