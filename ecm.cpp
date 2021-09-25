@@ -3136,6 +3136,7 @@ int mQ_init (
 		stop_reason = normalize_pool (ecmdata);
 		if (stop_reason) return (stop_reason);
 		if (ecmdata->factor != NULL) return (0);
+		gwfree_cached (&ecmdata->gwdata);
 		mallocFreeForOS ();
 
 /* QD is no longer needed except that we cannot delete it yet because ecm_save accesses QD if an error occurs during stage 2 init. */
@@ -3260,6 +3261,7 @@ int mQ_next (
 		stop_reason = normalize_pool (ecmdata);
 		if (stop_reason) return (stop_reason);
 		if (ecmdata->factor != NULL) return (0);
+		gwfree_cached (&ecmdata->gwdata);
 		mallocFreeForOS ();
 
 		// Return first entry in the mQx array
@@ -5289,6 +5291,10 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 	gwfree (&ecmdata.gwdata, ecmdata.Ad4);
 	ecmdata.Ad4 = NULL;
 
+/* We're about to reach peak memory usage, free any gwnum internal memory */
+
+	gwfree_internal_memory (&ecmdata.gwdata);
+
 /* Compute relp sets other than 0,-1 */
 /* MEMPEAK in this code is tricky to calculate.  We do free D-multiples and intermediate relps as soon as possible.  We also normalize as soon as possible. */
 /* Peak should occur at last relp calculation where we have up to 6 extra gwnums in play -- 2 for Qbase (1 if base is a permanent set), 2 for Qdiff (1 if */
@@ -5977,7 +5983,7 @@ typedef struct {
 	struct work_unit *w;	/* Worktodo.txt entry */
 	int	state;		/* One of the states listed above */
 	uint64_t B;		/* Bound #1 (a.k.a. B1) */
-	uint64_t C;		/* Bound #2 (a.k.a. B2 */
+	uint64_t C;		/* Bound #2 (a.k.a. B2) */
 	uint64_t interim_B;	/* B1 we are currently calculating (equals B except when finishing stage 1 from a save file using a different B1). */
 	uint64_t interim_C;	/* B2 we are currently calculating (equals C except when finishing stage 2 a save file using different B2) */
 	uint64_t B_done;	/* We have completed calculating 3^e to this bound #1 */
@@ -6226,9 +6232,7 @@ void pm1_save (
 	{
 		int	have_x = (pm1data->x != NULL);
 		if (! write_int (fd, have_x, &sum)) goto writeerr;
-		if (have_x) {
-			if (! write_gwnum (fd, &pm1data->gwdata, pm1data->x, &sum)) goto writeerr;
-		}
+		if (have_x && !write_gwnum (fd, &pm1data->gwdata, pm1data->x, &sum)) goto writeerr;
 	}
 
 	// Save stage 2's x + 1/x value that allows us to do a P+1 style stage 2
@@ -6238,7 +6242,9 @@ void pm1_save (
 
 	// Save the stage 2 accumulator
 	if (pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_GCD) {
-		if (! write_gwnum (fd, &pm1data->gwdata, pm1data->gg, &sum)) goto writeerr;
+		int	have_gg = (pm1data->gg != NULL);
+		if (! write_int (fd, have_gg, &sum)) goto writeerr;
+		if (have_gg && !write_gwnum (fd, &pm1data->gwdata, pm1data->gg, &sum)) goto writeerr;
 	}
 
 /* Write the checksum, we're done */
@@ -6477,9 +6483,14 @@ int pm1_restore (			/* For version 30.4 and later save files */
 /* Read stage 2 accumulator gwnum */
 
 	if (pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_GCD) {
-		pm1data->gg = gwalloc (&pm1data->gwdata);
-		if (pm1data->gg == NULL) goto readerr;
-		if (! read_gwnum (fd, &pm1data->gwdata, pm1data->gg, &sum)) goto readerr;
+		int	have_gg;
+		if (version == 4) have_gg = TRUE;				// 30.4 save files
+		else if (! read_int (fd, &have_gg, &sum)) goto readerr;		// 30.7 save files
+		if (have_gg) {
+			pm1data->gg = gwalloc (&pm1data->gwdata);
+			if (pm1data->gg == NULL) goto readerr;
+			if (! read_gwnum (fd, &pm1data->gwdata, pm1data->gg, &sum)) goto readerr;
+		}
 	}
 
 /* Version 30.4 save files cannot continue in stage 2 */
@@ -7433,36 +7444,19 @@ more_B:		pm1data.interim_B = pm1data.B;
 
 	if (pm1data.C <= pm1data.B) goto msg_and_exit;
 
-/* Since gwmul_carefully was called in stage 1, free the memory allocated for GW_RANDOM */
-
-	gwfree_internal_memory (&pm1data.gwdata);
-
 /*
    Stage 2:  Use ideas from Crandall, Zimmermann, Montgomery, Preda, and Atnashev on each prime below C.
    This code is more efficient the more memory you can give it.
    Inputs: x, the value at the end of stage 1
 */
 
-/* Change state to between stage 1 and 2 */
-
-	pm1data.state = PM1_STATE_MIDSTAGE;
-	strcpy (w->stage, "S2");
-	w->pct_complete = 0.0;
-
-/* Initialize variables for second stage.  We set gg to x-1 in case the user opted to skip the GCD after stage 1. */
+/* Initialize variables for second stage */
+/* Create V = x + 1/x.  We use V in a P+1-style stage 2 which uses one multiply instead of two to go from D section to D section. */
 
 restart3a:
+	strcpy (w->stage, "S1");
+	w->pct_complete = 1.0;
 	start_timer_from_zero (timers, 0);
-	pm1data.gg = gwalloc (&pm1data.gwdata);
-	if (pm1data.gg == NULL) goto oom;
-	gwcopy (&pm1data.gwdata, pm1data.x, pm1data.gg);
-	gwaddsmall (&pm1data.gwdata, pm1data.gg, -1);
-
-// GW:  create (optional) P-1 save file containing x for extending stage 1 at a later date
-//GW: OR keep x around (and write/read from save file) if we are creating a continuation save file when finished
-
-/* Create V = x + 1/x.  We can use V in a P+1 stage 2 which uses one multiply instead of two to go from D section to D section */
-
 	pm1data.V = gwalloc (&pm1data.gwdata);
 	if (pm1data.V == NULL) goto oom;
 	gwcopy (&pm1data.gwdata, pm1data.x, pm1data.V);
@@ -7478,17 +7472,21 @@ restart3a:
 		pm1data.x = NULL;
 	}
 
-/* Conversion to x+1/x format complete */
+/* Conversion to x + 1/x format complete */
 
+	end_timer (timers, 0);
 	sprintf (buf, "Conversion of stage 1 result complete. %.0f transforms, 1 modular inverse. Time: ", gw_get_fft_count (&pm1data.gwdata));
 	print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	gw_clear_fft_count (&pm1data.gwdata);
 
-/* Restart here when in the middle of stage 2 */
+/* Restart here when in the middle of stage 2.  Change state to between stage 1 and 2. */
 
 restart3b:
 more_C:
+	pm1data.state = PM1_STATE_MIDSTAGE;
+	strcpy (w->stage, "S2");
+	w->pct_complete = 0.0;
 	start_timer_from_zero (timers, 0);
 	sprintf (buf, "%s P-1 stage 2 init", gwmodulo_as_string (&pm1data.gwdata));
 	title (thread_num, buf);
@@ -7775,6 +7773,10 @@ replan:	{
 	}
 //GW: are xz buffers allocated by Dmultiple map properly cleaned up (especially in oom case)?  use class to do it? 
 
+/* We're about to reach peak memory usage, free any gwnum internal memory */
+
+	gwfree_internal_memory (&pm1data.gwdata);
+
 /* Compute relp sets other than 0,-1 */
 
 	int	num_partials;
@@ -7840,6 +7842,25 @@ replan:	{
 
 	Dmultiple_map.clear ();
 	relp_set_map.clear ();
+
+/* Initialize gg to a multiple of x-1 in case the user opted to skip the GCD after stage 1.  We used to init gg to x-1 at the beginning */
+/* of stage 2 init.  This more complicated delayed initialization reduces peak memory utilization by one gwnum. */
+
+	if (pm1data.gg == NULL) {
+		pm1data.gg = gwalloc (&pm1data.gwdata);
+		if (pm1data.gg == NULL) goto oom;
+		if (addmul_safe (&pm1data.gwdata, 0, 0, 1)) {
+			gwsub3o (&pm1data.gwdata, pm1data.V, pm1data.nQx[0], pm1data.gg, GWADD_MUL_INPUT);
+		} else {
+			dbltogw (&pm1data.gwdata, 1.0, pm1data.gg);
+			gwsubmul4 (&pm1data.gwdata, pm1data.V, pm1data.nQx[0], pm1data.gg, pm1data.gg, GWMUL_STARTNEXTFFT);
+		}
+	}
+
+/* We're at peak memory usage, free any cached gwnums */
+
+	gwfree_cached (&pm1data.gwdata);
+	mallocFreeForOS ();
 
 /* Stage 2 init complete, change the title, output a message */
 
@@ -8722,7 +8743,7 @@ typedef struct {
 	uint32_t numerator;	/* Starting point numerator */
 	uint32_t denominator;	/* Starting point denominator */
 	uint64_t B;		/* Bound #1 (a.k.a. B1) */
-	uint64_t C;		/* Bound #2 (a.k.a. B2 */
+	uint64_t C;		/* Bound #2 (a.k.a. B2) */
 	uint64_t interim_B;	/* B1 we are currently calculating (equals B except when finishing stage 1 from a save file using a different B1). */
 	uint64_t interim_C;	/* B2 we are currently calculating (equals C except when finishing stage 2 a save file using different B2) */
 	uint64_t B_done;	/* We have completed calculating 3^e to this bound #1 */
@@ -8851,7 +8872,9 @@ void pp1_save (
 
 	if (! write_gwnum (fd, &pp1data->gwdata, pp1data->V, &sum)) goto writeerr;
 	if (pp1data->state >= PP1_STATE_MIDSTAGE && pp1data->state <= PP1_STATE_GCD) {
-		if (! write_gwnum (fd, &pp1data->gwdata, pp1data->gg, &sum)) goto writeerr;
+		int	have_gg = (pp1data->gg != NULL);
+		if (! write_int (fd, have_gg, &sum)) goto writeerr;
+		if (have_gg && !write_gwnum (fd, &pp1data->gwdata, pp1data->gg, &sum)) goto writeerr;
 	}
 
 /* Write the checksum, we're done */
@@ -8970,9 +8993,14 @@ int pp1_restore (
 /* Read stage 2 accumulator gwnum */
 
 	if (pp1data->state >= PP1_STATE_MIDSTAGE && pp1data->state <= PP1_STATE_GCD) {
-		pp1data->gg = gwalloc (&pp1data->gwdata);
-		if (pp1data->gg == NULL) goto readerr;
-		if (! read_gwnum (fd, &pp1data->gwdata, pp1data->gg, &sum)) goto readerr;
+		int	have_gg;
+		if (version == 4) have_gg = TRUE;				// 30.6 save files
+		else if (! read_int (fd, &have_gg, &sum)) goto readerr;		// 30.7 save files
+		if (have_gg) {
+			pp1data->gg = gwalloc (&pp1data->gwdata);
+			if (pp1data->gg == NULL) goto readerr;
+			if (! read_gwnum (fd, &pp1data->gwdata, pp1data->gg, &sum)) goto readerr;
+		}
 	}
 
 /* Version 30.6 save files cannot continue in stage 2 */
@@ -10100,25 +10128,19 @@ more_B:		pp1data.interim_B = pp1data.B;
    Inputs: V, the value at the end of stage 1
 */
 
-/* Change state to between stage 1 and 2 */
-
-	pp1data.state = PP1_STATE_MIDSTAGE;
-	strcpy (w->stage, "S2");
-	w->pct_complete = 0.0;
-
-/* Initialize variables for second stage.  We set gg to Vn-2 in case the user opted to skip the GCD after stage 1. */
+/* Initialize variables for second stage */
 
 restart3a:
-	pp1data.gg = gwalloc (&pp1data.gwdata);
-	if (pp1data.gg == NULL) goto oom;
-//GW: We could start gg with VD-2 later on -- reduces peak by one gwnum (ECM too?)  BUT VD is FFTed possibly FFTED_FOR_FMA
-	gwcopy (&pp1data.gwdata, pp1data.V, pp1data.gg);
-	gwaddsmall (&pp1data.gwdata, pp1data.gg, -2);
+//	strcpy (w->stage, "S1");
+//	w->pct_complete = 1.0;
 
-/* Restart here when in the middle of stage 2 */
+/* Restart here when in the middle of stage 2.  Change state to between stage 1 and 2. */
 
 restart3b:
 more_C:
+	pp1data.state = PM1_STATE_MIDSTAGE;
+	strcpy (w->stage, "S2");
+	w->pct_complete = 0.0;
 	start_timer_from_zero (timers, 0);
 	sprintf (buf, "%s P+1 stage 2 init", gwmodulo_as_string (&pp1data.gwdata));
 	title (thread_num, buf);
@@ -10399,6 +10421,10 @@ replan:	{
 	}
 //GW: are xz buffers allocated by Dmultiple map properly cleaned up (especially in oom case)?  use class to do it? 
 
+/* We're about to reach peak memory usage, free any gwnum internal memory */
+
+	gwfree_internal_memory (&pp1data.gwdata);
+
 /* Compute relp sets other than 0,-1 */
 
 	int	num_partials;
@@ -10462,6 +10488,21 @@ replan:	{
 
 	Dmultiple_map.clear ();
 	relp_set_map.clear ();
+
+/* Initialize gg to a multiple of V-2 in case the user opted to skip the GCD after stage 1.  We used to init gg to V-2 at the beginning */
+/* of stage 2 init.  This more complicated delayed initialization reduces peak memory utilization by one gwnum. */
+
+	if (pp1data.gg == NULL) {
+		pp1data.gg = gwalloc (&pp1data.gwdata);
+		if (pp1data.gg == NULL) goto oom;
+		dbltogw (&pp1data.gwdata, 1.0, pp1data.gg);
+		gwmul3 (&pp1data.gwdata, pp1data.Vn1, pp1data.gg, pp1data.gg, GWMUL_FFT_S1 | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT);
+	}
+
+/* We're at peak memory usage, free any cached gwnums */
+
+	gwfree_cached (&pp1data.gwdata);
+	mallocFreeForOS ();
 
 /* Stage 2 init complete, change the title, output a message */
 
