@@ -6619,9 +6619,8 @@ gwnum gwalloc (
 		p += -GW_HEADER_SIZE & 127;
 		freeable = 0;
 	}
-/* FreeBSD supports supports large pages (superpages) automatically.  Allocate the */
-/* first gwnum on a 4MB to minimize fragmentation across superpage boundaries.  The */
-/* theory is this will maximize the number of superpage promotions. */
+/* FreeBSD supports supports large pages (superpages) automatically.  Allocate the first gwnum with a 4MB alignment to minimize */
+/* fragmentation across superpage boundaries.  The theory is this will maximize the number of superpage promotions. */
 #ifdef __FreeBSD__
 	else if (size >= 0x400000 && gwdata->gwnum_alloc_count == 0) {
 		p = (char *) aligned_offset_malloc (size + GW_HEADER_SIZE, 0x400000, (GW_HEADER_SIZE - gwdata->GW_ALIGNMENT_MOD) & 0x3FFFFF);
@@ -6711,6 +6710,25 @@ void gwfree (
 /* Cache the gwnum for quicker gwallocs in the future */
 
 	gwdata->gwnum_free[gwdata->gwnum_free_count++] = q;
+}
+
+/* Free cached gwnums */
+
+void gwfree_cached (
+	gwhandle *gwdata)	/* Handle initialized by gwsetup */
+{
+	int	i;
+
+/* Free the cached gwnums that are freeable */
+
+	for (i = 0; i < (int) gwdata->gwnum_free_count; i++) {
+		gwnum	q = gwdata->gwnum_free[i];
+		int32_t	freeable = * (int32_t *) ((char *) q - 32);
+		if ((freeable & GWFREEABLE) && !(freeable & GWFREED_TEMPORARILY)) {
+			gwfree_freeable (gwdata, q);
+			gwdata->gwnum_free[i--] = gwdata->gwnum_free[--gwdata->gwnum_free_count];
+		}
+	}
 }
 
 /* Typeless gwalloc and gwfree routines for giants code to call */

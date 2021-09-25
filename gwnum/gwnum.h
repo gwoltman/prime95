@@ -246,6 +246,10 @@ void gwfreeall (
 		if ((h)->to_radix_gwdata != NULL) gwdone ((h)->to_radix_gwdata), free ((h)->to_radix_gwdata), (h)->to_radix_gwdata = NULL; \
 		if ((h)->from_radix_gwdata != NULL) gwdone ((h)->from_radix_gwdata), free ((h)->from_radix_gwdata), (h)->from_radix_gwdata = NULL; }
 
+/* Empty cache of freed gwnums.  Call this to minimize gwnum library's memory footprint when no more gwallocs are anticipated anytime soon. */
+void gwfree_cached (
+	gwhandle *gwdata);	/* Handle initialized by gwsetup */
+
 /* Highly specialized routine!  Allocates and initializes FFT(1).  Internally FFT(1) is used by gwmuladd4, gwmulsub4, and gwunfft.  Should */
 /* the user also need FFT(1) this let's you avoid allocating a second gwnum that holds the same value. */
 void gwuser_init_FFT1 (		/* Calculate GW_FFT1 at user's request */
@@ -450,7 +454,7 @@ void gwmulmulsub5 (		/* Calculate (s1*s2)-(s3*s4) */
 /* This is complicated stuff.  Reading tutorial.txt is highly recommended! */
 #define GWADD_SQUARE_INPUT		0x0001	/* Result will eventually be input to gwsquare */
 #define GWADD_MANY_INPUTS		0x0001	/* Result will be input to gwmul or gwaddmul where multiple arguments come from the output of gwadd */
-#define GWADD_MUL_INPUT			0x0002	/* Result will eventually be input to gwmul3 */   
+#define GWADD_MUL_INPUT			0x0002	/* Result will eventually be input to gwmul3 */
 #define GWADD_ADD_INPUT			0x0004	/* Result will eventually be input to one of the first two arguments of gwaddmul4 or gwsubmul4 */
 #define GWADD_NON_RANDOM_DATA		0x0010	/* Two add inputs are correlated (like adding number to itself) which has much worse impact on roundoff */
 #define GWADD_GUARANTEED_OK		0x2000	/* Do not normalize the result.  Treat result like a fully normalized number. */
@@ -732,10 +736,10 @@ int gwtogiant (gwhandle *, gwnum, giant);
 /* gwsquare2_carefully(s,d)	DEPRECATED - use gwmul3_carefully */
 /* gwmul_carefully(s,d)		DEPRECATED - use gwmul3_carefully */
 /* gwadd3(s1,s2,d)		DEPRECATED - use gwadd3o.  Adds two numbers */
-/* gwsub3(s1,s2,d)		DEPRECATED - use gwasub3o.  Subtracts second number from first */
+/* gwsub3(s1,s2,d)		DEPRECATED - use gwsub3o.  Subtracts second number from first */
 /* gwaddsub4(s1,s2,d1,d2)	DEPRECATED - use gwaddsub4o.  Like gwaddsub4o */
 /* gwadd3quick(s1,s2,d)		DEPRECATED - use gwadd3o.  Adds two numbers WITHOUT normalizing */
-/* gwsub3quick(s1,s2,d)		DEPRECATED - use gwasub3o.  Subtracts second number from first WITHOUT normalizing */
+/* gwsub3quick(s1,s2,d)		DEPRECATED - use gwsub3o.  Subtracts second number from first WITHOUT normalizing */
 /* gwaddsub4quick(s1,s2,d1,d2)	DEPRECATED - use gwaddsub4o.  Like gwaddsub4 but WITHOUT normalizing */
 /* force_normalize(x)		DEPRECATED - use GWADD_FORCE_NORMALIZE option.  Was used on destination of gwadd3, gwsub3, or gwaddsub4 in version 30.4 */
 
