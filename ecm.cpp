@@ -156,10 +156,12 @@ int16_t get_max_relp_set (
 class relp_set_data {
 public:
 	// Constructor	
-	relp_set_data (int16_t b, bool c, bool d) { last_used_by = b; nQx_store = base = Dmultiple = diff = 0; permanent = c; partial = d; }
+	relp_set_data (int16_t b, bool c, bool d)
+		{ last_full_used_by = last_partial_used_by = b; nQx_store = base = Dmultiple = diff = 0; permanent = c; partial = d; }
 	// Data
 	int16_t		nQx_store;		// Where this relp_set is stored in the nQx array
-	int16_t		last_used_by;		// The largest relp_set that used this relp_set as base or diff
+	int16_t		last_full_used_by;	// The largest full relp_set that used this relp_set as base or diff
+	int16_t		last_partial_used_by;	// The largest partial relp_set that used this relp_set as base or diff
 	int16_t		base;			// Set will be computed by base + Dmultiple and diff
 	int16_t		Dmultiple;		// Set will be computed by base + Dmultiple and diff
 	int16_t		diff;			// Set will be computed by base + Dmultiple and diff
@@ -195,10 +197,14 @@ public:
 			val.x = val.z = NULL;
 		}
 	}
+	// Return TRUE if relp_last_used_by is satisfied
+	bool will_free_due_to_relp_last_used_by (int16_t x) {
+		if (do_not_free_val) return (FALSE);
+		return (relp_last_used_by == x);
+	}
 	// Free value if relp_last_used_by satisfied
 	void free_if_relp_last_used_by (int16_t x) {
-		if (do_not_free_val) return;
-		if (relp_last_used_by == x) {
+		if (will_free_due_to_relp_last_used_by (x)) {
 			gwfree (gwdata, val.x);
 			gwfree (gwdata, val.z);
 			val.x = val.z = NULL;
@@ -280,8 +286,12 @@ void process_relp_sets (
 			this_set->second.base = base_set->first;
 			this_set->second.Dmultiple = Dmultiple;
 			this_set->second.diff = diff;
-			base_set->second.last_used_by = this_set->first;
-			diff_set->second.last_used_by = this_set->first;
+			base_set->second.last_partial_used_by = this_set->first;
+			diff_set->second.last_partial_used_by = this_set->first;
+			if (!this_set->second.partial) {
+				base_set->second.last_full_used_by = this_set->first;
+				diff_set->second.last_full_used_by = this_set->first;
+			}
 			// Update or create Dmultiple data
 			auto Dfind = Dmultiple_map.find(Dmultiple);
 			if (Dfind != Dmultiple_map.end()) Dfind->second.relp_last_used_by = this_set->first;
@@ -5313,8 +5323,8 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 		auto it_diff_relp_set = relp_set_map.find (it_relp_set->second.diff);
 		// Find the Dmultiple needed to create this relp_set
 		auto it_Dmultiple = Dmultiple_map.find (it_relp_set->second.Dmultiple);
-		// Loop over all relative primes below D/2
-		for (i = 0; i < numrels; i++) {
+		// Loop over all relative primes below D/2 that need calculating in this relp_set (backwards is better for peak memory)
+		for (i = (it_relp_set->second.partial ? num_partials : numrels) - 1; i >= 0; i--) {
 			struct xz Qbase, Qdiff, Qnew;
 			int	ni;
 
@@ -5329,26 +5339,34 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 			Qdiff.x = ecmdata.nQx[ni];
 			Qdiff.z = ecmdata.nQx[ni + z_offset];
 
-			// Calculate this relp if needed
-			if (!it_relp_set->second.partial || i < num_partials) {
-				// Allocate the new relp value
-				if (!alloc_xz (&ecmdata, &Qnew)) goto lowmem;
+			// Set flags if Qbase and/or Qdiff will be freed because they are not used in any more relp_set calculations
+			bool Qbase_last_use = ((i < num_partials && it_base_relp_set->second.last_partial_used_by == it_relp_set->first) ||
+					       (i >= num_partials && it_base_relp_set->second.last_full_used_by == it_relp_set->first));
+			bool Qdiff_last_use = ((i < num_partials && it_diff_relp_set->second.last_partial_used_by == it_relp_set->first) ||
+					       (i >= num_partials && it_diff_relp_set->second.last_full_used_by == it_relp_set->first));
+			bool Dmultiple_to_be_freed = (i == 0 && it_Dmultiple->second.will_free_due_to_relp_last_used_by (it_relp_set->first));
 
-				// Compute the new relp value
-				ell_add_xz (&ecmdata, &Qbase, &it_Dmultiple->second.val, &Qdiff, &Qnew);	// Qnew = base + Dmult, diff e.g. 47+30 or 29+30
+			// Allocate the new relp value
+//GW: We could reuse about-to-be-freed Qbase or Qdiff like we do for P-1 and P+1.  However peak memory usage is unlikely to be affected
+			if (!alloc_xz (&ecmdata, &Qnew)) goto lowmem;
 
-				// Add the relp to the nQx array.  If this relp_set is not used by anyone else, then we can also normalize.
-				ni = it_relp_set->second.nQx_store + i;
-				ecmdata.nQx[ni] = Qnew.x;
-				ecmdata.nQx[ni + z_offset] = Qnew.z;
-				if (it_relp_set->second.last_used_by == it_relp_set->first) {
-					stop_reason = add_to_normalize_pool_ro (&ecmdata, Qnew.x, Qnew.z);
-					if (stop_reason) goto possible_lowmem;
-				}
+			// Compute the new relp value
+			ell_add_xz (&ecmdata, &Qbase, &it_Dmultiple->second.val, &Qdiff, &Qnew);	// Qnew = base + Dmult, diff e.g. 47+30 or 29+30
+
+			// Add the relp to the nQx array.
+			ni = it_relp_set->second.nQx_store + i;
+			ecmdata.nQx[ni] = Qnew.x;
+			ecmdata.nQx[ni + z_offset] = Qnew.z;
+
+			// If this nQx value will not be used in further relp_set calculations, then normalize it
+			if ((it_relp_set->second.partial && it_relp_set->second.last_partial_used_by == it_relp_set->first) ||
+			    (!it_relp_set->second.partial && it_relp_set->second.last_full_used_by == it_relp_set->first)) {
+				stop_reason = add_to_normalize_pool_ro (&ecmdata, Qnew.x, Qnew.z);
+				if (stop_reason) goto possible_lowmem;
 			}
 
 			// If base is not needed for further relp_set calculations, then free or add_to_normalize Qbase
-			if (it_base_relp_set->second.last_used_by == it_relp_set->first && (!it_base_relp_set->second.partial || i < num_partials)) {
+			if (Qbase_last_use) {
 				if (it_base_relp_set->second.permanent) {
 					stop_reason = add_to_normalize_pool_ro (&ecmdata, Qbase.x, Qbase.z);
 					if (stop_reason) goto possible_lowmem;
@@ -5358,7 +5376,7 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 			}
 
 			// If diff is not needed for further relp_set calculations, then free or add_to_normalize Qdiff
-			if (it_diff_relp_set->second.last_used_by == it_relp_set->first && (!it_diff_relp_set->second.partial || i < num_partials)) {
+			if (Qdiff_last_use) {
 				if (it_diff_relp_set->second.permanent) {
 					stop_reason = add_to_normalize_pool_ro (&ecmdata, Qdiff.x, Qdiff.z);
 					if (stop_reason) goto possible_lowmem;
@@ -5367,9 +5385,11 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 				}
 			}
 
+			// Free the Dmultiple if this is the last time it will be used
+			if (Dmultiple_to_be_freed) {
+				it_Dmultiple->second.free_if_relp_last_used_by (it_relp_set->first);
+			}
 		}
-		// Free the Dmultiple if this is the last time it will be used
-		it_Dmultiple->second.free_if_relp_last_used_by (it_relp_set->first);
 	}
 
 /* Clear the maps used to build relp sets */
@@ -7790,52 +7810,63 @@ replan:	{
 		auto it_diff_relp_set = relp_set_map.find (it_relp_set->second.diff);
 		// Find the Dmultiple needed to create this relp_set
 		auto it_Dmultiple = Dmultiple_map.find (it_relp_set->second.Dmultiple);
-		// Loop over all relative primes below D/2
-		for (i = 0; i < numrels; i++) {
-			gwnum	Vbase, Vdiff, Vnew;
+		// Loop over all relative primes below D/2 that need calculating in this relp_set (backwards is better for peak memory)
+		for (i = (it_relp_set->second.partial ? num_partials : numrels) - 1; i >= 0; i--) {
+			gwnum	*Vbase, *Vdiff, Vnew;
 			int	ni;
 
 			// Get the base gwnum from the nQx entry
 			ni = it_base_relp_set->second.nQx_store + i;
-			Vbase = pm1data.nQx[ni];
+			Vbase = &pm1data.nQx[ni];
 			// Get the diff gwnum from the diff nQx entry
 			// If diff has a different sign bit than base, then we need to index the diff relp_set in reverse order
 			ni = it_diff_relp_set->second.nQx_store;
 			if (((it_base_relp_set->first < 0) ^ (it_diff_relp_set->first < 0)) == 0) ni += i; else ni += (numrels-1)-i;
-			Vdiff = pm1data.nQx[ni];
+			Vdiff = &pm1data.nQx[ni];
 
-			// Calculate this relp if needed
-			if (!it_relp_set->second.partial || i < num_partials) {
-//GW: ECM and P+1 too.  Don't alloc Vnew if we can overwrite it_Dmultiple  or it_base or it_diff
-// helps mempeak -- try to end on calculation where Vnew does not need allocating
-				// Allocate the new relp value
+			// Set flags if Vbase and/or Vdiff or Dmultiple will be freed because they are not used in any more relp_set calculations
+			bool Vbase_to_be_freed = (!it_base_relp_set->second.permanent &&
+						  ((i < num_partials && it_base_relp_set->second.last_partial_used_by == it_relp_set->first) ||
+						   (i >= num_partials && it_base_relp_set->second.last_full_used_by == it_relp_set->first)));
+			bool Vdiff_to_be_freed = (!it_diff_relp_set->second.permanent &&
+						  ((i < num_partials && it_diff_relp_set->second.last_partial_used_by == it_relp_set->first) ||
+						   (i >= num_partials && it_diff_relp_set->second.last_full_used_by == it_relp_set->first)));
+			bool Dmultiple_to_be_freed = (i == 0 && it_Dmultiple->second.will_free_due_to_relp_last_used_by (it_relp_set->first));
+
+			// Allocate the new relp value (or re-use Vbase or Vdiff)
+			if (Vbase_to_be_freed) Vnew = *Vbase;
+			else if (Vdiff_to_be_freed) Vnew = *Vdiff;
+			else if (Dmultiple_to_be_freed) Vnew = it_Dmultiple->second.val.x;
+			else {
 				Vnew = gwalloc (&pm1data.gwdata);
 				if (Vnew == NULL) goto lowmem;
-
-				// Compute the new relp value
-				luc_add (&pm1data.gwdata, Vbase, it_Dmultiple->second.val.x, Vdiff, Vnew);	// Vnew = Vbase + Dmult, Vdiff e.g. 47+30 or 29+30
-
-				// Add the relp to the nQx array.
-				ni = it_relp_set->second.nQx_store + i;
-				pm1data.nQx[ni] = Vnew;
 			}
 
+			// Compute the new relp value
+			luc_add (&pm1data.gwdata, *Vbase, it_Dmultiple->second.val.x, *Vdiff, Vnew);	// Vnew = Vbase + Dmult, Vdiff e.g. 47+30 or 29+30
+
+			// Add the relp to the nQx array.
+			ni = it_relp_set->second.nQx_store + i;
+			pm1data.nQx[ni] = Vnew;
+
 			// If base is not needed for further relp_set calculations, then free Vbase
-			if (it_base_relp_set->second.last_used_by == it_relp_set->first && (!it_base_relp_set->second.partial || i < num_partials)) {
-				if (!it_base_relp_set->second.permanent) {
-					gwfree (&pm1data.gwdata, Vbase);
-				}
+			if (Vbase_to_be_freed && Vnew != *Vbase) {
+				gwfree (&pm1data.gwdata, *Vbase);
+				*Vbase = NULL;
 			}
 
 			// If diff is not needed for further relp_set calculations, then free Vdiff
-			if (it_diff_relp_set->second.last_used_by == it_relp_set->first && (!it_diff_relp_set->second.partial || i < num_partials)) {
-				if (!it_diff_relp_set->second.permanent) {
-					gwfree (&pm1data.gwdata, Vdiff);
-				}
+			if (Vdiff_to_be_freed && Vnew != *Vdiff) {
+				gwfree (&pm1data.gwdata, *Vdiff);
+				*Vdiff = NULL;
+			}
+
+			// Free the Dmultiple if this is the last time it will be used
+			if (Dmultiple_to_be_freed) {
+				it_Dmultiple->second.do_not_free_val |= (Vnew == it_Dmultiple->second.val.x);
+				it_Dmultiple->second.free_if_relp_last_used_by (it_relp_set->first);
 			}
 		}
-		// Free the Dmultiple if this is the last time it will be used
-		it_Dmultiple->second.free_if_relp_last_used_by (it_relp_set->first);
 	}
 
 /* Clear the maps used to build relp sets */
@@ -10438,50 +10469,63 @@ replan:	{
 		auto it_diff_relp_set = relp_set_map.find (it_relp_set->second.diff);
 		// Find the Dmultiple needed to create this relp_set
 		auto it_Dmultiple = Dmultiple_map.find (it_relp_set->second.Dmultiple);
-		// Loop over all relative primes below D/2
-		for (i = 0; i < numrels; i++) {
-			gwnum	Vbase, Vdiff, Vnew;
+		// Loop over all relative primes below D/2 that need calculating in this relp_set (backwards is better for peak memory)
+		for (i = (it_relp_set->second.partial ? num_partials : numrels) - 1; i >= 0; i--) {
+			gwnum	*Vbase, *Vdiff, Vnew;
 			int	ni;
 
 			// Get the base gwnum from the nQx entry
 			ni = it_base_relp_set->second.nQx_store + i;
-			Vbase = pp1data.nQx[ni];
+			Vbase = &pp1data.nQx[ni];
 			// Get the diff gwnum from the diff nQx entry
 			// If diff has a different sign bit than base, then we need to index the diff relp_set in reverse order
 			ni = it_diff_relp_set->second.nQx_store;
 			if (((it_base_relp_set->first < 0) ^ (it_diff_relp_set->first < 0)) == 0) ni += i; else ni += (numrels-1)-i;
-			Vdiff = pp1data.nQx[ni];
+			Vdiff = &pp1data.nQx[ni];
 
-			// Calculate this relp if needed
-			if (!it_relp_set->second.partial || i < num_partials) {
-				// Allocate the new relp value
+			// Set flags if Vbase and/or Vdiff will be freed because they are not used in any more relp_set calculations
+			bool Vbase_to_be_freed = (!it_base_relp_set->second.permanent &&
+						  ((i < num_partials && it_base_relp_set->second.last_partial_used_by == it_relp_set->first) ||
+						   (i >= num_partials && it_base_relp_set->second.last_full_used_by == it_relp_set->first)));
+			bool Vdiff_to_be_freed = (!it_diff_relp_set->second.permanent &&
+						  ((i < num_partials && it_diff_relp_set->second.last_partial_used_by == it_relp_set->first) ||
+						   (i >= num_partials && it_diff_relp_set->second.last_full_used_by == it_relp_set->first)));
+			bool Dmultiple_to_be_freed = (i == 0 && it_Dmultiple->second.will_free_due_to_relp_last_used_by (it_relp_set->first));
+
+			// Allocate the new relp value (or re-use Vbase or Vdiff)
+			if (Vbase_to_be_freed) Vnew = *Vbase;
+			else if (Vdiff_to_be_freed) Vnew = *Vdiff;
+			else if (Dmultiple_to_be_freed) Vnew = it_Dmultiple->second.val.x;
+			else {
 				Vnew = gwalloc (&pp1data.gwdata);
 				if (Vnew == NULL) goto lowmem;
-
-				// Compute the new relp value
-				luc_add (&pp1data.gwdata, Vbase, it_Dmultiple->second.val.x, Vdiff, Vnew);	// Vnew = Vbase + Dmult, Vdiff e.g. 47+30 or 29+30
-
-				// Add the relp to the nQx array.
-				ni = it_relp_set->second.nQx_store + i;
-				pp1data.nQx[ni] = Vnew;
 			}
 
+			// Compute the new relp value
+			luc_add (&pp1data.gwdata, *Vbase, it_Dmultiple->second.val.x, *Vdiff, Vnew);	// Vnew = Vbase + Dmult, Vdiff e.g. 47+30 or 29+30
+
+			// Add the relp to the nQx array.
+			ni = it_relp_set->second.nQx_store + i;
+			pp1data.nQx[ni] = Vnew;
+
 			// If base is not needed for further relp_set calculations, then free Vbase
-			if (it_base_relp_set->second.last_used_by == it_relp_set->first && (!it_base_relp_set->second.partial || i < num_partials)) {
-				if (!it_base_relp_set->second.permanent) {
-					gwfree (&pp1data.gwdata, Vbase);
-				}
+			if (Vbase_to_be_freed && Vnew != *Vbase) {
+				gwfree (&pp1data.gwdata, *Vbase);
+				*Vbase = NULL;
 			}
 
 			// If diff is not needed for further relp_set calculations, then free Vdiff
-			if (it_diff_relp_set->second.last_used_by == it_relp_set->first && (!it_diff_relp_set->second.partial || i < num_partials)) {
-				if (!it_diff_relp_set->second.permanent) {
-					gwfree (&pp1data.gwdata, Vdiff);
-				}
+			if (Vdiff_to_be_freed && Vnew != *Vdiff) {
+				gwfree (&pp1data.gwdata, *Vdiff);
+				*Vdiff = NULL;
+			}
+
+			// Free the Dmultiple if this is the last time it will be used
+			if (Dmultiple_to_be_freed) {
+				it_Dmultiple->second.do_not_free_val |= (Vnew == it_Dmultiple->second.val.x);
+				it_Dmultiple->second.free_if_relp_last_used_by (it_relp_set->first);
 			}
 		}
-		// Free the Dmultiple if this is the last time it will be used
-		it_Dmultiple->second.free_if_relp_last_used_by (it_relp_set->first);
 	}
 
 /* Clear the maps used to build relp sets */
