@@ -158,6 +158,17 @@ public:
 	// Constructor	
 	relp_set_data (int16_t b, bool c, bool d)
 		{ last_full_used_by = last_partial_used_by = b; nQx_store = base = Dmultiple = diff = 0; permanent = c; partial = d; }
+	// Determine if this is the last use of a value in calculating relp data
+	bool is_last_use (int16_t relp_set, int i, int num_partials, int numrels, bool inverted_access_pattern) {
+		// If the relp_set being calculated matches the last-partial-usage of this set, then this is the last use
+		if (relp_set == last_partial_used_by) return (TRUE);
+		// If the relp_set being calculated matches neither the last-partial-usage or last-full-usage of this set, then this is not the last use
+		if (relp_set != last_full_used_by) return (FALSE);
+		// See if inverted access patterns cancel out
+		inverted_access_pattern ^= last_partial_use_inverted;
+		// Return TRUE if not accessing one of the relps that are needed in the last-partial-usage
+		return ((!inverted_access_pattern && i >= num_partials) || (inverted_access_pattern && i < numrels - num_partials));
+	}
 	// Data
 	int16_t		nQx_store;		// Where this relp_set is stored in the nQx array
 	int16_t		last_full_used_by;	// The largest full relp_set that used this relp_set as base or diff
@@ -167,6 +178,7 @@ public:
 	int16_t		diff;			// Set will be computed by base + Dmultiple and diff
 	bool		permanent;		// TRUE if this relp_set is used in creating prime pairings
 	bool		partial;		// TRUE if only part of the relp_set must be calculated
+	bool		last_partial_use_inverted; // TRUE if the last partial usage is in reverse order
 };
 // Custom sort order so that relp_sets are ordered 0,-1,1,-2,...  This mimics the order in which the sets need to be computed.
 struct relpclasscomp {
@@ -286,12 +298,17 @@ void process_relp_sets (
 			this_set->second.base = base_set->first;
 			this_set->second.Dmultiple = Dmultiple;
 			this_set->second.diff = diff;
+
+			// Base set is never accessed in inverted order
 			base_set->second.last_partial_used_by = this_set->first;
+			base_set->second.last_partial_use_inverted = FALSE;
+			if (!this_set->second.partial) base_set->second.last_full_used_by = this_set->first;
+
+			// Diff set might be accessed in inverted order
 			diff_set->second.last_partial_used_by = this_set->first;
-			if (!this_set->second.partial) {
-				base_set->second.last_full_used_by = this_set->first;
-				diff_set->second.last_full_used_by = this_set->first;
-			}
+			diff_set->second.last_partial_use_inverted = (this_set->first < 0) ^ (diff_set->first < 0);
+			if (!this_set->second.partial) diff_set->second.last_full_used_by = this_set->first;
+
 			// Update or create Dmultiple data
 			auto Dfind = Dmultiple_map.find(Dmultiple);
 			if (Dfind != Dmultiple_map.end()) Dfind->second.relp_last_used_by = this_set->first;
@@ -5323,6 +5340,8 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 		auto it_diff_relp_set = relp_set_map.find (it_relp_set->second.diff);
 		// Find the Dmultiple needed to create this relp_set
 		auto it_Dmultiple = Dmultiple_map.find (it_relp_set->second.Dmultiple);
+		// Determine if the diff relps are accessed in reverse order
+		bool	diff_access_inverted = (it_base_relp_set->first < 0) ^ (it_diff_relp_set->first < 0);
 		// Loop over all relative primes below D/2 that need calculating in this relp_set (backwards is better for peak memory)
 		for (i = (it_relp_set->second.partial ? num_partials : numrels) - 1; i >= 0; i--) {
 			struct xz Qbase, Qdiff, Qnew;
@@ -5335,15 +5354,13 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 			// Recreate the diff struct xz from the two diff nQx entries
 			// If diff has a different sign bit than base, then we need to index the diff relp_set in reverse order
 			ni = it_diff_relp_set->second.nQx_store;
-			if (((it_base_relp_set->first < 0) ^ (it_diff_relp_set->first < 0)) == 0) ni += i; else ni += (numrels-1)-i;
+			if (!diff_access_inverted) ni += i; else ni += (numrels-1)-i;
 			Qdiff.x = ecmdata.nQx[ni];
 			Qdiff.z = ecmdata.nQx[ni + z_offset];
 
 			// Set flags if Qbase and/or Qdiff will be freed because they are not used in any more relp_set calculations
-			bool Qbase_last_use = ((i < num_partials && it_base_relp_set->second.last_partial_used_by == it_relp_set->first) ||
-					       (i >= num_partials && it_base_relp_set->second.last_full_used_by == it_relp_set->first));
-			bool Qdiff_last_use = ((i < num_partials && it_diff_relp_set->second.last_partial_used_by == it_relp_set->first) ||
-					       (i >= num_partials && it_diff_relp_set->second.last_full_used_by == it_relp_set->first));
+			bool Qbase_last_use = it_base_relp_set->second.is_last_use (it_relp_set->first, i, num_partials, numrels, TRUE);
+			bool Qdiff_last_use = it_diff_relp_set->second.is_last_use (it_relp_set->first, i, num_partials, numrels, diff_access_inverted);
 			bool Dmultiple_to_be_freed = (i == 0 && it_Dmultiple->second.will_free_due_to_relp_last_used_by (it_relp_set->first));
 
 			// Allocate the new relp value
@@ -7439,11 +7456,12 @@ more_B:		pm1data.interim_B = pm1data.B;
 		gw_clear_maxerr (&pm1data.gwdata);
 	}
 
-/* Check to see if we found a factor - do GCD (x-1, N) */
+/* Check to see if we found a factor - do GCD (x-1, N).  We only do this if there is no stage 2.  If there is a stage 2 we use a trick */
+/* to do the GCD as a by-product of computing V = x + 1/x */
 
 	strcpy (w->stage, "S1");
 	w->pct_complete = 1.0;
-	if (pm1data.C <= pm1data.B || (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "Stage1GCD", 1))) {
+	if (pm1data.C <= pm1data.B) {
 		if (w->work_type != WORK_PMINUS1) OutputStr (thread_num, "Starting stage 1 GCD - please be patient.\n");
 		start_timer_from_zero (timers, 0);
 		gwaddsmall (&pm1data.gwdata, pm1data.x, -1);
@@ -7458,11 +7476,9 @@ more_B:		pm1data.interim_B = pm1data.B;
 		print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
 		OutputStr (thread_num, buf);
 		if (factor != NULL) goto bingo;
+		// No factor found and no second stage
+		goto msg_and_exit;
 	}
-
-/* Skip second stage if so requested */
-
-	if (pm1data.C <= pm1data.B) goto msg_and_exit;
 
 /*
    Stage 2:  Use ideas from Crandall, Zimmermann, Montgomery, Preda, and Atnashev on each prime below C.
@@ -7470,19 +7486,44 @@ more_B:		pm1data.interim_B = pm1data.B;
    Inputs: x, the value at the end of stage 1
 */
 
-/* Initialize variables for second stage */
-/* Create V = x + 1/x.  We use V in a P+1-style stage 2 which uses one multiply instead of two to go from D section to D section. */
+/* This is the entry point when using the save file from a completed P-1 run to go to a new bound #2. */
 
 restart3a:
 	strcpy (w->stage, "S1");
 	w->pct_complete = 1.0;
 	start_timer_from_zero (timers, 0);
+
+/* This is the entry point when using the save file from a completed P-1 run to go to a new bound #2.  Initialize variables for second stage. */
+/* Create V = x + 1/x which requires a modular inverse.  We use V in a P+1-style stage 2 which uses one multiply instead of two to go from */
+/* D section to D section.  Since we are doing a modular inverse, we can also do the stage 1 GCD here for minimal cost (two multiplies). */
+/* Compute y = x*(x-1).  Compute 1/y, this will find any stage 1 factors.  If no factors found compute 1/x = (x-1) * 1/y. */
+
 	pm1data.V = gwalloc (&pm1data.gwdata);
 	if (pm1data.V == NULL) goto oom;
-	gwcopy (&pm1data.gwdata, pm1data.x, pm1data.V);
-	stop_reason = pm1_modinv (&pm1data, pm1data.V, N, factor);
-	if (factor != NULL) goto bingo;
-	if (stop_reason) goto exit;
+
+	// If user wants to run stage 2 even if stage 1 would find a factor, then don't do the multiply x-1 trick.
+	if (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "Stage1GCD", 1) == -1) {
+		gwcopy (&pm1data.gwdata, pm1data.x, pm1data.V);
+		stop_reason = pm1_modinv (&pm1data, pm1data.V, N, factor);
+		if (factor != NULL) goto bingo;
+		if (stop_reason) goto exit;
+	}
+
+	// Otherwise, the common case: compute stage 1 GCD cheaply
+	else {
+		gwnum x_minus_1 = gwalloc (&pm1data.gwdata);
+		if (x_minus_1 == NULL) goto oom;
+		gwcopy (&pm1data.gwdata, pm1data.x, x_minus_1);
+		gwaddsmall (&pm1data.gwdata, x_minus_1, -1);
+		gwmul3 (&pm1data.gwdata, pm1data.x, x_minus_1, pm1data.V, GWMUL_PRESERVE_S1 | GWMUL_FFT_S2);	// x * (x-1)
+		stop_reason = pm1_modinv (&pm1data, pm1data.V, N, factor);					// 1 / (x * (x-1))
+		if (factor != NULL) goto bingo;
+		gwmul3 (&pm1data.gwdata, x_minus_1, pm1data.V, pm1data.V, 0);					// (x-1) * 1 / (x * (x-1)), which is 1/x
+		gwfree (&pm1data.gwdata, x_minus_1);
+		if (stop_reason) goto exit;
+	}
+
+	// Compute x + 1/x
 	gwadd3o (&pm1data.gwdata, pm1data.x, pm1data.V, pm1data.V, GWADD_SQUARE_INPUT);
 
 /* Free the stage 1 value, it is no longer needed (unless user is exercising option of keeping P-1 save files to expand bounds later) */
@@ -7810,6 +7851,8 @@ replan:	{
 		auto it_diff_relp_set = relp_set_map.find (it_relp_set->second.diff);
 		// Find the Dmultiple needed to create this relp_set
 		auto it_Dmultiple = Dmultiple_map.find (it_relp_set->second.Dmultiple);
+		// Determine if the diff relps are accessed in reverse order
+		bool	diff_access_inverted = (it_base_relp_set->first < 0) ^ (it_diff_relp_set->first < 0);
 		// Loop over all relative primes below D/2 that need calculating in this relp_set (backwards is better for peak memory)
 		for (i = (it_relp_set->second.partial ? num_partials : numrels) - 1; i >= 0; i--) {
 			gwnum	*Vbase, *Vdiff, Vnew;
@@ -7821,16 +7864,14 @@ replan:	{
 			// Get the diff gwnum from the diff nQx entry
 			// If diff has a different sign bit than base, then we need to index the diff relp_set in reverse order
 			ni = it_diff_relp_set->second.nQx_store;
-			if (((it_base_relp_set->first < 0) ^ (it_diff_relp_set->first < 0)) == 0) ni += i; else ni += (numrels-1)-i;
+			if (!diff_access_inverted) ni += i; else ni += (numrels-1)-i;
 			Vdiff = &pm1data.nQx[ni];
 
 			// Set flags if Vbase and/or Vdiff or Dmultiple will be freed because they are not used in any more relp_set calculations
 			bool Vbase_to_be_freed = (!it_base_relp_set->second.permanent &&
-						  ((i < num_partials && it_base_relp_set->second.last_partial_used_by == it_relp_set->first) ||
-						   (i >= num_partials && it_base_relp_set->second.last_full_used_by == it_relp_set->first)));
+						  it_base_relp_set->second.is_last_use (it_relp_set->first, i, num_partials, numrels, TRUE));
 			bool Vdiff_to_be_freed = (!it_diff_relp_set->second.permanent &&
-						  ((i < num_partials && it_diff_relp_set->second.last_partial_used_by == it_relp_set->first) ||
-						   (i >= num_partials && it_diff_relp_set->second.last_full_used_by == it_relp_set->first)));
+						  it_diff_relp_set->second.is_last_use (it_relp_set->first, i, num_partials, numrels, diff_access_inverted));
 			bool Dmultiple_to_be_freed = (i == 0 && it_Dmultiple->second.will_free_due_to_relp_last_used_by (it_relp_set->first));
 
 			// Allocate the new relp value (or re-use Vbase or Vdiff)
@@ -7863,7 +7904,7 @@ replan:	{
 
 			// Free the Dmultiple if this is the last time it will be used
 			if (Dmultiple_to_be_freed) {
-				it_Dmultiple->second.do_not_free_val |= (Vnew == it_Dmultiple->second.val.x);
+				it_Dmultiple->second.do_not_free_val = (Vnew == it_Dmultiple->second.val.x);
 				it_Dmultiple->second.free_if_relp_last_used_by (it_relp_set->first);
 			}
 		}
@@ -7880,11 +7921,18 @@ replan:	{
 	if (pm1data.gg == NULL) {
 		pm1data.gg = gwalloc (&pm1data.gwdata);
 		if (pm1data.gg == NULL) goto oom;
-		if (addmul_safe (&pm1data.gwdata, 0, 0, 1)) {
-			gwsub3o (&pm1data.gwdata, pm1data.V, pm1data.nQx[0], pm1data.gg, GWADD_MUL_INPUT);
-		} else {
+		// If stage 1 GCD was not run, do the tricky  init of gg
+		if (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "Stage1GCD", 1) == -1) {
+			if (addmul_safe (&pm1data.gwdata, 0, 0, 1)) {
+				gwsub3o (&pm1data.gwdata, pm1data.V, pm1data.nQx[0], pm1data.gg, GWADD_MUL_INPUT);
+			} else {
+				dbltogw (&pm1data.gwdata, 1.0, pm1data.gg);
+				gwsubmul4 (&pm1data.gwdata, pm1data.V, pm1data.nQx[0], pm1data.gg, pm1data.gg, GWMUL_STARTNEXTFFT);
+			}
+		}
+		// Otherwise, just set gg to one
+		else {
 			dbltogw (&pm1data.gwdata, 1.0, pm1data.gg);
-			gwsubmul4 (&pm1data.gwdata, pm1data.V, pm1data.nQx[0], pm1data.gg, pm1data.gg, GWMUL_STARTNEXTFFT);
 		}
 	}
 
@@ -10469,6 +10517,8 @@ replan:	{
 		auto it_diff_relp_set = relp_set_map.find (it_relp_set->second.diff);
 		// Find the Dmultiple needed to create this relp_set
 		auto it_Dmultiple = Dmultiple_map.find (it_relp_set->second.Dmultiple);
+		// Determine if the diff relps are accessed in reverse order
+		bool	diff_access_inverted = (it_base_relp_set->first < 0) ^ (it_diff_relp_set->first < 0);
 		// Loop over all relative primes below D/2 that need calculating in this relp_set (backwards is better for peak memory)
 		for (i = (it_relp_set->second.partial ? num_partials : numrels) - 1; i >= 0; i--) {
 			gwnum	*Vbase, *Vdiff, Vnew;
@@ -10480,16 +10530,14 @@ replan:	{
 			// Get the diff gwnum from the diff nQx entry
 			// If diff has a different sign bit than base, then we need to index the diff relp_set in reverse order
 			ni = it_diff_relp_set->second.nQx_store;
-			if (((it_base_relp_set->first < 0) ^ (it_diff_relp_set->first < 0)) == 0) ni += i; else ni += (numrels-1)-i;
+			if (!diff_access_inverted) ni += i; else ni += (numrels-1)-i;
 			Vdiff = &pp1data.nQx[ni];
 
 			// Set flags if Vbase and/or Vdiff will be freed because they are not used in any more relp_set calculations
 			bool Vbase_to_be_freed = (!it_base_relp_set->second.permanent &&
-						  ((i < num_partials && it_base_relp_set->second.last_partial_used_by == it_relp_set->first) ||
-						   (i >= num_partials && it_base_relp_set->second.last_full_used_by == it_relp_set->first)));
+						  it_base_relp_set->second.is_last_use (it_relp_set->first, i, num_partials, numrels, TRUE));
 			bool Vdiff_to_be_freed = (!it_diff_relp_set->second.permanent &&
-						  ((i < num_partials && it_diff_relp_set->second.last_partial_used_by == it_relp_set->first) ||
-						   (i >= num_partials && it_diff_relp_set->second.last_full_used_by == it_relp_set->first)));
+						  it_diff_relp_set->second.is_last_use (it_relp_set->first, i, num_partials, numrels, diff_access_inverted));
 			bool Dmultiple_to_be_freed = (i == 0 && it_Dmultiple->second.will_free_due_to_relp_last_used_by (it_relp_set->first));
 
 			// Allocate the new relp value (or re-use Vbase or Vdiff)
@@ -10522,7 +10570,7 @@ replan:	{
 
 			// Free the Dmultiple if this is the last time it will be used
 			if (Dmultiple_to_be_freed) {
-				it_Dmultiple->second.do_not_free_val |= (Vnew == it_Dmultiple->second.val.x);
+				it_Dmultiple->second.do_not_free_val = (Vnew == it_Dmultiple->second.val.x);
 				it_Dmultiple->second.free_if_relp_last_used_by (it_relp_set->first);
 			}
 		}
