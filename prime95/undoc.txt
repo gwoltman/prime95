@@ -301,7 +301,13 @@ continue searching for factors by using a value of zero or one in prime.txt:
 	ContinueECM=n
 
 You can skip the GCD in stage 1 of P-1 and P+1 factoring with this prime.txt setting:
-	Stage1GCD=0
+	Stage1GCD=n		(default is 1)
+For P+1, set n to one to do a GCD after stage 1, set n to 0 or -1 to skip stage 1 GCD.
+For P-1, a stage 1 GCD is very, very cheap.  Set n to 1 or 0 to do the cheap stage 1 GCD,
+set n to -1 to skip the stage 1 GCD.   This all tranlates to:
+	n=1, always do stage 1 GCD
+	n=0, do stage 1 GCD if it is cheap
+	n=-1, never do stage 1 GCD
 
 You can have the program generate save files every n iterations.  The files
 will have a .XXX extension where XXX equals the current iteration divided
@@ -438,6 +444,10 @@ You can disable the display of every iteration's timing when using Advanced/Time
 leaving just the ending summary.  Useful for machines with lots of cores.
 Put this line in prime.txt:
 	PrintTimedIterations=0
+
+You can output some informational message on ECM/P-1/P+1 estimated pairing percentages
+to compare with actual paining percentages.  Add to prime.txt:
+	Stage2Estimates=1
 
 LINUX/FREEBSD ONLY:  When mprime runs out of work to do, it normally loops waiting for the
 server to assign more work.  This prime.txt option can be used to have mprime exit
