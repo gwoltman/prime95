@@ -6553,6 +6553,9 @@ int pm1_restore (			/* For version 30.4 and later save files */
 
 readerr:
 	_close (fd);
+	gwfree (&pm1data->gwdata, pm1data->x), pm1data->x = NULL;
+	gwfree (&pm1data->gwdata, pm1data->V), pm1data->V = NULL;
+	gwfree (&pm1data->gwdata, pm1data->gg), pm1data->gg = NULL;
 err:
 	return (FALSE);
 }
@@ -6619,10 +6622,10 @@ double pm1_stage2_cost (
 /* Pass 2 FFT multiplications seem to be at least 20% slower than the squarings in pass 1.  This is probably due */
 /* to several factors.  These include: better L2 cache usage and no calls to the faster gwsquare routine. */
 /* Nov, 2009: On my Macbook Pro, with exponents around 45M and using 800MB memory, pass2 squarings are 40% slower. */
-/* Sept. 2020: gwsubmul4 implemented in assembly for AVX and later reducing the overhead to about 10%. */
-/* P-1 wants a cost in terms of squarings -- to accurately compare P-1 stage 1 times to P-1 stage 2 times. */
+/* Sept. 2021: With gwsubmul4 implemented in assembly for AVX and later, we re-ran the timings using 4 threads. */
+/* According to time_gwnum.cpp, gwsubmul4 is 30% slower than gwsquare on my AVX-512 machine and 47% slower on my FMA machines. */
 
-	cost = cost_data->c.est_pairing_runtime + (cost_data->c.est_init_transforms + cost_data->c.est_stage2_transforms) * 1.10;
+	cost = cost_data->c.est_pairing_runtime + (cost_data->c.est_init_transforms + cost_data->c.est_stage2_transforms) * 1.35;
 	return (cost / 2.0);
 }
 
@@ -7389,7 +7392,7 @@ restart1:
 			last_output_t = gw_get_fft_count (&pm1data.gwdata);
 		}
 
-/* Every N primes, output a progress report */
+/* Every N squarings, output a progress report */
 
 		if (first_iter_msg ||
 		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
@@ -7408,7 +7411,7 @@ restart1:
 			first_iter_msg = FALSE;
 		}
 
-/* Every N primes, output a progress report to the results file */
+/* Every N squarings, output a progress report to the results file */
 
 		if ((ITER_OUTPUT_RES != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output_r + 2 * ITER_OUTPUT_RES) ||
 		    (NO_GUI && stop_reason)) {
@@ -9107,6 +9110,7 @@ bad_nth_run:
 	OutputBoth (pp1data->thread_num, "P+1 starting point in save file does not match nth_run parameter from worktodo.txt\n");
 readerr:
 	_close (fd);
+	gwfree (&pp1data->gwdata, pp1data->gg), pp1data->gg = NULL;
 err:
 	return (FALSE);
 }
