@@ -7543,13 +7543,16 @@ restart3a:
 	OutputStr (thread_num, buf);
 	gw_clear_fft_count (&pm1data.gwdata);
 
+/* Stage 1 is now complete */
+
+	pm1data.state = PM1_STATE_MIDSTAGE;
+	strcpy (w->stage, "S2");
+	w->pct_complete = 0.0;
+
 /* Restart here when in the middle of stage 2.  Change state to between stage 1 and 2. */
 
 restart3b:
 more_C:
-	pm1data.state = PM1_STATE_MIDSTAGE;
-	strcpy (w->stage, "S2");
-	w->pct_complete = 0.0;
 	start_timer_from_zero (timers, 0);
 	sprintf (buf, "%s P-1 stage 2 init", gwmodulo_as_string (&pm1data.gwdata));
 	title (thread_num, buf);
@@ -10210,19 +10213,23 @@ more_B:		pp1data.interim_B = pp1data.B;
    Inputs: V, the value at the end of stage 1
 */
 
-/* Initialize variables for second stage */
+/* This is the entry point when using the save file from a completed P+1 run to go to a new bound #2. */
 
 restart3a:
 //	strcpy (w->stage, "S1");
 //	w->pct_complete = 1.0;
+// Unlike P-1, no work to do here transitioning from stage 1 to stage 2
 
-/* Restart here when in the middle of stage 2.  Change state to between stage 1 and 2. */
+/* Stage 1 is now complete */
 
-restart3b:
-more_C:
 	pp1data.state = PM1_STATE_MIDSTAGE;
 	strcpy (w->stage, "S2");
 	w->pct_complete = 0.0;
+
+/* Restart here when in the middle of stage 2 */
+
+restart3b:
+more_C:
 	start_timer_from_zero (timers, 0);
 	sprintf (buf, "%s P+1 stage 2 init", gwmodulo_as_string (&pp1data.gwdata));
 	title (thread_num, buf);
