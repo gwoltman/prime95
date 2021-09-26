@@ -5359,7 +5359,7 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 			Qdiff.z = ecmdata.nQx[ni + z_offset];
 
 			// Set flags if Qbase and/or Qdiff will be freed because they are not used in any more relp_set calculations
-			bool Qbase_last_use = it_base_relp_set->second.is_last_use (it_relp_set->first, i, num_partials, numrels, TRUE);
+			bool Qbase_last_use = it_base_relp_set->second.is_last_use (it_relp_set->first, i, num_partials, numrels, FALSE);
 			bool Qdiff_last_use = it_diff_relp_set->second.is_last_use (it_relp_set->first, i, num_partials, numrels, diff_access_inverted);
 			bool Dmultiple_to_be_freed = (i == 0 && it_Dmultiple->second.will_free_due_to_relp_last_used_by (it_relp_set->first));
 
@@ -5376,8 +5376,7 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 			ecmdata.nQx[ni + z_offset] = Qnew.z;
 
 			// If this nQx value will not be used in further relp_set calculations, then normalize it
-			if ((it_relp_set->second.partial && it_relp_set->second.last_partial_used_by == it_relp_set->first) ||
-			    (!it_relp_set->second.partial && it_relp_set->second.last_full_used_by == it_relp_set->first)) {
+			if (it_relp_set->second.is_last_use (it_relp_set->first, i, num_partials, numrels, FALSE)) {
 				stop_reason = add_to_normalize_pool_ro (&ecmdata, Qnew.x, Qnew.z);
 				if (stop_reason) goto possible_lowmem;
 			}
@@ -7869,7 +7868,7 @@ replan:	{
 
 			// Set flags if Vbase and/or Vdiff or Dmultiple will be freed because they are not used in any more relp_set calculations
 			bool Vbase_to_be_freed = (!it_base_relp_set->second.permanent &&
-						  it_base_relp_set->second.is_last_use (it_relp_set->first, i, num_partials, numrels, TRUE));
+						  it_base_relp_set->second.is_last_use (it_relp_set->first, i, num_partials, numrels, FALSE));
 			bool Vdiff_to_be_freed = (!it_diff_relp_set->second.permanent &&
 						  it_diff_relp_set->second.is_last_use (it_relp_set->first, i, num_partials, numrels, diff_access_inverted));
 			bool Dmultiple_to_be_freed = (i == 0 && it_Dmultiple->second.will_free_due_to_relp_last_used_by (it_relp_set->first));
@@ -10535,7 +10534,7 @@ replan:	{
 
 			// Set flags if Vbase and/or Vdiff will be freed because they are not used in any more relp_set calculations
 			bool Vbase_to_be_freed = (!it_base_relp_set->second.permanent &&
-						  it_base_relp_set->second.is_last_use (it_relp_set->first, i, num_partials, numrels, TRUE));
+						  it_base_relp_set->second.is_last_use (it_relp_set->first, i, num_partials, numrels, FALSE));
 			bool Vdiff_to_be_freed = (!it_diff_relp_set->second.permanent &&
 						  it_diff_relp_set->second.is_last_use (it_relp_set->first, i, num_partials, numrels, diff_access_inverted));
 			bool Dmultiple_to_be_freed = (i == 0 && it_Dmultiple->second.will_free_due_to_relp_last_used_by (it_relp_set->first));
