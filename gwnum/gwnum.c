@@ -9313,11 +9313,11 @@ void gwunfft (
 
 	if (FFT_state (s) == PARTIALLY_FFTed || FFT_state (s) == FULLY_FFTed) {
 		if (gwdata->GW_FFT1 != NULL) {
-			gwmul3 (gwdata, s, gwdata->GW_FFT1, d, GWMUL_PRESERVE_S1);
+			gwmul3 (gwdata, s, gwdata->GW_FFT1, d, 0);
 		}
 		else if (s != d) {
 			dbltogw (gwdata, 1.0, d);
-			gwmul3 (gwdata, s, d, d, GWMUL_PRESERVE_S1);
+			gwmul3 (gwdata, s, d, d, 0);
 		} else {
 			gwnum	tmp = gwalloc (gwdata);
 			dbltogw (gwdata, 1.0, tmp);
