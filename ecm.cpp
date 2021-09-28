@@ -6283,6 +6283,11 @@ void pm1_save (
 		if (have_gg && !write_gwnum (fd, &pm1data->gwdata, pm1data->gg, &sum)) goto writeerr;
 	}
 
+/* In case we're at peak memory usage, free the cached gwnums that write_gwnum allocated (one for gwunfft and one for gwtobinary result) */
+
+	gwfree_cached (&pm1data->gwdata);
+	mallocFreeForOS ();
+
 /* Write the checksum, we're done */
 
 	if (! write_checksum (fd, sum)) goto writeerr;
@@ -8960,6 +8965,11 @@ void pp1_save (
 		if (! write_int (fd, have_gg, &sum)) goto writeerr;
 		if (have_gg && !write_gwnum (fd, &pp1data->gwdata, pp1data->gg, &sum)) goto writeerr;
 	}
+
+/* In case we're at peak memory usage, free the cached gwnums that write_gwnum allocated (one for gwunfft and one for gwtobinary result) */
+
+	gwfree_cached (&pp1data->gwdata);
+	mallocFreeForOS ();
 
 /* Write the checksum, we're done */
 
