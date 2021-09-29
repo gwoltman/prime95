@@ -52,7 +52,7 @@ struct xz {
 };
 
 /**********************************************************************************************************************/
-/*                                Manage sets of relative primes to D/2
+/*                                Manage sets of relative primes to D/2                                               */
 /**********************************************************************************************************************/
 
 /* Experimentally derived sets of D/2 relative primes.  Balancing good pairing % with faster initialization times. */
@@ -1145,7 +1145,7 @@ void ecm_cleanup (
 }
 
 /**********************************************************************************************************************/
-/*                                Manage buffers for a Montgomery ECM point
+/*                                Manage buffers for a Montgomery ECM point                                           */
 /**********************************************************************************************************************/
 
 /* This routine initializes an xz pair with two allocated gwnums */

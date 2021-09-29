@@ -33,16 +33,16 @@ clean:
 	rm -f $(EXE) $(EXE2) $(OBJS)
 
 cJSON.o:
-	$(CPP) $(CPPFLAGS) -c ../cJSON.c
+	$(CC) $(CFLAGS) -c ../cJSON.c
 
 ecm.o:
-	$(CPP) $(CPPFLAGS) -c ../ecm.cpp
+	$(CXX) $(CXXFLAGS) -c ../ecm.cpp
 
 pair.o:
-	$(CPP) $(CPPFLAGS) -c ../pair.cpp
+	$(CXX) $(CXXFLAGS) -c ../pair.cpp
 
 pm1prob.o:
-	$(CPP) $(CPPFLAGS) -c ../pm1prob.c
+	$(CC) $(CFLAGS) -c ../pm1prob.c
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<

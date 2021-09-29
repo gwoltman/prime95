@@ -10,7 +10,7 @@ CC ?= cc
 CFLAGS += -I.. -I../gwnum -I$(LOCALBASE)/include -DX86_64 -O2 -DPORT=12
 
 CXX ?= cc
-CXXFLAGS += -I.. -I../gwnum -I../../boost_1_76_0 -DX86_64 -O2 -std=c++11 -DPORT=12
+CXXFLAGS += -I.. -I../gwnum -I$(LOCALBASE)/include -I../../boost_1_76_0 -DX86_64 -O2 -std=c++11 -DPORT=12
 
 LDFLAGS += -fpie -L$(LOCALBASE)/lib -Wl,-M
 LIBS += ../gwnum/gwnum.a ../gwnum/gwnum.ld -lm -lpthread -lhwloc -lcurl -lstdc++ -lcompat -lgmp
@@ -33,16 +33,16 @@ clean:
 	rm -f $(EXE) $(EXE2) $(OBJS)
 
 cJSON.o:
-	$(CPP) $(CPPFLAGS) -c ../cJSON.c
+	$(CC) $(CCFLAGS) -c ../cJSON.c
 
 ecm.o:
-	$(CPP) $(CPPFLAGS) -c ../ecm.cpp
+	$(CXX) $(CXXFLAGS) -c ../ecm.cpp
 
 pair.o:
-	$(CPP) $(CPPFLAGS) -c ../pair.cpp
+	$(CXX) $(CXXFLAGS) -c ../pair.cpp
 
 pm1prob.o:
-	$(CPP) $(CPPFLAGS) -c ../pm1prob.c
+	$(CC) $(CFLAGS) -c ../pm1prob.c
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<
