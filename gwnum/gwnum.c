@@ -6631,8 +6631,14 @@ gwnum gwalloc (
 /* Third option is to allocate using large pages */
 
 	else if (gwdata->use_large_pages) {
-		p = (char *) aligned_offset_large_pages_malloc (size + GW_HEADER_SIZE, gwdata->GW_ALIGNMENT,
-								(GW_HEADER_SIZE - gwdata->GW_ALIGNMENT_MOD) & (gwdata->GW_ALIGNMENT - 1));
+		// Randomize the starting cache line in 64KB blocks.  Perhaps that will help with potential 64KB cache collisions.
+		int	alignment = gwdata->GW_ALIGNMENT;
+		int	alignment_mod = (GW_HEADER_SIZE - gwdata->GW_ALIGNMENT_MOD) & (gwdata->GW_ALIGNMENT - 1);
+		if (alignment < 65536 && 65536 % alignment == 0) {
+			alignment_mod += (rand () % (65536 / alignment)) * alignment;
+			alignment = 65536;
+		}
+		p = (char *) aligned_offset_large_pages_malloc (size + GW_HEADER_SIZE, alignment, alignment_mod);
 		freeable = GWFREEABLE + GWFREE_LARGE_PAGES;
 	}
 
