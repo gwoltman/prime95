@@ -420,7 +420,8 @@ void *x87_prctab[] = { x87_explode(array_entry) NULL };
 #define	GWINIT_WAS_CALLED_VALUE	0xAA12BB34	/* Special value checked by gwsetup to ensure gwinit was called */
 #define GWFREEABLE		0x80000000	/* Flag set in the gwnum freeable field indicating aligned_free will work */
 #define GWFREED_TEMPORARILY	0x40000000	/* Special flag value set in the gwnum freeable field */
-#define GWFREEALLOC_INDEX	0x3FFFFFFF	/* Remainder of the freeable field -- index into the gwnum_alloc array */
+#define GWFREE_LARGE_PAGES	0x20000000	/* Flag set if gwnum was allocated using large pages */
+#define GWFREEALLOC_INDEX	0x1FFFFFFF	/* Remainder of the freeable field -- index into the gwnum_alloc array */
 
 /* Forward declarations */
 
@@ -2735,12 +2736,9 @@ int internal_gwsetup (
 	}
 	info = gwdata->jmptab;
 
-/* Get pointer to fft info and allocate needed memory.  If we are */
-/* trying to allocate large pages, then also allocate space for the */
-/* one gwnum value that will be stored in large pages.  We allocate */
-/* a little extra space to align the gwnum on a cache line boundary */
-/* and because gwnum_size may not produce an accurate value prior */
-/* to gwsetup completing. */
+/* Get pointer to fft info and allocate needed memory.  If we are trying to allocate large pages, then also allocate space for */
+/* one gwnum value to reduce wasted space ever so slightly (1MB on average).  We allocate a little extra space to align the gwnum */
+/* on a cache line boundary and because gwnum_size may not produce an accurate value prior to gwsetup completing. */
 
 	tables = NULL;
 	gwdata->large_pages_ptr = NULL;
@@ -6543,8 +6541,11 @@ void gwdone (
 			char	*p;
 			int32_t	freeable;
 			p = (char *) gwdata->gwnum_alloc[i];
-			freeable = * (int32_t *) (p - 32) & GWFREEABLE;
-			if (freeable) aligned_free ((char *) p - GW_HEADER_SIZE);
+			freeable = * (int32_t *) (p - 32);
+			if (freeable & GWFREEABLE) {
+				if (freeable & GWFREE_LARGE_PAGES) aligned_large_pages_free ((char *) p - GW_HEADER_SIZE);
+				else aligned_free ((char *) p - GW_HEADER_SIZE);
+			}
 		}
 		free (gwdata->gwnum_alloc);
 		gwdata->gwnum_alloc = NULL;
@@ -6606,29 +6607,45 @@ gwnum gwalloc (
 
 	size = gwnum_datasize (gwdata);
 	aligned_size = (size + GW_HEADER_SIZE + 127) & ~127;
+	p = NULL;
+
+/* First option is the one gwnum that was allocated along with the sin/cos tables */
+
 	if (gwdata->large_pages_gwnum != NULL) {
 		p = (char *) gwdata->large_pages_gwnum;
 		gwdata->large_pages_gwnum = NULL;
 		p += -GW_HEADER_SIZE & 127;
 		freeable = 0;
 	}
-	else if (gwdata->GW_BIGBUF_SIZE >= size + aligned_size) {
+
+/* Second option is allocating from the kludgy big buffer (torture testing) */
+
+	else if (gwdata->GW_BIGBUF_SIZE >= aligned_size) {
 		p = gwdata->GW_BIGBUF;
 		gwdata->GW_BIGBUF += aligned_size;
 		gwdata->GW_BIGBUF_SIZE -= aligned_size;
 		p += -GW_HEADER_SIZE & 127;
 		freeable = 0;
 	}
+
+/* Third option is to allocate using large pages */
+
+	else if (gwdata->use_large_pages) {
+		p = (char *) aligned_offset_large_pages_malloc (size + GW_HEADER_SIZE, gwdata->GW_ALIGNMENT,
+								(GW_HEADER_SIZE - gwdata->GW_ALIGNMENT_MOD) & (gwdata->GW_ALIGNMENT - 1));
+		freeable = GWFREEABLE + GWFREE_LARGE_PAGES;
+	}
+
+/* Fourth option is to use plain old malloc with alignment (used as a fallback to failed large pages alloc) */
 /* FreeBSD supports supports large pages (superpages) automatically.  Allocate the first gwnum with a 4MB alignment to minimize */
 /* fragmentation across superpage boundaries.  The theory is this will maximize the number of superpage promotions. */
 #ifdef __FreeBSD__
-	else if (size >= 0x400000 && gwdata->gwnum_alloc_count == 0) {
+	if (p == NULL && size >= 0x400000 && gwdata->gwnum_alloc_count == 0) {
 		p = (char *) aligned_offset_malloc (size + GW_HEADER_SIZE, 0x400000, (GW_HEADER_SIZE - gwdata->GW_ALIGNMENT_MOD) & 0x3FFFFF);
-		if (p == NULL) return (NULL);
 		freeable = GWFREEABLE;
 	}
 #endif
-	else {
+	if (p == NULL) {
 		p = (char *) aligned_offset_malloc (size + GW_HEADER_SIZE, gwdata->GW_ALIGNMENT,
 						    (GW_HEADER_SIZE - gwdata->GW_ALIGNMENT_MOD) & (gwdata->GW_ALIGNMENT - 1));
 		if (p == NULL) return (NULL);
@@ -6671,22 +6688,24 @@ void gwfree_freeable (
 	gwnum	q)
 {
 	gwnum	moved_gwnum;
-	int32_t	freeable, alloc_index;
+	int32_t	freeable, moved_freeable, alloc_index;
 
-	ASSERTG (* (int32_t *) ((char *) q - 32) & GWFREEABLE);
-	ASSERTG (! (* (int32_t *) ((char *) q - 32) & GWFREED_TEMPORARILY));
+	freeable = * (int32_t *) ((char *) q - 32);
+	ASSERTG (freeable & GWFREEABLE);
+	ASSERTG (! (freeable & GWFREED_TEMPORARILY));
 
 	// Move the last entry in the gwnum_alloc array to the slot we are about to free
-	alloc_index = * (int32_t *) ((char *) q - 32) & GWFREEALLOC_INDEX;
+	alloc_index = freeable & GWFREEALLOC_INDEX;
 	moved_gwnum = gwdata->gwnum_alloc[--gwdata->gwnum_alloc_count];
 	gwdata->gwnum_alloc[alloc_index] = moved_gwnum;
 	// Patch the alloc_index of the moved gwnum
-	freeable = * (int32_t *) ((char *) moved_gwnum - 32);
-	freeable &= ~GWFREEALLOC_INDEX;
-	freeable |= alloc_index;
-	* (int32_t *) ((char *) moved_gwnum - 32) = freeable;
+	moved_freeable = * (int32_t *) ((char *) moved_gwnum - 32);
+	moved_freeable &= ~GWFREEALLOC_INDEX;
+	moved_freeable |= alloc_index;
+	* (int32_t *) ((char *) moved_gwnum - 32) = moved_freeable;
 	// Free the gwnum
-	aligned_free ((char *) q - GW_HEADER_SIZE);
+	if (freeable & GWFREE_LARGE_PAGES) aligned_large_pages_free ((char *) q - GW_HEADER_SIZE);
+	else aligned_free ((char *) q - GW_HEADER_SIZE);
 }
 
 /* Free or cache a gwnum */

@@ -40,11 +40,7 @@ extern "C" {
 
 /* Align a pointer to the given boundary (boundary must be a power of 2) */
 
-#ifdef _WIN64
-#define align_ptr(p,n)	(void *) (((uint64_t)(p) + (n)-1) & ~((n)-1))
-#else
-#define align_ptr(p,n)	(void *) (((long)(p) + (n)-1) & ~((n)-1))
-#endif
+#define align_ptr(p,n)	(void *) (((intptr_t)(p) + (n)-1) & ~((n)-1))
 
 /* Aligned malloc routines.  MSVC 8 supports these in the C runtime library. */
 /* Emulate these routines for other ports. */
@@ -58,6 +54,9 @@ void  aligned_free (void *ptr);
 int large_pages_supported ();
 void * large_pages_malloc (size_t size);
 void large_pages_free (void *ptr);
+void * aligned_offset_large_pages_malloc (size_t size, size_t alignment, size_t mod);
+void * aligned_large_pages_malloc (size_t size, size_t alignment);
+void aligned_large_pages_free (void *ptr);
 
 /* Utility string routines */
 

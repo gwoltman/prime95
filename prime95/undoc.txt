@@ -715,12 +715,15 @@ Run main worker on logical CPUs #3, #5, #6, & #7, run aux thread on logical CPUs
 In the prime.txt file, the DaysBetweenCheckin value can be set to any value
 between 0.04 and 7.0.  Some SeventeenOrBust users want to send updates hourly.
 
-In local.txt, add the line
+To attempt using 2MB pages under Windows and Linux, add this line to local.txt:
 	UseLargePages=1
-to attempt using 2MB pages under Windows Vista and later.  Warning: these pages will
-never be swapped out.  Thus, using this option could negatively impact
-the performance of other applications.  Also, you'll need to have
-the "Lock Pages in Memory" privilege to use this option.
+My experience has been maybe a 0.5% speed improvement, but sometimes I get worse timings.
+It may well be that any benefit is within the margin of error in obtaining accurate timings.
+Warning: My understanding is that these pages will never be swapped out in Windows (and will
+be slower to swap in Linux).  Thus, using this option could negatively impact the performance
+of other applications.  Also, wasted space at the end of each page (1MB on average) can reduce
+the number of temporaries that can be allocated in stage 2 of P-1/P+1/ECM, negating any benefits.
+In Windows you'll need to have the "Lock Pages in Memory" privilege to use this option.
 
 JSON messages for all work types is new in version 29.6.  You can turn off JSON
 messages with this prime.txt option:
