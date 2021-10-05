@@ -9552,6 +9552,7 @@ int primeBenchMultipleWorkersInternal (
 				    core_num += cores_to_use;
 				    cores_this_nodeset -= cores_to_use;
 				    worker_num++;
+				    workers_left--;
 				}
 				core_num += unused_cores_this_nodeset;
 			    }
