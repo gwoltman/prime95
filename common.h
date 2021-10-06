@@ -19,7 +19,9 @@
 #include <string.h>
 #include "gwnum.h"		// GWnum FFT library
 #include "gmp.h"		// GMP library
+#ifndef NO_HWLOC
 #include "hwloc.h"		// hwloc library
+#endif
 #include "cpuid.h"
 #include "gwini.h"
 #include "gwutil.h"
@@ -122,9 +124,9 @@ __inline char *debug_strcpy(char *d, const char *s) {assert((d) >= ((s)+strlen(s
 #define IsCharAlphaNumeric(c) isalnum(c)
 #define _stricmp	strcasecmp
 
-/* Borland compiler -- anyone still use this??? */
+/* Borland compiler and linux */
 
-#ifndef __WATCOMC__
+#ifndef _O_APPEND
 #define _O_APPEND	O_APPEND
 #define _O_RDONLY	O_RDONLY
 #define _O_WRONLY	O_WRONLY
