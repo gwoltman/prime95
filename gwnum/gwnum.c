@@ -1001,8 +1001,8 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 /* Precalculate some needed values */
 
 	log2k = log2 (k);
-	logbk = logb (k);
 	log2b = log2 (b);
+	logbk = log2k / log2b;
 	log2c = log2 (labs (c));
 	log2maxmulbyconst = log2 (gwdata->maxmulbyconst);
 
@@ -2794,7 +2794,7 @@ int internal_gwsetup (
 /* wraps around to the low FFT word) is 2*n for a zero pad FFT and logb(k) + n */
 /* otherwise. */	
 
-	gwdata->avg_num_b_per_word = (gwdata->ZERO_PADDED_FFT ? n * 2.0 : (logb (k) + n)) / gwdata->FFTLEN;
+	gwdata->avg_num_b_per_word = (gwdata->ZERO_PADDED_FFT ? n * 2.0 : (log (k) / log (b) + n)) / gwdata->FFTLEN;
 
 /* Calculate the number of base b's stored in each small FFT word. */
 
@@ -4367,7 +4367,7 @@ int internal_gwsetup (
 		num_b_in_third_top_word = gwdata->NUM_B_PER_SMALL_WORD;
 		if (is_big_word (gwdata, gwdata->FFTLEN-3)) num_b_in_third_top_word++;
 
-		num_b_in_k = (unsigned long) ceil (logb (k));
+		num_b_in_k = (unsigned long) ceil (log (k) / log (b));
 		asm_data->CARRY_ADJUST1 = pow ((double) b, num_b_in_k);
 		carry_adjust_1_mod_k = fltmod (asm_data->CARRY_ADJUST1, k);
 		asm_data->CARRY_ADJUST1_HI = floor (carry_adjust_1_mod_k / 131072.0);
@@ -4461,7 +4461,7 @@ int internal_gwsetup (
 		raw_gwsetaddin (gwdata, gwdata->FFTLEN/2-3, 0.0);
 		asm_data->HIGH_SCRATCH3_OFFSET = asm_data->ADDIN_OFFSET;
 
-		num_b_in_k = (unsigned long) ceil (logb (k));
+		num_b_in_k = (unsigned long) ceil (log (k) / log (b));
 		num_b_in_word_0 = gwdata->NUM_B_PER_SMALL_WORD; if (is_big_word (gwdata, 0)) num_b_in_word_0++;
 		num_b_in_word_1 = gwdata->NUM_B_PER_SMALL_WORD; if (is_big_word (gwdata, 1)) num_b_in_word_1++;
 		num_b_in_word_2 = gwdata->NUM_B_PER_SMALL_WORD; if (is_big_word (gwdata, 2)) num_b_in_word_2++;
