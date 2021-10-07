@@ -8012,6 +8012,7 @@ void tortureOneHyperthread (void *arg)
 
 /* Torture the hyperthread */
 
+	SetPriority (&info->sp_info);
 	info->stop_reason = selfTestInternal (info->thread_num, &info->sp_info, info->fftlen, info->num_threads, info->is_small, info->test_time,
 					      info->torture_index, info->memory, info->bigbuf, info->test_data, info->test_data_count, info->disabled_cpu_flags,
 					      &info->tests_completed, &info->self_test_errors, &info->self_test_warnings);
