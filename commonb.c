@@ -8336,7 +8336,7 @@ loop:	run_indefinitely = TRUE;
 				info[i].test_time = test_time;
 				info[i].torture_index = &data_index[index];
 				info[i].memory = memory / num_threads;
-				info[i].bigbuf = (char *) bigbuf + (i * info[i].memory * 1048576);
+				info[i].bigbuf = (bigbuf != NULL ? (char *) bigbuf + i * info[i].memory * 1048576 : NULL);
 				info[i].test_data = test_data;
 				info[i].test_data_count = test_data_count;
 				info[i].disabled_cpu_flags = disabled_cpu_flags;
