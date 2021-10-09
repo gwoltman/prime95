@@ -3307,6 +3307,7 @@ void mQ_term (
 	free_xz (ecmdata, &ecmdata->Qm);
 	free_xz (ecmdata, &ecmdata->Qprevm);
 	free_xz (ecmdata, &ecmdata->QD);
+	free_xz (ecmdata, &ecmdata->QD_Eover2);
 	if (ecmdata->mQx != NULL) {
 		for (i = 0; i < ecmdata->E; i++) gwfree (&ecmdata->gwdata, ecmdata->mQx[i]);
 		free (ecmdata->mQx); ecmdata->mQx = NULL;
