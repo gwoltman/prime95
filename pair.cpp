@@ -299,36 +299,11 @@ uint64_t estimate_max_pairmap_Dsections (
 /*                                                The pairing routines                                                */
 /**********************************************************************************************************************/
 
-
-// Routines to validate all primes are used and the prime pairings make sense
+// Turn on validation if debugging
 
 #ifdef GDEBUG
 #define VALIDATE
 #endif
-#ifdef VALIDATE
-std::unordered_set<uint64_t> validation_map;
-void validate_insert (uint64_t p) { validation_map.insert(p); }
-void validate_prime (uint64_t p, uint64_t base_prime) {
-	if (base_prime) p = base_prime;
-	ASSERTG (validation_map.find (p) != validation_map.end());
-	validation_map.erase (p);
-}
-void validate_final () {ASSERTG (validation_map.size() == 0);}
-void validate_pairing (uint64_t p1, uint64_t p2, int D, int ALT_D, int ALT_D_OFFSET, uint64_t B2_start, uint64_t B2_end, std::vector<int> &relps) {
-	ASSERTG (std::binary_search (relps.begin(), relps.end(), labs ((long) (p1 - p2) / 2)));
-	ASSERTG ((p1 + p2) / 2 > B2_start && (p1 + p2) / 2 < B2_end);
-	if (ALT_D)
-		ASSERTG (((p1 + p2) / 2) % D == 0 || ((p1 + p2) / 2) % ALT_D == ALT_D_OFFSET);
-	else
-		ASSERTG (((p1 + p2) / 2) % D == 0);
-}
-#else
-void validate_insert (uint64_t p) {}
-void validate_prime (uint64_t p, uint64_t base_prime) {}
-void validate_final () {}
-void validate_pairing (uint64_t p1, uint64_t p2, int D, int ALT_D, int ALT_D_OFFSET, uint64_t B2_start, uint64_t B2_end, std::vector<int> &relps) {}
-#endif
-
 
 //GW: Need option to only return relocatables that are a multiple of relp???
 
@@ -350,6 +325,30 @@ public:
 	// Return counts
 	uint64_t get_numprimes () { return num_primes + num_relocatables; }
 	uint64_t get_numrelocatables () { return num_relocatables; }
+	// Routines to validate all primes are used and the prime pairings make sense
+#ifdef VALIDATE
+	void validate_insert (uint64_t p) { validation_map.insert(p); }
+	void validate_prime (uint64_t p, uint64_t base_prime) {
+		if (base_prime) p = base_prime;
+		ASSERTG (validation_map.find (p) != validation_map.end());
+		validation_map.erase (p);
+	}
+	void validate_final () {ASSERTG (validation_map.size() == 0);}
+	void validate_pairing (uint64_t p1, uint64_t p2, int D, int ALT_D, int ALT_D_OFFSET, uint64_t B2_start, uint64_t B2_end, std::vector<int> &relps) {
+		ASSERTG (std::binary_search (relps.begin(), relps.end(), labs ((long) (p1 - p2) / 2)));
+		ASSERTG ((p1 + p2) / 2 > B2_start && (p1 + p2) / 2 < B2_end);
+		if (ALT_D)
+			ASSERTG (((p1 + p2) / 2) % D == 0 || ((p1 + p2) / 2) % ALT_D == ALT_D_OFFSET);
+		else
+			ASSERTG (((p1 + p2) / 2) % D == 0);
+	}
+#else
+	void validate_insert (uint64_t p) {}
+	void validate_prime (uint64_t p, uint64_t base_prime) {}
+	void validate_final () {}
+	void validate_pairing (uint64_t p1, uint64_t p2, int D, int ALT_D, int ALT_D_OFFSET, uint64_t B2_start, uint64_t B2_end, std::vector<int> &relps) {}
+#endif
+
 private:
 	// Internal get next prime and relocatable
 	void next_prime_from_sieve () { peek_prime = sieve (B2_sieve); if (peek_prime > B2) peek_prime = 0; else num_primes++, validate_insert (peek_prime); }
@@ -381,6 +380,9 @@ private:
 
 	uint32_t num_primes;				// Total number of primes (excluding relocatables)
 	uint32_t num_relocatables;			// Total number of relocatable primes
+#ifdef VALIDATE
+	std::unordered_set<uint64_t> validation_map;
+#endif
 };
 
 // Prime generator constructor
@@ -1238,7 +1240,7 @@ if (FIRST_EXIT && WINDOWED && next_prime != 0 && p_best_pairing != NULL) break;
 				    !p_best_chain_end->must_pair_or_single && !p_best_chain_end->last_prime_window) {
 					tot_pairs--;
 				} else {
-					validate_pairing (p_best_chain_end->prime, p_best_pairing->prime, D, ALT_D, ALT_D_OFFSET, B2_start, B2_end, relps);
+					pgen.validate_pairing (p_best_chain_end->prime, p_best_pairing->prime, D, ALT_D, ALT_D_OFFSET, B2_start, B2_end, relps);
 					ASSERTG (!p_best_pairing->is_paired() && !p_best_chain_end->is_paired());
 					p_best_pairing->p_paired_with = p_best_chain_end;
 					p_best_chain_end->p_paired_with = p_best_pairing;
@@ -1277,9 +1279,9 @@ if (FIRST_EXIT && WINDOWED && next_prime != 0 && p_best_pairing != NULL) break;
 			if (it->is_paired()) {
 				// Validate the pairing
 				auto p_pair = it->p_paired_with;
-				validate_prime (it->prime, it->base_prime);
-				validate_prime (p_pair->prime, p_pair->base_prime);
-				validate_pairing (it->prime, p_pair->prime, D, ALT_D, ALT_D_OFFSET, B2_start, B2_end, relps);
+				pgen.validate_prime (it->prime, it->base_prime);
+				pgen.validate_prime (p_pair->prime, p_pair->base_prime);
+				pgen.validate_pairing (it->prime, p_pair->prime, D, ALT_D, ALT_D_OFFSET, B2_start, B2_end, relps);
 				// no reloc-to-reloc pairs allowed when windowing
 				ASSERTG (!WINDOWED || next_prime == 0 || it->must_pair_or_single || it->last_prime_window || p_pair->must_pair_or_single || p_pair->last_prime_window);
 				output_pair (it->prime, p_pair->prime, D, ALT_D, ALT_D_OFFSET, B2_start, totrels, relps, pairmap_data);
@@ -1334,14 +1336,14 @@ if (FIRST_EXIT && WINDOWED && next_prime != 0 && p_best_pairing != NULL) break;
 
 			// Ugh, a single
 			// Validate the single
-			validate_prime (it->prime, it->base_prime);
+			pgen.validate_prime (it->prime, it->base_prime);
 			// Generate a fake pairing being extra careful to find a valid pairing when the single is past B2_end.
 			int pairing_set;
 			for (i = 0; i < int_multiplier; i++) {
 				pairing_set = relp_sets[i];
 				if (it->prime - pairing_set*D - it->relp < B2_end) break;
 			}
-			validate_pairing (it->prime, it->prime - pairing_set*2*D - 2*it->relp, D, ALT_D, ALT_D_OFFSET, B2_start, B2_end, relps);
+			pgen.validate_pairing (it->prime, it->prime - pairing_set*2*D - 2*it->relp, D, ALT_D, ALT_D_OFFSET, B2_start, B2_end, relps);
 			output_pair (it->prime, it->prime - pairing_set*2*D - 2*it->relp, D, ALT_D, ALT_D_OFFSET, B2_start, totrels, relps, pairmap_data);
 			tot_singles++;
 			// Remove single from primes window
@@ -1390,7 +1392,7 @@ if (FIRST_EXIT && WINDOWED && next_prime != 0 && p_best_pairing != NULL) break;
 	}
 
 	ASSERTG (pgen.get_numprimes () == tot_pairs * 2 + tot_singles);
-	validate_final ();
+	pgen.validate_final ();
 
 /* Output an informational message on our pairing efficiency */
 
