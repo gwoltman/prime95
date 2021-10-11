@@ -6133,19 +6133,21 @@ retry:
 	    int	num_work_units;
 	    int	first_work_unit_interruptable = TRUE;
 
-/* Get work to do until we've accumulated enough to keep us busy for */
-/* a while.  If we have too much work to do, lets give some back. */
+/* Get work to do until we've accumulated enough to keep us busy for a while.  If we have too much work to do, lets give some back. */
 
 	    num_work_units = 0;
 	    est = 0.0;
+	    for (int pass = 0; pass <= 1; pass++)
 	    for (w = NULL; ; ) {
 		int	registered_assignment;
 
-/* Read the line of the work file */
+/* Read the line of the work file, handle all CERTs first */
 
 		w = getNextWorkToDoLine (tnum, w, SHORT_TERM_USE);
 		if (w == NULL) break;
 		if (w->work_type == WORK_NONE) continue;
+		if (pass == 0 && w->work_type != WORK_CERT) continue;
+		if (pass == 1 && w->work_type == WORK_CERT) continue;
 
 /* If we are quitting GIMPS or we have too much work queued up, */
 /* then return the assignment. */
@@ -6257,8 +6259,7 @@ retry:
 			strcpy (pkt2.assignment_uid, w->assignment_uid);
 			strcpy (pkt2.stage, w->stage);
 			pkt2.pct_complete = w->pct_complete * 100.0;
-			// Cert work is priority work that should complete within a half a day
-			pkt2.end_date = (unsigned long) ((w->work_type == WORK_CERT) ? 43200.0 : est);
+			pkt2.end_date = (unsigned long) est;
 			pkt2.next_update = (uint32_t) (DAYS_BETWEEN_CHECKINS * 86400.0);
 			pkt2.fftlen = w->fftlen;
 			LOCKED_WORK_UNIT = w;

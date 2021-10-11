@@ -40,7 +40,7 @@ void rangeStatusMessage (
 {
 	unsigned int tnum, ll_and_prp_cnt, lines_per_worker;
 	int	mersennes;		/* TRUE if only testing Mersenne numbers */
-	double	prob, est, cert_est;
+	double	prob, est;
 	char	*orig_buf;
 
 /* Just in case the user hand added work to the worktodo file, reread it */
@@ -81,19 +81,20 @@ void rangeStatusMessage (
 
 /* Loop over all work units */
 
-	    w = NULL;
 	    est = 0.0;
-	    cert_est = 0.0;
-	    for ( ; ; ) {
+	    for (int pass = 0; pass <= 1; pass++)
+	    for (w = NULL; ; ) {
 		time_t	this_time;
 		char	timebuf[80];
 		unsigned int bits;
 
-/* Read the next line of the work file */
+/* Read the next line of the work file, handle CERT lines first */
 
 		w = getNextWorkToDoLine (tnum, w, SHORT_TERM_USE);
 		if (w == NULL) break;
 		if (w->work_type == WORK_NONE) continue;
+		if (pass == 0 && w->work_type != WORK_CERT) continue;
+		if (pass == 1 && w->work_type == WORK_CERT) continue;
 
 /* Keep track of whether we are only testing Mersenne numbers */
 
@@ -122,14 +123,11 @@ void rangeStatusMessage (
 
 /* Adjust our time estimate */
 
-		if (w->work_type == WORK_CERT) cert_est += work_estimate (tnum, w);
-		else est += work_estimate (tnum, w);
+		est += work_estimate (tnum, w);
 
-/* Stop adding worktodo lines if buffer is full.  We must still loop */
-/* through the worktodo lines to decrement the in-use counters. */
+/* Stop adding worktodo lines if buffer is full.  We must still loop through the worktodo lines to decrement the in-use counters. */
 
-		if ((unsigned int) (buf - orig_buf) >= buflen - 200 ||
-		    lines_output >= lines_per_worker-1) {
+		if ((unsigned int) (buf - orig_buf) >= buflen - 200 || lines_output >= lines_per_worker-1) {
 			if (! truncated_status_msg) {
 				strcpy (buf, "More...\n");
 				buf += strlen (buf);
@@ -167,8 +165,7 @@ void rangeStatusMessage (
 		buf += strlen (buf);
 
 		time (&this_time);
-		if (w->work_type == WORK_CERT) this_time += (time_t) cert_est;
-		else this_time += (time_t) (cert_est + est);
+		this_time += (time_t) est;
 		if (this_time < 2147483640.0) {
 			strcpy (timebuf, ctime (&this_time));
 			safe_strcpy (timebuf+16, timebuf+19);
