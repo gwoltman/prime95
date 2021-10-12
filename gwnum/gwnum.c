@@ -6672,7 +6672,7 @@ gwnum gwalloc (
 /* Initialize the header */
 
 	* (uint32_t *) (q - 8) = size;					/* Size in bytes */
-	* (uint32_t *) (q - 4) = 1;					/* Unnormalized adds count */
+	unnorms (q) = 0.0f;						/* Unnormalized adds count */
 	* (uint32_t *) (q - 28) = 0;					/* Has-been-pre-ffted flag */
 	* (int32_t *) (q - 32) = freeable + gwdata->gwnum_alloc_count;	/* Mem should be freed flag / gwnum_alloc index */
 	* (double *) (q - 16) = 0.0;
