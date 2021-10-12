@@ -9835,17 +9835,19 @@ void autoBench (void)
 
 /* Loop over all work units */
 
-	    w = NULL;
 	    est = 0.0;
-	    for ( ; ; ) {
+	    for (int pass = 0; pass <= 1; pass++)
+	    for (w = NULL; ; ) {
 		int	all_complex, num_benchmarks;
 		unsigned long min_fftlen, max_fftlen;    
 
-/* Read the next line of the work file */
+/* Read the next line of the work file.  Handle CERT lines first in computing estimated completion dates. */
 
 		w = getNextWorkToDoLine (tnum, w, SHORT_TERM_USE);
 		if (w == NULL) break;
-		if (w->work_type == WORK_NONE || w->work_type == WORK_CERT) continue;
+		if (w->work_type == WORK_NONE) continue;
+		if (pass == 0 && w->work_type != WORK_CERT) continue;
+		if (pass == 1 && w->work_type == WORK_CERT) continue;
 
 /* Ignore any worktodo entries that will not begin within the next 7 days.  No particular reason for this. */
 /* This reduces the likelihood of an excessively long autobench.  The worktodo entry might be deleted before */
@@ -9855,13 +9857,14 @@ void autoBench (void)
 		if (est > autobench_days_of_work * 86400.0) continue;
 		est += work_estimate (tnum, w);
 
-/* Trial factoring is the only work type that does not use FFTs */
+/* Trial factoring is the only work type that does not use FFTs.  CERTs are short work assignments unlikely to benefit from an auto-bench. */
 
 		if (w->work_type == WORK_FACTOR) continue;
+		if (w->work_type == WORK_CERT) continue;
 
-/* If this is an LL test determine the FFT size that will actually be used */
+/* If this is an LL or PRP test determine the FFT size that will actually be used */
 
-		if (w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK || w->work_type == WORK_ADVANCEDTEST)
+		if (w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK || w->work_type == WORK_ADVANCEDTEST || w->work_type == WORK_PRP)
 			pick_fft_size (MAIN_THREAD_NUM, w);
 
 /* Ask gwnum how many relevant benchmarks are in its database */
