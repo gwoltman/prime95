@@ -6996,7 +6996,7 @@ int pminus1 (
 
 	pm1data.optimal_B2 = (!QA_IN_PROGRESS && w->work_type == WORK_PMINUS1 && pm1data.first_C_start == pm1data.B &&
 			      w->sieve_depth > 50 && IniGetInt (INI_FILE, "Pminus1BestB2", 1));
-	if (pm1data.optimal_B2) pm1data.C = 100 * pm1data.B;	// A guess to use for calling start_sieve_with_limit
+	if (pm1data.optimal_B2 && pm1data.C <= pm1data.B) pm1data.C = 100 * pm1data.B;	// A guess to use for calling start_sieve_with_limit
 
 /* Compute the number we are factoring */
 
@@ -9822,7 +9822,7 @@ int pplus1 (
 /* Decide if we will calculate an optimal B2 when stage 2 begins.  We do this by default for P+1 work where we know how much TF has been done. */
 
 	pp1data.optimal_B2 = (!QA_IN_PROGRESS && w->sieve_depth > 50 && IniGetInt (INI_FILE, "Pplus1BestB2", 1));
-	if (pp1data.optimal_B2) pp1data.C = 100 * pp1data.B;	// A guess to use for calling start_sieve_with_limit
+	if (pp1data.optimal_B2 && pp1data.C <= pp1data.B) pp1data.C = 100 * pp1data.B;	// A guess to use for calling start_sieve_with_limit
 
 /* Compute the number we are factoring */
 
