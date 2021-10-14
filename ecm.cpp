@@ -5442,14 +5442,14 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 		dbltogw (&ecmdata.gwdata, 1.0, ecmdata.gg);
 	}
 
-/* For 2-FFT stage 2, mQ_init wanted to free QD but could not because of potential ecm_save issues.  Now that stage 2 init is finished, free QD. */
-
-	if (ecmdata.TWO_FFT_STAGE2) free_xz (&ecmdata, &ecmdata.QD);
-
 /* Last chance to create a save file that doesn't lock us into a particular stage 2 implementation.  Check for user requesting a stop. */
 
 	stop_reason = stopCheck (thread_num);
 	if (stop_reason) goto possible_lowmem;
+
+/* For 2-FFT stage 2, mQ_init wanted to free QD but could not because of potential ecm_save issues.  Now that stage 2 init is finished, free QD. */
+
+	if (ecmdata.TWO_FFT_STAGE2) free_xz (&ecmdata, &ecmdata.QD);
 
 /* Initialization of stage 2 complete */
 
