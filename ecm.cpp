@@ -3154,7 +3154,7 @@ int mQ_init (
 			ecmdata->Qprevm = ecmdata->Qm;
 			ecmdata->Qm = nextQm;
 
-			// Check for user requesting a stop
+			// Check for user requesting a stop, mem settings changed, etc.
 			stop_reason = stopCheck (ecmdata->thread_num);
 			if (stop_reason) return (stop_reason);
 		}
@@ -3279,7 +3279,7 @@ int mQ_next (
 			stop_reason = add_to_normalize_pool_ro (ecmdata, ecmdata->mQx[i], nextQm.z);
 			if (stop_reason) return (stop_reason);
 
-			// Check for user requesting a stop
+			// Check for user requesting a stop, mem settings changed, etc.
 			stop_reason = stopCheck (ecmdata->thread_num);
 			if (stop_reason) return (stop_reason);
 		}
@@ -5054,10 +5054,9 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 				totrels++;
 			}
 
-/* Check for errors and save file creation */
+/* Check for errors, mem settings changed, etc. */
 
 			if (gw_test_for_error (&ecmdata.gwdata) || gw_get_maxerr (&ecmdata.gwdata) > allowable_maxerr) goto err;
-
 			stop_reason = stopCheck (thread_num);
 			if (stop_reason) goto possible_lowmem;
 		}
@@ -5242,7 +5241,7 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 
 			if (have_QD && (totrels == ecmdata.totrels || totrels == numrels * 2)) break;
 
-/* Check for errors and save file creation */
+/* Check for errors, user abort, restart for mem changed, etc. */
 
 			if (gw_test_for_error (&ecmdata.gwdata) || gw_get_maxerr (&ecmdata.gwdata) > allowable_maxerr) goto err;
 			stop_reason = stopCheck (thread_num);
@@ -5302,6 +5301,10 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 		}
 		// Free base if no longer needed
 		it_base->second.free_if_Dmult_last_used_by (this_Dmult->first);
+		// Check for errors, user abort, restart for mem changed, etc. */
+		if (gw_test_for_error (&ecmdata.gwdata) || gw_get_maxerr (&ecmdata.gwdata) > allowable_maxerr) goto err;
+		stop_reason = stopCheck (thread_num);
+		if (stop_reason) goto possible_lowmem;
 	}
 //GW: are xz buffers allocated by Dmultiple map properly cleaned up (especially in oom case)?  use class to do it? 
 
@@ -5406,6 +5409,11 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 			if (Dmultiple_to_be_freed) {
 				it_Dmultiple->second.free_if_relp_last_used_by (it_relp_set->first);
 			}
+
+			// Check for errors, user abort, restart for mem changed, etc. */
+			if (gw_test_for_error (&ecmdata.gwdata) || gw_get_maxerr (&ecmdata.gwdata) > allowable_maxerr) goto err;
+			stop_reason = stopCheck (thread_num);
+			if (stop_reason) goto possible_lowmem;
 		}
 	}
 
@@ -5734,7 +5742,9 @@ more_curves:
 /* Free memory and return */
 
 	stop_reason = STOP_WORK_UNIT_COMPLETE;
-exit:	ecm_cleanup (&ecmdata);
+exit:	Dmultiple_map.clear ();
+	relp_set_map.clear ();
+	ecm_cleanup (&ecmdata);
 	free (str);
 	free (msg);
 	return (stop_reason);
@@ -5745,6 +5755,8 @@ lowmem:	stop_reason = OutOfMemory (thread_num);
 possible_lowmem:
 	if (ecmdata.state == ECM_STATE_MIDSTAGE) ecm_save (&ecmdata);
 	if (stop_reason != STOP_OUT_OF_MEM) goto exit;
+	Dmultiple_map.clear ();
+	relp_set_map.clear ();
 	ecm_cleanup (&ecmdata);
 	OutputBoth (thread_num, "Memory allocation error.  Trying again using less memory.\n");
 	ecmdata.pct_mem_to_use *= 0.8;
@@ -5898,6 +5910,8 @@ err:	if (gw_get_maxerr (&ecmdata.gwdata) > allowable_maxerr) {
 		if (stop_reason) goto exit;
 	}
 error_restart:
+	Dmultiple_map.clear ();
+	relp_set_map.clear ();
 	ecm_cleanup (&ecmdata);
 	free (str); str = NULL;
 	free (msg); msg = NULL;
@@ -7771,7 +7785,7 @@ replan:	{
 			curr->Vi = next_i;
 			curr->Vi_is_relp = next_i_is_relp;
 
-/* Check for errors and save file creation */
+/* Check for errors, user esc, restart for mem changed, etc. */
 
 			if (gw_test_for_error (&pm1data.gwdata)) goto err;
 			stop_reason = stopCheck (thread_num);
@@ -7842,6 +7856,10 @@ replan:	{
 		}
 		// Free base if no longer needed
 		it_base->second.free_if_Dmult_last_used_by (this_Dmult->first);
+		// Check for errors, user esc, restart for mem changed, etc.
+		if (gw_test_for_error (&pm1data.gwdata)) goto err;
+		stop_reason = stopCheck (thread_num);
+		if (stop_reason) goto possible_lowmem;
 	}
 //GW: are xz buffers allocated by Dmultiple map properly cleaned up (especially in oom case)?  use class to do it? 
 
@@ -7918,6 +7936,11 @@ replan:	{
 				it_Dmultiple->second.do_not_free_val = (Vnew == it_Dmultiple->second.val.x);
 				it_Dmultiple->second.free_if_relp_last_used_by (it_relp_set->first);
 			}
+
+			// Check for errors, user esc, restart for mem changed, etc.
+			if (gw_test_for_error (&pm1data.gwdata)) goto err;
+			stop_reason = stopCheck (thread_num);
+			if (stop_reason) goto possible_lowmem;
 		}
 	}
 
@@ -8191,7 +8214,9 @@ done:	if (w->work_type == WORK_PMINUS1 || w->work_type == WORK_PFACTOR)
 
 /* Free memory and return */
 
-exit:	pm1_cleanup (&pm1data);
+exit:	Dmultiple_map.clear ();
+	relp_set_map.clear ();
+	pm1_cleanup (&pm1data);
 	free (N);
 	free (factor);
 	free (str);
@@ -8207,6 +8232,8 @@ possible_lowmem:
 	if (stop_reason != STOP_OUT_OF_MEM) goto exit;
 //GW: saving file twice?
 	pm1_save (&pm1data);
+	Dmultiple_map.clear ();
+	relp_set_map.clear ();
 	pm1_cleanup (&pm1data);
 	OutputBoth (thread_num, "Memory allocation error.  Trying again using less memory.\n");
 	pm1data.pct_mem_to_use *= 0.8;
@@ -8342,6 +8369,8 @@ err:	if (gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) {
 		if (stop_reason) goto exit;
 	}
 error_restart:
+	Dmultiple_map.clear ();
+	relp_set_map.clear ();
 	pm1_cleanup (&pm1data);
 	free (factor), factor = NULL;
 	free (str), str = NULL;
@@ -10448,7 +10477,7 @@ replan:	{
 			curr->Vi = next_i;
 			curr->Vi_is_relp = next_i_is_relp;
 
-/* Check for errors and save file creation */
+/* Check for errors, user ESC, restart for mem changed, etc. */
 
 			if (gw_test_for_error (&pp1data.gwdata)) goto err;
 			stop_reason = stopCheck (thread_num);
@@ -10518,6 +10547,10 @@ replan:	{
 		}
 		// Free base if no longer needed
 		it_base->second.free_if_Dmult_last_used_by (this_Dmult->first);
+		// Check for errors, user ESC, restart for mem changed, etc.
+		if (gw_test_for_error (&pp1data.gwdata)) goto err;
+		stop_reason = stopCheck (thread_num);
+		if (stop_reason) goto possible_lowmem;
 	}
 //GW: are xz buffers allocated by Dmultiple map properly cleaned up (especially in oom case)?  use class to do it? 
 
@@ -10594,6 +10627,11 @@ replan:	{
 				it_Dmultiple->second.do_not_free_val = (Vnew == it_Dmultiple->second.val.x);
 				it_Dmultiple->second.free_if_relp_last_used_by (it_relp_set->first);
 			}
+
+			// Check for errors, user ESC, restart for mem changed, etc.
+			if (gw_test_for_error (&pp1data.gwdata)) goto err;
+			stop_reason = stopCheck (thread_num);
+			if (stop_reason) goto possible_lowmem;
 		}
 	}
 
@@ -10853,7 +10891,9 @@ done:	stop_reason = STOP_WORK_UNIT_COMPLETE;
 
 /* Free memory and return */
 
-exit:	pp1_cleanup (&pp1data);
+exit:	Dmultiple_map.clear ();
+	relp_set_map.clear ();
+	pp1_cleanup (&pp1data);
 	free (N);
 	free (factor);
 	free (str);
@@ -10868,6 +10908,8 @@ possible_lowmem:
 	if (stop_reason != STOP_OUT_OF_MEM) goto exit;
 //GW: saving file twice?
 	pp1_save (&pp1data);
+	Dmultiple_map.clear ();
+	relp_set_map.clear ();
 	pp1_cleanup (&pp1data);
 	OutputBoth (thread_num, "Memory allocation error.  Trying again using less memory.\n");
 	pp1data.pct_mem_to_use *= 0.8;
@@ -11002,6 +11044,8 @@ err:	if (gw_get_maxerr (&pp1data.gwdata) > allowable_maxerr) {
 		if (stop_reason) goto exit;
 	}
 error_restart:
+	Dmultiple_map.clear ();
+	relp_set_map.clear ();
 	pp1_cleanup (&pp1data);
 	free (factor), factor = NULL;
 	free (str), str = NULL;
