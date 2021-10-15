@@ -1211,7 +1211,7 @@ void options_benchmark (void)
 	}
 
 	sprintf (m_cores, "%" PRIu32, HW_NUM_COMPUTE_CORES);
-	m_hyperthreading = IniGetInt (INI_FILE, "BenchHyperthreads", 1);
+	m_hyperthreading = (HW_NUM_CORES != HW_NUM_THREADS && IniGetInt (INI_FILE, "BenchHyperthreads", 1));
 	if (HW_NUM_CORES > 1 || HW_NUM_CORES != HW_NUM_THREADS) {
 		printf ("\nCPU cores to benchmark\n");
 		if (HW_NUM_CORES > 1) askStr ("Number of CPU cores (comma separated list of ranges)", m_cores, 511);

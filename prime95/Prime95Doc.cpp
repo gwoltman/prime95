@@ -801,7 +801,7 @@ void CPrime95Doc::OnBenchmark()
 	// Init CPU cores dialog box entries
 	sprintf (default_cores_string, "%" PRIu32, HW_NUM_COMPUTE_CORES);
 	dlg.m_bench_cores = default_cores_string;
-	dlg.m_hyperthreading = IniGetInt (INI_FILE, "BenchHyperthreads", 1);
+	dlg.m_hyperthreading = (HW_NUM_CORES != HW_NUM_THREADS && IniGetInt (INI_FILE, "BenchHyperthreads", 1));
 
 	// Init throughput dialog box entries
 	dlg.m_all_FFT_impl = IniGetInt (INI_FILE, "AllBench", 0);
