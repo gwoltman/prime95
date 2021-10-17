@@ -10374,7 +10374,7 @@ void gw_random_number (
 	gwnum	x)
 {
 static	int	genrand_initialized = FALSE;
-	struct mt_state rand_info;
+static	struct mt_state rand_info;
 	stackgiant(g,4);
 	int	bitlen;
 
