@@ -10384,7 +10384,7 @@ static	int	genrand_initialized = FALSE;
 	if (x == gwdata->GW_RANDOM) {
 		init_genrand (&rand_info, 5489);
 		genrand_initialized = FALSE;
-	} else {
+	} else if (!genrand_initialized) {
 		init_genrand (&rand_info, (unsigned long) time (NULL));
 		genrand_initialized = TRUE;
 	}
