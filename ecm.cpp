@@ -4566,8 +4566,9 @@ if (w->n == 604) {
 
 /* Figure out the maximum round-off error we will allow.  By default this is 28/64 when near the FFT limit and 26/64 otherwise. */
 /* We've found that this default catches errors without raising too many spurious error messages.  The user can override this default. */
+/* Since ell_dbl and ell_add may aggressively push EXTRA_BITS, assume we can always get large-ish round off errors */
 
-	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) (near_fft_limit ? 0.4375 : 0.40625));
+	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) 0.4375);
 
 /* Check for a continuation file.  Limit number of backup files we try to read in case there is an error deleting bad save files. */
 
@@ -5901,7 +5902,7 @@ bingo:	stage = (ecmdata.state > ECM_STATE_MIDSTAGE) ? 2 : (ecmdata.state > ECM_S
 /* Sleep five minutes before restarting from last save file. */
 
 err:	if (gw_get_maxerr (&ecmdata.gwdata) > allowable_maxerr) {
-		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file.\n", gw_get_maxerr (&ecmdata.gwdata));
+		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file and using larger FFT.\n", gw_get_maxerr (&ecmdata.gwdata));
 		OutputStr (thread_num, buf);
 		maxerr_restart_count++;
 	} else {
@@ -7097,8 +7098,9 @@ restart:
 
 /* Figure out the maximum round-off error we will allow.  By default this is 28/64 when near the FFT limit and 26/64 otherwise. */
 /* We've found that this default catches errors without raising too many spurious error messages.  The user can override this default. */
+/* Since stage 2 may aggressively push EXTRA_BITS with gwsubmul4, assume we can always get large-ish round off errors */
 
-	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) (near_fft_limit ? 0.4375 : 0.40625));
+	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) 0.4375);
 
 /* Check for a save file and read the save file.  If there is an error */
 /* reading the file then restart the P-1 factoring job from scratch. */
@@ -8360,7 +8362,7 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 /* Sleep five minutes before restarting from last save file. */
 
 err:	if (gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) {
-		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file.\n", gw_get_maxerr (&pm1data.gwdata));
+		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file and using larger FFT.\n", gw_get_maxerr (&pm1data.gwdata));
 		OutputStr (thread_num, buf);
 		maxerr_restart_count++;
 	} else {
@@ -9954,8 +9956,9 @@ restart:
 
 /* Figure out the maximum round-off error we will allow.  By default this is 28/64 when near the FFT limit and 26/64 otherwise. */
 /* We've found that this default catches errors without raising too many spurious error messages.  The user can override this default. */
+/* Since stage 2 may aggressively push EXTRA_BITS with gwsubmul4, assume we can always get large-ish round off errors */
 
-	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) (near_fft_limit ? 0.4375 : 0.40625));
+	allowable_maxerr = IniGetFloat (INI_FILE, "MaxRoundoffError", (float) 0.4375);
 
 /* Check for a save file and read the save file.  If there is an error reading the file then restart the P+1 factoring job from scratch. */
 /* Limit number of backup files we try to read in case there is an error deleting bad save files. */
@@ -11035,7 +11038,7 @@ bingo:	if (pp1data.state < PP1_STATE_MIDSTAGE)
 /* Sleep five minutes before restarting from last save file. */
 
 err:	if (gw_get_maxerr (&pp1data.gwdata) > allowable_maxerr) {
-		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file.\n", gw_get_maxerr (&pp1data.gwdata));
+		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file and using larger FFT.\n", gw_get_maxerr (&pp1data.gwdata));
 		OutputStr (thread_num, buf);
 		maxerr_restart_count++;
 	} else {
