@@ -4897,12 +4897,6 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 	stop_reason = ecm_stage2_impl (&ecmdata);
 	if (stop_reason) goto possible_lowmem;
 
-/* Do preliminary processing of the relp_sets */
-
-	int	numrels;		// Number of relative primes less than D/2 (the number of relative primes in one full relp_set)
-	numrels = map_D_to_numrels (ecmdata.D);
-	process_relp_sets (ecmdata.totrels, numrels, ecmdata.relp_sets, relp_set_map, Dmultiple_map);
-
 /* Record the amount of memory this thread will be using in stage 2. */
 
 	memused = cvt_gwnums_to_mem (&ecmdata.gwdata, ecmdata.stage2_numvals);
@@ -4915,6 +4909,12 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 		goto replan;
 	}
 	gw_set_max_allocs (&ecmdata.gwdata, ecmdata.stage2_numvals);
+
+/* Do preliminary processing of the relp_sets */
+
+	int	numrels;		// Number of relative primes less than D/2 (the number of relative primes in one full relp_set)
+	numrels = map_D_to_numrels (ecmdata.D);
+	process_relp_sets (ecmdata.totrels, numrels, ecmdata.relp_sets, relp_set_map, Dmultiple_map);
 
 /* Output a useful message regarding memory usage and ECM stage 2 implementation */
 
@@ -7608,12 +7608,6 @@ replan:	{
 		goto exit;
 	}
 
-/* Do preliminary processing of the relp_sets */
-
-	int	numrels;		// Number of relative primes less than D/2 (the number of relative primes in one full relp_set)
-	numrels = map_D_to_numrels (pm1data.D);
-	process_relp_sets (pm1data.totrels, numrels, pm1data.relp_sets, relp_set_map, Dmultiple_map);
-
 /* Record the amount of memory this thread will be using in stage 2. */
 
 	memused = cvt_gwnums_to_mem (&pm1data.gwdata, pm1data.stage2_numvals);
@@ -7625,6 +7619,12 @@ replan:	{
 		free (pm1data.pairmap); pm1data.pairmap = NULL;
 		goto replan;
 	}
+
+/* Do preliminary processing of the relp_sets */
+
+	int	numrels;		// Number of relative primes less than D/2 (the number of relative primes in one full relp_set)
+	numrels = map_D_to_numrels (pm1data.D);
+	process_relp_sets (pm1data.totrels, numrels, pm1data.relp_sets, relp_set_map, Dmultiple_map);
 
 /* Output a useful message regarding memory usage */
 
@@ -10301,12 +10301,6 @@ replan:	{
 		goto exit;
 	}
 
-/* Do preliminary processing of the relp_sets */
-
-	int	numrels;		// Number of relative primes less than D/2 (the number of relative primes in one full relp_set)
-	numrels = map_D_to_numrels (pp1data.D);
-	process_relp_sets (pp1data.totrels, numrels, pp1data.relp_sets, relp_set_map, Dmultiple_map);
-
 /* Record the amount of memory this thread will be using in stage 2. */
 
 	memused = cvt_gwnums_to_mem (&pp1data.gwdata, pp1data.stage2_numvals);
@@ -10318,6 +10312,12 @@ replan:	{
 		free (pp1data.pairmap); pp1data.pairmap = NULL;
 		goto replan;
 	}
+
+/* Do preliminary processing of the relp_sets */
+
+	int	numrels;		// Number of relative primes less than D/2 (the number of relative primes in one full relp_set)
+	numrels = map_D_to_numrels (pp1data.D);
+	process_relp_sets (pp1data.totrels, numrels, pp1data.relp_sets, relp_set_map, Dmultiple_map);
 
 /* Output a useful message regarding memory usage */
 
