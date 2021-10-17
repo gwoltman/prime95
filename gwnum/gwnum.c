@@ -10373,6 +10373,7 @@ void gw_random_number (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	x)
 {
+static	int	genrand_initialized = FALSE;
 	struct mt_state rand_info;
 	stackgiant(g,4);
 	int	bitlen;
@@ -10380,10 +10381,13 @@ void gw_random_number (
 /* Init the random generator to a reproducible state for gwsquare_carefully. */
 /* For other users of this routine, initialize to a more random state. */
 
-	if (x == gwdata->GW_RANDOM)
+	if (x == gwdata->GW_RANDOM) {
 		init_genrand (&rand_info, 5489);
-	else
+		genrand_initialized = FALSE;
+	} else {
 		init_genrand (&rand_info, (unsigned long) time (NULL));
+		genrand_initialized = TRUE;
+	}
 
 /* Generate a random number.  Start with a 128-bit random odd number and square it several times. */
 
