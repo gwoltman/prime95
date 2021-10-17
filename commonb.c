@@ -9440,7 +9440,7 @@ int primeBenchMultipleWorkersInternal (
 		for (cpus = min_cores; cpus <= max_cores; cpus += incr_cores) {
 		    if (! is_number_in_list (cpus, bench_cores)) continue;
 		    for (hypercpus = 1; hypercpus <= 2; hypercpus++) {
-			if (hypercpus > 1 && (HW_NUM_CORES == NW_NUM_THREADS || !bench_hyperthreading)) break;
+			if (hypercpus > 1 && (HW_NUM_CORES == HW_NUM_THREADS || !bench_hyperthreading)) break;
 			/* If the OS cannot set affinity, then we can only bench hyperthreading on all CPUs */
 			if (!OS_CAN_SET_AFFINITY && hypercpus > 1 && cpus != HW_NUM_CORES) continue;
 			for (workers = min_workers; workers <= cpus && workers <= max_workers; workers += incr_workers) {
