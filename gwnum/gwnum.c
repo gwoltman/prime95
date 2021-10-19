@@ -10794,6 +10794,7 @@ void gwadd3o (			/* Add two numbers normalizing if needed */
 /* If either input is partially or fully FFTed, we cannot normalize the result.  Use a different assembly routine. */
 
 	if (FFT_state (s1) != NOT_FFTed || FFT_state (s2) != NOT_FFTed) {
+		ASSERTG (!(options & GWADD_FORCE_NORMALIZE));
 
 /* If the two FFT states are not the same, make them so */
 
@@ -10929,6 +10930,7 @@ void gwsub3o (			/* Compute s1 - s2 normalizing if needed */
 /* If either input is partially or fully FFTed, we cannot normalize the result.  Use a different assembly routine. */
 
 	if (FFT_state (s1) != NOT_FFTed || FFT_state (s2) != NOT_FFTed) {
+		ASSERTG (!(options & GWADD_FORCE_NORMALIZE));
 
 /* If the two FFT states are not the same, make them so */
 
