@@ -1218,8 +1218,8 @@ void ell_dbl_xz_scr (
 		t3 = out->z;
 		t4 = scr->x;
 
-		gwsquare2 (&ecmdata->gwdata, in->x, scr->x, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT_IF(t1_safe));	/* x^2 */
-		gwsquare2 (&ecmdata->gwdata, in->z, scr->z, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT_IF(t1_safe));	/* z^2 */
+		gwsquare2 (&ecmdata->gwdata, in->x, scr->x, GWMUL_FFT_S1);					/* x^2 */
+		gwsquare2 (&ecmdata->gwdata, in->z, scr->z, GWMUL_FFT_S1);					/* z^2 */
 		gwsetmulbyconst (&ecmdata->gwdata, 2);
 		gwmul3 (&ecmdata->gwdata, in->x, in->z, t3, GWMUL_MULBYCONST);					/* t3 = 2*x*z */
 
