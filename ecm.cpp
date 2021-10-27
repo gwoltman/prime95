@@ -680,6 +680,12 @@ double best_stage2_impl (
 /* Now do a binary search */
 
 	while (best[2].totrels - best[0].totrels > 2) {
+		// If we've reached a rare localized high cost where the midpoint exceeds both endpoints, then pick the half with
+		// the lowest cost endpoint and hope that is the correct decision.
+		if (best[1].cost > best[0].cost && best[1].cost > best[2].cost) {
+			if (best[0].cost < best[2].cost) best[2].cost = best[1].cost * 2.0;
+			else best[0].cost = best[1].cost * 2.0;
+		}
 		// If midpoint is worse than start point OR midpoint equals endpoint, make midpoint the new end point.
 		if (best[1].cost > best[0].cost || best[1].cost == best[2].cost) {
 			ASSERTG (best[1].cost <= best[2].cost);
