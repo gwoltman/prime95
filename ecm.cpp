@@ -3851,10 +3851,7 @@ int ecm_stage2_impl (
 	ecmdata->numDsections = cost_data.c.numDsections;
 	ecmdata->max_pairmap_Dsections = cost_data.c.max_pairmap_Dsections;
 	memcpy (ecmdata->relp_sets, cost_data.c.relp_sets, sizeof (ecmdata->relp_sets));
-
-	if (ecmdata->state < ECM_STATE_STAGE2) {
-		ecmdata->last_relocatable = ecmdata->B2_start;
-	}
+	if (ecmdata->state < ECM_STATE_STAGE2 || ecmdata->last_relocatable > ecmdata->B2_start) ecmdata->last_relocatable = ecmdata->B2_start;
 	
 /* Output some debugging data so we can compare estimateds to actuals */
 
@@ -6862,10 +6859,7 @@ int pm1_stage2_impl (
 	pm1data->numDsections = cost_data.c.numDsections;
 	pm1data->max_pairmap_Dsections = cost_data.c.max_pairmap_Dsections;
 	memcpy (pm1data->relp_sets, cost_data.c.relp_sets, sizeof (pm1data->relp_sets));
-
-	if (pm1data->state == PM1_STATE_MIDSTAGE) {
-		pm1data->last_relocatable = pm1data->B2_start;
-	}
+	if (pm1data->state == PM1_STATE_MIDSTAGE || pm1data->last_relocatable > pm1data->B2_start) pm1data->last_relocatable = pm1data->B2_start;
 
 /* Output some debugging data so we can compare estimateds to actuals */
 
@@ -9433,10 +9427,7 @@ int pp1_stage2_impl (
 	pp1data->numDsections = cost_data.c.numDsections;
 	pp1data->max_pairmap_Dsections = cost_data.c.max_pairmap_Dsections;
 	memcpy (pp1data->relp_sets, cost_data.c.relp_sets, sizeof (pp1data->relp_sets));
-
-	if (pp1data->state < PP1_STATE_STAGE2) {
-		pp1data->last_relocatable = pp1data->B2_start;
-	}
+	if (pp1data->state < PP1_STATE_STAGE2 || pp1data->last_relocatable > pp1data->B2_start) pp1data->last_relocatable = pp1data->B2_start;
 
 /* Output some debugging data so we can compare estimateds to actuals */
 
