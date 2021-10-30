@@ -313,7 +313,8 @@ using recycled_relocs =	std::map<uint64_t, uint64_t>;
 class prime_generator {
 public:
 	// Constructor
-	prime_generator (int thread_num, uint64_t first_relocatable, uint64_t last_relocatable, uint64_t B2_start_reloc, uint64_t B2_start, uint64_t B2_end_prime, uint64_t B2_end_relocs, int first_multiplier);
+	prime_generator (int thread_num, uint64_t first_relocatable, uint64_t last_relocatable, uint64_t B2_start_reloc, uint64_t B2_start,
+			 uint64_t B2_end_prime, uint64_t B2_end_relocs, int first_multiplier, int second_multiplier);
 	// Destructor
 	~prime_generator () { /* GW: end_sieve?? */ }
 	// Peek at the next prime
@@ -352,7 +353,12 @@ public:
 private:
 	// Internal get next prime and relocatable
 	void next_prime_from_sieve () { peek_prime = sieve (B2_sieve); if (peek_prime > B2) peek_prime = 0; else num_primes++, validate_insert (peek_prime); }
-	void next_relocatable () { peek_relocated = sieve (relocatable_sieve); if (peek_relocated > last_reloc) peek_relocated = 0; else num_relocatables++, validate_insert (peek_relocated); }
+	void next_relocatable () {
+		peek_relocated = sieve (relocatable_sieve);
+		if (peek_relocated > last_reloc) peek_relocated = 0;
+		else if (peek_relocated * first_multiplier < B2_start_reloc && peek_relocated * second_multiplier > B2_end_reloc) peek_relocated = 0;
+		else num_relocatables++, validate_insert (peek_relocated);
+	}
 	void add_recycled (uint64_t p, uint64_t base_prime) {
 		if (p >= B2_end_reloc) return;
 		// Handle rare oddball that can occur when B2 > B1^2.
@@ -366,6 +372,7 @@ private:
 	uint64_t B2;					// End of the range of primes to return
 	uint64_t B2_end_reloc;				// End of the range of prime relocations to return
 	int	first_multiplier;			// First multiplier to apply to a relocatable prime
+	int	second_multiplier;			// Second multiplier to apply to a relocatable prime
 
 	void	*B2_sieve;				// Return primes from B2_start to B2
 	void	*relocatable_sieve;			// Return primes from B1 to B2_start
@@ -395,7 +402,8 @@ prime_generator::prime_generator (
 	uint64_t B2_end_prime,				// The traditional bound #2 value, return no primes larger than this value
 	uint64_t B2_end_reloc,				// Since the last D blocks likely end after B2, we can put relocated primes after B2 in the last block.
 							// Return no more relocated primes after this value.
-	int	first_multiplier)			// First multiplier to apply to a relocatable prime
+	int	first_multiplier,			// First multiplier to apply to a relocatable prime
+	int	second_multiplier)			// Second multiplier to apply to a relocatable prime
 {
 	if (B2_start_reloc < first_relocatable) B2_start_reloc = first_relocatable;
 	this->B2_start_reloc = B2_start_reloc;
@@ -403,6 +411,8 @@ prime_generator::prime_generator (
 	this->B2 = B2_end_prime;
 	this->B2_end_reloc = B2_end_reloc;
 	this->first_multiplier = first_multiplier;
+	if (second_multiplier > first_multiplier * first_multiplier) second_multiplier = first_multiplier * first_multiplier;
+	this->second_multiplier = second_multiplier;
 
 	recycleds_can_conflict = (first_relocatable * first_relocatable <= B2_end_reloc);
 
@@ -440,12 +450,10 @@ prime_generator::prime_generator (
 	// is generated and processed up to B2_done=180M when the job is interrupted. On restart with less availble memory, the bitmap
 	// may need to be thrown away and fill_pairmap is called with first_reloc=1M, last_reloc=30M, B2_start=180M, B2=210M.  Not all
 	// primes between 1M and 30M can be relocated to 180M to 210M.
-//GW: Does prime generator need access to full relp set???
-// Add test for base_prime that cannot be relocated in scenario above and decrement num_relocatables (or don't assert that we've paired all the relocatables)
-// But that assert has been important in finding bugs.
 	while (peek_relocated && peek_relocated * first_multiplier < B2_start_reloc) {
 		// Recycle the relocatable prime to its first valid location
 		uint32_t multiplier = (uint32_t) ((B2_start_reloc / peek_relocated) + 1) | 1;
+		if (multiplier < (uint32_t) second_multiplier) multiplier = second_multiplier;
 		add_recycled (peek_relocated * multiplier, peek_relocated);
 		// Get next relocatable until relocatable prime * first_multiplier is above B2_start_reloc
 		next_relocatable ();
@@ -662,7 +670,7 @@ int fill_pairmap (			/* Generate a pairing map */
 /* Init class to generate each prime (or more than one for relocatables) between B2_start and B2_end. */
 
 //GW: share the sieve_info
-	prime_generator pgen (thread_num, first_relocatable, last_relocatable, B2_start_reloc, B2_start, B2, B2_end_reloc, relps[1]);
+	prime_generator pgen (thread_num, first_relocatable, last_relocatable, B2_start_reloc, B2_start, B2, B2_end_reloc, relps[1], relps[2]);
 
 /* Initialize the prime window */
 
@@ -1341,10 +1349,17 @@ if (FIRST_EXIT && WINDOWED && next_prime != 0 && p_best_pairing != NULL) break;
 			int pairing_set;
 			for (i = 0; i < int_multiplier; i++) {
 				pairing_set = relp_sets[i];
-				if (it->prime - pairing_set*D - it->relp < B2_end) break;
+				if (pairing_set >= 0) {
+					if (it->prime - pairing_set*D - it->relp < B2_end) break;
+				} else {
+					if (it->prime - (-1-pairing_set)*D - (it->relp + D) < B2_end) break;
+				}
 			}
-			pgen.validate_pairing (it->prime, it->prime - pairing_set*2*D - 2*it->relp, D, ALT_D, ALT_D_OFFSET, B2_start, B2_end, relps);
-			output_pair (it->prime, it->prime - pairing_set*2*D - 2*it->relp, D, ALT_D, ALT_D_OFFSET, B2_start, totrels, relps, pairmap_data);
+			uint64_t pairing_prime;
+			if (pairing_set >= 0) pairing_prime = it->prime - pairing_set*2*D - 2*it->relp;
+			else pairing_prime = it->prime - (-1-pairing_set)*2*D - 2*(it->relp + D);
+			pgen.validate_pairing (it->prime, pairing_prime, D, ALT_D, ALT_D_OFFSET, B2_start, B2_end, relps);
+			output_pair (it->prime, pairing_prime, D, ALT_D, ALT_D_OFFSET, B2_start, totrels, relps, pairmap_data);
 			tot_singles++;
 			// Remove single from primes window
 			primes_map.pop_front (it->prime);
