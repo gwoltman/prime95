@@ -4653,6 +4653,7 @@ if (w->n == 604) {
 
 restart0:
 	ecmdata.state = ECM_STATE_STAGE1_INIT;
+	ecmdata.C_done = 0;
 	ecmdata.pct_mem_to_use = 1.0;				// Use as much memory as we can unless we get allocation errors
 	ecm_stage1_memory_usage (thread_num, &ecmdata);
 	last_output = last_output_t = ecmdata.modinv_count = 0;

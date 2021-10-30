@@ -334,7 +334,6 @@ public:
 		ASSERTG (validation_map.find (p) != validation_map.end());
 		validation_map.erase (p);
 	}
-	void validate_final () {ASSERTG (validation_map.size() == 0);}
 	void validate_pairing (uint64_t p1, uint64_t p2, int D, int ALT_D, int ALT_D_OFFSET, uint64_t B2_start, uint64_t B2_end, std::vector<int> &relps) {
 		ASSERTG (std::binary_search (relps.begin(), relps.end(), labs ((long) (p1 - p2) / 2)));
 		ASSERTG ((p1 + p2) / 2 > B2_start && (p1 + p2) / 2 < B2_end);
@@ -343,11 +342,25 @@ public:
 		else
 			ASSERTG (((p1 + p2) / 2) % D == 0);
 	}
+	void validate_adjust (std::vector<int> &relps) {	// Look for relocatables that never should have been returned as a relocatable
+		for (auto it = validation_map.begin (); it != validation_map.end (); ) {
+			for (auto it2 = relps.begin (); ; ++it2) {
+				if (it2 == relps.end () || *it * *it2 > B2) {
+					it = validation_map.erase (it);
+					num_relocatables--;
+					break;
+				}
+				if (*it * *it2 > B2_start && *it * *it2 < B2) { ++it; break; }
+			}
+		}
+	}
+	void validate_final () {ASSERTG (validation_map.size() == 0);}
 #else
 	void validate_insert (uint64_t p) {}
 	void validate_prime (uint64_t p, uint64_t base_prime) {}
-	void validate_final () {}
 	void validate_pairing (uint64_t p1, uint64_t p2, int D, int ALT_D, int ALT_D_OFFSET, uint64_t B2_start, uint64_t B2_end, std::vector<int> &relps) {}
+	void validate_adjust (std::vector<int> &relps) {}
+	void validate_final () {}
 #endif
 
 private:
@@ -1346,18 +1359,28 @@ if (FIRST_EXIT && WINDOWED && next_prime != 0 && p_best_pairing != NULL) break;
 			// Validate the single
 			pgen.validate_prime (it->prime, it->base_prime);
 			// Generate a fake pairing being extra careful to find a valid pairing when the single is past B2_end.
-			int pairing_set;
+			int pairing_set, prime_relp;
+			uint64_t pairing_Dblock;
 			for (i = 0; i < int_multiplier; i++) {
 				pairing_set = relp_sets[i];
-				if (pairing_set >= 0) {
-					if (it->prime - pairing_set*D - it->relp < B2_end) break;
-				} else {
-					if (it->prime - (-1-pairing_set)*D - (it->relp + D) < B2_end) break;
+				prime_relp = it->relp;
+				// Negative pairing sets need to adjust both prime_relp and pairing_set
+				if (pairing_set < 0) {
+					// it->relp is always between -D/2 and D/2.  Negative sets can only access the +/-(D/2 to D) relps.
+					if (prime_relp < 0) prime_relp += D; else prime_relp -= D;
+					pairing_set = -1-pairing_set;
 				}
+				// Negative and positive prime_relps find their pairing Dblock in different directions
+				if (prime_relp >= 0) pairing_Dblock = it->prime - prime_relp - pairing_set*D;
+				else pairing_Dblock = it->prime - prime_relp + pairing_set*D;
+				// Validate that this D block is valid
+				if (pairing_Dblock > B2_start && pairing_Dblock < B2_end) break;
 			}
+			// Calculate the pairing prime
 			uint64_t pairing_prime;
-			if (pairing_set >= 0) pairing_prime = it->prime - pairing_set*2*D - 2*it->relp;
-			else pairing_prime = it->prime - (-1-pairing_set)*2*D - 2*(it->relp + D);
+			if (prime_relp >= 0) pairing_prime = pairing_Dblock - prime_relp - pairing_set*D;
+			else pairing_prime = pairing_Dblock - prime_relp + pairing_set*D;
+			// Validate and output the pairing
 			pgen.validate_pairing (it->prime, pairing_prime, D, ALT_D, ALT_D_OFFSET, B2_start, B2_end, relps);
 			output_pair (it->prime, pairing_prime, D, ALT_D, ALT_D_OFFSET, B2_start, totrels, relps, pairmap_data);
 			tot_singles++;
@@ -1406,6 +1429,8 @@ if (FIRST_EXIT && WINDOWED && next_prime != 0 && p_best_pairing != NULL) break;
 		if (next_prime == 0) break;
 	}
 
+	// Perform a few final checks.  But first adjust for relocatables that we hoped to pair but did not.
+	pgen.validate_adjust (relps);
 	ASSERTG (pgen.get_numprimes () == tot_pairs * 2 + tot_singles);
 	pgen.validate_final ();
 
