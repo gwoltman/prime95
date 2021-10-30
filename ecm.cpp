@@ -545,6 +545,7 @@ double best_stage2_impl_internal (
 		// Compute values needed by the costing functions
 		c->B2_start = (uint64_t) floor ((double) (B2_end / (double) D_data[i].first_missing_prime));
 		if (c->B2_start < C_start) c->B2_start = C_start;
+		if (c->gap_end && c->B2_start < c->gap_end) c->B2_start = c->gap_end;
 		if (c->B2_start < D / 2) break;		// Protects against next line returning negative result
 		c->B2_start = round_down_to_multiple_of (c->B2_start + D / 2, D) - D / 2;
 		c->D = D;
@@ -3811,7 +3812,7 @@ int ecm_stage2_impl (
 	     ecmdata->Dsection >= ecmdata->numDsections / 2))			// stage 2 more than half done
 		return (0);							// Use old plan
 
-/* If we are contemplating ditching the save file pairmap, figure out how which non-relocatable primes are definitely included in the stage 2 */
+/* If we are contemplating ditching the save file pairmap, figure out which non-relocatable primes are definitely included in the stage 2 */
 /* accumulator.  Set C_done appropriately, but do not change first_relocatable as there is no guarantee which relocatables are in the accumulator. */
 
 	if (ecmdata->state == ECM_STATE_STAGE2) {
@@ -6817,7 +6818,7 @@ int pm1_stage2_impl (
 	     pm1data->Dsection >= pm1data->numDsections / 2))			// stage 2 more than half done
 		return (0);							// Use old plan
 
-/* If we are contemplating ditching the save file pairmap, figure out how which non-relocatable primes are definitely included in the stage 2 */
+/* If we are contemplating ditching the save file pairmap, figure out which non-relocatable primes are definitely included in the stage 2 */
 /* accumulator.  Set C_done appropriately, but do not change first_relocatable as there is no guarantee which relocatables are in the accumulator. */
 
 	if (pm1data->state == PM1_STATE_STAGE2) {
@@ -9385,7 +9386,7 @@ int pp1_stage2_impl (
 	     pp1data->Dsection >= pp1data->numDsections / 2))			// stage 2 more than half done
 		return (0);							// Use old plan
 
-/* If we are contemplating ditching the save file pairmap, figure out how which non-relocatable primes are definitely included in the stage 2 */
+/* If we are contemplating ditching the save file pairmap, figure out which non-relocatable primes are definitely included in the stage 2 */
 /* accumulator.  Set C_done appropriately, but do not change first_relocatable as there is no guarantee which relocatables are in the accumulator. */
 
 	if (pp1data->state == PP1_STATE_STAGE2) {
