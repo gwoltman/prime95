@@ -97,6 +97,7 @@ int nonbase2_gianttogw (	/* Returns an error code or zero for success */
 			}
 
 			fftlen = work_gwdata->FFTLEN;
+			if (exp < fftlen) exp = fftlen;		// Rational FFTs have lower roundoff error
 			words_per_mult = (double) b_per_mult * (double) fftlen / (double) exp;
 
 			// Do we have an FFT we can use?  FFT words per mult must be an integer so that every partial multiplication
