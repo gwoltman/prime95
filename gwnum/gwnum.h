@@ -52,9 +52,9 @@ typedef double *gwnum;
 /* are new prime95 versions without any changes in the gwnum code.  This version number is also embedded in the assembly code and */
 /* gwsetup verifies that the version numbers match.  This prevents bugs from accidentally linking in the wrong gwnum library. */
 
-#define GWNUM_VERSION		"30.7"
+#define GWNUM_VERSION		"30.8"
 #define GWNUM_MAJOR_VERSION	30
-#define GWNUM_MINOR_VERSION	7
+#define GWNUM_MINOR_VERSION	8
 
 /* Error codes returned by the three gwsetup routines */
 
@@ -513,9 +513,12 @@ void gwsmalladd (gwhandle *gwdata, double addin, gwnum g);
 #define GWSMALLMUL_MAX		67108864.0		/* May allow more at a later date */
 void gwsmallmul (gwhandle *gwdata, double mult, gwnum g);
 
-/* Perform an inverse FFT.  This is inefficient!!  We call this to undo a forward FFT performed on a gwnum where we need unFFTed data. */
-/* In a perfect world, the forward FFT would not have been done in the first place. */
+/* Perform an inverse FFT.  This may be inefficient!!  Call this to undo a forward FFT performed on a gwnum where unFFTed data is needed. */
+/* In a perfect world, the forward FFT would not have been done in the first place.  However, there are counter examples.  Plus, the new */
+/* polymult library returns FFTed data that needs normalizing before it can be used in future operations.  In fact, polymult users may */
+/* benefit from using the GWMUL_STARTNEXTFFT option! */
 void gwunfft (gwhandle *, gwnum s, gwnum d);
+void gwunfft2 (gwhandle *, gwnum s, gwnum d, int options);
 
 /* Obscure routine to possibly keep a gwnum in the CPU caches by accessing it. */
 #define gwtouch(h,s)		gwcopy (h,s,s)
