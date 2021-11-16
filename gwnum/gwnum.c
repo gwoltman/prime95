@@ -4658,12 +4658,17 @@ int internal_gwsetup (
 /* Init FFT1 state for possible future gwmuladd4 and gwmulsub4 calls */
 /* For AVX-512 FFTs, two-pass k == 1 FFTs can skip FFT(1), but FFTlen divisible by 7 cannot because of a weird optimization in zr7.mac */
 /* For AVX and FMA3 FFTs, k == 1 FFTs can skip FFT(1) */
+/* For 32-bit gwnum, we'll never need FFT(1) we emulate everywhere it might be needed */
 
 	gwdata->GW_FFT1 = NULL;
 	gwdata->FFT1_state = 0;
 	gwdata->FFT1_user_allocated = 0;
+#ifdef X86_64
 	if (gwdata->cpu_flags & CPU_AVX512F) { if (gwdata->PASS1_SIZE && gwdata->k == 1.0 && gwdata->FFTLEN % 7 != 0) gwdata->FFT1_state = 2; }
 	else if (gwdata->cpu_flags & CPU_AVX) { if (gwdata->k == 1.0) gwdata->FFT1_state = 2; }
+#else
+	gwdata->FFT1_state = 2;
+#endif
 
 /* Compute maximum allowable difference for error checking */
 /* This error check is disabled for mod B^N+1 arithmetic */
@@ -9040,6 +9045,39 @@ int gwequal (
 /* Wrapper routines for the multiplication assembly code routines */
 /******************************************************************/
 
+/* Init GW_FFT1 for FMA operations */
+
+void init_FFT1 (		/* Calculate GW_FFT1 if necessary */
+	gwhandle *gwdata)	/* Handle initialized by gwsetup */
+{
+	ASSERTG (gwdata->FFT1_state == 0);
+
+/* Allocate and calculate FFT(1) */
+
+	if (gwdata->GW_FFT1 == NULL) {	// FFT(1) may already be allocated at user's request
+		gwdata->GW_FFT1 = gwalloc (gwdata);
+		dbltogw (gwdata, 1.0, gwdata->GW_FFT1);
+		gwfft (gwdata, gwdata->GW_FFT1, gwdata->GW_FFT1);
+	}
+	gwdata->FFT1_state = 1;
+}
+
+/* Init GW_FFT1 at user's request */
+
+void gwuser_init_FFT1 (		/* Calculate GW_FFT1 at user's request */
+	gwhandle *gwdata)	/* Handle initialized by gwsetup */
+{
+
+/* Allocate and calculate FFT(1) */
+
+	if (gwdata->GW_FFT1 == NULL) {	// FFT(1) may already be allocated for FMA operations
+		gwdata->GW_FFT1 = gwalloc (gwdata);
+		dbltogw (gwdata, 1.0, gwdata->GW_FFT1);
+		gwfft (gwdata, gwdata->GW_FFT1, gwdata->GW_FFT1);
+	}
+	gwdata->FFT1_user_allocated = 1;
+}
+
 /* Internal routine to implement gwmul3 by calling fft/multiply assembly code. */
 /* Caller must set ffttype, SRC2ARG, DEST2ARG, mul4_opcode, NORMRTN prior to calling this routine.  Caller is responsible for emulate_mod. */
 
@@ -9102,9 +9140,9 @@ void asm_mul (
 	}
 
 /* Adjust if necessary the SUM(INPUTS) vs. SUM(OUTPUTS).  If unnormalized add count is more than one, then the sums will be */
-/* larger than normal.  This could trigger a spurious MAXDIFF warning.  Shrink the two SUMS to compensate. */
+/* larger than normal.  This could trigger a spurious MAXDIFF warning.  Shrink the two SUMS to compensate.  Not needed for unfft opcode. */
 
-	if (gwdata->sum_inputs_checking) {
+	if (gwdata->sum_inputs_checking && asm_data->mul4_opcode != 5) {
 		float	unnorm_count1, unnorm_count2;
 
 		unnorm_count1 = unnorms (s1);
@@ -9310,13 +9348,16 @@ void emulate_mod (
 	gwfree (gwdata, tmp);
 }
 
-/* Perform an inverse FFT.  This is inefficient!!  We call this to undo the forward FFT performed on a gwnum where we need unFFTed data. */
-/* In a perfect world, the forward FFT would not have been done in the first place. */
+/* Perform an inverse FFT.  This may be inefficient!!  Call this to undo a forward FFT performed on a gwnum where unFFTed data is needed. */
+/* In a perfect world, the forward FFT would not have been done in the first place.  However, there are counter examples.  Plus, the new */
+/* polymult library returns FFTed data that needs normalizing before it can be used in future operations.  In fact, polymult users may */
+/* benefit from using the GWMUL_STARTNEXTFFT option! */
 
-void gwunfft (
+void gwunfft2 (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	s,		/* Source number */
-	gwnum	d)		/* Destination (can overlap source) */
+	gwnum	d,		/* Destination (can overlap source) */
+	int	options)	/* Any of GWMUL_ADDINCONST, GWMUL_MULBYCONST, GWMUL_STARTNEXTFFT */
 {
 	int	save_count;
 
@@ -9325,6 +9366,7 @@ void gwunfft (
 /* Handle the easy case */
 
 	if (FFT_state (s) == NOT_FFTed) {
+		ASSERTG (! (options & (GWMUL_ADDINCONST | GWMUL_MULBYCONST)));		/* We could figure out how to emulate this if ever needed */
 		if (s != d) gwcopy (gwdata, s, d);
 		return;
 	}
@@ -9334,19 +9376,40 @@ void gwunfft (
 	save_count = gwdata->careful_count;
 	gwdata->careful_count = 0;
 
-/* For partially or fully FFTed data, multiply input by 1.0 */
+/* For partially or fully FFTed data, multiply source by 1.0 */
 
 	if (FFT_state (s) == PARTIALLY_FFTed || FFT_state (s) == FULLY_FFTed) {
+
+		// In modern 64-bit architectures, if FFT(1) is not all ones then use a cached FFT(1) to do the unfft.
+		// In older 64-bit architectures, use a cached FFT(1) to do the unfft even if FFT(1) is all ones.
+		if (gwdata->FFT1_state == 0) init_FFT1 (gwdata);
 		if (gwdata->GW_FFT1 != NULL) {
-			gwmul3 (gwdata, s, gwdata->GW_FFT1, d, 0);
+			gwmul3 (gwdata, s, gwdata->GW_FFT1, d, options);
 		}
+
+		// Special faster unfft code for most 64-bit architectures that does not use a saved FFT(1) because it is all ones
+#ifdef X86_64
+		else if (gwdata->cpu_flags & (CPU_AVX512F | CPU_FMA3 | CPU_AVX)) {
+			struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
+			if (options & GWMUL_MULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM | 2)];
+			else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM & ~2)];
+			asm_data->mul4_opcode = 5;
+			asm_data->DEST2ARG = 0;
+			if (FFT_state (s) == FULLY_FFTed) asm_data->ffttype = 4;
+			else asm_data->ffttype = 3;
+			asm_mul (gwdata, s, s, d, options);
+			gwdata->read_count += 2, gwdata->write_count += 2;
+		}
+#endif
+
+		// Emulate unfft by multiplying with a gwnum containing one
 		else if (s != d) {
 			dbltogw (gwdata, 1.0, d);
-			gwmul3 (gwdata, s, d, d, 0);
+			gwmul3 (gwdata, s, d, d, options);
 		} else {
 			gwnum	tmp = gwalloc (gwdata);
 			dbltogw (gwdata, 1.0, tmp);
-			gwmul3 (gwdata, s, tmp, d, 0);
+			gwmul3 (gwdata, s, tmp, d, options);
 			gwfree (gwdata, tmp);
 		}
 	}
@@ -9356,11 +9419,11 @@ void gwunfft (
 	if (FFT_state (s) == FFTed_FOR_FMA) {
 		if (s != d) {
 			dbltogw (gwdata, 0.0, d);
-			gwmuladd4 (gwdata, d, d, s, d, 0);
+			gwmuladd4 (gwdata, d, d, s, d, options);
 		} else {
 			gwnum	tmp = gwalloc (gwdata);
 			dbltogw (gwdata, 0.0, tmp);
-			gwmuladd4 (gwdata, tmp, tmp, s, d, 0);
+			gwmuladd4 (gwdata, tmp, tmp, s, d, options);
 			gwfree (gwdata, tmp);
 		}
 	}
@@ -9368,6 +9431,18 @@ void gwunfft (
 /* Restore state */
 
 	gwdata->careful_count = save_count;
+}
+
+/* Perform an inverse FFT.  This may be inefficient!!  Call this to undo a forward FFT performed on a gwnum where unFFTed data is needed. */
+/* In a perfect world, the forward FFT would not have been done in the first place.  However, there are counter examples.  Plus, the new */
+/* polymult library returns FFTed data that needs normalizing before it can be used in future operations. */
+
+void gwunfft (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	s,		/* Source number */
+	gwnum	d)		/* Destination (can overlap source) */
+{
+	gwunfft2 (gwdata, s, d, 0);	/* Perform an unfft with no mul-by-const, add-in, or start-next-FFT options */
 }
 
 /* Special multiply routine that adds/subtracts two numbers and multiplies by a third. */
@@ -9482,39 +9557,6 @@ void cmn_gwopmul4 (		/* Calculate (s1 op s2) * s3 */
 	if (tmp1 != NULL) gwfree (gwdata, tmp1);
 	if (tmp2 != NULL) gwfree (gwdata, tmp2);
 	if (tmp3 != NULL) gwfree (gwdata, tmp3);
-}
-
-/* Init GW_FFT1 for FMA operations */
-
-void init_FFT1 (		/* Calculate GW_FFT1 if necessary */
-	gwhandle *gwdata)	/* Handle initialized by gwsetup */
-{
-	ASSERTG (gwdata->FFT1_state == 0);
-
-/* Allocate and calculate FFT(1) */
-
-	if (gwdata->GW_FFT1 == NULL) {	// FFT(1) may already be allocated at user's request
-		gwdata->GW_FFT1 = gwalloc (gwdata);
-		dbltogw (gwdata, 1.0, gwdata->GW_FFT1);
-		gwfft (gwdata, gwdata->GW_FFT1, gwdata->GW_FFT1);
-	}
-	gwdata->FFT1_state = 1;
-}
-
-/* Init GW_FFT1 at user's request */
-
-void gwuser_init_FFT1 (		/* Calculate GW_FFT1 at user's request */
-	gwhandle *gwdata)	/* Handle initialized by gwsetup */
-{
-
-/* Allocate and calculate FFT(1) */
-
-	if (gwdata->GW_FFT1 == NULL) {	// FFT(1) may already be allocated for FMA operations
-		gwdata->GW_FFT1 = gwalloc (gwdata);
-		dbltogw (gwdata, 1.0, gwdata->GW_FFT1);
-		gwfft (gwdata, gwdata->GW_FFT1, gwdata->GW_FFT1);
-	}
-	gwdata->FFT1_user_allocated = 1;
 }
 
 /* Special multiply routine that multiplies two numbers and adds/subtracts a third. */
