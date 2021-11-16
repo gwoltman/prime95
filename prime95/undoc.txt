@@ -787,6 +787,8 @@ When PRPing k*b^n+c and b=2, there are some optimizations possible that reduce t
 number of small constant multiplications.  Although there should be no reason to turn
 off these optimizations, it can be done with this setting in prime.txt:
 	PRPStraightForward=1		(default is 0)
+Change this setting only when no PRP tests are in progress.  Changing this setting
+will invalidate existing save files.
 NOTE: Selecting the straight forward (no optimization) code path disables the very
 efficient and powerful Gerbicz error checking.
 
