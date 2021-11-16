@@ -2,8 +2,8 @@
 #
 
 CC ?= cc
-CFLAGS += -I.. -I../sqlite-amalgamation-3180000 -I$(LOCALBASE)/include -std=c99 -DX86_64 -O2
-#CFLAGS += -g -I.. -I../sqlite-amalgamation-3180000 -I$(LOCALBASE)/include -std=c99 -DX86_64 -DGDEBUG -O2
+CFLAGS += -I.. -I../sqlite-amalgamation-3180000 -I$(LOCALBASE)/include -std=gnu99 -DX86_64 -O2
+#CFLAGS += -g -I.. -I../sqlite-amalgamation-3180000 -I$(LOCALBASE)/include -std=gnu99 -DX86_64 -DGDEBUG -O2
 
 CXX ?= cc
 CXXFLAGS += -I.. -I../qd -std=c++11 -DX86_64 -O2
