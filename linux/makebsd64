@@ -16,7 +16,7 @@ LDFLAGS += -fpie -L$(LOCALBASE)/lib -Wl,-M
 LIBS += ../gwnum/gwnum.a ../gwnum/gwnum.ld -lm -lpthread -lhwloc -lcurl -lstdc++ -lcompat -lgmp
 
 FACTOROBJ = factor64.o
-OBJS = prime.o menu.o cJSON.o ecm.o pair.o pm1prob.o
+OBJS = prime.o menu.o cJSON.o ecm.o exponentiate.o pair.o pm1prob.o
 EXE      = mprime
 
 #########################################################################
@@ -37,6 +37,9 @@ cJSON.o:
 
 ecm.o:
 	$(CXX) $(CXXFLAGS) -c ../ecm.cpp
+
+exponentiate.o:
+	$(CC) $(CCFLAGS) -c ../exponentiate.c
 
 pair.o:
 	$(CXX) $(CXXFLAGS) -c ../pair.cpp
