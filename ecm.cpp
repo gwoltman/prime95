@@ -21,8 +21,10 @@
 #include "commonb.h"
 #include "commonc.h"
 #include "ecm.h"
+#include "exponentiate.h"
 #include "pair.h"
 #include "pm1prob.h"
+#include "polymult.h"
 #include "primenet.h"
 #include <iterator>
 #include <map>
@@ -541,6 +543,8 @@ double best_stage2_impl_internal (
 /* reduce the number of D sections to process.  Calculate B2_start - the first prime that cannot be relocated higher. */
 
 		D = D_data[i].D;
+//GW: BUG BUG BUG -- done for polymult P-1 testing
+if (D % 4 != 2) continue;
 		B2_end = round_up_to_multiple_of (C - D / 2, D) + D / 2;
 		// Compute values needed by the costing functions
 		c->B2_start = (uint64_t) floor ((double) (B2_end / (double) D_data[i].first_missing_prime));
@@ -6034,6 +6038,9 @@ print out each test case (all relevant data)*/
 #define PM1_STATE_GCD		4	/* Stage 2 GCD */
 #define PM1_STATE_DONE		5	/* P-1 job complete */
 
+#define PM1_STAGE2_PAIRING	0	/* Old fashioned prime pairing stage 2 */
+#define PM1_STAGE2_POLYMULT	1	/* FFT/polymult stage 2 */
+
 typedef struct {
 	gwhandle gwdata;	/* GWNUM handle */
 	int	thread_num;	/* Worker thread number */
@@ -6053,6 +6060,7 @@ typedef struct {
 	void	*sieve_info;	/* Prime number sieve */
 	uint64_t stage1_prime;	/* Prime number being processed */
 
+	int	stage2_type;	/* Prime pairing or polymult stage 2 */
 	int	D;		/* Stage 2 loop size */
 	int	totrels;	/* Number relatively prime nQx values used */
 	uint64_t B2_start;	/* Starting point of first D section to be processed in stage 2 (an odd multiple of D/2) */
@@ -6079,6 +6087,9 @@ typedef struct {
 	gwnum	Vn;		/* V_n in a stage 2 Lucas sequence */
 	gwnum	Vn1;		/* V_{n+1} in a stage 2 Lucas sequence */
 	gwnum	gg;		/* The stage 2 accumulated value */
+
+	pmhandle polydata;	/* Polymult data structure */
+	gwnum	invx;		/* For polymult stage 2, 1/x needed during stage 2 init */
 } pm1handle;
 
 /* Perform cleanup functions. */
@@ -6115,18 +6126,16 @@ void pm1_mul (
 /* Handle the second most significant bit */
 
 //GW: use exponentiate??
-	gwstartnextfft (&pm1data->gwdata, c > 1);
 	gwfft (&pm1data->gwdata, xx, orig_xx_fft);
-	gwfftfftmul (&pm1data->gwdata, orig_xx_fft, orig_xx_fft, xx);
-	if (c&n) gwfftmul (&pm1data->gwdata, orig_xx_fft, xx);
+	gwmul3 (&pm1data->gwdata, orig_xx_fft, orig_xx_fft, xx, (c > 1 ? GWMUL_STARTNEXTFFT : 0));
+	if (c&n) gwmul3 (&pm1data->gwdata, orig_xx_fft, xx, xx, c > 1 ? GWMUL_STARTNEXTFFT : 0);
 	c >>= 1;
 
 /* Do the rest of the bits */
 
 	while (c) {
-		gwstartnextfft (&pm1data->gwdata, c > 1);
-		gwsquare (&pm1data->gwdata, xx);
-		if (c&n) gwfftmul (&pm1data->gwdata, orig_xx_fft, xx);
+		gwsquare2 (&pm1data->gwdata, xx, xx, c > 1 ? GWMUL_STARTNEXTFFT : 0);
+		if (c&n) gwmul3 (&pm1data->gwdata, orig_xx_fft, xx, xx, c > 1 ? GWMUL_STARTNEXTFFT : 0);
 		c >>= 1;
 	}
 }
@@ -6976,6 +6985,7 @@ int pminus1 (
 	int	msglen;
 	char	*str, *msg;
 	double	timers[2];
+	int	numrels;		// Number of relative primes less than D/2 (the number of relative primes in one full relp_set)
 	relp_set_data_map relp_set_map;
 	Dmultiple_data_map Dmultiple_map;
 
@@ -7382,6 +7392,7 @@ restart1:
 
 /* Apply as many powers of prime as long as prime^n <= B */
 
+//GW: gather up pm1_mul inputs into a uint64_t (or larger) and call exponentiate.  Sliding window should be faster.
 		if (pm1data.stage1_prime > pm1data.B_done) {
 			pm1_mul (&pm1data, pm1data.x, tmp_gwnum, pm1data.stage1_prime);
 		}
@@ -7529,35 +7540,28 @@ restart3a:
 
 	// If user wants to run stage 2 even if stage 1 would find a factor, then don't do the multiply x-1 trick.
 	if (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "Stage1GCD", 1) == -1) {
-		gwcopy (&pm1data.gwdata, pm1data.x, pm1data.V);
-		stop_reason = pm1_modinv (&pm1data, pm1data.V, N, factor);
+		gwcopy (&pm1data.gwdata, pm1data.x, pm1data.invx);
+		stop_reason = pm1_modinv (&pm1data, pm1data.invx, N, factor);
 		if (factor != NULL) goto bingo;
 		if (stop_reason) goto exit;
 	}
 
 	// Otherwise, the common case: compute stage 1 GCD cheaply
 	else {
-		gwnum x_minus_1 = gwalloc (&pm1data.gwdata);
-		if (x_minus_1 == NULL) goto oom;
+		gwnum x_minus_1 = pm1data.V;
+		pm1data.invx = gwalloc (&pm1data.gwdata);
+		if (pm1data.invx == NULL) goto oom;
 		gwcopy (&pm1data.gwdata, pm1data.x, x_minus_1);
 		gwaddsmall (&pm1data.gwdata, x_minus_1, -1);
-		gwmul3 (&pm1data.gwdata, pm1data.x, x_minus_1, pm1data.V, GWMUL_PRESERVE_S1 | GWMUL_FFT_S2);	// x * (x-1)
-		stop_reason = pm1_modinv (&pm1data, pm1data.V, N, factor);					// 1 / (x * (x-1))
+		gwmul3 (&pm1data.gwdata, pm1data.x, x_minus_1, pm1data.invx, GWMUL_PRESERVE_S1 | GWMUL_FFT_S2);	// x * (x-1)
+		stop_reason = pm1_modinv (&pm1data, pm1data.invx, N, factor);					// 1 / (x * (x-1))
 		if (factor != NULL) goto bingo;
-		gwmul3 (&pm1data.gwdata, x_minus_1, pm1data.V, pm1data.V, 0);					// (x-1) * 1 / (x * (x-1)), which is 1/x
-		gwfree (&pm1data.gwdata, x_minus_1);
 		if (stop_reason) goto exit;
+		gwmul3 (&pm1data.gwdata, x_minus_1, pm1data.invx, pm1data.invx, 0);				// (x-1) * 1 / (x * (x-1)), which is 1/x
 	}
 
-	// Compute x + 1/x
-	gwadd3o (&pm1data.gwdata, pm1data.x, pm1data.V, pm1data.V, GWADD_SQUARE_INPUT);
-
-/* Free the stage 1 value, it is no longer needed (unless user is exercising option of keeping P-1 save files to expand bounds later) */
-
-	if (QA_IN_PROGRESS || w->work_type != WORK_PMINUS1 || !IniGetInt (INI_FILE, "KeepPminus1SaveFiles", 1)) {
-		gwfree (&pm1data.gwdata, pm1data.x);
-		pm1data.x = NULL;
-	}
+	// Compute V = x + 1/x
+	gwadd3o (&pm1data.gwdata, pm1data.x, pm1data.invx, pm1data.V, GWADD_SQUARE_INPUT);
 
 /* Conversion to x + 1/x format complete */
 
@@ -7611,6 +7615,7 @@ replan:	{
 		if (pm1data.state == PM1_STATE_MIDSTAGE) pm1_save (&pm1data);
 		goto exit;
 	}
+	numrels = map_D_to_numrels (pm1data.D);
 
 /* Record the amount of memory this thread will be using in stage 2. */
 
@@ -7624,16 +7629,32 @@ replan:	{
 		goto replan;
 	}
 
-/* Do preliminary processing of the relp_sets */
-
-	int	numrels;		// Number of relative primes less than D/2 (the number of relative primes in one full relp_set)
-	numrels = map_D_to_numrels (pm1data.D);
-	process_relp_sets (pm1data.totrels, numrels, pm1data.relp_sets, relp_set_map, Dmultiple_map);
-
 /* Output a useful message regarding memory usage */
 
 	sprintf (buf, "Using %uMB of memory.\n", memused);
 	OutputStr (thread_num, buf);
+
+/* If doing an FFT/polymult stage 2, go do that.  Otherwise, use old-fashioned prime pairing stage 2 */
+
+//GW:bug
+pm1data.stage2_type=1;
+	if (pm1data.stage2_type == PM1_STAGE2_POLYMULT) goto pm1_polymult;
+
+/* Free the stage 1 value, it is no longer needed (unless user is exercising option of keeping P-1 save files to expand bounds later) */
+
+	if (QA_IN_PROGRESS || w->work_type != WORK_PMINUS1 || !IniGetInt (INI_FILE, "KeepPminus1SaveFiles", 1)) {
+		gwfree (&pm1data.gwdata, pm1data.x);
+		pm1data.x = NULL;
+	}
+
+/* Free 1/x.  It is not needed in a prime pairing stage 2. */
+
+	gwfree (&pm1data.gwdata, pm1data.invx);
+	pm1data.invx = NULL;
+
+/* Do preliminary processing of the relp_sets */
+
+	process_relp_sets (pm1data.totrels, numrels, pm1data.relp_sets, relp_set_map, Dmultiple_map);
 
 /* Initialize variables for second stage */
 
@@ -8115,8 +8136,512 @@ replan:	{
 		goto more_C;
 	}
 
+/* All done except for the final GCD, go do it. */
+
+	goto stage2_done;
+
+/*---------------------------------------------------------------------
+|	Polymult stage 2!  See
+|		AN FFT EXTENSION TO THE P-1 FACTORING ALGORITHM
+|		by Montgomery & Silverman
+|		Mathematics of Computation
+|		Volume 54, number 190
+|		April 1990, pages 839-854
+|	as well as
+|		IMPROVED STAGE 2 TO P±1 FACTORING ALGORITHMS
+|		by Montgomery & Kruppa
+|		2008, inria-00188192v2
+|		https://hal.inria.fr/inria-00188192v2/document
++---------------------------------------------------------------------*/
+
+pm1_polymult:
+	int	poly1_size;			// Size of poly #1, called f(X) in the literature.
+	int	poly2_size;			// Size of poly #2 used to evaluate poly #1 at multiple points.
+	int	outpoly_size;			// Called L in the literature.  Make this value as large as we can given amount of free memory.
+	int	num_points;			// Number of points (multiples of D) that can be evalualted with each polymult.
+
+	//GW: bug
+pm1data.stage2_numvals = 5*numrels;
+pm1data.B2_start += pm1data.D;	
+	// Detemine poly sizes.
+	poly1_size = numrels;
+	// Make poly #2 as large as we can.  Other than poly #1, we must save these values in gwnums:  r^2, gg, e_incr (//GW: x and/or 1/x and/or V for save file?)
+	poly2_size = (pm1data.stage2_numvals - 4) - poly1_size;		//GW:  (3??? 5???)
+	// Compute output poly size (poly #1 size must be doubled since it is an RLP).
+	outpoly_size = poly1_size*2 + poly2_size;
+	// Need numrels coefficients in poly #1.  Need 2 * numrels coefficients in poly #2 to eval poly #1 at one point.
+	// Each additional coefficient evaluates one more point.
+	num_points = poly2_size - (2*numrels) + 1;
+
+// Polymult stage 2 does not need a prime sieve
+
+	end_sieve (pm1data.sieve_info), pm1data.sieve_info = NULL;
+
+// Switch to larger FFT size if necessary!  Polymult requires a few EXTRA_BITS to safely accumulate products in FFT space.
+
+	if (!gw_passes_safety_margin (&pm1data.gwdata, polymult_safety_margin (poly1_size*2, poly2_size))) {
+		giant	binary_x, binary_invx, binary_gg;
+		// convert x, invx, and gg
+		binary_x = allocgiant (((int) pm1data.gwdata.bit_length >> 5) + 10);
+		if (binary_x == NULL) goto oom;
+		gwtogiant (&pm1data.gwdata, pm1data.x, binary_x);
+		binary_invx = allocgiant (((int) pm1data.gwdata.bit_length >> 5) + 10);
+		if (binary_invx == NULL) goto oom;
+		gwtogiant (&pm1data.gwdata, pm1data.invx, binary_invx);
+		if (pm1data.gg != NULL) {
+			binary_gg = allocgiant (((int) pm1data.gwdata.bit_length >> 5) + 10);
+			if (binary_gg == NULL) goto oom;
+			gwtogiant (&pm1data.gwdata, pm1data.gg, binary_gg);
+		}
+		// Terminate current FFT size
+		gwdone (&pm1data.gwdata);
+		// Re-init gwnum with a larger FFT
+		gwinit (&pm1data.gwdata);
+		gwset_sum_inputs_checking (&pm1data.gwdata, SUM_INPUTS_ERRCHK);
+		if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pm1data.gwdata);
+		if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pm1data.gwdata);
+		if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&pm1data.gwdata, 2);
+		gwset_bench_cores (&pm1data.gwdata, HW_NUM_CORES);
+		gwset_bench_workers (&pm1data.gwdata, NUM_WORKER_THREADS);
+		if (ERRCHK) gwset_will_error_check (&pm1data.gwdata);
+		else gwset_will_error_check_near_limit (&pm1data.gwdata);
+		gwset_num_threads (&pm1data.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
+		gwset_thread_callback (&pm1data.gwdata, SetAuxThreadPriority);
+		gwset_thread_callback_data (&pm1data.gwdata, sp_info);
+		gwset_safety_margin (&pm1data.gwdata, polymult_safety_margin (poly1_size*2, poly2_size));
+		gwset_larger_fftlen_count (&pm1data.gwdata, maxerr_restart_count < 3 ? maxerr_restart_count : 3);
+		gwset_minimum_fftlen (&pm1data.gwdata, w->minimum_fftlen);
+		res = gwsetup (&pm1data.gwdata, w->k, w->b, w->n, w->c);
+		if (res) {
+			sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
+			OutputBoth (thread_num, buf);
+			return (STOP_FATAL_ERROR);
+		}
+		pm1data.gwdata.MAXDIFF *= IniGetInt (INI_FILE, "MaxDiffMultiplier", 1);
+		gwsetaddin (&pm1data.gwdata, -2);
+		gwerror_checking (&pm1data.gwdata, ERRCHK || near_fft_limit);
+		char	fft_desc[200];
+		gwfft_description (&pm1data.gwdata, fft_desc);
+		sprintf (buf, "Switching to %s\n", fft_desc);
+		OutputStr (thread_num, buf);
+		// Convert x, invx, gg back to gwnums
+		pm1data.x = gwalloc (&pm1data.gwdata);
+		if (pm1data.x == NULL) goto oom;
+		gianttogw (&pm1data.gwdata, binary_x, pm1data.x);
+		free (binary_x);
+		pm1data.invx = gwalloc (&pm1data.gwdata);
+		if (pm1data.invx == NULL) goto oom;
+		gianttogw (&pm1data.gwdata, binary_invx, pm1data.invx);
+		free (binary_invx);
+		if (pm1data.gg != NULL) {
+			pm1data.gg = gwalloc (&pm1data.gwdata);
+			if (pm1data.gg == NULL) goto oom;
+			gianttogw (&pm1data.gwdata, binary_gg, pm1data.gg);
+			free (binary_gg);
+		}
+		// Recompute V
+		pm1data.V = gwalloc (&pm1data.gwdata);
+		if (pm1data.V == NULL) goto oom;
+		gwadd3o (&pm1data.gwdata, pm1data.x, pm1data.invx, pm1data.V, GWADD_SQUARE_INPUT);
+	}
+
+/* Initialize gg to x-1 in case the user opted to skip the GCD after stage 1. */
+
+	if (pm1data.gg == NULL) {
+		pm1data.gg = gwalloc (&pm1data.gwdata);
+		if (pm1data.gg == NULL) goto oom;
+		// If stage 1 GCD was not run, init gg to x-1
+		if (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "Stage1GCD", 1) == -1) {
+			gwcopy (&pm1data.gwdata, pm1data.x, pm1data.gg);
+			gwaddsmall (&pm1data.gwdata, pm1data.gg, -1);
+		}
+		// Otherwise, just set gg to one
+		else {
+			dbltogw (&pm1data.gwdata, 1.0, pm1data.gg);
+		}
+	}
+
+/* Initialize variables for second stage */
+
+	// Calculate the percent completed by previous pairmaps
+//GW	base_pct_complete = (double) (pm1data.B2_start - pm1data.last_relocatable) / (double) (pm1data.C - pm1data.last_relocatable);
+	// Calculate the percent completed by each relative prime in this pairmap
+//GW	one_relp_pct = (1.0 - base_pct_complete) / (double) (pm1data.numDsections * pm1data.totrels);
+	// Calculate the percent completed by previous pairmaps and the current pairmap
+//GW	w->pct_complete = base_pct_complete + (double) (pm1data.Dsection * pm1data.totrels) * one_relp_pct;
+//GW polymult advances percentages in large chunks
+
+/* Allocate nQx array of pointers to gwnums.  This will be the coefficients of our input and output polynomials. */
+
+	pm1data.nQx = (gwnum *) malloc ((poly1_size + poly2_size + outpoly_size) * sizeof (gwnum));
+	if (pm1data.nQx == NULL) goto lowmem;
+	gwnum *poly1 = &pm1data.nQx[0];				// Poly #1, a monic RLP of size numrels
+	gwnum *poly2 = &pm1data.nQx[poly1_size];		// Poly #2, a monic polynomial of size 2 * numrels + num_points - 1
+	gwnum *outpoly = &pm1data.nQx[poly1_size + poly2_size];	// Output poly evaluating poly #1 at num_points
+
+// From Montgomery/Silverman paper (near formulas 9.4 & 9.5), D = 2 mod 4.  Calculate monic RLP coefficients
+// for u=1..D/4  if (gcd (u, D/2) == 1) compute V(2u).  The monic RLP is (x^2 - V(2u) + 1).
+/* A fast 1,5 mod 6 poly #1 initialization for relative primes less than D/4 */
+
+	ASSERTG (pm1data.D % 3 == 0);
+	ASSERTG (pm1data.D % 4 == 2);			// See if we can relax this requirement
+	{
+		gwnum	t1, t2, t3;
+		gwnum	V1, V2, V3, V5, V6;
+		struct {
+			gwnum	Vi;
+			gwnum	Vi_minus6;
+		} V1mod6, V5mod6, *curr;
+		int	i_gap, totrels;
+
+/* Allocate memory and init values for computing poly1.  We need V_1, V_5, V_6. */
+
+		t1 = gwalloc (&pm1data.gwdata);
+		if (t1 == NULL) goto lowmem;
+		t2 = gwalloc (&pm1data.gwdata);
+		if (t2 == NULL) goto lowmem;
+		t3 = gwalloc (&pm1data.gwdata);
+		if (t3 == NULL) goto lowmem;
+
+/* Compute V_2 and place in pm1data.V.  This is the value we will save if init is aborted and we create a save file. */
+/* V_2 will be replaced by V_D later on in this loop.  At all times pm1data.V will be a save-able value! */
+//GW: must save both a and 1/a and they must match!  This V2 stuff won't work.
+
+		luc_dbl (&pm1data.gwdata, pm1data.V, t1);			// V2 = 2 * V1
+		gwswap (t1, pm1data.V);
+		V1 = t1;
+		V2 = pm1data.V;
+
+/* Compute V_5, V_6 */
+
+		V3 = t2;
+		luc_add (&pm1data.gwdata, V2, V1, V1, V3);			// V3 = V2 + V1 (diff V1)
+
+		V5 = t3;
+		luc_add (&pm1data.gwdata, V3, V2, V1, V5);			// V5 = V3 + V2 (diff V1)
+
+		V6 = V3;
+		luc_dbl (&pm1data.gwdata, V3, V6);				// V6 = 2 * V3, V3 no longer needed
+
+/* Init structures used in the loop below */
+
+		V1mod6.Vi = V1;
+		V1mod6.Vi_minus6 = V5;
+		V5mod6.Vi = V5;
+		V5mod6.Vi_minus6 = V1;
+		totrels = 0;
+
+/* Compute the rest of the poly1 coefficients (V_i for i >= 7) */
+
+		for (i = 1, i_gap = 4; i <= pm1data.D/4; i += i_gap, i_gap = 6 - i_gap) {
+			gwnum	next_i;
+
+/* Point to the i, i-6 pair to work on */
+
+			curr = (i_gap == 4) ? &V1mod6 : &V5mod6;
+
+/* If i is a relp of D, then add V(2*i) to the poly1 array.  All powers-of-two times i are also relp to D/4, add V(2*two_power*i) to the nQx array too. */
+
+			if (relatively_prime (i, pm1data.D)) {
+				gwnum	V_to_double = curr->Vi;
+				for (int k = 1; i * k <= pm1data.D / 4; k *= 2) {
+					poly1[totrels] = gwalloc (&pm1data.gwdata);
+					if (poly1[totrels] == NULL) goto lowmem;
+					luc_dbl (&pm1data.gwdata, V_to_double, poly1[totrels]);
+					V_to_double = poly1[totrels];
+					totrels++;
+				}
+			}
+
+/* Get next i value.  Don't destroy Vi_minus6 for V1 and V5. */
+
+//GW: if i+6 > pm1data.D/4, we do not need to compute next_i
+			if (i < 6) {
+				next_i = gwalloc (&pm1data.gwdata);
+				if (next_i == NULL) goto lowmem;
+			} else
+				next_i = curr->Vi_minus6;
+
+			luc_add (&pm1data.gwdata, curr->Vi, V6, curr->Vi_minus6, next_i);	// Next i
+
+/* Shuffle i values along */
+
+			curr->Vi_minus6 = curr->Vi;
+			curr->Vi = next_i;
+
+/* Check for errors, user esc, restart for mem changed, etc. */
+
+			if (gw_test_for_error (&pm1data.gwdata)) goto err;
+			stop_reason = stopCheck (thread_num);
+			if (stop_reason) goto possible_lowmem;
+		}
+		ASSERTG (totrels == numrels);
+
+/* Free memory used in computing poly1 values */
+
+		gwfree (&pm1data.gwdata, V1mod6.Vi);
+		gwfree (&pm1data.gwdata, V1mod6.Vi_minus6);
+		gwfree (&pm1data.gwdata, V5mod6.Vi);
+		gwfree (&pm1data.gwdata, V5mod6.Vi_minus6);
+		gwfree (&pm1data.gwdata, V6);
+	}
+
+/* Free V.  It is no longer needed. */
+
+//GW: breaks save files.  this is actually V2 which could have been free long ago.
+	gwfree (&pm1data.gwdata, pm1data.V);
+	pm1data.V = NULL;
+
+// Multiply monic RLPs into one big monic RLP.  This is done in-place.
+
+	polymult_init (&pm1data.polydata, &pm1data.gwdata);
+	{
+		int	num_polys = numrels;		// Number of polys to multiply together
+		int	poly_size = 1;			// All polys are this size (except maybe the last one)
+		int	last_poly_size = 1;		// Size of the last poly
+		while (num_polys > 1) {
+			for (int i = 0; i < num_polys-1; i += 2) {
+				int poly2_size = (i+1 < num_polys-1) ? poly_size : last_poly_size;
+				polymult (&pm1data.polydata, &poly1[i*poly_size], poly_size, &poly1[(i+1)*poly_size], poly2_size,
+					  &poly1[i*poly_size], poly_size + poly2_size,
+					  (poly_size == 1 ? POLYMULT_INVEC1_NEGATE : 0) +
+					  (poly2_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) +
+					  POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC_RLP | POLYMULT_STARTNEXTFFT);
+			}
+			if ((num_polys & 1) == 0) last_poly_size += poly_size;
+			poly_size *= 2;
+			num_polys = (num_polys + 1) / 2;
+		}
+	}
+
+//GW:  Compress and pre-transpose the monic RLP -- will reduce monic RLP mem usage by maybe 10%!
+
+// Prep monic RLP poly #1 for evaluation at multiple points by polymult/FFT (see Montgomery/Kruppa)
+// If j = numrels, multiply the j+1 RLP coefficients by r^(-(j^2)), r^(-(j-1)^2) ... r^(-1^2), r^(-0^2).
+// Multipliers are:	       .... r^-9  r^-4  r^-1  r^0
+// Differences are:		....  r^-5  r^-3  r^-1
+// Differences are:	            ...  r^-2  r^-2
+
+	// Set r = x^(D/2)
+	gwnum r = gwalloc (&pm1data.gwdata);
+	if (r == NULL) goto lowmem;
+	gwfft (&pm1data.gwdata, pm1data.x, r);
+	exponentiate (&pm1data.gwdata, r, pm1data.D / 2);
+	// Set invr = x^-(D/2)
+	gwnum invr = gwalloc (&pm1data.gwdata);
+	if (invr == NULL) goto lowmem;
+	gwfft (&pm1data.gwdata, pm1data.invx, invr);
+	exponentiate (&pm1data.gwdata, invr, pm1data.D / 2);
+	{
+		// Set diff1 to r^-1.  Free 1/x.  It is no longer needed.
+		gwnum diff1 = pm1data.invx; pm1data.invx = NULL;
+//GW: This fft(invr) will be needed again calculating first diff1 for poly #2
+		gwfft (&pm1data.gwdata, invr, diff1);									// r^-1
+		// Set diff2 to r^-2
+		gwnum diff2 = gwalloc (&pm1data.gwdata);
+		if (diff2 == NULL) goto lowmem;
+		gwsquare2 (&pm1data.gwdata, diff1, diff2, GWMUL_STARTNEXTFFT);						// r^-2
+		// Unlike the Montgomery/Kruppa algorithm, multiply all coefficients by an additional r^(j^2) so that RLP remains monic.
+		gwnum multiplier = gwalloc (&pm1data.gwdata);
+		if (multiplier == NULL) goto lowmem;
+//GW: This fft of r will be done again when we compute r^2 (since numrels is even we can save one multiply by computing r^2 first)
+		gwfft (&pm1data.gwdata, r, multiplier);
+		exponentiate (&pm1data.gwdata, multiplier, numrels * numrels);						// r^(j^2)
+		// Apply first multiplier (r^0 * r^(j^2))
+		gwmul3 (&pm1data.gwdata, poly1[0], multiplier, poly1[0], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);		// Mul by r^(j^2)
+		// Apply second multiplier (r^-1 * r^(j^2))
+		gwmul3 (&pm1data.gwdata, multiplier, diff1, multiplier, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);		// r^(j^2)*r^-1
+		gwmul3 (&pm1data.gwdata, poly1[1], multiplier, poly1[1], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);		// Mul by r^(j^2-1)
+		// Loop multiplying the remaining RLP coefficients
+		for (int j = 2; j < poly1_size; j++) {
+			gwmul3 (&pm1data.gwdata, diff1, diff2, diff1, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (&pm1data.gwdata, multiplier, diff1, multiplier, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (&pm1data.gwdata, poly1[j], multiplier, poly1[j], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+		}
+		gwfree (&pm1data.gwdata, diff2);
+		gwfree (&pm1data.gwdata, multiplier);
+	}
+
+// Create poly #2
+
+// From the Montgomery/Kruppa paper, to evaluate poly #1 at a single point, do a polymult with these 2*numrels-1 coefficients:
+//		e^-j*r^(j^2) ...  e^-2*r^(2^2)  e^-1*r^(1^2)  e^0*r^0  e^1*r^(1^2) ...  e^j*r^(j^2)    j = 0..relps/2
+// To evalutate poly #1 at a second point, simply add one more coefficient, e^(j+1)*r^((j+1)^2), and so on.
+//
+// We can save one coefficient by making the above a monic polynomial.  Multiply all coefficients by e^j * r^-(j^2)
+//		1  e^1*r^((j-1)^2-j^2) ...  e^(j-2)*r^(2^2-j^2)  e^(j-1)*r^(1^2-j^2)  e^j*r^(0-j^2)  e^(j+1)*r^(1^2-j^2) ...  e^(j+j)*r^(j^2-j^2)
+//
+// Use differences to compute coefficients:   1    e^1*r^((j-1)^2-j^2) ...  e^(j-2)*r^(2^2-j^2)  e^(j-1)*r^(1^2-j^2)  e^j*r^(0-j^2)  e^(j+1)*r^(1^2-j^2) ...
+// Differences are:			        e*r^((j-1)^2-j^2)  ...  e*r^-5            e^1*r^-3             e^1*r^-1         e^1*r^1           e^1*r^3  ...
+// Differences are:					              ...           r^2                 r^2               r^2               r^2   ...
+//
+// Calculate diff2 (r^2) and first diff1 (e^1*r^((j-1)^2-j^2)) values so that the main loop can calculate the rest of poly #2.
+// Allocate gwnums for poly #2.
+
+	// Calculate e (the first polyeval point).  e = x^B2_start, this can be computed in terms of r = x^(D/2).  B2_start is an odd multiple of D/2.
+	gwnum e = gwalloc (&pm1data.gwdata);
+	if (e == NULL) goto lowmem;
+// GW: This fft of r needed again for e_incr and r_squared
+	gwfft (&pm1data.gwdata, r, e);
+	ASSERTG ((pm1data.B2_start % (pm1data.D / 2)) == 0 && ((pm1data.B2_start / (pm1data.D / 2)) & 1) == 1);
+	exponentiate (&pm1data.gwdata, e, pm1data.B2_start / (pm1data.D / 2));
+	// Calculate e_incr (the distance between polymult starting points).  e_incr = x^(num_points * D), this can be computed in terms of r = x^(D/2).
+	gwnum e_incr = gwalloc (&pm1data.gwdata);
+	if (e_incr == NULL) goto lowmem;
+// GW: This fft of r needed again for r_squared.  e_incr not needed if DSection + num_points > numDsections
+	gwfft (&pm1data.gwdata, r, e_incr);
+	exponentiate (&pm1data.gwdata, e_incr, num_points * 2);
+
+//GW: Free x???
+
+	// Free invr, calculate first diff1 (e*r^((j-1)^2-j^2)) and store in poly2[poly2_size-1]
+	poly2[poly2_size-1] = invr;
+	exponentiate (&pm1data.gwdata, poly2[poly2_size-1], numrels * 2 - 1);
+   	gwmul3 (&pm1data.gwdata, poly2[poly2_size-1], e, poly2[poly2_size-1], GWMUL_STARTNEXTFFT);
+
+//GW: free e
+
+	// Free r, calc diff2 (r^2)
+	gwnum r_squared = r;
+	gwsquare2 (&pm1data.gwdata, r, r_squared, GWMUL_STARTNEXTFFT);
+
+//GW:free internal memory for peak
+
+	// Allocate remaining gwnums for poly #2
+	for (int j = 0; j < poly2_size-1; j++) {
+		poly2[j] = gwalloc (&pm1data.gwdata);
+		if (poly2[j] == NULL) goto lowmem;
+	}
+
+// The evaluated points during a polymult overwrite some of the poly #2 coefficients.  Setup the output poly.
+
+	memset (outpoly, 0, outpoly_size * sizeof (gwnum));
+	for (int j = 0; j < num_points; j++) outpoly[2*numrels+j] = poly2[j];
+
+/* Stage 2 init complete, change the title, output a message */
+
+	sprintf (buf, "%.*f%% of %s P-1 stage 2 (using %uMB)",
+		 (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&pm1data.gwdata), memused);
+	title (thread_num, buf);
+
+	end_timer (timers, 0);
+	sprintf (buf, "Stage 2 init complete. %.0f transforms. Time: ", gw_get_fft_count (&pm1data.gwdata));
+	print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+	OutputStr (thread_num, buf);
+	gw_clear_fft_count (&pm1data.gwdata);
+
+// Loop over all the D-sections between B1 and B2
+
+	pm1data.state = PM1_STATE_STAGE2;
+	start_timer_from_zero (timers, 0);
+	start_timer_from_zero (timers, 1);
+	last_output = last_output_t = last_output_r = 0;
+	for ( ; ; ) {
+
+// Generate the next poly #2 using differences.  The highest coefficient is already computed, which is also the first diff1 value used to
+// compute subsequent coefficients.
+
+		gwnum diff1 = poly2[0];		// Scratch gwnum (the last gwnum we will write to) to use for remaining calculations
+		gwnum diff2 = r_squared;
+		gwmul3 (&pm1data.gwdata, poly2[poly2_size-1], diff2, diff1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);			// Next diff1
+		gwmul3 (&pm1data.gwdata, poly2[poly2_size-1], diff1, poly2[poly2_size-2], GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	// Next coeff
+		for (int j = 3; j < poly2_size; j++) {
+			gwmul3 (&pm1data.gwdata, diff1, diff2, diff1, GWMUL_STARTNEXTFFT);			// Next diff1
+			gwmul3 (&pm1data.gwdata, poly2[poly2_size-j+1], diff1, poly2[poly2_size-j], GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+		}
+		gwmul3 (&pm1data.gwdata, diff1, diff2, diff1, GWMUL_STARTNEXTFFT);				// Last diff1
+		gwmul3 (&pm1data.gwdata, poly2[1], diff1, poly2[0], GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);		// Last coeff
+
+// Evaluate poly #1 at many points using polymult!
+
+		polymult (&pm1data.polydata, poly1, poly1_size, poly2, poly2_size, outpoly, outpoly_size,
+			  POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC | POLYMULT_STARTNEXTFFT);
+
+// Accumulate the evaluated points in gg for a later GCD
+
+		for (int j = 0; j < num_points; j++) gwmul3 (&pm1data.gwdata, outpoly[2*numrels+j], pm1data.gg, pm1data.gg, GWMUL_STARTNEXTFFT);
+
+// Keep track of the sections processed thusfar
+
+		pm1data.Dsection += num_points;
+		if (pm1data.Dsection >= pm1data.numDsections) break;
+
+/* Calculate stage 2 percentage. */
+
+//GW:		w->pct_complete = base_pct_complete + (double) (pm1data.Dsection * pm1data.totrels + pm1data.relp) * one_relp_pct;
+
+/* Test for errors */
+
+		if (gw_test_for_error (&pm1data.gwdata) || gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) goto err;
+
+/* Output the title every so often */
+
+		if (first_iter_msg ||
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
+			sprintf (buf, "%.*f%% of %s P-1 stage 2 (using %uMB)",
+				 (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&pm1data.gwdata), memused);
+			title (thread_num, buf);
+			last_output_t = gw_get_fft_count (&pm1data.gwdata);
+		}
+
+/* Write out a message every now and then */
+
+		if (first_iter_msg ||
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
+			sprintf (buf, "%s stage 2 is %.*f%% complete.",
+				 gwmodulo_as_string (&pm1data.gwdata), (int) PRECISION, trunc_percent (w->pct_complete));
+			end_timer (timers, 0);
+			if (first_iter_msg) {
+				strcat (buf, "\n");
+			} else {
+				strcat (buf, " Time: ");
+				print_timer (timers, 0, buf, TIMER_NL);
+			}
+			OutputStr (thread_num, buf);
+			start_timer_from_zero (timers, 0);
+			last_output = gw_get_fft_count (&pm1data.gwdata);
+			first_iter_msg = FALSE;
+		}
+
+/* Write out a message to the results file every now and then */
+
+		if ((ITER_OUTPUT_RES != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output_r + 2 * ITER_OUTPUT_RES) ||
+		    (NO_GUI && stop_reason)) {
+			sprintf (buf, "%s stage 2 is %.*f%% complete.\n",
+				 gwmodulo_as_string (&pm1data.gwdata), (int) PRECISION, trunc_percent (w->pct_complete));
+			writeResults (buf);
+			last_output_r = gw_get_fft_count (&pm1data.gwdata);
+		}
+
+/* Periodicly write a save file */
+
+//GW		if (stop_reason || saving) {
+//GW:			pm1_save (&pm1data);
+//GW			if (stop_reason) goto exit;
+//GW		}
+
+// Set up difference for next poly #2
+
+		gwmul3 (&pm1data.gwdata, poly2[poly2_size-1], e_incr, poly2[poly2_size-1], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+	}
+//GW: Report the actual B2 from pm1data.Dsection (polymult can sail on by the original B2)
+//GW: what if processed more D sections than the minimum - increase interim_C/C_done
+//GW: no need for interim_C stuff, just continue on with more polymults		
+	pm1data.C_done = pm1data.interim_C;
+//GW	if (pm1data.C > pm1data.C_done) {
+//GW		pm1data.state = PM1_STATE_MIDSTAGE;
+//GW		goto more_C;
+//GW	}
+
+/* Cleanup */
+
+	gwfree (&pm1data.gwdata, r_squared), r_squared = NULL;
+	gwfree (&pm1data.gwdata, e_incr), e_incr = NULL;
+	polymult_done (&pm1data.polydata);
+
 /* Stage 2 is complete */
 
+stage2_done:
 	end_timer (timers, 1);
 	sprintf (buf, "%s stage 2 complete. %.0f transforms. Total time: ", gwmodulo_as_string (&pm1data.gwdata), gw_get_fft_count (&pm1data.gwdata));
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
@@ -10315,16 +10840,16 @@ replan:	{
 		goto replan;
 	}
 
+/* Output a useful message regarding memory usage */
+
+	sprintf (buf, "Using %uMB of memory.\n", memused);
+	OutputStr (thread_num, buf);
+
 /* Do preliminary processing of the relp_sets */
 
 	int	numrels;		// Number of relative primes less than D/2 (the number of relative primes in one full relp_set)
 	numrels = map_D_to_numrels (pp1data.D);
 	process_relp_sets (pp1data.totrels, numrels, pp1data.relp_sets, relp_set_map, Dmultiple_map);
-
-/* Output a useful message regarding memory usage */
-
-	sprintf (buf, "Using %uMB of memory.\n", memused);
-	OutputStr (thread_num, buf);
 
 /* Initialize variables for second stage */
 
