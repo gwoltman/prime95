@@ -11,6 +11,7 @@
 +---------------------------------------------------------------------*/
 
 #include "ecm.h"
+#include "exponentiate.h"
 
 /* Globals for error messages */
 
@@ -10602,7 +10603,6 @@ abort_proof:
 	ps->proof_power = 0;
 }
 
-#include "exponentiate.c"
 #include "proof_hash.c"
 
 // Read a residue from the big residues file or emergency memory
