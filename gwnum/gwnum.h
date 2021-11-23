@@ -544,6 +544,9 @@ void gw_clear_maxerr (gwhandle *gwdata);
 /* word this function will return TRUE. */
 int gwnear_fft_limit (gwhandle *gwdata, double pct);
 
+/* Returns true if the current FFT length satisfies the given safety margin (such as the value returned by polymult_safety_margin) */
+#define gw_passes_safety_margin(h,safetyval)	((h)->EXTRA_BITS/2.0+(h)->safety_margin > (safetyval))
+
 /*---------------------------------------------------------------------+
 |                    GWNUM MISC. INFORMATION ROUTINES                  |
 +---------------------------------------------------------------------*/

@@ -20,8 +20,8 @@ extern "C" {
 // These routines can be used before polymult_init.  The information is used to select a gwnum FFT size with sufficient safety_margin
 // to do polymults of the desired size.
 
-// Get the needed safety_margin required for an n = invec1_size + invec2_size polymult
-double polymult_safety_margin (int n);
+// Get the needed safety_margin required for an invec1_size by invec2_size polymult
+double polymult_safety_margin (int invec1_size, int invec2_size);
 
 // Get the FFT size that will be used for an n = invec1_size + invec2_size polymult
 int polymult_fft_size (int n);
@@ -61,10 +61,16 @@ void polymult (
 #define POLYMULT_INVEC2_MONIC	0x2	// Invec2 is a monic polynomial.  Leading coefficient of one is implied.
 #define POLYMULT_INVEC1_RLP	0x4	// Invec1 is an RLP (Reciprocal Laurent Polynomial).  Needs only half the storage.
 #define POLYMULT_INVEC2_RLP	0x8	// Invec2 is an RLP (Reciprocal Laurent Polynomial).  Needs only half the storage.
-#define POLYMULT_STARTNEXTFFT	0x10	// Similar to GWMUL_STARTNEXTFFT.  Applied to all output coefficients.
-#define	POLYMULT_FORWARD_FFT	0x20	// Forward FFT the first polynomial, the second polynomial is ignored
+#define POLYMULT_INVEC1_NEGATE	0x10	// Invec1 coefficients should be negated.
+#define POLYMULT_INVEC2_NEGATE	0x20	// Invec2 coefficients should be negated.
 #define	POLYMULT_INVEC1_FFTED	0x40	// First polynomial has been forward FFTed
 #define	POLYMULT_INVEC2_FFTED	0x80	// Second polynomial has been forward FFTed
+#define	POLYMULT_FORWARD_FFT	0x100	// Forward FFT the first polynomial, the second polynomial is ignored
+#define POLYMULT_STARTNEXTFFT	0x200	// Similar to GWMUL_STARTNEXTFFT.  Applied to all output coefficients.
+//#define GWMUL_ADDINCONST	0x0400		/* Addin the optional gwsetaddin value to the multiplication result */
+//#define GWMUL_MULBYCONST	0x0800		/* Multiply the final result by the small mulbyconst */
+#define POLYMULT_INVEC1_MONIC_RLP	(POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_RLP)
+#define POLYMULT_INVEC2_MONIC_RLP	(POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_RLP)
 //GW: option to accept compressed poly inputs?
 //GW: invec1_ffted and invec2_ffted not needed if it is part of the FFT_STATE.
 

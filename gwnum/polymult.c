@@ -25,7 +25,7 @@
 // 7) Variable GW_HEADER_SIZE.
 // 9) Is a fast convert-gwnum-to-larger-FFT feasible? necessary?
 // 10) Tune for Brute / Karatsuba / FFT crossovers.
-// 12) Tune routine that returns needed safety margin needed for given N (sum input lengths)
+// 12) Tune routine that returns needed safety margin needed for given poly sizes
 // 13) multi-threading
 // 14) Compressed gwnums.  Does it pay off?
 // 15) Add polymult to gwtest or as a standalone program
@@ -36,39 +36,45 @@
 //     Perhaps only do this for most common architectures, such as AVX-512 and FMA 64-bit.
 // 20) Radix-4 non-vector FFT.
 // 21) Should polymult be its own library or a part of the gwnum library?
-// 22) Safety_margin is in terms on input FFT words, EXTRA_BITS is based on output FFT words.  What is polymult_safety_margin?
-//     gwnum.c has a bug in that it subtract safety_margin from extra_bits (1) should it?  (2) why not divide it by 2?
-//	Can we add asserts that polymult isn't violating EXTRA_BITS?
-// 23) Half-mults / sparse mults.
+// 22) Can we add asserts that polymult isn't violating EXTRA_BITS?
 // 25) Optimize.  Read/write several cache lines at a time (fill up L2 cache?).  Prefetch future cache lines.
-// 26) Option for one input vector being monic.
-// 27) (monic) RLP polymult inputs
 // 28) Optimize brute_force to do less compute when outvec entries are NULL.
+// 28) Optimize brute_force to do less compute when one or both invec entries are RLPs.
 // 29) monic polynomials are tricky if FFT(1) is not all ones.  Use GW_FFT1 and treat as non-monic?
-// 30) option to negate output and/or inputs??
-// 31) brute force multiplication of RLP polys could probably be faster (don't expand the RLP polys).
+// 30) option to negate outputs??
 // 32) If monic input and polymult is doing an FFT and there is zero padding going on, then pad with one (or GW_FFT1) rather than use monic_add.  Be careful
 //	that this does not cause any unwanted wrapping of data!
 // 33) Are there cases with brute/Karatsuba would benefit from using a bigger poly rather than using monic_add?
-// 34) Support GWMUL_BY_CONST option in unfft.
+// 34) Support GWMUL_BY_CONST, GWMUL_ADD_CONST option in gwunfft2.
 // 35) A monic 1024 times monic 1024 using length 2048 FFT could apply the two ones in the FFT vectors and patch outvec[0] (possibly with gwsetaddin(-1)).
 //	A monic 1023 times monic 1023 using length 2048 FFT could apply the two ones in the FFT vectors with no patching rather than monic  post-processing.
 //	That should be a little faster.  Other monic combinations have similar optimizations.
-// 36) Allow NULL invec gwnums - treat as zero.
+// 36) For cached FFTs, is there a way to avoid the transpose(write_line/read_line) step?
+// 37) If transpose is expensive, can we offer a way to "pre-transpose" invec1 for use multiple times?  With compression of exponent field in double??
+//	Compression still needs semi-random/sequential access to invec1 for multi-threading.
+// 38)  For poly #2, is there a quick block compression we can do where the extra read/write cost will be more than compensated by the few more extra
+//	gwnums we can add to poly #2?
+// 39)  Think more on unbalanced poly mults.  Is a 100 x 200 mult better done as two 100 x 100 multiplies?  Answer: Never for brute force, maybe for FFT.
+// 40) Is invec1_negate code OK when GW_FFT1 is not all ones?  I would think so.
+// 41) Add callback routine to check for ^C/ESC
+// 42) Transparent / or easy way to store gwnums on disk as part of input and/or output vectors.  Picture using 12GB memory and 50GB disk for really huge polys.
 
 // Forward declarations required for the AVX, FMA, AVX512 compiles
 unsigned long cache_line_offset (gwhandle *gwdata, unsigned long i);
 void generate_sincos (pmhandle *pmdata, const unsigned int size);
 void polymult_line_avx (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwnum *gw_invec2, int invec2_size, gwnum *gw_outvec, int outvec_size, int options);
 
-#define INVEC1_OPTIONS	(POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_RLP | POLYMULT_INVEC1_FFTED)
-#define INVEC2_OPTIONS	(POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_RLP | POLYMULT_INVEC2_FFTED)
+#define INVEC1_OPTIONS	(POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_RLP | POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC1_FFTED)
+#define INVEC2_OPTIONS	(POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_RLP | POLYMULT_INVEC2_NEGATE | POLYMULT_INVEC2_FFTED)
 
 #if !defined (AVX) && !defined (FMA) && !defined (AVX512)
 
-// Get the needed safety_margin required for an n = invec1_size + invec2_size polymult
-double polymult_safety_margin (int n) {
-	return (log2 ((double) n) / 2.0);
+// Get the needed safety_margin required for an invec1_size by invec2_size polymult
+double polymult_safety_margin (int invec1_size, int invec2_size) {
+	int	n = (invec1_size < invec2_size) ? invec1_size : invec2_size;
+	// The number of EXTRA_BITS (output FFT bits) consumed by a polymult ~= log2(n)/2.  However, gwinit's safety margin parameter refers to
+	// input FFT bits.  Thus, divide by another 2.
+	return (log2 ((double) n) / 4.0);
 }
 
 // Get the FFT size that will be used for an n = invec1_size + invec2_size polymult
@@ -130,7 +136,7 @@ unsigned long cache_line_offset (
 			if (gwdata->FOURKBGAPSIZE) addr = addr + (addr / (gwdata->FOURKBGAPSIZE << 6)) * 64;
 		}
 		else {
-			grps = (i * 16) / gwdata->PASS2_SIZE;
+			grps = i / (gwdata->PASS2_SIZE / 8);
 			addr = i * 128;
 			/* Now optionally add bytes for every 4KB page and every pass 2 block */
 			addr = addr + (addr >> 12) * gwdata->FOURKBGAPSIZE + grps * gwdata->PASS2GAPSIZE;
@@ -146,7 +152,7 @@ unsigned long cache_line_offset (
 			if (gwdata->FOURKBGAPSIZE) addr = addr + (addr / (gwdata->FOURKBGAPSIZE << 6)) * 64;
 		}
 		else {
-			grps = (i * 8) / gwdata->PASS2_SIZE;
+			grps = i / (gwdata->PASS2_SIZE / 4);
 			addr = i * 64;
 			/* Now add 64 bytes every 4KB and one pass2gapsize for every pass 2 block. */
 			addr = addr + (addr >> 12) * gwdata->FOURKBGAPSIZE + grps * gwdata->PASS2GAPSIZE;
@@ -164,14 +170,14 @@ unsigned long cache_line_offset (
 //GW: BUG!?
 /* and PFA layouts are even funkier.					*/
 		else if (gwdata->FFT_TYPE == FFT_TYPE_HOME_GROWN) {
-			grps = (i * 8) / gwdata->PASS2_SIZE;
+			grps = i / (gwdata->PASS2_SIZE / 2);
 			addr = i * 64;
 			/* Now add 128 bytes every 8KB and one pass2gapsize for every pass 2 block. */
 			addr = addr + (addr >> 13) * 128 + grps * gwdata->PASS2GAPSIZE;
 		}
 /* Newer traditional radix-4 large FFTs use don't have a special layout for PFA. */
 		else {
-			grps = (i * 8) / gwdata->PASS2_SIZE;
+			grps = i / (gwdata->PASS2_SIZE / 2);
 			addr = i * 64;
 			/* Now add 128 bytes every 8KB and one pass2gapsize for every pass 2 block. */
 			addr = addr + (addr >> 13) * 128 + grps * gwdata->PASS2GAPSIZE;
@@ -260,6 +266,9 @@ void generate_sincos (
 
 bool read_line (gwhandle *gwdata, gwnum *data, int size, int index, double *vec, int options)
 {
+	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
+	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += 2*(size-1);
+
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
 	if (!gwdata->ALL_COMPLEX_FFT) index--;
@@ -275,42 +284,50 @@ bool read_line (gwhandle *gwdata, gwnum *data, int size, int index, double *vec,
 	// No special instructions implementation
 	if (index == -1) {			// First real-only value
 		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(double)); continue; }
 			vec[2*j] = data[j][0];
-//bug? return 0.0 instead of -11
-			vec[2*j+1] = data[j][-11];
+//bug? return 0.0 instead of -11 ---- fix when we support FFTing invec
+			vec[2*j+1] = 0.0; //data[j][-11];
 		}
 	}
 	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
 		for (int j = 0; j < size; j++) {
-			vec[2*j] = data[j][4];
-//bug? return 0.0 instead of -10.  How are we going to implement FFTed poly read?  Its own routine? It's own FFT state?
-			vec[2*j+1] = data[j][-10];
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(double)); continue; }
+			if (gwdata->PASS2_SIZE == 0) vec[2*j] = data[j][1];
+			else vec[2*j] = data[j][2];
+//bug? return 0.0 instead of -10.  How are we going to implement FFTed poly read?  Its own routine? It's own FFT state? Compressed?
+			vec[2*j+1] = 0.0; //data[j][-10];
 		}
 	}
-//	else if (0) {				// Process complex values where imaginary part is in the high half of the cache line
-//		unsigned long offset = cache_line_offset (gwdata, index / 4) / sizeof (double);
-//		for (int j = 0; j < size; j++) {
-//			ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
-// bug???  Index assuming what?  skip every other set of 4?  Examine ancient FFT sources!
-//			vec[2*j] = data[j][offset+(index&3)];
-//			vec[2*j+1] = data[j][offset+(index&3)+4];
-//		}
-//	}
-	else {				// Process complex values where imaginary part is only 16 bytes above the real part
+	else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
 		unsigned long offset = cache_line_offset (gwdata, index / 4) / sizeof (double);
 		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(double)); continue; }
 			ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
 // bug???  Index assuming what?  skip every other set of 4?  Examine ancient FFT sources!
-			vec[2*j] = data[j][offset+(index&2)*2+(index&1)];
-			vec[2*j+1] = data[j][offset+(index&2)*2+(index&1)+2];
+			if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT) {
+				vec[2*j] = data[j][offset+(index&3)*2];
+				vec[2*j+1] = data[j][offset+(index&3)*2+1];
+			} else {
+				vec[2*j] = data[j][offset+(index&2)*2+(index&1)];
+				vec[2*j+1] = data[j][offset+(index&2)*2+(index&1)+2];
+			}
+		}
+	}
+
+	// Negate coefficients if requested
+	if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
+		for (int j = 0; j < size; j++) {
+			vec[2*j] = -vec[2*j];
+			vec[2*j+1] = -vec[2*j+1];
 		}
 	}
 
 	// Duplicate RLP data in reverse order
 	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
-		for (int j = 0; j < size - 1; j++) {
-			vec[2*(size*2-2-j)] = vec[2*j];
-			vec[2*(size*2-2-j)+1] = vec[2*j+1];
+		for (int j = 1; j < size; j++) {
+			vec[-2*j] = vec[2*j];
+			vec[-2*j+1] = vec[2*j+1];
 		}
 	}
 
@@ -341,30 +358,28 @@ void write_line (gwhandle *gwdata, gwnum *data, int size, int index, double *vec
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
 			data[j][0] = vec[2*j];
-			data[j][-11] = vec[2*j+1];
+//			data[j][-11] = vec[2*j+1];  //GW:bug?
 		}
 	}
 	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {		// Second real-only value
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
-			data[j][4] = vec[2*j];
-			data[j][-10] = vec[2*j+1];
+			if (gwdata->PASS2_SIZE == 0) data[j][1] = vec[2*j];
+			else data[j][2] = vec[2*j];
+//			data[j][-10] = vec[2*j+1];	//GW:bug?
 		}
 	}
-//	else {				// Process complex values where imaginary part is in the high half of the cache line
-//		unsigned long offset = cache_line_offset (gwdata, index / 4) / sizeof (double);
-//		for (int j = 0; j < size; j++) {
-//			if (data[j] == NULL) continue;
-//			data[j][offset+(index&3)] = vec[2*j];
-//			data[j][offset+(index&3)+4] = vec[2*j+1];
-//		}
-//	}
-	else {				// Process complex values where imaginary part is only 16 bytes above the real part
+	else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
 		unsigned long offset = cache_line_offset (gwdata, index / 4) / sizeof (double);
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
-			data[j][offset+(index&2)*2+(index&1)] = vec[2*j];
-			data[j][offset+(index&2)*2+(index&1)+2] = vec[2*j+1];
+			if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT) {
+				data[j][offset+(index&3)*2] = vec[2*j];
+				data[j][offset+(index&3)*2+1] = vec[2*j+1];
+			} else {
+				data[j][offset+(index&2)*2+(index&1)] = vec[2*j];
+				data[j][offset+(index&2)*2+(index&1)+2] = vec[2*j+1];
+			}
 		}
 	}
 }
@@ -423,25 +438,48 @@ void karatsuba_line (
 		return;
 	}
 
-	// The size of the two lower halves must be the same
-	b_size = d_size = (invec1_size >= invec2_size) ? invec1_size / 2 : invec2_size / 2;
+	// To simplify code, always make invec2 the larger poly.
+	if (invec1_size > invec2_size) {
+		int tmpsize = invec1_size; invec1_size = invec2_size; invec2_size = tmpsize;
+		double *tmpvec = invec1; invec1 = invec2; invec2 = tmpvec;
+	}
 
-	// Split inputs in roughly half.  For readability, create pointers to 4 halves.
-	a_size = invec1_size - b_size;
-	a = invec1 + 2*b_size, b = invec1;
+	// Split larger vector roughly in half.  For readability, create pointers to two halves.
+	d_size = (invec2_size + 1) / 2;
 	c_size = invec2_size - d_size;
 	c = invec2 + 2*d_size, d = invec2;
+
+	// Handle case where vectors are of wildly unequal lengths
+	if (d_size >= invec1_size) {
+		// Compute bd
+		bd = outvec;
+		karatsuba_line (pmdata, invec1, invec1_size, d, d_size, tmp, bd);
+		bd_size = invec1_size + d_size - 1;
+		// Compute bc and store it in tmp
+		double *bc = tmp;
+		int bc_size = invec1_size + c_size - 1;
+		tmp += 2*bc_size;
+		karatsuba_line (pmdata, invec1, invec1_size, c, c_size, tmp, bc);
+		// add bc to output
+		for (i = 0; i < 2*bc_size; i++) outvec[i + 2*d_size] += bc[i];
+		return;
+	}
+
+	// Split smaller vector, the size of the two lower halves must be the same.  For readability, create pointers to two halves.
+	b_size = d_size;
+	a_size = invec1_size - b_size;
+	a = invec1 + 2*b_size, b = invec1;
 
 	// Compute (a+b)
 	a_plus_b = outvec;
 	for (i = 0; i < 2*a_size && i < 2*b_size; i++) a_plus_b[i] = a[i] + b[i];
-	for ( ; i < 2*a_size; i++) a_plus_b[i] = a[i];		// In case a_size > b_size
+//	for ( ; i < 2*a_size; i++) a_plus_b[i] = a[i];		// In case a_size > b_size
 	for ( ; i < 2*b_size; i++) a_plus_b[i] = b[i];		// In case b_size > a_size
 	a_plus_b_size = i / 2;
 	// Compute (c+d)
 	c_plus_d = &outvec[i];
 	for (i = 0; i < 2*c_size && i < 2*d_size; i++) c_plus_d[i] = c[i] + d[i];
-	for ( ; i < 2*c_size; i++) c_plus_d[i] = c[i];		// In case c_size > d_size
+//	for ( ; i < 2*c_size; i++) c_plus_d[i] = c[i];		// In case c_size > d_size
 	for ( ; i < 2*d_size; i++) c_plus_d[i] = d[i];		// In case d_size > c_size
 	c_plus_d_size = i / 2;
 	// Compute (a+b) * (c+d) and store it in tmp
@@ -637,17 +675,17 @@ void polymult_line (
 
 	// Polymult using no vector instructions.  Allocate memory.  For the output vector allocate two extra in case there are any monic RLP inputs.
 	must_fft = (options & (POLYMULT_FORWARD_FFT | POLYMULT_INVEC1_FFTED | POLYMULT_INVEC2_FFTED));
-	if (!must_fft && outvec_size < pmdata->KARAT_BREAK) {
+	if (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK) {
 		invec1 = (double *) malloc (2 * adjusted_invec1_size * sizeof (double));
 		invec2 = (double *) malloc (2 * adjusted_invec2_size * sizeof (double));
 		outvec = (double *) malloc (2 * (adjusted_outvec_size + 2) * sizeof (double)) + 2;
 		tmpvec = NULL;
 	}
-	else if (!must_fft && outvec_size < pmdata->FFT_BREAK) {
+	else if (!must_fft && adjusted_outvec_size < pmdata->FFT_BREAK) {
 		invec1 = (double *) malloc (2 * adjusted_invec1_size * sizeof (double));
 		invec2 = (double *) malloc (2 * adjusted_invec2_size * sizeof (double));
 		outvec = (double *) malloc (2 * (adjusted_outvec_size + 2) * sizeof (double)) + 2;
-		tmpvec = (double *) malloc (2 * adjusted_outvec_size * sizeof (double));		//GW: not sure if this is right, needs analysis
+		tmpvec = (double *) malloc (2 * (adjusted_outvec_size + 32) * sizeof (double));		// Could need one extra for each recursion
 	}
 	else {
 		fft_size = (options & POLYMULT_FORWARD_FFT) ? outvec_size :
@@ -666,10 +704,10 @@ void polymult_line (
 		if (!read_line (pmdata->gwdata, gw_invec1, invec1_size, line, invec1, options & INVEC1_OPTIONS)) break;
 		read_line (pmdata->gwdata, gw_invec2, invec2_size, line, invec2, options & INVEC2_OPTIONS);
 
-		if (!must_fft && outvec_size < pmdata->KARAT_BREAK) {
+		if (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK) {
 			brute_line (invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, outvec);
 		}
-		else if (!must_fft && outvec_size < pmdata->FFT_BREAK) {
+		else if (!must_fft && adjusted_outvec_size < pmdata->FFT_BREAK) {
 			karatsuba_line (pmdata, invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, tmpvec, outvec);
 		}
 		else {
@@ -693,7 +731,17 @@ void polymult_line (
 		monic_line_adjustments (invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, outvec, adjusted_outvec_size, options);
 		write_line (pmdata->gwdata, gw_outvec, outvec_size, line, outvec, options);
 	}
-
+//for (int j=0; j < gwfftlen(pmdata->gwdata); j++){
+//int off=addr_offset(pmdata->gwdata,j)/8;
+//if (off % 8 >= 4) continue;	
+//if (off == 0 || off == 2) ASSERTG(gw_outvec[0][off] == gw_invec1[0][off]* gw_invec2[0][off]);
+//else if (off % 4 == 0) {
+//	double r = gw_invec1[0][off] * gw_invec2[0][off] - gw_invec1[0][off+2] * gw_invec2[0][off+2];
+//	double i = gw_invec1[0][off]* gw_invec2[0][off+2] + gw_invec1[0][off+2]* gw_invec2[0][off];
+//ASSERTG(gw_outvec[0][off] == r);
+//ASSERTG(gw_outvec[0][off+2] == i);
+//}
+//}
 	// Free memory
 	if (invec1 != tmpvec) free (invec1);
 	if (invec2 != outvec) free (invec2);
@@ -711,6 +759,9 @@ void polymult_line (
 
 bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, __m256d *vec, int options)
 {
+	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
+	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += 2*(size-1);
+
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
 	if (!gwdata->ALL_COMPLEX_FFT) index--;
@@ -726,16 +777,20 @@ bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, __m256d 
 	// AVX implementation
 	if (index == -1) {			// First real-only value
 		for (int j = 0; j < size; j++) {
-			vec[2*j] = _mm256_set_pd (data[j][0], 0.0, 0.0, 0.0);
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(__m256d)); continue; }
+			vec[2*j] = _mm256_set_pd (0.0, 0.0, 0.0, data[j][0]);
 //bug? return 0.0 instead of -11
-			vec[2*j+1] = _mm256_set_pd (data[j][-11], 0.0, 0.0, 0.0);
+//			vec[2*j+1] = _mm256_set_pd (0.0, 0.0, 0.0, data[j][-11]);
+			vec[2*j+1] = _mm256_set_pd (0.0, 0.0, 0.0, 0.0);
 		}
 	}
 	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
 		for (int j = 0; j < size; j++) {
-			vec[2*j] = _mm256_set_pd (data[j][4], data[j][1], data[j][2], data[j][3]);
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(__m256d)); continue; }
+			vec[2*j] = _mm256_set_pd (data[j][3], data[j][2], data[j][1], data[j][4]);
 //bug? return 0.0 instead of -10
-			vec[2*j+1] = _mm256_set_pd (data[j][-10], data[j][5], data[j][6], data[j][7]);
+//			vec[2*j+1] = _mm256_set_pd (data[j][7], data[j][6], data[j][5], data[j][-10]);
+			vec[2*j+1] = _mm256_set_pd (data[j][7], data[j][6], data[j][5], 0.0);
 		}
 	}
 	else {				// Process complex values where imaginary part is in the high half of the cache line
@@ -744,17 +799,27 @@ bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, __m256d 
 // Or create new gwnum cache_line_offset that returns cache lines in order skipping the gaps
 		unsigned long offset = cache_line_offset (gwdata, index) / sizeof (__m256d);
 		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(__m256d)); continue; }
 			ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
 			vec[2*j] = ((__m256d *) data[j])[offset];			// Real data
 			vec[2*j+1] = ((__m256d *) data[j])[offset+1];			// Imaginary data
 		}
 	}
 
+	// Negate coefficients if requested
+	if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
+		__m256d zero = _mm256_set_pd (0.0, 0.0, 0.0, 0.0);
+		for (int j = 0; j < size; j++) {
+			vec[2*j] = _mm256_sub_pd (zero, vec[2*j]);
+			vec[2*j+1] = _mm256_sub_pd (zero, vec[2*j+1]);
+		}
+	}
+
 	// Duplicate RLP data in reverse order
 	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
-		for (int j = 0; j < size - 1; j++) {
-			vec[2*(size*2-2-j)] = vec[2*j];
-			vec[2*(size*2-2-j)+1] = vec[2*j+1];
+		for (int j = 1; j < size; j++) {
+			vec[-2*j] = vec[2*j];
+			vec[-2*j+1] = vec[2*j+1];
 		}
 	}
 
@@ -790,7 +855,7 @@ void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, __m256d
 			if (data[j] == NULL) continue;
 			x.a = vec[2*j], data[j][0] = x.b[0];
 //bug? return 0.0 instead of -11
-			x.a = vec[2*j+1], data[j][-11] = x.b[0];
+//			x.a = vec[2*j+1], data[j][-11] = x.b[0];
 		}
 	}
 	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
@@ -798,7 +863,7 @@ void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, __m256d
 			if (data[j] == NULL) continue;
 			x.a = vec[2*j], data[j][4] = x.b[0], data[j][1] = x.b[1], data[j][2] = x.b[2], data[j][3] = x.b[3];
 //bug? return 0.0 instead of -10
-			x.a = vec[2*j+1], data[j][-10] = x.b[0], data[j][5] = x.b[1], data[j][6] = x.b[2], data[j][7] = x.b[3];
+			x.a = vec[2*j+1], /*data[j][-10] = x.b[0],*/ data[j][5] = x.b[1], data[j][6] = x.b[2], data[j][7] = x.b[3];
 		}
 	}
 	else {				// Process complex values where imaginary part is in the high half of the cache line
@@ -859,25 +924,49 @@ void karatsuba_line_avx (
 		return;
 	}
 
-	// The size of the two lower halves must be the same
-	b_size = d_size = (invec1_size >= invec2_size) ? invec1_size / 2 : invec2_size / 2;
+	// To simplify code, always make invec2 the larger poly.
+	if (invec1_size > invec2_size) {
+		int tmpsize = invec1_size; invec1_size = invec2_size; invec2_size = tmpsize;
+		__m256d *tmpvec = invec1; invec1 = invec2; invec2 = tmpvec;
+	}
 
-	// Split inputs in roughly half.  For readability, create pointers to 4 halves.
-	a_size = invec1_size - b_size;
-	a = invec1 + 2*b_size, b = invec1;
+
+	// Split larger vector roughly in half.  For readability, create pointers to two halves.
+	d_size = (invec2_size + 1) / 2;
 	c_size = invec2_size - d_size;
 	c = invec2 + 2*d_size, d = invec2;
+
+	// Handle case where vectors are of wildly unequal lengths
+	if (d_size >= invec1_size) {
+		// Compute bd
+		bd = outvec;
+		karatsuba_line_avx (pmdata, invec1, invec1_size, d, d_size, tmp, bd);
+		bd_size = invec1_size + d_size - 1;
+		// Compute bc and store it in tmp
+		__m256d *bc = tmp;
+		int bc_size = invec1_size + c_size - 1;
+		tmp += 2*bc_size;
+		karatsuba_line_avx (pmdata, invec1, invec1_size, c, c_size, tmp, bc);
+		// add bc to output
+		for (i = 0; i < 2*bc_size; i++) outvec[i + 2*d_size] = _mm256_add_pd (outvec[i + 2*d_size], bc[i]);
+		return;
+	}
+
+	// Split smaller vector, the size of the two lower halves must be the same.  For readability, create pointers to two halves.
+	b_size = d_size;
+	a_size = invec1_size - b_size;
+	a = invec1 + 2*b_size, b = invec1;
 
 	// Compute (a+b)
 	a_plus_b = outvec;
 	for (i = 0; i < 2*a_size && i < 2*b_size; i++) a_plus_b[i] = _mm256_add_pd (a[i], b[i]);
-	for ( ; i < 2*a_size; i++) a_plus_b[i] = a[i];		// In case a_size > b_size
+//	for ( ; i < 2*a_size; i++) a_plus_b[i] = a[i];		// In case a_size > b_size
 	for ( ; i < 2*b_size; i++) a_plus_b[i] = b[i];		// In case b_size > a_size
 	a_plus_b_size = i / 2;
 	// Compute (c+d)
 	c_plus_d = &outvec[i];
 	for (i = 0; i < 2*c_size && i < 2*d_size; i++) c_plus_d[i] = _mm256_add_pd (c[i], d[i]);
-	for ( ; i < 2*c_size; i++) c_plus_d[i] = c[i];		// In case c_size > d_size
+//	for ( ; i < 2*c_size; i++) c_plus_d[i] = c[i];		// In case c_size > d_size
 	for ( ; i < 2*d_size; i++) c_plus_d[i] = d[i];		// In case d_size > c_size
 	c_plus_d_size = i / 2;
 	// Compute (a+b) * (c+d) and store it in tmp
@@ -1204,17 +1293,17 @@ void polymult_line_avx (
 
 	// Polymult using AVX instructions.  Allocate memory.  For the output vector allocate two extra in case there are any monic RLP inputs.
 	must_fft = (options & (POLYMULT_FORWARD_FFT | POLYMULT_INVEC1_FFTED | POLYMULT_INVEC2_FFTED));
-	if (!must_fft && outvec_size < pmdata->KARAT_BREAK) {
+	if (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK) {
 		invec1 = (__m256d *) aligned_malloc (2 * adjusted_invec1_size * sizeof (__m256d), 64);
 		invec2 = (__m256d *) aligned_malloc (2 * adjusted_invec2_size * sizeof (__m256d), 64);
 		outvec = (__m256d *) aligned_malloc (2 * (adjusted_outvec_size + 2) * sizeof (__m256d), 64) + 2;
 		tmpvec = NULL;
 	}
-	else if (!must_fft && outvec_size < pmdata->FFT_BREAK) {
+	else if (!must_fft && adjusted_outvec_size < pmdata->FFT_BREAK) {
 		invec1 = (__m256d *) aligned_malloc (2 * adjusted_invec1_size * sizeof (__m256d), 64);
 		invec2 = (__m256d *) aligned_malloc (2 * adjusted_invec2_size * sizeof (__m256d), 64);
 		outvec = (__m256d *) aligned_malloc (2 * (adjusted_outvec_size + 2) * sizeof (__m256d), 64) + 2;
-		tmpvec = (__m256d *) aligned_malloc (2 * adjusted_outvec_size * sizeof (__m256d), 64);		//GW: not sure if this is right, needs analysis
+		tmpvec = (__m256d *) aligned_malloc (2 * (adjusted_outvec_size + 32) * sizeof (__m256d), 64);	// Could need one extra for each recursion
 	}
 	else {
 		fft_size = (options & POLYMULT_FORWARD_FFT) ? outvec_size :
@@ -1233,10 +1322,10 @@ void polymult_line_avx (
 		if (!read_line_avx (pmdata->gwdata, gw_invec1, invec1_size, line, invec1, options & INVEC1_OPTIONS)) break;
 		read_line_avx (pmdata->gwdata, gw_invec2, invec2_size, line, invec2, options & INVEC2_OPTIONS);
 
-		if (!must_fft && outvec_size < pmdata->KARAT_BREAK) {
+		if (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK) {
 			brute_line_avx (invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, outvec);
 		}
-		else if (!must_fft && outvec_size < pmdata->FFT_BREAK) {
+		else if (!must_fft && adjusted_outvec_size < pmdata->FFT_BREAK) {
 			karatsuba_line_avx (pmdata, invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, tmpvec, outvec);
 		}
 		else {
@@ -1314,8 +1403,8 @@ void polymult (
 #undef outsz2
 
 	// FFT inputs if needed
-	if (!(options & POLYMULT_INVEC1_FFTED)) for (int j = 0; j < invec1_size; j++) gwfft (pmdata->gwdata, invec1[j], invec1[j]);
-	if (!(options & POLYMULT_INVEC2_FFTED)) for (int j = 0; j < invec2_size; j++) gwfft (pmdata->gwdata, invec2[j], invec2[j]);
+	if (!(options & POLYMULT_INVEC1_FFTED)) for (int j = 0; j < invec1_size; j++) if (invec1[j] != NULL) gwfft (pmdata->gwdata, invec1[j], invec1[j]);
+	if (!(options & POLYMULT_INVEC2_FFTED)) for (int j = 0; j < invec2_size; j++) if (invec2[j] != NULL) gwfft (pmdata->gwdata, invec2[j], invec2[j]);
 
 	// Optimized routines for AVX instructions
 	if (pmdata->gwdata->cpu_flags & CPU_AVX) polymult_line_avx (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
