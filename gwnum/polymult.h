@@ -35,6 +35,9 @@ void polymult_init (
 	pmhandle *pmdata,		// Handle for polymult library that needs initializing
 	gwhandle *gwdata);		// Handle for gwnum FFT library
 
+// Control how many threads to use during polymult
+#define polymult_set_num_threads(h,n)	(h)->num_threads = (n)
+
 // Terminate use of a polymult handle.  Free up memory.
 void polymult_done (
 	pmhandle *pmdata);		// Handle for polymult library
@@ -77,8 +80,9 @@ void polymult (
 /* The pmhandle structure containing all of polymult's "global" data. */
 struct pmhandle_struct {
 	gwhandle *gwdata;		// Handle for gwnum FFT library
-//	int	num_threads;		// Number of threads to use computing polymults
-//	gwmutex...			// Mutex to make polymult thread safe
+	int	num_threads;		// Number of threads to use computing polymults
+	gwmutex	poly_mutex;		// Mutex to make polymult thread safe when multi-threading
+	int	next_line;		// Next line for a thread to process
 //	bool	will_use_polymult_forward_fft;   Affects GW_HEADER_SIZE (thus a gwinit option rather than a polymult option?)
 	int	twiddles_initialized;	// size of the twiddle tables
 	double	*twiddle_real;		// Radix-2 sin/cos table

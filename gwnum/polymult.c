@@ -58,8 +58,11 @@
 // 40) Is invec1_negate code OK when GW_FFT1 is not all ones?  I would think so.
 // 41) Add callback routine to check for ^C/ESC
 // 42) Transparent / or easy way to store gwnums on disk as part of input and/or output vectors.  Picture using 12GB memory and 50GB disk for really huge polys.
+// 43) Add callback to set affinity or use gwnum's callback
+// 44) Cache created threads?
 
 // Forward declarations required for the AVX, FMA, AVX512 compiles
+int next_line (pmhandle *pmdata);
 unsigned long cache_line_offset (gwhandle *gwdata, unsigned long i);
 void generate_sincos (pmhandle *pmdata, const unsigned int size);
 void polymult_line_avx (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwnum *gw_invec2, int invec2_size, gwnum *gw_outvec, int outvec_size, int options);
@@ -94,8 +97,11 @@ void polymult_init (
 	memset (pmdata, 0, sizeof (pmhandle));
 	pmdata->gwdata = gwdata;
 
-	// Initialize default breakeven points
+	// Initialize multithreading mutex and default number of threads
+	gwmutex_init (&pmdata->poly_mutex);
+	pmdata->num_threads = gwget_num_threads (gwdata);
 
+	// Initialize default breakeven points
 	if (pmdata->gwdata->cpu_flags & CPU_AVX) {
 		pmdata->KARAT_BREAK = 32;			//GW: Fix me
 		pmdata->FFT_BREAK = 64;				//GW: Fix me
@@ -110,12 +116,26 @@ void polymult_init (
 void polymult_done (
 	pmhandle *pmdata)		// Handle for polymult library
 {
+	gwmutex_destroy (&pmdata->poly_mutex);
 	free (pmdata->twiddle_real);
 	free (pmdata->twiddle_imag);
 	free (pmdata->twiddle_real4);
 	free (pmdata->twiddle_imag4);
 }
 
+
+// Return the next line that needs processing
+int next_line (
+	pmhandle *pmdata)		// Handle for polymult library
+{
+	int	return_value;
+
+	// Use mutex to guard next_line counter, return next available line
+	gwmutex_lock (&pmdata->poly_mutex);
+	return_value = pmdata->next_line++;
+	gwmutex_unlock (&pmdata->poly_mutex);
+	return (return_value);
+}
 
 //GW -- move to gwnum.c?
 
@@ -221,9 +241,21 @@ void generate_sincos (
 {
 	const double twopi = 2.0 * 3.1415926535897932384626433;
 
+	// Return quickly if twiddles have already been initialized
+	if (pmdata->twiddles_initialized && pmdata->twiddles_initialized == size) return;
+
+	// Make sure only one thread initializes the twiddles
+	gwmutex_lock (&pmdata->poly_mutex);
+
+	// If some other thread beat us to the initialization, then return
+	if (pmdata->twiddles_initialized && pmdata->twiddles_initialized == size) {
+		gwmutex_unlock (&pmdata->poly_mutex);
+		return;
+	}
+
+	// Free the previous twiddles
 	if (pmdata->twiddles_initialized) {
 //GW: accept size < pmdata->twiddles_initialized (at least for power of 2)
-		if (pmdata->twiddles_initialized == size) return;
 		free (pmdata->twiddle_real), pmdata->twiddle_real = NULL;
 		free (pmdata->twiddle_imag), pmdata->twiddle_imag = NULL;
 		free (pmdata->twiddle_real4), pmdata->twiddle_real4 = NULL;
@@ -253,6 +285,7 @@ void generate_sincos (
 	}
 
 	pmdata->twiddles_initialized = size;
+	gwmutex_unlock (&pmdata->poly_mutex);
 }
 
 #endif
@@ -700,7 +733,8 @@ void polymult_line (
 	}
 
 	// Grab one complex value from each gwnum coefficient.  Work that data set.  Then move onto next complex val in gwnums.
-	for (int line = 0; ; line++) {
+	for ( ; ; ) {
+		int line = next_line (pmdata);
 		if (!read_line (pmdata->gwdata, gw_invec1, invec1_size, line, invec1, options & INVEC1_OPTIONS)) break;
 		read_line (pmdata->gwdata, gw_invec2, invec2_size, line, invec2, options & INVEC2_OPTIONS);
 
@@ -1318,7 +1352,8 @@ void polymult_line_avx (
 	}
 
 	// Grab four complex values from each gwnum coefficient.  Work that data set.  Then move onto remaining complex vals in gwnums.
-	for (int line = 0; ; line++) {
+	for ( ; ; ) {
+		int line = next_line (pmdata);
 		if (!read_line_avx (pmdata->gwdata, gw_invec1, invec1_size, line, invec1, options & INVEC1_OPTIONS)) break;
 		read_line_avx (pmdata->gwdata, gw_invec2, invec2_size, line, invec2, options & INVEC2_OPTIONS);
 
@@ -1363,6 +1398,30 @@ void polymult_line_avx (
 
 #if !defined (AVX) && !defined (FMA) && !defined (AVX512)
 
+struct polymult_thread_info {
+	pmhandle *pmdata;		// Handle for polymult library
+	gwnum	*invec1;		// First input poly
+	int	invec1_size;		// Size of the first input polynomial (or fft size if POLYMULT_INVEC1_FFTED)
+	gwnum	*invec2;		// Second input poly
+	int	invec2_size;		// Size of the second input polynomial (or fft size if POLYMULT_INVEC2_FFTED)
+	gwnum	*outvec;		// Output poly
+	int	outvec_size;		// Size of the output polynomial (or fft_size if POLYMULT_FORWARD_FFT)
+	int	options;
+};
+
+/* Entry point for one thread to do part of the polymult */
+void polymult_thread (void *arg)
+{
+	struct polymult_thread_info *info = (struct polymult_thread_info *) arg;
+
+	// Optimized routines for AVX instructions
+	if (info->pmdata->gwdata->cpu_flags & CPU_AVX)
+		polymult_line_avx (info->pmdata, info->invec1, info->invec1_size, info->invec2, info->invec2_size, info->outvec, info->outvec_size, info->options);
+	// Default routines using no vector instructions
+	else
+		polymult_line (info->pmdata, info->invec1, info->invec1_size, info->invec2, info->invec2_size, info->outvec, info->outvec_size, info->options);
+}
+
 /* Multiply two polynomials producing FFTed gwnums as output.  The output gwnums need to be normalized before use in further gwnum operations. */
 /* It is safe to use input gwnums in the output vector.  For a normal polynomial multiply outvec_size must be invec1_size + invec2_size - 1. */
 /* For monic polynomial multiply, the leading input coefficients of 1 are omitted as is the leading 1 output coefficient -- thus */
@@ -1406,10 +1465,26 @@ void polymult (
 	if (!(options & POLYMULT_INVEC1_FFTED)) for (int j = 0; j < invec1_size; j++) if (invec1[j] != NULL) gwfft (pmdata->gwdata, invec1[j], invec1[j]);
 	if (!(options & POLYMULT_INVEC2_FFTED)) for (int j = 0; j < invec2_size; j++) if (invec2[j] != NULL) gwfft (pmdata->gwdata, invec2[j], invec2[j]);
 
-	// Optimized routines for AVX instructions
-	if (pmdata->gwdata->cpu_flags & CPU_AVX) polymult_line_avx (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
-	// Default routines using no vector instructions
-	else polymult_line (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
+	// Prepare for polymult in parallel
+	pmdata->next_line = 0;
+	struct polymult_thread_info info;
+	info.pmdata = pmdata;
+	info.invec1 = invec1;
+	info.invec1_size = invec1_size;
+	info.invec2 = invec2;
+	info.invec2_size = invec2_size;
+	info.outvec = outvec;
+	info.outvec_size = outvec_size;
+	info.options = options;
+
+	// Fire up each additional thread, then use the current thread too
+//GW: bug - fixed array limits num_threads
+	gwthread thread_id[512];
+	for (int i = 1; i < pmdata->num_threads; i++) gwthread_create_waitable (&thread_id[i], &polymult_thread, (void *) &info);
+	polymult_thread (&info);
+
+	// Wait for all threads to complete
+	for (int i = 1; i < pmdata->num_threads; i++) gwthread_wait_for_exit (&thread_id[i]);
 
 	// Unfft all output coefficients
 	if (!(options & POLYMULT_FORWARD_FFT)) {
