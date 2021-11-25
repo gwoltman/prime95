@@ -3009,7 +3009,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		OutputBoth (MAIN_THREAD_NUM, buf);
 		goto illegal_line;
 	    }
-	    if (w->work_type == WORK_FACTOR && w->n < 20000) {
+	    if (w->work_type == WORK_FACTOR && w->n < 200000) {
 		char	buf[100];
 		sprintf (buf, "Error: Use ECM instead of trial factoring for exponent: %ld\n", w->n);
 		OutputBoth (MAIN_THREAD_NUM, buf);

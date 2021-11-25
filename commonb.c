@@ -580,6 +580,7 @@ void SetPriority (
 
 	if (HW_NUM_CORES > 1 && info->verbosity >= 1) {
 		if (info->aux_hyperthread) sprintf (buf, "Setting affinity to run prefetching hyperthread on ");
+		else if (info->aux_polymult) sprintf (buf, "Setting affinity to run polymult helper thread on ");
 		else if (info->aux_thread_num == 0) strcpy (buf, "Setting affinity to run worker on ");
 		else sprintf (buf, "Setting affinity to run helper thread %d on ", info->aux_thread_num);
 		if (bind_type == 0) sprintf (buf+strlen(buf), "CPU core #%d\n", core+1);
@@ -702,17 +703,18 @@ void SetAuxThreadPriority (int aux_thread_num, int action, void *data)
 
 /* Handle thread start and hyperthread start action.  Set the thread priority. */
 
-	if (action == 0 || action == 10) {
+	if (action == 0 || action == 10 || action == 20) {
 		struct PriorityInfo sp_info;
 		memcpy (&sp_info, data, sizeof (struct PriorityInfo));
 		sp_info.aux_thread_num = aux_thread_num;
 		sp_info.aux_hyperthread = (action == 10);
+		sp_info.aux_polymult = (action == 20);
 		SetPriority (&sp_info);
 	}
 
 /* Handle thread terminate and hyperthread terminate action.  Remove thread handle from list of active worker threads. */
 
-	if (action == 1 || action == 11) {
+	if (action == 1 || action == 11 || action == 21) {
 		registerThreadTermination ();
 	}
 }
@@ -1125,7 +1127,7 @@ void read_mem_info (void)
 
 /* Get the maximum number of workers that can use lots of memory.  Default is AVAIL_MEM / 1GB rounded off. */
 
-	MAX_HIGH_MEM_WORKERS = IniGetTimedInt (LOCALINI_FILE, "MaxHighMemWorkers", (AVAIL_MEM + 500) / 1000, &seconds);
+	MAX_HIGH_MEM_WORKERS = IniGetTimedInt (LOCALINI_FILE, "MaxHighMemWorkers", 1, &seconds);
 	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread)) seconds_until_reread = seconds;
 	if (MAX_HIGH_MEM_WORKERS < 1) MAX_HIGH_MEM_WORKERS = 1;
 
