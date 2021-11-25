@@ -2997,13 +2997,13 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		OutputBoth (MAIN_THREAD_NUM, buf);
 		goto illegal_line;
 	    }
-	    if ((w->work_type == WORK_TEST ||
-	         w->work_type == WORK_DBLCHK ||
-	         w->work_type == WORK_ADVANCEDTEST) &&
+	    if ((w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK || w->work_type == WORK_ADVANCEDTEST) &&
 	        (w->n < MIN_PRIME ||
 		 (w->minimum_fftlen == 0 &&
-		  w->n > (unsigned long) (CPU_FLAGS & CPU_FMA3 ? MAX_PRIME_FMA3 :
-					  (CPU_FLAGS & (CPU_AVX | CPU_SSE2) ? MAX_PRIME_SSE2 : MAX_PRIME))))) {
+		  w->n > (unsigned long) ((CPU_FLAGS & CPU_AVX512F) ? MAX_PRIME_AVX512 :
+					  (CPU_FLAGS & CPU_FMA3) ? MAX_PRIME_FMA3 :
+					  (CPU_FLAGS & CPU_AVX) ? MAX_PRIME_AVX :
+					  (CPU_FLAGS & CPU_SSE2) ? MAX_PRIME_SSE2 : MAX_PRIME)))) {
 		char	buf[80];
 		sprintf (buf, "Error: Worktodo.txt file contained bad LL exponent: %ld\n", w->n);
 		OutputBoth (MAIN_THREAD_NUM, buf);
