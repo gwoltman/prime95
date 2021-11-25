@@ -35,7 +35,8 @@ void polymult_init (
 	pmhandle *pmdata,		// Handle for polymult library that needs initializing
 	gwhandle *gwdata);		// Handle for gwnum FFT library
 
-// Control how many threads to use during polymult
+// Control how many threads to use during polymult.  This must be set prior to first call to polymult.  If gwnum library has a thread_callback
+// routine set, the polymult library will use the same callback routine with action code 20 and 21. */
 #define polymult_set_num_threads(h,n)	(h)->num_threads = (n)
 
 // Terminate use of a polymult handle.  Free up memory.
@@ -81,8 +82,14 @@ void polymult (
 struct pmhandle_struct {
 	gwhandle *gwdata;		// Handle for gwnum FFT library
 	int	num_threads;		// Number of threads to use computing polymults
+	gwevent work_to_do;		// Event to signal polymult helper threads there is work to do
+	gwevent helpers_done;		// Event to signal polymult helper threads are done
 	gwmutex	poly_mutex;		// Mutex to make polymult thread safe when multi-threading
+	int	next_thread_num;	// Lets us generate a unique id for each helper thread
 	int	next_line;		// Next line for a thread to process
+	int	helpers_active;		// Count of helper threads that are still active
+	bool	termination_in_progress; // Flag for helper threads to exit
+	gwthread *thread_ids;		// Thread ids for the spawned threads
 //	bool	will_use_polymult_forward_fft;   Affects GW_HEADER_SIZE (thus a gwinit option rather than a polymult option?)
 	int	twiddles_initialized;	// size of the twiddle tables
 	double	*twiddle_real;		// Radix-2 sin/cos table
@@ -92,6 +99,14 @@ struct pmhandle_struct {
 	// Brute force from outvec_size [1..KARAT_BREAK), Karatsuba from [KARAT_BREAK..FFT_BREAK). FFT from [FFT_BREAK..infinity)
 	int	KARAT_BREAK;		// Output vector size where we switch from brute force to Karatsuba
 	int	FFT_BREAK;		// Output vector size where we switch from Karatsuba to FFTs
+	// Arguments to the current polymult call.  Copied here so that helper threads can access the arguments.
+	gwnum	*invec1;		// First input poly
+	int	invec1_size;		// Size of the first input polynomial (or fft size if POLYMULT_INVEC1_FFTED)
+	gwnum	*invec2;		// Second input poly
+	int	invec2_size;		// Size of the second input polynomial (or fft size if POLYMULT_INVEC2_FFTED)
+	gwnum	*outvec;		// Output poly
+	int	outvec_size;		// Size of the output polynomial (or fft_size if POLYMULT_FORWARD_FFT)
+	int	options;
 };
 
 
