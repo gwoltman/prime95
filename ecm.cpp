@@ -4043,7 +4043,7 @@ int ecm_stage2_impl (
 	ecmdata->max_pairmap_Dsections = cost_data.c.max_pairmap_Dsections;
 	memcpy (ecmdata->relp_sets, cost_data.c.relp_sets, sizeof (ecmdata->relp_sets));
 	if (ecmdata->state < ECM_STATE_STAGE2 || ecmdata->last_relocatable > ecmdata->B2_start) ecmdata->last_relocatable = ecmdata->B2_start;
-	
+
 /* Output some debugging data so we can compare estimateds to actuals */
 
 	if (IniGetInt (INI_FILE, "Stage2Estimates", 0)) {
@@ -6288,6 +6288,7 @@ void pm1_cleanup (
 
 	free (pm1data->nQx), pm1data->nQx = NULL;
 	free (pm1data->pairmap), pm1data->pairmap = NULL;
+	polymult_done (&pm1data->polydata);
 	gwdone (&pm1data->gwdata);
 	end_sieve (pm1data->sieve_info), pm1data->sieve_info = NULL;
 }
@@ -7135,10 +7136,12 @@ int pm1_stage2_impl (
 	if (pm1data->state == PM1_STATE_MIDSTAGE) {
 		if (pm1data->C_done == pm1data->B) {
 			pm1data->first_relocatable = pm1data->first_C_start;
+			pm1data->last_relocatable = 0;
 			if (pm1data->optimal_B2) pm1_choose_B2 (pm1data, numvals);
-		} else
+		} else {
 			pm1data->first_relocatable = pm1data->C_done;
-		pm1data->last_relocatable = 0;
+			pm1data->last_relocatable = 0;
+		}
 	}
 
 /* If are continuing from a save file that was in stage 2, check to see if we currently have enough memory to continue with the save file's */
@@ -8767,6 +8770,9 @@ pm1_polymult:
 			if ((num_polys & 1) == 0) last_poly_size += poly_size;
 			poly_size *= 2;
 			num_polys = (num_polys + 1) / 2;
+if (poly_size==2)sprintf (buf, "Round off: %.10g, poly_size: %d, EB: %g, SM: %g\n", gw_get_maxerr (&pm1data.gwdata), poly_size, pm1data.gwdata.EXTRA_BITS, pm1data.gwdata.safety_margin);
+else sprintf (buf, "Round off: %.10g, poly_size: %d\n", gw_get_maxerr (&pm1data.gwdata), poly_size);
+OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 		}
 	}
 
@@ -8913,6 +8919,10 @@ gwfree (&pm1data.gwdata, e); e = NULL;
 
 		polymult (&pm1data.polydata, poly1, poly1_size, poly2, poly2_size, outpoly, outpoly_size,
 			  POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC | POLYMULT_STARTNEXTFFT);
+if (pm1data.Dsection==0) {
+sprintf (buf, "Round off: %.10g\n", gw_get_maxerr (&pm1data.gwdata));
+OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
+}
 
 // Accumulate the evaluated points in gg for a later GCD
 
@@ -8989,6 +8999,8 @@ gwfree (&pm1data.gwdata, e); e = NULL;
 	gwfree (&pm1data.gwdata, e_incr), e_incr = NULL;
 	polymult_done (&pm1data.polydata);
 
+//GW: free poly gwnums before GCD
+	
 /* Stage 2 is complete */
 
 stage2_done:
@@ -10249,10 +10261,12 @@ int pp1_stage2_impl (
 	if (pp1data->state == PP1_STATE_MIDSTAGE) {
 		if (pp1data->C_done == pp1data->B) {
 			pp1data->first_relocatable = pp1data->B;
+			pp1data->last_relocatable = 0;
 			if (pp1data->optimal_B2) pp1_choose_B2 (pp1data, numvals);
-		} else
+		} else {
 			pp1data->first_relocatable = pp1data->C_done;
-		pp1data->last_relocatable = 0;
+			pp1data->last_relocatable = 0;
+		}
 	}
 
 /* If are continuing from a save file that was in stage 2, check to see if we currently have enough memory to continue with the save file's */
