@@ -673,7 +673,7 @@ a maximum amount of memory that one particular worker can use.
 
 You can set MaxHighMemWorkers=n in local.txt.  This tells the program how
 wany workers are allowed to use lots of memory.  This occurs doing stage 2
-of P-1, P+1, or ECM on medium-to-large numbers.  Default is available memory / 1GB.
+of P-1, P+1, or ECM on medium-to-large numbers.  Default is 1.
 
 You can set a threshold for what is considered lots of memory in MaxHighMemWorkers
 calculations.  In local.txt, set:
