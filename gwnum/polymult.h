@@ -65,14 +65,15 @@ void polymult (
 #define POLYMULT_INVEC2_MONIC	0x2	// Invec2 is a monic polynomial.  Leading coefficient of one is implied.
 #define POLYMULT_INVEC1_RLP	0x4	// Invec1 is an RLP (Reciprocal Laurent Polynomial).  Needs only half the storage.
 #define POLYMULT_INVEC2_RLP	0x8	// Invec2 is an RLP (Reciprocal Laurent Polynomial).  Needs only half the storage.
-#define POLYMULT_INVEC1_NEGATE	0x10	// Invec1 coefficients should be negated.
-#define POLYMULT_INVEC2_NEGATE	0x20	// Invec2 coefficients should be negated.
+#define POLYMULT_INVEC1_NEGATE	0x10	// Invec1 coefficients are negated.  Implied one of a monic polynomial is not negated.
+#define POLYMULT_INVEC2_NEGATE	0x20	// Invec2 coefficients are negated.  Implied one of a monic polynomial is not negated.
 #define	POLYMULT_INVEC1_FFTED	0x40	// First polynomial has been forward FFTed
 #define	POLYMULT_INVEC2_FFTED	0x80	// Second polynomial has been forward FFTed
-#define	POLYMULT_FORWARD_FFT	0x100	// Forward FFT the first polynomial, the second polynomial is ignored
-#define POLYMULT_STARTNEXTFFT	0x200	// Similar to GWMUL_STARTNEXTFFT.  Applied to all output coefficients.
-//#define GWMUL_ADDINCONST	0x0400		/* Addin the optional gwsetaddin value to the multiplication result */
-//#define GWMUL_MULBYCONST	0x0800		/* Multiply the final result by the small mulbyconst */
+#define	POLYMULT_FORWARD_FFT	0x100	// Forward FFT the first polynomial, the second polynomial is ignored.  FFT size is outvec_size.
+#define POLYMULT_FORCE_FFT_SIZE	0x200	// Multiply polys using FFT of size outvec_size
+#define POLYMULT_STARTNEXTFFT	0x400	// Similar to GWMUL_STARTNEXTFFT.  Applied to all output coefficients.
+//#define GWMUL_ADDINCONST	0x0800		/* Addin the optional gwsetaddin value to the multiplication result */
+//#define GWMUL_MULBYCONST	0x1000		/* Multiply the final result by the small mulbyconst */
 #define POLYMULT_INVEC1_MONIC_RLP	(POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_RLP)
 #define POLYMULT_INVEC2_MONIC_RLP	(POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_RLP)
 //GW: option to accept compressed poly inputs?
