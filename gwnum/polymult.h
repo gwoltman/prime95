@@ -70,7 +70,8 @@ void polymult (
 #define	POLYMULT_INVEC1_FFTED	0x40	// First polynomial has been forward FFTed
 #define	POLYMULT_INVEC2_FFTED	0x80	// Second polynomial has been forward FFTed
 #define	POLYMULT_FORWARD_FFT	0x100	// Forward FFT the first polynomial, the second polynomial is ignored.  FFT size is outvec_size.
-#define POLYMULT_FORCE_FFT_SIZE	0x200	// Multiply polys using FFT of size outvec_size
+#define POLYMULT_CIRCULAR	0x200	// Circular convolution based on outvec_size.  Only makes sense for small outvec sizes or outvec_size that
+					// matches the FFT length used to multiply the polynomials.
 #define POLYMULT_STARTNEXTFFT	0x400	// Similar to GWMUL_STARTNEXTFFT.  Applied to all output coefficients.
 //#define GWMUL_ADDINCONST	0x0800		/* Addin the optional gwsetaddin value to the multiplication result */
 //#define GWMUL_MULBYCONST	0x1000		/* Multiply the final result by the small mulbyconst */
