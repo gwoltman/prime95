@@ -75,6 +75,11 @@ void polymult (
 #define POLYMULT_STARTNEXTFFT	0x400	// Similar to GWMUL_STARTNEXTFFT.  Applied to all output coefficients.
 //#define GWMUL_ADDINCONST	0x0800		/* Addin the optional gwsetaddin value to the multiplication result */
 //#define GWMUL_MULBYCONST	0x1000		/* Multiply the final result by the small mulbyconst */
+#define POLYMULT_INVEC2_MONIC_TIMES_MONIC_RLP_OK 0x80000000 // Obscure prime95 option  that says it is OK to multiply a monic RLP poly #1 with a monic
+					// poly #2 using POLYMULT_CIRCULAR.  Normally this is dangerous because one time one is not safe from roundoff
+					// errors.  However, this instructs the library to treat poly #2 as non-monic and add one to the output affected
+					// output coefficient after gwunfft2.  When the implied one of monic poly #2 is not multiplied by any other
+					// poly #1 coefficient, the output is not needed (outvec entry is NULL).
 #define POLYMULT_INVEC1_MONIC_RLP	(POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_RLP)
 #define POLYMULT_INVEC2_MONIC_RLP	(POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_RLP)
 //GW: option to accept compressed poly inputs?

@@ -505,7 +505,7 @@ void karatsuba_line (
 
 	// Handle end of recursion
 	if (invec1_size == 1 || invec2_size == 1 || invec1_size + invec2_size < pmdata->KARAT_BREAK) {
-		brute_line (invec1, invec1_size, invec2, invec2_size, outvec, 0, 0, NULL);
+		brute_line (invec1, invec1_size, invec2, invec2_size, outvec, invec1_size + invec2_size - 1, 0, NULL);
 		return;
 	}
 
@@ -752,14 +752,14 @@ void polymult_line (
 
 	// Polymult using no vector instructions.  Allocate memory.  For the output vector allocate two extra in case there are any monic RLP inputs.
 	must_brute = (options & POLYMULT_CIRCULAR) && outvec_size != polymult_fft_size (outvec_size);
-	must_fft = !must_brute && (options & (POLYMULT_FORWARD_FFT | POLYMULT_CIRCULAR | POLYMULT_INVEC1_FFTED | POLYMULT_INVEC2_FFTED));
+	must_fft = !must_brute && (options & (POLYMULT_FORWARD_FFT | POLYMULT_INVEC1_FFTED | POLYMULT_INVEC2_FFTED));
 	if (must_brute || (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK)) {
 		invec1 = (double *) malloc (2 * adjusted_invec1_size * sizeof (double));
 		invec2 = (double *) malloc (2 * adjusted_invec2_size * sizeof (double));
 		outvec = (double *) malloc (2 * (adjusted_outvec_size + 2) * sizeof (double)) + 2;
 		tmpvec = NULL;
 	}
-	else if (!must_fft && adjusted_outvec_size < pmdata->FFT_BREAK) {
+	else if (!must_fft && !(options & POLYMULT_CIRCULAR) && adjusted_outvec_size < pmdata->FFT_BREAK) {
 		invec1 = (double *) malloc (2 * adjusted_invec1_size * sizeof (double));
 		invec2 = (double *) malloc (2 * adjusted_invec2_size * sizeof (double));
 		outvec = (double *) malloc (2 * (adjusted_outvec_size + 2) * sizeof (double)) + 2;
@@ -786,7 +786,7 @@ void polymult_line (
 		if (must_brute || (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK)) {
 			brute_line (invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, outvec, adjusted_outvec_size, options, gw_outvec);
 		}
-		else if (!must_fft && adjusted_outvec_size < pmdata->FFT_BREAK) {
+		else if (!must_fft && !(options & POLYMULT_CIRCULAR) && adjusted_outvec_size < pmdata->FFT_BREAK) {
 			karatsuba_line (pmdata, invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, tmpvec, outvec);
 		}
 		else {
@@ -810,17 +810,7 @@ void polymult_line (
 		if (post_process_monics) monic_line_adjustments (invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, outvec, adjusted_outvec_size, options);
 		write_line (pmdata->gwdata, gw_outvec, outvec_size, line, outvec, options & POLYMULT_CIRCULAR ? 0 : options);
 	}
-//for (int j=0; j < gwfftlen(pmdata->gwdata); j++){
-//int off=addr_offset(pmdata->gwdata,j)/8;
-//if (off % 8 >= 4) continue;	
-//if (off == 0 || off == 2) ASSERTG(gw_outvec[0][off] == gw_invec1[0][off]* gw_invec2[0][off]);
-//else if (off % 4 == 0) {
-//	double r = gw_invec1[0][off] * gw_invec2[0][off] - gw_invec1[0][off+2] * gw_invec2[0][off+2];
-//	double i = gw_invec1[0][off]* gw_invec2[0][off+2] + gw_invec1[0][off+2]* gw_invec2[0][off];
-//ASSERTG(gw_outvec[0][off] == r);
-//ASSERTG(gw_outvec[0][off+2] == i);
-//}
-//}
+
 	// Free memory
 	if (invec1 != tmpvec) free (invec1);
 	if (invec2 != outvec) free (invec2);
@@ -1035,7 +1025,7 @@ void karatsuba_line_avx (
 
 	// Handle end of recursion
 	if (invec1_size == 1 || invec2_size == 1 || invec1_size + invec2_size < pmdata->KARAT_BREAK) {
-		brute_line_avx (invec1, invec1_size, invec2, invec2_size, outvec, 0, 0, NULL);
+		brute_line_avx (invec1, invec1_size, invec2, invec2_size, outvec, invec1_size + invec2_size - 1, 0, NULL);
 		return;
 	}
 
@@ -1414,14 +1404,14 @@ void polymult_line_avx (
 
 	// Polymult using AVX instructions.  Allocate memory.  For the output vector allocate two extra in case there are any monic RLP inputs.
 	must_brute = (options & POLYMULT_CIRCULAR) && outvec_size != polymult_fft_size (outvec_size);
-	must_fft = !must_brute && (options & (POLYMULT_FORWARD_FFT | POLYMULT_CIRCULAR | POLYMULT_INVEC1_FFTED | POLYMULT_INVEC2_FFTED));
+	must_fft = !must_brute && (options & (POLYMULT_FORWARD_FFT | POLYMULT_INVEC1_FFTED | POLYMULT_INVEC2_FFTED));
 	if (must_brute || (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK)) {
 		invec1 = (__m256d *) aligned_malloc (2 * adjusted_invec1_size * sizeof (__m256d), 64);
 		invec2 = (__m256d *) aligned_malloc (2 * adjusted_invec2_size * sizeof (__m256d), 64);
 		outvec = (__m256d *) aligned_malloc (2 * (adjusted_outvec_size + 2) * sizeof (__m256d), 64) + 2;
 		tmpvec = NULL;
 	}
-	else if (!must_fft && adjusted_outvec_size < pmdata->FFT_BREAK) {
+	else if (!must_fft && !(options & POLYMULT_CIRCULAR) && adjusted_outvec_size < pmdata->FFT_BREAK) {
 		invec1 = (__m256d *) aligned_malloc (2 * adjusted_invec1_size * sizeof (__m256d), 64);
 		invec2 = (__m256d *) aligned_malloc (2 * adjusted_invec2_size * sizeof (__m256d), 64);
 		outvec = (__m256d *) aligned_malloc (2 * (adjusted_outvec_size + 2) * sizeof (__m256d), 64) + 2;
@@ -1448,7 +1438,7 @@ void polymult_line_avx (
 		if (must_brute || (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK)) {
 			brute_line_avx (invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, outvec, adjusted_outvec_size, options, gw_outvec);
 		}
-		else if (!must_fft && adjusted_outvec_size < pmdata->FFT_BREAK) {
+		else if (!must_fft && !(options & POLYMULT_CIRCULAR) && adjusted_outvec_size < pmdata->FFT_BREAK) {
 			karatsuba_line_avx (pmdata, invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, tmpvec, outvec);
 		}
 		else {
@@ -1618,7 +1608,8 @@ void polymult (
 	int	addin2 = -1;
 	if ((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)) addin1 = outvec_size - (2 * invec2_size);
 	if ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) addin2 = outvec_size - (2 * invec1_size);
-
+	if (options & POLYMULT_INVEC2_MONIC_TIMES_MONIC_RLP_OK) addin2 = invec2_size;
+			
 	// Unfft all output coefficients
 	if (!(options & POLYMULT_FORWARD_FFT)) {
 		for (int j = 0; j < outvec_size; j++) {
