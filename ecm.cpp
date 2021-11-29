@@ -8507,8 +8507,9 @@ pm1_polymult:
 	poly1_size = pm1data.numrels;
 	// Make poly #2 as large as we can.  Other than poly #1, we must save these values in gwnums:  r^2, gg, e_incr (//GW: x and/or 1/x and/or V for save file?)
 	poly2_size = (pm1data.stage2_numvals - 4) - poly1_size;		//GW:  (3??? 5???)
-	// Compute output poly size (poly #1 size must be doubled since it is an RLP).
-	outpoly_size = poly1_size*2 + poly2_size;
+	ASSERTG (poly2_size >= poly1_size*2);
+	// Compute output poly size -- we use circular convolution with an FFT size supported by the polymult library
+	outpoly_size = polymult_fft_size (poly2_size);
 	// Need numrels coefficients in poly #1.  Need 2 * numrels coefficients in poly #2 to eval poly #1 at one point.
 	// Each additional coefficient evaluates one more point.
 	num_points = poly2_size - (2*poly1_size) + 1;
@@ -8876,7 +8877,8 @@ gwfree (&pm1data.gwdata, e); e = NULL;
 		if (poly2[j] == NULL) goto lowmem;
 	}
 
-// The evaluated points during a polymult overwrite some of the poly #2 coefficients.  Setup the output poly.
+// The evaluated points during a polymult overwrite some of the poly #2 coefficients.  Take advantage of this by using circular convolution where
+// the "wrapped" results are coefficients we don't care about.  The output poly is the first fft size >= poly2_size.
 
 	memset (outpoly, 0, outpoly_size * sizeof (gwnum));
 	for (int j = 0; j < num_points; j++) outpoly[2*pm1data.numrels+j] = poly2[j];
@@ -8917,8 +8919,13 @@ gwfree (&pm1data.gwdata, e); e = NULL;
 
 // Evaluate poly #1 at many points using polymult!
 
+//GW: Since outpoly_size - num_points are not used, this could allow using a smaller FFT size within polymult -- we'd have to arrange the circular
+// coefficients to wrap around and corrupt data we don't care about
+// GW: cost function should take into account fft boundaries!  choosing fewer numvals may sometimes make sense.  Do this by costing using maximum numvals
+// and costing a reduced numvals/poly2size to next lower fft size.
+//GW: Does the fft of a RLP have any special format?  Such as half the data?  Can that be meaningfully expoited? See Montgomery/Kruppa 6.3.
 		polymult (&pm1data.polydata, poly1, poly1_size, poly2, poly2_size, outpoly, outpoly_size,
-			  POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC | POLYMULT_STARTNEXTFFT);
+			  POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC_TIMES_MONIC_RLP_OK | POLYMULT_CIRCULAR | POLYMULT_STARTNEXTFFT);
 if (pm1data.Dsection==0) {
 sprintf (buf, "Round off: %.10g\n", gw_get_maxerr (&pm1data.gwdata));
 OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
