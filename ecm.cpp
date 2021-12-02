@@ -8880,6 +8880,8 @@ gwfree (&pm1data.gwdata, e); e = NULL;
 // The evaluated points during a polymult overwrite some of the poly #2 coefficients.  Take advantage of this by using circular convolution where
 // the "wrapped" results are coefficients we don't care about.  The output poly is the first fft size >= poly2_size.
 
+// GW: cost function should take into account fft boundaries!  choosing fewer numvals may sometimes make sense.  Do this by costing using maximum numvals
+// and costing a reduced numvals/poly2size to next lower fft size.
 	memset (outpoly, 0, outpoly_size * sizeof (gwnum));
 	for (int j = 0; j < num_points; j++) outpoly[2*pm1data.numrels+j] = poly2[j];
 
@@ -8919,10 +8921,6 @@ gwfree (&pm1data.gwdata, e); e = NULL;
 
 // Evaluate poly #1 at many points using polymult!
 
-//GW: Since outpoly_size - num_points are not used, this could allow using a smaller FFT size within polymult -- we'd have to arrange the circular
-// coefficients to wrap around and corrupt data we don't care about
-// GW: cost function should take into account fft boundaries!  choosing fewer numvals may sometimes make sense.  Do this by costing using maximum numvals
-// and costing a reduced numvals/poly2size to next lower fft size.
 //GW: Does the fft of a RLP have any special format?  Such as half the data?  Can that be meaningfully expoited? See Montgomery/Kruppa 6.3.
 		polymult (&pm1data.polydata, poly1, poly1_size, poly2, poly2_size, outpoly, outpoly_size,
 			  POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC_TIMES_MONIC_RLP_OK | POLYMULT_CIRCULAR | POLYMULT_STARTNEXTFFT);
@@ -9406,7 +9404,13 @@ void cost_pm1 (
 		cost_data.c.numvals = g->vals;
 		cost_data.c.fftlen = g->fftlen;
 		cost_data.c.threads = g->threads;
-		c->pass2_squarings = best_stage2_impl (c->B1, 0, 0, c->B2, g->vals - 4, &pm1_stage2_cost, &cost_data);
+		for (int impl = 0; impl <= 1; impl++) {
+			cost_data.stage2_type = (impl == 0 ? PM1_STAGE2_PAIRING : PM1_STAGE2_POLYMULT);
+			cost_data.c.only_cost_max_numvals = (impl == 1);
+			cost_data.c.use_poly_D_data = (impl == 1);
+			double pass2_squarings = best_stage2_impl (c->B1, 0, 0, c->B2, g->vals - 4, &pm1_stage2_cost, &cost_data);
+			if (impl == 0 || pass2_squarings < c->pass2_squarings) c->pass2_squarings = pass2_squarings;
+		}
 	}
 
 /* Calculate probability of finding a factor (courtesy of Mihai Preda) */
