@@ -99,10 +99,8 @@ struct pmhandle_struct {
 	gwthread *thread_ids;		// Thread ids for the spawned threads
 //	bool	will_use_polymult_forward_fft;   Affects GW_HEADER_SIZE (thus a gwinit option rather than a polymult option?)
 	int	twiddles_initialized;	// size of the twiddle tables
-	double	*twiddle_real;		// Radix-2 sin/cos table
-	double	*twiddle_imag;
-	double	*twiddle_real4;		// Radix-4 sin/cos table
-	double	*twiddle_imag4;
+	double	*twiddles1;		// Sin/cos table for radix-3
+	double	*twiddles2;		// Sin/cos table for radix-4 and radix-5
 	// Brute force from outvec_size [1..KARAT_BREAK), Karatsuba from [KARAT_BREAK..FFT_BREAK). FFT from [FFT_BREAK..infinity)
 	int	KARAT_BREAK;		// Output vector size where we switch from brute force to Karatsuba
 	int	FFT_BREAK;		// Output vector size where we switch from Karatsuba to FFTs

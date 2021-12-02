@@ -15,7 +15,7 @@
 #include "gwnum.h"
 #include "gwutil.h"
 #include "polymult.h"
-#if defined (AVX) || defined (FMA) || defined (AVX512)
+#if defined (SSE2) || defined (AVX) || defined (FMA) || defined (AVX512)
 #include <immintrin.h>
 #endif
 
@@ -26,12 +26,10 @@
 // 9) Is a fast convert-gwnum-to-larger-FFT feasible? necessary?
 // 10) Tune for Brute / Karatsuba / FFT crossovers.
 // 12) Tune routine that returns needed safety margin needed for given poly sizes
-// 13) multi-threading
 // 14) Compressed gwnums.  Does it pay off?
 // 15) Add polymult to gwtest or as a standalone program
 // 16) Handle out-of-memory gracefully
-// 17) Sin/cos accuracy, PFA FFTs, 2-pass FFTs
-// 18) DJB FFTs
+// 17) Sin/cos accuracy, right collection of PFA FFT sizes?, 2-pass FFTs
 // 19) For large ffts, use Pavel's idea of copying the complex values to a gwnum and use an unweighted FFT with a special no-carry-propagation norm routine.
 //     Perhaps only do this for most common architectures, such as AVX-512 and FMA 64-bit.
 // 20) Radix-4 non-vector FFT.
@@ -58,8 +56,14 @@
 // 40) Is invec1_negate code OK when GW_FFT1 is not all ones?  I would think so.
 // 41) Add callback routine to check for ^C/ESC
 // 42) Transparent / or easy way to store gwnums on disk as part of input and/or output vectors.  Picture using 12GB memory and 50GB disk for really huge polys.
+// 43) Stockham auto-sort, read_line/write_line that reads/writes data with stride=1, two-pass cache-friendly ffts
+// 44) Cache several sincos tables for different FFT sizes.
+// 45) If twiddle_stride gets large, build a smaller twiddle table for smaller strides.
+// 46) Look for more FMA opportunities.
+// 47) Combine last fft step with pointmul and first invfft step?
+// 48) Test if hyperthreading is beneficial
 
-// Forward declarations required for the AVX, FMA, AVX512 compiles
+// Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
 int next_line (pmhandle *pmdata);
 unsigned long cache_line_offset (gwhandle *gwdata, unsigned long i);
 void generate_sincos (pmhandle *pmdata, const unsigned int size);
@@ -68,7 +72,102 @@ void polymult_line_avx (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwn
 #define INVEC1_OPTIONS	(POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_RLP | POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC1_FFTED)
 #define INVEC2_OPTIONS	(POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_RLP | POLYMULT_INVEC2_NEGATE | POLYMULT_INVEC2_FFTED)
 
-#if !defined (AVX) && !defined (FMA) && !defined (AVX512)
+#if defined (FMA)
+#define VLEN		256			// Vector is 256 bits wide
+#define VDT		__m256d			// Vector data type
+#define VFMA		1			// FMA is supported
+#define	read_line	read_line_fma		// Naming extension for this option
+#define	write_line	write_line_fma
+#define	brute_line	brute_line_fma
+#define	karatsuba_line	karatsuba_line_fma
+#define	fft_line	fft_line_fma
+#define	invfft_line	invfft_line_fma
+#define	pointmul_line	pointmul_line_fma
+#define	monic_line_add_hi monic_line_add_hi_fma
+#define	monic_line_add_lo monic_line_add_lo_fma
+#define	monic_line_adjustments monic_line_adjustments_fma
+#define	polymult_line	polymult_line_fma
+#define broadcastsd	_mm256_broadcast_sd
+#define addpd		_mm256_add_pd
+#define subpd		_mm256_sub_pd
+#define mulpd		_mm256_mul_pd
+#define fmaddpd		_mm256_fmadd_pd
+#define fmsubpd		_mm256_fmsub_pd
+#define fnmaddpd	_mm256_fnmadd_pd
+#elif defined (AVX)
+#define VLEN		256			// Vector is 256 bits wide
+#define VDT		__m256d			// Vector data type
+#define VFMA		0			// FMA not supported
+#define	read_line	read_line_avx		// Naming extension for this option
+#define	write_line	write_line_avx
+#define	brute_line	brute_line_avx
+#define	karatsuba_line	karatsuba_line_avx
+#define	fft_line	fft_line_avx
+#define	invfft_line	invfft_line_avx
+#define	pointmul_line	pointmul_line_avx
+#define	monic_line_add_hi monic_line_add_hi_avx
+#define	monic_line_add_lo monic_line_add_lo_avx
+#define	monic_line_adjustments monic_line_adjustments_avx
+#define	polymult_line	polymult_line_avx
+#define broadcastsd	_mm256_broadcast_sd
+#define addpd		_mm256_add_pd
+#define subpd		_mm256_sub_pd
+#define mulpd		_mm256_mul_pd
+#elif defined (SSE2)
+#define VLEN		128			// Vector is 256 bits wide
+#define VDT		__m128d			// Vector data type
+#define VFMA		0			// FMA not supported
+#define	read_line	read_line_sse2		// Naming extension for this option
+#define	write_line	write_line_sse2
+#define	brute_line	brute_line_sse2
+#define	karatsuba_line	karatsuba_line_sse2
+#define	fft_line	fft_line_sse2
+#define	invfft_line	invfft_line_sse2
+#define	pointmul_line	pointmul_line_sse2
+#define	monic_line_add_hi monic_line_add_hi_sse2
+#define	monic_line_add_lo monic_line_add_lo_sse2
+#define	monic_line_adjustments monic_line_adjustments_sse2
+#define	polymult_line	polymult_line_sse2
+#define broadcastsd	_mm128_broadcast_sd
+#define addpd		_mm128_add_pd
+#define subpd		_mm128_sub_pd
+#define mulpd		_mm128_mul_pd
+#else
+#define VLEN		64			// Vector is 256 bits wide
+#define VDT		double			// Vector data type
+#define VFMA		0			// FMA not supported
+#define	read_line	read_line_dbl		// Naming extension for this option
+#define	write_line	write_line_dbl
+#define	brute_line	brute_line_dbl
+#define	karatsuba_line	karatsuba_line_dbl
+#define	fft_line	fft_line_dbl
+#define	invfft_line	invfft_line_dbl
+#define	pointmul_line	pointmul_line_dbl
+#define	monic_line_add_hi monic_line_add_hi_dbl
+#define	monic_line_add_lo monic_line_add_lo_dbl
+#define	monic_line_adjustments monic_line_adjustments_dbl
+#define	polymult_line	polymult_line_dbl
+#define broadcastsd	_mm64_broadcast_sd
+#define addpd		_mm64_add_pd
+#define subpd		_mm64_sub_pd
+#define mulpd		_mm64_mul_pd
+#endif
+
+// Emulate FMA on CPUs that do not have an FMA instruction
+#if !VFMA
+#define fmaddpd(a,b,c)	addpd(mulpd(a,b),c)
+#define fmsubpd(a,b,c)	subpd(mulpd(a,b),c)
+#define fnmaddpd(a,b,c)	subpd(c,mulpd(a,b))
+#endif
+
+// Emulate vector length 1 using Intel-style instrinsic naming convention
+#define __m64d			double
+#define _mm64_broadcast_sd(a)	(*(a))
+#define _mm64_add_pd(a,b)	((a)+(b))
+#define _mm64_sub_pd(a,b)	((a)-(b))
+#define _mm64_mul_pd(a,b)	((a)*(b))
+
+#if !defined (SSE2) && !defined (AVX) && !defined (FMA) && !defined (AVX512)
 
 // Get the needed safety_margin required for an invec1_size by invec2_size polymult
 double polymult_safety_margin (int invec1_size, int invec2_size) {
@@ -81,10 +180,17 @@ double polymult_safety_margin (int invec1_size, int invec2_size) {
 // Get the FFT size that will be used for an n = invec1_size + invec2_size polymult
 int polymult_fft_size (int n)
 {
-	int	fft_sizes[] = {8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576,
-				2097152, 4194304, 8388608, 16777216, 33554432, 67108864, 134217728, 268435456, 536870912};
-	for (int i = 0; i < sizeof (fft_sizes) / sizeof (int); i++) if (fft_sizes[i] >= n) return (fft_sizes[i]);
-	return (1073741824);
+//GW: These FFT sizes haven't been timed.  Some may be slower than a larger FFT or more radix-3/5 options might be profitable
+	int	pfas[] = {40, 45, 48, 50, 54, 60, 64, 72, 75};		// Provide a variety of radix-3 and radix-5 FFT sizes
+
+	// Power of two when n is small -- brute force is probably faster anyway
+	if (n <= 32) for (int i = 2; ; i *= 2) if (i >= n) return (i);
+
+	// Increase n by a power of two until it
+	for (int two_multiplier = 1; ; two_multiplier *= 2) {
+		if (n > two_multiplier * 75) continue;
+		for (int i = 0; i < sizeof (pfas) / sizeof (int); i++) if (two_multiplier * pfas[i] >= n) return (two_multiplier * pfas[i]);
+	}
 }
 
 // Initialize a polymult handle
@@ -123,10 +229,8 @@ void polymult_done (
 		gwevent_destroy (&pmdata->work_to_do);
 		gwevent_destroy (&pmdata->helpers_done);
 	}
-	free (pmdata->twiddle_real), pmdata->twiddle_real = NULL;
-	free (pmdata->twiddle_imag), pmdata->twiddle_imag = NULL;
-	free (pmdata->twiddle_real4), pmdata->twiddle_real4 = NULL;
-	free (pmdata->twiddle_imag4), pmdata->twiddle_imag4 = NULL;
+	aligned_free (pmdata->twiddles1), pmdata->twiddles1 = NULL;
+	aligned_free (pmdata->twiddles2), pmdata->twiddles2 = NULL;
 }
 
 
@@ -229,23 +333,13 @@ unsigned long cache_line_offset (
 
 // Helper routines for FFT code
 
-// Bit reverse a number
-unsigned int bitrev (unsigned int i, unsigned int size)
-{
-	unsigned int res;
-	for (res = 0; size > 1; size >>= 1) {
-		res = (res << 1) + (i & 1);
-		i >>= 1;
-	}
-	return (res);
-}
-
-// Generate radix-2 and radix-4 twiddle factors
+// Generate radix-3/4/5 twiddle factors
 void generate_sincos (
 	pmhandle *pmdata,		// Handle for polymult library
-	const unsigned int size)
+	const unsigned int fft_size)
 {
 	const double twopi = 2.0 * 3.1415926535897932384626433;
+	unsigned int size = fft_size;
 
 	// Return quickly if twiddles have already been initialized
 	if (pmdata->twiddles_initialized && pmdata->twiddles_initialized == size) return;
@@ -262,48 +356,854 @@ void generate_sincos (
 	// Free the previous twiddles
 	if (pmdata->twiddles_initialized) {
 //GW: accept size < pmdata->twiddles_initialized (at least for power of 2)
-		free (pmdata->twiddle_real), pmdata->twiddle_real = NULL;
-		free (pmdata->twiddle_imag), pmdata->twiddle_imag = NULL;
-		free (pmdata->twiddle_real4), pmdata->twiddle_real4 = NULL;
-		free (pmdata->twiddle_imag4), pmdata->twiddle_imag4 = NULL;
+//GW: cache several different table sizes?
+		aligned_free (pmdata->twiddles1), pmdata->twiddles1 = NULL;
+		aligned_free (pmdata->twiddles2), pmdata->twiddles2 = NULL;
 	}
 
 //GW: Consider long doubles for better accuracy
-	pmdata->twiddle_real = (double *) malloc (size/2 * sizeof (double));
-	pmdata->twiddle_imag = (double *) malloc (size/2 * sizeof (double));
-	for (unsigned int i = 0; i < size/2; i++) {
-		double angle = twopi * (double) bitrev (i, size/2) / (double) size;
-		pmdata->twiddle_real[i] = cos (angle);
-		pmdata->twiddle_imag[i] = sin (angle);
+	if (size % 3 == 0) {
+		pmdata->twiddles1 = (double *) aligned_malloc (size/3 * 2 * sizeof (double), 64);
+		for (unsigned int i = 0; i < size/3; i++) {
+			double angle = twopi * (double) i / (double) size;
+			pmdata->twiddles1[2*i] = cos (angle);
+			pmdata->twiddles1[2*i+1] = sin (angle);
+		}
+		while (size % 3 == 0) size /= 3;
 	}
-
-//GW: Consider DJB twiddles to reduce table size by 33%
-	pmdata->twiddle_real4 = (double *) malloc (size/4 * 3 * sizeof (double));
-	pmdata->twiddle_imag4 = (double *) malloc (size/4 * 3 * sizeof (double));
+	pmdata->twiddles2 = (double *) aligned_malloc (size/4 * 2 * 2 * sizeof (double), 64);
 	for (unsigned int i = 0; i < size/4; i++) {
-		double angle = twopi * (double) bitrev (i, size/4) / (double) size;
-		pmdata->twiddle_real4[i*3] = cos (angle);
-		pmdata->twiddle_imag4[i*3] = sin (angle);
-		pmdata->twiddle_real4[i*3+1] = cos (2.0*angle);
-		pmdata->twiddle_imag4[i*3+1] = sin (2.0*angle);
-		pmdata->twiddle_real4[i*3+2] = cos (3.0*angle);
-		pmdata->twiddle_imag4[i*3+2] = sin (3.0*angle);
+		double angle = twopi * (double) i / (double) size;
+		pmdata->twiddles2[2*(2*i)] = cos (angle);
+		pmdata->twiddles2[2*(2*i)+1] = sin (angle);
+		pmdata->twiddles2[2*(2*i+1)] = cos (2.0*angle);
+		pmdata->twiddles2[2*(2*i+1)+1] = sin (2.0*angle);
 	}
 
-	pmdata->twiddles_initialized = size;
+	pmdata->twiddles_initialized = fft_size;
 	if (pmdata->num_threads > 1) gwmutex_unlock (&pmdata->poly_mutex);
 }
 
 #endif
+
+/*--------------------------------------------------------------------------
+|		Generalized routines (data type independent)
++-------------------------------------------------------------------------*/
+
+void brute_line (
+	VDT	*invec1,		// First input poly
+	int	invec1_size,		// Size of the first input polynomial
+	VDT	*invec2,		// Second input poly
+	int	invec2_size,		// Size of the second input polynomial
+	VDT	*outvec,		// Output poly
+	int	outvec_size,		// Either invec1_size+invec2_size-1 or size of gw_outvec if circular convolution
+	int	options,		// Options passed to polymult
+	gwnum	*gw_outvec)		// Gwnum array passed to polymult (so we can detect outputs that do not need to be computed)
+{
+	// AVX implementation.  Loop through output indices.
+	for (int out = 0; out < invec1_size + invec2_size - 1; out++) {
+		// Adjust output index for circular convolutions
+		int adjusted_out = out;
+		bool first_time = TRUE;
+		if (out >= outvec_size) {
+			adjusted_out = out - outvec_size;
+			first_time = FALSE;
+		}
+		// See if this output needs to be computed
+		if ((options & POLYMULT_CIRCULAR) && gw_outvec[adjusted_out] == NULL) continue;			//GW: Catch more cases such as RLP * RLP
+		// Get index into input vectors
+		int in1 = out < invec2_size ? 0 : out - invec2_size + 1;	// Index into invec1
+		int in2 = out - in1;						// Index into invec2
+		// Loop through all the pairs to accumulate in this output
+		for ( ; in1 < invec1_size && in2 >= 0; in1++, in2--) {
+			VDT real_x = invec1[2*in1];
+			VDT imag_x = invec1[2*in1+1];
+			VDT real_y = invec2[2*in2];
+			VDT imag_y = invec2[2*in2+1];
+			VDT real_tmp = fmsubpd (real_x, real_y, mulpd (imag_x, imag_y));
+			VDT imag_tmp = fmaddpd (real_x, imag_y, mulpd (imag_x, real_y));
+			if (first_time) {
+				outvec[2*adjusted_out] = real_tmp;
+				outvec[2*adjusted_out+1] = imag_tmp;
+				first_time = FALSE;
+			} else {
+				outvec[2*adjusted_out] = addpd (outvec[2*adjusted_out], real_tmp);
+				outvec[2*adjusted_out+1] = addpd (outvec[2*adjusted_out+1], imag_tmp);
+			}
+		}
+	}
+}
+
+// A recursive Karatsuba O(N^1.565) implementation of polynomial multiplication
+//	a	b	(input vector 1)
+//	c	d	(input vector 2)
+//-----------------   
+//ac   ad+bc   bd
+//
+//(a+b)*(c+d) = ac + ad + bc + bd
+// ad+bc = (a+b)*(c+d) - ac - bd
+void karatsuba_line (
+	pmhandle *pmdata,		// Handle for polymult library
+	VDT	*invec1,		// Coefficients of first input poly
+	int	invec1_size,		// Size of the first input polynomial
+	VDT	*invec2,		// Coefficients of second input poly
+	int	invec2_size,		// Size of the second input polynomial
+	VDT	*tmp,			// Temporary space
+	VDT	*outvec)		// Output poly coefficients
+{
+	int	i, a_size, b_size, c_size, d_size, a_plus_b_size, c_plus_d_size, bd_size, ac_size, a_plus_b_times_c_plus_d_size;
+	VDT	*a, *b, *c, *d, *ac, *bd, *a_plus_b, *c_plus_d, *a_plus_b_times_c_plus_d;
+
+	// Handle end of recursion
+	if (invec1_size == 1 || invec2_size == 1 || invec1_size + invec2_size < pmdata->KARAT_BREAK) {
+		brute_line (invec1, invec1_size, invec2, invec2_size, outvec, invec1_size + invec2_size - 1, 0, NULL);
+		return;
+	}
+
+	// To simplify code, always make invec2 the larger poly.
+	if (invec1_size > invec2_size) {
+		int tmpsize = invec1_size; invec1_size = invec2_size; invec2_size = tmpsize;
+		VDT *tmpvec = invec1; invec1 = invec2; invec2 = tmpvec;
+	}
+
+
+	// Split larger vector roughly in half.  For readability, create pointers to two halves.
+	d_size = (invec2_size + 1) / 2;
+	c_size = invec2_size - d_size;
+	c = invec2 + 2*d_size, d = invec2;
+
+	// Handle case where vectors are of wildly unequal lengths
+	if (d_size >= invec1_size) {
+		// Compute bd
+		bd = outvec;
+		karatsuba_line (pmdata, invec1, invec1_size, d, d_size, tmp, bd);
+		bd_size = invec1_size + d_size - 1;
+		// Compute bc and store it in tmp
+		VDT *bc = tmp;
+		int bc_size = invec1_size + c_size - 1;
+		tmp += 2*bc_size;
+		karatsuba_line (pmdata, invec1, invec1_size, c, c_size, tmp, bc);
+		// add/copy bc to output
+		for (i = 0; i < 2*(invec1_size-1); i++) outvec[i + 2*d_size] = addpd (outvec[i + 2*d_size], bc[i]);
+		for ( ; i < 2*bc_size; i++) outvec[i + 2*d_size] = bc[i];
+		return;
+	}
+
+	// Split smaller vector, the size of the two lower halves must be the same.  For readability, create pointers to two halves.
+	b_size = d_size;
+	a_size = invec1_size - b_size;
+	a = invec1 + 2*b_size, b = invec1;
+
+	// Compute (a+b)
+	a_plus_b = outvec;
+	for (i = 0; i < 2*a_size && i < 2*b_size; i++) a_plus_b[i] = addpd (a[i], b[i]);
+//	for ( ; i < 2*a_size; i++) a_plus_b[i] = a[i];		// In case a_size > b_size
+	for ( ; i < 2*b_size; i++) a_plus_b[i] = b[i];		// In case b_size > a_size
+	a_plus_b_size = i / 2;
+	// Compute (c+d)
+	c_plus_d = &outvec[i];
+	for (i = 0; i < 2*c_size && i < 2*d_size; i++) c_plus_d[i] = addpd (c[i], d[i]);
+//	for ( ; i < 2*c_size; i++) c_plus_d[i] = c[i];		// In case c_size > d_size
+	for ( ; i < 2*d_size; i++) c_plus_d[i] = d[i];		// In case d_size > c_size
+	c_plus_d_size = i / 2;
+	// Compute (a+b) * (c+d) and store it in tmp
+	a_plus_b_times_c_plus_d = tmp;
+	a_plus_b_times_c_plus_d_size = a_plus_b_size + c_plus_d_size - 1;
+	tmp += 2*a_plus_b_times_c_plus_d_size;
+	karatsuba_line (pmdata, a_plus_b, a_plus_b_size, c_plus_d, c_plus_d_size, tmp, a_plus_b_times_c_plus_d);
+
+	// Compute bd
+	bd = outvec;
+	karatsuba_line (pmdata, b, b_size, d, d_size, tmp, bd);
+	bd_size = b_size + d_size - 1;
+	// Output the complex value 0+0i
+	memset (&outvec[2*bd_size], 0, 2*sizeof(VDT));
+	// Compute ac
+	ac = &outvec[2*(bd_size+1)];
+	karatsuba_line (pmdata, a, a_size, c, c_size, tmp, ac);
+	ac_size = a_size + c_size - 1;
+
+	// subtract ac from middle
+	for (i = 0; i < 2*ac_size; i++) a_plus_b_times_c_plus_d[i] = subpd (a_plus_b_times_c_plus_d[i], ac[i]);
+	// subtract bd from middle
+	for (i = 0; i < 2*bd_size; i++) a_plus_b_times_c_plus_d[i] = subpd (a_plus_b_times_c_plus_d[i], bd[i]);
+	// add middle to output
+	for (i = 0; i < 2*a_plus_b_times_c_plus_d_size; i++) outvec[i + 2*b_size] = addpd (outvec[i + 2*b_size], a_plus_b_times_c_plus_d[i]);
+}
+
+void fft_line (
+	pmhandle *pmdata,		// Handle for polymult library
+	VDT	*vec,			// Array of complex values
+	unsigned int fft_size)		// The fft size
+{
+	unsigned int size = fft_size;		// The current group size to process
+	unsigned int stride;			// Stride through FFT data
+	unsigned int twiddle_stride;		// Stride through the twiddles data
+
+	generate_sincos (pmdata, fft_size);
+
+	// Radix-3 FFT
+	// A 3-complex FFT is:
+	// Res1:  (R1+R2+R3) + (I1+I2+I3)i
+	// Res2:  (R1-.5R2-.5R3-.866I2+.866I3) + (I1-.5I2-.5I3+.866R2-.866R3)i
+	// Res3:  (R1-.5R2-.5R3+.866I2-.866I3) + (I1-.5I2-.5I3-.866R2+.866R3)i
+	twiddle_stride = 1;
+	for ( ; size % 3 == 0; size /= 3, twiddle_stride *= 3) {
+		stride = size / 3;
+		double half_double = 0.5;				 VDT half = broadcastsd (&half_double);
+		double _866_double = 0.86602540378443864676372317075294; VDT _866 = broadcastsd (&_866_double);
+		for (unsigned int group = 0; group < fft_size; group += stride * 3) {
+			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += twiddle_stride) {
+				VDT real_a = vec[2*(group + group_member)];
+				VDT imag_a = vec[2*(group + group_member)+1];
+				VDT real_b = vec[2*(group + group_member + stride)];
+				VDT imag_b = vec[2*(group + group_member + stride)+1];
+				VDT real_c = vec[2*(group + group_member + 2*stride)];
+				VDT imag_c = vec[2*(group + group_member + 2*stride)+1];
+
+				VDT real_b_plus_c = addpd (real_b, real_c);				// b + c
+				VDT imag_b_plus_c = addpd (imag_b, imag_c);
+
+				VDT real_tmp23a = fnmaddpd (half, real_b_plus_c, real_a);		// a - 0.5 * (b + c)
+				VDT imag_tmp23a = fnmaddpd (half, imag_b_plus_c, imag_a);
+//GW: delay mul by 866 on true FMA CPUs
+				VDT real_tmp23b = mulpd (_866, subpd (imag_b, imag_c));	// 0.866 * (b - c)
+				VDT imag_tmp23b = mulpd (_866, subpd (real_b, real_c));
+
+				real_a = addpd (real_a, real_b_plus_c);					// a + b + c
+				imag_a = addpd (imag_a, imag_b_plus_c);
+				real_b = subpd (real_tmp23a, real_tmp23b);				// combine 23a and 23b
+				imag_b = addpd (imag_tmp23a, imag_tmp23b);
+				real_c = addpd (real_tmp23a, real_tmp23b);
+				imag_c = subpd (imag_tmp23a, imag_tmp23b);
+
+				vec[2*(group + group_member)]   = real_a;
+				vec[2*(group + group_member)+1] = imag_a;
+				if (group_member == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
+					vec[2*(group + group_member + stride)]     = real_b;
+					vec[2*(group + group_member + stride)+1]   = imag_b;
+					vec[2*(group + group_member + 2*stride)]   = real_c;
+					vec[2*(group + group_member + 2*stride)+1] = imag_c;
+				}
+				else {			// Apply twiddles
+					VDT real_twiddle1 = broadcastsd (&pmdata->twiddles1[2*twiddle_idx]);
+					VDT imag_twiddle1 = broadcastsd (&pmdata->twiddles1[2*twiddle_idx+1]);
+					vec[2*(group + group_member + stride)]     = fmsubpd (real_b, real_twiddle1, mulpd (imag_b, imag_twiddle1));
+					vec[2*(group + group_member + stride)+1]   = fmaddpd (imag_b, real_twiddle1, mulpd (real_b, imag_twiddle1));
+					vec[2*(group + group_member + 2*stride)]   = fmaddpd (real_c, real_twiddle1, mulpd (imag_c, imag_twiddle1));
+					vec[2*(group + group_member + 2*stride)+1] = fmsubpd (imag_c, real_twiddle1, mulpd (real_c, imag_twiddle1));
+				}
+			}
+		}
+	}
+
+	// Radix-5 FFT
+	// R1= r1     +(r2+r5)     +(r3+r4)
+	// R2= r1 +.309(r2+r5) -.809(r3+r4)    -.951(i2-i5) -.588(i3-i4)
+	// R5= r1 +.309(r2+r5) -.809(r3+r4)    +.951(i2-i5) +.588(i3-i4)
+	// R3= r1 -.809(r2+r5) +.309(r3+r4)    -.588(i2-i5) +.951(i3-i4)
+	// R4= r1 -.809(r2+r5) +.309(r3+r4)    +.588(i2-i5) -.951(i3-i4)
+	// I1= i1     +(i2+i5)     +(i3+i4)
+	// I2= i1 +.309(i2+i5) -.809(i3+i4)    +.951(r2-r5) +.588(r3-r4)
+	// I5= i1 +.309(i2+i5) -.809(i3+i4)    -.951(r2-r5) -.588(r3-r4)
+	// I3= i1 -.809(i2+i5) +.309(i3+i4)    +.588(r2-r5) -.951(r3-r4)
+	// I4= i1 -.809(i2+i5) +.309(i3+i4)    -.588(r2-r5) +.951(r3-r4)
+	twiddle_stride = 1;
+	for ( ; size % 5 == 0; size /= 5, twiddle_stride *= 5) {
+		double _309_double = 0.30901699437494742410229341718282;     VDT _309 = broadcastsd (&_309_double);
+		double _809_double = 0.80901699437494742410229341718282;     VDT _809 = broadcastsd (&_809_double);
+		double _951_double = 0.95105651629515357211643933337938;     VDT _951 = broadcastsd (&_951_double);
+		double _588_951_double = 0.61803398874989484820458683436564; VDT _588_951 = broadcastsd (&_588_951_double);
+		stride = size / 5;
+		for (unsigned int group = 0; group < fft_size; group += stride * 5) {
+			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += 2*twiddle_stride) {
+				VDT real_a = vec[2*(group + group_member)];
+				VDT imag_a = vec[2*(group + group_member)+1];
+				VDT real_b = vec[2*(group + group_member + stride)];
+				VDT imag_b = vec[2*(group + group_member + stride)+1];
+				VDT real_c = vec[2*(group + group_member + 2*stride)];
+				VDT imag_c = vec[2*(group + group_member + 2*stride)+1];
+				VDT real_d = vec[2*(group + group_member + 3*stride)];
+				VDT imag_d = vec[2*(group + group_member + 3*stride)+1];
+				VDT real_e = vec[2*(group + group_member + 4*stride)];
+				VDT imag_e = vec[2*(group + group_member + 4*stride)+1];
+
+				VDT real_b_plus_e = addpd (real_b, real_e);				// b + e
+				VDT imag_b_plus_e = addpd (imag_b, imag_e);
+				VDT real_c_plus_d = addpd (real_c, real_d);				// c + d
+				VDT imag_c_plus_d = addpd (imag_c, imag_d);
+				VDT real_b_minus_e = subpd (real_b, real_e);				// b - e
+				VDT imag_b_minus_e = subpd (imag_b, imag_e);
+				VDT real_c_minus_d = subpd (real_c, real_d);				// c - d
+				VDT imag_c_minus_d = subpd (imag_c, imag_d);
+
+				VDT real_tmp25a = fmaddpd (_309, real_b_plus_e, fnmaddpd (_809, real_c_plus_d, real_a)); // a +.309*(b+e) -.809*(c+d)
+				VDT imag_tmp25a = fmaddpd (_309, imag_b_plus_e, fnmaddpd (_809, imag_c_plus_d, imag_a));
+				VDT real_tmp34a = fnmaddpd (_809, real_b_plus_e, fmaddpd (_309, real_c_plus_d, real_a)); // a -.809*(b+e) +.309*(c+d)
+				VDT imag_tmp34a = fnmaddpd (_809, imag_b_plus_e, fmaddpd (_309, imag_c_plus_d, imag_a));
+//GW: delay mul by .951 on true FMA CPUs
+				VDT real_tmp25b = mulpd (_951, fmaddpd (_588_951, imag_c_minus_d, imag_b_minus_e));	// .951*(b-e) + 0.588*(c-d)
+				VDT imag_tmp25b = mulpd (_951, fmaddpd (_588_951, real_c_minus_d, real_b_minus_e));
+				VDT real_tmp34b = mulpd (_951, fmsubpd (_588_951, imag_b_minus_e, imag_c_minus_d));	// .588*(b-e) - 0.951*(c-d)
+				VDT imag_tmp34b = mulpd (_951, fmsubpd (_588_951, real_b_minus_e, real_c_minus_d));
+
+				real_a = addpd (addpd (real_a, real_b_plus_e), real_c_plus_d);	// a + b + c + d + e
+				imag_a = addpd (addpd (imag_a, imag_b_plus_e), imag_c_plus_d);
+				real_b = subpd (real_tmp25a, real_tmp25b);				// combine 25a and 25b
+				imag_b = addpd (imag_tmp25a, imag_tmp25b);
+				real_e = addpd (real_tmp25a, real_tmp25b);
+				imag_e = subpd (imag_tmp25a, imag_tmp25b);
+				real_c = subpd (real_tmp34a, real_tmp34b);				// combine 34a and 34b
+				imag_c = addpd (imag_tmp34a, imag_tmp34b);
+				real_d = addpd (real_tmp34a, real_tmp34b);
+				imag_d = subpd (imag_tmp34a, imag_tmp34b);
+
+				vec[2*(group + group_member)]   = real_a;
+				vec[2*(group + group_member)+1] = imag_a;
+				if (group_member == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
+					vec[2*(group + group_member + stride)]     = real_b;
+					vec[2*(group + group_member + stride)+1]   = imag_b;
+					vec[2*(group + group_member + 2*stride)]   = real_c;
+					vec[2*(group + group_member + 2*stride)+1] = imag_c;
+					vec[2*(group + group_member + 3*stride)]   = real_d;
+					vec[2*(group + group_member + 3*stride)+1] = imag_d;
+					vec[2*(group + group_member + 4*stride)]   = real_e;
+					vec[2*(group + group_member + 4*stride)+1] = imag_e;
+				}
+				else {			// Apply twiddles
+					VDT real_twiddle1 = broadcastsd (&pmdata->twiddles2[2*twiddle_idx]);
+					VDT imag_twiddle1 = broadcastsd (&pmdata->twiddles2[2*twiddle_idx+1]);
+					VDT real_twiddle2 = broadcastsd (&pmdata->twiddles2[2*(twiddle_idx+1)]);
+					VDT imag_twiddle2 = broadcastsd (&pmdata->twiddles2[2*(twiddle_idx+1)+1]);
+					vec[2*(group + group_member + stride)]     = fmsubpd (real_b, real_twiddle1, mulpd (imag_b, imag_twiddle1));
+					vec[2*(group + group_member + stride)+1]   = fmaddpd (imag_b, real_twiddle1, mulpd (real_b, imag_twiddle1));
+					vec[2*(group + group_member + 2*stride)]   = fmsubpd (real_c, real_twiddle2, mulpd (imag_c, imag_twiddle2));
+					vec[2*(group + group_member + 2*stride)+1] = fmaddpd (imag_c, real_twiddle2, mulpd (real_c, imag_twiddle2));
+					vec[2*(group + group_member + 3*stride)]   = fmaddpd (real_d, real_twiddle2, mulpd (imag_d, imag_twiddle2));
+					vec[2*(group + group_member + 3*stride)+1] = fmsubpd (imag_d, real_twiddle2, mulpd (real_d, imag_twiddle2));
+					vec[2*(group + group_member + 4*stride)]   = fmaddpd (real_e, real_twiddle1, mulpd (imag_e, imag_twiddle1));
+					vec[2*(group + group_member + 4*stride)+1] = fmsubpd (imag_e, real_twiddle1, mulpd (real_e, imag_twiddle1));
+				}
+			}
+		}
+	}
+
+	// Radix-4 FFT, one fewer complex multiply than radix-2, does more work while data is in registers
+	for ( ; size % 4 == 0; size /= 4, twiddle_stride *= 4) {
+		stride = size / 4;
+		for (unsigned int group = 0; group < fft_size; group += stride * 4) {
+			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += 2*twiddle_stride) {
+				VDT real_a = vec[2*(group + group_member)];
+				VDT imag_a = vec[2*(group + group_member)+1];
+				VDT real_b = vec[2*(group + group_member + stride)];
+				VDT imag_b = vec[2*(group + group_member + stride)+1];
+				VDT real_c = vec[2*(group + group_member + 2*stride)];
+				VDT imag_c = vec[2*(group + group_member + 2*stride)+1];
+				VDT real_d = vec[2*(group + group_member + 3*stride)];
+				VDT imag_d = vec[2*(group + group_member + 3*stride)+1];
+
+				VDT real_new_a = addpd (real_a, real_c);			// a + c
+				VDT imag_new_a = addpd (imag_a, imag_c);
+				VDT real_new_c = subpd (real_a, real_c);			// a - c
+				VDT imag_new_c = subpd (imag_a, imag_c);
+				VDT real_new_b = addpd (real_b, real_d);			// b + d
+				VDT imag_new_b = addpd (imag_b, imag_d);
+				VDT real_new_d = subpd (real_b, real_d);			// b - d
+				VDT imag_new_d = subpd (imag_b, imag_d);
+
+				real_a = addpd (real_new_a, real_new_b);				// a + b
+				imag_a = addpd (imag_new_a, imag_new_b);
+				real_b = subpd (real_new_a, real_new_b);				// a - b
+				imag_b = subpd (imag_new_a, imag_new_b);
+				real_c = subpd (real_new_c, imag_new_d);				// c + id
+				imag_c = addpd (imag_new_c, real_new_d);
+				real_d = addpd (real_new_c, imag_new_d);				// c - id
+				imag_d = subpd (imag_new_c, real_new_d);
+
+				vec[2*(group + group_member)]   = real_a;
+				vec[2*(group + group_member)+1] = imag_a;
+				if (group_member == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
+					vec[2*(group + group_member + stride)]     = real_b;
+					vec[2*(group + group_member + stride)+1]   = imag_b;
+					vec[2*(group + group_member + 2*stride)]   = real_c;
+					vec[2*(group + group_member + 2*stride)+1] = imag_c;
+					vec[2*(group + group_member + 3*stride)]   = real_d;
+					vec[2*(group + group_member + 3*stride)+1] = imag_d;
+				}
+				else {			// Apply twiddles
+					VDT real_twiddle1 = broadcastsd (&pmdata->twiddles2[2*twiddle_idx]);
+					VDT imag_twiddle1 = broadcastsd (&pmdata->twiddles2[2*twiddle_idx+1]);
+					VDT real_twiddle2 = broadcastsd (&pmdata->twiddles2[2*(twiddle_idx+1)]);
+					VDT imag_twiddle2 = broadcastsd (&pmdata->twiddles2[2*(twiddle_idx+1)+1]);
+					vec[2*(group + group_member + stride)]     = fmsubpd (real_b, real_twiddle2, mulpd (imag_b, imag_twiddle2));
+					vec[2*(group + group_member + stride)+1]   = fmaddpd (imag_b, real_twiddle2, mulpd (real_b, imag_twiddle2));
+					vec[2*(group + group_member + 2*stride)]   = fmsubpd (real_c, real_twiddle1, mulpd (imag_c, imag_twiddle1));
+					vec[2*(group + group_member + 2*stride)+1] = fmaddpd (imag_c, real_twiddle1, mulpd (real_c, imag_twiddle1));
+					vec[2*(group + group_member + 3*stride)]   = fmaddpd (real_d, real_twiddle1, mulpd (imag_d, imag_twiddle1));
+					vec[2*(group + group_member + 3*stride)+1] = fmsubpd (imag_d, real_twiddle1, mulpd (real_d, imag_twiddle1));
+				}
+			}
+		}
+	}
+
+	// Radix-2 FFT
+	if (size == 2) {
+		stride = 1;		// Stride for this radix-2 step
+		for (unsigned int group = 0; group < fft_size; group += stride * 2) {
+			for (unsigned int group_member = 0; group_member < stride; group_member++) {
+				VDT real_a = vec[2*(group + group_member)];
+				VDT imag_a = vec[2*(group + group_member)+1];
+				VDT real_b = vec[2*(group + group_member + stride)];
+				VDT imag_b = vec[2*(group + group_member + stride)+1];
+				vec[2*(group + group_member)] = addpd (real_a, real_b);
+				vec[2*(group + group_member)+1] = addpd (imag_a, imag_b);
+				vec[2*(group + group_member + stride)] = subpd (real_a, real_b);
+				vec[2*(group + group_member + stride)+1] = subpd (imag_a, imag_b);
+			}
+		}
+	}
+}
+
+void invfft_line (
+	pmhandle *pmdata,		// Handle for polymult library
+	VDT	*vec,			// Array of complex values
+	unsigned int fft_size)		// The fft size
+{
+	unsigned int stride;			// Stride through FFT data
+	unsigned int twiddle_stride;		// Stride through the twiddles data
+	unsigned int powers_of_two;
+
+	generate_sincos (pmdata, fft_size);
+
+	// Radix-2 FFT
+	stride = 1;										// First FFT data stride
+	for (twiddle_stride = fft_size;	twiddle_stride % 3 == 0; twiddle_stride /= 3);		// First twiddle stride
+	for (powers_of_two = 0; (fft_size & (1 << powers_of_two)) == 0; powers_of_two++);
+	if (powers_of_two & 1) {		// If odd number of powers of two do a radix-2 step
+		for (unsigned int group = 0; group < fft_size; group += stride * 2) {
+			for (unsigned int group_member = 0; group_member < stride; group_member++) {
+				VDT real_a = vec[2*(group + group_member)];
+				VDT imag_a = vec[2*(group + group_member)+1];
+				VDT real_b = vec[2*(group + group_member + stride)];
+				VDT imag_b = vec[2*(group + group_member + stride)+1];
+				vec[2*(group + group_member)] = addpd (real_a, real_b);
+				vec[2*(group + group_member)+1] = addpd (imag_a, imag_b);
+				vec[2*(group + group_member + stride)] = subpd (real_a, real_b);
+				vec[2*(group + group_member + stride)+1] = subpd (imag_a, imag_b);
+			}
+		}
+		stride *= 2;			// Next stride amount
+		twiddle_stride /= 2;		// Next twiddle stride amount
+		powers_of_two--;
+	}
+
+	// Radix-4 FFT, one fewer complex multiply than radix-2, does more work while data is in registers
+	for ( ; powers_of_two; powers_of_two -= 2, stride *= 4) {
+		twiddle_stride /= 4;
+		for (unsigned int group = 0; group < fft_size; group += stride * 4) {
+			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += 2*twiddle_stride) {
+				VDT real_a = vec[2*(group + group_member)];
+				VDT imag_a = vec[2*(group + group_member)+1];
+				VDT real_b = vec[2*(group + group_member + stride)];
+				VDT imag_b = vec[2*(group + group_member + stride)+1];
+				VDT real_c = vec[2*(group + group_member + 2*stride)];
+				VDT imag_c = vec[2*(group + group_member + 2*stride)+1];
+				VDT real_d = vec[2*(group + group_member + 3*stride)];
+				VDT imag_d = vec[2*(group + group_member + 3*stride)+1];
+
+				// Special case first group member, no twiddles necessary
+				VDT real_twiddled_b, imag_twiddled_b, real_twiddled_c, imag_twiddled_c, real_twiddled_d, imag_twiddled_d;
+				if (group_member == 0) {
+					real_twiddled_b = real_b;
+					imag_twiddled_b = imag_b;
+					real_twiddled_c = real_c;
+					imag_twiddled_c = imag_c;
+					real_twiddled_d = real_d;
+					imag_twiddled_d = imag_d;
+				}
+				// Apply the CONJUGATE of the twiddle
+				else {
+					VDT real_twiddle1 = broadcastsd (&pmdata->twiddles2[2*twiddle_idx]);
+					VDT imag_twiddle1 = broadcastsd (&pmdata->twiddles2[2*twiddle_idx+1]);
+					VDT real_twiddle2 = broadcastsd (&pmdata->twiddles2[2*(twiddle_idx+1)]);
+					VDT imag_twiddle2 = broadcastsd (&pmdata->twiddles2[2*(twiddle_idx+1)+1]);
+					real_twiddled_b = fmaddpd (real_b, real_twiddle2, mulpd (imag_b, imag_twiddle2));
+					imag_twiddled_b = fmsubpd (imag_b, real_twiddle2, mulpd (real_b, imag_twiddle2));
+					real_twiddled_c = fmaddpd (real_c, real_twiddle1, mulpd (imag_c, imag_twiddle1));
+					imag_twiddled_c = fmsubpd (imag_c, real_twiddle1, mulpd (real_c, imag_twiddle1));
+					real_twiddled_d = fmsubpd (real_d, real_twiddle1, mulpd (imag_d, imag_twiddle1));
+					imag_twiddled_d = fmaddpd (imag_d, real_twiddle1, mulpd (real_d, imag_twiddle1));
+				}
+
+				VDT real_new_a = addpd (real_a, real_twiddled_b);			// a + b
+				VDT imag_new_a = addpd (imag_a, imag_twiddled_b);
+				VDT real_new_b = subpd (real_a, real_twiddled_b);			// a - b
+				VDT imag_new_b = subpd (imag_a, imag_twiddled_b);
+				VDT real_new_c = addpd (real_twiddled_c, real_twiddled_d);		// c + d
+				VDT imag_new_c = addpd (imag_twiddled_c, imag_twiddled_d);
+				VDT real_new_d = subpd (real_twiddled_c, real_twiddled_d);		// c - d
+				VDT imag_new_d = subpd (imag_twiddled_c, imag_twiddled_d);
+
+				real_a = addpd (real_new_a, real_new_c);					// a + c
+				imag_a = addpd (imag_new_a, imag_new_c);
+				real_c = subpd (real_new_a, real_new_c);					// a - c
+				imag_c = subpd (imag_new_a, imag_new_c);
+				real_b = addpd (real_new_b, imag_new_d);					// b - id
+				imag_b = subpd (imag_new_b, real_new_d);
+				real_d = subpd (real_new_b, imag_new_d);					// b + id
+				imag_d = addpd (imag_new_b, real_new_d);
+
+				// Save results
+				vec[2*(group + group_member)]              = real_a;
+				vec[2*(group + group_member)+1]            = imag_a;
+				vec[2*(group + group_member + stride)]     = real_b;
+				vec[2*(group + group_member + stride)+1]   = imag_b;
+				vec[2*(group + group_member + 2*stride)]   = real_c;
+				vec[2*(group + group_member + 2*stride)+1] = imag_c;
+				vec[2*(group + group_member + 3*stride)]   = real_d;
+				vec[2*(group + group_member + 3*stride)+1] = imag_d;
+			}
+		}
+	}
+
+	// Radix-5 FFT
+	// R1= r1     +(r2+r5)     +(r3+r4)
+	// R2= r1 +.309(r2+r5) -.809(r3+r4)    +.951(i2-i5) +.588(i3-i4)
+	// R5= r1 +.309(r2+r5) -.809(r3+r4)    -.951(i2-i5) -.588(i3-i4)
+	// R3= r1 -.809(r2+r5) +.309(r3+r4)    +.588(i2-i5) -.951(i3-i4)
+	// R4= r1 -.809(r2+r5) +.309(r3+r4)    -.588(i2-i5) +.951(i3-i4)
+	// I1= i1     +(i2+i5)     +(i3+i4)
+	// I2= i1 +.309(i2+i5) -.809(i3+i4)    -.951(r2-r5) -.588(r3-r4)
+	// I5= i1 +.309(i2+i5) -.809(i3+i4)    +.951(r2-r5) +.588(r3-r4)
+	// I3= i1 -.809(i2+i5) +.309(i3+i4)    -.588(r2-r5) +.951(r3-r4)
+	// I4= i1 -.809(i2+i5) +.309(i3+i4)    +.588(r2-r5) -.951(r3-r4)
+	for ( ; (fft_size / stride) % 5 == 0; stride *= 5) {
+		twiddle_stride /= 5;
+		double _309_double = 0.30901699437494742410229341718282;     VDT _309 = broadcastsd (&_309_double);
+		double _809_double = 0.80901699437494742410229341718282;     VDT _809 = broadcastsd (&_809_double);
+		double _951_double = 0.95105651629515357211643933337938;     VDT _951 = broadcastsd (&_951_double);
+		double _588_951_double = 0.61803398874989484820458683436564; VDT _588_951 = broadcastsd (&_588_951_double);
+		for (unsigned int group = 0; group < fft_size; group += stride * 5) {
+			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += 2*twiddle_stride) {
+				VDT real_a = vec[2*(group + group_member)];
+				VDT imag_a = vec[2*(group + group_member)+1];
+				VDT real_b = vec[2*(group + group_member + stride)];
+				VDT imag_b = vec[2*(group + group_member + stride)+1];
+				VDT real_c = vec[2*(group + group_member + 2*stride)];
+				VDT imag_c = vec[2*(group + group_member + 2*stride)+1];
+				VDT real_d = vec[2*(group + group_member + 3*stride)];
+				VDT imag_d = vec[2*(group + group_member + 3*stride)+1];
+				VDT real_e = vec[2*(group + group_member + 4*stride)];
+				VDT imag_e = vec[2*(group + group_member + 4*stride)+1];
+
+				// Special case first group member, no twiddles necessary
+				VDT real_twiddled_b, imag_twiddled_b, real_twiddled_c, imag_twiddled_c;
+				VDT real_twiddled_d, imag_twiddled_d, real_twiddled_e, imag_twiddled_e;
+				if (group_member == 0) {
+					real_twiddled_b = real_b;
+					imag_twiddled_b = imag_b;
+					real_twiddled_c = real_c;
+					imag_twiddled_c = imag_c;
+					real_twiddled_d = real_d;
+					imag_twiddled_d = imag_d;
+					real_twiddled_e = real_e;
+					imag_twiddled_e = imag_e;
+				}
+				// Apply the CONJUGATE of the twiddle
+				else {
+					VDT real_twiddle1 = broadcastsd (&pmdata->twiddles2[2*twiddle_idx]);
+					VDT imag_twiddle1 = broadcastsd (&pmdata->twiddles2[2*twiddle_idx+1]);
+					VDT real_twiddle2 = broadcastsd (&pmdata->twiddles2[2*(twiddle_idx+1)]);
+					VDT imag_twiddle2 = broadcastsd (&pmdata->twiddles2[2*(twiddle_idx+1)+1]);
+					real_twiddled_b = fmaddpd (real_b, real_twiddle1, mulpd (imag_b, imag_twiddle1));
+					imag_twiddled_b = fmsubpd (imag_b, real_twiddle1, mulpd (real_b, imag_twiddle1));
+					real_twiddled_c = fmaddpd (real_c, real_twiddle2, mulpd (imag_c, imag_twiddle2));
+					imag_twiddled_c = fmsubpd (imag_c, real_twiddle2, mulpd (real_c, imag_twiddle2));
+					real_twiddled_d = fmsubpd (real_d, real_twiddle2, mulpd (imag_d, imag_twiddle2));
+					imag_twiddled_d = fmaddpd (imag_d, real_twiddle2, mulpd (real_d, imag_twiddle2));
+					real_twiddled_e = fmsubpd (real_e, real_twiddle1, mulpd (imag_e, imag_twiddle1));
+					imag_twiddled_e = fmaddpd (imag_e, real_twiddle1, mulpd (real_e, imag_twiddle1));
+				}
+
+				VDT real_b_plus_e = addpd (real_twiddled_b, real_twiddled_e);				// b + e
+				VDT imag_b_plus_e = addpd (imag_twiddled_b, imag_twiddled_e);
+				VDT real_c_plus_d = addpd (real_twiddled_c, real_twiddled_d);				// c + d
+				VDT imag_c_plus_d = addpd (imag_twiddled_c, imag_twiddled_d);
+				VDT real_b_minus_e = subpd (real_twiddled_b, real_twiddled_e);			// b - e
+				VDT imag_b_minus_e = subpd (imag_twiddled_b, imag_twiddled_e);
+				VDT real_c_minus_d = subpd (real_twiddled_c, real_twiddled_d);			// c - d
+				VDT imag_c_minus_d = subpd (imag_twiddled_c, imag_twiddled_d);
+
+				VDT real_tmp25a = fmaddpd (_309, real_b_plus_e, fnmaddpd (_809, real_c_plus_d, real_a)); // a +.309*(b+e) -.809*(c+d)
+				VDT imag_tmp25a = fmaddpd (_309, imag_b_plus_e, fnmaddpd (_809, imag_c_plus_d, imag_a));
+				VDT real_tmp34a = fnmaddpd (_809, real_b_plus_e, fmaddpd (_309, real_c_plus_d, real_a)); // a -.809*(b+e) +.309*(c+d)
+				VDT imag_tmp34a = fnmaddpd (_809, imag_b_plus_e, fmaddpd (_309, imag_c_plus_d, imag_a));
+//GW: delay mul by .951 on true FMA CPUs
+				VDT real_tmp25b = mulpd (_951, fmaddpd (_588_951, imag_c_minus_d, imag_b_minus_e));	// .951*(b-e) + 0.588*(c-d)
+				VDT imag_tmp25b = mulpd (_951, fmaddpd (_588_951, real_c_minus_d, real_b_minus_e));
+				VDT real_tmp34b = mulpd (_951, fmsubpd (_588_951, imag_b_minus_e, imag_c_minus_d));	// .588*(b-e) - 0.951*(c-d)
+				VDT imag_tmp34b = mulpd (_951, fmsubpd (_588_951, real_b_minus_e, real_c_minus_d));
+
+				real_a = addpd (addpd (real_a, real_b_plus_e), real_c_plus_d);	// a + b + c + d + e
+				imag_a = addpd (addpd (imag_a, imag_b_plus_e), imag_c_plus_d);
+				real_b = addpd (real_tmp25a, real_tmp25b);				// combine 25a and 25b
+				imag_b = subpd (imag_tmp25a, imag_tmp25b);
+				real_e = subpd (real_tmp25a, real_tmp25b);
+				imag_e = addpd (imag_tmp25a, imag_tmp25b);
+				real_c = addpd (real_tmp34a, real_tmp34b);				// combine 34a and 34b
+				imag_c = subpd (imag_tmp34a, imag_tmp34b);
+				real_d = subpd (real_tmp34a, real_tmp34b);
+				imag_d = addpd (imag_tmp34a, imag_tmp34b);
+
+				// Save results
+				vec[2*(group + group_member)]              = real_a;
+				vec[2*(group + group_member)+1]            = imag_a;
+				vec[2*(group + group_member + stride)]     = real_b;
+				vec[2*(group + group_member + stride)+1]   = imag_b;
+				vec[2*(group + group_member + 2*stride)]   = real_c;
+				vec[2*(group + group_member + 2*stride)+1] = imag_c;
+				vec[2*(group + group_member + 3*stride)]   = real_d;
+				vec[2*(group + group_member + 3*stride)+1] = imag_d;
+				vec[2*(group + group_member + 4*stride)]   = real_e;
+				vec[2*(group + group_member + 4*stride)+1] = imag_e;
+			}
+		}
+	}
+
+	// Radix-3 FFT
+	// A 3-complex inverse FFT is:
+	// Res1: (R1+R2+R3) + (I1+I2+I3)i
+	// Res2:  (R1-.5R2-.5R3+.866I2-.866I3) + (I1-.5I2-.5I3-.866R2+.866R3)i
+	// Res3:  (R1-.5R2-.5R3-.866I2+.866I3) + (I1-.5I2-.5I3+.866R2-.866R3)i
+	twiddle_stride = fft_size / stride;		// First radix-3 twiddle stride
+	for ( ; stride < fft_size; stride *= 3) {
+		twiddle_stride /= 3;
+		double half_double = 0.5;				 VDT half = broadcastsd (&half_double);
+		double _866_double = 0.86602540378443864676372317075294; VDT _866 = broadcastsd (&_866_double);
+		for (unsigned int group = 0; group < fft_size; group += stride * 3) {
+			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += twiddle_stride) {
+				VDT real_a = vec[2*(group + group_member)];
+				VDT imag_a = vec[2*(group + group_member)+1];
+				VDT real_b = vec[2*(group + group_member + stride)];
+				VDT imag_b = vec[2*(group + group_member + stride)+1];
+				VDT real_c = vec[2*(group + group_member + 2*stride)];
+				VDT imag_c = vec[2*(group + group_member + 2*stride)+1];
+
+				// Special case first group member, no twiddles necessary
+				VDT real_twiddled_b, imag_twiddled_b, real_twiddled_c, imag_twiddled_c;
+				if (group_member == 0) {
+					real_twiddled_b = real_b;
+					imag_twiddled_b = imag_b;
+					real_twiddled_c = real_c;
+					imag_twiddled_c = imag_c;
+				}
+				// Apply the CONJUGATE of the twiddle
+				else {
+					VDT real_twiddle1 = broadcastsd (&pmdata->twiddles1[2*twiddle_idx]);
+					VDT imag_twiddle1 = broadcastsd (&pmdata->twiddles1[2*twiddle_idx+1]);
+					real_twiddled_b = addpd (mulpd (real_b, real_twiddle1), mulpd (imag_b, imag_twiddle1));
+					imag_twiddled_b = subpd (mulpd (imag_b, real_twiddle1), mulpd (real_b, imag_twiddle1));
+					real_twiddled_c = subpd (mulpd (real_c, real_twiddle1), mulpd (imag_c, imag_twiddle1));
+					imag_twiddled_c = addpd (mulpd (imag_c, real_twiddle1), mulpd (real_c, imag_twiddle1));
+				}
+
+				VDT real_b_plus_c = addpd (real_twiddled_b, real_twiddled_c);				// b + c
+				VDT imag_b_plus_c = addpd (imag_twiddled_b, imag_twiddled_c);
+
+				VDT real_tmp23a = fnmaddpd (half, real_b_plus_c, real_a);				// a - 0.5 * (b + c)
+				VDT imag_tmp23a = fnmaddpd (half, imag_b_plus_c, imag_a);
+//GW: delay mul by 866 on true FMA CPUs
+				VDT real_tmp23b = mulpd (_866, subpd (imag_twiddled_b, imag_twiddled_c));	// 0.866 * (b - c)
+				VDT imag_tmp23b = mulpd (_866, subpd (real_twiddled_b, real_twiddled_c));
+
+				real_a = addpd (real_a, real_b_plus_c);							// a + b + c
+				imag_a = addpd (imag_a, imag_b_plus_c);
+				real_b = addpd (real_tmp23a, real_tmp23b);						// combine 23a and 23b
+				imag_b = subpd (imag_tmp23a, imag_tmp23b);
+				real_c = subpd (real_tmp23a, real_tmp23b);
+				imag_c = addpd (imag_tmp23a, imag_tmp23b);
+
+				vec[2*(group + group_member)] = real_a;
+				vec[2*(group + group_member)+1] = imag_a;
+				vec[2*(group + group_member + stride)] = real_b;
+				vec[2*(group + group_member + stride)+1] = imag_b;
+				vec[2*(group + group_member + 2*stride)] = real_c;
+				vec[2*(group + group_member + 2*stride)+1] = imag_c;
+			}
+		}
+	}
+}
+
+// out = in1 * in2 pointwise also divide by FFT length
+void pointmul_line (VDT *invec1, VDT *invec2, VDT *outvec, int size)
+{
+	double inv_fft_size_double = 1.0 / (double) size;
+	VDT inv_fft_size = broadcastsd (&inv_fft_size_double);
+	for (int j = 0; j < size; j++) {
+		VDT real_x = invec1[2*j];
+		VDT imag_x = invec1[2*j+1];
+		VDT real_y = invec2[2*j];
+		VDT imag_y = invec2[2*j+1];
+		outvec[2*j] = mulpd (fmsubpd (real_x, real_y, mulpd (imag_x, imag_y)), inv_fft_size);
+		outvec[2*j+1] = mulpd (fmaddpd (real_x, imag_y, mulpd (imag_x, real_y)), inv_fft_size);
+	}
+}
+
+// outvec += input vector shifted the proper amount to create a monic polymult result
+void monic_line_add_hi (VDT *invec, int invec_size, VDT *outvec, int outvec_size)
+{
+	// Add words starting from the highest word
+	for (invec += 2*(invec_size-1), outvec += 2*(outvec_size-1); invec_size; invec -= 2, outvec -= 2, invec_size--) {
+		outvec[0] = addpd (outvec[0], invec[0]);
+		outvec[1] = addpd (outvec[1], invec[1]);
+	}
+}
+
+// outvec += input vector shifted to the low part of outvec
+void monic_line_add_lo (VDT *invec, int invec_size, VDT *outvec, int outvec_size)
+{
+	for ( ; invec_size; invec += 2, outvec += 2, invec_size--) {
+		outvec[0] = addpd (outvec[0], invec[0]);
+		outvec[1] = addpd (outvec[1], invec[1]);
+	}
+}
+
+// Make adjustments to outvec for any monic input vectors
+void monic_line_adjustments (VDT *invec1, int invec1_size, VDT *invec2, int invec2_size, VDT *outvec, int outvec_size, int options)
+{
+	// If neither input is monic, no adjustments are necessary
+	if (! (options & POLYMULT_INVEC1_MONIC) && ! (options & POLYMULT_INVEC2_MONIC)) return;
+
+	// If either input is a monic RLP, create a new entry before the output vector calculated thusfar
+	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) ||
+	    ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP))) {
+		outvec -= 2;
+		outvec_size++;
+		memset (&outvec[0], 0, 2*sizeof(VDT));
+	}
+
+	// Create a new entry after the output vector calculated thusfar so that we can add to it
+	outvec_size++;
+	memset (&outvec[2*(outvec_size-1)], 0, 2*sizeof(VDT));
+
+	// Adjust for an implied high coefficient of one -- add in the other poly in the high words
+	if (options & POLYMULT_INVEC1_MONIC) monic_line_add_hi (invec2, invec2_size, outvec, outvec_size);
+	if (options & POLYMULT_INVEC2_MONIC) monic_line_add_hi (invec1, invec1_size, outvec, outvec_size);
+
+	// Adjust for an implied low coefficient of one -- add in the other poly to the low words
+	if ((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) monic_line_add_lo (invec2, invec2_size, outvec, outvec_size);
+	if ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)) monic_line_add_lo (invec1, invec1_size, outvec, outvec_size);
+}
+
+// Select from various polymult algorithms
+void polymult_line (
+	pmhandle *pmdata,		// Handle for polymult library
+	gwnum	*gw_invec1,		// First input poly
+	int	invec1_size,		// Size of the first input polynomial
+	gwnum	*gw_invec2,		// Second input poly
+	int	invec2_size,		// Size of the second input polynomial
+	gwnum	*gw_outvec,		// Output poly of size invec1_size + invec2_size - 1
+	int	outvec_size,		// Size of the output polynomial.  Should be invec1_size + invec2_size (less one if not monic).
+	int	options)
+{
+	int	adjusted_invec1_size, adjusted_invec2_size, adjusted_outvec_size, fft_size;
+	bool	must_brute, must_fft, post_process_monics;
+	VDT	*invec1, *invec2, *outvec, *tmpvec;
+
+	// Adjust sizes due to RLPs.  Calculate the output size assuming no monic inputs.
+	adjusted_invec1_size = (options & POLYMULT_INVEC1_RLP) ? 2 * invec1_size - 1 : invec1_size;
+	adjusted_invec2_size = (options & POLYMULT_INVEC2_RLP) ? 2 * invec2_size - 1 : invec2_size;
+	adjusted_outvec_size = adjusted_invec1_size + adjusted_invec2_size - 1;
+
+	// Sometimes we must (or it is beneficial) handle monic input polynomials as part of invec1/invec2 as opposed to a post-processing call to
+	// monic_line_adjustments.  Find those cases and adjust vector sizes.
+	if (options & POLYMULT_CIRCULAR) {
+		ASSERTG (!(options & POLYMULT_INVEC1_MONIC) || !(options & POLYMULT_INVEC2_MONIC));
+//GW: Find more cases where monic processing would be better done this way
+		if (options & POLYMULT_INVEC1_MONIC) adjusted_invec1_size += (options & POLYMULT_INVEC1_RLP) ? 2 : 1;
+		if (options & POLYMULT_INVEC2_MONIC) adjusted_invec2_size += (options & POLYMULT_INVEC2_RLP) ? 2 : 1;
+		adjusted_outvec_size = outvec_size;
+		post_process_monics = FALSE;
+	} else
+		post_process_monics = TRUE;
+
+	// Polymult using AVX instructions.  Allocate memory.  For the output vector allocate two extra in case there are any monic RLP inputs.
+	must_brute = (options & POLYMULT_CIRCULAR) && outvec_size != polymult_fft_size (outvec_size);
+	must_fft = !must_brute && (options & (POLYMULT_FORWARD_FFT | POLYMULT_INVEC1_FFTED | POLYMULT_INVEC2_FFTED));
+	if (must_brute || (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK)) {
+		invec1 = (VDT *) aligned_malloc (2 * adjusted_invec1_size * sizeof (VDT), 64);
+		invec2 = (VDT *) aligned_malloc (2 * adjusted_invec2_size * sizeof (VDT), 64);
+		outvec = (VDT *) aligned_malloc (2 * (adjusted_outvec_size + 2) * sizeof (VDT), 64) + 2;
+		tmpvec = NULL;
+	}
+	else if (!must_fft && !(options & POLYMULT_CIRCULAR) && adjusted_outvec_size < pmdata->FFT_BREAK) {
+		invec1 = (VDT *) aligned_malloc (2 * adjusted_invec1_size * sizeof (VDT), 64);
+		invec2 = (VDT *) aligned_malloc (2 * adjusted_invec2_size * sizeof (VDT), 64);
+		outvec = (VDT *) aligned_malloc (2 * (adjusted_outvec_size + 2) * sizeof (VDT), 64) + 2;
+		tmpvec = (VDT *) aligned_malloc (2 * (adjusted_outvec_size + 32) * sizeof (VDT), 64);	// Could need one extra for each recursion
+	}
+	else {
+		fft_size = (options & (POLYMULT_FORWARD_FFT | POLYMULT_CIRCULAR)) ? outvec_size :
+			   (options & POLYMULT_INVEC1_FFTED) ? invec1_size :
+			   (options & POLYMULT_INVEC2_FFTED) ? invec2_size : polymult_fft_size (adjusted_outvec_size);
+		tmpvec = (VDT *) aligned_malloc (2 * fft_size * sizeof (VDT), 64);		// FFT of invec1 goes here
+		outvec = (VDT *) aligned_malloc (2 * (fft_size + 2) * sizeof (VDT), 64) + 2;	// FFT of invec2 goes here as does outvec
+		if (post_process_monics && (options & POLYMULT_INVEC2_MONIC)) invec1 = (VDT *) aligned_malloc (2 * fft_size * sizeof (VDT), 64);
+		else invec1 = tmpvec;
+		if (post_process_monics && (options & POLYMULT_INVEC1_MONIC)) invec2 = (VDT *) aligned_malloc (2 * fft_size * sizeof (VDT), 64);
+		else invec2 = outvec;
+	}
+
+	// Grab four complex values from each gwnum coefficient.  Work that data set.  Then move onto remaining complex vals in gwnums.
+	for ( ; ; ) {
+		int line = next_line (pmdata);
+		if (!read_line (pmdata->gwdata, gw_invec1, invec1_size, line, invec1, options & INVEC1_OPTIONS, post_process_monics)) break;
+		read_line (pmdata->gwdata, gw_invec2, invec2_size, line, invec2, options & INVEC2_OPTIONS, post_process_monics);
+
+		if (must_brute || (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK)) {
+			brute_line (invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, outvec, adjusted_outvec_size, options, gw_outvec);
+		}
+		else if (!must_fft && !(options & POLYMULT_CIRCULAR) && adjusted_outvec_size < pmdata->FFT_BREAK) {
+			karatsuba_line (pmdata, invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, tmpvec, outvec);
+		}
+		else {
+			if (!(options & POLYMULT_INVEC1_FFTED)) {
+				if (invec1 != tmpvec) memcpy (tmpvec, invec1, 2*adjusted_invec1_size*sizeof(VDT));
+				memset (tmpvec + 2*adjusted_invec1_size, 0, 2*(fft_size-adjusted_invec1_size)*sizeof(VDT));
+				fft_line (pmdata, tmpvec, fft_size);
+			}
+			if (options & POLYMULT_FORWARD_FFT) {
+				write_line (pmdata->gwdata, gw_outvec, fft_size, line, tmpvec, 0);
+				continue;
+			}
+			if (!(options & POLYMULT_INVEC2_FFTED)) {
+				if (invec2 != outvec) memcpy (outvec, invec2, 2*adjusted_invec2_size*sizeof(VDT));
+				memset (outvec + 2*adjusted_invec2_size, 0, 2*(fft_size-adjusted_invec2_size)*sizeof(VDT));
+				fft_line (pmdata, outvec, fft_size);
+			}
+			pointmul_line (tmpvec, outvec, outvec, fft_size);
+			invfft_line (pmdata, outvec, fft_size);
+		}
+		if (post_process_monics) monic_line_adjustments (invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, outvec, adjusted_outvec_size, options);
+		write_line (pmdata->gwdata, gw_outvec, outvec_size, line, outvec, options & POLYMULT_CIRCULAR ? 0 : options);
+	}
+
+	// Free memory
+	if (invec1 != tmpvec) aligned_free (invec1);
+	if (invec2 != outvec) aligned_free (invec2);
+	aligned_free (outvec - 2);
+	aligned_free (tmpvec);
+}
+
 
 
 //--------------------------------------------------------------------
 //		Not-vector-optimized implementation
 //--------------------------------------------------------------------
 
-#if !defined (AVX) && !defined (FMA) && !defined (AVX512)
+#if !defined (SSE2) && !defined (AVX) && !defined (FMA) && !defined (AVX512)
 
-bool read_line (gwhandle *gwdata, gwnum *data, int size, int index, double *vec, int options, bool post_process_monics)
+bool read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, double *vec, int options, bool post_process_monics)
 {
 	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
@@ -389,7 +1289,7 @@ bool read_line (gwhandle *gwdata, gwnum *data, int size, int index, double *vec,
 	return (TRUE);
 }
 
-void write_line (gwhandle *gwdata, gwnum *data, int size, int index, double *vec, int options)
+void write_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, double *vec, int options)
 {
 	// If either input was a monic RLP, back up the output vector pointer to the newly created entry by monic_line_adjustments_avx
 	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) || ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)))
@@ -438,386 +1338,6 @@ void write_line (gwhandle *gwdata, gwnum *data, int size, int index, double *vec
 	}
 }
 
-// A brute force O(N^2) implementation of polynomial multiplication
-void brute_line (
-	double	*invec1,		// First input poly
-	int	invec1_size,		// Size of the first input polynomial
-	double	*invec2,		// Second input poly
-	int	invec2_size,		// Size of the second input polynomial
-	double	*outvec,		// Output poly
-	int	outvec_size,		// Either invec1_size+invec2_size-1 or size of gw_outvec if circular convolution
-	int	options,		// Options passed to polymult
-	gwnum	*gw_outvec)		// Gwnum array passed to polymult (so we can detect outputs that do not need to be computed)
-{
-	// No special instructions implementation.  Loop through output indices.
-	for (int out = 0; out < invec1_size + invec2_size - 1; out++) {
-		// Adjust output index for circular convolutions
-		int adjusted_out = out;
-		bool first_time = TRUE;
-		if (out >= outvec_size) {
-			adjusted_out = out - outvec_size;
-			first_time = FALSE;
-		}
-		// See if this output needs to be computed
-		if ((options & POLYMULT_CIRCULAR) && gw_outvec[adjusted_out] == NULL) continue;			//GW: Catch more cases such as RLP * RLP
-		// Get index into input vectors
-		int in1 = out < invec2_size ? 0 : out - invec2_size + 1;	// Index into invec1
-		int in2 = out - in1;						// Index into invec2
-		// Loop through all the pairs to accumulate in this output
-		for ( ; in1 < invec1_size && in2 >= 0; in1++, in2--) {
-			double real_x = invec1[2*in1];
-			double imag_x = invec1[2*in1+1];
-			double real_y = invec2[2*in2];
-			double imag_y = invec2[2*in2+1];
-			double real_tmp = real_x * real_y - imag_x * imag_y;
-			double imag_tmp = real_x * imag_y + imag_x * real_y;
-			if (first_time) {
-				outvec[2*adjusted_out] = real_tmp;
-				outvec[2*adjusted_out+1] = imag_tmp;
-				first_time = FALSE;
-			} else {
-				outvec[2*adjusted_out] += real_tmp;
-				outvec[2*adjusted_out+1] += imag_tmp;
-			}
-		}
-	}
-}
-
-// A recursive Karatsuba O(N^1.565) implementation of polynomial multiplication
-//	a	b	(input vector 1)
-//	c	d	(input vector 2)
-//-----------------   
-//ac   ad+bc   bd
-//
-//(a+b)*(c+d) = ac + ad + bc + bd
-// ad+bc = (a+b)*(c+d) - ac - bd
-void karatsuba_line (
-	pmhandle *pmdata,		// Handle for polymult library
-	double	*invec1,		// Coefficients of first input poly
-	int	invec1_size,		// Size of the first input polynomial
-	double	*invec2,		// Coefficients of second input poly
-	int	invec2_size,		// Size of the second input polynomial
-	double	*tmp,			// Temporary space
-	double	*outvec)		// Output poly coefficients
-{
-	int	i, a_size, b_size, c_size, d_size, a_plus_b_size, c_plus_d_size, bd_size, ac_size, a_plus_b_times_c_plus_d_size;
-	double	*a, *b, *c, *d, *ac, *bd, *a_plus_b, *c_plus_d, *a_plus_b_times_c_plus_d;
-
-	// Handle end of recursion
-	if (invec1_size == 1 || invec2_size == 1 || invec1_size + invec2_size < pmdata->KARAT_BREAK) {
-		brute_line (invec1, invec1_size, invec2, invec2_size, outvec, invec1_size + invec2_size - 1, 0, NULL);
-		return;
-	}
-
-	// To simplify code, always make invec2 the larger poly.
-	if (invec1_size > invec2_size) {
-		int tmpsize = invec1_size; invec1_size = invec2_size; invec2_size = tmpsize;
-		double *tmpvec = invec1; invec1 = invec2; invec2 = tmpvec;
-	}
-
-	// Split larger vector roughly in half.  For readability, create pointers to two halves.
-	d_size = (invec2_size + 1) / 2;
-	c_size = invec2_size - d_size;
-	c = invec2 + 2*d_size, d = invec2;
-
-	// Handle case where vectors are of wildly unequal lengths
-	if (d_size >= invec1_size) {
-		// Compute bd
-		bd = outvec;
-		karatsuba_line (pmdata, invec1, invec1_size, d, d_size, tmp, bd);
-		bd_size = invec1_size + d_size - 1;
-		// Compute bc and store it in tmp
-		double *bc = tmp;
-		int bc_size = invec1_size + c_size - 1;
-		tmp += 2*bc_size;
-		karatsuba_line (pmdata, invec1, invec1_size, c, c_size, tmp, bc);
-		// add/copy bc to output
-		for (i = 0; i < 2*(invec1_size-1); i++) outvec[i + 2*d_size] += bc[i];
-		for ( ; i < 2*bc_size; i++) outvec[i + 2*d_size] = bc[i];
-		return;
-	}
-
-	// Split smaller vector, the size of the two lower halves must be the same.  For readability, create pointers to two halves.
-	b_size = d_size;
-	a_size = invec1_size - b_size;
-	a = invec1 + 2*b_size, b = invec1;
-
-	// Compute (a+b)
-	a_plus_b = outvec;
-	for (i = 0; i < 2*a_size && i < 2*b_size; i++) a_plus_b[i] = a[i] + b[i];
-//	for ( ; i < 2*a_size; i++) a_plus_b[i] = a[i];		// In case a_size > b_size
-	for ( ; i < 2*b_size; i++) a_plus_b[i] = b[i];		// In case b_size > a_size
-	a_plus_b_size = i / 2;
-	// Compute (c+d)
-	c_plus_d = &outvec[i];
-	for (i = 0; i < 2*c_size && i < 2*d_size; i++) c_plus_d[i] = c[i] + d[i];
-//	for ( ; i < 2*c_size; i++) c_plus_d[i] = c[i];		// In case c_size > d_size
-	for ( ; i < 2*d_size; i++) c_plus_d[i] = d[i];		// In case d_size > c_size
-	c_plus_d_size = i / 2;
-	// Compute (a+b) * (c+d) and store it in tmp
-	a_plus_b_times_c_plus_d = tmp;
-	a_plus_b_times_c_plus_d_size = a_plus_b_size + c_plus_d_size - 1;
-	tmp += 2*a_plus_b_times_c_plus_d_size;
-	karatsuba_line (pmdata, a_plus_b, a_plus_b_size, c_plus_d, c_plus_d_size, tmp, a_plus_b_times_c_plus_d);
-
-	// Compute bd
-	bd = outvec;
-	karatsuba_line (pmdata, b, b_size, d, d_size, tmp, bd);
-	bd_size = b_size + d_size - 1;
-	// Output the complex value 0+0i
-	outvec[2*bd_size] = 0;
-	outvec[2*bd_size+1] = 0;
-	// Compute ac
-	ac = &outvec[2*(bd_size+1)];
-	karatsuba_line (pmdata, a, a_size, c, c_size, tmp, ac);
-	ac_size = a_size + c_size - 1;
-
-	// subtract ac from middle
-	for (i = 0; i < 2*ac_size; i++) a_plus_b_times_c_plus_d[i] -= ac[i];
-	// subtract bd from middle
-	for (i = 0; i < 2*bd_size; i++) a_plus_b_times_c_plus_d[i] -= bd[i];
-	// add middle to output
-	for (i = 0; i < 2*a_plus_b_times_c_plus_d_size; i++) outvec[i + 2*b_size] += a_plus_b_times_c_plus_d[i];
-}
-
-void fft_line (
-	pmhandle *pmdata,		// Handle for polymult library
-	double	*vec,			// Array of complex values
-	const unsigned int size)	// The fft size
-{
-	generate_sincos (pmdata, size);
-
-	// Do first two levels.  We know the high half of the vector is zero.
-	ASSERTG (size > 2);
-	unsigned int stride = size/4;
-	for (unsigned int group_member = 0; group_member < stride; group_member++) {
-		double real_a = vec[2*(group_member)];
-		double imag_a = vec[2*(group_member) + 1];
-		double real_b = vec[2*(group_member + stride)];
-		double imag_b = vec[2*(group_member + stride) + 1];
-		vec[2*(group_member)] = real_a + real_b;
-		vec[2*(group_member) + 1] = imag_a + imag_b;
-		vec[2*(group_member + stride)] = real_a - real_b;
-		vec[2*(group_member + stride) + 1] = imag_a - imag_b;
-		vec[2*(group_member + 2*stride)] = real_a - imag_b;
-		vec[2*(group_member + 2*stride) + 1] = imag_a + real_b;
-		vec[2*(group_member + 3*stride)] = real_a + imag_b;
-		vec[2*(group_member + 3*stride) + 1] = imag_a - real_b;
-	}
-	stride >>= 1;
-
-	// Radix 2 FFT
-	for ( ; stride >= 1; stride >>= 1) {
-		double *twiddle_real_ptr = pmdata->twiddle_real;
-		double *twiddle_imag_ptr = pmdata->twiddle_imag;
-		for (unsigned int group = 0; group < size; group += stride * 2, twiddle_real_ptr++, twiddle_imag_ptr++) {
-			for (unsigned int group_member = 0; group_member < stride; group_member++) {
-				double *real_x = vec + 2*(group + group_member);
-				double *imag_x = vec + 2*(group + group_member) + 1;
-				double *real_y = vec + 2*(group + group_member + stride);
-				double *imag_y = vec + 2*(group + group_member + stride) + 1;
-				double real_twiddled_y = *real_y * *twiddle_real_ptr - *imag_y * *twiddle_imag_ptr;
-				double imag_twiddled_y = *imag_y * *twiddle_real_ptr + *real_y * *twiddle_imag_ptr;
-				*real_y = *real_x - real_twiddled_y;
-				*imag_y = *imag_x - imag_twiddled_y;
-				*real_x = *real_x + real_twiddled_y;
-				*imag_x = *imag_x + imag_twiddled_y;
-			}
-		}
-	}
-}
-
-void invfft_line (
-	pmhandle *pmdata,		// Handle for polymult library
-	double	*vec,			// Array of complex values
-	const unsigned int size)	// The fft size
-{
-	generate_sincos (pmdata, size);
-
-	unsigned int stride = 1;		// First stride
-	for ( ; stride < size; stride <<= 1) {
-		double *twiddle_real_ptr = pmdata->twiddle_real;
-		double *twiddle_imag_ptr = pmdata->twiddle_imag;
-		for (unsigned int group = 0; group < size; group += stride * 2, twiddle_real_ptr++, twiddle_imag_ptr++) {
-			for (unsigned int group_member = 0; group_member < stride; group_member++) {
-				double *real_x = vec + 2*(group + group_member);
-				double *imag_x = vec + 2*(group + group_member) + 1;
-				double *real_y = vec + 2*(group + group_member + stride);
-				double *imag_y = vec + 2*(group + group_member + stride) + 1;
-				double xr = *real_x + *real_y;
-				double xi = *imag_x + *imag_y;
-				double yr = *real_x - *real_y;
-				double yi = *imag_x - *imag_y;
-				*real_x = xr;
-				*imag_x = xi;
-				*real_y = yr * *twiddle_real_ptr - yi * -*twiddle_imag_ptr;
-				*imag_y = yr * -*twiddle_imag_ptr + yi * *twiddle_real_ptr;
-			}
-		}
-	}
-}
-
-// out = in1 * in2 pointwise also divide by FFT length
-void pointmul_line (double *invec1, double *invec2, double *outvec, int size)
-{
-	double inv_fft_size = 1.0 / (double) size;
-	for (int j = 0; j < size; j++) {
-		double real_x = invec1[2*j];
-		double imag_x = invec1[2*j+1];
-		double real_y = invec2[2*j];
-		double imag_y = invec2[2*j+1];
-		double tmp = real_x * real_y - imag_x * imag_y;
-		outvec[2*j+1] = (real_x * imag_y + imag_x * real_y) * inv_fft_size;
-		outvec[2*j] = tmp * inv_fft_size;
-	}
-}
-
-// outvec += input vector shifted the proper amount to create a monic polymult result
-void monic_line_add_hi (double *invec, int invec_size, double *outvec, int outvec_size)
-{
-	// Add words starting from the highest word
-	for (invec += 2*(invec_size-1), outvec += 2*(outvec_size-1); invec_size; invec -= 2, outvec -= 2, invec_size--) {
-		outvec[0] += invec[0];
-		outvec[1] += invec[1];
-	}
-}
-
-// outvec += input vector shifted to the low part of outvec
-void monic_line_add_lo (double *invec, int invec_size, double *outvec, int outvec_size)
-{
-	for ( ; invec_size; invec += 2, outvec += 2, invec_size--) {
-		outvec[0] += invec[0];
-		outvec[1] += invec[1];
-	}
-}
-
-// Make adjustments to outvec for any monic input vectors
-void monic_line_adjustments (double *invec1, int invec1_size, double *invec2, int invec2_size, double *outvec, int outvec_size, int options)
-{
-	// If neither input is monic, no adjustments are necessary
-	if (! (options & POLYMULT_INVEC1_MONIC) && ! (options & POLYMULT_INVEC2_MONIC)) return;
-
-	// If either input is a monic RLP, create a new entry before the output vector calculated thusfar
-	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) ||
-	    ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP))) {
-		outvec -= 2;
-		outvec_size++;
-		memset (&outvec[0], 0, 2*sizeof(double));
-	}
-
-	// Create a new entry after the output vector calculated thusfar so that we can add to it
-	outvec_size++;
-	memset (&outvec[2*(outvec_size-1)], 0, 2*sizeof(double));
-
-	// Adjust for an implied high coefficient of one -- add in the other poly in the high words
-	if (options & POLYMULT_INVEC1_MONIC) monic_line_add_hi (invec2, invec2_size, outvec, outvec_size);
-	if (options & POLYMULT_INVEC2_MONIC) monic_line_add_hi (invec1, invec1_size, outvec, outvec_size);
-
-	// Adjust for an implied low coefficient of one -- add in the other poly to the low words
-	if ((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) monic_line_add_lo (invec2, invec2_size, outvec, outvec_size);
-	if ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)) monic_line_add_lo (invec1, invec1_size, outvec, outvec_size);
-}
-
-// Select from among polymult versions
-void polymult_line (
-	pmhandle *pmdata,		// Handle for polymult library
-	gwnum	*gw_invec1,		// First input poly
-	int	invec1_size,		// Size of the first input polynomial
-	gwnum	*gw_invec2,		// Second input poly
-	int	invec2_size,		// Size of the second input polynomial
-	gwnum	*gw_outvec,		// Output poly of size invec1_size + invec2_size - 1
-	int	outvec_size,		// Size of the output polynomial.  Should be invec1_size + invec2_size (less one if not monic).
-	int	options)
-{
-	int	adjusted_invec1_size, adjusted_invec2_size, adjusted_outvec_size, fft_size;
-	bool	must_brute, must_fft, post_process_monics;
-	double	*invec1, *invec2, *outvec, *tmpvec;
-
-	// Adjust sizes due to RLPs.  Calculate the output size assuming no monic inputs.
-	adjusted_invec1_size = (options & POLYMULT_INVEC1_RLP) ? 2 * invec1_size - 1 : invec1_size;
-	adjusted_invec2_size = (options & POLYMULT_INVEC2_RLP) ? 2 * invec2_size - 1 : invec2_size;
-	adjusted_outvec_size = adjusted_invec1_size + adjusted_invec2_size - 1;
-
-	// Sometimes we must (or it is beneficial) handle monic input polynomials as part of invec1/invec2 as opposed to a post-processing call to
-	// monic_line_adjustments.  Find those cases and adjust vector sizes.
-	if (options & POLYMULT_CIRCULAR) {
-		ASSERTG (!(options & POLYMULT_INVEC1_MONIC) || !(options & POLYMULT_INVEC2_MONIC));
-//GW: Find more cases where monic processing would be better done this way
-		if (options & POLYMULT_INVEC1_MONIC) adjusted_invec1_size += (options & POLYMULT_INVEC1_RLP) ? 2 : 1;
-		if (options & POLYMULT_INVEC2_MONIC) adjusted_invec2_size += (options & POLYMULT_INVEC2_RLP) ? 2 : 1;
-		adjusted_outvec_size = outvec_size;
-		post_process_monics = FALSE;
-	} else
-		post_process_monics = TRUE;
-
-	// Polymult using no vector instructions.  Allocate memory.  For the output vector allocate two extra in case there are any monic RLP inputs.
-	must_brute = (options & POLYMULT_CIRCULAR) && outvec_size != polymult_fft_size (outvec_size);
-	must_fft = !must_brute && (options & (POLYMULT_FORWARD_FFT | POLYMULT_INVEC1_FFTED | POLYMULT_INVEC2_FFTED));
-	if (must_brute || (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK)) {
-		invec1 = (double *) malloc (2 * adjusted_invec1_size * sizeof (double));
-		invec2 = (double *) malloc (2 * adjusted_invec2_size * sizeof (double));
-		outvec = (double *) malloc (2 * (adjusted_outvec_size + 2) * sizeof (double)) + 2;
-		tmpvec = NULL;
-	}
-	else if (!must_fft && !(options & POLYMULT_CIRCULAR) && adjusted_outvec_size < pmdata->FFT_BREAK) {
-		invec1 = (double *) malloc (2 * adjusted_invec1_size * sizeof (double));
-		invec2 = (double *) malloc (2 * adjusted_invec2_size * sizeof (double));
-		outvec = (double *) malloc (2 * (adjusted_outvec_size + 2) * sizeof (double)) + 2;
-		tmpvec = (double *) malloc (2 * (adjusted_outvec_size + 32) * sizeof (double));		// Could need one extra for each recursion
-	}
-	else {
-		fft_size = (options & (POLYMULT_FORWARD_FFT | POLYMULT_CIRCULAR)) ? outvec_size :
-			   (options & POLYMULT_INVEC1_FFTED) ? invec1_size :
-			   (options & POLYMULT_INVEC2_FFTED) ? invec2_size : polymult_fft_size (adjusted_outvec_size);
-		tmpvec = (double *) malloc (2 * fft_size * sizeof (double));		// FFT of invec1 goes here
-		outvec = (double *) malloc (2 * (fft_size + 2) * sizeof (double)) + 2;	// FFT of invec2 goes here as does outvec
-		if (post_process_monics && (options & POLYMULT_INVEC2_MONIC)) invec1 = (double *) malloc (2 * fft_size * sizeof (double));
-		else invec1 = tmpvec;
-		if (post_process_monics && (options & POLYMULT_INVEC1_MONIC)) invec2 = (double *) malloc (2 * fft_size * sizeof (double));
-		else invec2 = outvec;
-	}
-
-	// Grab one complex value from each gwnum coefficient.  Work that data set.  Then move onto next complex val in gwnums.
-	for ( ; ; ) {
-		int line = next_line (pmdata);
-		if (!read_line (pmdata->gwdata, gw_invec1, invec1_size, line, invec1, options & INVEC1_OPTIONS, post_process_monics)) break;
-		read_line (pmdata->gwdata, gw_invec2, invec2_size, line, invec2, options & INVEC2_OPTIONS, post_process_monics);
-
-		if (must_brute || (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK)) {
-			brute_line (invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, outvec, adjusted_outvec_size, options, gw_outvec);
-		}
-		else if (!must_fft && !(options & POLYMULT_CIRCULAR) && adjusted_outvec_size < pmdata->FFT_BREAK) {
-			karatsuba_line (pmdata, invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, tmpvec, outvec);
-		}
-		else {
-			if (!(options & POLYMULT_INVEC1_FFTED)) {
-				if (invec1 != tmpvec) memcpy (tmpvec, invec1, 2*adjusted_invec1_size*sizeof(double));
-				memset (tmpvec + 2*adjusted_invec1_size, 0, 2*(fft_size-adjusted_invec1_size)*sizeof(double));
-				fft_line (pmdata, tmpvec, fft_size);
-			}
-			if (options & POLYMULT_FORWARD_FFT) {
-				write_line (pmdata->gwdata, gw_outvec, fft_size, line, tmpvec, 0);
-				continue;
-			}
-			if (!(options & POLYMULT_INVEC2_FFTED)) {
-				if (invec2 != outvec) memcpy (outvec, invec2, 2*adjusted_invec2_size*sizeof(double));
-				memset (outvec + 2*adjusted_invec2_size, 0, 2*(fft_size-adjusted_invec2_size)*sizeof(double));
-				fft_line (pmdata, outvec, fft_size);
-			}
-			pointmul_line (tmpvec, outvec, outvec, fft_size);
-			invfft_line (pmdata, outvec, fft_size);
-		}
-		if (post_process_monics) monic_line_adjustments (invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, outvec, adjusted_outvec_size, options);
-		write_line (pmdata->gwdata, gw_outvec, outvec_size, line, outvec, options & POLYMULT_CIRCULAR ? 0 : options);
-	}
-
-	// Free memory
-	if (invec1 != tmpvec) free (invec1);
-	if (invec2 != outvec) free (invec2);
-	free (outvec - 2);
-	free (tmpvec);
-}
-
 #endif
 
 //--------------------------------------------------------------------
@@ -826,7 +1346,7 @@ void polymult_line (
 
 #ifdef AVX
 
-bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, __m256d *vec, int options, bool post_process_monics)
+bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options, bool post_process_monics)
 {
 	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
@@ -966,515 +1486,11 @@ void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, __m256d
 	}
 }
 
-// A brute force O(N^2) implementation of polynomial multiplication
-void brute_line_avx (
-	__m256d	*invec1,		// First input poly
-	int	invec1_size,		// Size of the first input polynomial
-	__m256d	*invec2,		// Second input poly
-	int	invec2_size,		// Size of the second input polynomial
-	__m256d	*outvec,		// Output poly
-	int	outvec_size,		// Either invec1_size+invec2_size-1 or size of gw_outvec if circular convolution
-	int	options,		// Options passed to polymult
-	gwnum	*gw_outvec)		// Gwnum array passed to polymult (so we can detect outputs that do not need to be computed)
-{
-	// AVX implementation.  Loop through output indices.
-	for (int out = 0; out < invec1_size + invec2_size - 1; out++) {
-		// Adjust output index for circular convolutions
-		int adjusted_out = out;
-		bool first_time = TRUE;
-		if (out >= outvec_size) {
-			adjusted_out = out - outvec_size;
-			first_time = FALSE;
-		}
-		// See if this output needs to be computed
-		if ((options & POLYMULT_CIRCULAR) && gw_outvec[adjusted_out] == NULL) continue;			//GW: Catch more cases such as RLP * RLP
-		// Get index into input vectors
-		int in1 = out < invec2_size ? 0 : out - invec2_size + 1;	// Index into invec1
-		int in2 = out - in1;						// Index into invec2
-		// Loop through all the pairs to accumulate in this output
-		for ( ; in1 < invec1_size && in2 >= 0; in1++, in2--) {
-			__m256d real_x = invec1[2*in1];
-			__m256d imag_x = invec1[2*in1+1];
-			__m256d real_y = invec2[2*in2];
-			__m256d imag_y = invec2[2*in2+1];
-			__m256d real_tmp = _mm256_sub_pd (_mm256_mul_pd (real_x, real_y), _mm256_mul_pd (imag_x, imag_y));
-			__m256d imag_tmp = _mm256_add_pd (_mm256_mul_pd (real_x, imag_y), _mm256_mul_pd (imag_x, real_y));
-			if (first_time) {
-				outvec[2*adjusted_out] = real_tmp;
-				outvec[2*adjusted_out+1] = imag_tmp;
-				first_time = FALSE;
-			} else {
-				outvec[2*adjusted_out] = _mm256_add_pd (outvec[2*adjusted_out], real_tmp);
-				outvec[2*adjusted_out+1] = _mm256_add_pd (outvec[2*adjusted_out+1], imag_tmp);
-			}
-		}
-	}
-}
-
-void karatsuba_line_avx (
-	pmhandle *pmdata,		// Handle for polymult library
-	__m256d	*invec1,		// Coefficients of first input poly
-	int	invec1_size,		// Size of the first input polynomial
-	__m256d	*invec2,		// Coefficients of second input poly
-	int	invec2_size,		// Size of the second input polynomial
-	__m256d	*tmp,			// Temporary space
-	__m256d	*outvec)		// Output poly coefficients
-{
-	int	i, a_size, b_size, c_size, d_size, a_plus_b_size, c_plus_d_size, bd_size, ac_size, a_plus_b_times_c_plus_d_size;
-	__m256d	*a, *b, *c, *d, *ac, *bd, *a_plus_b, *c_plus_d, *a_plus_b_times_c_plus_d;
-
-	// Handle end of recursion
-	if (invec1_size == 1 || invec2_size == 1 || invec1_size + invec2_size < pmdata->KARAT_BREAK) {
-		brute_line_avx (invec1, invec1_size, invec2, invec2_size, outvec, invec1_size + invec2_size - 1, 0, NULL);
-		return;
-	}
-
-	// To simplify code, always make invec2 the larger poly.
-	if (invec1_size > invec2_size) {
-		int tmpsize = invec1_size; invec1_size = invec2_size; invec2_size = tmpsize;
-		__m256d *tmpvec = invec1; invec1 = invec2; invec2 = tmpvec;
-	}
-
-
-	// Split larger vector roughly in half.  For readability, create pointers to two halves.
-	d_size = (invec2_size + 1) / 2;
-	c_size = invec2_size - d_size;
-	c = invec2 + 2*d_size, d = invec2;
-
-	// Handle case where vectors are of wildly unequal lengths
-	if (d_size >= invec1_size) {
-		// Compute bd
-		bd = outvec;
-		karatsuba_line_avx (pmdata, invec1, invec1_size, d, d_size, tmp, bd);
-		bd_size = invec1_size + d_size - 1;
-		// Compute bc and store it in tmp
-		__m256d *bc = tmp;
-		int bc_size = invec1_size + c_size - 1;
-		tmp += 2*bc_size;
-		karatsuba_line_avx (pmdata, invec1, invec1_size, c, c_size, tmp, bc);
-		// add/copy bc to output
-		for (i = 0; i < 2*(invec1_size-1); i++) outvec[i + 2*d_size] = _mm256_add_pd (outvec[i + 2*d_size], bc[i]);
-		for ( ; i < 2*bc_size; i++) outvec[i + 2*d_size] = bc[i];
-		return;
-	}
-
-	// Split smaller vector, the size of the two lower halves must be the same.  For readability, create pointers to two halves.
-	b_size = d_size;
-	a_size = invec1_size - b_size;
-	a = invec1 + 2*b_size, b = invec1;
-
-	// Compute (a+b)
-	a_plus_b = outvec;
-	for (i = 0; i < 2*a_size && i < 2*b_size; i++) a_plus_b[i] = _mm256_add_pd (a[i], b[i]);
-//	for ( ; i < 2*a_size; i++) a_plus_b[i] = a[i];		// In case a_size > b_size
-	for ( ; i < 2*b_size; i++) a_plus_b[i] = b[i];		// In case b_size > a_size
-	a_plus_b_size = i / 2;
-	// Compute (c+d)
-	c_plus_d = &outvec[i];
-	for (i = 0; i < 2*c_size && i < 2*d_size; i++) c_plus_d[i] = _mm256_add_pd (c[i], d[i]);
-//	for ( ; i < 2*c_size; i++) c_plus_d[i] = c[i];		// In case c_size > d_size
-	for ( ; i < 2*d_size; i++) c_plus_d[i] = d[i];		// In case d_size > c_size
-	c_plus_d_size = i / 2;
-	// Compute (a+b) * (c+d) and store it in tmp
-	a_plus_b_times_c_plus_d = tmp;
-	a_plus_b_times_c_plus_d_size = a_plus_b_size + c_plus_d_size - 1;
-	tmp += 2*a_plus_b_times_c_plus_d_size;
-	karatsuba_line_avx (pmdata, a_plus_b, a_plus_b_size, c_plus_d, c_plus_d_size, tmp, a_plus_b_times_c_plus_d);
-
-	// Compute bd
-	bd = outvec;
-	karatsuba_line_avx (pmdata, b, b_size, d, d_size, tmp, bd);
-	bd_size = b_size + d_size - 1;
-	// Output the complex value 0+0i
-	memset (&outvec[2*bd_size], 0, 2*sizeof(__m256d));
-	// Compute ac
-	ac = &outvec[2*(bd_size+1)];
-	karatsuba_line_avx (pmdata, a, a_size, c, c_size, tmp, ac);
-	ac_size = a_size + c_size - 1;
-
-	// subtract ac from middle
-	for (i = 0; i < 2*ac_size; i++) a_plus_b_times_c_plus_d[i] = _mm256_sub_pd (a_plus_b_times_c_plus_d[i], ac[i]);
-	// subtract bd from middle
-	for (i = 0; i < 2*bd_size; i++) a_plus_b_times_c_plus_d[i] = _mm256_sub_pd (a_plus_b_times_c_plus_d[i], bd[i]);
-	// add middle to output
-	for (i = 0; i < 2*a_plus_b_times_c_plus_d_size; i++) outvec[i + 2*b_size] = _mm256_add_pd (outvec[i + 2*b_size], a_plus_b_times_c_plus_d[i]);
-}
-
-void fft_line_avx (
-	pmhandle *pmdata,		// Handle for polymult library
-	__m256d	*vec,			// Array of complex values
-	const unsigned int size)	// The fft size
-{
-	generate_sincos (pmdata, size);
-
-	// Radix-4 FFT, one fewer complex multiply than radix-2, does more work while data is in registers
-	unsigned int stride = size;
-	while (stride >= 4) {
-		stride >>= 2;				// Stride for this radix-4 step
-		// First group can be done without twiddles
-		for (unsigned int group_member = 0; group_member < stride; group_member++) {
-			__m256d real_a = vec[2*(group_member)];
-			__m256d imag_a = vec[2*(group_member) + 1];
-			__m256d real_b = vec[2*(group_member + stride)];
-			__m256d imag_b = vec[2*(group_member + stride) + 1];
-			__m256d real_c = vec[2*(group_member + 2*stride)];
-			__m256d imag_c = vec[2*(group_member + 2*stride) + 1];
-			__m256d real_d = vec[2*(group_member + 3*stride)];
-			__m256d imag_d = vec[2*(group_member + 3*stride) + 1];
-			__m256d real_new_a = _mm256_add_pd (real_a, real_c);				// a + c
-			__m256d imag_new_a = _mm256_add_pd (imag_a, imag_c);
-			__m256d real_new_c = _mm256_sub_pd (real_a, real_c);				// a - c
-			__m256d imag_new_c = _mm256_sub_pd (imag_a, imag_c);
-			__m256d real_new_b = _mm256_add_pd (real_b, real_d);				// b + d
-			__m256d imag_new_b = _mm256_add_pd (imag_b, imag_d);
-			__m256d real_new_d = _mm256_sub_pd (real_b, real_d);				// b - d
-			__m256d imag_new_d = _mm256_sub_pd (imag_b, imag_d);
-			vec[2*(group_member)] = _mm256_add_pd (real_new_a, real_new_b);			// a + b
-			vec[2*(group_member) + 1] = _mm256_add_pd (imag_new_a, imag_new_b);
-			vec[2*(group_member + stride)] = _mm256_sub_pd (real_new_a, real_new_b);	// a - b
-			vec[2*(group_member + stride) + 1] = _mm256_sub_pd (imag_new_a, imag_new_b);
-			vec[2*(group_member + 2*stride)] = _mm256_sub_pd (real_new_c, imag_new_d);	// c + id
-			vec[2*(group_member + 2*stride) + 1] = _mm256_add_pd (imag_new_c, real_new_d);
-			vec[2*(group_member + 3*stride)] = _mm256_add_pd (real_new_c, imag_new_d);	// c - id
-			vec[2*(group_member + 3*stride) + 1] = _mm256_sub_pd (imag_new_c, real_new_d);
-		}
-		for (unsigned int group = stride * 4, twiddle_step = 3; group < size; group += stride * 4, twiddle_step += 3) {
-			__m256d real_twiddle1 = _mm256_broadcast_sd (pmdata->twiddle_real4 + twiddle_step);
-			__m256d imag_twiddle1 = _mm256_broadcast_sd (pmdata->twiddle_imag4 + twiddle_step);
-			__m256d real_twiddle2 = _mm256_broadcast_sd (pmdata->twiddle_real4 + twiddle_step + 1);
-			__m256d imag_twiddle2 = _mm256_broadcast_sd (pmdata->twiddle_imag4 + twiddle_step + 1);
-			__m256d real_twiddle3 = _mm256_broadcast_sd (pmdata->twiddle_real4 + twiddle_step + 2);
-			__m256d imag_twiddle3 = _mm256_broadcast_sd (pmdata->twiddle_imag4 + twiddle_step + 2);
-			for (unsigned int group_member = 0; group_member < stride; group_member++) {
-				__m256d real_a = vec[2*(group + group_member)];
-				__m256d imag_a = vec[2*(group + group_member) + 1];
-				__m256d real_b = vec[2*(group + group_member + stride)];
-				__m256d imag_b = vec[2*(group + group_member + stride) + 1];
-				__m256d real_c = vec[2*(group + group_member + 2*stride)];
-				__m256d imag_c = vec[2*(group + group_member + 2*stride) + 1];
-				__m256d real_d = vec[2*(group + group_member + 3*stride)];
-				__m256d imag_d = vec[2*(group + group_member + 3*stride) + 1];
-				__m256d real_twiddled_b = _mm256_sub_pd (_mm256_mul_pd (real_b, real_twiddle1), _mm256_mul_pd (imag_b, imag_twiddle1));
-				__m256d imag_twiddled_b = _mm256_add_pd (_mm256_mul_pd (imag_b, real_twiddle1), _mm256_mul_pd (real_b, imag_twiddle1));
-				__m256d real_twiddled_c = _mm256_sub_pd (_mm256_mul_pd (real_c, real_twiddle2), _mm256_mul_pd (imag_c, imag_twiddle2));
-				__m256d imag_twiddled_c = _mm256_add_pd (_mm256_mul_pd (imag_c, real_twiddle2), _mm256_mul_pd (real_c, imag_twiddle2));
-				__m256d real_twiddled_d = _mm256_sub_pd (_mm256_mul_pd (real_d, real_twiddle3), _mm256_mul_pd (imag_d, imag_twiddle3));
-				__m256d imag_twiddled_d = _mm256_add_pd (_mm256_mul_pd (imag_d, real_twiddle3), _mm256_mul_pd (real_d, imag_twiddle3));
-				real_c = _mm256_sub_pd (real_a, real_twiddled_c);
-				imag_c = _mm256_sub_pd (imag_a, imag_twiddled_c);
-				real_a = _mm256_add_pd (real_a, real_twiddled_c);
-				imag_a = _mm256_add_pd (imag_a, imag_twiddled_c);
-				real_b = _mm256_add_pd (real_twiddled_b, real_twiddled_d);
-				imag_b = _mm256_add_pd (imag_twiddled_b, imag_twiddled_d);
-				real_d = _mm256_sub_pd (real_twiddled_b, real_twiddled_d);
-				imag_d = _mm256_sub_pd (imag_twiddled_b, imag_twiddled_d);
-				vec[2*(group + group_member)] = _mm256_add_pd (real_a, real_b);			// a + b
-				vec[2*(group + group_member) + 1] = _mm256_add_pd (imag_a, imag_b);
-				vec[2*(group + group_member + stride)] = _mm256_sub_pd (real_a, real_b);	// a - b
-				vec[2*(group + group_member + stride) + 1] = _mm256_sub_pd (imag_a, imag_b);
-				vec[2*(group + group_member + 2*stride)] = _mm256_sub_pd (real_c, imag_d);	// c + id
-				vec[2*(group + group_member + 2*stride) + 1] = _mm256_add_pd (imag_c, real_d);
-				vec[2*(group + group_member + 3*stride)] = _mm256_add_pd (real_c, imag_d);	// c - id
-				vec[2*(group + group_member + 3*stride) + 1] = _mm256_sub_pd (imag_c, real_d);
-			}
-		}
-	}
-
-	// Radix-2 FFT
-	while (stride >= 2) {
-		stride >>= 1;				// Stride for this radix-2 step
-		double	*twiddle_real_ptr = pmdata->twiddle_real;
-		double	*twiddle_imag_ptr = pmdata->twiddle_imag;
-		for (unsigned int group = 0; group < size; group += stride * 2, twiddle_real_ptr++, twiddle_imag_ptr++) {
-			__m256d real_twiddle = _mm256_broadcast_sd (twiddle_real_ptr);
-			__m256d imag_twiddle = _mm256_broadcast_sd (twiddle_imag_ptr);
-			for (unsigned int group_member = 0; group_member < stride; group_member++) {
-				__m256d *real_x = vec + 2*(group + group_member);
-				__m256d *imag_x = vec + 2*(group + group_member) + 1;
-				__m256d *real_y = vec + 2*(group + group_member + stride);
-				__m256d *imag_y = vec + 2*(group + group_member + stride) + 1;
-				__m256d real_twiddled_y = _mm256_sub_pd (_mm256_mul_pd (*real_y, real_twiddle), _mm256_mul_pd (*imag_y, imag_twiddle));
-				__m256d imag_twiddled_y = _mm256_add_pd (_mm256_mul_pd (*imag_y, real_twiddle), _mm256_mul_pd (*real_y, imag_twiddle));
-				*real_y = _mm256_sub_pd (*real_x, real_twiddled_y);
-				*imag_y = _mm256_sub_pd (*imag_x, imag_twiddled_y);
-				*real_x = _mm256_add_pd (*real_x, real_twiddled_y);
-				*imag_x = _mm256_add_pd (*imag_x, imag_twiddled_y);
-			}
-		}
-	}
-}
-
-void invfft_line_avx (
-	pmhandle *pmdata,		// Handle for polymult library
-	__m256d	*vec,			// Array of complex values
-	const unsigned int size)	// The fft size
-{
-	generate_sincos (pmdata, size);
-
-	// Radix-2 FFT
-	unsigned int stride = 1;		// First stride
-	// while (stride < size / 4) {		// Code necessary for a radix-2-only inverse FFT
-	if (size & 0xAAAAAAAA) {		// If not a power of 4  (radix-2/4 inverse FFT)
-		double	*twiddle_real_ptr = pmdata->twiddle_real;
-		double	*twiddle_imag_ptr = pmdata->twiddle_imag;
-		for (unsigned int group = 0; group < size; group += stride * 2, twiddle_real_ptr++, twiddle_imag_ptr++) {
-			double	imag_twiddle_negated = -*twiddle_imag_ptr;
-			__m256d real_twiddle = _mm256_broadcast_sd (twiddle_real_ptr);
-			__m256d imag_twiddle = _mm256_broadcast_sd (&imag_twiddle_negated);
-			for (unsigned int group_member = 0; group_member < stride; group_member++) {
-				__m256d *real_x = vec + 2*(group + group_member);
-				__m256d *imag_x = vec + 2*(group + group_member) + 1;
-				__m256d *real_y = vec + 2*(group + group_member + stride);
-				__m256d *imag_y = vec + 2*(group + group_member + stride) + 1;
-				__m256d xr = _mm256_add_pd (*real_x, *real_y);
-				__m256d xi = _mm256_add_pd (*imag_x, *imag_y);
-				__m256d yr = _mm256_sub_pd (*real_x, *real_y);
-				__m256d yi = _mm256_sub_pd (*imag_x, *imag_y);
-				*real_x = xr;
-				*imag_x = xi;
-				*real_y = _mm256_sub_pd (_mm256_mul_pd (yr, real_twiddle), _mm256_mul_pd (yi, imag_twiddle));
-				*imag_y = _mm256_add_pd (_mm256_mul_pd (yr, imag_twiddle), _mm256_mul_pd (yi, real_twiddle));
-			}
-		}
-		stride <<= 1;			// Next stride amount
-	}
-
-	// Radix-4 FFT, one fewer complex multiply than radix-2, does more work while data is in registers
-	for ( ; stride < size; stride <<= 2) {
-		for (unsigned int group = 0, twiddle_step = 0; group < size; group += stride * 4, twiddle_step += 3) {
-			__m256d real_twiddle1 = _mm256_broadcast_sd (pmdata->twiddle_real4 + twiddle_step);
-			__m256d imag_twiddle1 = _mm256_broadcast_sd (pmdata->twiddle_imag4 + twiddle_step);
-			__m256d real_twiddle2 = _mm256_broadcast_sd (pmdata->twiddle_real4 + twiddle_step + 1);
-			__m256d imag_twiddle2 = _mm256_broadcast_sd (pmdata->twiddle_imag4 + twiddle_step + 1);
-			__m256d real_twiddle3 = _mm256_broadcast_sd (pmdata->twiddle_real4 + twiddle_step + 2);
-			__m256d imag_twiddle3 = _mm256_broadcast_sd (pmdata->twiddle_imag4 + twiddle_step + 2);
-			for (unsigned int group_member = 0; group_member < stride; group_member++) {
-				__m256d real_a = vec[2*(group + group_member)];
-				__m256d imag_a = vec[2*(group + group_member) + 1];
-				__m256d real_b = vec[2*(group + group_member + stride)];
-				__m256d imag_b = vec[2*(group + group_member + stride) + 1];
-				__m256d real_c = vec[2*(group + group_member + 2*stride)];
-				__m256d imag_c = vec[2*(group + group_member + 2*stride) + 1];
-				__m256d real_d = vec[2*(group + group_member + 3*stride)];
-				__m256d imag_d = vec[2*(group + group_member + 3*stride) + 1];
-
-				__m256d next_real_a = _mm256_add_pd (real_a, real_b);			// a + b
-				__m256d next_imag_a = _mm256_add_pd (imag_a, imag_b);
-				__m256d next_real_b = _mm256_sub_pd (real_a, real_b);			// a - b
-				__m256d next_imag_b = _mm256_sub_pd (imag_a, imag_b);
-				__m256d next_real_c = _mm256_add_pd (real_c, real_d);			// c + d
-				__m256d next_imag_c = _mm256_add_pd (imag_c, imag_d);
-				__m256d next_real_d = _mm256_sub_pd (real_c, real_d);			// c - d
-				__m256d next_imag_d = _mm256_sub_pd (imag_c, imag_d);
-
-				real_a = _mm256_add_pd (next_real_a, next_real_c);			// a + c
-				imag_a = _mm256_add_pd (next_imag_a, next_imag_c);
-				real_c = _mm256_sub_pd (next_real_a, next_real_c);			// a - c
-				imag_c = _mm256_sub_pd (next_imag_a, next_imag_c);
-				real_b = _mm256_add_pd (next_real_b, next_imag_d);			// b - id
-				imag_b = _mm256_sub_pd (next_imag_b, next_real_d);
-				real_d = _mm256_sub_pd (next_real_b, next_imag_d);			// b + id
-				imag_d = _mm256_add_pd (next_imag_b, next_real_d);
-
-				// Special case group zero, no twiddles necessary
-				if (group == 0) {
-					vec[2*(group_member)] = real_a;
-					vec[2*(group_member) + 1] = imag_a;
-					vec[2*(group_member + stride)] = real_b;
-					vec[2*(group_member + stride) + 1] = imag_b;
-					vec[2*(group_member + 2*stride)] = real_c;
-					vec[2*(group_member + 2*stride) + 1] = imag_c;
-					vec[2*(group_member + 3*stride)] = real_d;
-					vec[2*(group_member + 3*stride) + 1] = imag_d;
-					continue;
-				}
-
-				// Apply the CONJUGATE of the twiddle
-				vec[2*(group + group_member)] = real_a;
-				vec[2*(group + group_member) + 1] = imag_a;
-				vec[2*(group + group_member + stride)] =
-					_mm256_add_pd (_mm256_mul_pd (real_b, real_twiddle1), _mm256_mul_pd (imag_b, imag_twiddle1));
-				vec[2*(group + group_member + stride) + 1] =
-					_mm256_sub_pd (_mm256_mul_pd (imag_b, real_twiddle1), _mm256_mul_pd (real_b, imag_twiddle1));
-				vec[2*(group + group_member + 2*stride)] =
-					_mm256_add_pd (_mm256_mul_pd (real_c, real_twiddle2), _mm256_mul_pd (imag_c, imag_twiddle2));
-				vec[2*(group + group_member + 2*stride) + 1] =
-					_mm256_sub_pd (_mm256_mul_pd (imag_c, real_twiddle2), _mm256_mul_pd (real_c, imag_twiddle2));
-				vec[2*(group + group_member + 3*stride)] =
-					_mm256_add_pd (_mm256_mul_pd (real_d, real_twiddle3), _mm256_mul_pd (imag_d, imag_twiddle3));
-				vec[2*(group + group_member + 3*stride) + 1] =
-					_mm256_sub_pd (_mm256_mul_pd (imag_d, real_twiddle3), _mm256_mul_pd (real_d, imag_twiddle3));
-			}
-		}
-	}
-}
-
-// out = in1 * in2 pointwise also divide by FFT length
-void pointmul_line_avx (__m256d *invec1, __m256d *invec2, __m256d *outvec, int size)
-{
-	double	inv_fft_size = 1.0 / (double) size;
-	__m256d inv_fft_size256 = _mm256_broadcast_sd (&inv_fft_size);
-	for (int j = 0; j < size; j++) {
-		__m256d real_x = invec1[2*j];
-		__m256d imag_x = invec1[2*j+1];
-		__m256d real_y = invec2[2*j];
-		__m256d imag_y = invec2[2*j+1];
-		outvec[2*j+1] = _mm256_mul_pd (_mm256_add_pd (_mm256_mul_pd (real_x, imag_y), _mm256_mul_pd (imag_x, real_y)), inv_fft_size256);
-		outvec[2*j] = _mm256_mul_pd (_mm256_sub_pd (_mm256_mul_pd (real_x, real_y), _mm256_mul_pd (imag_x, imag_y)), inv_fft_size256);
-	}
-}
-
-// outvec += input vector shifted the proper amount to create a monic polymult result
-void monic_line_add_hi_avx (__m256d *invec, int invec_size, __m256d *outvec, int outvec_size)
-{
-	// Add words starting from the highest word
-	for (invec += 2*(invec_size-1), outvec += 2*(outvec_size-1); invec_size; invec -= 2, outvec -= 2, invec_size--) {
-		outvec[0] = _mm256_add_pd (outvec[0], invec[0]);
-		outvec[1] = _mm256_add_pd (outvec[1], invec[1]);
-	}
-}
-
-// outvec += input vector shifted to the low part of outvec
-void monic_line_add_lo_avx (__m256d *invec, int invec_size, __m256d *outvec, int outvec_size)
-{
-	for ( ; invec_size; invec += 2, outvec += 2, invec_size--) {
-		outvec[0] = _mm256_add_pd (outvec[0], invec[0]);
-		outvec[1] = _mm256_add_pd (outvec[1], invec[1]);
-	}
-}
-
-// Make adjustments to outvec for any monic input vectors
-void monic_line_adjustments_avx (__m256d *invec1, int invec1_size, __m256d *invec2, int invec2_size, __m256d *outvec, int outvec_size, int options)
-{
-	// If neither input is monic, no adjustments are necessary
-	if (! (options & POLYMULT_INVEC1_MONIC) && ! (options & POLYMULT_INVEC2_MONIC)) return;
-
-	// If either input is a monic RLP, create a new entry before the output vector calculated thusfar
-	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) ||
-	    ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP))) {
-		outvec -= 2;
-		outvec_size++;
-		memset (&outvec[0], 0, 2*sizeof(__m256d));
-	}
-
-	// Create a new entry after the output vector calculated thusfar so that we can add to it
-	outvec_size++;
-	memset (&outvec[2*(outvec_size-1)], 0, 2*sizeof(__m256d));
-
-	// Adjust for an implied high coefficient of one -- add in the other poly in the high words
-	if (options & POLYMULT_INVEC1_MONIC) monic_line_add_hi_avx (invec2, invec2_size, outvec, outvec_size);
-	if (options & POLYMULT_INVEC2_MONIC) monic_line_add_hi_avx (invec1, invec1_size, outvec, outvec_size);
-
-	// Adjust for an implied low coefficient of one -- add in the other poly to the low words
-	if ((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) monic_line_add_lo_avx (invec2, invec2_size, outvec, outvec_size);
-	if ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)) monic_line_add_lo_avx (invec1, invec1_size, outvec, outvec_size);
-}
-
-// Select from various versions of polymult algorithms
-void polymult_line_avx (
-	pmhandle *pmdata,		// Handle for polymult library
-	gwnum	*gw_invec1,		// First input poly
-	int	invec1_size,		// Size of the first input polynomial
-	gwnum	*gw_invec2,		// Second input poly
-	int	invec2_size,		// Size of the second input polynomial
-	gwnum	*gw_outvec,		// Output poly of size invec1_size + invec2_size - 1
-	int	outvec_size,		// Size of the output polynomial.  Should be invec1_size + invec2_size (less one if not monic).
-	int	options)
-{
-	int	adjusted_invec1_size, adjusted_invec2_size, adjusted_outvec_size, fft_size;
-	bool	must_brute, must_fft, post_process_monics;
-	__m256d	*invec1, *invec2, *outvec, *tmpvec;
-
-	// Adjust sizes due to RLPs.  Calculate the output size assuming no monic inputs.
-	adjusted_invec1_size = (options & POLYMULT_INVEC1_RLP) ? 2 * invec1_size - 1 : invec1_size;
-	adjusted_invec2_size = (options & POLYMULT_INVEC2_RLP) ? 2 * invec2_size - 1 : invec2_size;
-	adjusted_outvec_size = adjusted_invec1_size + adjusted_invec2_size - 1;
-
-	// Sometimes we must (or it is beneficial) handle monic input polynomials as part of invec1/invec2 as opposed to a post-processing call to
-	// monic_line_adjustments.  Find those cases and adjust vector sizes.
-	if (options & POLYMULT_CIRCULAR) {
-		ASSERTG (!(options & POLYMULT_INVEC1_MONIC) || !(options & POLYMULT_INVEC2_MONIC));
-//GW: Find more cases where monic processing would be better done this way
-		if (options & POLYMULT_INVEC1_MONIC) adjusted_invec1_size += (options & POLYMULT_INVEC1_RLP) ? 2 : 1;
-		if (options & POLYMULT_INVEC2_MONIC) adjusted_invec2_size += (options & POLYMULT_INVEC2_RLP) ? 2 : 1;
-		adjusted_outvec_size = outvec_size;
-		post_process_monics = FALSE;
-	} else
-		post_process_monics = TRUE;
-
-	// Polymult using AVX instructions.  Allocate memory.  For the output vector allocate two extra in case there are any monic RLP inputs.
-	must_brute = (options & POLYMULT_CIRCULAR) && outvec_size != polymult_fft_size (outvec_size);
-	must_fft = !must_brute && (options & (POLYMULT_FORWARD_FFT | POLYMULT_INVEC1_FFTED | POLYMULT_INVEC2_FFTED));
-	if (must_brute || (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK)) {
-		invec1 = (__m256d *) aligned_malloc (2 * adjusted_invec1_size * sizeof (__m256d), 64);
-		invec2 = (__m256d *) aligned_malloc (2 * adjusted_invec2_size * sizeof (__m256d), 64);
-		outvec = (__m256d *) aligned_malloc (2 * (adjusted_outvec_size + 2) * sizeof (__m256d), 64) + 2;
-		tmpvec = NULL;
-	}
-	else if (!must_fft && !(options & POLYMULT_CIRCULAR) && adjusted_outvec_size < pmdata->FFT_BREAK) {
-		invec1 = (__m256d *) aligned_malloc (2 * adjusted_invec1_size * sizeof (__m256d), 64);
-		invec2 = (__m256d *) aligned_malloc (2 * adjusted_invec2_size * sizeof (__m256d), 64);
-		outvec = (__m256d *) aligned_malloc (2 * (adjusted_outvec_size + 2) * sizeof (__m256d), 64) + 2;
-		tmpvec = (__m256d *) aligned_malloc (2 * (adjusted_outvec_size + 32) * sizeof (__m256d), 64);	// Could need one extra for each recursion
-	}
-	else {
-		fft_size = (options & (POLYMULT_FORWARD_FFT | POLYMULT_CIRCULAR)) ? outvec_size :
-			   (options & POLYMULT_INVEC1_FFTED) ? invec1_size :
-			   (options & POLYMULT_INVEC2_FFTED) ? invec2_size : polymult_fft_size (adjusted_outvec_size);
-		tmpvec = (__m256d *) aligned_malloc (2 * fft_size * sizeof (__m256d), 64);		// FFT of invec1 goes here
-		outvec = (__m256d *) aligned_malloc (2 * (fft_size + 2) * sizeof (__m256d), 64) + 2;	// FFT of invec2 goes here as does outvec
-		if (post_process_monics && (options & POLYMULT_INVEC2_MONIC)) invec1 = (__m256d *) aligned_malloc (2 * fft_size * sizeof (__m256d), 64);
-		else invec1 = tmpvec;
-		if (post_process_monics && (options & POLYMULT_INVEC1_MONIC)) invec2 = (__m256d *) aligned_malloc (2 * fft_size * sizeof (__m256d), 64);
-		else invec2 = outvec;
-	}
-
-	// Grab four complex values from each gwnum coefficient.  Work that data set.  Then move onto remaining complex vals in gwnums.
-	for ( ; ; ) {
-		int line = next_line (pmdata);
-		if (!read_line_avx (pmdata->gwdata, gw_invec1, invec1_size, line, invec1, options & INVEC1_OPTIONS, post_process_monics)) break;
-		read_line_avx (pmdata->gwdata, gw_invec2, invec2_size, line, invec2, options & INVEC2_OPTIONS, post_process_monics);
-
-		if (must_brute || (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK)) {
-			brute_line_avx (invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, outvec, adjusted_outvec_size, options, gw_outvec);
-		}
-		else if (!must_fft && !(options & POLYMULT_CIRCULAR) && adjusted_outvec_size < pmdata->FFT_BREAK) {
-			karatsuba_line_avx (pmdata, invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, tmpvec, outvec);
-		}
-		else {
-			if (!(options & POLYMULT_INVEC1_FFTED)) {
-				if (invec1 != tmpvec) memcpy (tmpvec, invec1, 2*adjusted_invec1_size*sizeof(__m256d));
-				memset (tmpvec + 2*adjusted_invec1_size, 0, 2*(fft_size-adjusted_invec1_size)*sizeof(__m256d));
-				fft_line_avx (pmdata, tmpvec, fft_size);
-			}
-			if (options & POLYMULT_FORWARD_FFT) {
-				write_line_avx (pmdata->gwdata, gw_outvec, fft_size, line, tmpvec, 0);
-				continue;
-			}
-			if (!(options & POLYMULT_INVEC2_FFTED)) {
-				if (invec2 != outvec) memcpy (outvec, invec2, 2*adjusted_invec2_size*sizeof(__m256d));
-				memset (outvec + 2*adjusted_invec2_size, 0, 2*(fft_size-adjusted_invec2_size)*sizeof(__m256d));
-				fft_line_avx (pmdata, outvec, fft_size);
-			}
-			pointmul_line_avx (tmpvec, outvec, outvec, fft_size);
-			invfft_line_avx (pmdata, outvec, fft_size);
-		}
-		if (post_process_monics) monic_line_adjustments_avx (invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, outvec, adjusted_outvec_size, options);
-		write_line_avx (pmdata->gwdata, gw_outvec, outvec_size, line, outvec, options & POLYMULT_CIRCULAR ? 0 : options);
-	}
-
-	// Free memory
-	if (invec1 != tmpvec) aligned_free (invec1);
-	if (invec2 != outvec) aligned_free (invec2);
-	aligned_free (outvec - 2);
-	aligned_free (tmpvec);
-}
-
 #endif
 
 
 
-#if !defined (AVX) && !defined (FMA) && !defined (AVX512)
+#if !defined (SSE2) && !defined (AVX) && !defined (FMA) && !defined (AVX512)
 
 /* Entry point for helper thread to do part of the polymult */
 void polymult_thread (void *arg)
