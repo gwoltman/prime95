@@ -3628,12 +3628,8 @@ int internal_gwsetup (
 		asm_data->u.zmm.ZMM_P309 = asm_values[2];
 		asm_data->u.zmm.ZMM_P809 = -asm_values[6];
 		asm_data->u.zmm.ZMM_P866 = asm_values[8];
-		asm_data->u.zmm.ZMM_P623 = asm_values[14];
-		asm_data->u.zmm.ZMM_P223 = -asm_values[17];
-		asm_data->u.zmm.ZMM_P901 = -asm_values[18];
 		asm_data->u.zmm.ZMM_P383 = asm_values[21];
 		asm_data->u.zmm.ZMM_P383_1 = asm_values[21];
-		asm_data->u.zmm.ZMM_P975 = asm_values[11];
 		asm_data->u.zmm.ZMM_P434_P975 = asm_values[12];
 		asm_data->u.zmm.ZMM_P782_P975 = asm_values[42];
 		asm_data->u.zmm.ZMM_P901_P975 = asm_values[38];
@@ -4656,7 +4652,7 @@ int internal_gwsetup (
 	gwdata->GW_ADDIN = NULL;
 
 /* Init FFT1 state for possible future gwmuladd4 and gwmulsub4 calls */
-/* For AVX-512 FFTs, two-pass k == 1 FFTs can skip FFT(1), but FFTlen divisible by 7 cannot because of a weird optimization in zr7.mac */
+/* For AVX-512 FFTs, two-pass k == 1 FFTs can skip FFT(1) */
 /* For AVX and FMA3 FFTs, k == 1 FFTs can skip FFT(1) */
 /* For 32-bit gwnum, we'll never need FFT(1) we emulate everywhere it might be needed */
 
@@ -4664,7 +4660,7 @@ int internal_gwsetup (
 	gwdata->FFT1_state = 0;
 	gwdata->FFT1_user_allocated = 0;
 #ifdef X86_64
-	if (gwdata->cpu_flags & CPU_AVX512F) { if (gwdata->PASS1_SIZE && gwdata->k == 1.0 && gwdata->FFTLEN % 7 != 0) gwdata->FFT1_state = 2; }
+	if (gwdata->cpu_flags & CPU_AVX512F) { if (gwdata->PASS1_SIZE && gwdata->k == 1.0) gwdata->FFT1_state = 2; }
 	else if (gwdata->cpu_flags & CPU_AVX) { if (gwdata->k == 1.0) gwdata->FFT1_state = 2; }
 #else
 	gwdata->FFT1_state = 2;

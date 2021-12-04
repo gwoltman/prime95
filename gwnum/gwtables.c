@@ -427,7 +427,7 @@ double *zr4dwpn_build_pass1_table (
 			N = N * 7;
 
 /* Output the sin/cos data for the complex sections, (the zr7_seven_complex_djbfft building block). */
-/* Use the special7 version which multiplies sine values by .434^(2/3) which saves 2 clocks in 14 reals building block. */
+/* Use the special7 version which multiplies sine values by .975 which saves 2 clocks in 14 reals building block. */
 
 			for (j = 0; j < N / 7; j += pass1_increment) {
 				for (i = 0; i < gwdata->PASS1_CACHE_LINES; i++) {
@@ -775,7 +775,7 @@ double *zr4_build_pass2_complex_table (
 
 /* If the pass 2 size is divisible by 7, then the initial levels do radix-7 steps which requires three sin/cos values. */
 /* The first levels in pass 2 have an upper_avx512_word of one.  Use the special7 version which multiplies sine values */
-/* by .434^(2/3) to save 2 clocks in 14 reals building block. */
+/* by .975 to save 2 clocks in 14 reals building block. */
 
 	while (N % 7 == 0) {
 		for (i = 0; i < N / 7; i += 8) {
@@ -938,8 +938,7 @@ double *zr4_build_pass2_real_table (
 		}
 	}
 
-/* Output sin/cos values for 14-real macros.  Use the special7 version which multiplies sine values */
-/* by .434^(2/3) to save 2 clocks in 14 reals building block. */
+/* Output sin/cos values for 14-real macros.  Use the special7 version which multiplies sine values by .975 to save 2 clocks in 14 reals building block. */
 
 	while (N % 7 == 0) {
 		for (j = 0; j < N / 7; j += 8) {
