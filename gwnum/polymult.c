@@ -20,7 +20,7 @@
 #endif
 
 // TO DO:
-// 1) AVX-512, FMA, SSE2? versions
+// 1) Test AVX-512, FMA, SSE2 versions
 // 2) Zero padded gwnums.  Test all FFT sizes and FFT types -- especially funky PFA ffts.
 // 7) Variable GW_HEADER_SIZE.
 // 9) Is a fast convert-gwnum-to-larger-FFT feasible? necessary?
@@ -62,17 +62,46 @@
 // 46) Look for more FMA opportunities.
 // 47) Combine last fft step with pointmul and first invfft step?
 // 48) Test if hyperthreading is beneficial
+// 49) Problems if FFT(1)!=1!!! The pointwise mul code ought to divide by FFT(1) OR have a special asm entry point for unfft that deals with data that
+//	has already had a pointwise mul.  One test case is AVX-512 small FFTs.
+//     Furthermore, the monic_adjustments code can't simply add data - it must add FFT(1)*data.
+
 
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
 int next_line (pmhandle *pmdata);
 unsigned long cache_line_offset (gwhandle *gwdata, unsigned long i);
 void generate_sincos (pmhandle *pmdata, const unsigned int size);
+void polymult_line_sse2 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwnum *gw_invec2, int invec2_size, gwnum *gw_outvec, int outvec_size, int options);
 void polymult_line_avx (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwnum *gw_invec2, int invec2_size, gwnum *gw_outvec, int outvec_size, int options);
+void polymult_line_fma (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwnum *gw_invec2, int invec2_size, gwnum *gw_outvec, int outvec_size, int options);
+void polymult_line_avx512 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwnum *gw_invec2, int invec2_size, gwnum *gw_outvec, int outvec_size, int options);
 
 #define INVEC1_OPTIONS	(POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_RLP | POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC1_FFTED)
 #define INVEC2_OPTIONS	(POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_RLP | POLYMULT_INVEC2_NEGATE | POLYMULT_INVEC2_FFTED)
 
-#if defined (FMA)
+#if defined (AVX512)
+#define VLEN		512			// Vector is 256 bits wide
+#define VDT		__m512d			// Vector data type
+#define VFMA		1			// FMA is supported
+#define	read_line	read_line_avx512	// Naming extension for this option
+#define	write_line	write_line_avx512
+#define	brute_line	brute_line_avx512
+#define	karatsuba_line	karatsuba_line_avx512
+#define	fft_line	fft_line_avx512
+#define	invfft_line	invfft_line_avx512
+#define	pointmul_line	pointmul_line_avx512
+#define	monic_line_add_hi monic_line_add_hi_avx512
+#define	monic_line_add_lo monic_line_add_lo_avx512
+#define	monic_line_adjustments monic_line_adjustments_avx512
+#define	polymult_line	polymult_line_avx512
+#define broadcastsd	_mm512_set1_pd
+#define addpd		_mm512_add_pd
+#define subpd		_mm512_sub_pd
+#define mulpd		_mm512_mul_pd
+#define fmaddpd		_mm512_fmadd_pd
+#define fmsubpd		_mm512_fmsub_pd
+#define fnmaddpd	_mm512_fnmadd_pd
+#elif defined (FMA)
 #define VLEN		256			// Vector is 256 bits wide
 #define VDT		__m256d			// Vector data type
 #define VFMA		1			// FMA is supported
@@ -87,7 +116,7 @@ void polymult_line_avx (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwn
 #define	monic_line_add_lo monic_line_add_lo_fma
 #define	monic_line_adjustments monic_line_adjustments_fma
 #define	polymult_line	polymult_line_fma
-#define broadcastsd	_mm256_broadcast_sd
+#define broadcastsd	_mm256_set1_pd
 #define addpd		_mm256_add_pd
 #define subpd		_mm256_sub_pd
 #define mulpd		_mm256_mul_pd
@@ -109,7 +138,7 @@ void polymult_line_avx (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwn
 #define	monic_line_add_lo monic_line_add_lo_avx
 #define	monic_line_adjustments monic_line_adjustments_avx
 #define	polymult_line	polymult_line_avx
-#define broadcastsd	_mm256_broadcast_sd
+#define broadcastsd	_mm256_set1_pd
 #define addpd		_mm256_add_pd
 #define subpd		_mm256_sub_pd
 #define mulpd		_mm256_mul_pd
@@ -128,10 +157,10 @@ void polymult_line_avx (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwn
 #define	monic_line_add_lo monic_line_add_lo_sse2
 #define	monic_line_adjustments monic_line_adjustments_sse2
 #define	polymult_line	polymult_line_sse2
-#define broadcastsd	_mm128_broadcast_sd
-#define addpd		_mm128_add_pd
-#define subpd		_mm128_sub_pd
-#define mulpd		_mm128_mul_pd
+#define broadcastsd	_mm_set1_pd
+#define addpd		_mm_add_pd
+#define subpd		_mm_sub_pd
+#define mulpd		_mm_mul_pd
 #else
 #define VLEN		64			// Vector is 256 bits wide
 #define VDT		double			// Vector data type
@@ -147,10 +176,16 @@ void polymult_line_avx (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwn
 #define	monic_line_add_lo monic_line_add_lo_dbl
 #define	monic_line_adjustments monic_line_adjustments_dbl
 #define	polymult_line	polymult_line_dbl
-#define broadcastsd	_mm64_broadcast_sd
+#define broadcastsd	_mm64_set1_pd
 #define addpd		_mm64_add_pd
 #define subpd		_mm64_sub_pd
 #define mulpd		_mm64_mul_pd
+// Emulate vector length 1 using Intel-style instrinsic naming conventions
+#define __m64d			double
+#define _mm64_set1_pd(a)	(a)
+#define _mm64_add_pd(a,b)	((a)+(b))
+#define _mm64_sub_pd(a,b)	((a)-(b))
+#define _mm64_mul_pd(a,b)	((a)*(b))
 #endif
 
 // Emulate FMA on CPUs that do not have an FMA instruction
@@ -159,13 +194,6 @@ void polymult_line_avx (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwn
 #define fmsubpd(a,b,c)	subpd(mulpd(a,b),c)
 #define fnmaddpd(a,b,c)	subpd(c,mulpd(a,b))
 #endif
-
-// Emulate vector length 1 using Intel-style instrinsic naming convention
-#define __m64d			double
-#define _mm64_broadcast_sd(a)	(*(a))
-#define _mm64_add_pd(a,b)	((a)+(b))
-#define _mm64_sub_pd(a,b)	((a)-(b))
-#define _mm64_mul_pd(a,b)	((a)*(b))
 
 #if !defined (SSE2) && !defined (AVX) && !defined (FMA) && !defined (AVX512)
 
@@ -249,7 +277,7 @@ int next_line (
 
 //GW -- move to gwnum.c?
 
-/* Get offset to nth "cache line" from an FFTed gwnum.  Where a cache line is 128 bytes for an AVX-512 FFT, 64 bytes otherwise. */
+/* Get offset to nth "cache line" from an FFTed gwnum.  Where a cache line is 64 bytes. */
 
 unsigned long cache_line_offset (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -261,13 +289,13 @@ unsigned long cache_line_offset (
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
 		if (gwdata->PASS1_SIZE == 0) {
-			addr = i * 128;
+			addr = i * 64;
 			/* Now optionally add 64 pad bytes every 4KB */
 			if (gwdata->FOURKBGAPSIZE) addr = addr + (addr / (gwdata->FOURKBGAPSIZE << 6)) * 64;
 		}
 		else {
-			grps = i / (gwdata->PASS2_SIZE / 8);
-			addr = i * 128;
+			grps = i / (gwdata->PASS2_SIZE / 4);
+			addr = i * 64;
 			/* Now optionally add bytes for every 4KB page and every pass 2 block */
 			addr = addr + (addr >> 12) * gwdata->FOURKBGAPSIZE + grps * gwdata->PASS2GAPSIZE;
 		}
@@ -386,9 +414,616 @@ void generate_sincos (
 
 #endif
 
+//--------------------------------------------------------------------
+//		Read/write cache lines from/to a gwnum
+//    Requires intimate knowledge of layout of gwnums in memory
+//--------------------------------------------------------------------
+
+#if defined (AVX512)
+
+bool read_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options, bool post_process_monics)
+{
+	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
+	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
+//GW: check if GW_FFT1 should be used instead
+		vec[0] = broadcastsd (1.0);
+		vec[1] = broadcastsd (0.0);
+		vec += 2;
+	}
+
+	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
+	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += 2*(size-1);
+
+	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
+	// Adjust index to handle the extra data point that must be returned for transformed real data.
+	if (!gwdata->ALL_COMPLEX_FFT) index--;
+
+	// Zero padded FFTs must also return for processing the 7 real values stored in the header
+	if (gwdata->ZERO_PADDED_FFT) index -= 7;
+//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
+//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
+
+	// If we've read all the gwnum data, return FALSE
+	if (index * 16 >= (int) gwdata->FFTLEN) return (FALSE);
+
+	// AVX512 implementation
+	if (index == -1) {			// First real-only value
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
+			vec[2*j] = _mm512_set_pd (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, data[j][0]);
+//bug? return 0.0 instead of -11
+//			vec[2*j+1] = _mm512_set_pd (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, data[j][-11]);
+			vec[2*j+1] = _mm512_set_pd (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+		}
+	}
+	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
+			vec[2*j] = _mm512_set_pd (data[j][7], data[j][6], data[j][5], data[j][4], data[j][3], data[j][2], data[j][1], data[j][8]);
+//bug? return 0.0 instead of -10
+//			vec[2*j+1] = _mm512_set_pd (data[j][7], data[j][6], data[j][5], data[j][-10]);
+			vec[2*j+1] = _mm512_set_pd (data[j][15], data[j][14], data[j][13], data[j][12], data[j][11], data[j][10], data[j][9], 0.0);
+		}
+	}
+	else {				// Process complex values where imaginary part is in the high half of the cache line
+		unsigned long offset = cache_line_offset (gwdata, index * 2) / sizeof (VDT);
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
+			ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
+			vec[2*j] = ((VDT *) data[j])[offset];				// Real data
+			vec[2*j+1] = ((VDT *) data[j])[offset+1];			// Imaginary data
+		}
+	}
+
+	// Negate coefficients if requested
+	if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
+		VDT zero = broadcastsd (0.0);
+		for (int j = 0; j < size; j++) {
+			vec[2*j] = subpd (zero, vec[2*j]);
+			vec[2*j+1] = subpd (zero, vec[2*j+1]);
+		}
+	}
+
+	// Duplicate RLP data in reverse order
+	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
+		for (int j = 1; j < size; j++) {
+			vec[-2*j] = vec[2*j];
+			vec[-2*j+1] = vec[2*j+1];
+		}
+	}
+
+	// If not post-processing monics and the input is monic, then output a 1+0i
+	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
+//GW: check if GW_FFT1 should be used instead
+		vec[2*size] = broadcastsd (1.0);
+		vec[2*size+1] = broadcastsd (0.0);
+	}
+
+	// Return success
+	return (TRUE);
+}
+
+void write_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options)
+{
+	// If either input was a monic RLP, back up the output vector pointer to the newly created entry by monic_line_adjustments
+	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) || ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)))
+		vec -= 2;
+
+	// If both inputs are RLPs, then the output is an RLP too.  Skip writing half of the data.
+	if ((options & POLYMULT_INVEC1_RLP) && (options & POLYMULT_INVEC2_RLP)) vec += 2*(size-1);
+
+	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
+	// Adjust index to handle the extra data point that must be returned for transformed real data.
+	if (!gwdata->ALL_COMPLEX_FFT) index--;
+
+	// Zero padded FFTs must also return for processing the 7 real values stored in the header
+	if (gwdata->ZERO_PADDED_FFT) index -= 7;
+//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
+//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
+
+	// AVX512 implementation
+	union {
+		VDT	a;
+		double	b[8];
+	} x;
+	if (index == -1) {			// First real-only value
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) continue;
+			x.a = vec[2*j], data[j][0] = x.b[0];
+//bug? return 0.0 instead of -11
+//			x.a = vec[2*j+1], data[j][-11] = x.b[0];
+		}
+	}
+	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) continue;
+			x.a = vec[2*j], data[j][7] = x.b[7], data[j][6] = x.b[6], data[j][5] = x.b[5], data[j][4] = x.b[4],
+					data[j][3] = x.b[3], data[j][2] = x.b[2], data[j][1] = x.b[1], data[j][8] = x.b[0];
+//bug? return 0.0 instead of -10
+			x.a = vec[2*j+1], data[j][15] = x.b[7], data[j][14] = x.b[6], data[j][13] = x.b[5], data[j][12] = x.b[4],
+					  data[j][11] = x.b[3], data[j][10] = x.b[2], data[j][9] = x.b[1];
+		}
+	}
+	else {				// Process complex values where imaginary part is in the high half of the cache line
+		unsigned long offset = cache_line_offset (gwdata, index * 2) / sizeof (VDT);
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) continue;
+			((VDT *) data[j])[offset] = vec[2*j];			// Real data
+			((VDT *) data[j])[offset+1] = vec[2*j+1];		// Imaginary data
+		}
+	}
+}
+
+#elif defined (FMA)				// FMA and AVX FFTs use the same memory layout
+
+#define read_line_fma	read_line_avx
+#define write_line_fma	write_line_avx
+bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options, bool post_process_monics);
+void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options);
+
+#elif defined (AVX)
+
+bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options, bool post_process_monics)
+{
+	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
+	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
+//GW: check if GW_FFT1 should be used instead
+		vec[0] = broadcastsd (1.0);
+		vec[1] = broadcastsd (0.0);
+		vec += 2;
+	}
+
+	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
+	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += 2*(size-1);
+
+	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
+	// Adjust index to handle the extra data point that must be returned for transformed real data.
+	if (!gwdata->ALL_COMPLEX_FFT) index--;
+
+	// Zero padded FFTs must also return for processing the 7 real values stored in the header
+	if (gwdata->ZERO_PADDED_FFT) index -= 7;
+//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
+//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
+
+	// If we've read all the gwnum data, return FALSE
+	if (index * 8 >= (int) gwdata->FFTLEN) return (FALSE);
+
+	// AVX implementation
+	if (index == -1) {			// First real-only value
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
+			vec[2*j] = _mm256_set_pd (0.0, 0.0, 0.0, data[j][0]);
+//bug? return 0.0 instead of -11
+//			vec[2*j+1] = _mm256_set_pd (0.0, 0.0, 0.0, data[j][-11]);
+			vec[2*j+1] = _mm256_set_pd (0.0, 0.0, 0.0, 0.0);
+		}
+	}
+	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
+			vec[2*j] = _mm256_set_pd (data[j][3], data[j][2], data[j][1], data[j][4]);
+//bug? return 0.0 instead of -10
+//			vec[2*j+1] = _mm256_set_pd (data[j][7], data[j][6], data[j][5], data[j][-10]);
+			vec[2*j+1] = _mm256_set_pd (data[j][7], data[j][6], data[j][5], 0.0);
+		}
+	}
+	else {				// Process complex values where imaginary part is in the high half of the cache line
+		unsigned long offset = cache_line_offset (gwdata, index) / sizeof (VDT);
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
+			ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
+			vec[2*j] = ((VDT *) data[j])[offset];				// Real data
+			vec[2*j+1] = ((VDT *) data[j])[offset+1];			// Imaginary data
+		}
+	}
+
+	// Negate coefficients if requested
+	if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
+		VDT zero = broadcastsd (0.0);
+		for (int j = 0; j < size; j++) {
+			vec[2*j] = subpd (zero, vec[2*j]);
+			vec[2*j+1] = subpd (zero, vec[2*j+1]);
+		}
+	}
+
+	// Duplicate RLP data in reverse order
+	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
+		for (int j = 1; j < size; j++) {
+			vec[-2*j] = vec[2*j];
+			vec[-2*j+1] = vec[2*j+1];
+		}
+	}
+
+	// If not post-processing monics and the input is monic, then output a 1+0i
+	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
+//GW: check if GW_FFT1 should be used instead
+		vec[2*size] = broadcastsd (1.0);
+		vec[2*size+1] = broadcastsd (0.0);
+	}
+
+	// Return success
+	return (TRUE);
+}
+
+void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options)
+{
+	// If either input was a monic RLP, back up the output vector pointer to the newly created entry by monic_line_adjustments
+	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) || ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)))
+		vec -= 2;
+
+	// If both inputs are RLPs, then the output is an RLP too.  Skip writing half of the data.
+	if ((options & POLYMULT_INVEC1_RLP) && (options & POLYMULT_INVEC2_RLP)) vec += 2*(size-1);
+
+	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
+	// Adjust index to handle the extra data point that must be returned for transformed real data.
+	if (!gwdata->ALL_COMPLEX_FFT) index--;
+
+	// Zero padded FFTs must also return for processing the 7 real values stored in the header
+	if (gwdata->ZERO_PADDED_FFT) index -= 7;
+//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
+//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
+
+	// AVX implementation
+	union {
+		VDT	a;
+		double	b[4];
+	} x;
+	if (index == -1) {			// First real-only value
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) continue;
+			x.a = vec[2*j], data[j][0] = x.b[0];
+//bug? return 0.0 instead of -11
+//			x.a = vec[2*j+1], data[j][-11] = x.b[0];
+		}
+	}
+	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) continue;
+			x.a = vec[2*j], data[j][3] = x.b[3], data[j][2] = x.b[2], data[j][1] = x.b[1], data[j][4] = x.b[0];
+//bug? return 0.0 instead of -10
+			x.a = vec[2*j+1], data[j][7] = x.b[3], data[j][6] = x.b[2], data[j][5] = x.b[1] /*, data[j][-10] = x.b[0]*/ ;
+		}
+	}
+	else {				// Process complex values where imaginary part is in the high half of the cache line
+		unsigned long offset = cache_line_offset (gwdata, index) / sizeof (VDT);
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) continue;
+			((VDT *) data[j])[offset] = vec[2*j];			// Real data
+			((VDT *) data[j])[offset+1] = vec[2*j+1];		// Imaginary data
+		}
+	}
+}
+
+#elif defined (SSE2)
+
+bool read_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options, bool post_process_monics)
+{
+	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
+	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
+//GW: check if GW_FFT1 should be used instead
+		vec[0] = broadcastsd (1.0);
+		vec[1] = broadcastsd (0.0);
+		vec += 2;
+	}
+
+	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
+	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += 2*(size-1);
+
+	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
+	// Adjust index to handle the extra data point that must be returned for transformed real data.
+	if (!gwdata->ALL_COMPLEX_FFT) index--;
+
+	// Zero padded FFTs must also return for processing the 7 real values stored in the header
+	if (gwdata->ZERO_PADDED_FFT) index -= 7;
+//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
+//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
+
+	// If we've read all the gwnum data, return FALSE
+	if (index * 4 >= (int) gwdata->FFTLEN) return (FALSE);
+
+	// Various SSE2 FFT implementations store the imaginary part of a complex number either 8, 16, or 32 bytes above the real part
+	int	imag_dist;
+	if (gwdata->FFT_TYPE > 0 &&					// r4, r4delay, r4dwpn with 8-complex final levels
+	    (gwdata->PASS2_SIZE == 1536 || gwdata->PASS2_SIZE == 2048 || gwdata->PASS2_SIZE == 2560 ||
+	     gwdata->PASS2_SIZE == 4608 || gwdata->PASS2_SIZE == 6144 || gwdata->PASS2_SIZE == 7680 ||
+	     gwdata->PASS2_SIZE == 8192 || gwdata->PASS2_SIZE == 10240 || gwdata->PASS2_SIZE == 12800)) imag_dist = 32;
+	else if (gwdata->ALL_COMPLEX_FFT) imag_dist = 16;
+	else if (gwdata->PASS2_SIZE == 0 && index < 4) imag_dist = 8;
+	else if (gwdata->PASS2_SIZE != 0 && gwdata->FFT_TYPE == 0 && (index <= 1 || index == 4 || index == 5)) imag_dist = 8;	// hg ffts
+	else imag_dist = 16;
+
+	// SSE2 instructions implementation
+	if (index == -1) {			// First real-only value
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
+			vec[2*j] = _mm_set_pd (0.0, data[j][0]);
+//bug? return 0.0 instead of -11 ---- fix when we support FFTing invec
+			vec[2*j+1] = _mm_set_pd (0.0, 0.0);
+		}
+	}
+	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
+			if (imag_dist == 8) {
+				vec[2*j] = _mm_set_pd (data[j][2], data[j][1]);
+				vec[2*j+1] = _mm_set_pd (data[j][3], 0.0); //data[j][-10];
+			} else if (imag_dist == 16) {
+				vec[2*j] = _mm_set_pd (data[j][1], data[j][2]);
+//bug? return 0.0 instead of -10.  How are we going to implement FFTed poly read?  Its own routine? It's own FFT state? Compressed?
+				vec[2*j+1] = _mm_set_pd (data[j][3], 0.0); //data[j][-10];
+			} else {
+				vec[2*j] = _mm_set_pd (data[j][1], data[j][4]);
+				vec[2*j+1] = _mm_set_pd (data[j][5], 0.0); //data[j][-10];
+			}
+		}
+	}
+	else {				// Process complex values where imaginary part is 8, 16, or 32 bytes above the real part
+		unsigned long offset = cache_line_offset (gwdata, index / 2) / sizeof (VDT);
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
+			ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
+			if (imag_dist == 8) {
+				vec[2*j] = _mm_set_pd (data[j][index*4+2], data[j][index*4]);
+				vec[2*j+1] = _mm_set_pd (data[j][index*4+3], data[j][index*4+1]);
+			} else if (imag_dist == 16) {
+				vec[2*j] = ((VDT *) data[j])[offset+(index&1)*2];			// Real data
+				vec[2*j+1] = ((VDT *) data[j])[offset+(index&1)*2+1];			// Imaginary data
+			} else {
+				vec[2*j] = ((VDT *) data[j])[offset+(index&1)];				// Real data
+				vec[2*j+1] = ((VDT *) data[j])[offset+(index&1)+2];			// Imaginary data
+			}
+		}
+	}
+
+	// Negate coefficients if requested
+	if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
+		VDT zero = broadcastsd (0.0);
+		for (int j = 0; j < size; j++) {
+			vec[2*j] = subpd (zero, vec[2*j]);
+			vec[2*j+1] = subpd (zero, vec[2*j+1]);
+		}
+	}
+
+	// Duplicate RLP data in reverse order
+	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
+		for (int j = 1; j < size; j++) {
+			vec[-2*j] = vec[2*j];
+			vec[-2*j+1] = vec[2*j+1];
+		}
+	}
+
+	// If not post-processing monics and the input is monic, then output a 1+0i
+	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
+//GW: check if GW_FFT1 should be used instead
+		vec[2*size] = broadcastsd (1.0);
+		vec[2*size+1] = broadcastsd (0.0);
+	}
+
+	// Return success
+	return (TRUE);
+}
+
+void write_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options)
+{
+	// If either input was a monic RLP, back up the output vector pointer to the newly created entry by monic_line_adjustments
+	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) || ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)))
+		vec -= 2;
+
+	// If both inputs are RLPs, then the output is an RLP too.  Skip writing half of the data.
+	if (options & POLYMULT_INVEC1_RLP && options & POLYMULT_INVEC2_RLP) vec += 2*(size-1);
+
+	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
+	// Adjust index to handle the extra data point that must be returned for transformed real data.
+	if (!gwdata->ALL_COMPLEX_FFT) index--;
+
+	// Zero padded FFTs must also return for processing the 7 real values stored in the header
+	if (gwdata->ZERO_PADDED_FFT) index -= 7;
+//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
+//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
+
+	// Various SSE2 FFT implementations store the imaginary part of a complex number either 8, 16, or 32 bytes above the real part
+	int	imag_dist;
+	if (gwdata->FFT_TYPE > 0 &&					// r4, r4delay, r4dwpn with 8-complex final levels
+	    (gwdata->PASS2_SIZE == 1536 || gwdata->PASS2_SIZE == 2048 || gwdata->PASS2_SIZE == 2560 ||
+	     gwdata->PASS2_SIZE == 4608 || gwdata->PASS2_SIZE == 6144 || gwdata->PASS2_SIZE == 7680 ||
+	     gwdata->PASS2_SIZE == 8192 || gwdata->PASS2_SIZE == 10240 || gwdata->PASS2_SIZE == 12800)) imag_dist = 32;
+	else if (gwdata->ALL_COMPLEX_FFT) imag_dist = 16;
+	else if (gwdata->PASS2_SIZE == 0 && index < 4) imag_dist = 8;
+	else if (gwdata->PASS2_SIZE != 0 && gwdata->FFT_TYPE == 0 && (index <= 1 || index == 4 || index == 5)) imag_dist = 8;	// hg ffts
+	else imag_dist = 16;
+
+	// SSE2 instructions implementation
+	union {
+		VDT	a;
+		double	b[2];
+	} x;
+	if (index == -1) {			// First real-only value
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) continue;
+			x.a = vec[2*j], data[j][0] = x.b[0];
+//			data[j][-11] = vec[2*j+1];  //GW:bug?
+		}
+	}
+	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {		// Second real-only value
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) continue;
+			;
+			if (imag_dist == 8) {
+				x.a = vec[2*j], data[j][2] = x.b[1], data[j][1] = x.b[0];
+				x.a = vec[2*j+1], data[j][3] = x.b[1];
+			} else if (imag_dist == 16) {
+				x.a = vec[2*j], data[j][1] = x.b[1], data[j][2] = x.b[0];
+				x.a = vec[2*j+1], data[j][3] = x.b[1];
+			} else {
+				x.a = vec[2*j], data[j][1] = x.b[1], data[j][4] = x.b[0];
+				x.a = vec[2*j+1], data[j][5] = x.b[1];
+			}
+//bug? return 0.0 instead of -10
+		}
+	}
+	else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
+		unsigned long offset = cache_line_offset (gwdata, index / 2) / sizeof (VDT);
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) continue;
+			if (imag_dist == 8) {
+				x.a = vec[2*j], data[j][index*4+2] = x.b[1], data[j][index*4] = x.b[0];
+				x.a = vec[2*j+1], data[j][index*4+3] = x.b[1], data[j][index*4+1] = x.b[0];
+			} else if (imag_dist == 16) {
+				((VDT *) data[j])[offset+(index&1)*2] = vec[2*j];			// Real data
+				((VDT *) data[j])[offset+(index&1)*2+1] = vec[2*j+1];			// Imaginary data
+			} else {
+				((VDT *) data[j])[offset+(index&1)] = vec[2*j];				// Real data
+				((VDT *) data[j])[offset+(index&1)+2] = vec[2*j+1];			// Imaginary data
+			}
+		}
+	}
+}
+
+#elif !defined (X86_64)				// x87 FFTs only supported in 32-bit mode
+
+bool read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options, bool post_process_monics)
+{
+	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
+	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
+//GW: check if GW_FFT1 should be used instead
+		vec[0] = 1.0;
+		vec[1] = 0.0;
+		vec += 2;
+	}
+
+	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
+	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += 2*(size-1);
+
+	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
+	// Adjust index to handle the extra data point that must be returned for transformed real data.
+	if (!gwdata->ALL_COMPLEX_FFT) index--;
+
+	// Zero padded FFTs must also return for processing the 7 real values stored in the header
+	if (gwdata->ZERO_PADDED_FFT) index -= 7;
+//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
+//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
+
+	// If we've read all the gwnum data, return FALSE
+	if (index * 2 >= (int) gwdata->FFTLEN) return (FALSE);
+
+	// No special instructions implementation
+	if (index == -1) {			// First real-only value
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
+			vec[2*j] = data[j][0];
+//bug? return 0.0 instead of -11 ---- fix when we support FFTing invec
+			vec[2*j+1] = 0.0; //data[j][-11];
+		}
+	}
+	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
+			if (gwdata->PASS2_SIZE == 0) vec[2*j] = data[j][1];
+			else vec[2*j] = data[j][2];
+//bug? return 0.0 instead of -10.  How are we going to implement FFTed poly read?  Its own routine? It's own FFT state? Compressed?
+			vec[2*j+1] = 0.0; //data[j][-10];
+		}
+	}
+	else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
+		unsigned long offset = cache_line_offset (gwdata, index / 4) / sizeof (VDT);
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
+			ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
+// bug???  Index assuming what?  skip every other set of 4?  Examine ancient FFT sources!
+			if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT) {
+				vec[2*j] = data[j][offset+(index&3)*2];
+				vec[2*j+1] = data[j][offset+(index&3)*2+1];
+			} else {
+				vec[2*j] = data[j][offset+(index&2)*2+(index&1)];
+				vec[2*j+1] = data[j][offset+(index&2)*2+(index&1)+2];
+			}
+		}
+	}
+
+	// Negate coefficients if requested
+	if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
+		for (int j = 0; j < size; j++) {
+			vec[2*j] = -vec[2*j];
+			vec[2*j+1] = -vec[2*j+1];
+		}
+	}
+
+	// Duplicate RLP data in reverse order
+	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
+		for (int j = 1; j < size; j++) {
+			vec[-2*j] = vec[2*j];
+			vec[-2*j+1] = vec[2*j+1];
+		}
+	}
+
+	// If not post-processing monics and the input is monic, then output a 1+0i
+	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
+//GW: check if GW_FFT1 should be used instead
+		vec[2*size] = 1.0;
+		vec[2*size+1] = 0.0;
+	}
+
+	// Return success
+	return (TRUE);
+}
+
+void write_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options)
+{
+	// If either input was a monic RLP, back up the output vector pointer to the newly created entry by monic_line_adjustments
+	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) || ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)))
+		vec -= 2;
+
+	// If both inputs are RLPs, then the output is an RLP too.  Skip writing half of the data.
+	if (options & POLYMULT_INVEC1_RLP && options & POLYMULT_INVEC2_RLP) vec += 2*(size-1);
+
+	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
+	// Adjust index to handle the extra data point that must be returned for transformed real data.
+	if (!gwdata->ALL_COMPLEX_FFT) index--;
+
+	// Zero padded FFTs must also return for processing the 7 real values stored in the header
+	if (gwdata->ZERO_PADDED_FFT) index -= 7;
+//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
+//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
+
+	// No special instructions implementation
+	if (index == -1) {			// First real-only value
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) continue;
+			data[j][0] = vec[2*j];
+//			data[j][-11] = vec[2*j+1];  //GW:bug?
+		}
+	}
+	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {		// Second real-only value
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) continue;
+			if (gwdata->PASS2_SIZE == 0) data[j][1] = vec[2*j];
+			else data[j][2] = vec[2*j];
+//			data[j][-10] = vec[2*j+1];	//GW:bug?
+		}
+	}
+	else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
+		unsigned long offset = cache_line_offset (gwdata, index / 4) / sizeof (VDT);
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) continue;
+			if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT) {
+				data[j][offset+(index&3)*2] = vec[2*j];
+				data[j][offset+(index&3)*2+1] = vec[2*j+1];
+			} else {
+				data[j][offset+(index&2)*2+(index&1)] = vec[2*j];
+				data[j][offset+(index&2)*2+(index&1)+2] = vec[2*j+1];
+			}
+		}
+	}
+}
+
+#endif
+
+
 /*--------------------------------------------------------------------------
-|		Generalized routines (data type independent)
+|	     Generalized routines (vector data type independent)
 +-------------------------------------------------------------------------*/
+
+#if defined (AVX512) || defined (FMA) || defined (AVX) || defined (SSE2) || !defined (X86_64)
 
 void brute_line (
 	VDT	*invec1,		// First input poly
@@ -550,8 +1185,8 @@ void fft_line (
 	twiddle_stride = 1;
 	for ( ; size % 3 == 0; size /= 3, twiddle_stride *= 3) {
 		stride = size / 3;
-		double half_double = 0.5;				 VDT half = broadcastsd (&half_double);
-		double _866_double = 0.86602540378443864676372317075294; VDT _866 = broadcastsd (&_866_double);
+		VDT half = broadcastsd (0.5);
+		VDT _866 = broadcastsd (0.86602540378443864676372317075294);
 		for (unsigned int group = 0; group < fft_size; group += stride * 3) {
 			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += twiddle_stride) {
 				VDT real_a = vec[2*(group + group_member)];
@@ -586,8 +1221,8 @@ void fft_line (
 					vec[2*(group + group_member + 2*stride)+1] = imag_c;
 				}
 				else {			// Apply twiddles
-					VDT real_twiddle1 = broadcastsd (&pmdata->twiddles1[2*twiddle_idx]);
-					VDT imag_twiddle1 = broadcastsd (&pmdata->twiddles1[2*twiddle_idx+1]);
+					VDT real_twiddle1 = broadcastsd (pmdata->twiddles1[2*twiddle_idx]);
+					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles1[2*twiddle_idx+1]);
 					vec[2*(group + group_member + stride)]     = fmsubpd (real_b, real_twiddle1, mulpd (imag_b, imag_twiddle1));
 					vec[2*(group + group_member + stride)+1]   = fmaddpd (imag_b, real_twiddle1, mulpd (real_b, imag_twiddle1));
 					vec[2*(group + group_member + 2*stride)]   = fmaddpd (real_c, real_twiddle1, mulpd (imag_c, imag_twiddle1));
@@ -610,10 +1245,10 @@ void fft_line (
 	// I4= i1 -.809(i2+i5) +.309(i3+i4)    -.588(r2-r5) +.951(r3-r4)
 	twiddle_stride = 1;
 	for ( ; size % 5 == 0; size /= 5, twiddle_stride *= 5) {
-		double _309_double = 0.30901699437494742410229341718282;     VDT _309 = broadcastsd (&_309_double);
-		double _809_double = 0.80901699437494742410229341718282;     VDT _809 = broadcastsd (&_809_double);
-		double _951_double = 0.95105651629515357211643933337938;     VDT _951 = broadcastsd (&_951_double);
-		double _588_951_double = 0.61803398874989484820458683436564; VDT _588_951 = broadcastsd (&_588_951_double);
+		VDT _309 = broadcastsd (0.30901699437494742410229341718282);
+		VDT _809 = broadcastsd (0.80901699437494742410229341718282);
+		VDT _951 = broadcastsd (0.95105651629515357211643933337938);
+		VDT _588_951 = broadcastsd (0.61803398874989484820458683436564);
 		stride = size / 5;
 		for (unsigned int group = 0; group < fft_size; group += stride * 5) {
 			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += 2*twiddle_stride) {
@@ -671,10 +1306,10 @@ void fft_line (
 					vec[2*(group + group_member + 4*stride)+1] = imag_e;
 				}
 				else {			// Apply twiddles
-					VDT real_twiddle1 = broadcastsd (&pmdata->twiddles2[2*twiddle_idx]);
-					VDT imag_twiddle1 = broadcastsd (&pmdata->twiddles2[2*twiddle_idx+1]);
-					VDT real_twiddle2 = broadcastsd (&pmdata->twiddles2[2*(twiddle_idx+1)]);
-					VDT imag_twiddle2 = broadcastsd (&pmdata->twiddles2[2*(twiddle_idx+1)+1]);
+					VDT real_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx]);
+					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx+1]);
+					VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)]);
+					VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)+1]);
 					vec[2*(group + group_member + stride)]     = fmsubpd (real_b, real_twiddle1, mulpd (imag_b, imag_twiddle1));
 					vec[2*(group + group_member + stride)+1]   = fmaddpd (imag_b, real_twiddle1, mulpd (real_b, imag_twiddle1));
 					vec[2*(group + group_member + 2*stride)]   = fmsubpd (real_c, real_twiddle2, mulpd (imag_c, imag_twiddle2));
@@ -731,10 +1366,10 @@ void fft_line (
 					vec[2*(group + group_member + 3*stride)+1] = imag_d;
 				}
 				else {			// Apply twiddles
-					VDT real_twiddle1 = broadcastsd (&pmdata->twiddles2[2*twiddle_idx]);
-					VDT imag_twiddle1 = broadcastsd (&pmdata->twiddles2[2*twiddle_idx+1]);
-					VDT real_twiddle2 = broadcastsd (&pmdata->twiddles2[2*(twiddle_idx+1)]);
-					VDT imag_twiddle2 = broadcastsd (&pmdata->twiddles2[2*(twiddle_idx+1)+1]);
+					VDT real_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx]);
+					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx+1]);
+					VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)]);
+					VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)+1]);
 					vec[2*(group + group_member + stride)]     = fmsubpd (real_b, real_twiddle2, mulpd (imag_b, imag_twiddle2));
 					vec[2*(group + group_member + stride)+1]   = fmaddpd (imag_b, real_twiddle2, mulpd (real_b, imag_twiddle2));
 					vec[2*(group + group_member + 2*stride)]   = fmsubpd (real_c, real_twiddle1, mulpd (imag_c, imag_twiddle1));
@@ -823,10 +1458,10 @@ void invfft_line (
 				}
 				// Apply the CONJUGATE of the twiddle
 				else {
-					VDT real_twiddle1 = broadcastsd (&pmdata->twiddles2[2*twiddle_idx]);
-					VDT imag_twiddle1 = broadcastsd (&pmdata->twiddles2[2*twiddle_idx+1]);
-					VDT real_twiddle2 = broadcastsd (&pmdata->twiddles2[2*(twiddle_idx+1)]);
-					VDT imag_twiddle2 = broadcastsd (&pmdata->twiddles2[2*(twiddle_idx+1)+1]);
+					VDT real_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx]);
+					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx+1]);
+					VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)]);
+					VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)+1]);
 					real_twiddled_b = fmaddpd (real_b, real_twiddle2, mulpd (imag_b, imag_twiddle2));
 					imag_twiddled_b = fmsubpd (imag_b, real_twiddle2, mulpd (real_b, imag_twiddle2));
 					real_twiddled_c = fmaddpd (real_c, real_twiddle1, mulpd (imag_c, imag_twiddle1));
@@ -879,10 +1514,10 @@ void invfft_line (
 	// I4= i1 -.809(i2+i5) +.309(i3+i4)    +.588(r2-r5) -.951(r3-r4)
 	for ( ; (fft_size / stride) % 5 == 0; stride *= 5) {
 		twiddle_stride /= 5;
-		double _309_double = 0.30901699437494742410229341718282;     VDT _309 = broadcastsd (&_309_double);
-		double _809_double = 0.80901699437494742410229341718282;     VDT _809 = broadcastsd (&_809_double);
-		double _951_double = 0.95105651629515357211643933337938;     VDT _951 = broadcastsd (&_951_double);
-		double _588_951_double = 0.61803398874989484820458683436564; VDT _588_951 = broadcastsd (&_588_951_double);
+		VDT _309 = broadcastsd (0.30901699437494742410229341718282);
+		VDT _809 = broadcastsd (0.80901699437494742410229341718282);
+		VDT _951 = broadcastsd (0.95105651629515357211643933337938);
+		VDT _588_951 = broadcastsd (0.61803398874989484820458683436564);
 		for (unsigned int group = 0; group < fft_size; group += stride * 5) {
 			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += 2*twiddle_stride) {
 				VDT real_a = vec[2*(group + group_member)];
@@ -911,10 +1546,10 @@ void invfft_line (
 				}
 				// Apply the CONJUGATE of the twiddle
 				else {
-					VDT real_twiddle1 = broadcastsd (&pmdata->twiddles2[2*twiddle_idx]);
-					VDT imag_twiddle1 = broadcastsd (&pmdata->twiddles2[2*twiddle_idx+1]);
-					VDT real_twiddle2 = broadcastsd (&pmdata->twiddles2[2*(twiddle_idx+1)]);
-					VDT imag_twiddle2 = broadcastsd (&pmdata->twiddles2[2*(twiddle_idx+1)+1]);
+					VDT real_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx]);
+					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx+1]);
+					VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)]);
+					VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)+1]);
 					real_twiddled_b = fmaddpd (real_b, real_twiddle1, mulpd (imag_b, imag_twiddle1));
 					imag_twiddled_b = fmsubpd (imag_b, real_twiddle1, mulpd (real_b, imag_twiddle1));
 					real_twiddled_c = fmaddpd (real_c, real_twiddle2, mulpd (imag_c, imag_twiddle2));
@@ -978,8 +1613,8 @@ void invfft_line (
 	twiddle_stride = fft_size / stride;		// First radix-3 twiddle stride
 	for ( ; stride < fft_size; stride *= 3) {
 		twiddle_stride /= 3;
-		double half_double = 0.5;				 VDT half = broadcastsd (&half_double);
-		double _866_double = 0.86602540378443864676372317075294; VDT _866 = broadcastsd (&_866_double);
+		VDT half = broadcastsd (0.5);
+		VDT _866 = broadcastsd (0.86602540378443864676372317075294);
 		for (unsigned int group = 0; group < fft_size; group += stride * 3) {
 			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += twiddle_stride) {
 				VDT real_a = vec[2*(group + group_member)];
@@ -999,8 +1634,8 @@ void invfft_line (
 				}
 				// Apply the CONJUGATE of the twiddle
 				else {
-					VDT real_twiddle1 = broadcastsd (&pmdata->twiddles1[2*twiddle_idx]);
-					VDT imag_twiddle1 = broadcastsd (&pmdata->twiddles1[2*twiddle_idx+1]);
+					VDT real_twiddle1 = broadcastsd (pmdata->twiddles1[2*twiddle_idx]);
+					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles1[2*twiddle_idx+1]);
 					real_twiddled_b = addpd (mulpd (real_b, real_twiddle1), mulpd (imag_b, imag_twiddle1));
 					imag_twiddled_b = subpd (mulpd (imag_b, real_twiddle1), mulpd (real_b, imag_twiddle1));
 					real_twiddled_c = subpd (mulpd (real_c, real_twiddle1), mulpd (imag_c, imag_twiddle1));
@@ -1037,8 +1672,7 @@ void invfft_line (
 // out = in1 * in2 pointwise also divide by FFT length
 void pointmul_line (VDT *invec1, VDT *invec2, VDT *outvec, int size)
 {
-	double inv_fft_size_double = 1.0 / (double) size;
-	VDT inv_fft_size = broadcastsd (&inv_fft_size_double);
+	VDT inv_fft_size = broadcastsd (1.0 / (double) size);
 	for (int j = 0; j < size; j++) {
 		VDT real_x = invec1[2*j];
 		VDT imag_x = invec1[2*j+1];
@@ -1195,300 +1829,12 @@ void polymult_line (
 	aligned_free (tmpvec);
 }
 
-
-
-//--------------------------------------------------------------------
-//		Not-vector-optimized implementation
-//--------------------------------------------------------------------
-
-#if !defined (SSE2) && !defined (AVX) && !defined (FMA) && !defined (AVX512)
-
-bool read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, double *vec, int options, bool post_process_monics)
-{
-	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
-	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
-//GW: check if GW_FFT1 should be used instead
-		vec[0] = 1.0;
-		vec[1] = 0.0;
-		vec += 2;
-	}
-
-	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += 2*(size-1);
-
-	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
-	// Adjust index to handle the extra data point that must be returned for transformed real data.
-	if (!gwdata->ALL_COMPLEX_FFT) index--;
-
-	// Zero padded FFTs must also return for processing the 7 real values stored in the header
-	if (gwdata->ZERO_PADDED_FFT) index -= 7;
-//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
-//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
-
-	// If we've read all the gwnum data, return FALSE
-	if (index * 2 >= (int) gwdata->FFTLEN) return (FALSE);
-
-	// No special instructions implementation
-	if (index == -1) {			// First real-only value
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(double)); continue; }
-			vec[2*j] = data[j][0];
-//bug? return 0.0 instead of -11 ---- fix when we support FFTing invec
-			vec[2*j+1] = 0.0; //data[j][-11];
-		}
-	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(double)); continue; }
-			if (gwdata->PASS2_SIZE == 0) vec[2*j] = data[j][1];
-			else vec[2*j] = data[j][2];
-//bug? return 0.0 instead of -10.  How are we going to implement FFTed poly read?  Its own routine? It's own FFT state? Compressed?
-			vec[2*j+1] = 0.0; //data[j][-10];
-		}
-	}
-	else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
-		unsigned long offset = cache_line_offset (gwdata, index / 4) / sizeof (double);
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(double)); continue; }
-			ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
-// bug???  Index assuming what?  skip every other set of 4?  Examine ancient FFT sources!
-			if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT) {
-				vec[2*j] = data[j][offset+(index&3)*2];
-				vec[2*j+1] = data[j][offset+(index&3)*2+1];
-			} else {
-				vec[2*j] = data[j][offset+(index&2)*2+(index&1)];
-				vec[2*j+1] = data[j][offset+(index&2)*2+(index&1)+2];
-			}
-		}
-	}
-
-	// Negate coefficients if requested
-	if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
-		for (int j = 0; j < size; j++) {
-			vec[2*j] = -vec[2*j];
-			vec[2*j+1] = -vec[2*j+1];
-		}
-	}
-
-	// Duplicate RLP data in reverse order
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
-		for (int j = 1; j < size; j++) {
-			vec[-2*j] = vec[2*j];
-			vec[-2*j+1] = vec[2*j+1];
-		}
-	}
-
-	// If not post-processing monics and the input is monic, then output a 1+0i
-	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
-//GW: check if GW_FFT1 should be used instead
-		vec[2*size] = 1.0;
-		vec[2*size+1] = 0.0;
-	}
-
-	// Return success
-	return (TRUE);
-}
-
-void write_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, double *vec, int options)
-{
-	// If either input was a monic RLP, back up the output vector pointer to the newly created entry by monic_line_adjustments_avx
-	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) || ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)))
-		vec -= 2;
-
-	// If both inputs are RLPs, then the output is an RLP too.  Skip writing half of the data.
-	if (options & POLYMULT_INVEC1_RLP && options & POLYMULT_INVEC2_RLP) vec += 2*(size-1);
-
-	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
-	// Adjust index to handle the extra data point that must be returned for transformed real data.
-	if (!gwdata->ALL_COMPLEX_FFT) index--;
-
-	// Zero padded FFTs must also return for processing the 7 real values stored in the header
-	if (gwdata->ZERO_PADDED_FFT) index -= 7;
-//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
-//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
-
-	// No special instructions implementation
-	if (index == -1) {			// First real-only value
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			data[j][0] = vec[2*j];
-//			data[j][-11] = vec[2*j+1];  //GW:bug?
-		}
-	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {		// Second real-only value
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			if (gwdata->PASS2_SIZE == 0) data[j][1] = vec[2*j];
-			else data[j][2] = vec[2*j];
-//			data[j][-10] = vec[2*j+1];	//GW:bug?
-		}
-	}
-	else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
-		unsigned long offset = cache_line_offset (gwdata, index / 4) / sizeof (double);
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT) {
-				data[j][offset+(index&3)*2] = vec[2*j];
-				data[j][offset+(index&3)*2+1] = vec[2*j+1];
-			} else {
-				data[j][offset+(index&2)*2+(index&1)] = vec[2*j];
-				data[j][offset+(index&2)*2+(index&1)+2] = vec[2*j+1];
-			}
-		}
-	}
-}
-
-#endif
-
-//--------------------------------------------------------------------
-//		AVX optimized implementation
-//--------------------------------------------------------------------
-
-#ifdef AVX
-
-bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options, bool post_process_monics)
-{
-	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
-	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
-//GW: check if GW_FFT1 should be used instead
-		vec[0] = _mm256_set_pd (1.0, 1.0, 1.0, 1.0);
-		vec[1] = _mm256_set_pd (0.0, 0.0, 0.0, 0.0);
-		vec += 2;
-	}
-
-	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += 2*(size-1);
-
-	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
-	// Adjust index to handle the extra data point that must be returned for transformed real data.
-	if (!gwdata->ALL_COMPLEX_FFT) index--;
-
-	// Zero padded FFTs must also return for processing the 7 real values stored in the header
-	if (gwdata->ZERO_PADDED_FFT) index -= 7;
-//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
-//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
-
-	// If we've read all the gwnum data, return FALSE
-	if (index * 8 >= (int) gwdata->FFTLEN) return (FALSE);
-
-	// AVX implementation
-	if (index == -1) {			// First real-only value
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(__m256d)); continue; }
-			vec[2*j] = _mm256_set_pd (0.0, 0.0, 0.0, data[j][0]);
-//bug? return 0.0 instead of -11
-//			vec[2*j+1] = _mm256_set_pd (0.0, 0.0, 0.0, data[j][-11]);
-			vec[2*j+1] = _mm256_set_pd (0.0, 0.0, 0.0, 0.0);
-		}
-	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(__m256d)); continue; }
-			vec[2*j] = _mm256_set_pd (data[j][3], data[j][2], data[j][1], data[j][4]);
-//bug? return 0.0 instead of -10
-//			vec[2*j+1] = _mm256_set_pd (data[j][7], data[j][6], data[j][5], data[j][-10]);
-			vec[2*j+1] = _mm256_set_pd (data[j][7], data[j][6], data[j][5], 0.0);
-		}
-	}
-	else {				// Process complex values where imaginary part is in the high half of the cache line
-//BUG - handle various FFT paddings - addr_offset may not be right as the asm code is allowed to store data in the gaps.
-// It might be easier/faster to just FFT the gap data.
-// Or create new gwnum cache_line_offset that returns cache lines in order skipping the gaps
-		unsigned long offset = cache_line_offset (gwdata, index) / sizeof (__m256d);
-//for (int k=1;;k++){
-//	ASSERTG(k<gwdata->FFTLEN/2);
-//	if (addr_offset (gwdata, k) == 	offset * sizeof (__m256d)) break;
-//}
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(__m256d)); continue; }
-			ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
-			vec[2*j] = ((__m256d *) data[j])[offset];			// Real data
-			vec[2*j+1] = ((__m256d *) data[j])[offset+1];			// Imaginary data
-		}
-	}
-
-	// Negate coefficients if requested
-	if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
-		__m256d zero = _mm256_set_pd (0.0, 0.0, 0.0, 0.0);
-		for (int j = 0; j < size; j++) {
-			vec[2*j] = _mm256_sub_pd (zero, vec[2*j]);
-			vec[2*j+1] = _mm256_sub_pd (zero, vec[2*j+1]);
-		}
-	}
-
-	// Duplicate RLP data in reverse order
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
-		for (int j = 1; j < size; j++) {
-			vec[-2*j] = vec[2*j];
-			vec[-2*j+1] = vec[2*j+1];
-		}
-	}
-
-	// If not post-processing monics and the input is monic, then output a 1+0i
-	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
-//GW: check if GW_FFT1 should be used instead
-		vec[2*size] = _mm256_set_pd (1.0, 1.0, 1.0, 1.0);
-		vec[2*size+1] = _mm256_set_pd (0.0, 0.0, 0.0, 0.0);
-	}
-
-	// Return success
-	return (TRUE);
-}
-
-void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, __m256d *vec, int options)
-{
-	// If either input was a monic RLP, back up the output vector pointer to the newly created entry by monic_line_adjustments_avx
-	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) || ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)))
-		vec -= 2;
-
-	// If both inputs are RLPs, then the output is an RLP too.  Skip writing half of the data.
-	if ((options & POLYMULT_INVEC1_RLP) && (options & POLYMULT_INVEC2_RLP)) vec += 2*(size-1);
-
-	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
-	// Adjust index to handle the extra data point that must be returned for transformed real data.
-	if (!gwdata->ALL_COMPLEX_FFT) index--;
-
-	// Zero padded FFTs must also return for processing the 7 real values stored in the header
-	if (gwdata->ZERO_PADDED_FFT) index -= 7;
-//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
-//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
-
-	// AVX implementation
-	union {
-		__m256d	a;
-		double	b[4];
-	} x;
-	if (index == -1) {			// First real-only value
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			x.a = vec[2*j], data[j][0] = x.b[0];
-//bug? return 0.0 instead of -11
-//			x.a = vec[2*j+1], data[j][-11] = x.b[0];
-		}
-	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			x.a = vec[2*j], data[j][4] = x.b[0], data[j][1] = x.b[1], data[j][2] = x.b[2], data[j][3] = x.b[3];
-//bug? return 0.0 instead of -10
-			x.a = vec[2*j+1], /*data[j][-10] = x.b[0],*/ data[j][5] = x.b[1], data[j][6] = x.b[2], data[j][7] = x.b[3];
-		}
-	}
-	else {				// Process complex values where imaginary part is in the high half of the cache line
-//BUG - handle various FFT paddings - addr_offset may not be right as the asm code is allowed to store data in the gaps.
-// It might be easier/faster to just FFT the gap data.
-		unsigned long offset = cache_line_offset (gwdata, index) / sizeof (__m256d);
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			((__m256d *) data[j])[offset] = vec[2*j];			// Real data
-			((__m256d *) data[j])[offset+1] = vec[2*j+1];			// Imaginary data
-		}
-	}
-}
-
 #endif
 
 
+/*--------------------------------------------------------------------------
+|			Polymult helper thread
++-------------------------------------------------------------------------*/
 
 #if !defined (SSE2) && !defined (AVX) && !defined (FMA) && !defined (AVX512)
 
@@ -1509,14 +1855,28 @@ void polymult_thread (void *arg)
 /* Loop doing polymult work */
 
 	while (!pmdata->termination_in_progress) {
+		// Optimized routines for AVX512 instructions
+		if (pmdata->gwdata->cpu_flags & CPU_AVX512F)
+			polymult_line_avx512 (pmdata, pmdata->invec1, pmdata->invec1_size, pmdata->invec2, pmdata->invec2_size,
+					      pmdata->outvec, pmdata->outvec_size, pmdata->options);
+		// Optimized routines for FMA3 instructions
+		else if (pmdata->gwdata->cpu_flags & CPU_FMA3)
+			polymult_line_fma (pmdata, pmdata->invec1, pmdata->invec1_size, pmdata->invec2, pmdata->invec2_size,
+					   pmdata->outvec, pmdata->outvec_size, pmdata->options);
 		// Optimized routines for AVX instructions
-		if (pmdata->gwdata->cpu_flags & CPU_AVX)
+		else if (pmdata->gwdata->cpu_flags & CPU_AVX)
 			polymult_line_avx (pmdata, pmdata->invec1, pmdata->invec1_size, pmdata->invec2, pmdata->invec2_size,
 					   pmdata->outvec, pmdata->outvec_size, pmdata->options);
+		// Optimized routines for SSE2 instructions
+		else if (pmdata->gwdata->cpu_flags & CPU_SSE2)
+			polymult_line_sse2 (pmdata, pmdata->invec1, pmdata->invec1_size, pmdata->invec2, pmdata->invec2_size,
+					    pmdata->outvec, pmdata->outvec_size, pmdata->options);
 		// Default routines using no vector instructions
+#ifndef X86_64
 		else
-			polymult_line (pmdata, pmdata->invec1, pmdata->invec1_size, pmdata->invec2, pmdata->invec2_size,
-				       pmdata->outvec, pmdata->outvec_size, pmdata->options);
+			polymult_line_dbl (pmdata, pmdata->invec1, pmdata->invec1_size, pmdata->invec2, pmdata->invec2_size,
+					   pmdata->outvec, pmdata->outvec_size, pmdata->options);
+#endif
 
 		// When all helpers are finished, signal main thread
 		gwmutex_lock (&pmdata->poly_mutex);
@@ -1534,6 +1894,10 @@ void polymult_thread (void *arg)
 	if (pmdata->gwdata->thread_callback != NULL)
 		(*pmdata->gwdata->thread_callback) (thread_num, 21, pmdata->gwdata->thread_callback_data);
 }
+
+/*--------------------------------------------------------------------------
+|			Polymult main routine
++-------------------------------------------------------------------------*/
 
 /* Multiply two polynomials producing FFTed gwnums as output.  The output gwnums need to be normalized before use in further gwnum operations. */
 /* It is safe to use input gwnums in the output vector.  For a normal polynomial multiply outvec_size must be invec1_size + invec2_size - 1. */
@@ -1608,10 +1972,18 @@ void polymult (
 	}
 
 	// This thread works on the polymult too.  Select which optimized routines to use.
-	if (pmdata->gwdata->cpu_flags & CPU_AVX)
+	if (pmdata->gwdata->cpu_flags & CPU_AVX512F)
+		polymult_line_avx512 (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
+	else if (pmdata->gwdata->cpu_flags & CPU_FMA3)
+		polymult_line_fma (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
+	else if (pmdata->gwdata->cpu_flags & CPU_AVX)
 		polymult_line_avx (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
+	else if (pmdata->gwdata->cpu_flags & CPU_SSE2)
+		polymult_line_sse2 (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
+#ifndef X86_64
 	else
-		polymult_line (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
+		polymult_line_dbl (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
+#endif
 
 	// Wait for all helper threads to complete
 	if (pmdata->num_threads > 1) gwevent_wait (&pmdata->helpers_done, 0);

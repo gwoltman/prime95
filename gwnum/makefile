@@ -12,7 +12,7 @@ CPPFLAGS = -I.. -I../qd -std=c++11 -O2 -march=i486 -malign-double
 AR = ar
 
 LINUXOBJS = cpuid.o gwnum.o gwtables.o gwthread.o gwini.o gwbench.o gwutil.o gwdbldbl.o giants.o radix.o ecmstag1.o
-POLYOBJS = polymult.o polymult_avx.o
+POLYOBJS = polymult.o polymult_sse2.o polymult_avx.o polymult_fma.o
 
 LIB = gwnum.a
 POLYLIB = polymult.a
@@ -34,8 +34,14 @@ clean:
 distclean: clean
 	rm -f $(LIB) $(POLYLIB)
 
+polymult_sse2.o: polymult.c polymult.h
+	$(CC) $(CFLAGS) -Dsse2 -msse2 -c -o polymult_sse2.o polymult.c
+
 polymult_avx.o: polymult.c polymult.h
 	$(CC) $(CFLAGS) -DAVX -mavx -c -o polymult_avx.o polymult.c
+
+polymult_fma.o: polymult.c polymult.h
+	$(CC) $(CFLAGS) -DFMA -mfma -c -o polymult_fma.o polymult.c
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<
