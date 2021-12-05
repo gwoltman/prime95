@@ -4275,6 +4275,7 @@ int ecm_restore (			/* For version 30.4 and later save files */
 		if (! read_int (fd, &ecmdata->stage2_numvals, &sum)) goto readerr;
 		if (! read_int (fd, &ecmdata->totrels, &sum)) goto readerr;
 		if (! read_int (fd, &ecmdata->D, &sum)) goto readerr;
+		ecmdata->numrels = map_D_to_numrels (ecmdata->D);
 		if (! read_int (fd, &ecmdata->E, &sum)) goto readerr;
 		if (! read_int (fd, &ecmdata->TWO_FFT_STAGE2, &sum)) goto readerr;
 		if (! read_int (fd, &ecmdata->pool_type, &sum)) goto readerr;
@@ -6685,6 +6686,8 @@ int pm1_restore (			/* For version 30.4 and later save files */
 		if (! read_int (fd, &pm1data->stage2_numvals, &sum)) goto readerr;
 		if (! read_int (fd, &pm1data->totrels, &sum)) goto readerr;
 		if (! read_int (fd, &pm1data->D, &sum)) goto readerr;
+		//GW: we should save and restore numrels
+		pm1data->numrels = map_D_to_numrels (pm1data->D);
 		if (version == 4) {		// 30.4 save files
 			int	E;
 			if (! read_int (fd, &E, &sum)) goto readerr;
@@ -6942,6 +6945,8 @@ double pm1_stage2_cost (
 
 	cost = cost_data->c.est_pairing_runtime + (cost_data->c.est_init_transforms + cost_data->c.est_stage2_transforms) * 1.35;
 	cost /= excess_work_credit;
+//GW: bug
+cost *= IniGetFloat (INI_FILE, "Pm1CostFudge", 2.5);
 	return (cost / 2.0);
 }
 
@@ -7920,6 +7925,8 @@ restart3a:
 /* Restart here when in the middle of stage 2.  Change state to between stage 1 and 2. */
 
 restart3b:
+	//GW:  BUG! if continuing from an old save file with no invx, then we cannot do polymult stage 2.  recompute it? do prime pairing?
+	//	or if we have x and x+invx the subtract!
 more_C:
 	start_timer_from_zero (timers, 0);
 	sprintf (buf, "%s P-1 stage 2 init", gwmodulo_as_string (&pm1data.gwdata));
@@ -8509,7 +8516,7 @@ pm1_polymult:
 	poly2_size = (pm1data.stage2_numvals - 4) - poly1_size;		//GW:  (3??? 5???)
 	ASSERTG (poly2_size >= poly1_size*2);
 	// Compute output poly size -- we use circular convolution with an FFT size supported by the polymult library
-	outpoly_size = polymult_fft_size (poly2_size);
+	outpoly_size = polymult_fft_size (poly2_size+1);
 	// Need numrels coefficients in poly #1.  Need 2 * numrels coefficients in poly #2 to eval poly #1 at one point.
 	// Each additional coefficient evaluates one more point.
 	num_points = poly2_size - (2*poly1_size) + 1;
@@ -8755,6 +8762,7 @@ pm1_polymult:
 // Multiply monic RLPs into one big monic RLP.  This is done in-place.
 
 	polymult_init (&pm1data.polydata, &pm1data.gwdata);
+	polymult_set_num_threads (&pm1data.polydata, get_worker_num_threads (thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0));
 	{
 		int	num_polys = pm1data.numrels;	// Number of polys to multiply together
 		int	poly_size = 1;			// All polys are this size (except maybe the last one)
@@ -9972,6 +9980,7 @@ int pp1_restore (
 		if (! read_int (fd, &pp1data->stage2_numvals, &sum)) goto readerr;
 		if (! read_int (fd, &pp1data->totrels, &sum)) goto readerr;
 		if (! read_int (fd, &pp1data->D, &sum)) goto readerr;
+		pp1data->numrels = map_D_to_numrels (pp1data->D);
 		if (! read_uint64 (fd, &pp1data->first_relocatable, &sum)) goto readerr;
 		if (! read_uint64 (fd, &pp1data->last_relocatable, &sum)) goto readerr;
 		if (! read_uint64 (fd, &pp1data->B2_start, &sum)) goto readerr;
