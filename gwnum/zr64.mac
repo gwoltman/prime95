@@ -2568,9 +2568,6 @@ unfft:	vmovapd zmm1, zmm0			;; I3
 	zfnmaddpd zmm0, zmm12, zmm31, zmm18	;; R5 - R6 * SQRTHALF (final R6)			; 91-94		n 97
 	zfmaddpd zmm6, zmm12, zmm31, zmm18	;; R5 + R6 * SQRTHALF (final R5)			; 91-94		n 96
 
-	zfnmaddpd zmm7, zmm3, zmm31, zmm15	;; R7 - I8 * SQRTHALF (final R7)			; 98-101	n 102
-	zfmaddpd zmm3, zmm3, zmm31, zmm15	;; R7 + I8 * SQRTHALF (final R8)			; 98-101	n 103
-
 	vmovapd zmm17, zmm14			;; R3
 
 	vaddpd	zmm12, zmm9, zmm4		;; I5 + I6 (new I5)					; 105-108	n 116
@@ -2579,14 +2576,17 @@ unfft:	vmovapd zmm1, zmm0			;; I3
 	vaddpd	zmm4, zmm5, zmm8		;; I1 + I2 (new I1)					; 104-107	n 114
 	vsubpd	zmm18, zmm5, zmm8		;; I1 - I2 (new I2)					; 104-107	n 121
 
-	vmovapd zmm5, zmm11		;; R4
-	vmovapd zmm11, zmm2		;; I7
-	vmovapd zmm20, zmm13		;; R1
-	vmovapd zmm13, zmm7		;; I4
-	vmovapd zmm8, zmm6		;; R5
-	vmovapd zmm6, zmm19		;; R2
-	vmovapd zmm16, zmm10		;; I8
-	vmovapd zmm9, zmm3		;; R8
+	vmovapd zmm20, zmm13			;; R1
+	vmovapd zmm13, zmm7			;; I4
+
+	zfnmaddpd zmm7, zmm3, zmm31, zmm15	;; R7 - I8 * SQRTHALF (final R7)			; 98-101	n 102
+	zfmaddpd zmm9, zmm3, zmm31, zmm15	;; R7 + I8 * SQRTHALF (final R8)			; 98-101	n 103
+
+	vmovapd zmm5, zmm11			;; R4
+	vmovapd zmm11, zmm2			;; I7
+	vmovapd zmm8, zmm6			;; R5
+	vmovapd zmm6, zmm19			;; R2
+	vmovapd zmm16, zmm10			;; I8
 	jmp	done
 
 fma:	vmovapd	zmm30, [srcreg+rbp]		;; MemR1
