@@ -61,7 +61,6 @@ struct gwdbldbl_constants {
 	dd_real gw__logb_abs_c_div_fftlen;
 	dd_real gw__fftlen_inverse;
 	dd_real gw__over_fftlen;
-	dd_real gw__over_sqrt_fftlen;
 	double	gwdbl__b;
 	double	gwdbl__b_inverse;
 	double	gwdbl__logb_abs_c_div_fftlen;
@@ -822,7 +821,6 @@ void gwfft_weight_setup (
 		dd_data->gw__logb_abs_c_div_fftlen = log (dd_real (abs ((int) c))) / dd_data->gw__logb * dd_data->gw__fftlen_inverse;
 		dd_data->gw__over_fftlen = dd_real (k * 2.0) * dd_data->gw__fftlen_inverse;
 	}
-	dd_data->gw__over_sqrt_fftlen = sqrt (dd_data->gw__over_fftlen);
 	dd_data->gwdbl__b = (double) b;
 	dd_data->gwdbl__b_inverse = 1.0 / (double) b;
 	dd_data->gwdbl__logb_abs_c_div_fftlen = (double) dd_data->gw__logb_abs_c_div_fftlen;
@@ -981,22 +979,6 @@ double gwfft_weight (
 	return (double (result));
 }
 
-// Like gwfft_weight, but multiplies the weight by sqrt (2/FFTLEN).
-
-extern "C"
-double gwfft_weight_over_sqrt_fftlen (
-	void	*dd_data_arg,
-	unsigned long j)
-{
-	dd_real bpower, result;
-
-	x86_FIX
-	bpower = map_to_weight_power (dd_data_arg, j);
-	result = exp (dd_data->gw__logb * bpower) * dd_data->gw__over_sqrt_fftlen;
-	END_x86_FIX
-	return (double (result));
-}
-
 // Like gwfft_weight, but slightly faster and does not guarantee quite as much accuracy.
 // We cannot be very sloppy as these weights are used to set FFT data values
 // when reading save files.  If we are too sloppy we quickly get roundoff errors > 0.5.
@@ -1028,7 +1010,7 @@ double gwfft_weight_inverse (
 	return (double (result));
 }
 
-// Compute the inverse of the fft weight squared
+// Compute the inverse of the fft weight squared over fftlen (special code for one pass AVX-512 all-complex wrapper)
 
 extern "C"
 double gwfft_weight_inverse_squared (
@@ -1040,6 +1022,7 @@ double gwfft_weight_inverse_squared (
 	x86_FIX
 	bpower = map_to_weight_power (dd_data_arg, j);
 	result = exp (dd_data->gw__logb * -2.0 * bpower);
+	result = result * dd_data->gw__over_fftlen;
 	END_x86_FIX
 	return (double (result));
 }

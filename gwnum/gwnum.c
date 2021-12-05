@@ -4652,16 +4652,14 @@ int internal_gwsetup (
 	gwdata->GW_ADDIN = NULL;
 
 /* Init FFT1 state for possible future gwmuladd4 and gwmulsub4 calls */
-/* For AVX-512 FFTs, two-pass k == 1 FFTs can skip FFT(1) */
-/* For AVX and FMA3 FFTs, k == 1 FFTs can skip FFT(1) */
+/* For AVX-512, FMA3 and AVX FFTs, k == 1 FFTs can skip FFT(1) */
 /* For 32-bit gwnum, we'll never need FFT(1) we emulate everywhere it might be needed */
 
 	gwdata->GW_FFT1 = NULL;
 	gwdata->FFT1_state = 0;
 	gwdata->FFT1_user_allocated = 0;
 #ifdef X86_64
-	if (gwdata->cpu_flags & CPU_AVX512F) { if (gwdata->PASS1_SIZE && gwdata->k == 1.0) gwdata->FFT1_state = 2; }
-	else if (gwdata->cpu_flags & CPU_AVX) { if (gwdata->k == 1.0) gwdata->FFT1_state = 2; }
+	if (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX)) { if (gwdata->k == 1.0) gwdata->FFT1_state = 2; }
 #else
 	gwdata->FFT1_state = 2;
 #endif
