@@ -811,7 +811,12 @@ void test_it (
 
 	gwfft (gwdata, x, x);
 	gwunfft (gwdata, x, x);
-	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "unfft");
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "unfft1");
+	gwmul3 (gwdata, x, x, x, GWMUL_STARTNEXTFFT);
+	gwunfft (gwdata, x, x);
+	squaregi (&gwdata->gdata, g);
+	specialmodg (gwdata, g);
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "unfft2");
 
 /* Test gwaddquick, gwsubquick */
 
