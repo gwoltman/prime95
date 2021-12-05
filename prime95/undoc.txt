@@ -74,7 +74,7 @@ There are also some options for controlling certification work.  In local.txt, a
 	CertWorker=n
 	CertMinExponent=x
 	CertMaxExponent=y
-This let's you do certifications only on the specified worker number n.  You can
+This lets you do certifications only on the specified worker number n.  You can
 also control the range of exponents you are willing to do certifications for.
 
 You can control whether the program does extra error checking on every
@@ -98,7 +98,7 @@ possibly on multiple lines.  Default value is 3.
 You can control how often Jacobi error checking is run.  Default is 12 hours.
 If a Jacobi test takes 30 seconds, then the default represents an overhead of
 30 / (12 * 60 * 60) or 0.07% overhead.  Each Jacobi test has a 50% chance of
-discovering if a hardware error has occured in the last time interval.  In prime.txt:
+discovering if a hardware error has occurred in the last time interval.  In prime.txt:
 	JacobiErrorCheckingInterval=N	(default is 12)
 where N is in hours.
 
@@ -637,7 +637,7 @@ BenchOddWorkers can be used to disable throughput benchmarks when number of core
 a multiple of the number of workers (e.g. 3 cores on 2 workers).
 BenchDummyWorkers is used to enable starting dummy workers while benchmarking.
 The theory is that keeping the other CPU cores busy will prevent "turbo boost" from kicking in.
-This may lead to more consistent benchmarks that are more indicitive of what will happen running
+This may lead to more consistent benchmarks that are more indicative of what will happen running
 this program in a real-world, all-cores-busy environment.  Option not available in throughput
 benchmarks. 
 
@@ -672,7 +672,7 @@ program can use.  You can also put this in the [Worker #n] section to place
 a maximum amount of memory that one particular worker can use.
 
 You can set MaxHighMemWorkers=n in local.txt.  This tells the program how
-wany workers are allowed to use lots of memory.  This occurs doing stage 2
+many workers are allowed to use lots of memory.  This occurs doing stage 2
 of P-1, P+1, or ECM on medium-to-large numbers.  Default is 1.
 
 You can set a threshold for what is considered lots of memory in MaxHighMemWorkers
@@ -750,8 +750,8 @@ following setting in prime.txt:
 Set to zero to disable high-reliability error checking.  Set to 1 to perform Gerbicz
 high-reliability error checking whenever possible, otherwise no error checking.  Set
 to 2 to do Gerbicz high-reliability error checking whenever possible, otherwise do the
-much slower error check of doing each iteration twice and periodicly comparing residues.
-Set to 3 to force the much slower error check of doing each iteration twice and periodicly
+much slower error check of doing each iteration twice and periodically comparing residues.
+Set to 3 to force the much slower error check of doing each iteration twice and periodically
 comparing residues.
 
 When doing highly-reliable error checking, the interval between compares can be
@@ -805,7 +805,7 @@ program not running at nice priority when they execute a ps command (it takes
 a more complicated ps command to see that the CPU intensive threads are running
 at a lower priority). You can change the nice level in prime.txt with the line:
 	Nice=n
-where n is the nice level. The default nice level is 10.  In linux you can select
+where n is the nice level. The default nice level is 10.  In Linux you can select
 a value from -20 to +19.  In FreeBSD and Mac OS X you can select a value
 between -20 and 20.  Higher numbers represent a "nicer" program (lower priority).
 In all OSes, a zero nice level means run at the normal priority.

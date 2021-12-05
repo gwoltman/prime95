@@ -43,7 +43,8 @@ New features in Version 30.6 of prime95.exe
    best B2 value for the given B1.
 2) Faster ECM stage 1 when factoring exponents near the limit of an FFT size.
 3) Gwnum library new functions give a programmer more tools to reduce normalized adds.
-   A tutorial.txt file is now available to help a programmer use the gwnum library.
+   A tutorial.txt file (download the prime95 sources) is now available to help a programmer
+   use the gwnum library.
 
 New features in Version 30.4/30.5 of prime95.exe
 ------------------------------------------------

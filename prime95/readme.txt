@@ -557,7 +557,7 @@ appears in the results.txt file, then prime95/mprime's error-checking has
 detected a problem.  After waiting 5 minutes, the program will continue
 testing from the last save file.
 
-The most common errors message is ROUND OFF > 0.40 caused by one of two things:
+The most common error message is ROUND OFF > 0.40 caused by one of two things:
 	1)  For reasons too complicated to go into here, the program's error
 	checking is not	perfect.  Some errors can be missed and some correct
 	results flagged as an error.  If you get the message "Disregard last
