@@ -250,6 +250,7 @@ void polymult_done (
 	if (pmdata->thread_ids != NULL) {
 		pmdata->termination_in_progress = TRUE;
 		gwevent_signal (&pmdata->work_to_do);
+		gwevent_signal (&pmdata->helpers_done);
 		for (int i = 1; i < pmdata->num_threads; i++) gwthread_wait_for_exit (&pmdata->thread_ids[i]);
 		free (pmdata->thread_ids);
 		pmdata->thread_ids = NULL;
@@ -1878,11 +1879,15 @@ void polymult_thread (void *arg)
 					   pmdata->outvec, pmdata->outvec_size, pmdata->options);
 #endif
 
-		// When all helpers are finished, signal main thread
+		// When all helpers are finished, signal main thread.  Otherwise wait for all helpers to finish
 		gwmutex_lock (&pmdata->poly_mutex);
 		int num_active = --pmdata->helpers_active;
 		gwmutex_unlock (&pmdata->poly_mutex);
-		if (num_active == 0) gwevent_signal (&pmdata->helpers_done);
+		if (num_active == 0) {
+			gwevent_reset (&pmdata->work_to_do);
+			gwevent_signal (&pmdata->helpers_done);
+		} else
+			gwevent_wait (&pmdata->helpers_done, 0);
 
 /* Wait for more work (or termination) */
 
@@ -1966,7 +1971,6 @@ void polymult (
 			gwmutex_lock (&pmdata->poly_mutex);
 			gwevent_reset (&pmdata->helpers_done);
 			gwevent_signal (&pmdata->work_to_do);		// Start all helper threads
-			gwevent_reset (&pmdata->work_to_do);		// Reset event immediately
 			gwmutex_unlock (&pmdata->poly_mutex);
 		}
 	}
