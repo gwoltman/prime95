@@ -2807,9 +2807,9 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
 		for (i = 1; i <= 3; i++)
 			if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		w->B1 = atof (q+1);
+		w->B1 = (uint64_t) atof (q+1);
 		if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		w->B2 = atof (q+1);
+		w->B2 = (uint64_t) atof (q+1);
 		if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
 		w->curves_to_do = atoi (q+1);
 		q = strchr (q+1, ',');
@@ -2820,8 +2820,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		}
 		w->B2_start = w->B1;
 		if (q != NULL && q[1] != '"') {
-			double j;
-			j = atof (q+1);
+			uint64_t j = (uint64_t) atof (q+1);
 			if (j > w->B1) w->B2_start = j;
 			q = strchr (q+1, ',');
 		}
@@ -2842,14 +2841,13 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
 		sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
 		for (i = 1; i <= 3; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		w->B1 = atof (q+1);
+		w->B1 = (uint64_t) atof (q+1);
 		if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		w->B2 = atof (q+1);
+		w->B2 = (uint64_t) atof (q+1);
 		q = strchr (q+1, ',');
 		w->sieve_depth = 0.0;
 		if (q != NULL && q[1] != '"') {
-			double	j;
-			j = atof (q+1);
+			double	j = atof (q+1);
 			if (j < 100.0) {
 				w->sieve_depth = j;
 				q = strchr (q+1, ',');
@@ -2857,8 +2855,8 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		}
 		w->B2_start = 0;
 		if (q != NULL && q[1] != '"') {
-			double	j;
-			j = atof (q+1);
+			uint64_t j;
+			j = (uint64_t) atof (q+1);
 			if (j > w->B1) w->B2_start = j;
 			q = strchr (q+1, ',');
 		}
@@ -2880,9 +2878,9 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
 		sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
 		for (i = 1; i <= 3; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		w->B1 = atof (q+1);
+		w->B1 = (uint64_t) atof (q+1);
 		if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		w->B2 = atof (q+1);
+		w->B2 = (uint64_t) atof (q+1);
 		q = strchr (q+1, ',');
 		w->nth_run = 1;
 		if (q != NULL && q[1] != '"') {
@@ -2892,8 +2890,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		}
 		w->sieve_depth = 0.0;
 		if (q != NULL && q[1] != '"') {
-			double	j;
-			j = atof (q+1);
+			double j = atof (q+1);
 			if (j >= 100.0) j = 0.0;
 			w->sieve_depth = j;
 			q = strchr (q+1, ',');
@@ -3297,9 +3294,9 @@ int writeWorkToDoFile (
 			break;
 
 		case WORK_ECM:
-			sprintf (buf, "ECM2=%s%.0f,%lu,%lu,%ld,%.0f,%.0f,%u", idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2, w->curves_to_do);
+			sprintf (buf, "ECM2=%s%.0f,%lu,%lu,%ld,%" PRIu64 ",%" PRIu64 ",%u", idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2, w->curves_to_do);
 			if (w->B2_start > w->B1)
-				sprintf (buf + strlen (buf), ",%.0f,%.0f", w->curve, w->B2_start);
+				sprintf (buf + strlen (buf), ",%.0f,%" PRIu64, w->curve, w->B2_start);
 			else if (w->curve)
 				sprintf (buf + strlen (buf), ",%.0f", w->curve);
 			if (w->known_factors != NULL)
@@ -3307,17 +3304,17 @@ int writeWorkToDoFile (
 			break;
 
 		case WORK_PMINUS1:
-			sprintf (buf, "Pminus1=%s%.0f,%lu,%lu,%ld,%.0f,%.0f", idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2);
+			sprintf (buf, "Pminus1=%s%.0f,%lu,%lu,%ld,%" PRIu64 ",%" PRIu64, idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2);
 			if (w->sieve_depth > 0.0)
 				sprintf (buf + strlen (buf), ",%.0f", w->sieve_depth);
 			if (w->B2_start > w->B1)
-				sprintf (buf + strlen (buf), ",%.0f", w->B2_start);
+				sprintf (buf + strlen (buf), ",%" PRIu64, w->B2_start);
 			if (w->known_factors != NULL)
 				sprintf (buf + strlen (buf), ",\"%s\"", w->known_factors);
 			break;
 
 		case WORK_PPLUS1:
-			sprintf (buf, "Pplus1=%s%.0f,%lu,%lu,%ld,%.0f,%.0f,%d", idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2, w->nth_run);
+			sprintf (buf, "Pplus1=%s%.0f,%lu,%lu,%ld,%" PRIu64 ",%" PRIu64 ",%d", idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2, w->nth_run);
 			if (w->sieve_depth > 0.0)
 				sprintf (buf + strlen (buf), ",%.0f", w->sieve_depth);
 			if (w->known_factors != NULL)
@@ -3666,19 +3663,13 @@ double work_estimate (
 
 	if (w->work_type == WORK_PMINUS1 || w->work_type == WORK_PFACTOR) {
 		int	stage;
-		double	B1, B2;
+		uint64_t B1, B2;
 		double	stage1_time, stage2_time;
 
 		if (w->work_type == WORK_PFACTOR) {
-			unsigned long guess_B1, guess_B2;
-			unsigned long squarings;
+			uint64_t squarings;
 			double	prob;
-			guess_pminus1_bounds (thread_num, w->k, w->b, w->n, w->c,
-					      w->sieve_depth, w->tests_saved,
-					      &guess_B1, &guess_B2,
-					      &squarings, &prob);
-			B1 = guess_B1;
-			B2 = guess_B2;
+			guess_pminus1_bounds (thread_num, w->k, w->b, w->n, w->c, w->sieve_depth, w->tests_saved, &B1, &B2, &squarings, &prob);
 		} else {
 			B1 = w->B1;
 			B2 = w->B2 ? w->B2 : 40 * w->B1;
@@ -3688,8 +3679,8 @@ double work_estimate (
 		else stage = 0;
 
 		timing = gwmap_to_timing (w->k, w->b, w->n, w->c);
-		stage1_time = timing * (1.4545 * B1);
-		stage2_time = (B2 >= B1) ? timing * (0.06154 * (B2 - B1)) * 1.285 : 0.0;
+		stage1_time = timing * (1.4545 * (double) B1);
+		stage2_time = (B2 >= B1) ? timing * (0.06154 * (double) (B2 - B1)) * 1.285 : 0.0;
 
 		if (stage == 0) est = stage1_time + stage2_time;
 		if (stage == 1) est = stage1_time * (1.0 - pct_complete) + stage2_time;
@@ -3700,7 +3691,7 @@ double work_estimate (
 
 	if (w->work_type == WORK_PPLUS1) {
 		int	stage;
-		double	B1, B2;
+		uint64_t B1, B2;
 		double	stage1_time, stage2_time;
 
 		B1 = w->B1;
@@ -3710,8 +3701,8 @@ double work_estimate (
 		else stage = 0;
 
 		timing = gwmap_to_timing (w->k, w->b, w->n, w->c);
-		stage1_time = timing * (1.4545 * 1.52 * B1);
-		stage2_time = (B2 >= B1) ? timing * (0.06154 * (B2 - B1)) * 1.285 : 0.0;
+		stage1_time = timing * (1.4545 * 1.52 * (double) B1);
+		stage2_time = (B2 >= B1) ? timing * (0.06154 * (double) (B2 - B1)) * 1.285 : 0.0;
 
 		if (stage == 0) est = stage1_time + stage2_time;
 		if (stage == 1) est = stage1_time * (1.0 - pct_complete) + stage2_time;

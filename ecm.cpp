@@ -5922,8 +5922,8 @@ more_curves:
 		pkt.b = w->b;
 		pkt.n = w->n;
 		pkt.c = w->c;
-		pkt.B1 = (double) ecmdata.B;
-		pkt.B2 = (double) ecmdata.average_B2;
+		pkt.B1 = ecmdata.B;
+		pkt.B2 = ecmdata.average_B2;
 		pkt.curves = w->curves_to_do;
 		pkt.fftlen = gwfftlen (&ecmdata.gwdata);
 		pkt.done = TRUE;
@@ -6048,8 +6048,8 @@ bingo:	stage = (ecmdata.state > ECM_STATE_MIDSTAGE) ? 2 : (ecmdata.state > ECM_S
 		pkt.n = w->n;
 		pkt.c = w->c;
 		truncated_strcpy (pkt.factor, sizeof (pkt.factor), str);
-		pkt.B1 = (double) ecmdata.B;
-		pkt.B2 = (double) ecmdata.average_B2;
+		pkt.B1 = ecmdata.B;
+		pkt.B2 = ecmdata.average_B2;
 		pkt.curves = ecmdata.curve;
 		pkt.stage = stage;
 		pkt.fftlen = gwfftlen (&ecmdata.gwdata);
@@ -7021,12 +7021,12 @@ void pm1_choose_B2 (
 				if (x.i > max_B2mult) x.i = max_B2mult; \
 				pm1data->C = x.i * pm1data->B; \
 				x.B2_cost = pm1_stage2_impl_given_numvals (pm1data, numvals, &cost_data); \
-				x.fac_pct = pm1prob (takeAwayBits, sieve_depth, (double) pm1data->B, (double) (x.i * pm1data->B));
+				x.fac_pct = pm1prob (takeAwayBits, sieve_depth, pm1data->B, x.i * pm1data->B);
 
 // Return TRUE if x is better than y.  Determined by seeing if taking the increased cost of y's higher B2 and investing it in increasing x's bounds
 // results in a higher chance of finding a factor.
-#define B1increase(x,y)	(int) ((y.B2_cost - x.B2_cost) / 1.44)			// Each B1 increase costs 1.44 squarings
-#define p1compare(x,y)	(pm1prob (takeAwayBits, sieve_depth, (double) (pm1data->B + B1increase(x,y)), (double) (x.i * pm1data->B + B1increase(x,y))) > y.fac_pct)
+#define B1increase(x,y)	(uint64_t) ((y.B2_cost - x.B2_cost) / 1.44)			// Each B1 increase costs 1.44 squarings
+#define p1compare(x,y)	(pm1prob (takeAwayBits, sieve_depth, pm1data->B + B1increase(x,y), x.i * pm1data->B + B1increase(x,y)) > y.fac_pct)
 
 /* Look for the best B2 which is likely between 5*B1 and 40*B1.  If optimal is not between these bounds, don't worry we'll locate the optimal spot anyway. */
 
@@ -7882,6 +7882,8 @@ restart3a:
 
 	pm1data.V = gwalloc (&pm1data.gwdata);
 	if (pm1data.V == NULL) goto oom;
+	pm1data.invx = gwalloc (&pm1data.gwdata);
+	if (pm1data.invx == NULL) goto oom;
 
 	// If user wants to run stage 2 even if stage 1 would find a factor, then don't do the multiply x-1 trick.
 	if (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "Stage1GCD", 1) == -1) {
@@ -7894,8 +7896,6 @@ restart3a:
 	// Otherwise, the common case: compute stage 1 GCD cheaply
 	else {
 		gwnum x_minus_1 = pm1data.V;
-		pm1data.invx = gwalloc (&pm1data.gwdata);
-		if (pm1data.invx == NULL) goto oom;
 		gwcopy (&pm1data.gwdata, pm1data.x, x_minus_1);
 		gwaddsmall (&pm1data.gwdata, x_minus_1, -1);
 		gwmul3 (&pm1data.gwdata, pm1data.x, x_minus_1, pm1data.invx, GWMUL_PRESERVE_S1 | GWMUL_FFT_S2);	// x * (x-1)
@@ -9090,8 +9090,8 @@ msg_and_exit:
 		pkt.b = w->b;
 		pkt.n = w->n;
 		pkt.c = w->c;
-		pkt.B1 = (double) pm1data.B;
-		pkt.B2 = (double) pm1data.C;
+		pkt.B1 = pm1data.B;
+		pkt.B2 = pm1data.C;
 		pkt.fftlen = gwfftlen (&pm1data.gwdata);
 		pkt.done = (w->work_type == WORK_PMINUS1 || w->work_type == WORK_PFACTOR);
 		strcpy (pkt.JSONmessage, JSONbuf);
@@ -9230,8 +9230,8 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 		pkt.n = w->n;
 		pkt.c = w->c;
 		truncated_strcpy (pkt.factor, sizeof (pkt.factor), str);
-		pkt.B1 = (double) pm1data.B;
-		pkt.B2 = (double) (pm1data.state < PM1_STATE_MIDSTAGE ? 0 : pm1data.C);
+		pkt.B1 = pm1data.B;
+		pkt.B2 = (pm1data.state < PM1_STATE_MIDSTAGE ? 0 : pm1data.C);
 		pkt.fftlen = gwfftlen (&pm1data.gwdata);
 		pkt.done = TRUE;
 		strcpy (pkt.JSONmessage, JSONbuf);
@@ -9384,8 +9384,8 @@ struct global_pm1_cost_data {
 };
 
 struct cost_pm1_data {
-	unsigned long B1;
-	unsigned long B2;
+	uint64_t B1;
+	uint64_t B2;
 	double	prob;
 	double	pass1_squarings;
 	double	pass2_squarings;
@@ -9467,8 +9467,13 @@ void pminus1_choose_B2 (
 /* Handle case where midpoint has worse savings than the end point */
 /* The search code requires best[1] is better than best[0] and best[2] */
 
-	unsigned long max_B2 = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", 10000) * c->B1;
-	while (best[2].savings > best[1].savings && best[2].B2 < max_B2) {
+	uint64_t max_B2 = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", 10000) * c->B1;
+	while (best[2].savings > best[1].savings) {
+		if (best[2].B2 == max_B2) {
+			best[0] = best[2];
+			best[1] = best[2];
+			break;
+		}
 		best[0] = best[1];
 		best[1] = best[2];
 		best[2].B2 = best[1].B2 * 2;
@@ -9538,9 +9543,9 @@ void guess_pminus1_bounds (
 	signed long c,			/* C in K*B^N+C. */
 	double	how_far_factored,	/* Bit depth of trial factoring */
 	double	tests_saved,		/* 1 if doublecheck, 2 if first test */
-	unsigned long *bound1,
-	unsigned long *bound2,
-	unsigned long *squarings,
+	uint64_t *bound1,
+	uint64_t *bound2,
+	uint64_t *squarings,
 	double	*success_rate)
 {
 	struct global_pm1_cost_data g;
@@ -9661,7 +9666,7 @@ void guess_pminus1_bounds (
 	if (best[1].savings > 0.0) {
 		*bound1 = best[1].B1;
 		*bound2 = best[1].B2;
-		*squarings = (unsigned long) (best[1].pass1_squarings + best[1].pass2_squarings + g.gcd_cost);
+		*squarings = (uint64_t) (best[1].pass1_squarings + best[1].pass2_squarings + g.gcd_cost);
 		if (*bound2 > *bound1) *squarings += (unsigned long) g.modinv_cost;
 		*success_rate = best[1].prob;
 	} else {
@@ -9691,7 +9696,7 @@ int pfactor (
 	struct PriorityInfo *sp_info,	/* SetPriority information */
 	struct work_unit *w)
 {
-	unsigned long bound1, bound2, squarings;
+	uint64_t bound1, bound2, squarings;
 	double	prob;
 	char	buf[120], testnum[120];
 	int	stop_reason;
@@ -9737,7 +9742,7 @@ int pfactor (
 
 /* Output a message that P-1 factoring is about to begin */
 
-	sprintf (buf, "Optimal bounds are B1=%lu, B2=%lu\n", bound1, bound2);
+	sprintf (buf, "Optimal bounds are B1=%" PRIu64 ", B2=%" PRIu64 "\n", bound1, bound2);
 	OutputStr (thread_num, buf);
 	sprintf (buf, "Chance of finding a factor is an estimated %.3g%%\n", prob * 100.0);
 	OutputStr (thread_num, buf);
@@ -10149,7 +10154,7 @@ void pp1_choose_B2 (
 	char	buf[160];
 
 // P+1 probability of success
-#define pp1prob(B1,B2)		(pm1prob (pp1data->takeAwayBits, sieve_depth, (double) (B1), (double) (B2)) * pp1data->success_rate)
+#define pp1prob(B1,B2)		(pm1prob (pp1data->takeAwayBits, sieve_depth, B1, B2) * pp1data->success_rate)
 
 // Cost out a B2 value
 	max_B2mult = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", 1000);
@@ -10797,7 +10802,7 @@ int pplus1 (
 	else sprintf (buf+strlen(buf), "B1=%" PRIu64 ", B2=%" PRIu64 "\n", pp1data.B, pp1data.C);
 	OutputStr (thread_num, buf);
 	if (w->sieve_depth > 0.0 && !pp1data.optimal_B2) {
-		double prob = pm1prob (pp1data.takeAwayBits, (unsigned int) w->sieve_depth, (double) pp1data.B, (double) pp1data.C) * pp1data.success_rate;
+		double prob = pm1prob (pp1data.takeAwayBits, (unsigned int) w->sieve_depth, pp1data.B, pp1data.C) * pp1data.success_rate;
 		sprintf (buf, "Chance of finding a factor assuming no ECM has been done is an estimated %.3g%%\n", prob * 100.0);
 		OutputStr (thread_num, buf);
 	}
@@ -11786,8 +11791,8 @@ msg_and_exit:
 		pkt.c = w->c;
 		pkt.pp1_numerator = pp1data.numerator;
 		pkt.pp1_denominator = pp1data.denominator;
-		pkt.B1 = (double) pp1data.B;
-		pkt.B2 = (double) pp1data.C;
+		pkt.B1 = pp1data.B;
+		pkt.B2 = pp1data.C;
 		pkt.fftlen = gwfftlen (&pp1data.gwdata);
 		pkt.done = TRUE;
 		strcpy (pkt.JSONmessage, JSONbuf);
@@ -11922,8 +11927,8 @@ bingo:	if (pp1data.state < PP1_STATE_MIDSTAGE)
 		pkt.pp1_numerator = pp1data.numerator;
 		pkt.pp1_denominator = pp1data.denominator;
 		truncated_strcpy (pkt.factor, sizeof (pkt.factor), str);
-		pkt.B1 = (double) pp1data.B;
-		pkt.B2 = (double) (pp1data.state < PP1_STATE_MIDSTAGE ? 0 : pp1data.C);
+		pkt.B1 = pp1data.B;
+		pkt.B2 = (pp1data.state < PP1_STATE_MIDSTAGE ? 0 : pp1data.C);
 		pkt.fftlen = gwfftlen (&pp1data.gwdata);
 		pkt.done = TRUE;
 		strcpy (pkt.JSONmessage, JSONbuf);
