@@ -4256,6 +4256,55 @@ int write_array (
 	return (TRUE);
 }
 
+/* Routines to read and write a giant from and to a save file */
+
+int read_giant (
+	int	fd,
+	giant	g,
+	unsigned long *sum)
+{
+	unsigned long i, len, bytes;
+
+	if (!read_long (fd, &len, sum)) return (FALSE);
+	if (len == 0) return (FALSE);
+
+	bytes = len * sizeof (uint32_t);
+	if (_read (fd, g->n, bytes) != bytes) return (FALSE);
+	if (len && g->n[len-1] == 0) return (FALSE);
+	g->sign = len;
+	*sum = (uint32_t) (*sum + len);
+	for (i = 0; i < len; i++) *sum = (uint32_t) (*sum + g->n[i]);
+	return (TRUE);
+}
+
+int write_giant (
+	int	fd,
+	giant	g,
+	unsigned long *sum)
+{
+	unsigned long i, len, bytes;
+
+	len = g->sign;
+	if (len == 0) {
+		OutputBoth (MAIN_THREAD_NUM, "In write_giant, unexpected len == 0 failure\n");
+		return (FALSE);
+	}
+	if (!write_long (fd, len, sum)) {
+		OutputBoth (MAIN_THREAD_NUM, "In write_giant, unexpected write_long failure\n");
+		return (FALSE);
+	}
+	bytes = len * sizeof (uint32_t);
+	if (_write (fd, g->n, bytes) != bytes) {
+		char	buf[200];
+		sprintf (buf, "In write_giant, unexpected write failure len = %lu\n", len);
+		OutputBoth (MAIN_THREAD_NUM, buf);
+		return (FALSE);
+	}
+	*sum = (uint32_t) (*sum + len);
+	for (i = 0; i < len; i++) *sum = (uint32_t) (*sum + g->n[i]);
+	return (TRUE);
+}
+
 /* Routines to read and write a gwnum from and to a save file */
 
 int read_gwnum (
@@ -4265,32 +4314,19 @@ int read_gwnum (
 	unsigned long *sum)
 {
 	giant	tmp;
-	unsigned long i, len, giantlen, bytes;
 
-	if (!read_long (fd, &len, sum)) return (FALSE);
-	if (len == 0) return (FALSE);
-
-	giantlen = ((int) gwdata->bit_length >> 5) + 10;
-	if (len > giantlen) return (FALSE);
-	tmp = popg (&gwdata->gdata, giantlen);
+	tmp = popg (&gwdata->gdata, ((int) gwdata->bit_length >> 5) + 10);
 	if (tmp == NULL) return (FALSE);	// BUG - we should return some other error code
 						// otherwise caller will likely delete save file.
 
-	bytes = len * sizeof (uint32_t);
-	if (_read (fd, tmp->n, bytes) != bytes) goto errexit;
-	if (len && tmp->n[len-1] == 0) goto errexit;
-	tmp->sign = len;
-	*sum = (uint32_t) (*sum + len);
-	for (i = 0; i < len; i++) *sum = (uint32_t) (*sum + tmp->n[i]);
+	if (!read_giant (fd, tmp, sum)) {
+		pushg (&gwdata->gdata, 1);
+		return (FALSE);
+	}
+
 	gianttogw (gwdata, tmp, g);
 	pushg (&gwdata->gdata, 1);
 	return (TRUE);
-
-// Free memory and return failure
-
-errexit:
-	pushg (&gwdata->gdata, 1);
-	return (FALSE);
 }
 
 int write_gwnum (
@@ -4302,7 +4338,6 @@ int write_gwnum (
 	giant	tmp;
 	gwnum	tmp_gwnum = NULL;
 	int	retcode;
-	unsigned long i, len, bytes;
 
 	tmp = popg (&gwdata->gdata, ((int) gwdata->bit_length >> 5) + 10);
 	if (tmp == NULL) {
@@ -4325,24 +4360,7 @@ int write_gwnum (
 		OutputBoth (MAIN_THREAD_NUM, buf);
 		goto err;
 	}
-	len = tmp->sign;
-	if (len == 0) {
-		OutputBoth (MAIN_THREAD_NUM, "In write_gwnum, unexpected len == 0 failure\n");
-		goto err;
-	}
-	if (!write_long (fd, len, sum)) {
-		OutputBoth (MAIN_THREAD_NUM, "In write_gwnum, unexpected write_long failure\n");
-		goto err;
-	}
-	bytes = len * sizeof (uint32_t);
-	if (_write (fd, tmp->n, bytes) != bytes) {
-		char	buf[200];
-		sprintf (buf, "In write_gwnum, unexpected write failure len = %lu\n", len);
-		OutputBoth (MAIN_THREAD_NUM, buf);
-		goto err;
-	}
-	*sum = (uint32_t) (*sum + len);
-	for (i = 0; i < len; i++) *sum = (uint32_t) (*sum + tmp->n[i]);
+	if (!write_giant (fd, tmp, sum)) goto err;
 	pushg (&gwdata->gdata, 1);
 	gwfree (gwdata, tmp_gwnum);
 	return (TRUE);

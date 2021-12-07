@@ -12,7 +12,7 @@ extern "C" {
 /* Constants */
 
 #define VERSION		"30.8"
-#define BUILD_NUM	"3"
+#define BUILD_NUM	"4"
 /* The list of assigned OS ports follows: */
 /* Win9x (prime95) #1 */
 /* Linux (mprime)  #2 */
@@ -424,6 +424,8 @@ void DirPlusFilename (char *, const char *);
 
 int read_array (int fd, char *buf, size_t len, unsigned long *sum);
 int write_array (int fd, const char *buf, size_t len, unsigned long *sum);
+int read_giant (int fd, giant g, unsigned long *sum);
+int write_giant (int fd, giant g, unsigned long *sum);
 int read_gwnum (int fd, gwhandle *gwdata, gwnum g, unsigned long *sum);
 int write_gwnum (int fd, gwhandle *gwdata, gwnum g, unsigned long *sum);
 int read_short (int fd, short *val);

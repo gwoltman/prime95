@@ -528,6 +528,19 @@ struct D_data poly_D_data[] = {
 	{ 2 * 3 * 5 * 7 * 11 * 13  *11, 4 * 6 * 10 * 12*11, 17, 19 },	// 330330, 31680
 	{ 2 * 3 * 5 * 7 * 11 * 13  *13, 4 * 6 * 10 * 12*13, 17, 19 },	// 390390, 37440
 	{ 2 * 3 * 5 * 7 * 11 * 13  *15, 4 * 6 * 10 * 12*15, 17, 19 },	// 450450, 43200
+	{ 2 * 3 * 5 * 7 * 11 * 13  *19, 4 * 6 * 10 * 12*18, 17, 23 },	// 570570, 51840
+	{ 2 * 3 * 5 * 7 * 11 * 13  *21, 4 * 6 * 10 * 12*21, 17, 19 },	// 630630, 60480
+	{ 2 * 3 * 5 * 7 * 11 * 13  *23, 4 * 6 * 10 * 12*22, 17, 19 },	// 690690, 63360
+	{ 2 * 3 * 5 * 7 * 11 * 13  *25, 4 * 6 * 10 * 12*25, 17, 19 },	// 750750, 72000
+	{ 2 * 3 * 5 * 7 * 11 * 13  *27, 4 * 6 * 10 * 12*27, 17, 19 },	// 810810, 77760
+	{ 2 * 3 * 5 * 7 * 11 * 13  *29, 4 * 6 * 10 * 12*28, 17, 19 },	// 870870, 80640
+	{ 2 * 3 * 5 * 7 * 11 * 13  *31, 4 * 6 * 10 * 12*30, 17, 19 },	// 930930, 86400
+	{ 2 * 3 * 5 * 7 * 11 * 13  *37, 4 * 6 * 10 * 12*36, 17, 19 },	// 1111110, 103680
+	{ 2 * 3 * 5 * 7 * 11 * 13  *41, 4 * 6 * 10 * 12*40, 17, 19 },	// 1231230, 115200
+	{ 2 * 3 * 5 * 7 * 11 * 13  *43, 4 * 6 * 10 * 12*42, 17, 19 },	// 1291290, 120960
+	{ 2 * 3 * 5 * 7 * 11 * 13  *47, 4 * 6 * 10 * 12*46, 17, 19 },	// 1411410, 132480
+	{ 2 * 3 * 5 * 7 * 11 * 13  *53, 4 * 6 * 10 * 12*52, 17, 19 },	// 1591590, 149760
+	{ 2 * 3 * 5 * 7 * 11 * 13  *59, 4 * 6 * 10 * 12*58, 17, 19 },	// 1771770, 167040
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17     , 4 * 6 * 10 * 12 * 16   , 19, 23 },	// 510510, 46080
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17   *3, 4 * 6 * 10 * 12 * 16 *3, 19, 23 },	// 1531530, 138240
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17   *5, 4 * 6 * 10 * 12 * 16 *5, 19, 23 },	// 2552550, 230400
@@ -596,7 +609,20 @@ struct D_data poly_D_data[] = {
 	{ 2 * 3 * 5 * 7 * 11 * 13  *13, 4 * 6 * 10 * 12*13, 17, 19 },	// 390390, 37440
 	{ 2 * 3 * 5 * 7 * 11 * 13  *15, 4 * 6 * 10 * 12*15, 17, 19 },	// 450450, 43200
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17     , 4 * 6 * 10 * 12 * 16   , 19, 23 },	// 510510, 46080
+	{ 2 * 3 * 5 * 7 * 11 * 13  *19, 4 * 6 * 10 * 12*18, 17, 23 },	// 570570, 51840
+	{ 2 * 3 * 5 * 7 * 11 * 13  *21, 4 * 6 * 10 * 12*21, 17, 19 },	// 630630, 60480
+	{ 2 * 3 * 5 * 7 * 11 * 13  *23, 4 * 6 * 10 * 12*22, 17, 19 },	// 690690, 63360
+	{ 2 * 3 * 5 * 7 * 11 * 13  *25, 4 * 6 * 10 * 12*25, 17, 19 },	// 750750, 72000
+	{ 2 * 3 * 5 * 7 * 11 * 13  *27, 4 * 6 * 10 * 12*27, 17, 19 },	// 810810, 77760
+	{ 2 * 3 * 5 * 7 * 11 * 13  *29, 4 * 6 * 10 * 12*28, 17, 19 },	// 870870, 80640
+	{ 2 * 3 * 5 * 7 * 11 * 13  *31, 4 * 6 * 10 * 12*30, 17, 19 },	// 930930, 86400
+	{ 2 * 3 * 5 * 7 * 11 * 13  *37, 4 * 6 * 10 * 12*36, 17, 19 },	// 1111110, 103680
+	{ 2 * 3 * 5 * 7 * 11 * 13  *41, 4 * 6 * 10 * 12*40, 17, 19 },	// 1231230, 115200
+	{ 2 * 3 * 5 * 7 * 11 * 13  *43, 4 * 6 * 10 * 12*42, 17, 19 },	// 1291290, 120960
+	{ 2 * 3 * 5 * 7 * 11 * 13  *47, 4 * 6 * 10 * 12*46, 17, 19 },	// 1411410, 132480
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17   *3, 4 * 6 * 10 * 12 * 16 *3, 19, 23 },	// 1531530, 138240
+	{ 2 * 3 * 5 * 7 * 11 * 13  *53, 4 * 6 * 10 * 12*52, 17, 19 },	// 1591590, 149760
+	{ 2 * 3 * 5 * 7 * 11 * 13  *59, 4 * 6 * 10 * 12*58, 17, 19 },	// 1771770, 167040
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17   *5, 4 * 6 * 10 * 12 * 16 *5, 19, 23 },	// 2552550, 230400
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17   *7, 4 * 6 * 10 * 12 * 16 *7, 19, 23 },	// 3573570, 322560
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17   *9, 4 * 6 * 10 * 12 * 16 *9, 19, 23 },	// 4594590, 414720
@@ -5789,7 +5815,7 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 
 		if (first_iter_msg ||
 		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
-			sprintf (buf, "%s curve %lu stage 2 in D-block=%" PRIu64 " [%.*f%%].",
+			sprintf (buf, "%s curve %lu stage 2 at B2=%" PRIu64 " [%.*f%%].",
 				 gwmodulo_as_string (&ecmdata.gwdata), ecmdata.curve,
 				 ecmdata.B2_start + ecmdata.Dsection * ecmdata.D + ecmdata.D / 2,
 				 (int) PRECISION, trunc_percent (w->pct_complete));
@@ -6237,6 +6263,7 @@ typedef struct {
 	uint64_t interim_B;	/* B1 we are currently calculating (equals B except when finishing stage 1 from a save file using a different B1). */
 	uint64_t interim_C;	/* B2 we are currently calculating (equals C except when finishing stage 2 a save file using different B2) */
 	uint64_t B_done;	/* We have completed calculating 3^e to this bound #1 */
+	uint64_t C_done;	/* Stage 2 completed thusfar (updated every D section that is completed) */
 	uint64_t first_C_start;	/* First stage 2 starting point (equals B except when worktodo.txt specifies starting point for bound #2). */
 	int	optimal_B2;	/* TRUE if we calculate optimal bound #2 given currently available memory.  FALSE for a fixed bound #2. */
 	uint64_t max_stage0_prime; /* Maximum small prime that can be used in stage 0 exponent calculation. */
@@ -6246,37 +6273,39 @@ typedef struct {
 	void	*sieve_info;	/* Prime number sieve */
 	uint64_t stage1_prime;	/* Prime number being processed */
 
+	gwnum	x;		/* The stage 1 value being computed */
+	gwnum	gg;		/* The stage 2 accumulated value.  Will be GCD'ed at stage 2 completion. */
+
+	/* Stage 2 data common to prime pairing and polymult */
+	gwnum	invx;		/* For polymult stage 2, 1/x needed during stage 2 init */
+	giant	x_binary;	/* The stage 1 result - ready for writing to a save file */
+	giant	invx_binary;	/* The stage 1 result inverse - ready for writing to a save file */
 	int	stage2_type;	/* Prime pairing or polymult stage 2 */
 	int	D;		/* Stage 2 loop size */
 	int	numrels;	/* Number of relative primes less than D/2 (the number of relative primes in one full relp_set) */
-	int	totrels;	/* Number relatively prime nQx values used */
+	gwnum	*nQx;		/* Array of relprime data or polymult coefficients used in stage 2 */
+	double	pct_mem_to_use;	/* If we get memory allocation errors in stage 2 init, we progressively try using less and less memory. */
 	uint64_t B2_start;	/* Starting point of first D section to be processed in stage 2 (an odd multiple of D/2) */
 	uint64_t numDsections;	/* Number of D sections to process in stage 2 */
 	uint64_t Dsection;	/* Current D section being processed in stage 2 */
-	int	relp;		/* Last relative prime processed in the current D section */
+	uint64_t first_relocatable; /* First relocatable prime (same as B1 unless pairmaps must be split or mem change caused a replan) */
+	uint64_t last_relocatable; /* Last relocatable prime for filling pairmaps (unless mem change causes a replan) */
 
+	/* Prime pairing stage 2 data */
+	gwnum	V;		/* V_1 in a stage 2 Lucas sequence */
+	gwnum	Vn;		/* V_n in a stage 2 Lucas sequence */
+	gwnum	Vn1;		/* V_{n+1} in a stage 2 Lucas sequence */
+	int	stage2_numvals;	/* Number of gwnums used in stage 2 */
+	int	totrels;	/* Number relatively prime nQx values used */
 	uint64_t max_pairmap_Dsections;	/* Number of D sections that can fit in a pairing map */
 	uint8_t	*pairmap;	/* Pairing map for prime pairings in each D section */
 	uint64_t pairmap_size;	/* Size of the pairing map */
 	uint8_t *pairmap_ptr;	/* Pointer to the next byte to process in the pairing map */
-	uint64_t first_relocatable; /* First relocatable prime (same as B1 unless pairmaps must be split or mem change caused a replan) */
-	uint64_t last_relocatable; /* Last relocatable prime for filling pairmaps (unless mem change causes a replan) */
-	uint64_t C_done;	/* Stage 2 completed thusfar (updated every D section that is completed) */
-
-	int	stage2_numvals;	/* Number of gwnums used in stage 2 */
 	int16_t relp_sets[32];	/* The relp sets we are using in stage 2 */
-	gwnum	*nQx;		/* Array of relprime data used in stage 2 */
+	int	relp;		/* Last relative prime processed in the current D section */
 
-	double	pct_mem_to_use;	/* If we get memory allocation errors, we progressively try using less and less. */
-
-	gwnum	x;		/* The stage 1 value being computed */
-	gwnum	V;		/* V_1 in a stage 2 Lucas sequence */
-	gwnum	Vn;		/* V_n in a stage 2 Lucas sequence */
-	gwnum	Vn1;		/* V_{n+1} in a stage 2 Lucas sequence */
-	gwnum	gg;		/* The stage 2 accumulated value */
-
+	/* Polymult stage 2 data */
 	pmhandle polydata;	/* Polymult data structure */
-	gwnum	invx;		/* For polymult stage 2, 1/x needed during stage 2 init */
 } pm1handle;
 
 /* Perform cleanup functions. */
@@ -6287,6 +6316,8 @@ void pm1_cleanup (
 
 /* Free memory */
 
+	free (pm1data->x_binary), pm1data->x_binary = NULL;
+	free (pm1data->invx_binary), pm1data->invx_binary = NULL;
 	free (pm1data->nQx), pm1data->nQx = NULL;
 	free (pm1data->pairmap), pm1data->pairmap = NULL;
 	polymult_done (&pm1data->polydata);
@@ -6408,7 +6439,8 @@ oom:	return (OutOfMemory (pm1data->thread_num));
 //#define PM1_VERSION	3				/* Changed in 29.8 build 8.  Configurable calc_exp max exponent */
 //#define PM1_VERSION	4				/* Complete overhaul in 30.4.  New stage 2 code with Preda optimizations */
 //#define PM1_VERSION	5				/* Stage 2 overhaul in 30.7.  P+1 style stage 2, pairing with relp_sets, compressed pairing map */
-#define PM1_VERSION	6				/* Stage 2 overhaul in 30.8.  Polymult. */
+//#define PM1_VERSION	6				/* Version 30.8 pre-beta.  Max_stage0_prime and stage0_bitnum stored as uint64_t. */
+#define PM1_VERSION	7				/* Stage 2 overhaul in 30.8.  Polymult. */
 
 void pm1_save (
 	pm1handle *pm1data)
@@ -6453,22 +6485,26 @@ void pm1_save (
 		if (! write_uint64 (fd, pm1data->B_done, &sum)) goto writeerr;
 		if (! write_uint64 (fd, pm1data->C_done, &sum)) goto writeerr;
 		if (! write_uint64 (fd, pm1data->interim_C, &sum)) goto writeerr;
-		if (! write_int (fd, pm1data->stage2_numvals, &sum)) goto writeerr;
-		if (! write_int (fd, pm1data->totrels, &sum)) goto writeerr;
+		if (! write_int (fd, pm1data->stage2_type, &sum)) goto writeerr;
 		if (! write_int (fd, pm1data->D, &sum)) goto writeerr;
-		if (! write_uint64 (fd, pm1data->first_relocatable, &sum)) goto writeerr;
-		if (! write_uint64 (fd, pm1data->last_relocatable, &sum)) goto writeerr;
+		if (! write_int (fd, pm1data->numrels, &sum)) goto writeerr;
 		if (! write_uint64 (fd, pm1data->B2_start, &sum)) goto writeerr;
 		if (! write_uint64 (fd, pm1data->numDsections, &sum)) goto writeerr;
 		if (! write_uint64 (fd, pm1data->Dsection, &sum)) goto writeerr;
-		if (! write_uint64 (fd, pm1data->max_pairmap_Dsections, &sum)) goto writeerr;
-		if (! write_int (fd, pm1data->relp, &sum)) goto writeerr;
-		if (! write_array (fd, (char *) pm1data->relp_sets, 32 * sizeof (int16_t), &sum)) goto writeerr;
-		// Output the truncated pairmap
+		if (! write_uint64 (fd, pm1data->first_relocatable, &sum)) goto writeerr;
+		if (! write_uint64 (fd, pm1data->last_relocatable, &sum)) goto writeerr;
+		if (pm1data->stage2_type == PM1_STAGE2_PAIRING) {
+			if (! write_int (fd, pm1data->stage2_numvals, &sum)) goto writeerr;
+			if (! write_int (fd, pm1data->totrels, &sum)) goto writeerr;
+			if (! write_uint64 (fd, pm1data->max_pairmap_Dsections, &sum)) goto writeerr;
+			if (! write_int (fd, pm1data->relp, &sum)) goto writeerr;
+			if (! write_array (fd, (char *) pm1data->relp_sets, 32 * sizeof (int16_t), &sum)) goto writeerr;
+			// Output the truncated pairmap
 //GW:  handle NULL pairmap?
-		remaining_pairmap_size = pm1data->pairmap_size - (pm1data->pairmap_ptr - pm1data->pairmap);
-		if (! write_uint64 (fd, remaining_pairmap_size, &sum)) goto writeerr;
-		if (! write_array (fd, (char *) pm1data->pairmap_ptr, (size_t) remaining_pairmap_size, &sum)) goto writeerr;
+			remaining_pairmap_size = pm1data->pairmap_size - (pm1data->pairmap_ptr - pm1data->pairmap);
+			if (! write_uint64 (fd, remaining_pairmap_size, &sum)) goto writeerr;
+			if (! write_array (fd, (char *) pm1data->pairmap_ptr, (size_t) remaining_pairmap_size, &sum)) goto writeerr;
+		}
 	}
 
 	else if (pm1data->state == PM1_STATE_GCD) {
@@ -6483,16 +6519,21 @@ void pm1_save (
 
 /* Write the gwnum values used in stage 1 and stage 2.  There are occasions where x or gg may be in a partially FFTed state. */
 
-	// Usually x is freed in stage 2.  However, we sometimes don't free x in stage 2 to allow expanding stage 1 bounds at a later date.
+	// Save stage 1's x value from either gwnum x or the compressed x_binary.
+	// For backward compatibility with version 4 and 5 save files, output a we-have-x flag.
 	{
-		int	have_x = (pm1data->x != NULL);
+		int	have_x = TRUE;
 		if (! write_int (fd, have_x, &sum)) goto writeerr;
-		if (have_x && !write_gwnum (fd, &pm1data->gwdata, pm1data->x, &sum)) goto writeerr;
+	}
+	if (pm1data->x_binary != NULL) {
+		if (! write_giant (fd, pm1data->x_binary, &sum)) goto writeerr;
+	} else {
+		if (! write_gwnum (fd, &pm1data->gwdata, pm1data->x, &sum)) goto writeerr;
 	}
 
-	// Save stage 2's x + 1/x value that allows us to do a P+1 style stage 2
+	// Save stage 1's 1/x value that allows us to do either a prime pairing or polymult stage 2.
 	if (pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_STAGE2) {
-		if (! write_gwnum (fd, &pm1data->gwdata, pm1data->V, &sum)) goto writeerr;
+		if (! write_giant (fd, pm1data->invx_binary, &sum)) goto writeerr;
 	}
 
 	// Save the stage 2 accumulator
@@ -6675,43 +6716,33 @@ int pm1_restore (			/* For version 30.4 and later save files */
 	}
 
 	else if (pm1data->state == PM1_STATE_MIDSTAGE) {
+		if (version <= 6) {
+			OutputBoth (pm1data->thread_num, "P-1 save file incompatible with this program version.  Restarting stage 1 from the beginning.\n");
+			goto readerr;
+		}
 		if (! read_uint64 (fd, &pm1data->B_done, &sum)) goto readerr;
 		if (! read_uint64 (fd, &pm1data->C_done, &sum)) goto readerr;
 	}
 
 	else if (pm1data->state == PM1_STATE_STAGE2) {
+		if (version <= 6) {
+			OutputBoth (pm1data->thread_num, "P-1 save file incompatible with this program version.  Restarting stage 1 from the beginning.\n");
+			goto readerr;
+		}
 		if (! read_uint64 (fd, &pm1data->B_done, &sum)) goto readerr;
 		if (! read_uint64 (fd, &pm1data->C_done, &sum)) goto readerr;
 		if (! read_uint64 (fd, &pm1data->interim_C, &sum)) goto readerr;
-		if (! read_int (fd, &pm1data->stage2_numvals, &sum)) goto readerr;
-		if (! read_int (fd, &pm1data->totrels, &sum)) goto readerr;
+		if (! read_int (fd, &pm1data->stage2_type, &sum)) goto readerr;
 		if (! read_int (fd, &pm1data->D, &sum)) goto readerr;
-		//GW: we should save and restore numrels
-		pm1data->numrels = map_D_to_numrels (pm1data->D);
-		if (version == 4) {		// 30.4 save files
-			int	E;
-			if (! read_int (fd, &E, &sum)) goto readerr;
-		}
-		if (! read_uint64 (fd, &pm1data->first_relocatable, &sum)) goto readerr;
-		if (! read_uint64 (fd, &pm1data->last_relocatable, &sum)) goto readerr;
+		if (! read_int (fd, &pm1data->numrels, &sum)) goto readerr;
 		if (! read_uint64 (fd, &pm1data->B2_start, &sum)) goto readerr;
 		if (! read_uint64 (fd, &pm1data->numDsections, &sum)) goto readerr;
 		if (! read_uint64 (fd, &pm1data->Dsection, &sum)) goto readerr;
-		if (version == 4) {		// 30.4 save files
-			uint64_t bitarraymaxDsections, bitarrayfirstDsection, bitarray_numDsections, bitarray_start, bitarray_len;
-			char	*bitarray;
-			if (! read_uint64 (fd, &bitarraymaxDsections, &sum)) goto readerr;
-			if (! read_uint64 (fd, &bitarrayfirstDsection, &sum)) goto readerr;
-			// Read the truncated bit array
-			bitarray_numDsections = pm1data->numDsections - bitarrayfirstDsection;
-			if (bitarray_numDsections > bitarraymaxDsections) bitarray_numDsections = bitarraymaxDsections;
-			bitarray_len = divide_rounding_up (bitarray_numDsections * pm1data->totrels, 8);
-			bitarray_start = divide_rounding_down ((pm1data->Dsection - bitarrayfirstDsection) * pm1data->totrels, 8);
-			bitarray = (char *) malloc ((size_t) bitarray_len);
-			if (bitarray == NULL) goto readerr;
-			if (! read_array (fd, bitarray, (size_t) (bitarray_len - bitarray_start), &sum)) goto readerr;
-			free (bitarray);
-		} else {				// 30.7 save files
+		if (! read_uint64 (fd, &pm1data->first_relocatable, &sum)) goto readerr;
+		if (! read_uint64 (fd, &pm1data->last_relocatable, &sum)) goto readerr;
+		if (pm1data->stage2_type == PM1_STAGE2_PAIRING) {
+			if (! read_int (fd, &pm1data->stage2_numvals, &sum)) goto readerr;
+			if (! read_int (fd, &pm1data->totrels, &sum)) goto readerr;
 			if (! read_uint64 (fd, &pm1data->max_pairmap_Dsections, &sum)) goto readerr;
 			if (! read_int (fd, &pm1data->relp, &sum)) goto readerr;
 			if (! read_array (fd, (char *) pm1data->relp_sets, 32 * sizeof (int16_t), &sum)) goto readerr;
@@ -6746,12 +6777,12 @@ int pm1_restore (			/* For version 30.4 and later save files */
 		}
 	}
 
-/* Read the gwnum x + 1/x value used in stage 2 */
+/* Read stage 2's 1/x value */
 
-	if (version >= 5 && pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_STAGE2) {
-		pm1data->V = gwalloc (&pm1data->gwdata);
-		if (pm1data->V == NULL) goto readerr;
-		if (! read_gwnum (fd, &pm1data->gwdata, pm1data->V, &sum)) goto readerr;
+	if (version >= 6 && pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_STAGE2) {
+		pm1data->invx = gwalloc (&pm1data->gwdata);
+		if (pm1data->invx == NULL) goto readerr;
+		if (! read_gwnum (fd, &pm1data->gwdata, pm1data->invx, &sum)) goto readerr;
 	}
 
 /* Read stage 2 accumulator gwnum */
@@ -6765,17 +6796,6 @@ int pm1_restore (			/* For version 30.4 and later save files */
 			if (pm1data->gg == NULL) goto readerr;
 			if (! read_gwnum (fd, &pm1data->gwdata, pm1data->gg, &sum)) goto readerr;
 		}
-	}
-
-/* Version 30.4 save files cannot continue in stage 2 */
-
-	if (version == 4 && pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_STAGE2) {
-		pm1data->state = PM1_STATE_STAGE1;		/* Can't set state to mid-stage because x+1/x has not been computed */
-		pm1data->stage1_prime = pm1data->B_done;
-		pm1data->interim_B = pm1data->B_done;
-		OutputStr (pm1data->thread_num, "Old P-1 save file was in stage 2.  Restarting stage 2 from scratch.\n");
-		gwfree (&pm1data->gwdata, pm1data->gg);
-		pm1data->gg = NULL;
 	}
 
 /* Read and compare the checksum */
@@ -7155,6 +7175,7 @@ int pm1_stage2_impl (
 
 //GW: These are rather arbitrary heuristics
 	if (pm1data->state >= PM1_STATE_STAGE2 &&				// Continuing a stage 2 save file and
+	    pm1data->stage2_type == PM1_STAGE2_PAIRING &&			// Prime pairing and
 	    numvals >= pm1data->stage2_numvals &&				// We have enough memory and
 	    (numvals < pm1data->stage2_numvals * 2 ||				// less than twice as much memory now available or
 	     pm1data->Dsection >= pm1data->numDsections / 2))			// stage 2 more than half done
@@ -7178,6 +7199,7 @@ int pm1_stage2_impl (
 /* we use the old plan and its partially completed pairmap. */
 
 	if (pm1data->state >= PM1_STATE_STAGE2 &&				// Continuing a stage 2 save file and
+	    pm1data->stage2_type == PM1_STAGE2_PAIRING &&			// Prime pairing and
 	    numvals >= pm1data->stage2_numvals &&				// We have enough memory and
 	    cost_data.c.stage2_numvals < pm1data->stage2_numvals * 2)		// new plan does not use significantly more memory
 		return (0);							// Use old plan
@@ -7876,12 +7898,10 @@ restart3a:
 	start_timer_from_zero (timers, 0);
 
 /* This is the entry point when using the save file from a completed P-1 run to go to a new bound #2.  Initialize variables for second stage. */
-/* Create V = x + 1/x which requires a modular inverse.  We use V in a P+1-style stage 2 which uses one multiply instead of two to go from */
+/* To compute V = x + 1/x a modular inverse is required.  We use V in a P+1-style stage 2 which uses one multiply instead of two to go from */
 /* D section to D section.  Since we are doing a modular inverse, we can also do the stage 1 GCD here for minimal cost (two multiplies). */
 /* Compute y = x*(x-1).  Compute 1/y, this will find any stage 1 factors.  If no factors found compute 1/x = (x-1) * 1/y. */
 
-	pm1data.V = gwalloc (&pm1data.gwdata);
-	if (pm1data.V == NULL) goto oom;
 	pm1data.invx = gwalloc (&pm1data.gwdata);
 	if (pm1data.invx == NULL) goto oom;
 
@@ -7895,7 +7915,8 @@ restart3a:
 
 	// Otherwise, the common case: compute stage 1 GCD cheaply
 	else {
-		gwnum x_minus_1 = pm1data.V;
+		gwnum x_minus_1 = gwalloc (&pm1data.gwdata);
+		if (x_minus_1 == NULL) goto oom;
 		gwcopy (&pm1data.gwdata, pm1data.x, x_minus_1);
 		gwaddsmall (&pm1data.gwdata, x_minus_1, -1);
 		gwmul3 (&pm1data.gwdata, pm1data.x, x_minus_1, pm1data.invx, GWMUL_PRESERVE_S1 | GWMUL_FFT_S2);	// x * (x-1)
@@ -7903,15 +7924,13 @@ restart3a:
 		if (factor != NULL) goto bingo;
 		if (stop_reason) goto exit;
 		gwmul3 (&pm1data.gwdata, x_minus_1, pm1data.invx, pm1data.invx, 0);				// (x-1) * 1 / (x * (x-1)), which is 1/x
+		gwfree (&pm1data.gwdata, x_minus_1);
 	}
 
-	// Compute V = x + 1/x
-	gwadd3o (&pm1data.gwdata, pm1data.x, pm1data.invx, pm1data.V, GWADD_SQUARE_INPUT);
-
-/* Conversion to x + 1/x format complete */
+/* Inversion to 1/x format complete */
 
 	end_timer (timers, 0);
-	sprintf (buf, "Conversion of stage 1 result complete. %.0f transforms, 1 modular inverse. Time: ", gw_get_fft_count (&pm1data.gwdata));
+	sprintf (buf, "Inversion of stage 1 result complete. %.0f transforms, 1 modular inverse. Time: ", gw_get_fft_count (&pm1data.gwdata));
 	print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	gw_clear_fft_count (&pm1data.gwdata);
@@ -7922,12 +7941,26 @@ restart3a:
 	strcpy (w->stage, "S2");
 	w->pct_complete = 0.0;
 
-/* Restart here when in the middle of stage 2.  Change state to between stage 1 and 2. */
+/* Restart here when in the middle of stage 2.  Convert x and invx to binary for saving to a file.  Compute V. */
 
 restart3b:
-	//GW:  BUG! if continuing from an old save file with no invx, then we cannot do polymult stage 2.  recompute it? do prime pairing?
-	//	or if we have x and x+invx the subtract!
+	// Convert x and invx to more compact giants format.  These are used to create save files during stage 2.
+	pm1data.x_binary = allocgiant (((int) pm1data.gwdata.bit_length >> 5) + 10);
+	if (pm1data.x_binary == NULL) goto oom;
+	gwtogiant (&pm1data.gwdata, pm1data.x, pm1data.x_binary);
+	pm1data.invx_binary = allocgiant (((int) pm1data.gwdata.bit_length >> 5) + 10);
+	if (pm1data.invx_binary == NULL) goto oom;
+	gwtogiant (&pm1data.gwdata, pm1data.invx, pm1data.invx_binary);
+
+	// Compute V = x + 1/x
+	pm1data.V = gwalloc (&pm1data.gwdata);
+	if (pm1data.V == NULL) goto oom;
+	gwadd3o (&pm1data.gwdata, pm1data.x, pm1data.invx, pm1data.V, GWADD_SQUARE_INPUT);
+
+/* Loop here when prime pairing completes to a B2 from a save file, but the B2 in worktodo.txt is even higher. */
+
 more_C:
+//GW: more_C likely has x and invx = NULL ---> crash!
 	start_timer_from_zero (timers, 0);
 	sprintf (buf, "%s P-1 stage 2 init", gwmodulo_as_string (&pm1data.gwdata));
 	title (thread_num, buf);
@@ -7967,9 +8000,14 @@ replan:	{
 
 	if (pm1data.stage2_type == PM1_STAGE2_POLYMULT) goto pm1_polymult;
 
+/*---------------------------------------------------------------------
+|	Tradtional prime pairing stage 2
++---------------------------------------------------------------------*/
+
 /* Record the amount of memory this thread will be using in stage 2. */
 
 	memused = cvt_gwnums_to_mem (&pm1data.gwdata, pm1data.stage2_numvals);
+	memused += 2 * (int) pm1data.gwdata.bit_length >> 23;
 	memused += (int) (pm1data.pairmap_size >> 20);
 	// To dodge possible infinite loop if pm1_stage2_impl allocates too much memory (it shouldn't), decrease the percentage of memory we are allowed to use
 	// Beware that replaning may allocate a larger pairing map
@@ -7986,15 +8024,10 @@ replan:	{
 	sprintf (buf, "Using %uMB of memory.\n", memused);
 	OutputStr (thread_num, buf);
 
-/* Free the stage 1 value, it is no longer needed (unless user is exercising option of keeping P-1 save files to expand bounds later) */
+/* Free the stage 1 value, it is no longer needed.  Free 1/x,  it too is not needed in a prime pairing stage 2. */
 
-	if (QA_IN_PROGRESS || w->work_type != WORK_PMINUS1 || !IniGetInt (INI_FILE, "KeepPminus1SaveFiles", 1)) {
-		gwfree (&pm1data.gwdata, pm1data.x);
-		pm1data.x = NULL;
-	}
-
-/* Free 1/x.  It is not needed in a prime pairing stage 2. */
-
+	gwfree (&pm1data.gwdata, pm1data.x);
+	pm1data.x = NULL;
 	gwfree (&pm1data.gwdata, pm1data.invx);
 	pm1data.invx = NULL;
 
@@ -8528,14 +8561,7 @@ pm1_polymult:
 // Switch to larger FFT size if necessary!  Polymult requires a few EXTRA_BITS to safely accumulate products in FFT space.
 
 	if (!gw_passes_safety_margin (&pm1data.gwdata, polymult_safety_margin (poly1_size*2, poly2_size))) {
-		giant	binary_x, binary_invx, binary_gg;
-		// convert x, invx, and gg
-		binary_x = allocgiant (((int) pm1data.gwdata.bit_length >> 5) + 10);
-		if (binary_x == NULL) goto oom;
-		gwtogiant (&pm1data.gwdata, pm1data.x, binary_x);
-		binary_invx = allocgiant (((int) pm1data.gwdata.bit_length >> 5) + 10);
-		if (binary_invx == NULL) goto oom;
-		gwtogiant (&pm1data.gwdata, pm1data.invx, binary_invx);
+		giant	binary_gg;
 		if (pm1data.gg != NULL) {
 			binary_gg = allocgiant (((int) pm1data.gwdata.bit_length >> 5) + 10);
 			if (binary_gg == NULL) goto oom;
@@ -8575,12 +8601,10 @@ pm1_polymult:
 		// Convert x, invx, gg back to gwnums
 		pm1data.x = gwalloc (&pm1data.gwdata);
 		if (pm1data.x == NULL) goto oom;
-		gianttogw (&pm1data.gwdata, binary_x, pm1data.x);
-		free (binary_x);
+		gianttogw (&pm1data.gwdata, pm1data.x_binary, pm1data.x);
 		pm1data.invx = gwalloc (&pm1data.gwdata);
 		if (pm1data.invx == NULL) goto oom;
-		gianttogw (&pm1data.gwdata, binary_invx, pm1data.invx);
-		free (binary_invx);
+		gianttogw (&pm1data.gwdata, pm1data.invx_binary, pm1data.invx);
 		if (pm1data.gg != NULL) {
 			pm1data.gg = gwalloc (&pm1data.gwdata);
 			if (pm1data.gg == NULL) goto oom;
@@ -8598,6 +8622,7 @@ pm1_polymult:
 //GW:  Should best_stage2_impl have pre-calculated the gwnums lost to switching to a larger FFT?  Should be just reduce stage2_numvals when
 // we select a new FFT size?
 	memused = cvt_gwnums_to_mem (&pm1data.gwdata, pm1data.stage2_numvals);
+	memused += 2 * (int) pm1data.gwdata.bit_length >> 23;
 	memused += (int) (pm1data.pairmap_size >> 20);
 	// To dodge possible infinite loop if pm1_stage2_impl allocates too much memory (it shouldn't), decrease the percentage of memory we are allowed to use
 	// Beware that replaning may allocate a larger pairing map
@@ -8632,11 +8657,6 @@ pm1_polymult:
 
 	// Calculate the percent completed by previous pairmaps
 //GW	base_pct_complete = (double) (pm1data.B2_start - pm1data.last_relocatable) / (double) (pm1data.C - pm1data.last_relocatable);
-	// Calculate the percent completed by each relative prime in this pairmap
-//GW	one_relp_pct = (1.0 - base_pct_complete) / (double) (pm1data.numDsections * pm1data.totrels);
-	// Calculate the percent completed by previous pairmaps and the current pairmap
-//GW	w->pct_complete = base_pct_complete + (double) (pm1data.Dsection * pm1data.totrels) * one_relp_pct;
-//GW polymult advances percentages in large chunks
 
 /* Allocate nQx array of pointers to gwnums.  This will be the coefficients of our input and output polynomials. */
 
@@ -8653,8 +8673,7 @@ pm1_polymult:
 	ASSERTG (pm1data.D % 3 == 0);
 	ASSERTG (pm1data.D % 4 == 2);			// See if we can relax this requirement
 	{
-		gwnum	t1, t2, t3;
-		gwnum	V1, V2, V3, V5, V6;
+		gwnum	t1, t2, V1, V2, V3, V5, V6;
 		struct {
 			gwnum	Vi;
 			gwnum	Vi_minus6;
@@ -8667,25 +8686,18 @@ pm1_polymult:
 		if (t1 == NULL) goto lowmem;
 		t2 = gwalloc (&pm1data.gwdata);
 		if (t2 == NULL) goto lowmem;
-		t3 = gwalloc (&pm1data.gwdata);
-		if (t3 == NULL) goto lowmem;
 
-/* Compute V_2 and place in pm1data.V.  This is the value we will save if init is aborted and we create a save file. */
-/* V_2 will be replaced by V_D later on in this loop.  At all times pm1data.V will be a save-able value! */
-//GW: must save both a and 1/a and they must match!  This V2 stuff won't work.
+/* Compute V_2, V_5, V_6 */
 
-		luc_dbl (&pm1data.gwdata, pm1data.V, t1);			// V2 = 2 * V1
-		gwswap (t1, pm1data.V);
-		V1 = t1;
-		V2 = pm1data.V;
-
-/* Compute V_5, V_6 */
+		V1 = pm1data.V, pm1data.V = NULL;
+		V2 = t1;
+		luc_dbl (&pm1data.gwdata, V1, V2);				// V2 = 2 * V1
 
 		V3 = t2;
 		luc_add (&pm1data.gwdata, V2, V1, V1, V3);			// V3 = V2 + V1 (diff V1)
 
-		V5 = t3;
-		luc_add (&pm1data.gwdata, V3, V2, V1, V5);			// V5 = V3 + V2 (diff V1)
+		V5 = V2;
+		luc_add (&pm1data.gwdata, V3, V2, V1, V5);			// V5 = V3 + V2 (diff V1), V2 no longer needed
 
 		V6 = V3;
 		luc_dbl (&pm1data.gwdata, V3, V6);				// V6 = 2 * V3, V3 no longer needed
@@ -8722,7 +8734,7 @@ pm1_polymult:
 
 /* Get next i value.  Don't destroy Vi_minus6 for V1 and V5. */
 
-//GW: if i+6 > pm1data.D/4, we do not need to compute next_i
+//GW: if i+6 > pm1data.D/4, we do not need to compute next_i 
 			if (i < 6) {
 				next_i = gwalloc (&pm1data.gwdata);
 				if (next_i == NULL) goto lowmem;
@@ -8753,12 +8765,6 @@ pm1_polymult:
 		gwfree (&pm1data.gwdata, V6);
 	}
 
-/* Free V.  It is no longer needed. */
-
-//GW: breaks save files.  this is actually V2 which could have been free long ago.
-	gwfree (&pm1data.gwdata, pm1data.V);
-	pm1data.V = NULL;
-
 // Multiply monic RLPs into one big monic RLP.  This is done in-place.
 
 	polymult_init (&pm1data.polydata, &pm1data.gwdata);
@@ -8782,6 +8788,8 @@ pm1_polymult:
 if (poly_size==2)sprintf (buf, "Round off: %.10g, poly_size: %d, EB: %g, SM: %g\n", gw_get_maxerr (&pm1data.gwdata), poly_size, pm1data.gwdata.EXTRA_BITS, pm1data.gwdata.safety_margin);
 else sprintf (buf, "Round off: %.10g, poly_size: %d\n", gw_get_maxerr (&pm1data.gwdata), poly_size);
 OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
+			stop_reason = stopCheck (thread_num);
+			if (stop_reason) goto possible_lowmem;
 		}
 	}
 
@@ -8828,6 +8836,8 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 			gwmul3 (&pm1data.gwdata, diff1, diff2, diff1, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			gwmul3 (&pm1data.gwdata, multiplier, diff1, multiplier, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			gwmul3 (&pm1data.gwdata, poly1[j], multiplier, poly1[j], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			stop_reason = stopCheck (thread_num);
+			if (stop_reason) goto possible_lowmem;
 		}
 		gwfree (&pm1data.gwdata, diff2);
 		gwfree (&pm1data.gwdata, multiplier);
@@ -8883,6 +8893,8 @@ gwfree (&pm1data.gwdata, e); e = NULL;
 	for (int j = 0; j < poly2_size-1; j++) {
 		poly2[j] = gwalloc (&pm1data.gwdata);
 		if (poly2[j] == NULL) goto lowmem;
+		stop_reason = stopCheck (thread_num);
+		if (stop_reason) goto possible_lowmem;
 	}
 
 // The evaluated points during a polymult overwrite some of the poly #2 coefficients.  Take advantage of this by using circular convolution where
@@ -8923,6 +8935,8 @@ gwfree (&pm1data.gwdata, e); e = NULL;
 		for (int j = 3; j < poly2_size; j++) {
 			gwmul3 (&pm1data.gwdata, diff1, diff2, diff1, GWMUL_STARTNEXTFFT);			// Next diff1
 			gwmul3 (&pm1data.gwdata, poly2[poly2_size-j+1], diff1, poly2[poly2_size-j], GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			stop_reason = stopCheck (thread_num);
+			if (stop_reason) goto possible_lowmem;
 		}
 		gwmul3 (&pm1data.gwdata, diff1, diff2, diff1, GWMUL_STARTNEXTFFT);				// Last diff1
 		gwmul3 (&pm1data.gwdata, poly2[1], diff1, poly2[0], GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);		// Last coeff
@@ -8937,9 +8951,19 @@ sprintf (buf, "Round off: %.10g\n", gw_get_maxerr (&pm1data.gwdata));
 OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 }
 
+// Check for errors, user esc, restart for mem changed, saving, etc.
+
+		if (gw_test_for_error (&pm1data.gwdata)) goto err;
+		stop_reason = stopCheck (thread_num);
+		saving = testSaveFilesFlag (thread_num);
+// Skip accumulating gg if stopping?  Save file prior to accumulating ggs??  All depends on how fast we think these gg accumulates will be
+		
 // Accumulate the evaluated points in gg for a later GCD
 
-		for (int j = 0; j < num_points; j++) gwmul3 (&pm1data.gwdata, outpoly[2*pm1data.numrels+j], pm1data.gg, pm1data.gg, GWMUL_STARTNEXTFFT);
+		for (int j = 0; j < num_points; j++)
+//GW: re-check for saving/stop prior to last gg multiply?   
+			gwmul3 (&pm1data.gwdata, outpoly[2*pm1data.numrels+j], pm1data.gg, pm1data.gg,
+				(j == num_points-1 && (saving || stop_reason)) ? 0 : GWMUL_STARTNEXTFFT);
 
 // Keep track of the sections processed thusfar
 
@@ -8948,7 +8972,8 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 /* Calculate stage 2 percentage. */
 
-//GW:		w->pct_complete = base_pct_complete + (double) (pm1data.Dsection * pm1data.totrels + pm1data.relp) * one_relp_pct;
+//GW - factor in B2-start? base_pct_complete? overshoot?
+		w->pct_complete = /*base_pct_complete +*/ (double) (pm1data.B2_start + pm1data.Dsection * pm1data.D + pm1data.D / 2) / (double) pm1data.C;
 
 /* Test for errors */
 
@@ -8966,15 +8991,17 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 /* Write out a message every now and then */
 
+//GW: The * 3 is a total guess to compensate for time spent in polymult
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
-			sprintf (buf, "%s stage 2 is %.*f%% complete.",
-				 gwmodulo_as_string (&pm1data.gwdata), (int) PRECISION, trunc_percent (w->pct_complete));
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) * 3 >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
+			sprintf (buf, "%s stage 2 at B2=%" PRIu64 "[%.*f%%]",
+				 gwmodulo_as_string (&pm1data.gwdata), pm1data.B2_start + pm1data.Dsection * pm1data.D + pm1data.D / 2,
+				 (int) PRECISION, trunc_percent (w->pct_complete));
 			end_timer (timers, 0);
 			if (first_iter_msg) {
 				strcat (buf, "\n");
 			} else {
-				strcat (buf, " Time: ");
+				strcat (buf, ".  Time: ");
 				print_timer (timers, 0, buf, TIMER_NL);
 			}
 			OutputStr (thread_num, buf);
@@ -8985,20 +9012,22 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 /* Write out a message to the results file every now and then */
 
-		if ((ITER_OUTPUT_RES != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output_r + 2 * ITER_OUTPUT_RES) ||
+//GW: The * 3 is a total guess to compensate for time spent in polymult
+		if ((ITER_OUTPUT_RES != 999999999 && gw_get_fft_count (&pm1data.gwdata) * 3 >= last_output_r + 2 * ITER_OUTPUT_RES) ||
 		    (NO_GUI && stop_reason)) {
-			sprintf (buf, "%s stage 2 is %.*f%% complete.\n",
-				 gwmodulo_as_string (&pm1data.gwdata), (int) PRECISION, trunc_percent (w->pct_complete));
+			sprintf (buf, "%s stage 2 at B2=%" PRIu64 "[%.*f%%]\n",
+				 gwmodulo_as_string (&pm1data.gwdata), pm1data.B2_start + pm1data.Dsection * pm1data.D + pm1data.D / 2,
+				 (int) PRECISION, trunc_percent (w->pct_complete));
 			writeResults (buf);
 			last_output_r = gw_get_fft_count (&pm1data.gwdata);
 		}
 
 /* Periodicly write a save file */
 
-//GW		if (stop_reason || saving) {
-//GW:			pm1_save (&pm1data);
-//GW			if (stop_reason) goto exit;
-//GW		}
+		if (stop_reason || saving) {
+			pm1_save (&pm1data);
+			if (stop_reason) goto exit;
+		}
 
 // Set up difference for next poly #2
 
