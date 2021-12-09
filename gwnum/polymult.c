@@ -32,7 +32,6 @@
 // 17) Sin/cos accuracy, right collection of PFA FFT sizes?, 2-pass FFTs
 // 19) For large ffts, use Pavel's idea of copying the complex values to a gwnum and use an unweighted FFT with a special no-carry-propagation norm routine.
 //     Perhaps only do this for most common architectures, such as AVX-512 and FMA 64-bit.
-// 20) Radix-4 non-vector FFT.
 // 21) Should polymult be its own library or a part of the gwnum library?
 // 22) Can we add asserts that polymult isn't violating EXTRA_BITS?
 // 25) Optimize.  Read/write several cache lines at a time (fill up L2 cache?).  Prefetch future cache lines.
@@ -63,8 +62,7 @@
 // 47) Combine last fft step with pointmul and first invfft step?
 // 48) Test if hyperthreading is beneficial
 // 49) Problems if FFT(1)!=1!!! The pointwise mul code ought to divide by FFT(1) OR have a special asm entry point for unfft that deals with data that
-//	has already had a pointwise mul.  One test case is AVX-512 small FFTs.
-//     Furthermore, the monic_adjustments code can't simply add data - it must add FFT(1)*data.
+//	has already had a pointwise mul.  Furthermore, the monic_adjustments code can't simply add data - it must add FFT(1)*data.
 
 
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
@@ -194,6 +192,14 @@ void polymult_line_avx512 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, 
 #define fmsubpd(a,b,c)	subpd(mulpd(a,b),c)
 #define fnmaddpd(a,b,c)	subpd(c,mulpd(a,b))
 #endif
+
+// Structure for complex VDTs
+typedef struct {
+	VDT	real;
+	VDT	imag;
+} CVDT;
+#define cvadd(a,b,c)	(a).real = addpd ((b).real, (c).real), (a).imag = addpd ((b).imag, (c).imag)
+#define cvsub(a,b,c)	(a).real = subpd ((b).real, (c).real), (a).imag = subpd ((b).imag, (c).imag)
 
 #if !defined (SSE2) && !defined (AVX) && !defined (FMA) && !defined (AVX512)
 
@@ -422,18 +428,18 @@ void generate_sincos (
 
 #if defined (AVX512)
 
-bool read_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options, bool post_process_monics)
+bool read_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
 {
 	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
 //GW: check if GW_FFT1 should be used instead
-		vec[0] = broadcastsd (1.0);
-		vec[1] = broadcastsd (0.0);
-		vec += 2;
+		vec[0].real = broadcastsd (1.0);
+		vec[0].imag = broadcastsd (0.0);
+		vec++;
 	}
 
 	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += 2*(size-1);
+	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += (size-1);
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
@@ -450,29 +456,29 @@ bool read_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, VDT *
 	// AVX512 implementation
 	if (index == -1) {			// First real-only value
 		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
-			vec[2*j] = _mm512_set_pd (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, data[j][0]);
+			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+			vec[j].real = _mm512_set_pd (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, data[j][0]);
 //bug? return 0.0 instead of -11
-//			vec[2*j+1] = _mm512_set_pd (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, data[j][-11]);
-			vec[2*j+1] = _mm512_set_pd (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+//			vec[j].imag = _mm512_set_pd (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, data[j][-11]);
+			vec[j].imag = _mm512_set_pd (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
 		}
 	}
 	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
 		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
-			vec[2*j] = _mm512_set_pd (data[j][7], data[j][6], data[j][5], data[j][4], data[j][3], data[j][2], data[j][1], data[j][8]);
+			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+			vec[j].real = _mm512_set_pd (data[j][7], data[j][6], data[j][5], data[j][4], data[j][3], data[j][2], data[j][1], data[j][8]);
 //bug? return 0.0 instead of -10
-//			vec[2*j+1] = _mm512_set_pd (data[j][7], data[j][6], data[j][5], data[j][-10]);
-			vec[2*j+1] = _mm512_set_pd (data[j][15], data[j][14], data[j][13], data[j][12], data[j][11], data[j][10], data[j][9], 0.0);
+//			vec[j].imag = _mm512_set_pd (data[j][7], data[j][6], data[j][5], data[j][-10]);
+			vec[j].imag = _mm512_set_pd (data[j][15], data[j][14], data[j][13], data[j][12], data[j][11], data[j][10], data[j][9], 0.0);
 		}
 	}
 	else {				// Process complex values where imaginary part is in the high half of the cache line
 		unsigned long offset = cache_line_offset (gwdata, index * 2) / sizeof (VDT);
 		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
+			if (data[j] == NULL) { memset (&vec[j], 0, sizeof(CVDT)); continue; }
 			ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
-			vec[2*j] = ((VDT *) data[j])[offset];				// Real data
-			vec[2*j+1] = ((VDT *) data[j])[offset+1];			// Imaginary data
+			vec[j].real = ((VDT *) data[j])[offset];
+			vec[j].imag = ((VDT *) data[j])[offset+1];
 		}
 	}
 
@@ -480,38 +486,34 @@ bool read_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, VDT *
 	if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
 		VDT zero = broadcastsd (0.0);
 		for (int j = 0; j < size; j++) {
-			vec[2*j] = subpd (zero, vec[2*j]);
-			vec[2*j+1] = subpd (zero, vec[2*j+1]);
+			vec[j].real = subpd (zero, vec[j].real);
+			vec[j].imag = subpd (zero, vec[j].imag);
 		}
 	}
 
 	// Duplicate RLP data in reverse order
 	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
-		for (int j = 1; j < size; j++) {
-			vec[-2*j] = vec[2*j];
-			vec[-2*j+1] = vec[2*j+1];
-		}
+		for (int j = 1; j < size; j++) vec[-j] = vec[j];
 	}
 
 	// If not post-processing monics and the input is monic, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
 //GW: check if GW_FFT1 should be used instead
-		vec[2*size] = broadcastsd (1.0);
-		vec[2*size+1] = broadcastsd (0.0);
+		vec[size].real = broadcastsd (1.0);
+		vec[size].imag = broadcastsd (0.0);
 	}
 
 	// Return success
 	return (TRUE);
 }
 
-void write_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options)
+void write_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options)
 {
 	// If either input was a monic RLP, back up the output vector pointer to the newly created entry by monic_line_adjustments
-	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) || ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)))
-		vec -= 2;
+	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) || ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP))) vec--;
 
 	// If both inputs are RLPs, then the output is an RLP too.  Skip writing half of the data.
-	if ((options & POLYMULT_INVEC1_RLP) && (options & POLYMULT_INVEC2_RLP)) vec += 2*(size-1);
+	if ((options & POLYMULT_INVEC1_RLP) && (options & POLYMULT_INVEC2_RLP)) vec += (size-1);
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
@@ -530,27 +532,27 @@ void write_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, VDT 
 	if (index == -1) {			// First real-only value
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
-			x.a = vec[2*j], data[j][0] = x.b[0];
+			x.a = vec[j].real, data[j][0] = x.b[0];
 //bug? return 0.0 instead of -11
-//			x.a = vec[2*j+1], data[j][-11] = x.b[0];
+//			x.a = vec[j].imag, data[j][-11] = x.b[0];
 		}
 	}
 	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
-			x.a = vec[2*j], data[j][7] = x.b[7], data[j][6] = x.b[6], data[j][5] = x.b[5], data[j][4] = x.b[4],
-					data[j][3] = x.b[3], data[j][2] = x.b[2], data[j][1] = x.b[1], data[j][8] = x.b[0];
+			x.a = vec[j].real, data[j][7] = x.b[7], data[j][6] = x.b[6], data[j][5] = x.b[5], data[j][4] = x.b[4],
+					   data[j][3] = x.b[3], data[j][2] = x.b[2], data[j][1] = x.b[1], data[j][8] = x.b[0];
 //bug? return 0.0 instead of -10
-			x.a = vec[2*j+1], data[j][15] = x.b[7], data[j][14] = x.b[6], data[j][13] = x.b[5], data[j][12] = x.b[4],
-					  data[j][11] = x.b[3], data[j][10] = x.b[2], data[j][9] = x.b[1];
+			x.a = vec[j].imag, data[j][15] = x.b[7], data[j][14] = x.b[6], data[j][13] = x.b[5], data[j][12] = x.b[4],
+					   data[j][11] = x.b[3], data[j][10] = x.b[2], data[j][9] = x.b[1];
 		}
 	}
 	else {				// Process complex values where imaginary part is in the high half of the cache line
 		unsigned long offset = cache_line_offset (gwdata, index * 2) / sizeof (VDT);
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
-			((VDT *) data[j])[offset] = vec[2*j];			// Real data
-			((VDT *) data[j])[offset+1] = vec[2*j+1];		// Imaginary data
+			((VDT *) data[j])[offset] = vec[j].real;
+			((VDT *) data[j])[offset+1] = vec[j].imag;
 		}
 	}
 }
@@ -559,23 +561,23 @@ void write_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, VDT 
 
 #define read_line_fma	read_line_avx
 #define write_line_fma	write_line_avx
-bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options, bool post_process_monics);
-void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options);
+bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics);
+void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options);
 
 #elif defined (AVX)
 
-bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options, bool post_process_monics)
+bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
 {
 	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
 //GW: check if GW_FFT1 should be used instead
-		vec[0] = broadcastsd (1.0);
-		vec[1] = broadcastsd (0.0);
-		vec += 2;
+		vec[0].real = broadcastsd (1.0);
+		vec[0].imag = broadcastsd (0.0);
+		vec++;
 	}
 
 	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += 2*(size-1);
+	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += (size-1);
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
@@ -592,29 +594,29 @@ bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec
 	// AVX implementation
 	if (index == -1) {			// First real-only value
 		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
-			vec[2*j] = _mm256_set_pd (0.0, 0.0, 0.0, data[j][0]);
+			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+			vec[j].real = _mm256_set_pd (0.0, 0.0, 0.0, data[j][0]);
 //bug? return 0.0 instead of -11
-//			vec[2*j+1] = _mm256_set_pd (0.0, 0.0, 0.0, data[j][-11]);
-			vec[2*j+1] = _mm256_set_pd (0.0, 0.0, 0.0, 0.0);
+//			vec[j].imag = _mm256_set_pd (0.0, 0.0, 0.0, data[j][-11]);
+			vec[j].imag = _mm256_set_pd (0.0, 0.0, 0.0, 0.0);
 		}
 	}
 	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
 		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
-			vec[2*j] = _mm256_set_pd (data[j][3], data[j][2], data[j][1], data[j][4]);
+			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+			vec[j].real = _mm256_set_pd (data[j][3], data[j][2], data[j][1], data[j][4]);
 //bug? return 0.0 instead of -10
-//			vec[2*j+1] = _mm256_set_pd (data[j][7], data[j][6], data[j][5], data[j][-10]);
-			vec[2*j+1] = _mm256_set_pd (data[j][7], data[j][6], data[j][5], 0.0);
+//			vec[j].imag = _mm256_set_pd (data[j][7], data[j][6], data[j][5], data[j][-10]);
+			vec[j].imag = _mm256_set_pd (data[j][7], data[j][6], data[j][5], 0.0);
 		}
 	}
 	else {				// Process complex values where imaginary part is in the high half of the cache line
 		unsigned long offset = cache_line_offset (gwdata, index) / sizeof (VDT);
 		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
+			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 			ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
-			vec[2*j] = ((VDT *) data[j])[offset];				// Real data
-			vec[2*j+1] = ((VDT *) data[j])[offset+1];			// Imaginary data
+			vec[j].real = ((VDT *) data[j])[offset];
+			vec[j].imag = ((VDT *) data[j])[offset+1];
 		}
 	}
 
@@ -622,38 +624,34 @@ bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec
 	if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
 		VDT zero = broadcastsd (0.0);
 		for (int j = 0; j < size; j++) {
-			vec[2*j] = subpd (zero, vec[2*j]);
-			vec[2*j+1] = subpd (zero, vec[2*j+1]);
+			vec[j].real = subpd (zero, vec[j].real);
+			vec[j].imag = subpd (zero, vec[j].imag);
 		}
 	}
 
 	// Duplicate RLP data in reverse order
 	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
-		for (int j = 1; j < size; j++) {
-			vec[-2*j] = vec[2*j];
-			vec[-2*j+1] = vec[2*j+1];
-		}
+		for (int j = 1; j < size; j++) vec[-j] = vec[j];
 	}
 
 	// If not post-processing monics and the input is monic, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
 //GW: check if GW_FFT1 should be used instead
-		vec[2*size] = broadcastsd (1.0);
-		vec[2*size+1] = broadcastsd (0.0);
+		vec[size].real = broadcastsd (1.0);
+		vec[size].imag = broadcastsd (0.0);
 	}
 
 	// Return success
 	return (TRUE);
 }
 
-void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options)
+void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options)
 {
 	// If either input was a monic RLP, back up the output vector pointer to the newly created entry by monic_line_adjustments
-	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) || ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)))
-		vec -= 2;
+	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) || ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP))) vec--;
 
 	// If both inputs are RLPs, then the output is an RLP too.  Skip writing half of the data.
-	if ((options & POLYMULT_INVEC1_RLP) && (options & POLYMULT_INVEC2_RLP)) vec += 2*(size-1);
+	if ((options & POLYMULT_INVEC1_RLP) && (options & POLYMULT_INVEC2_RLP)) vec += (size-1);
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
@@ -672,43 +670,43 @@ void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, VDT *ve
 	if (index == -1) {			// First real-only value
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
-			x.a = vec[2*j], data[j][0] = x.b[0];
+			x.a = vec[j].real, data[j][0] = x.b[0];
 //bug? return 0.0 instead of -11
-//			x.a = vec[2*j+1], data[j][-11] = x.b[0];
+//			x.a = vec[j].imag, data[j][-11] = x.b[0];
 		}
 	}
 	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
-			x.a = vec[2*j], data[j][3] = x.b[3], data[j][2] = x.b[2], data[j][1] = x.b[1], data[j][4] = x.b[0];
+			x.a = vec[j].real, data[j][3] = x.b[3], data[j][2] = x.b[2], data[j][1] = x.b[1], data[j][4] = x.b[0];
 //bug? return 0.0 instead of -10
-			x.a = vec[2*j+1], data[j][7] = x.b[3], data[j][6] = x.b[2], data[j][5] = x.b[1] /*, data[j][-10] = x.b[0]*/ ;
+			x.a = vec[j].imag, data[j][7] = x.b[3], data[j][6] = x.b[2], data[j][5] = x.b[1] /*, data[j][-10] = x.b[0]*/ ;
 		}
 	}
 	else {				// Process complex values where imaginary part is in the high half of the cache line
 		unsigned long offset = cache_line_offset (gwdata, index) / sizeof (VDT);
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
-			((VDT *) data[j])[offset] = vec[2*j];			// Real data
-			((VDT *) data[j])[offset+1] = vec[2*j+1];		// Imaginary data
+			((VDT *) data[j])[offset] = vec[j].real;
+			((VDT *) data[j])[offset+1] = vec[j].imag;
 		}
 	}
 }
 
 #elif defined (SSE2)
 
-bool read_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options, bool post_process_monics)
+bool read_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
 {
 	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
 //GW: check if GW_FFT1 should be used instead
-		vec[0] = broadcastsd (1.0);
-		vec[1] = broadcastsd (0.0);
-		vec += 2;
+		vec[0].real = broadcastsd (1.0);
+		vec[0].imag = broadcastsd (0.0);
+		vec++;
 	}
 
 	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += 2*(size-1);
+	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += (size-1);
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
@@ -736,42 +734,42 @@ bool read_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, VDT *ve
 	// SSE2 instructions implementation
 	if (index == -1) {			// First real-only value
 		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
-			vec[2*j] = _mm_set_pd (0.0, data[j][0]);
+			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+			vec[j].real = _mm_set_pd (0.0, data[j][0]);
 //bug? return 0.0 instead of -11 ---- fix when we support FFTing invec
-			vec[2*j+1] = _mm_set_pd (0.0, 0.0);
+			vec[j].imag = _mm_set_pd (0.0, 0.0);
 		}
 	}
 	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
 		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
+			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 			if (imag_dist == 8) {
-				vec[2*j] = _mm_set_pd (data[j][2], data[j][1]);
-				vec[2*j+1] = _mm_set_pd (data[j][3], 0.0); //data[j][-10];
+				vec[j].real = _mm_set_pd (data[j][2], data[j][1]);
+				vec[j].imag = _mm_set_pd (data[j][3], 0.0); //data[j][-10];
 			} else if (imag_dist == 16) {
-				vec[2*j] = _mm_set_pd (data[j][1], data[j][2]);
+				vec[j].real = _mm_set_pd (data[j][1], data[j][2]);
 //bug? return 0.0 instead of -10.  How are we going to implement FFTed poly read?  Its own routine? It's own FFT state? Compressed?
-				vec[2*j+1] = _mm_set_pd (data[j][3], 0.0); //data[j][-10];
+				vec[j].imag = _mm_set_pd (data[j][3], 0.0); //data[j][-10];
 			} else {
-				vec[2*j] = _mm_set_pd (data[j][1], data[j][4]);
-				vec[2*j+1] = _mm_set_pd (data[j][5], 0.0); //data[j][-10];
+				vec[j].real = _mm_set_pd (data[j][1], data[j][4]);
+				vec[j].imag = _mm_set_pd (data[j][5], 0.0); //data[j][-10];
 			}
 		}
 	}
 	else {				// Process complex values where imaginary part is 8, 16, or 32 bytes above the real part
 		unsigned long offset = cache_line_offset (gwdata, index / 2) / sizeof (VDT);
 		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
+			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 			ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
 			if (imag_dist == 8) {
-				vec[2*j] = _mm_set_pd (data[j][index*4+2], data[j][index*4]);
-				vec[2*j+1] = _mm_set_pd (data[j][index*4+3], data[j][index*4+1]);
+				vec[j].real = _mm_set_pd (data[j][index*4+2], data[j][index*4]);
+				vec[j].imag = _mm_set_pd (data[j][index*4+3], data[j][index*4+1]);
 			} else if (imag_dist == 16) {
-				vec[2*j] = ((VDT *) data[j])[offset+(index&1)*2];			// Real data
-				vec[2*j+1] = ((VDT *) data[j])[offset+(index&1)*2+1];			// Imaginary data
+				vec[j].real = ((VDT *) data[j])[offset+(index&1)*2];
+				vec[j].imag = ((VDT *) data[j])[offset+(index&1)*2+1];
 			} else {
-				vec[2*j] = ((VDT *) data[j])[offset+(index&1)];				// Real data
-				vec[2*j+1] = ((VDT *) data[j])[offset+(index&1)+2];			// Imaginary data
+				vec[j].real = ((VDT *) data[j])[offset+(index&1)];
+				vec[j].imag = ((VDT *) data[j])[offset+(index&1)+2];
 			}
 		}
 	}
@@ -780,38 +778,34 @@ bool read_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, VDT *ve
 	if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
 		VDT zero = broadcastsd (0.0);
 		for (int j = 0; j < size; j++) {
-			vec[2*j] = subpd (zero, vec[2*j]);
-			vec[2*j+1] = subpd (zero, vec[2*j+1]);
+			vec[j].real = subpd (zero, vec[j].real);
+			vec[j].imag = subpd (zero, vec[j].imag);
 		}
 	}
 
 	// Duplicate RLP data in reverse order
 	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
-		for (int j = 1; j < size; j++) {
-			vec[-2*j] = vec[2*j];
-			vec[-2*j+1] = vec[2*j+1];
-		}
+		for (int j = 1; j < size; j++) vec[-j] = vec[j];
 	}
 
 	// If not post-processing monics and the input is monic, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
 //GW: check if GW_FFT1 should be used instead
-		vec[2*size] = broadcastsd (1.0);
-		vec[2*size+1] = broadcastsd (0.0);
+		vec[size].real = broadcastsd (1.0);
+		vec[size].imag = broadcastsd (0.0);
 	}
 
 	// Return success
 	return (TRUE);
 }
 
-void write_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options)
+void write_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options)
 {
 	// If either input was a monic RLP, back up the output vector pointer to the newly created entry by monic_line_adjustments
-	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) || ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)))
-		vec -= 2;
+	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) || ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP))) vec--;
 
 	// If both inputs are RLPs, then the output is an RLP too.  Skip writing half of the data.
-	if (options & POLYMULT_INVEC1_RLP && options & POLYMULT_INVEC2_RLP) vec += 2*(size-1);
+	if (options & POLYMULT_INVEC1_RLP && options & POLYMULT_INVEC2_RLP) vec += (size-1);
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
@@ -841,8 +835,8 @@ void write_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, VDT *v
 	if (index == -1) {			// First real-only value
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
-			x.a = vec[2*j], data[j][0] = x.b[0];
-//			data[j][-11] = vec[2*j+1];  //GW:bug?
+			x.a = vec[j].real, data[j][0] = x.b[0];
+//			data[j][-11] = vec[j].imag;  //GW:bug?
 		}
 	}
 	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {		// Second real-only value
@@ -850,14 +844,14 @@ void write_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, VDT *v
 			if (data[j] == NULL) continue;
 			;
 			if (imag_dist == 8) {
-				x.a = vec[2*j], data[j][2] = x.b[1], data[j][1] = x.b[0];
-				x.a = vec[2*j+1], data[j][3] = x.b[1];
+				x.a = vec[j].real, data[j][2] = x.b[1], data[j][1] = x.b[0];
+				x.a = vec[j].imag, data[j][3] = x.b[1];
 			} else if (imag_dist == 16) {
-				x.a = vec[2*j], data[j][1] = x.b[1], data[j][2] = x.b[0];
-				x.a = vec[2*j+1], data[j][3] = x.b[1];
+				x.a = vec[j].real, data[j][1] = x.b[1], data[j][2] = x.b[0];
+				x.a = vec[j].imag, data[j][3] = x.b[1];
 			} else {
-				x.a = vec[2*j], data[j][1] = x.b[1], data[j][4] = x.b[0];
-				x.a = vec[2*j+1], data[j][5] = x.b[1];
+				x.a = vec[j].real, data[j][1] = x.b[1], data[j][4] = x.b[0];
+				x.a = vec[j].imag, data[j][5] = x.b[1];
 			}
 //bug? return 0.0 instead of -10
 		}
@@ -867,14 +861,14 @@ void write_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, VDT *v
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
 			if (imag_dist == 8) {
-				x.a = vec[2*j], data[j][index*4+2] = x.b[1], data[j][index*4] = x.b[0];
-				x.a = vec[2*j+1], data[j][index*4+3] = x.b[1], data[j][index*4+1] = x.b[0];
+				x.a = vec[j].real, data[j][index*4+2] = x.b[1], data[j][index*4] = x.b[0];
+				x.a = vec[j].imag, data[j][index*4+3] = x.b[1], data[j][index*4+1] = x.b[0];
 			} else if (imag_dist == 16) {
-				((VDT *) data[j])[offset+(index&1)*2] = vec[2*j];			// Real data
-				((VDT *) data[j])[offset+(index&1)*2+1] = vec[2*j+1];			// Imaginary data
+				((VDT *) data[j])[offset+(index&1)*2] = vec[j].real;
+				((VDT *) data[j])[offset+(index&1)*2+1] = vec[j].imag;
 			} else {
-				((VDT *) data[j])[offset+(index&1)] = vec[2*j];				// Real data
-				((VDT *) data[j])[offset+(index&1)+2] = vec[2*j+1];			// Imaginary data
+				((VDT *) data[j])[offset+(index&1)] = vec[j].real;
+				((VDT *) data[j])[offset+(index&1)+2] = vec[j].imag;
 			}
 		}
 	}
@@ -882,18 +876,18 @@ void write_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, VDT *v
 
 #elif !defined (X86_64)				// x87 FFTs only supported in 32-bit mode
 
-bool read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options, bool post_process_monics)
+bool read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
 {
 	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
 //GW: check if GW_FFT1 should be used instead
-		vec[0] = 1.0;
-		vec[1] = 0.0;
-		vec += 2;
+		vec[0].real = 1.0;
+		vec[0].imag = 0.0;
+		vec++;
 	}
 
 	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += 2*(size-1);
+	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += (size-1);
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
@@ -910,33 +904,33 @@ bool read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec
 	// No special instructions implementation
 	if (index == -1) {			// First real-only value
 		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
-			vec[2*j] = data[j][0];
+			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+			vec[j].real = data[j][0];
 //bug? return 0.0 instead of -11 ---- fix when we support FFTing invec
-			vec[2*j+1] = 0.0; //data[j][-11];
+			vec[j].imag = 0.0; //data[j][-11];
 		}
 	}
 	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
 		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
-			if (gwdata->PASS2_SIZE == 0) vec[2*j] = data[j][1];
-			else vec[2*j] = data[j][2];
+			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+			if (gwdata->PASS2_SIZE == 0) vec[j].real = data[j][1];
+			else vec[j].real = data[j][2];
 //bug? return 0.0 instead of -10.  How are we going to implement FFTed poly read?  Its own routine? It's own FFT state? Compressed?
-			vec[2*j+1] = 0.0; //data[j][-10];
+			vec[j].imag = 0.0; //data[j][-10];
 		}
 	}
 	else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
 		unsigned long offset = cache_line_offset (gwdata, index / 4) / sizeof (VDT);
 		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[2*j], 0, 2*sizeof(VDT)); continue; }
+			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 			ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
 // bug???  Index assuming what?  skip every other set of 4?  Examine ancient FFT sources!
 			if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT) {
-				vec[2*j] = data[j][offset+(index&3)*2];
-				vec[2*j+1] = data[j][offset+(index&3)*2+1];
+				vec[j].real = data[j][offset+(index&3)*2];
+				vec[j].imag = data[j][offset+(index&3)*2+1];
 			} else {
-				vec[2*j] = data[j][offset+(index&2)*2+(index&1)];
-				vec[2*j+1] = data[j][offset+(index&2)*2+(index&1)+2];
+				vec[j].real = data[j][offset+(index&2)*2+(index&1)];
+				vec[j].imag = data[j][offset+(index&2)*2+(index&1)+2];
 			}
 		}
 	}
@@ -944,38 +938,34 @@ bool read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec
 	// Negate coefficients if requested
 	if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
 		for (int j = 0; j < size; j++) {
-			vec[2*j] = -vec[2*j];
-			vec[2*j+1] = -vec[2*j+1];
+			vec[j].real = -vec[j].real;
+			vec[j].imag = -vec[j].imag;
 		}
 	}
 
 	// Duplicate RLP data in reverse order
 	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
-		for (int j = 1; j < size; j++) {
-			vec[-2*j] = vec[2*j];
-			vec[-2*j+1] = vec[2*j+1];
-		}
+		for (int j = 1; j < size; j++) vec[-j] = vec[j];
 	}
 
 	// If not post-processing monics and the input is monic, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
 //GW: check if GW_FFT1 should be used instead
-		vec[2*size] = 1.0;
-		vec[2*size+1] = 0.0;
+		vec[size].real = 1.0;
+		vec[size].imag = 0.0;
 	}
 
 	// Return success
 	return (TRUE);
 }
 
-void write_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, VDT *vec, int options)
+void write_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options)
 {
 	// If either input was a monic RLP, back up the output vector pointer to the newly created entry by monic_line_adjustments
-	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) || ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)))
-		vec -= 2;
+	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) || ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP))) vec--;
 
 	// If both inputs are RLPs, then the output is an RLP too.  Skip writing half of the data.
-	if (options & POLYMULT_INVEC1_RLP && options & POLYMULT_INVEC2_RLP) vec += 2*(size-1);
+	if (options & POLYMULT_INVEC1_RLP && options & POLYMULT_INVEC2_RLP) vec += (size-1);
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
@@ -990,16 +980,16 @@ void write_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, VDT *ve
 	if (index == -1) {			// First real-only value
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
-			data[j][0] = vec[2*j];
-//			data[j][-11] = vec[2*j+1];  //GW:bug?
+			data[j][0] = vec[j].real;
+//			data[j][-11] = vec[j].imag;  //GW:bug?
 		}
 	}
 	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {		// Second real-only value
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
-			if (gwdata->PASS2_SIZE == 0) data[j][1] = vec[2*j];
-			else data[j][2] = vec[2*j];
-//			data[j][-10] = vec[2*j+1];	//GW:bug?
+			if (gwdata->PASS2_SIZE == 0) data[j][1] = vec[j].real;
+			else data[j][2] = vec[j].real;
+//			data[j][-10] = vec[j].imag;	//GW:bug?
 		}
 	}
 	else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
@@ -1007,11 +997,11 @@ void write_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, VDT *ve
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
 			if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT) {
-				data[j][offset+(index&3)*2] = vec[2*j];
-				data[j][offset+(index&3)*2+1] = vec[2*j+1];
+				data[j][offset+(index&3)*2] = vec[j].real;
+				data[j][offset+(index&3)*2+1] = vec[j].imag;
 			} else {
-				data[j][offset+(index&2)*2+(index&1)] = vec[2*j];
-				data[j][offset+(index&2)*2+(index&1)+2] = vec[2*j+1];
+				data[j][offset+(index&2)*2+(index&1)] = vec[j].real;
+				data[j][offset+(index&2)*2+(index&1)+2] = vec[j].imag;
 			}
 		}
 	}
@@ -1027,11 +1017,11 @@ void write_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, VDT *ve
 #if defined (AVX512) || defined (FMA) || defined (AVX) || defined (SSE2) || !defined (X86_64)
 
 void brute_line (
-	VDT	*invec1,		// First input poly
+	CVDT	*invec1,		// First input poly
 	int	invec1_size,		// Size of the first input polynomial
-	VDT	*invec2,		// Second input poly
+	CVDT	*invec2,		// Second input poly
 	int	invec2_size,		// Size of the second input polynomial
-	VDT	*outvec,		// Output poly
+	CVDT	*outvec,		// Output poly
 	int	outvec_size,		// Either invec1_size+invec2_size-1 or size of gw_outvec if circular convolution
 	int	options,		// Options passed to polymult
 	gwnum	*gw_outvec)		// Gwnum array passed to polymult (so we can detect outputs that do not need to be computed)
@@ -1052,19 +1042,17 @@ void brute_line (
 		int in2 = out - in1;						// Index into invec2
 		// Loop through all the pairs to accumulate in this output
 		for ( ; in1 < invec1_size && in2 >= 0; in1++, in2--) {
-			VDT real_x = invec1[2*in1];
-			VDT imag_x = invec1[2*in1+1];
-			VDT real_y = invec2[2*in2];
-			VDT imag_y = invec2[2*in2+1];
-			VDT real_tmp = fmsubpd (real_x, real_y, mulpd (imag_x, imag_y));
-			VDT imag_tmp = fmaddpd (real_x, imag_y, mulpd (imag_x, real_y));
+			CVDT x = invec1[in1];
+			CVDT y = invec2[in2];
+			CVDT tmp;
+			tmp.real = fmsubpd (x.real, y.real, mulpd (x.imag, y.imag));
+			tmp.imag = fmaddpd (x.real, y.imag, mulpd (x.imag, y.real));
 			if (first_time) {
-				outvec[2*adjusted_out] = real_tmp;
-				outvec[2*adjusted_out+1] = imag_tmp;
+				outvec[adjusted_out] = tmp;
 				first_time = FALSE;
 			} else {
-				outvec[2*adjusted_out] = addpd (outvec[2*adjusted_out], real_tmp);
-				outvec[2*adjusted_out+1] = addpd (outvec[2*adjusted_out+1], imag_tmp);
+				outvec[adjusted_out].real = addpd (outvec[adjusted_out].real, tmp.real);
+				outvec[adjusted_out].imag = addpd (outvec[adjusted_out].imag, tmp.imag);
 			}
 		}
 	}
@@ -1080,15 +1068,15 @@ void brute_line (
 // ad+bc = (a+b)*(c+d) - ac - bd
 void karatsuba_line (
 	pmhandle *pmdata,		// Handle for polymult library
-	VDT	*invec1,		// Coefficients of first input poly
+	CVDT	*invec1,		// Coefficients of first input poly
 	int	invec1_size,		// Size of the first input polynomial
-	VDT	*invec2,		// Coefficients of second input poly
+	CVDT	*invec2,		// Coefficients of second input poly
 	int	invec2_size,		// Size of the second input polynomial
-	VDT	*tmp,			// Temporary space
-	VDT	*outvec)		// Output poly coefficients
+	CVDT	*tmp,			// Temporary space
+	CVDT	*outvec)		// Output poly coefficients
 {
 	int	i, a_size, b_size, c_size, d_size, a_plus_b_size, c_plus_d_size, bd_size, ac_size, a_plus_b_times_c_plus_d_size;
-	VDT	*a, *b, *c, *d, *ac, *bd, *a_plus_b, *c_plus_d, *a_plus_b_times_c_plus_d;
+	CVDT	*a, *b, *c, *d, *ac, *bd, *a_plus_b, *c_plus_d, *a_plus_b_times_c_plus_d;
 
 	// Handle end of recursion
 	if (invec1_size == 1 || invec2_size == 1 || invec1_size + invec2_size < pmdata->KARAT_BREAK) {
@@ -1099,14 +1087,13 @@ void karatsuba_line (
 	// To simplify code, always make invec2 the larger poly.
 	if (invec1_size > invec2_size) {
 		int tmpsize = invec1_size; invec1_size = invec2_size; invec2_size = tmpsize;
-		VDT *tmpvec = invec1; invec1 = invec2; invec2 = tmpvec;
+		CVDT *tmpvec = invec1; invec1 = invec2; invec2 = tmpvec;
 	}
-
 
 	// Split larger vector roughly in half.  For readability, create pointers to two halves.
 	d_size = (invec2_size + 1) / 2;
 	c_size = invec2_size - d_size;
-	c = invec2 + 2*d_size, d = invec2;
+	c = invec2 + d_size, d = invec2;
 
 	// Handle case where vectors are of wildly unequal lengths
 	if (d_size >= invec1_size) {
@@ -1115,37 +1102,37 @@ void karatsuba_line (
 		karatsuba_line (pmdata, invec1, invec1_size, d, d_size, tmp, bd);
 		bd_size = invec1_size + d_size - 1;
 		// Compute bc and store it in tmp
-		VDT *bc = tmp;
+		CVDT *bc = tmp;
 		int bc_size = invec1_size + c_size - 1;
-		tmp += 2*bc_size;
+		tmp += bc_size;
 		karatsuba_line (pmdata, invec1, invec1_size, c, c_size, tmp, bc);
 		// add/copy bc to output
-		for (i = 0; i < 2*(invec1_size-1); i++) outvec[i + 2*d_size] = addpd (outvec[i + 2*d_size], bc[i]);
-		for ( ; i < 2*bc_size; i++) outvec[i + 2*d_size] = bc[i];
+		for (i = 0; i < invec1_size - 1; i++) cvadd (outvec[i + d_size], outvec[i + d_size], bc[i]);
+		for ( ; i < bc_size; i++) outvec[i + d_size] = bc[i];
 		return;
 	}
 
 	// Split smaller vector, the size of the two lower halves must be the same.  For readability, create pointers to two halves.
 	b_size = d_size;
 	a_size = invec1_size - b_size;
-	a = invec1 + 2*b_size, b = invec1;
+	a = invec1 + b_size, b = invec1;
 
 	// Compute (a+b)
 	a_plus_b = outvec;
-	for (i = 0; i < 2*a_size && i < 2*b_size; i++) a_plus_b[i] = addpd (a[i], b[i]);
-//	for ( ; i < 2*a_size; i++) a_plus_b[i] = a[i];		// In case a_size > b_size
-	for ( ; i < 2*b_size; i++) a_plus_b[i] = b[i];		// In case b_size > a_size
-	a_plus_b_size = i / 2;
+	for (i = 0; i < a_size && i < b_size; i++) cvadd (a_plus_b[i], a[i], b[i]);
+//	for ( ; i < a_size; i++) a_plus_b[i] = a[i];		// In case a_size > b_size
+	for ( ; i < b_size; i++) a_plus_b[i] = b[i];		// In case b_size > a_size
+	a_plus_b_size = i;
 	// Compute (c+d)
 	c_plus_d = &outvec[i];
-	for (i = 0; i < 2*c_size && i < 2*d_size; i++) c_plus_d[i] = addpd (c[i], d[i]);
-//	for ( ; i < 2*c_size; i++) c_plus_d[i] = c[i];		// In case c_size > d_size
-	for ( ; i < 2*d_size; i++) c_plus_d[i] = d[i];		// In case d_size > c_size
-	c_plus_d_size = i / 2;
+	for (i = 0; i < c_size && i < d_size; i++) cvadd (c_plus_d[i], c[i], d[i]);
+//	for ( ; i < c_size; i++) c_plus_d[i] = c[i];		// In case c_size > d_size
+	for ( ; i < d_size; i++) c_plus_d[i] = d[i];		// In case d_size > c_size
+	c_plus_d_size = i;
 	// Compute (a+b) * (c+d) and store it in tmp
 	a_plus_b_times_c_plus_d = tmp;
 	a_plus_b_times_c_plus_d_size = a_plus_b_size + c_plus_d_size - 1;
-	tmp += 2*a_plus_b_times_c_plus_d_size;
+	tmp += a_plus_b_times_c_plus_d_size;
 	karatsuba_line (pmdata, a_plus_b, a_plus_b_size, c_plus_d, c_plus_d_size, tmp, a_plus_b_times_c_plus_d);
 
 	// Compute bd
@@ -1153,23 +1140,23 @@ void karatsuba_line (
 	karatsuba_line (pmdata, b, b_size, d, d_size, tmp, bd);
 	bd_size = b_size + d_size - 1;
 	// Output the complex value 0+0i
-	memset (&outvec[2*bd_size], 0, 2*sizeof(VDT));
+	memset (&outvec[bd_size], 0, sizeof (CVDT));
 	// Compute ac
-	ac = &outvec[2*(bd_size+1)];
+	ac = &outvec[bd_size+1];
 	karatsuba_line (pmdata, a, a_size, c, c_size, tmp, ac);
 	ac_size = a_size + c_size - 1;
 
 	// subtract ac from middle
-	for (i = 0; i < 2*ac_size; i++) a_plus_b_times_c_plus_d[i] = subpd (a_plus_b_times_c_plus_d[i], ac[i]);
+	for (i = 0; i < ac_size; i++) cvsub (a_plus_b_times_c_plus_d[i], a_plus_b_times_c_plus_d[i], ac[i]);
 	// subtract bd from middle
-	for (i = 0; i < 2*bd_size; i++) a_plus_b_times_c_plus_d[i] = subpd (a_plus_b_times_c_plus_d[i], bd[i]);
+	for (i = 0; i < bd_size; i++) cvsub (a_plus_b_times_c_plus_d[i], a_plus_b_times_c_plus_d[i], bd[i]);
 	// add middle to output
-	for (i = 0; i < 2*a_plus_b_times_c_plus_d_size; i++) outvec[i + 2*b_size] = addpd (outvec[i + 2*b_size], a_plus_b_times_c_plus_d[i]);
+	for (i = 0; i < a_plus_b_times_c_plus_d_size; i++) cvadd (outvec[i + b_size], outvec[i + b_size], a_plus_b_times_c_plus_d[i]);
 }
 
 void fft_line (
 	pmhandle *pmdata,		// Handle for polymult library
-	VDT	*vec,			// Array of complex values
+	CVDT	*vec,			// Array of complex values
 	unsigned int fft_size)		// The fft size
 {
 	unsigned int size = fft_size;		// The current group size to process
@@ -1190,44 +1177,36 @@ void fft_line (
 		VDT _866 = broadcastsd (0.86602540378443864676372317075294);
 		for (unsigned int group = 0; group < fft_size; group += stride * 3) {
 			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += twiddle_stride) {
-				VDT real_a = vec[2*(group + group_member)];
-				VDT imag_a = vec[2*(group + group_member)+1];
-				VDT real_b = vec[2*(group + group_member + stride)];
-				VDT imag_b = vec[2*(group + group_member + stride)+1];
-				VDT real_c = vec[2*(group + group_member + 2*stride)];
-				VDT imag_c = vec[2*(group + group_member + 2*stride)+1];
+				CVDT a = vec[group + group_member];
+				CVDT b = vec[group + group_member + stride];
+				CVDT c = vec[group + group_member + 2*stride];
 
-				VDT real_b_plus_c = addpd (real_b, real_c);				// b + c
-				VDT imag_b_plus_c = addpd (imag_b, imag_c);
+				CVDT b_plus_c; cvadd (b_plus_c, b, c);				// b + c
 
-				VDT real_tmp23a = fnmaddpd (half, real_b_plus_c, real_a);		// a - 0.5 * (b + c)
-				VDT imag_tmp23a = fnmaddpd (half, imag_b_plus_c, imag_a);
+				VDT real_tmp23a = fnmaddpd (half, b_plus_c.real, a.real);	// a - 0.5 * (b + c)
+				VDT imag_tmp23a = fnmaddpd (half, b_plus_c.imag, a.imag);
 //GW: delay mul by 866 on true FMA CPUs
-				VDT real_tmp23b = mulpd (_866, subpd (imag_b, imag_c));	// 0.866 * (b - c)
-				VDT imag_tmp23b = mulpd (_866, subpd (real_b, real_c));
+				VDT real_tmp23b = mulpd (_866, subpd (b.imag, c.imag));		// 0.866 * (b - c)
+				VDT imag_tmp23b = mulpd (_866, subpd (b.real, c.real));
 
-				real_a = addpd (real_a, real_b_plus_c);					// a + b + c
-				imag_a = addpd (imag_a, imag_b_plus_c);
-				real_b = subpd (real_tmp23a, real_tmp23b);				// combine 23a and 23b
-				imag_b = addpd (imag_tmp23a, imag_tmp23b);
-				real_c = addpd (real_tmp23a, real_tmp23b);
-				imag_c = subpd (imag_tmp23a, imag_tmp23b);
+				cvadd (a, a, b_plus_c);						// a + b + c
+				b.real = subpd (real_tmp23a, real_tmp23b);			// combine 23a and 23b
+				b.imag = addpd (imag_tmp23a, imag_tmp23b);
+				c.real = addpd (real_tmp23a, real_tmp23b);
+				c.imag = subpd (imag_tmp23a, imag_tmp23b);
 
-				vec[2*(group + group_member)]   = real_a;
-				vec[2*(group + group_member)+1] = imag_a;
+				vec[group + group_member] = a;
 				if (group_member == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-					vec[2*(group + group_member + stride)]     = real_b;
-					vec[2*(group + group_member + stride)+1]   = imag_b;
-					vec[2*(group + group_member + 2*stride)]   = real_c;
-					vec[2*(group + group_member + 2*stride)+1] = imag_c;
+					vec[group + group_member + stride]   = b;
+					vec[group + group_member + 2*stride] = c;
 				}
 				else {			// Apply twiddles
 					VDT real_twiddle1 = broadcastsd (pmdata->twiddles1[2*twiddle_idx]);
 					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles1[2*twiddle_idx+1]);
-					vec[2*(group + group_member + stride)]     = fmsubpd (real_b, real_twiddle1, mulpd (imag_b, imag_twiddle1));
-					vec[2*(group + group_member + stride)+1]   = fmaddpd (imag_b, real_twiddle1, mulpd (real_b, imag_twiddle1));
-					vec[2*(group + group_member + 2*stride)]   = fmaddpd (real_c, real_twiddle1, mulpd (imag_c, imag_twiddle1));
-					vec[2*(group + group_member + 2*stride)+1] = fmsubpd (imag_c, real_twiddle1, mulpd (real_c, imag_twiddle1));
+					vec[group + group_member + stride].real   = fmsubpd (b.real, real_twiddle1, mulpd (b.imag, imag_twiddle1));
+					vec[group + group_member + stride].imag   = fmaddpd (b.imag, real_twiddle1, mulpd (b.real, imag_twiddle1));
+					vec[group + group_member + 2*stride].real = fmaddpd (c.real, real_twiddle1, mulpd (c.imag, imag_twiddle1));
+					vec[group + group_member + 2*stride].imag = fmsubpd (c.imag, real_twiddle1, mulpd (c.real, imag_twiddle1));
 				}
 			}
 		}
@@ -1253,72 +1232,58 @@ void fft_line (
 		stride = size / 5;
 		for (unsigned int group = 0; group < fft_size; group += stride * 5) {
 			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += 2*twiddle_stride) {
-				VDT real_a = vec[2*(group + group_member)];
-				VDT imag_a = vec[2*(group + group_member)+1];
-				VDT real_b = vec[2*(group + group_member + stride)];
-				VDT imag_b = vec[2*(group + group_member + stride)+1];
-				VDT real_c = vec[2*(group + group_member + 2*stride)];
-				VDT imag_c = vec[2*(group + group_member + 2*stride)+1];
-				VDT real_d = vec[2*(group + group_member + 3*stride)];
-				VDT imag_d = vec[2*(group + group_member + 3*stride)+1];
-				VDT real_e = vec[2*(group + group_member + 4*stride)];
-				VDT imag_e = vec[2*(group + group_member + 4*stride)+1];
+				CVDT a = vec[group + group_member];
+				CVDT b = vec[group + group_member + stride];
+				CVDT c = vec[group + group_member + 2*stride];
+				CVDT d = vec[group + group_member + 3*stride];
+				CVDT e = vec[group + group_member + 4*stride];
 
-				VDT real_b_plus_e = addpd (real_b, real_e);				// b + e
-				VDT imag_b_plus_e = addpd (imag_b, imag_e);
-				VDT real_c_plus_d = addpd (real_c, real_d);				// c + d
-				VDT imag_c_plus_d = addpd (imag_c, imag_d);
-				VDT real_b_minus_e = subpd (real_b, real_e);				// b - e
-				VDT imag_b_minus_e = subpd (imag_b, imag_e);
-				VDT real_c_minus_d = subpd (real_c, real_d);				// c - d
-				VDT imag_c_minus_d = subpd (imag_c, imag_d);
+				CVDT b_plus_e; cvadd (b_plus_e, b, e);				// b + e
+				CVDT c_plus_d; cvadd (c_plus_d, c, d);				// c + d
+				CVDT b_minus_e; cvsub (b_minus_e, b, e);			// b - e
+				CVDT c_minus_d; cvsub (c_minus_d, c, d);			// c - d
 
-				VDT real_tmp25a = fmaddpd (_309, real_b_plus_e, fnmaddpd (_809, real_c_plus_d, real_a)); // a +.309*(b+e) -.809*(c+d)
-				VDT imag_tmp25a = fmaddpd (_309, imag_b_plus_e, fnmaddpd (_809, imag_c_plus_d, imag_a));
-				VDT real_tmp34a = fnmaddpd (_809, real_b_plus_e, fmaddpd (_309, real_c_plus_d, real_a)); // a -.809*(b+e) +.309*(c+d)
-				VDT imag_tmp34a = fnmaddpd (_809, imag_b_plus_e, fmaddpd (_309, imag_c_plus_d, imag_a));
+				VDT real_tmp25a = fmaddpd (_309, b_plus_e.real, fnmaddpd (_809, c_plus_d.real, a.real)); // a +.309*(b+e) -.809*(c+d)
+				VDT imag_tmp25a = fmaddpd (_309, b_plus_e.imag, fnmaddpd (_809, c_plus_d.imag, a.imag));
+				VDT real_tmp34a = fnmaddpd (_809, b_plus_e.real, fmaddpd (_309, c_plus_d.real, a.real)); // a -.809*(b+e) +.309*(c+d)
+				VDT imag_tmp34a = fnmaddpd (_809, b_plus_e.imag, fmaddpd (_309, c_plus_d.imag, a.imag));
 //GW: delay mul by .951 on true FMA CPUs
-				VDT real_tmp25b = mulpd (_951, fmaddpd (_588_951, imag_c_minus_d, imag_b_minus_e));	// .951*(b-e) + 0.588*(c-d)
-				VDT imag_tmp25b = mulpd (_951, fmaddpd (_588_951, real_c_minus_d, real_b_minus_e));
-				VDT real_tmp34b = mulpd (_951, fmsubpd (_588_951, imag_b_minus_e, imag_c_minus_d));	// .588*(b-e) - 0.951*(c-d)
-				VDT imag_tmp34b = mulpd (_951, fmsubpd (_588_951, real_b_minus_e, real_c_minus_d));
+				VDT real_tmp25b = mulpd (_951, fmaddpd (_588_951, c_minus_d.imag, b_minus_e.imag));	// .951*(b-e) + 0.588*(c-d)
+				VDT imag_tmp25b = mulpd (_951, fmaddpd (_588_951, c_minus_d.real, b_minus_e.real));
+				VDT real_tmp34b = mulpd (_951, fmsubpd (_588_951, b_minus_e.imag, c_minus_d.imag));	// .588*(b-e) - 0.951*(c-d)
+				VDT imag_tmp34b = mulpd (_951, fmsubpd (_588_951, b_minus_e.real, c_minus_d.real));
 
-				real_a = addpd (addpd (real_a, real_b_plus_e), real_c_plus_d);	// a + b + c + d + e
-				imag_a = addpd (addpd (imag_a, imag_b_plus_e), imag_c_plus_d);
-				real_b = subpd (real_tmp25a, real_tmp25b);				// combine 25a and 25b
-				imag_b = addpd (imag_tmp25a, imag_tmp25b);
-				real_e = addpd (real_tmp25a, real_tmp25b);
-				imag_e = subpd (imag_tmp25a, imag_tmp25b);
-				real_c = subpd (real_tmp34a, real_tmp34b);				// combine 34a and 34b
-				imag_c = addpd (imag_tmp34a, imag_tmp34b);
-				real_d = addpd (real_tmp34a, real_tmp34b);
-				imag_d = subpd (imag_tmp34a, imag_tmp34b);
+				cvadd (a, a, b_plus_e);							// a + b + c + d + e
+				cvadd (a, a, c_plus_d);
+				b.real = subpd (real_tmp25a, real_tmp25b);				// combine 25a and 25b
+				b.imag = addpd (imag_tmp25a, imag_tmp25b);
+				e.real = addpd (real_tmp25a, real_tmp25b);
+				e.imag = subpd (imag_tmp25a, imag_tmp25b);
+				c.real = subpd (real_tmp34a, real_tmp34b);				// combine 34a and 34b
+				c.imag = addpd (imag_tmp34a, imag_tmp34b);
+				d.real = addpd (real_tmp34a, real_tmp34b);
+				d.imag = subpd (imag_tmp34a, imag_tmp34b);
 
-				vec[2*(group + group_member)]   = real_a;
-				vec[2*(group + group_member)+1] = imag_a;
+				vec[group + group_member]   = a;
 				if (group_member == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-					vec[2*(group + group_member + stride)]     = real_b;
-					vec[2*(group + group_member + stride)+1]   = imag_b;
-					vec[2*(group + group_member + 2*stride)]   = real_c;
-					vec[2*(group + group_member + 2*stride)+1] = imag_c;
-					vec[2*(group + group_member + 3*stride)]   = real_d;
-					vec[2*(group + group_member + 3*stride)+1] = imag_d;
-					vec[2*(group + group_member + 4*stride)]   = real_e;
-					vec[2*(group + group_member + 4*stride)+1] = imag_e;
+					vec[group + group_member + stride]     = b;
+					vec[group + group_member + 2*stride]   = c;
+					vec[group + group_member + 3*stride]   = d;
+					vec[group + group_member + 4*stride]   = e;
 				}
 				else {			// Apply twiddles
 					VDT real_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx]);
 					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx+1]);
 					VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)]);
 					VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)+1]);
-					vec[2*(group + group_member + stride)]     = fmsubpd (real_b, real_twiddle1, mulpd (imag_b, imag_twiddle1));
-					vec[2*(group + group_member + stride)+1]   = fmaddpd (imag_b, real_twiddle1, mulpd (real_b, imag_twiddle1));
-					vec[2*(group + group_member + 2*stride)]   = fmsubpd (real_c, real_twiddle2, mulpd (imag_c, imag_twiddle2));
-					vec[2*(group + group_member + 2*stride)+1] = fmaddpd (imag_c, real_twiddle2, mulpd (real_c, imag_twiddle2));
-					vec[2*(group + group_member + 3*stride)]   = fmaddpd (real_d, real_twiddle2, mulpd (imag_d, imag_twiddle2));
-					vec[2*(group + group_member + 3*stride)+1] = fmsubpd (imag_d, real_twiddle2, mulpd (real_d, imag_twiddle2));
-					vec[2*(group + group_member + 4*stride)]   = fmaddpd (real_e, real_twiddle1, mulpd (imag_e, imag_twiddle1));
-					vec[2*(group + group_member + 4*stride)+1] = fmsubpd (imag_e, real_twiddle1, mulpd (real_e, imag_twiddle1));
+					vec[group + group_member + stride].real   = fmsubpd (b.real, real_twiddle1, mulpd (b.imag, imag_twiddle1));
+					vec[group + group_member + stride].imag   = fmaddpd (b.imag, real_twiddle1, mulpd (b.real, imag_twiddle1));
+					vec[group + group_member + 2*stride].real = fmsubpd (c.real, real_twiddle2, mulpd (c.imag, imag_twiddle2));
+					vec[group + group_member + 2*stride].imag = fmaddpd (c.imag, real_twiddle2, mulpd (c.real, imag_twiddle2));
+					vec[group + group_member + 3*stride].real = fmaddpd (d.real, real_twiddle2, mulpd (d.imag, imag_twiddle2));
+					vec[group + group_member + 3*stride].imag = fmsubpd (d.imag, real_twiddle2, mulpd (d.real, imag_twiddle2));
+					vec[group + group_member + 4*stride].real = fmaddpd (e.real, real_twiddle1, mulpd (e.imag, imag_twiddle1));
+					vec[group + group_member + 4*stride].imag = fmsubpd (e.imag, real_twiddle1, mulpd (e.real, imag_twiddle1));
 				}
 			}
 		}
@@ -1329,54 +1294,40 @@ void fft_line (
 		stride = size / 4;
 		for (unsigned int group = 0; group < fft_size; group += stride * 4) {
 			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += 2*twiddle_stride) {
-				VDT real_a = vec[2*(group + group_member)];
-				VDT imag_a = vec[2*(group + group_member)+1];
-				VDT real_b = vec[2*(group + group_member + stride)];
-				VDT imag_b = vec[2*(group + group_member + stride)+1];
-				VDT real_c = vec[2*(group + group_member + 2*stride)];
-				VDT imag_c = vec[2*(group + group_member + 2*stride)+1];
-				VDT real_d = vec[2*(group + group_member + 3*stride)];
-				VDT imag_d = vec[2*(group + group_member + 3*stride)+1];
+				CVDT a = vec[group + group_member];
+				CVDT b = vec[group + group_member + stride];
+				CVDT c = vec[group + group_member + 2*stride];
+				CVDT d = vec[group + group_member + 3*stride];
 
-				VDT real_new_a = addpd (real_a, real_c);			// a + c
-				VDT imag_new_a = addpd (imag_a, imag_c);
-				VDT real_new_c = subpd (real_a, real_c);			// a - c
-				VDT imag_new_c = subpd (imag_a, imag_c);
-				VDT real_new_b = addpd (real_b, real_d);			// b + d
-				VDT imag_new_b = addpd (imag_b, imag_d);
-				VDT real_new_d = subpd (real_b, real_d);			// b - d
-				VDT imag_new_d = subpd (imag_b, imag_d);
+				CVDT new_a; cvadd (new_a, a, c);			// a + c
+				CVDT new_c; cvsub (new_c, a, c);			// a - c
+				CVDT new_b; cvadd (new_b, b, d);			// b + d
+				CVDT new_d; cvsub (new_d, b, d);			// b - d
 
-				real_a = addpd (real_new_a, real_new_b);				// a + b
-				imag_a = addpd (imag_new_a, imag_new_b);
-				real_b = subpd (real_new_a, real_new_b);				// a - b
-				imag_b = subpd (imag_new_a, imag_new_b);
-				real_c = subpd (real_new_c, imag_new_d);				// c + id
-				imag_c = addpd (imag_new_c, real_new_d);
-				real_d = addpd (real_new_c, imag_new_d);				// c - id
-				imag_d = subpd (imag_new_c, real_new_d);
+				cvadd (a, new_a, new_b);				// a + b
+				cvsub (b, new_a, new_b);				// a - b
+				c.real = subpd (new_c.real, new_d.imag);		// c + id
+				c.imag = addpd (new_c.imag, new_d.real);
+				d.real = addpd (new_c.real, new_d.imag);		// c - id
+				d.imag = subpd (new_c.imag, new_d.real);
 
-				vec[2*(group + group_member)]   = real_a;
-				vec[2*(group + group_member)+1] = imag_a;
+				vec[group + group_member]   = a;
 				if (group_member == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-					vec[2*(group + group_member + stride)]     = real_b;
-					vec[2*(group + group_member + stride)+1]   = imag_b;
-					vec[2*(group + group_member + 2*stride)]   = real_c;
-					vec[2*(group + group_member + 2*stride)+1] = imag_c;
-					vec[2*(group + group_member + 3*stride)]   = real_d;
-					vec[2*(group + group_member + 3*stride)+1] = imag_d;
+					vec[group + group_member + stride]     = b;
+					vec[group + group_member + 2*stride]   = c;
+					vec[group + group_member + 3*stride]   = d;
 				}
 				else {			// Apply twiddles
 					VDT real_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx]);
 					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx+1]);
 					VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)]);
 					VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)+1]);
-					vec[2*(group + group_member + stride)]     = fmsubpd (real_b, real_twiddle2, mulpd (imag_b, imag_twiddle2));
-					vec[2*(group + group_member + stride)+1]   = fmaddpd (imag_b, real_twiddle2, mulpd (real_b, imag_twiddle2));
-					vec[2*(group + group_member + 2*stride)]   = fmsubpd (real_c, real_twiddle1, mulpd (imag_c, imag_twiddle1));
-					vec[2*(group + group_member + 2*stride)+1] = fmaddpd (imag_c, real_twiddle1, mulpd (real_c, imag_twiddle1));
-					vec[2*(group + group_member + 3*stride)]   = fmaddpd (real_d, real_twiddle1, mulpd (imag_d, imag_twiddle1));
-					vec[2*(group + group_member + 3*stride)+1] = fmsubpd (imag_d, real_twiddle1, mulpd (real_d, imag_twiddle1));
+					vec[group + group_member + stride].real   = fmsubpd (b.real, real_twiddle2, mulpd (b.imag, imag_twiddle2));
+					vec[group + group_member + stride].imag   = fmaddpd (b.imag, real_twiddle2, mulpd (b.real, imag_twiddle2));
+					vec[group + group_member + 2*stride].real = fmsubpd (c.real, real_twiddle1, mulpd (c.imag, imag_twiddle1));
+					vec[group + group_member + 2*stride].imag = fmaddpd (c.imag, real_twiddle1, mulpd (c.real, imag_twiddle1));
+					vec[group + group_member + 3*stride].real = fmaddpd (d.real, real_twiddle1, mulpd (d.imag, imag_twiddle1));
+					vec[group + group_member + 3*stride].imag = fmsubpd (d.imag, real_twiddle1, mulpd (d.real, imag_twiddle1));
 				}
 			}
 		}
@@ -1387,14 +1338,10 @@ void fft_line (
 		stride = 1;		// Stride for this radix-2 step
 		for (unsigned int group = 0; group < fft_size; group += stride * 2) {
 			for (unsigned int group_member = 0; group_member < stride; group_member++) {
-				VDT real_a = vec[2*(group + group_member)];
-				VDT imag_a = vec[2*(group + group_member)+1];
-				VDT real_b = vec[2*(group + group_member + stride)];
-				VDT imag_b = vec[2*(group + group_member + stride)+1];
-				vec[2*(group + group_member)] = addpd (real_a, real_b);
-				vec[2*(group + group_member)+1] = addpd (imag_a, imag_b);
-				vec[2*(group + group_member + stride)] = subpd (real_a, real_b);
-				vec[2*(group + group_member + stride)+1] = subpd (imag_a, imag_b);
+				CVDT a = vec[group + group_member];
+				CVDT b = vec[group + group_member + stride];
+				cvadd (vec[group + group_member], a, b);
+				cvsub (vec[group + group_member + stride], a, b);
 			}
 		}
 	}
@@ -1402,7 +1349,7 @@ void fft_line (
 
 void invfft_line (
 	pmhandle *pmdata,		// Handle for polymult library
-	VDT	*vec,			// Array of complex values
+	CVDT	*vec,			// Array of complex values
 	unsigned int fft_size)		// The fft size
 {
 	unsigned int stride;			// Stride through FFT data
@@ -1418,14 +1365,10 @@ void invfft_line (
 	if (powers_of_two & 1) {		// If odd number of powers of two do a radix-2 step
 		for (unsigned int group = 0; group < fft_size; group += stride * 2) {
 			for (unsigned int group_member = 0; group_member < stride; group_member++) {
-				VDT real_a = vec[2*(group + group_member)];
-				VDT imag_a = vec[2*(group + group_member)+1];
-				VDT real_b = vec[2*(group + group_member + stride)];
-				VDT imag_b = vec[2*(group + group_member + stride)+1];
-				vec[2*(group + group_member)] = addpd (real_a, real_b);
-				vec[2*(group + group_member)+1] = addpd (imag_a, imag_b);
-				vec[2*(group + group_member + stride)] = subpd (real_a, real_b);
-				vec[2*(group + group_member + stride)+1] = subpd (imag_a, imag_b);
+				CVDT a = vec[group + group_member];
+				CVDT b = vec[group + group_member + stride];
+				cvadd (vec[group + group_member], a, b);
+				cvsub (vec[group + group_member + stride], a, b);
 			}
 		}
 		stride *= 2;			// Next stride amount
@@ -1438,24 +1381,17 @@ void invfft_line (
 		twiddle_stride /= 4;
 		for (unsigned int group = 0; group < fft_size; group += stride * 4) {
 			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += 2*twiddle_stride) {
-				VDT real_a = vec[2*(group + group_member)];
-				VDT imag_a = vec[2*(group + group_member)+1];
-				VDT real_b = vec[2*(group + group_member + stride)];
-				VDT imag_b = vec[2*(group + group_member + stride)+1];
-				VDT real_c = vec[2*(group + group_member + 2*stride)];
-				VDT imag_c = vec[2*(group + group_member + 2*stride)+1];
-				VDT real_d = vec[2*(group + group_member + 3*stride)];
-				VDT imag_d = vec[2*(group + group_member + 3*stride)+1];
+				CVDT a = vec[group + group_member];
+				CVDT b = vec[group + group_member + stride];
+				CVDT c = vec[group + group_member + 2*stride];
+				CVDT d = vec[group + group_member + 3*stride];
 
 				// Special case first group member, no twiddles necessary
-				VDT real_twiddled_b, imag_twiddled_b, real_twiddled_c, imag_twiddled_c, real_twiddled_d, imag_twiddled_d;
+				CVDT twiddled_b, twiddled_c, twiddled_d;
 				if (group_member == 0) {
-					real_twiddled_b = real_b;
-					imag_twiddled_b = imag_b;
-					real_twiddled_c = real_c;
-					imag_twiddled_c = imag_c;
-					real_twiddled_d = real_d;
-					imag_twiddled_d = imag_d;
+					twiddled_b = b;
+					twiddled_c = c;
+					twiddled_d = d;
 				}
 				// Apply the CONJUGATE of the twiddle
 				else {
@@ -1463,41 +1399,31 @@ void invfft_line (
 					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx+1]);
 					VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)]);
 					VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)+1]);
-					real_twiddled_b = fmaddpd (real_b, real_twiddle2, mulpd (imag_b, imag_twiddle2));
-					imag_twiddled_b = fmsubpd (imag_b, real_twiddle2, mulpd (real_b, imag_twiddle2));
-					real_twiddled_c = fmaddpd (real_c, real_twiddle1, mulpd (imag_c, imag_twiddle1));
-					imag_twiddled_c = fmsubpd (imag_c, real_twiddle1, mulpd (real_c, imag_twiddle1));
-					real_twiddled_d = fmsubpd (real_d, real_twiddle1, mulpd (imag_d, imag_twiddle1));
-					imag_twiddled_d = fmaddpd (imag_d, real_twiddle1, mulpd (real_d, imag_twiddle1));
+					twiddled_b.real = fmaddpd (b.real, real_twiddle2, mulpd (b.imag, imag_twiddle2));
+					twiddled_b.imag = fmsubpd (b.imag, real_twiddle2, mulpd (b.real, imag_twiddle2));
+					twiddled_c.real = fmaddpd (c.real, real_twiddle1, mulpd (c.imag, imag_twiddle1));
+					twiddled_c.imag = fmsubpd (c.imag, real_twiddle1, mulpd (c.real, imag_twiddle1));
+					twiddled_d.real = fmsubpd (d.real, real_twiddle1, mulpd (d.imag, imag_twiddle1));
+					twiddled_d.imag = fmaddpd (d.imag, real_twiddle1, mulpd (d.real, imag_twiddle1));
 				}
 
-				VDT real_new_a = addpd (real_a, real_twiddled_b);			// a + b
-				VDT imag_new_a = addpd (imag_a, imag_twiddled_b);
-				VDT real_new_b = subpd (real_a, real_twiddled_b);			// a - b
-				VDT imag_new_b = subpd (imag_a, imag_twiddled_b);
-				VDT real_new_c = addpd (real_twiddled_c, real_twiddled_d);		// c + d
-				VDT imag_new_c = addpd (imag_twiddled_c, imag_twiddled_d);
-				VDT real_new_d = subpd (real_twiddled_c, real_twiddled_d);		// c - d
-				VDT imag_new_d = subpd (imag_twiddled_c, imag_twiddled_d);
+				CVDT new_a; cvadd (new_a, a, twiddled_b);			// a + b
+				CVDT new_b; cvsub (new_b, a, twiddled_b);			// a - b
+				CVDT new_c; cvadd (new_c, twiddled_c, twiddled_d);		// c + d
+				CVDT new_d; cvsub (new_d, twiddled_c, twiddled_d);		// c - d
 
-				real_a = addpd (real_new_a, real_new_c);					// a + c
-				imag_a = addpd (imag_new_a, imag_new_c);
-				real_c = subpd (real_new_a, real_new_c);					// a - c
-				imag_c = subpd (imag_new_a, imag_new_c);
-				real_b = addpd (real_new_b, imag_new_d);					// b - id
-				imag_b = subpd (imag_new_b, real_new_d);
-				real_d = subpd (real_new_b, imag_new_d);					// b + id
-				imag_d = addpd (imag_new_b, real_new_d);
+				cvadd (a, new_a, new_c);					// a + c
+				cvsub (c, new_a, new_c);					// a - c
+				b.real = addpd (new_b.real, new_d.imag);			// b - id
+				b.imag = subpd (new_b.imag, new_d.real);
+				d.real = subpd (new_b.real, new_d.imag);			// b + id
+				d.imag = addpd (new_b.imag, new_d.real);
 
 				// Save results
-				vec[2*(group + group_member)]              = real_a;
-				vec[2*(group + group_member)+1]            = imag_a;
-				vec[2*(group + group_member + stride)]     = real_b;
-				vec[2*(group + group_member + stride)+1]   = imag_b;
-				vec[2*(group + group_member + 2*stride)]   = real_c;
-				vec[2*(group + group_member + 2*stride)+1] = imag_c;
-				vec[2*(group + group_member + 3*stride)]   = real_d;
-				vec[2*(group + group_member + 3*stride)+1] = imag_d;
+				vec[group + group_member]            = a;
+				vec[group + group_member + stride]   = b;
+				vec[group + group_member + 2*stride] = c;
+				vec[group + group_member + 3*stride] = d;
 			}
 		}
 	}
@@ -1521,29 +1447,19 @@ void invfft_line (
 		VDT _588_951 = broadcastsd (0.61803398874989484820458683436564);
 		for (unsigned int group = 0; group < fft_size; group += stride * 5) {
 			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += 2*twiddle_stride) {
-				VDT real_a = vec[2*(group + group_member)];
-				VDT imag_a = vec[2*(group + group_member)+1];
-				VDT real_b = vec[2*(group + group_member + stride)];
-				VDT imag_b = vec[2*(group + group_member + stride)+1];
-				VDT real_c = vec[2*(group + group_member + 2*stride)];
-				VDT imag_c = vec[2*(group + group_member + 2*stride)+1];
-				VDT real_d = vec[2*(group + group_member + 3*stride)];
-				VDT imag_d = vec[2*(group + group_member + 3*stride)+1];
-				VDT real_e = vec[2*(group + group_member + 4*stride)];
-				VDT imag_e = vec[2*(group + group_member + 4*stride)+1];
+				CVDT a = vec[group + group_member];
+				CVDT b = vec[group + group_member + stride];
+				CVDT c = vec[group + group_member + 2*stride];
+				CVDT d = vec[group + group_member + 3*stride];
+				CVDT e = vec[group + group_member + 4*stride];
 
 				// Special case first group member, no twiddles necessary
-				VDT real_twiddled_b, imag_twiddled_b, real_twiddled_c, imag_twiddled_c;
-				VDT real_twiddled_d, imag_twiddled_d, real_twiddled_e, imag_twiddled_e;
+				CVDT twiddled_b, twiddled_c, twiddled_d, twiddled_e;
 				if (group_member == 0) {
-					real_twiddled_b = real_b;
-					imag_twiddled_b = imag_b;
-					real_twiddled_c = real_c;
-					imag_twiddled_c = imag_c;
-					real_twiddled_d = real_d;
-					imag_twiddled_d = imag_d;
-					real_twiddled_e = real_e;
-					imag_twiddled_e = imag_e;
+					twiddled_b = b;
+					twiddled_c = c;
+					twiddled_d = d;
+					twiddled_e = e;
 				}
 				// Apply the CONJUGATE of the twiddle
 				else {
@@ -1551,57 +1467,48 @@ void invfft_line (
 					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx+1]);
 					VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)]);
 					VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)+1]);
-					real_twiddled_b = fmaddpd (real_b, real_twiddle1, mulpd (imag_b, imag_twiddle1));
-					imag_twiddled_b = fmsubpd (imag_b, real_twiddle1, mulpd (real_b, imag_twiddle1));
-					real_twiddled_c = fmaddpd (real_c, real_twiddle2, mulpd (imag_c, imag_twiddle2));
-					imag_twiddled_c = fmsubpd (imag_c, real_twiddle2, mulpd (real_c, imag_twiddle2));
-					real_twiddled_d = fmsubpd (real_d, real_twiddle2, mulpd (imag_d, imag_twiddle2));
-					imag_twiddled_d = fmaddpd (imag_d, real_twiddle2, mulpd (real_d, imag_twiddle2));
-					real_twiddled_e = fmsubpd (real_e, real_twiddle1, mulpd (imag_e, imag_twiddle1));
-					imag_twiddled_e = fmaddpd (imag_e, real_twiddle1, mulpd (real_e, imag_twiddle1));
+					twiddled_b.real = fmaddpd (b.real, real_twiddle1, mulpd (b.imag, imag_twiddle1));
+					twiddled_b.imag = fmsubpd (b.imag, real_twiddle1, mulpd (b.real, imag_twiddle1));
+					twiddled_c.real = fmaddpd (c.real, real_twiddle2, mulpd (c.imag, imag_twiddle2));
+					twiddled_c.imag = fmsubpd (c.imag, real_twiddle2, mulpd (c.real, imag_twiddle2));
+					twiddled_d.real = fmsubpd (d.real, real_twiddle2, mulpd (d.imag, imag_twiddle2));
+					twiddled_d.imag = fmaddpd (d.imag, real_twiddle2, mulpd (d.real, imag_twiddle2));
+					twiddled_e.real = fmsubpd (e.real, real_twiddle1, mulpd (e.imag, imag_twiddle1));
+					twiddled_e.imag = fmaddpd (e.imag, real_twiddle1, mulpd (e.real, imag_twiddle1));
 				}
 
-				VDT real_b_plus_e = addpd (real_twiddled_b, real_twiddled_e);				// b + e
-				VDT imag_b_plus_e = addpd (imag_twiddled_b, imag_twiddled_e);
-				VDT real_c_plus_d = addpd (real_twiddled_c, real_twiddled_d);				// c + d
-				VDT imag_c_plus_d = addpd (imag_twiddled_c, imag_twiddled_d);
-				VDT real_b_minus_e = subpd (real_twiddled_b, real_twiddled_e);			// b - e
-				VDT imag_b_minus_e = subpd (imag_twiddled_b, imag_twiddled_e);
-				VDT real_c_minus_d = subpd (real_twiddled_c, real_twiddled_d);			// c - d
-				VDT imag_c_minus_d = subpd (imag_twiddled_c, imag_twiddled_d);
+				CVDT b_plus_e; cvadd (b_plus_e, twiddled_b, twiddled_e);			// b + e
+				CVDT c_plus_d; cvadd (c_plus_d, twiddled_c, twiddled_d);			// c + d
+				CVDT b_minus_e; cvsub (b_minus_e, twiddled_b, twiddled_e);			// b - e
+				CVDT c_minus_d; cvsub (c_minus_d, twiddled_c, twiddled_d);			// c - d
 
-				VDT real_tmp25a = fmaddpd (_309, real_b_plus_e, fnmaddpd (_809, real_c_plus_d, real_a)); // a +.309*(b+e) -.809*(c+d)
-				VDT imag_tmp25a = fmaddpd (_309, imag_b_plus_e, fnmaddpd (_809, imag_c_plus_d, imag_a));
-				VDT real_tmp34a = fnmaddpd (_809, real_b_plus_e, fmaddpd (_309, real_c_plus_d, real_a)); // a -.809*(b+e) +.309*(c+d)
-				VDT imag_tmp34a = fnmaddpd (_809, imag_b_plus_e, fmaddpd (_309, imag_c_plus_d, imag_a));
+				VDT real_tmp25a = fmaddpd (_309, b_plus_e.real, fnmaddpd (_809, c_plus_d.real, a.real)); // a +.309*(b+e) -.809*(c+d)
+				VDT imag_tmp25a = fmaddpd (_309, b_plus_e.imag, fnmaddpd (_809, c_plus_d.imag, a.imag));
+				VDT real_tmp34a = fnmaddpd (_809, b_plus_e.real, fmaddpd (_309, c_plus_d.real, a.real)); // a -.809*(b+e) +.309*(c+d)
+				VDT imag_tmp34a = fnmaddpd (_809, b_plus_e.imag, fmaddpd (_309, c_plus_d.imag, a.imag));
 //GW: delay mul by .951 on true FMA CPUs
-				VDT real_tmp25b = mulpd (_951, fmaddpd (_588_951, imag_c_minus_d, imag_b_minus_e));	// .951*(b-e) + 0.588*(c-d)
-				VDT imag_tmp25b = mulpd (_951, fmaddpd (_588_951, real_c_minus_d, real_b_minus_e));
-				VDT real_tmp34b = mulpd (_951, fmsubpd (_588_951, imag_b_minus_e, imag_c_minus_d));	// .588*(b-e) - 0.951*(c-d)
-				VDT imag_tmp34b = mulpd (_951, fmsubpd (_588_951, real_b_minus_e, real_c_minus_d));
+				VDT real_tmp25b = mulpd (_951, fmaddpd (_588_951, c_minus_d.imag, b_minus_e.imag));	// .951*(b-e) + 0.588*(c-d)
+				VDT imag_tmp25b = mulpd (_951, fmaddpd (_588_951, c_minus_d.real, b_minus_e.real));
+				VDT real_tmp34b = mulpd (_951, fmsubpd (_588_951, b_minus_e.imag, c_minus_d.imag));	// .588*(b-e) - 0.951*(c-d)
+				VDT imag_tmp34b = mulpd (_951, fmsubpd (_588_951, b_minus_e.real, c_minus_d.real));
 
-				real_a = addpd (addpd (real_a, real_b_plus_e), real_c_plus_d);	// a + b + c + d + e
-				imag_a = addpd (addpd (imag_a, imag_b_plus_e), imag_c_plus_d);
-				real_b = addpd (real_tmp25a, real_tmp25b);				// combine 25a and 25b
-				imag_b = subpd (imag_tmp25a, imag_tmp25b);
-				real_e = subpd (real_tmp25a, real_tmp25b);
-				imag_e = addpd (imag_tmp25a, imag_tmp25b);
-				real_c = addpd (real_tmp34a, real_tmp34b);				// combine 34a and 34b
-				imag_c = subpd (imag_tmp34a, imag_tmp34b);
-				real_d = subpd (real_tmp34a, real_tmp34b);
-				imag_d = addpd (imag_tmp34a, imag_tmp34b);
+				cvadd (a, a, b_plus_e);							// a + b + c + d + e
+				cvadd (a, a, c_plus_d);
+				b.real = addpd (real_tmp25a, real_tmp25b);				// combine 25a and 25b
+				b.imag = subpd (imag_tmp25a, imag_tmp25b);
+				e.real = subpd (real_tmp25a, real_tmp25b);
+				e.imag = addpd (imag_tmp25a, imag_tmp25b);
+				c.real = addpd (real_tmp34a, real_tmp34b);				// combine 34a and 34b
+				c.imag = subpd (imag_tmp34a, imag_tmp34b);
+				d.real = subpd (real_tmp34a, real_tmp34b);
+				d.imag = addpd (imag_tmp34a, imag_tmp34b);
 
 				// Save results
-				vec[2*(group + group_member)]              = real_a;
-				vec[2*(group + group_member)+1]            = imag_a;
-				vec[2*(group + group_member + stride)]     = real_b;
-				vec[2*(group + group_member + stride)+1]   = imag_b;
-				vec[2*(group + group_member + 2*stride)]   = real_c;
-				vec[2*(group + group_member + 2*stride)+1] = imag_c;
-				vec[2*(group + group_member + 3*stride)]   = real_d;
-				vec[2*(group + group_member + 3*stride)+1] = imag_d;
-				vec[2*(group + group_member + 4*stride)]   = real_e;
-				vec[2*(group + group_member + 4*stride)+1] = imag_e;
+				vec[group + group_member]              = a;
+				vec[group + group_member + stride]     = b;
+				vec[group + group_member + 2*stride]   = c;
+				vec[group + group_member + 3*stride]   = d;
+				vec[group + group_member + 4*stride]   = e;
 			}
 		}
 	}
@@ -1618,93 +1525,75 @@ void invfft_line (
 		VDT _866 = broadcastsd (0.86602540378443864676372317075294);
 		for (unsigned int group = 0; group < fft_size; group += stride * 3) {
 			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += twiddle_stride) {
-				VDT real_a = vec[2*(group + group_member)];
-				VDT imag_a = vec[2*(group + group_member)+1];
-				VDT real_b = vec[2*(group + group_member + stride)];
-				VDT imag_b = vec[2*(group + group_member + stride)+1];
-				VDT real_c = vec[2*(group + group_member + 2*stride)];
-				VDT imag_c = vec[2*(group + group_member + 2*stride)+1];
+				CVDT a = vec[group + group_member];
+				CVDT b = vec[group + group_member + stride];
+				CVDT c = vec[group + group_member + 2*stride];
 
 				// Special case first group member, no twiddles necessary
-				VDT real_twiddled_b, imag_twiddled_b, real_twiddled_c, imag_twiddled_c;
+				CVDT twiddled_b, twiddled_c;
 				if (group_member == 0) {
-					real_twiddled_b = real_b;
-					imag_twiddled_b = imag_b;
-					real_twiddled_c = real_c;
-					imag_twiddled_c = imag_c;
+					twiddled_b = b;
+					twiddled_c = c;
 				}
 				// Apply the CONJUGATE of the twiddle
 				else {
 					VDT real_twiddle1 = broadcastsd (pmdata->twiddles1[2*twiddle_idx]);
 					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles1[2*twiddle_idx+1]);
-					real_twiddled_b = addpd (mulpd (real_b, real_twiddle1), mulpd (imag_b, imag_twiddle1));
-					imag_twiddled_b = subpd (mulpd (imag_b, real_twiddle1), mulpd (real_b, imag_twiddle1));
-					real_twiddled_c = subpd (mulpd (real_c, real_twiddle1), mulpd (imag_c, imag_twiddle1));
-					imag_twiddled_c = addpd (mulpd (imag_c, real_twiddle1), mulpd (real_c, imag_twiddle1));
+					twiddled_b.real = addpd (mulpd (b.real, real_twiddle1), mulpd (b.imag, imag_twiddle1));
+					twiddled_b.imag = subpd (mulpd (b.imag, real_twiddle1), mulpd (b.real, imag_twiddle1));
+					twiddled_c.real = subpd (mulpd (c.real, real_twiddle1), mulpd (c.imag, imag_twiddle1));
+					twiddled_c.imag = addpd (mulpd (c.imag, real_twiddle1), mulpd (c.real, imag_twiddle1));
 				}
 
-				VDT real_b_plus_c = addpd (real_twiddled_b, real_twiddled_c);				// b + c
-				VDT imag_b_plus_c = addpd (imag_twiddled_b, imag_twiddled_c);
+				CVDT b_plus_c; cvadd (b_plus_c, twiddled_b, twiddled_c);			// b + c
 
-				VDT real_tmp23a = fnmaddpd (half, real_b_plus_c, real_a);				// a - 0.5 * (b + c)
-				VDT imag_tmp23a = fnmaddpd (half, imag_b_plus_c, imag_a);
+				VDT real_tmp23a = fnmaddpd (half, b_plus_c.real, a.real);			// a - 0.5 * (b + c)
+				VDT imag_tmp23a = fnmaddpd (half, b_plus_c.imag, a.imag);
 //GW: delay mul by 866 on true FMA CPUs
-				VDT real_tmp23b = mulpd (_866, subpd (imag_twiddled_b, imag_twiddled_c));	// 0.866 * (b - c)
-				VDT imag_tmp23b = mulpd (_866, subpd (real_twiddled_b, real_twiddled_c));
+				VDT real_tmp23b = mulpd (_866, subpd (twiddled_b.imag, twiddled_c.imag));	// 0.866 * (b - c)
+				VDT imag_tmp23b = mulpd (_866, subpd (twiddled_b.real, twiddled_c.real));
 
-				real_a = addpd (real_a, real_b_plus_c);							// a + b + c
-				imag_a = addpd (imag_a, imag_b_plus_c);
-				real_b = addpd (real_tmp23a, real_tmp23b);						// combine 23a and 23b
-				imag_b = subpd (imag_tmp23a, imag_tmp23b);
-				real_c = subpd (real_tmp23a, real_tmp23b);
-				imag_c = addpd (imag_tmp23a, imag_tmp23b);
+				cvadd (a, a, b_plus_c);								// a + b + c
+				b.real = addpd (real_tmp23a, real_tmp23b);					// combine 23a and 23b
+				b.imag = subpd (imag_tmp23a, imag_tmp23b);
+				c.real = subpd (real_tmp23a, real_tmp23b);
+				c.imag = addpd (imag_tmp23a, imag_tmp23b);
 
-				vec[2*(group + group_member)] = real_a;
-				vec[2*(group + group_member)+1] = imag_a;
-				vec[2*(group + group_member + stride)] = real_b;
-				vec[2*(group + group_member + stride)+1] = imag_b;
-				vec[2*(group + group_member + 2*stride)] = real_c;
-				vec[2*(group + group_member + 2*stride)+1] = imag_c;
+				vec[group + group_member] = a;
+				vec[group + group_member + stride] = b;
+				vec[group + group_member + 2*stride] = c;
 			}
 		}
 	}
 }
 
 // out = in1 * in2 pointwise also divide by FFT length
-void pointmul_line (VDT *invec1, VDT *invec2, VDT *outvec, int size)
+void pointmul_line (CVDT *invec1, CVDT *invec2, CVDT *outvec, int size)
 {
 	VDT inv_fft_size = broadcastsd (1.0 / (double) size);
 	for (int j = 0; j < size; j++) {
-		VDT real_x = invec1[2*j];
-		VDT imag_x = invec1[2*j+1];
-		VDT real_y = invec2[2*j];
-		VDT imag_y = invec2[2*j+1];
-		outvec[2*j] = mulpd (fmsubpd (real_x, real_y, mulpd (imag_x, imag_y)), inv_fft_size);
-		outvec[2*j+1] = mulpd (fmaddpd (real_x, imag_y, mulpd (imag_x, real_y)), inv_fft_size);
+		CVDT x = invec1[j];
+		CVDT y = invec2[j];
+		outvec[j].real = mulpd (fmsubpd (x.real, y.real, mulpd (x.imag, y.imag)), inv_fft_size);
+		outvec[j].imag = mulpd (fmaddpd (x.real, y.imag, mulpd (x.imag, y.real)), inv_fft_size);
 	}
 }
 
 // outvec += input vector shifted the proper amount to create a monic polymult result
-void monic_line_add_hi (VDT *invec, int invec_size, VDT *outvec, int outvec_size)
+void monic_line_add_hi (CVDT *invec, int invec_size, CVDT *outvec, int outvec_size)
 {
 	// Add words starting from the highest word
-	for (invec += 2*(invec_size-1), outvec += 2*(outvec_size-1); invec_size; invec -= 2, outvec -= 2, invec_size--) {
-		outvec[0] = addpd (outvec[0], invec[0]);
-		outvec[1] = addpd (outvec[1], invec[1]);
-	}
+	for (invec += invec_size-1, outvec += outvec_size-1; invec_size; invec--, outvec--, invec_size--) cvadd (outvec[0], outvec[0], invec[0]);
 }
 
 // outvec += input vector shifted to the low part of outvec
-void monic_line_add_lo (VDT *invec, int invec_size, VDT *outvec, int outvec_size)
+void monic_line_add_lo (CVDT *invec, int invec_size, CVDT *outvec, int outvec_size)
 {
-	for ( ; invec_size; invec += 2, outvec += 2, invec_size--) {
-		outvec[0] = addpd (outvec[0], invec[0]);
-		outvec[1] = addpd (outvec[1], invec[1]);
-	}
+	for ( ; invec_size; invec++, outvec++, invec_size--) cvadd (outvec[0], outvec[0], invec[0]);
 }
 
 // Make adjustments to outvec for any monic input vectors
-void monic_line_adjustments (VDT *invec1, int invec1_size, VDT *invec2, int invec2_size, VDT *outvec, int outvec_size, int options)
+void monic_line_adjustments (CVDT *invec1, int invec1_size, CVDT *invec2, int invec2_size, CVDT *outvec, int outvec_size, int options)
 {
 	// If neither input is monic, no adjustments are necessary
 	if (! (options & POLYMULT_INVEC1_MONIC) && ! (options & POLYMULT_INVEC2_MONIC)) return;
@@ -1712,14 +1601,14 @@ void monic_line_adjustments (VDT *invec1, int invec1_size, VDT *invec2, int inve
 	// If either input is a monic RLP, create a new entry before the output vector calculated thusfar
 	if (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) ||
 	    ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP))) {
-		outvec -= 2;
+		outvec--;
 		outvec_size++;
-		memset (&outvec[0], 0, 2*sizeof(VDT));
+		memset (&outvec[0], 0, sizeof (CVDT));
 	}
 
 	// Create a new entry after the output vector calculated thusfar so that we can add to it
 	outvec_size++;
-	memset (&outvec[2*(outvec_size-1)], 0, 2*sizeof(VDT));
+	memset (&outvec[outvec_size-1], 0, sizeof (CVDT));
 
 	// Adjust for an implied high coefficient of one -- add in the other poly in the high words
 	if (options & POLYMULT_INVEC1_MONIC) monic_line_add_hi (invec2, invec2_size, outvec, outvec_size);
@@ -1743,7 +1632,7 @@ void polymult_line (
 {
 	int	adjusted_invec1_size, adjusted_invec2_size, adjusted_outvec_size, fft_size;
 	bool	must_brute, must_fft, post_process_monics;
-	VDT	*invec1, *invec2, *outvec, *tmpvec;
+	CVDT	*invec1, *invec2, *outvec, *tmpvec;
 
 	// Adjust sizes due to RLPs.  Calculate the output size assuming no monic inputs.
 	adjusted_invec1_size = (options & POLYMULT_INVEC1_RLP) ? 2 * invec1_size - 1 : invec1_size;
@@ -1766,26 +1655,26 @@ void polymult_line (
 	must_brute = (options & POLYMULT_CIRCULAR) && outvec_size != polymult_fft_size (outvec_size);
 	must_fft = !must_brute && (options & (POLYMULT_FORWARD_FFT | POLYMULT_INVEC1_FFTED | POLYMULT_INVEC2_FFTED));
 	if (must_brute || (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK)) {
-		invec1 = (VDT *) aligned_malloc (2 * adjusted_invec1_size * sizeof (VDT), 64);
-		invec2 = (VDT *) aligned_malloc (2 * adjusted_invec2_size * sizeof (VDT), 64);
-		outvec = (VDT *) aligned_malloc (2 * (adjusted_outvec_size + 2) * sizeof (VDT), 64) + 2;
+		invec1 = (CVDT *) aligned_malloc (adjusted_invec1_size * sizeof (CVDT), 64);
+		invec2 = (CVDT *) aligned_malloc (adjusted_invec2_size * sizeof (CVDT), 64);
+		outvec = (CVDT *) aligned_malloc ((adjusted_outvec_size + 2) * sizeof (CVDT), 64) + 1;
 		tmpvec = NULL;
 	}
 	else if (!must_fft && !(options & POLYMULT_CIRCULAR) && adjusted_outvec_size < pmdata->FFT_BREAK) {
-		invec1 = (VDT *) aligned_malloc (2 * adjusted_invec1_size * sizeof (VDT), 64);
-		invec2 = (VDT *) aligned_malloc (2 * adjusted_invec2_size * sizeof (VDT), 64);
-		outvec = (VDT *) aligned_malloc (2 * (adjusted_outvec_size + 2) * sizeof (VDT), 64) + 2;
-		tmpvec = (VDT *) aligned_malloc (2 * (adjusted_outvec_size + 32) * sizeof (VDT), 64);	// Could need one extra for each recursion
+		invec1 = (CVDT *) aligned_malloc (adjusted_invec1_size * sizeof (CVDT), 64);
+		invec2 = (CVDT *) aligned_malloc (adjusted_invec2_size * sizeof (CVDT), 64);
+		outvec = (CVDT *) aligned_malloc ((adjusted_outvec_size + 2) * sizeof (CVDT), 64) + 1;
+		tmpvec = (CVDT *) aligned_malloc ((adjusted_outvec_size + 32) * sizeof (CVDT), 64);	// Could need one extra for each recursion
 	}
 	else {
 		fft_size = (options & (POLYMULT_FORWARD_FFT | POLYMULT_CIRCULAR)) ? outvec_size :
 			   (options & POLYMULT_INVEC1_FFTED) ? invec1_size :
 			   (options & POLYMULT_INVEC2_FFTED) ? invec2_size : polymult_fft_size (adjusted_outvec_size);
-		tmpvec = (VDT *) aligned_malloc (2 * fft_size * sizeof (VDT), 64);		// FFT of invec1 goes here
-		outvec = (VDT *) aligned_malloc (2 * (fft_size + 2) * sizeof (VDT), 64) + 2;	// FFT of invec2 goes here as does outvec
-		if (post_process_monics && (options & POLYMULT_INVEC2_MONIC)) invec1 = (VDT *) aligned_malloc (2 * fft_size * sizeof (VDT), 64);
+		tmpvec = (CVDT *) aligned_malloc (fft_size * sizeof (CVDT), 64);		// FFT of invec1 goes here
+		outvec = (CVDT *) aligned_malloc ((fft_size + 2) * sizeof (CVDT), 64) + 1;	// FFT of invec2 goes here as does outvec
+		if (post_process_monics && (options & POLYMULT_INVEC2_MONIC)) invec1 = (CVDT *) aligned_malloc (fft_size * sizeof (CVDT), 64);
 		else invec1 = tmpvec;
-		if (post_process_monics && (options & POLYMULT_INVEC1_MONIC)) invec2 = (VDT *) aligned_malloc (2 * fft_size * sizeof (VDT), 64);
+		if (post_process_monics && (options & POLYMULT_INVEC1_MONIC)) invec2 = (CVDT *) aligned_malloc (fft_size * sizeof (CVDT), 64);
 		else invec2 = outvec;
 	}
 
@@ -1803,8 +1692,8 @@ void polymult_line (
 		}
 		else {
 			if (!(options & POLYMULT_INVEC1_FFTED)) {
-				if (invec1 != tmpvec) memcpy (tmpvec, invec1, 2*adjusted_invec1_size*sizeof(VDT));
-				memset (tmpvec + 2*adjusted_invec1_size, 0, 2*(fft_size-adjusted_invec1_size)*sizeof(VDT));
+				if (invec1 != tmpvec) memcpy (tmpvec, invec1, adjusted_invec1_size * sizeof (CVDT));
+				memset (tmpvec + adjusted_invec1_size, 0, (fft_size - adjusted_invec1_size) * sizeof (CVDT));
 				fft_line (pmdata, tmpvec, fft_size);
 			}
 			if (options & POLYMULT_FORWARD_FFT) {
@@ -1812,8 +1701,8 @@ void polymult_line (
 				continue;
 			}
 			if (!(options & POLYMULT_INVEC2_FFTED)) {
-				if (invec2 != outvec) memcpy (outvec, invec2, 2*adjusted_invec2_size*sizeof(VDT));
-				memset (outvec + 2*adjusted_invec2_size, 0, 2*(fft_size-adjusted_invec2_size)*sizeof(VDT));
+				if (invec2 != outvec) memcpy (outvec, invec2, adjusted_invec2_size * sizeof (CVDT));
+				memset (outvec + adjusted_invec2_size, 0, (fft_size - adjusted_invec2_size) * sizeof (CVDT));
 				fft_line (pmdata, outvec, fft_size);
 			}
 			pointmul_line (tmpvec, outvec, outvec, fft_size);
@@ -1826,7 +1715,7 @@ void polymult_line (
 	// Free memory
 	if (invec1 != tmpvec) aligned_free (invec1);
 	if (invec2 != outvec) aligned_free (invec2);
-	aligned_free (outvec - 2);
+	aligned_free (outvec - 1);
 	aligned_free (tmpvec);
 }
 
