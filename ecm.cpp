@@ -550,6 +550,15 @@ struct D_data poly_D_data[] = {
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17  *13, 4 * 6 * 10 * 12 * 16*13, 19, 23 },	// 6636630, 599040
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17  *15, 4 * 6 * 10 * 12 * 16*15, 19, 23 },	// 7657650, 691200
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17  *17, 4 * 6 * 10 * 12 * 16*17, 19, 23 },	// 8678670, 783360
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19     , 4 * 6 * 10 * 12 * 16 * 18   , 23, 29 }, // 9699690, 829440
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19   *3, 4 * 6 * 10 * 12 * 16 * 18 *3, 23, 29 }, // 29099070, 2488320
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19   *5, 4 * 6 * 10 * 12 * 16 * 18 *5, 23, 29 }, // 48498450, 4147200
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19   *7, 4 * 6 * 10 * 12 * 16 * 18 *7, 23, 29 }, // 67897830, 5806080
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19   *9, 4 * 6 * 10 * 12 * 16 * 18 *9, 23, 29 }, // 87297210, 7464960
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19  *11, 4 * 6 * 10 * 12 * 16 * 18*11, 23, 29 }, // 106696590, 9123840
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19  *13, 4 * 6 * 10 * 12 * 16 * 18*13, 23, 29 }, // 126095970, 10782720
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19  *15, 4 * 6 * 10 * 12 * 16 * 18*15, 23, 29 }, // 145495350, 12441600
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19  *17, 4 * 6 * 10 * 12 * 16 * 18*17, 23, 29 }, // 164894730, 14100480
 };
 #endif
 
@@ -630,10 +639,19 @@ struct D_data poly_D_data[] = {
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17  *13, 4 * 6 * 10 * 12 * 16*13, 19, 23 },	// 6636630, 599040
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17  *15, 4 * 6 * 10 * 12 * 16*15, 19, 23 },	// 7657650, 691200
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17  *17, 4 * 6 * 10 * 12 * 16*17, 19, 23 },	// 8678670, 783360
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19     , 4 * 6 * 10 * 12 * 16 * 18   , 23, 29 }, // 9699690, 829440
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19   *3, 4 * 6 * 10 * 12 * 16 * 18 *3, 23, 29 }, // 29099070, 2488320
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19   *5, 4 * 6 * 10 * 12 * 16 * 18 *5, 23, 29 }, // 48498450, 4147200
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19   *7, 4 * 6 * 10 * 12 * 16 * 18 *7, 23, 29 }, // 67897830, 5806080
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19   *9, 4 * 6 * 10 * 12 * 16 * 18 *9, 23, 29 }, // 87297210, 7464960
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19  *11, 4 * 6 * 10 * 12 * 16 * 18*11, 23, 29 }, // 106696590, 9123840
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19  *13, 4 * 6 * 10 * 12 * 16 * 18*13, 23, 29 }, // 126095970, 10782720
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19  *15, 4 * 6 * 10 * 12 * 16 * 18*15, 23, 29 }, // 145495350, 12441600
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19  *17, 4 * 6 * 10 * 12 * 16 * 18*17, 23, 29 }, // 164894730, 14100480
 };
 #define POLY_NUM_D		(sizeof(poly_D_data)/sizeof(struct D_data))
-#define POLY_MAX_D		8678670
-#define POLY_MAX_RELPRIMES	783360
+#define POLY_MAX_D		164894730
+#define POLY_MAX_RELPRIMES	14100480
 
 // Map a D value to the D_data index
 int map_D_to_index (int D)
@@ -7619,7 +7637,7 @@ restart0:
 	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pm1data.gwdata, 1));
 	start_timer_from_zero (timers, 0);
 	start_timer_from_zero (timers, 1);
-	stop_reason = start_sieve_with_limit (thread_num, 2, (uint32_t) sqrt ((double) pm1data.C), &pm1data.sieve_info);
+	stop_reason = start_sieve_with_limit (thread_num, 2, (uint32_t) sqrt ((double) pm1data.B), &pm1data.sieve_info);
 	if (stop_reason) goto exit;
 	pm1data.stage1_prime = sieve (pm1data.sieve_info);
 	stage0_limit = (pm1data.interim_B > pm1data.max_stage0_prime) ? pm1data.max_stage0_prime : pm1data.interim_B;
@@ -7743,7 +7761,7 @@ restart1:
 	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pm1data.gwdata, 2));
 	tmp_gwnum = gwalloc (&pm1data.gwdata);
 	if (tmp_gwnum == NULL) goto oom;
-	stop_reason = start_sieve_with_limit (thread_num, pm1data.stage1_prime + 1, (uint32_t) sqrt((double) pm1data.C), &pm1data.sieve_info);
+	stop_reason = start_sieve_with_limit (thread_num, pm1data.stage1_prime + 1, (uint32_t) sqrt((double) pm1data.B), &pm1data.sieve_info);
 	if (stop_reason) goto exit;
 	SQRT_B = (unsigned long) sqrt ((double) pm1data.interim_B);
 	for ( ; ; ) {
@@ -8530,8 +8548,8 @@ replan:	{
 |	as well as
 |		IMPROVED STAGE 2 TO P±1 FACTORING ALGORITHMS
 |		by Montgomery & Kruppa
-|		2008, inria-00188192v2
-|		https://hal.inria.fr/inria-00188192v2/document
+|		2008, inria-00188192v3
+|		https://hal.inria.fr/inria-00188192v3/document
 +---------------------------------------------------------------------*/
 
 pm1_polymult:
