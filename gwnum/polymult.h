@@ -91,10 +91,12 @@ struct pmhandle_struct {
 	int	num_threads;		// Number of threads to use computing polymults
 	gwevent work_to_do;		// Event to signal polymult helper threads there is work to do
 	gwevent helpers_done;		// Event to signal polymult helper threads are done
+	gwevent main_can_wakeup;	// Event to signal polymult helper threads are waiting for work, thus the main thread can resume
 	gwmutex	poly_mutex;		// Mutex to make polymult thread safe when multi-threading
 	int	next_thread_num;	// Lets us generate a unique id for each helper thread
 	int	next_line;		// Next line for a thread to process
 	int	helpers_active;		// Count of helper threads that are still active
+	int	helpers_waiting_work;	// Count of helper threads thathave reached waiting for work_to_do
 	bool	termination_in_progress; // Flag for helper threads to exit
 	gwthread *thread_ids;		// Thread ids for the spawned threads
 //	bool	will_use_polymult_forward_fft;   Affects GW_HEADER_SIZE (thus a gwinit option rather than a polymult option?)

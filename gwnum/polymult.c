@@ -63,7 +63,8 @@
 // 48) Test if hyperthreading is beneficial
 // 49) Problems if FFT(1)!=1!!! The pointwise mul code ought to divide by FFT(1) OR have a special asm entry point for unfft that deals with data that
 //	has already had a pointwise mul.  Furthermore, the monic_adjustments code can't simply add data - it must add FFT(1)*data.
-
+// 50) Radix 8 last step
+// 51) Scratch area (like prime95) to avoid large strides,  Read_partial_line could populate the scratch area?
 
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
 int next_line (pmhandle *pmdata);
@@ -256,13 +257,13 @@ void polymult_done (
 	if (pmdata->thread_ids != NULL) {
 		pmdata->termination_in_progress = TRUE;
 		gwevent_signal (&pmdata->work_to_do);
-		gwevent_signal (&pmdata->helpers_done);
 		for (int i = 1; i < pmdata->num_threads; i++) gwthread_wait_for_exit (&pmdata->thread_ids[i]);
 		free (pmdata->thread_ids);
 		pmdata->thread_ids = NULL;
 		gwmutex_destroy (&pmdata->poly_mutex);
 		gwevent_destroy (&pmdata->work_to_do);
 		gwevent_destroy (&pmdata->helpers_done);
+		gwevent_destroy (&pmdata->main_can_wakeup);
 	}
 	aligned_free (pmdata->twiddles1), pmdata->twiddles1 = NULL;
 	aligned_free (pmdata->twiddles2), pmdata->twiddles2 = NULL;
@@ -1051,8 +1052,7 @@ void brute_line (
 				outvec[adjusted_out] = tmp;
 				first_time = FALSE;
 			} else {
-				outvec[adjusted_out].real = addpd (outvec[adjusted_out].real, tmp.real);
-				outvec[adjusted_out].imag = addpd (outvec[adjusted_out].imag, tmp.imag);
+				cvadd (outvec[adjusted_out], outvec[adjusted_out], tmp);
 			}
 		}
 	}
@@ -1768,7 +1768,8 @@ void polymult_thread (void *arg)
 					   pmdata->outvec, pmdata->outvec_size, pmdata->options);
 #endif
 
-		// When all helpers are finished, signal main thread.  Otherwise wait for all helpers to finish
+		// When all helpers are finished, signal that all helpers are done and can now wait on the work_to_do event.
+		// Otherwise wait for all helpers to finish
 		gwmutex_lock (&pmdata->poly_mutex);
 		int num_active = --pmdata->helpers_active;
 		gwmutex_unlock (&pmdata->poly_mutex);
@@ -1777,6 +1778,12 @@ void polymult_thread (void *arg)
 			gwevent_signal (&pmdata->helpers_done);
 		} else
 			gwevent_wait (&pmdata->helpers_done, 0);
+
+		// All helpers are done.  When all helpers wake up it will be safe to signal the main thread.
+		gwmutex_lock (&pmdata->poly_mutex);
+		int num_waiting = ++pmdata->helpers_waiting_work;
+		gwmutex_unlock (&pmdata->poly_mutex);
+		if (num_waiting == pmdata->num_threads - 1) gwevent_signal (&pmdata->main_can_wakeup);
 
 /* Wait for more work (or termination) */
 
@@ -1848,17 +1855,21 @@ void polymult (
 
 	// Fire up each helper thread
 	if (pmdata->num_threads > 1) {
-		pmdata->helpers_active = pmdata->num_threads - 1;
+		pmdata->helpers_active = pmdata->num_threads - 1;	// When this count reaches 0, it is safe to signal helpers_done
+		pmdata->helpers_waiting_work = 0;			// When this reaches num_threads-1, it is safe for main thread to wake up
 		if (pmdata->thread_ids == NULL) {
 			pmdata->thread_ids = (gwthread *) malloc (pmdata->num_threads * sizeof (gwthread));
 			gwmutex_init (&pmdata->poly_mutex);
 			gwevent_init (&pmdata->work_to_do);
 			gwevent_init (&pmdata->helpers_done);
+			gwevent_init (&pmdata->main_can_wakeup);
+			gwevent_signal (&pmdata->work_to_do);
 			pmdata->next_thread_num = 0;
 			for (int i = 1; i < pmdata->num_threads; i++) gwthread_create_waitable (&pmdata->thread_ids[i], &polymult_thread, (void *) pmdata);
 		} else {
 			gwmutex_lock (&pmdata->poly_mutex);
 			gwevent_reset (&pmdata->helpers_done);
+			gwevent_reset (&pmdata->main_can_wakeup);
 			gwevent_signal (&pmdata->work_to_do);		// Start all helper threads
 			gwmutex_unlock (&pmdata->poly_mutex);
 		}
@@ -1879,7 +1890,7 @@ void polymult (
 #endif
 
 	// Wait for all helper threads to complete
-	if (pmdata->num_threads > 1) gwevent_wait (&pmdata->helpers_done, 0);
+	if (pmdata->num_threads > 1) gwevent_wait (&pmdata->main_can_wakeup, 0);
 
 	// Figure out which output entries (if any) need to get 1.0 added to the result because a monic poly is multiplied by a monic RLP poly.
 	// We used to add the FFT(1) in monic_adjustments but this led to excessive round off error as FFT(1) is NOT a random signal.  It only
