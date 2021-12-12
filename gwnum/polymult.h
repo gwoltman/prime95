@@ -39,6 +39,9 @@ void polymult_init (
 // routine set, the polymult library will use the same callback routine with action code 20 and 21. */
 #define polymult_set_num_threads(h,n)	(h)->num_threads = (n)
 
+// Set the cache size to optimize FFTs for
+#define polymult_set_cache_size(h,n)	(h)->L2_CACHE_SIZE = (n)
+
 // Terminate use of a polymult handle.  Free up memory.
 void polymult_done (
 	pmhandle *pmdata);		// Handle for polymult library
@@ -106,6 +109,7 @@ struct pmhandle_struct {
 	// Brute force from outvec_size [1..KARAT_BREAK), Karatsuba from [KARAT_BREAK..FFT_BREAK). FFT from [FFT_BREAK..infinity)
 	int	KARAT_BREAK;		// Output vector size where we switch from brute force to Karatsuba
 	int	FFT_BREAK;		// Output vector size where we switch from Karatsuba to FFTs
+	int	L2_CACHE_SIZE;		// Optimize FFTs to fit in this size cache (number is in KB).  Default is 256KB.
 	// Arguments to the current polymult call.  Copied here so that helper threads can access the arguments.
 	gwnum	*invec1;		// First input poly
 	int	invec1_size;		// Size of the first input polynomial (or fft size if POLYMULT_INVEC1_FFTED)
