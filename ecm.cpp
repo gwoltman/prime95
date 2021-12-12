@@ -8787,6 +8787,7 @@ pm1_polymult:
 
 	polymult_init (&pm1data.polydata, &pm1data.gwdata);
 	polymult_set_num_threads (&pm1data.polydata, get_worker_num_threads (thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0));
+	polymult_set_cache_size (&pm1data.polydata, IniGetInt (INI_FILE, "PolymultCacheSize", 256));
 	{
 		int	num_polys = pm1data.numrels;	// Number of polys to multiply together
 		int	poly_size = 1;			// All polys are this size (except maybe the last one)
