@@ -1049,7 +1049,7 @@ void brute_line (
 			first_time = FALSE;
 		}
 		// See if this output needs to be computed
-		if (gw_outvec[adjusted_out] == NULL &&		//GW: Catch the RLP cases too - monic_adjust creates another output and RLP*RLP tosses half the data
+		if (gw_outvec != NULL && gw_outvec[adjusted_out] == NULL &&	//GW: Catch the RLP cases too - monic_adjust creates another output and RLP*RLP tosses half the data
 		    ((options & POLYMULT_CIRCULAR) ||
 		     ((!(options & POLYMULT_INVEC1_MONIC) || !(options & POLYMULT_INVEC1_RLP)) &&
 		      (!(options & POLYMULT_INVEC2_MONIC) || !(options & POLYMULT_INVEC2_RLP))))) continue;
@@ -1208,6 +1208,7 @@ void pick_pass_sizes (
 void fft_line (
 	pmhandle *pmdata,		// Handle for polymult library
 	CVDT	*vec,			// Array of complex values
+	CVDT	*scratch,		// Scratch area for two-pass FFTs       
 	unsigned int fft_size)		// The fft size
 {
 	unsigned int size = fft_size;		// The current group size to process
@@ -1401,6 +1402,7 @@ void fft_line (
 void invfft_line (
 	pmhandle *pmdata,		// Handle for polymult library
 	CVDT	*vec,			// Array of complex values
+	CVDT	*scratch,		// Scratch area for two-pass FFTs       
 	unsigned int fft_size)		// The fft size
 {
 	unsigned int stride;			// Stride through FFT data
