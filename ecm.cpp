@@ -8844,7 +8844,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 		if (multiplier == NULL) goto lowmem;
 //GW: This fft of r will be done again when we compute r^2 (since numrels is even we can save one multiply by computing r^2 first)
 		gwfft (&pm1data.gwdata, r, multiplier);
-		exponentiate (&pm1data.gwdata, multiplier, pm1data.numrels * pm1data.numrels);				// r^(j^2)
+		exponentiate (&pm1data.gwdata, multiplier, (uint64_t) pm1data.numrels * (uint64_t) pm1data.numrels);	// r^(j^2)
 		// Apply first multiplier (r^0 * r^(j^2))
 		gwmul3 (&pm1data.gwdata, poly1[0], multiplier, poly1[0], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);		// Mul by r^(j^2)
 		// Apply second multiplier (r^-1 * r^(j^2))
@@ -8926,8 +8926,7 @@ gwfree (&pm1data.gwdata, e); e = NULL;
 
 /* Stage 2 init complete, change the title, output a message */
 
-	sprintf (buf, "%.*f%% of %s P-1 stage 2 (using %uMB)",
-		 (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&pm1data.gwdata), memused);
+	sprintf (buf, "%.*f%% of %s P-1 stage 2 (using %uMB)", (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&pm1data.gwdata), memused);
 	title (thread_num, buf);
 
 	end_timer (timers, 0);
