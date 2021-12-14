@@ -64,7 +64,6 @@
 // 48) Test if hyperthreading is beneficial
 // 49) Problems if FFT(1)!=1!!! The pointwise mul code ought to divide by FFT(1) OR have a special asm entry point for unfft that deals with data that
 //	has already had a pointwise mul.  Furthermore, the monic_adjustments code can't simply add data - it must add FFT(1)*data.
-// 50) Radix 8 last step
 // 51) Scratch area (like prime95) to avoid large strides,  Read_partial_line could populate the scratch area (makes monic_adjustment difficult)?
 // 52) Half-sized DCT for RLPs?  The DJB FFTs may make reordering DCT outputs for an inverse FFT tricky.
 // 53) Can P-1's circular monic-poly times monic-RLP be safely done without monic_adjustments allowing us to save the FFT'ed RLP that is half-sized due to DCT?
@@ -210,8 +209,17 @@ typedef struct {
 	VDT	real;
 	VDT	imag;
 } CVDT;
-#define cvadd(a,b,c)	(a).real = addpd ((b).real, (c).real), (a).imag = addpd ((b).imag, (c).imag)
-#define cvsub(a,b,c)	(a).real = subpd ((b).real, (c).real), (a).imag = subpd ((b).imag, (c).imag)
+#define cvload(a,b,c)		(a).real = broadcastsd (b), (a).imag = broadcastsd (c)
+#define cvadd(a,b,c)		(a).real = addpd ((b).real, (c).real), (a).imag = addpd ((b).imag, (c).imag)				// a = b + c
+#define cvsub(a,b,c)		(a).real = subpd ((b).real, (c).real), (a).imag = subpd ((b).imag, (c).imag)				// a = b - c
+#define cviadd(a,b,c)		(a).real = subpd ((b).real, (c).imag), (a).imag = addpd ((b).imag, (c).real)				// a = b + i*c
+#define cvisub(a,b,c)		(a).real = addpd ((b).real, (c).imag), (a).imag = subpd ((b).imag, (c).real)				// a = b - i*c
+#define cvaddfm(a,b,const_d,c)	(a).real = fmaddpd (const_d, (c).real, (b).real), (a).imag = fmaddpd (const_d, (c).imag, (b).imag)	// a = b + const_d*c
+#define cvsubfm(a,b,const_d,c)	(a).real = fnmaddpd (const_d, (c).real, (b).real), (a).imag = fnmaddpd (const_d, (c).imag, (b).imag)	// a = b - const_d*c
+#define cvmul(a,b,c)		(a).real = fmsubpd ((b).real, (c).real, mulpd ((b).imag, (c).imag)), \
+				(a).imag = fmaddpd ((b).imag, (c).real, mulpd ((b).real, (c).imag))					// a = b * c
+#define cvconjmul(a,b,c)	(a).real = fmaddpd ((b).real, (c).real, mulpd ((b).imag, (c).imag)), \
+				(a).imag = fmsubpd ((b).imag, (c).real, mulpd ((b).real, (c).imag))					// a = b * conjugate(c)
 
 #if !defined (SSE2) && !defined (AVX) && !defined (FMA) && !defined (AVX512)
 
@@ -1267,12 +1275,9 @@ void fft_line (
 					vec[group + group_member + 2*stride] = c;
 				}
 				else {			// Apply twiddles
-					VDT real_twiddle1 = broadcastsd (pmdata->twiddles1[2*twiddle_idx]);
-					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles1[2*twiddle_idx+1]);
-					vec[group + group_member + stride].real   = fmsubpd (b.real, real_twiddle1, mulpd (b.imag, imag_twiddle1));
-					vec[group + group_member + stride].imag   = fmaddpd (b.imag, real_twiddle1, mulpd (b.real, imag_twiddle1));
-					vec[group + group_member + 2*stride].real = fmaddpd (c.real, real_twiddle1, mulpd (c.imag, imag_twiddle1));
-					vec[group + group_member + 2*stride].imag = fmsubpd (c.imag, real_twiddle1, mulpd (c.real, imag_twiddle1));
+					CVDT twiddle1; cvload (twiddle1, pmdata->twiddles1[2*twiddle_idx], pmdata->twiddles1[2*twiddle_idx+1]);
+					cvmul     (vec[group + group_member + stride], b, twiddle1);
+					cvconjmul (vec[group + group_member + 2*stride], c, twiddle1);
 				}
 			}
 		}
@@ -1349,24 +1354,18 @@ void fft_line (
 				cvadd (a, a, c_plus_d);
 				vec[group + group_member]   = a;
 				if (group_member == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-					vec[group + group_member + stride]     = b;
-					vec[group + group_member + 2*stride]   = c;
-					vec[group + group_member + 3*stride]   = d;
-					vec[group + group_member + 4*stride]   = e;
+					vec[group + group_member + stride]   = b;
+					vec[group + group_member + 2*stride] = c;
+					vec[group + group_member + 3*stride] = d;
+					vec[group + group_member + 4*stride] = e;
 				}
 				else {			// Apply twiddles
-					VDT real_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx]);
-					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx+1]);
-					VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)]);
-					VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)+1]);
-					vec[group + group_member + stride].real   = fmsubpd (b.real, real_twiddle1, mulpd (b.imag, imag_twiddle1));
-					vec[group + group_member + stride].imag   = fmaddpd (b.imag, real_twiddle1, mulpd (b.real, imag_twiddle1));
-					vec[group + group_member + 2*stride].real = fmsubpd (c.real, real_twiddle2, mulpd (c.imag, imag_twiddle2));
-					vec[group + group_member + 2*stride].imag = fmaddpd (c.imag, real_twiddle2, mulpd (c.real, imag_twiddle2));
-					vec[group + group_member + 3*stride].real = fmaddpd (d.real, real_twiddle2, mulpd (d.imag, imag_twiddle2));
-					vec[group + group_member + 3*stride].imag = fmsubpd (d.imag, real_twiddle2, mulpd (d.real, imag_twiddle2));
-					vec[group + group_member + 4*stride].real = fmaddpd (e.real, real_twiddle1, mulpd (e.imag, imag_twiddle1));
-					vec[group + group_member + 4*stride].imag = fmsubpd (e.imag, real_twiddle1, mulpd (e.real, imag_twiddle1));
+					CVDT twiddle1; cvload (twiddle1, pmdata->twiddles2[4*twiddle_idx], pmdata->twiddles2[4*twiddle_idx+1]);
+					CVDT twiddle2; cvload (twiddle2, pmdata->twiddles2[4*twiddle_idx+2], pmdata->twiddles2[4*twiddle_idx+3]);
+					cvmul     (vec[group + group_member + stride], b, twiddle1);
+					cvmul     (vec[group + group_member + 2*stride], c, twiddle2);
+					cvconjmul (vec[group + group_member + 3*stride], d, twiddle2);
+					cvconjmul (vec[group + group_member + 4*stride], e, twiddle1);
 				}
 			}
 		}
@@ -1401,16 +1400,11 @@ void fft_line (
 					vec[group + group_member + 3*stride]   = d;
 				}
 				else {			// Apply twiddles
-					VDT real_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx]);
-					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx+1]);
-					VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)]);
-					VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)+1]);
-					vec[group + group_member + stride].real   = fmsubpd (b.real, real_twiddle2, mulpd (b.imag, imag_twiddle2));
-					vec[group + group_member + stride].imag   = fmaddpd (b.imag, real_twiddle2, mulpd (b.real, imag_twiddle2));
-					vec[group + group_member + 2*stride].real = fmsubpd (c.real, real_twiddle1, mulpd (c.imag, imag_twiddle1));
-					vec[group + group_member + 2*stride].imag = fmaddpd (c.imag, real_twiddle1, mulpd (c.real, imag_twiddle1));
-					vec[group + group_member + 3*stride].real = fmaddpd (d.real, real_twiddle1, mulpd (d.imag, imag_twiddle1));
-					vec[group + group_member + 3*stride].imag = fmsubpd (d.imag, real_twiddle1, mulpd (d.real, imag_twiddle1));
+					CVDT twiddle1; cvload (twiddle1, pmdata->twiddles2[2*twiddle_idx], pmdata->twiddles2[2*twiddle_idx+1]);
+					CVDT twiddle2; cvload (twiddle2, pmdata->twiddles2[2*(twiddle_idx+1)], pmdata->twiddles2[2*(twiddle_idx+1)+1]);
+					cvmul     (vec[group + group_member + stride], b, twiddle2);
+					cvmul     (vec[group + group_member + 2*stride], c, twiddle1);
+					cvconjmul (vec[group + group_member + 3*stride], d, twiddle1);
 				}
 			}
 		}
@@ -1479,16 +1473,11 @@ void invfft_line (
 				}
 				// Apply the CONJUGATE of the twiddle
 				else {
-					VDT real_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx]);
-					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx+1]);
-					VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)]);
-					VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)+1]);
-					twiddled_b.real = fmaddpd (b.real, real_twiddle2, mulpd (b.imag, imag_twiddle2));
-					twiddled_b.imag = fmsubpd (b.imag, real_twiddle2, mulpd (b.real, imag_twiddle2));
-					twiddled_c.real = fmaddpd (c.real, real_twiddle1, mulpd (c.imag, imag_twiddle1));
-					twiddled_c.imag = fmsubpd (c.imag, real_twiddle1, mulpd (c.real, imag_twiddle1));
-					twiddled_d.real = fmsubpd (d.real, real_twiddle1, mulpd (d.imag, imag_twiddle1));
-					twiddled_d.imag = fmaddpd (d.imag, real_twiddle1, mulpd (d.real, imag_twiddle1));
+					CVDT twiddle1; cvload (twiddle1, pmdata->twiddles2[4*twiddle_idx], pmdata->twiddles2[4*twiddle_idx+1]);
+					CVDT twiddle2; cvload (twiddle2, pmdata->twiddles2[4*twiddle_idx+2], pmdata->twiddles2[4*twiddle_idx+3]);
+					cvconjmul (twiddled_b, b, twiddle1);
+					cvconjmul (twiddled_c, c, twiddle2);
+					cvmul     (twiddled_d, d, twiddle1);
 				}
 
 				CVDT new_a; cvadd (new_a, a, twiddled_b);			// a + b
@@ -1496,12 +1485,10 @@ void invfft_line (
 				CVDT new_c; cvadd (new_c, twiddled_c, twiddled_d);		// c + d
 				CVDT new_d; cvsub (new_d, twiddled_c, twiddled_d);		// c - d
 
-				cvadd (a, new_a, new_c);					// a + c
-				cvsub (c, new_a, new_c);					// a - c
-				b.real = addpd (new_b.real, new_d.imag);			// b - id
-				b.imag = subpd (new_b.imag, new_d.real);
-				d.real = subpd (new_b.real, new_d.imag);			// b + id
-				d.imag = addpd (new_b.imag, new_d.real);
+				cvadd  (a, new_a, new_c);					// a + c
+				cvsub  (c, new_a, new_c);					// a - c
+				cvisub (b, new_b, new_d);					// b - id
+				cviadd (d, new_b, new_d);					// b + id
 
 				// Save results
 				vec[group + group_member]            = a;
@@ -1547,18 +1534,12 @@ void invfft_line (
 				}
 				// Apply the CONJUGATE of the twiddle
 				else {
-					VDT real_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx]);
-					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[2*twiddle_idx+1]);
-					VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)]);
-					VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[2*(twiddle_idx+1)+1]);
-					twiddled_b.real = fmaddpd (b.real, real_twiddle1, mulpd (b.imag, imag_twiddle1));
-					twiddled_b.imag = fmsubpd (b.imag, real_twiddle1, mulpd (b.real, imag_twiddle1));
-					twiddled_c.real = fmaddpd (c.real, real_twiddle2, mulpd (c.imag, imag_twiddle2));
-					twiddled_c.imag = fmsubpd (c.imag, real_twiddle2, mulpd (c.real, imag_twiddle2));
-					twiddled_d.real = fmsubpd (d.real, real_twiddle2, mulpd (d.imag, imag_twiddle2));
-					twiddled_d.imag = fmaddpd (d.imag, real_twiddle2, mulpd (d.real, imag_twiddle2));
-					twiddled_e.real = fmsubpd (e.real, real_twiddle1, mulpd (e.imag, imag_twiddle1));
-					twiddled_e.imag = fmaddpd (e.imag, real_twiddle1, mulpd (e.real, imag_twiddle1));
+					CVDT twiddle1; cvload (twiddle1, pmdata->twiddles2[4*twiddle_idx], pmdata->twiddles2[4*twiddle_idx+1]);
+					CVDT twiddle2; cvload (twiddle2, pmdata->twiddles2[4*twiddle_idx+2], pmdata->twiddles2[4*twiddle_idx+3]);
+					cvconjmul (twiddled_b, b, twiddle1);
+					cvconjmul (twiddled_c, c, twiddle2);
+					cvmul     (twiddled_d, d, twiddle2);
+					cvmul     (twiddled_e, e, twiddle1);
 				}
 
 				CVDT b_plus_e; cvadd (b_plus_e, twiddled_b, twiddled_e);			// b + e
@@ -1639,12 +1620,9 @@ void invfft_line (
 				}
 				// Apply the CONJUGATE of the twiddle
 				else {
-					VDT real_twiddle1 = broadcastsd (pmdata->twiddles1[2*twiddle_idx]);
-					VDT imag_twiddle1 = broadcastsd (pmdata->twiddles1[2*twiddle_idx+1]);
-					twiddled_b.real = addpd (mulpd (b.real, real_twiddle1), mulpd (b.imag, imag_twiddle1));
-					twiddled_b.imag = subpd (mulpd (b.imag, real_twiddle1), mulpd (b.real, imag_twiddle1));
-					twiddled_c.real = subpd (mulpd (c.real, real_twiddle1), mulpd (c.imag, imag_twiddle1));
-					twiddled_c.imag = addpd (mulpd (c.imag, real_twiddle1), mulpd (c.real, imag_twiddle1));
+					CVDT twiddle1; cvload (twiddle1, pmdata->twiddles1[2*twiddle_idx], pmdata->twiddles1[2*twiddle_idx+1]);
+					cvconjmul (twiddled_b, b, twiddle1);
+					cvmul     (twiddled_c, c, twiddle1);
 				}
 
 				CVDT b_plus_c; cvadd (b_plus_c, twiddled_b, twiddled_c);			// b + c
@@ -1797,12 +1775,9 @@ void fft_line (
 						dest[outstride1*(group + group_member + 2*stride)] = c;
 					}
 					else {			// Apply twiddles
-						VDT real_twiddle1 = broadcastsd (pmdata->twiddles1[2*twiddle_idx]);
-						VDT imag_twiddle1 = broadcastsd (pmdata->twiddles1[2*twiddle_idx+1]);
-						dest[outstride1*(group + group_member + stride)].real   = fmsubpd (b.real, real_twiddle1, mulpd (b.imag, imag_twiddle1));
-						dest[outstride1*(group + group_member + stride)].imag   = fmaddpd (b.imag, real_twiddle1, mulpd (b.real, imag_twiddle1));
-						dest[outstride1*(group + group_member + 2*stride)].real = fmaddpd (c.real, real_twiddle1, mulpd (c.imag, imag_twiddle1));
-						dest[outstride1*(group + group_member + 2*stride)].imag = fmsubpd (c.imag, real_twiddle1, mulpd (c.real, imag_twiddle1));
+						CVDT twiddle1; cvload (twiddle1, pmdata->twiddles1[2*twiddle_idx], pmdata->twiddles1[2*twiddle_idx+1]);
+						cvmul     (dest[outstride1*(group + group_member + stride)], b, twiddle1);
+						cvconjmul (dest[outstride1*(group + group_member + 2*stride)], c, twiddle1);
 					}
 				}
 			}
@@ -1886,18 +1861,12 @@ void fft_line (
 						dest[outstride1*(group + group_member + 4*stride)] = e;
 					}
 					else {			// Apply twiddles
-						VDT real_twiddle1 = broadcastsd (pmdata->twiddles2[4*twiddle_idx]);
-						VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+1]);
-						VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+2]);
-						VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+3]);
-						dest[outstride1*(group + group_member + stride)].real   = fmsubpd (b.real, real_twiddle1, mulpd (b.imag, imag_twiddle1));
-						dest[outstride1*(group + group_member + stride)].imag   = fmaddpd (b.imag, real_twiddle1, mulpd (b.real, imag_twiddle1));
-						dest[outstride1*(group + group_member + 2*stride)].real = fmsubpd (c.real, real_twiddle2, mulpd (c.imag, imag_twiddle2));
-						dest[outstride1*(group + group_member + 2*stride)].imag = fmaddpd (c.imag, real_twiddle2, mulpd (c.real, imag_twiddle2));
-						dest[outstride1*(group + group_member + 3*stride)].real = fmaddpd (d.real, real_twiddle2, mulpd (d.imag, imag_twiddle2));
-						dest[outstride1*(group + group_member + 3*stride)].imag = fmsubpd (d.imag, real_twiddle2, mulpd (d.real, imag_twiddle2));
-						dest[outstride1*(group + group_member + 4*stride)].real = fmaddpd (e.real, real_twiddle1, mulpd (e.imag, imag_twiddle1));
-						dest[outstride1*(group + group_member + 4*stride)].imag = fmsubpd (e.imag, real_twiddle1, mulpd (e.real, imag_twiddle1));
+						CVDT twiddle1; cvload (twiddle1, pmdata->twiddles2[4*twiddle_idx], pmdata->twiddles2[4*twiddle_idx+1]);
+						CVDT twiddle2; cvload (twiddle2, pmdata->twiddles2[4*twiddle_idx+2], pmdata->twiddles2[4*twiddle_idx+3]);
+						cvmul     (dest[outstride1*(group + group_member + stride)], b, twiddle1);
+						cvmul     (dest[outstride1*(group + group_member + 2*stride)], c, twiddle2);
+						cvconjmul (dest[outstride1*(group + group_member + 3*stride)], d, twiddle2);
+						cvconjmul (dest[outstride1*(group + group_member + 4*stride)], e, twiddle1);
 					}
 				}
 			}
@@ -1920,30 +1889,23 @@ void fft_line (
 					CVDT new_b; cvadd (new_b, b, d);			// b + d
 					CVDT new_d; cvsub (new_d, b, d);			// b - d
 
-					cvadd (a, new_a, new_b);				// a + b
-					cvsub (b, new_a, new_b);				// a - b
-					c.real = subpd (new_c.real, new_d.imag);		// c + id
-					c.imag = addpd (new_c.imag, new_d.real);
-					d.real = addpd (new_c.real, new_d.imag);		// c - id
-					d.imag = subpd (new_c.imag, new_d.real);
+					cvadd  (a, new_a, new_b);				// a + b
+					cvsub  (b, new_a, new_b);				// a - b
+					cviadd (c, new_c, new_d);				// c + id
+					cvisub (d, new_c, new_d);				// c - id
 
 					dest[outstride1*(group + group_member)] = a;
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-						dest[outstride1*(group + group_member + 2*stride)] = b;		// Do not bit-reverse outputs
-						dest[outstride1*(group + group_member + 1*stride)] = c;
+						dest[outstride1*(group + group_member + 1*stride)] = c;		// Do not bit-reverse outputs
+						dest[outstride1*(group + group_member + 2*stride)] = b;
 						dest[outstride1*(group + group_member + 3*stride)] = d;
 					}
 					else {			// Apply twiddles
-						VDT real_twiddle1 = broadcastsd (pmdata->twiddles2[4*twiddle_idx]);
-						VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+1]);
-						VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+2]);
-						VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+3]);
-						dest[outstride1*(group + group_member + 2*stride)].real = fmsubpd (b.real, real_twiddle2, mulpd (b.imag, imag_twiddle2));
-						dest[outstride1*(group + group_member + 2*stride)].imag = fmaddpd (b.imag, real_twiddle2, mulpd (b.real, imag_twiddle2));
-						dest[outstride1*(group + group_member + 1*stride)].real = fmsubpd (c.real, real_twiddle1, mulpd (c.imag, imag_twiddle1));
-						dest[outstride1*(group + group_member + 1*stride)].imag = fmaddpd (c.imag, real_twiddle1, mulpd (c.real, imag_twiddle1));
-						dest[outstride1*(group + group_member + 3*stride)].real = fmaddpd (d.real, real_twiddle1, mulpd (d.imag, imag_twiddle1));
-						dest[outstride1*(group + group_member + 3*stride)].imag = fmsubpd (d.imag, real_twiddle1, mulpd (d.real, imag_twiddle1));
+						CVDT twiddle1; cvload (twiddle1, pmdata->twiddles2[4*twiddle_idx], pmdata->twiddles2[4*twiddle_idx+1]);
+						CVDT twiddle2; cvload (twiddle2, pmdata->twiddles2[4*twiddle_idx+2], pmdata->twiddles2[4*twiddle_idx+3]);
+						cvmul     (dest[outstride1*(group + group_member + 1*stride)], c, twiddle1);
+						cvmul     (dest[outstride1*(group + group_member + 2*stride)], b, twiddle2);
+						cvconjmul (dest[outstride1*(group + group_member + 3*stride)], d, twiddle1);
 					}
 				}
 			}
@@ -1974,51 +1936,37 @@ void fft_line (
 					cvadd (new_d, d, h);					// d + h
 					cvsub (new_h, d, h);					// d - h
 
-					cvadd (a, new_a, new_c);				// a + c
-					cvsub (c, new_a, new_c);				// a - c
-					cvadd (b, new_b, new_d);				// b + d
-					cvsub (d, new_b, new_d);				// b - d
-					e.real = subpd (new_e.real, new_g.imag);		// e + ig
-					e.imag = addpd (new_e.imag, new_g.real);
-					g.real = addpd (new_e.real, new_g.imag);		// e - ig
-					g.imag = subpd (new_e.imag, new_g.real);
-					f.real = subpd (new_f.real, new_h.imag);		// f + ih
-					f.imag = addpd (new_f.imag, new_h.real);
-					h.real = addpd (new_f.real, new_h.imag);		// f - ih
-					h.imag = subpd (new_f.imag, new_h.real);
+					cvadd  (a, new_a, new_c);				// a + c
+					cvsub  (c, new_a, new_c);				// a - c
+					cvadd  (b, new_b, new_d);				// b + d
+					cvsub  (d, new_b, new_d);				// b - d
+					cviadd (e, new_e, new_g);				// e + ig
+					cvisub (g, new_e, new_g);				// e - ig
+					cviadd (f, new_f, new_h);				// f + ih
+					cvisub (h, new_f, new_h);				// f - ih
 
-					cvadd (new_a, a, b);					// a + b
-					cvsub (new_b, a, b);					// a - b
-					new_c.real = subpd (c.real, d.imag);			// c + id
-					new_c.imag = addpd (c.imag, d.real);
-					new_d.real = addpd (c.real, d.imag);			// c - id
-					new_d.imag = subpd (c.imag, d.real);
-#if !VFMA
-					twid_f.real = mulpd (_707, subpd (f.real, f.imag));	// twiddled f
-					twid_f.imag = mulpd (_707, addpd (f.real, f.imag));
-					twid_h.real = mulpd (_707, addpd (h.real, h.imag));	// -twiddled h
-					twid_h.imag = mulpd (_707, subpd (h.imag, h.real));
-					new_e.real = addpd (e.real, twid_f.real);		// e + (sqrthalf+sqrthalf*i)f
-					new_e.imag = addpd (e.imag, twid_f.imag);
-					new_f.real = subpd (e.real, twid_f.real);		// e - (sqrthalf+sqrthalf*i)f
-					new_f.imag = subpd (e.imag, twid_f.imag);
-					new_g.real = subpd (g.real, twid_h.real);		// g + (-sqrthalf+sqrthalf*i)h
-					new_g.imag = subpd (g.imag, twid_h.imag);
-					new_h.real = addpd (g.real, twid_h.real);		// g - (-sqrthalf+sqrthalf*i)h
-					new_h.imag = addpd (g.imag, twid_h.imag);
-#else
+					cvadd  (new_a, a, b);					// a + b
+					cvsub  (new_b, a, b);					// a - b
+					cviadd (new_c, c, d);					// c + id
+					cvisub (new_d, c, d);					// c - id
 					twid_f.real = subpd (f.real, f.imag);			// twiddled f / .707
 					twid_f.imag = addpd (f.real, f.imag);
 					twid_h.real = addpd (h.real, h.imag);			// -twiddled h / .707
 					twid_h.imag = subpd (h.imag, h.real);
-					new_e.real = fmaddpd  (_707, twid_f.real, e.real);	// e + (sqrthalf+sqrthalf*i)f
-					new_e.imag = fmaddpd  (_707, twid_f.imag, e.imag);
-					new_f.real = fnmaddpd (_707, twid_f.real, e.real);	// e - (sqrthalf+sqrthalf*i)f
-					new_f.imag = fnmaddpd (_707, twid_f.imag, e.imag);
-					new_g.real = fnmaddpd (_707, twid_h.real, g.real);	// g + (-sqrthalf+sqrthalf*i)h
-					new_g.imag = fnmaddpd (_707, twid_h.imag, g.imag);
-					new_h.real = fmaddpd  (_707, twid_h.real, g.real);	// g - (-sqrthalf+sqrthalf*i)h
-					new_h.imag = fmaddpd  (_707, twid_h.imag, g.imag);
+#if !VFMA
+					twid_f.real = mulpd (_707, f.real);			// twiddled f
+					twid_f.imag = mulpd (_707, f.imag);
+					twid_h.real = mulpd (_707, h.real);			// -twiddled h
+					twid_h.imag = mulpd (_707, h.imag);
+					cvadd (new_e, e, twid_f);				// e + (sqrthalf+sqrthalf*i)f
+					cvsub (new_f, e, twid_f);				// e - (sqrthalf+sqrthalf*i)f
+					cvsub (new_g, g, twid_h);				// g + (-sqrthalf+sqrthalf*i)h
+					cvadd (new_h, g, twid_h);				// g - (-sqrthalf+sqrthalf*i)h
+#else
+					cvaddfm (new_e, e, _707, twid_f);			// e + (sqrthalf+sqrthalf*i)f
+					cvsubfm (new_f, e, _707, twid_f);			// e - (sqrthalf+sqrthalf*i)f
+					cvsubfm (new_g, g, _707, twid_h);			// g + (-sqrthalf+sqrthalf*i)h
+					cvaddfm (new_h, g, _707, twid_h);			// g - (-sqrthalf+sqrthalf*i)h
 #endif
 
 					dest[group + group_member] = new_a;			// Do not bit reverse outputs
@@ -2140,51 +2088,37 @@ void invfft_line (
 					cvadd (new_d, d, h);					// d + h
 					cvsub (new_h, d, h);					// d - h
 
-					cvadd (a, new_a, new_c);				// a + c
-					cvsub (c, new_a, new_c);				// a - c
-					cvadd (b, new_b, new_d);				// b + d
-					cvsub (d, new_b, new_d);				// b - d
-					e.real = addpd (new_e.real, new_g.imag);		// e - ig
-					e.imag = subpd (new_e.imag, new_g.real);
-					g.real = subpd (new_e.real, new_g.imag);		// e + ig
-					g.imag = addpd (new_e.imag, new_g.real);
-					f.real = addpd (new_f.real, new_h.imag);		// f - ih
-					f.imag = subpd (new_f.imag, new_h.real);
-					h.real = subpd (new_f.real, new_h.imag);		// f + ih
-					h.imag = addpd (new_f.imag, new_h.real);
+					cvadd  (a, new_a, new_c);				// a + c
+					cvsub  (c, new_a, new_c);				// a - c
+					cvadd  (b, new_b, new_d);				// b + d
+					cvsub  (d, new_b, new_d);				// b - d
+					cvisub (e, new_e, new_g);				// e - ig
+					cviadd (g, new_e, new_g);				// e + ig
+					cvisub (f, new_f, new_h);				// f - ih
+					cviadd (h, new_f, new_h);				// f + ih
 
-					cvadd (new_a, a, b);					// a + b
-					cvsub (new_b, a, b);					// a - b
-					new_c.real = addpd (c.real, d.imag);			// c - id
-					new_c.imag = subpd (c.imag, d.real);
-					new_d.real = subpd (c.real, d.imag);			// c + id
-					new_d.imag = addpd (c.imag, d.real);
-#if !VFMA
-					twid_f.real = mulpd (_707, addpd (f.real, f.imag));	// twiddled f
-					twid_f.imag = mulpd (_707, subpd (f.imag, f.real));
-					twid_h.real = mulpd (_707, subpd (h.real, h.imag));	// -twiddled h
-					twid_h.imag = mulpd (_707, addpd (h.real, h.imag));
-					new_e.real = addpd (e.real, twid_f.real);		// e + (sqrthalf-sqrthalf*i)f
-					new_e.imag = addpd (e.imag, twid_f.imag);
-					new_f.real = subpd (e.real, twid_f.real);		// e - (sqrthalf-sqrthalf*i)f
-					new_f.imag = subpd (e.imag, twid_f.imag);
-					new_g.real = subpd (g.real, twid_h.real);		// g + (-sqrthalf-sqrthalf*i)h
-					new_g.imag = subpd (g.imag, twid_h.imag);
-					new_h.real = addpd (g.real, twid_h.real);		// g - (-sqrthalf-sqrthalf*i)h
-					new_h.imag = addpd (g.imag, twid_h.imag);
-#else
+					cvadd  (new_a, a, b);					// a + b
+					cvsub  (new_b, a, b);					// a - b
+					cvisub (new_c, c, d);					// c - id
+					cviadd (new_d, c, d);					// c + id
 					twid_f.real = addpd (f.real, f.imag);			// twiddled f / .707
 					twid_f.imag = subpd (f.imag, f.real);
 					twid_h.real = subpd (h.real, h.imag);			// -twiddled h / .707
 					twid_h.imag = addpd (h.real, h.imag);
-					new_e.real = fmaddpd  (_707, twid_f.real, e.real);	// e + (sqrthalf-sqrthalf*i)f
-					new_e.imag = fmaddpd  (_707, twid_f.imag, e.imag);
-					new_f.real = fnmaddpd (_707, twid_f.real, e.real);	// e - (sqrthalf-sqrthalf*i)f
-					new_f.imag = fnmaddpd (_707, twid_f.imag, e.imag);
-					new_g.real = fnmaddpd (_707, twid_h.real, g.real);	// g + (-sqrthalf-sqrthalf*i)h
-					new_g.imag = fnmaddpd (_707, twid_h.imag, g.imag);
-					new_h.real = fmaddpd  (_707, twid_h.real, g.real);	// g - (-sqrthalf-sqrthalf*i)h
-					new_h.imag = fmaddpd  (_707, twid_h.imag, g.imag);
+#if !VFMA
+					twid_f.real = mulpd (_707, f.real);			// twiddled f
+					twid_f.imag = mulpd (_707, f.imag);
+					twid_h.real = mulpd (_707, h.real);			// -twiddled h
+					twid_h.imag = mulpd (_707, h.imag);
+					cvadd (new_e, e, twid_f);				// e + (sqrthalf-sqrthalf*i)f
+					cvsub (new_f, e, twid_f);				// e - (sqrthalf-sqrthalf*i)f
+					cvsub (new_g, g, twid_h);				// g + (-sqrthalf-sqrthalf*i)h
+					cvadd (new_h, g, twid_h);				// g - (-sqrthalf-sqrthalf*i)h
+#else
+					cvaddfm (new_e, e, _707, twid_f);			// e + (sqrthalf-sqrthalf*i)f
+					cvsubfm (new_f, e, _707, twid_f);			// e - (sqrthalf-sqrthalf*i)f
+					cvsubfm (new_g, g, _707, twid_h);			// g + (-sqrthalf-sqrthalf*i)h
+					cvaddfm (new_h, g, _707, twid_h);			// g - (-sqrthalf-sqrthalf*i)h
 #endif
 
 					dest[group + group_member] = new_a;			// Do not bit reverse outputs
@@ -2221,16 +2155,11 @@ void invfft_line (
 					}
 					// Apply the CONJUGATE of the twiddle
 					else {
-						VDT real_twiddle1 = broadcastsd (pmdata->twiddles2[4*twiddle_idx]);
-						VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+1]);
-						VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+2]);
-						VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+3]);
-						twiddled_b.real = fmaddpd (b.real, real_twiddle1, mulpd (b.imag, imag_twiddle1));
-						twiddled_b.imag = fmsubpd (b.imag, real_twiddle1, mulpd (b.real, imag_twiddle1));
-						twiddled_c.real = fmaddpd (c.real, real_twiddle2, mulpd (c.imag, imag_twiddle2));
-						twiddled_c.imag = fmsubpd (c.imag, real_twiddle2, mulpd (c.real, imag_twiddle2));
-						twiddled_d.real = fmsubpd (d.real, real_twiddle1, mulpd (d.imag, imag_twiddle1));
-						twiddled_d.imag = fmaddpd (d.imag, real_twiddle1, mulpd (d.real, imag_twiddle1));
+						CVDT twiddle1; cvload (twiddle1, pmdata->twiddles2[4*twiddle_idx], pmdata->twiddles2[4*twiddle_idx+1]);
+						CVDT twiddle2; cvload (twiddle2, pmdata->twiddles2[4*twiddle_idx+2], pmdata->twiddles2[4*twiddle_idx+3]);
+						cvconjmul (twiddled_b, b, twiddle1);
+						cvconjmul (twiddled_c, c, twiddle2);
+						cvmul     (twiddled_d, d, twiddle1);
 					}
 
 					CVDT new_a; cvadd (new_a, a, twiddled_c);			// a + c
@@ -2238,12 +2167,10 @@ void invfft_line (
 					CVDT new_b; cvadd (new_b, twiddled_b, twiddled_d);		// b + d
 					CVDT new_d; cvsub (new_d, twiddled_b, twiddled_d);		// b - d
 
-					cvadd (a, new_a, new_b);					// a + b
-					cvsub (b, new_a, new_b);					// a - b
-					c.real = addpd (new_c.real, new_d.imag);			// c - id
-					c.imag = subpd (new_c.imag, new_d.real);
-					d.real = subpd (new_c.real, new_d.imag);			// c + id
-					d.imag = addpd (new_c.imag, new_d.real);
+					cvadd  (a, new_a, new_b);					// a + b
+					cvsub  (b, new_a, new_b);					// a - b
+					cvisub (c, new_c, new_d);					// c - id
+					cviadd (d, new_c, new_d);					// c + id
 
 					// Save results
 					dest[outstride1*(group + group_member)]            = a;		// Do not bit reverse outputs
@@ -2291,18 +2218,12 @@ void invfft_line (
 					}
 					// Apply the CONJUGATE of the twiddle
 					else {
-						VDT real_twiddle1 = broadcastsd (pmdata->twiddles2[4*twiddle_idx]);
-						VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+1]);
-						VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+2]);
-						VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+3]);
-						twiddled_b.real = fmaddpd (b.real, real_twiddle1, mulpd (b.imag, imag_twiddle1));
-						twiddled_b.imag = fmsubpd (b.imag, real_twiddle1, mulpd (b.real, imag_twiddle1));
-						twiddled_c.real = fmaddpd (c.real, real_twiddle2, mulpd (c.imag, imag_twiddle2));
-						twiddled_c.imag = fmsubpd (c.imag, real_twiddle2, mulpd (c.real, imag_twiddle2));
-						twiddled_d.real = fmsubpd (d.real, real_twiddle2, mulpd (d.imag, imag_twiddle2));
-						twiddled_d.imag = fmaddpd (d.imag, real_twiddle2, mulpd (d.real, imag_twiddle2));
-						twiddled_e.real = fmsubpd (e.real, real_twiddle1, mulpd (e.imag, imag_twiddle1));
-						twiddled_e.imag = fmaddpd (e.imag, real_twiddle1, mulpd (e.real, imag_twiddle1));
+						CVDT twiddle1; cvload (twiddle1, pmdata->twiddles2[4*twiddle_idx], pmdata->twiddles2[4*twiddle_idx+1]);
+						CVDT twiddle2; cvload (twiddle2, pmdata->twiddles2[4*twiddle_idx+2], pmdata->twiddles2[4*twiddle_idx+3]);
+						cvconjmul (twiddled_b, b, twiddle1);
+						cvconjmul (twiddled_c, c, twiddle2);
+						cvmul     (twiddled_d, d, twiddle2);
+						cvmul     (twiddled_e, e, twiddle1);
 					}
 
 					CVDT b_plus_e; cvadd (b_plus_e, twiddled_b, twiddled_e);			// b + e
@@ -2384,12 +2305,9 @@ void invfft_line (
 					}
 					// Apply the CONJUGATE of the twiddle
 					else {
-						VDT real_twiddle1 = broadcastsd (pmdata->twiddles1[2*twiddle_idx]);
-						VDT imag_twiddle1 = broadcastsd (pmdata->twiddles1[2*twiddle_idx+1]);
-						twiddled_b.real = addpd (mulpd (b.real, real_twiddle1), mulpd (b.imag, imag_twiddle1));
-						twiddled_b.imag = subpd (mulpd (b.imag, real_twiddle1), mulpd (b.real, imag_twiddle1));
-						twiddled_c.real = subpd (mulpd (c.real, real_twiddle1), mulpd (c.imag, imag_twiddle1));
-						twiddled_c.imag = addpd (mulpd (c.imag, real_twiddle1), mulpd (c.real, imag_twiddle1));
+						CVDT twiddle1; cvload (twiddle1, pmdata->twiddles1[2*twiddle_idx], pmdata->twiddles1[2*twiddle_idx+1]);
+						cvconjmul (twiddled_b, b, twiddle1);
+						cvmul     (twiddled_c, c, twiddle1);
 					}
 
 					CVDT b_plus_c; cvadd (b_plus_c, twiddled_b, twiddled_c);			// b + c
