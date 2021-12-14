@@ -20,7 +20,7 @@
 #endif
 
 // TO DO:
-// 1) Test AVX-512, FMA, SSE2 versions
+// 1) Support non-power-of-two FFTs below 32??
 // 2) Zero padded gwnums.  Test all FFT sizes and FFT types -- especially funky PFA ffts.
 // 7) Variable GW_HEADER_SIZE.
 // 9) Is a fast convert-gwnum-to-larger-FFT feasible? necessary?
@@ -29,7 +29,7 @@
 // 14) Compressed gwnums.  Does it pay off?
 // 15) Add polymult to gwtest or as a standalone program
 // 16) Handle out-of-memory gracefully
-// 17) Sin/cos accuracy, right collection of PFA FFT sizes?, 2-pass FFTs
+// 17) Sin/cos accuracy, right collection of PFA FFT sizes?
 // 19) For large ffts, use Pavel's idea of copying the complex values to a gwnum and use an unweighted FFT with a special no-carry-propagation norm routine.
 //     Perhaps only do this for most common architectures, such as AVX-512 and FMA 64-bit.
 // 21) Should polymult be its own library or a part of the gwnum library?
@@ -52,21 +52,25 @@
 // 38)  For poly #2, is there a quick block compression we can do where the extra read/write cost will be more than compensated by the few more extra
 //	gwnums we can add to poly #2?
 // 39)  Think more on unbalanced poly mults.  Is a 100 x 200 mult better done as two 100 x 100 multiplies?  Answer: Never for brute force, maybe for FFT.
+//	If we can save the smaller RLP in FFTed state using smaller FFT size that might influence our decision.
 // 40) Is invec1_negate code OK when GW_FFT1 is not all ones?  I would think so.
 // 41) Add callback routine to check for ^C/ESC
 // 42) Transparent / or easy way to store gwnums on disk as part of input and/or output vectors.  Picture using 12GB memory and 50GB disk for really huge polys.
-// 43) Stockham auto-sort, read_line/write_line that reads/writes data with stride=1, two-pass cache-friendly ffts
+// 43) Read_line/write_line that reads/writes data with stride=1?
 // 44) Cache several sincos tables for different FFT sizes.
 // 45) If twiddle_stride gets large, build a smaller twiddle table for smaller strides.
 // 46) Look for more FMA opportunities.
-// 47) Combine last fft step with pointmul and first invfft step?
+// 47) Combine last fft step with pointmul and first invfft step?  Can save a memory read/write.
 // 48) Test if hyperthreading is beneficial
 // 49) Problems if FFT(1)!=1!!! The pointwise mul code ought to divide by FFT(1) OR have a special asm entry point for unfft that deals with data that
 //	has already had a pointwise mul.  Furthermore, the monic_adjustments code can't simply add data - it must add FFT(1)*data.
 // 50) Radix 8 last step
 // 51) Scratch area (like prime95) to avoid large strides,  Read_partial_line could populate the scratch area (makes monic_adjustment difficult)?
-// 52) Half-sized DCT for RLPs?
+// 52) Half-sized DCT for RLPs?  The DJB FFTs may make reordering DCT outputs for an inverse FFT tricky.
 // 53) Can P-1's circular monic-poly times monic-RLP be safely done without monic_adjustments allowing us to save the FFT'ed RLP that is half-sized due to DCT?
+// 54) Write monolithic two-forward-FFTs-pointmul-and-one-inverse-FFT routine.  If we optimize for half the cache size it should save some memory read/writes.
+//	poly1 rw rw, poly2 rw rrw rw	vs. monolithic:   rrww rrw rw
+// 55) For VFMA machines, store twiddles as cos/sin, sin to allow a few more FMA opportunities
 
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
 int next_line (pmhandle *pmdata);
@@ -1194,7 +1198,7 @@ void pick_pass_sizes (
 	// Make sure any odd power of two is done in pass 2
 	for (powers_of_two = 0; (fftsize & (1 << powers_of_two)) == 0; powers_of_two++);
 	if (*p2size > powers_of_two) *p2size = powers_of_two;
-	if ((powers_of_two & 1) == 0) {		// no radix-2 step
+	if ((powers_of_two & 1) == 0) {		// no radix-2/8 step
 		if ((*p2size & 1) == 1) *p2size -= 1;
 	} else {
 		if ((*p2size & 1) == 0) *p2size -= 1;
@@ -1205,6 +1209,7 @@ void pick_pass_sizes (
 #endif
 
 #ifdef ONE_PASS_FFTS
+
 void fft_line (
 	pmhandle *pmdata,		// Handle for polymult library
 	CVDT	*vec,			// Array of complex values
@@ -1235,18 +1240,27 @@ void fft_line (
 
 				CVDT b_plus_c; cvadd (b_plus_c, b, c);				// b + c
 
+#if !VFMA
 				VDT real_tmp23a = fnmaddpd (half, b_plus_c.real, a.real);	// a - 0.5 * (b + c)
 				VDT imag_tmp23a = fnmaddpd (half, b_plus_c.imag, a.imag);
-//GW: delay mul by 866 on true FMA CPUs
 				VDT real_tmp23b = mulpd (_866, subpd (b.imag, c.imag));		// 0.866 * (b - c)
 				VDT imag_tmp23b = mulpd (_866, subpd (b.real, c.real));
-
-				cvadd (a, a, b_plus_c);						// a + b + c
 				b.real = subpd (real_tmp23a, real_tmp23b);			// combine 23a and 23b
 				b.imag = addpd (imag_tmp23a, imag_tmp23b);
 				c.real = addpd (real_tmp23a, real_tmp23b);
 				c.imag = subpd (imag_tmp23a, imag_tmp23b);
+#else
+				VDT real_tmp23a = fnmaddpd (half, b_plus_c.real, a.real);	// a - 0.5 * (b + c)
+				VDT imag_tmp23a = fnmaddpd (half, b_plus_c.imag, a.imag);
+				VDT real_tmp23b = subpd (b.imag, c.imag);			// 0.866 delayed * (b - c)
+				VDT imag_tmp23b = subpd (b.real, c.real);
+				b.real = fnmaddpd (_866, real_tmp23b, real_tmp23a);		// combine 23a and 23b
+				b.imag = fmaddpd  (_866, imag_tmp23b, imag_tmp23a);
+				c.real = fmaddpd  (_866, real_tmp23b, real_tmp23a);
+				c.imag = fnmaddpd (_866, imag_tmp23b, imag_tmp23a);
+#endif
 
+				cvadd (a, a, b_plus_c);						// a + b + c
 				vec[group + group_member] = a;
 				if (group_member == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
 					vec[group + group_member + stride]   = b;
@@ -1295,18 +1309,15 @@ void fft_line (
 				CVDT b_minus_e; cvsub (b_minus_e, b, e);			// b - e
 				CVDT c_minus_d; cvsub (c_minus_d, c, d);			// c - d
 
+#if !VFMA
 				VDT real_tmp25a = fmaddpd (_309, b_plus_e.real, fnmaddpd (_809, c_plus_d.real, a.real)); // a +.309*(b+e) -.809*(c+d)
 				VDT imag_tmp25a = fmaddpd (_309, b_plus_e.imag, fnmaddpd (_809, c_plus_d.imag, a.imag));
 				VDT real_tmp34a = fnmaddpd (_809, b_plus_e.real, fmaddpd (_309, c_plus_d.real, a.real)); // a -.809*(b+e) +.309*(c+d)
 				VDT imag_tmp34a = fnmaddpd (_809, b_plus_e.imag, fmaddpd (_309, c_plus_d.imag, a.imag));
-//GW: delay mul by .951 on true FMA CPUs
 				VDT real_tmp25b = mulpd (_951, fmaddpd (_588_951, c_minus_d.imag, b_minus_e.imag));	// .951*(b-e) + 0.588*(c-d)
 				VDT imag_tmp25b = mulpd (_951, fmaddpd (_588_951, c_minus_d.real, b_minus_e.real));
 				VDT real_tmp34b = mulpd (_951, fmsubpd (_588_951, b_minus_e.imag, c_minus_d.imag));	// .588*(b-e) - 0.951*(c-d)
 				VDT imag_tmp34b = mulpd (_951, fmsubpd (_588_951, b_minus_e.real, c_minus_d.real));
-
-				cvadd (a, a, b_plus_e);							// a + b + c + d + e
-				cvadd (a, a, c_plus_d);
 				b.real = subpd (real_tmp25a, real_tmp25b);				// combine 25a and 25b
 				b.imag = addpd (imag_tmp25a, imag_tmp25b);
 				e.real = addpd (real_tmp25a, real_tmp25b);
@@ -1315,7 +1326,27 @@ void fft_line (
 				c.imag = addpd (imag_tmp34a, imag_tmp34b);
 				d.real = addpd (real_tmp34a, real_tmp34b);
 				d.imag = subpd (imag_tmp34a, imag_tmp34b);
+#else
+				VDT real_tmp25a = fmaddpd (_309, b_plus_e.real, fnmaddpd (_809, c_plus_d.real, a.real)); // a +.309*(b+e) -.809*(c+d)
+				VDT imag_tmp25a = fmaddpd (_309, b_plus_e.imag, fnmaddpd (_809, c_plus_d.imag, a.imag));
+				VDT real_tmp34a = fnmaddpd (_809, b_plus_e.real, fmaddpd (_309, c_plus_d.real, a.real)); // a -.809*(b+e) +.309*(c+d)
+				VDT imag_tmp34a = fnmaddpd (_809, b_plus_e.imag, fmaddpd (_309, c_plus_d.imag, a.imag));
+				VDT real_tmp25b = fmaddpd (_588_951, c_minus_d.imag, b_minus_e.imag);			// delayed .951*(b-e) + 0.588*(c-d)
+				VDT imag_tmp25b = fmaddpd (_588_951, c_minus_d.real, b_minus_e.real);
+				VDT real_tmp34b = fmsubpd (_588_951, b_minus_e.imag, c_minus_d.imag);			// delayed .588*(b-e) - 0.951*(c-d)
+				VDT imag_tmp34b = fmsubpd (_588_951, b_minus_e.real, c_minus_d.real);
+				b.real = fnmaddpd (_951, real_tmp25b, real_tmp25a);				// combine 25a and 25b
+				b.imag = fmaddpd  (_951, imag_tmp25b, imag_tmp25a);
+				e.real = fmaddpd  (_951, real_tmp25b, real_tmp25a);
+				e.imag = fnmaddpd (_951, imag_tmp25b, imag_tmp25a);
+				c.real = fnmaddpd (_951, real_tmp34b, real_tmp34a);				// combine 34a and 34b
+				c.imag = fmaddpd  (_951, imag_tmp34b, imag_tmp34a);
+				d.real = fmaddpd  (_951, real_tmp34b, real_tmp34a);
+				d.imag = fnmaddpd (_951, imag_tmp34b, imag_tmp34a);
+#endif
 
+				cvadd (a, a, b_plus_e);							// a + b + c + d + e
+				cvadd (a, a, c_plus_d);
 				vec[group + group_member]   = a;
 				if (group_member == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
 					vec[group + group_member + stride]     = b;
@@ -1535,18 +1566,15 @@ void invfft_line (
 				CVDT b_minus_e; cvsub (b_minus_e, twiddled_b, twiddled_e);			// b - e
 				CVDT c_minus_d; cvsub (c_minus_d, twiddled_c, twiddled_d);			// c - d
 
+#if !VFMA
 				VDT real_tmp25a = fmaddpd (_309, b_plus_e.real, fnmaddpd (_809, c_plus_d.real, a.real)); // a +.309*(b+e) -.809*(c+d)
 				VDT imag_tmp25a = fmaddpd (_309, b_plus_e.imag, fnmaddpd (_809, c_plus_d.imag, a.imag));
 				VDT real_tmp34a = fnmaddpd (_809, b_plus_e.real, fmaddpd (_309, c_plus_d.real, a.real)); // a -.809*(b+e) +.309*(c+d)
 				VDT imag_tmp34a = fnmaddpd (_809, b_plus_e.imag, fmaddpd (_309, c_plus_d.imag, a.imag));
-//GW: delay mul by .951 on true FMA CPUs
 				VDT real_tmp25b = mulpd (_951, fmaddpd (_588_951, c_minus_d.imag, b_minus_e.imag));	// .951*(b-e) + 0.588*(c-d)
 				VDT imag_tmp25b = mulpd (_951, fmaddpd (_588_951, c_minus_d.real, b_minus_e.real));
 				VDT real_tmp34b = mulpd (_951, fmsubpd (_588_951, b_minus_e.imag, c_minus_d.imag));	// .588*(b-e) - 0.951*(c-d)
 				VDT imag_tmp34b = mulpd (_951, fmsubpd (_588_951, b_minus_e.real, c_minus_d.real));
-
-				cvadd (a, a, b_plus_e);							// a + b + c + d + e
-				cvadd (a, a, c_plus_d);
 				b.real = addpd (real_tmp25a, real_tmp25b);				// combine 25a and 25b
 				b.imag = subpd (imag_tmp25a, imag_tmp25b);
 				e.real = subpd (real_tmp25a, real_tmp25b);
@@ -1555,6 +1583,27 @@ void invfft_line (
 				c.imag = subpd (imag_tmp34a, imag_tmp34b);
 				d.real = subpd (real_tmp34a, real_tmp34b);
 				d.imag = addpd (imag_tmp34a, imag_tmp34b);
+#else
+				VDT real_tmp25a = fmaddpd (_309, b_plus_e.real, fnmaddpd (_809, c_plus_d.real, a.real)); // a +.309*(b+e) -.809*(c+d)
+				VDT imag_tmp25a = fmaddpd (_309, b_plus_e.imag, fnmaddpd (_809, c_plus_d.imag, a.imag));
+				VDT real_tmp34a = fnmaddpd (_809, b_plus_e.real, fmaddpd (_309, c_plus_d.real, a.real)); // a -.809*(b+e) +.309*(c+d)
+				VDT imag_tmp34a = fnmaddpd (_809, b_plus_e.imag, fmaddpd (_309, c_plus_d.imag, a.imag));
+				VDT real_tmp25b = fmaddpd (_588_951, c_minus_d.imag, b_minus_e.imag);			// delayed .951*(b-e) + 0.588*(c-d)
+				VDT imag_tmp25b = fmaddpd (_588_951, c_minus_d.real, b_minus_e.real);
+				VDT real_tmp34b = fmsubpd (_588_951, b_minus_e.imag, c_minus_d.imag);			// delayed .588*(b-e) - 0.951*(c-d)
+				VDT imag_tmp34b = fmsubpd (_588_951, b_minus_e.real, c_minus_d.real);
+				b.real = fmaddpd  (_951, real_tmp25b, real_tmp25a);				// combine 25a and 25b
+				b.imag = fnmaddpd (_951, imag_tmp25b, imag_tmp25a);
+				e.real = fnmaddpd (_951, real_tmp25b, real_tmp25a);
+				e.imag = fmaddpd  (_951, imag_tmp25b, imag_tmp25a);
+				c.real = fmaddpd  (_951, real_tmp34b, real_tmp34a);				// combine 34a and 34b
+				c.imag = fnmaddpd (_951, imag_tmp34b, imag_tmp34a);
+				d.real = fnmaddpd (_951, real_tmp34b, real_tmp34a);
+				d.imag = fmaddpd  (_951, imag_tmp34b, imag_tmp34a);
+#endif
+
+				cvadd (a, a, b_plus_e);							// a + b + c + d + e
+				cvadd (a, a, c_plus_d);
 
 				// Save results
 				vec[group + group_member]              = a;
@@ -1600,18 +1649,27 @@ void invfft_line (
 
 				CVDT b_plus_c; cvadd (b_plus_c, twiddled_b, twiddled_c);			// b + c
 
+#if !VFMA
 				VDT real_tmp23a = fnmaddpd (half, b_plus_c.real, a.real);			// a - 0.5 * (b + c)
 				VDT imag_tmp23a = fnmaddpd (half, b_plus_c.imag, a.imag);
-//GW: delay mul by 866 on true FMA CPUs
 				VDT real_tmp23b = mulpd (_866, subpd (twiddled_b.imag, twiddled_c.imag));	// 0.866 * (b - c)
 				VDT imag_tmp23b = mulpd (_866, subpd (twiddled_b.real, twiddled_c.real));
-
-				cvadd (a, a, b_plus_c);								// a + b + c
 				b.real = addpd (real_tmp23a, real_tmp23b);					// combine 23a and 23b
 				b.imag = subpd (imag_tmp23a, imag_tmp23b);
 				c.real = subpd (real_tmp23a, real_tmp23b);
 				c.imag = addpd (imag_tmp23a, imag_tmp23b);
+#else
+				VDT real_tmp23a = fnmaddpd (half, b_plus_c.real, a.real);			// a - 0.5 * (b + c)
+				VDT imag_tmp23a = fnmaddpd (half, b_plus_c.imag, a.imag);
+				VDT real_tmp23b = subpd (twiddled_b.imag, twiddled_c.imag);			// 0.866 delayed * (b - c)
+				VDT imag_tmp23b = subpd (twiddled_b.real, twiddled_c.real);
+				b.real = fmaddpd  (_866, real_tmp23b, real_tmp23a);				// combine 23a and 23b
+				b.imag = fnmaddpd (_866, imag_tmp23b, imag_tmp23a);
+				c.real = fnmaddpd (_866, real_tmp23b, real_tmp23a);
+				c.imag = fmaddpd  (_866, imag_tmp23b, imag_tmp23a);
+#endif
 
+				cvadd (a, a, b_plus_c);								// a + b + c
 				vec[group + group_member] = a;
 				vec[group + group_member + stride] = b;
 				vec[group + group_member + 2*stride] = c;
@@ -1620,7 +1678,7 @@ void invfft_line (
 	}
 }
 
-#else
+#else			// Two-pass FFTs
 
 void fft_line (
 	pmhandle *pmdata,		// Handle for polymult library
@@ -1712,18 +1770,27 @@ void fft_line (
 
 					CVDT b_plus_c; cvadd (b_plus_c, b, c);				// b + c
 
+#if !VFMA
 					VDT real_tmp23a = fnmaddpd (half, b_plus_c.real, a.real);	// a - 0.5 * (b + c)
 					VDT imag_tmp23a = fnmaddpd (half, b_plus_c.imag, a.imag);
-//GW: delay mul by 866 on true FMA CPUs
 					VDT real_tmp23b = mulpd (_866, subpd (b.imag, c.imag));		// 0.866 * (b - c)
 					VDT imag_tmp23b = mulpd (_866, subpd (b.real, c.real));
-
-					cvadd (a, a, b_plus_c);						// a + b + c
 					b.real = subpd (real_tmp23a, real_tmp23b);			// combine 23a and 23b
 					b.imag = addpd (imag_tmp23a, imag_tmp23b);
 					c.real = addpd (real_tmp23a, real_tmp23b);
 					c.imag = subpd (imag_tmp23a, imag_tmp23b);
+#else
+					VDT real_tmp23a = fnmaddpd (half, b_plus_c.real, a.real);	// a - 0.5 * (b + c)
+					VDT imag_tmp23a = fnmaddpd (half, b_plus_c.imag, a.imag);
+					VDT real_tmp23b = subpd (b.imag, c.imag);			// 0.866 delayed * (b - c)
+					VDT imag_tmp23b = subpd (b.real, c.real);
+					b.real = fnmaddpd (_866, real_tmp23b, real_tmp23a);		// combine 23a and 23b
+					b.imag = fmaddpd  (_866, imag_tmp23b, imag_tmp23a);
+					c.real = fmaddpd  (_866, real_tmp23b, real_tmp23a);
+					c.imag = fnmaddpd (_866, imag_tmp23b, imag_tmp23a);
+#endif
 
+					cvadd (a, a, b_plus_c);						// a + b + c
 					dest[outstride1*(group + group_member)] = a;
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
 						dest[outstride1*(group + group_member + stride)]   = b;
@@ -1773,18 +1840,15 @@ void fft_line (
 					CVDT b_minus_e; cvsub (b_minus_e, b, e);			// b - e
 					CVDT c_minus_d; cvsub (c_minus_d, c, d);			// c - d
 
+#if !VFMA
 					VDT real_tmp25a = fmaddpd (_309, b_plus_e.real, fnmaddpd (_809, c_plus_d.real, a.real)); // a +.309*(b+e) -.809*(c+d)
 					VDT imag_tmp25a = fmaddpd (_309, b_plus_e.imag, fnmaddpd (_809, c_plus_d.imag, a.imag));
 					VDT real_tmp34a = fnmaddpd (_809, b_plus_e.real, fmaddpd (_309, c_plus_d.real, a.real)); // a -.809*(b+e) +.309*(c+d)
 					VDT imag_tmp34a = fnmaddpd (_809, b_plus_e.imag, fmaddpd (_309, c_plus_d.imag, a.imag));
-//GW: delay mul by .951 on true FMA CPUs
 					VDT real_tmp25b = mulpd (_951, fmaddpd (_588_951, c_minus_d.imag, b_minus_e.imag));	// .951*(b-e) + 0.588*(c-d)
 					VDT imag_tmp25b = mulpd (_951, fmaddpd (_588_951, c_minus_d.real, b_minus_e.real));
 					VDT real_tmp34b = mulpd (_951, fmsubpd (_588_951, b_minus_e.imag, c_minus_d.imag));	// .588*(b-e) - 0.951*(c-d)
 					VDT imag_tmp34b = mulpd (_951, fmsubpd (_588_951, b_minus_e.real, c_minus_d.real));
-
-					cvadd (a, a, b_plus_e);							// a + b + c + d + e
-					cvadd (a, a, c_plus_d);
 					b.real = subpd (real_tmp25a, real_tmp25b);				// combine 25a and 25b
 					b.imag = addpd (imag_tmp25a, imag_tmp25b);
 					e.real = addpd (real_tmp25a, real_tmp25b);
@@ -1793,7 +1857,27 @@ void fft_line (
 					c.imag = addpd (imag_tmp34a, imag_tmp34b);
 					d.real = addpd (real_tmp34a, real_tmp34b);
 					d.imag = subpd (imag_tmp34a, imag_tmp34b);
+#else
+					VDT real_tmp25a = fmaddpd (_309, b_plus_e.real, fnmaddpd (_809, c_plus_d.real, a.real)); // a +.309*(b+e) -.809*(c+d)
+					VDT imag_tmp25a = fmaddpd (_309, b_plus_e.imag, fnmaddpd (_809, c_plus_d.imag, a.imag));
+					VDT real_tmp34a = fnmaddpd (_809, b_plus_e.real, fmaddpd (_309, c_plus_d.real, a.real)); // a -.809*(b+e) +.309*(c+d)
+					VDT imag_tmp34a = fnmaddpd (_809, b_plus_e.imag, fmaddpd (_309, c_plus_d.imag, a.imag));
+					VDT real_tmp25b = fmaddpd (_588_951, c_minus_d.imag, b_minus_e.imag);			// delayed .951*(b-e) + 0.588*(c-d)
+					VDT imag_tmp25b = fmaddpd (_588_951, c_minus_d.real, b_minus_e.real);
+					VDT real_tmp34b = fmsubpd (_588_951, b_minus_e.imag, c_minus_d.imag);			// delayed .588*(b-e) - 0.951*(c-d)
+					VDT imag_tmp34b = fmsubpd (_588_951, b_minus_e.real, c_minus_d.real);
+					b.real = fnmaddpd (_951, real_tmp25b, real_tmp25a);				// combine 25a and 25b
+					b.imag = fmaddpd  (_951, imag_tmp25b, imag_tmp25a);
+					e.real = fmaddpd  (_951, real_tmp25b, real_tmp25a);
+					e.imag = fnmaddpd (_951, imag_tmp25b, imag_tmp25a);
+					c.real = fnmaddpd (_951, real_tmp34b, real_tmp34a);				// combine 34a and 34b
+					c.imag = fmaddpd  (_951, imag_tmp34b, imag_tmp34a);
+					d.real = fmaddpd  (_951, real_tmp34b, real_tmp34a);
+					d.imag = fnmaddpd (_951, imag_tmp34b, imag_tmp34a);
+#endif
 
+					cvadd (a, a, b_plus_e);							// a + b + c + d + e
+					cvadd (a, a, c_plus_d);
 					dest[outstride1*(group + group_member)]   = a;
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
 						dest[outstride1*(group + group_member + stride)]   = b;
@@ -1819,8 +1903,8 @@ void fft_line (
 			}
 		    }
 
-		    // Radix-4 FFT, one fewer complex multiply than radix-2, does more work while data is in registers
-		    for ( ; size % 4 == 0; size /= 4, twiddle45_stride *= 4, src = dest, instride1 = 1) {
+		    // Radix-4 FFT
+		    for ( ; size != 8 && size % 4 == 0; size /= 4, twiddle45_stride *= 4, src = dest, instride1 = 1) {
 			stride = size / 4;
 			if (pass == 1 && stride == 1) dest = vec + blki, outstride1 = pass2_size;
 			for (unsigned int group = 0; group < pass_size; group += stride * 4) {
@@ -1845,8 +1929,8 @@ void fft_line (
 
 					dest[outstride1*(group + group_member)] = a;
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-						dest[outstride1*(group + group_member + stride)]   = b;
-						dest[outstride1*(group + group_member + 2*stride)] = c;
+						dest[outstride1*(group + group_member + 2*stride)] = b;		// Do not bit-reverse outputs
+						dest[outstride1*(group + group_member + 1*stride)] = c;
 						dest[outstride1*(group + group_member + 3*stride)] = d;
 					}
 					else {			// Apply twiddles
@@ -1854,10 +1938,10 @@ void fft_line (
 						VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+1]);
 						VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+2]);
 						VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+3]);
-						dest[outstride1*(group + group_member + stride)].real   = fmsubpd (b.real, real_twiddle2, mulpd (b.imag, imag_twiddle2));
-						dest[outstride1*(group + group_member + stride)].imag   = fmaddpd (b.imag, real_twiddle2, mulpd (b.real, imag_twiddle2));
-						dest[outstride1*(group + group_member + 2*stride)].real = fmsubpd (c.real, real_twiddle1, mulpd (c.imag, imag_twiddle1));
-						dest[outstride1*(group + group_member + 2*stride)].imag = fmaddpd (c.imag, real_twiddle1, mulpd (c.real, imag_twiddle1));
+						dest[outstride1*(group + group_member + 2*stride)].real = fmsubpd (b.real, real_twiddle2, mulpd (b.imag, imag_twiddle2));
+						dest[outstride1*(group + group_member + 2*stride)].imag = fmaddpd (b.imag, real_twiddle2, mulpd (b.real, imag_twiddle2));
+						dest[outstride1*(group + group_member + 1*stride)].real = fmsubpd (c.real, real_twiddle1, mulpd (c.imag, imag_twiddle1));
+						dest[outstride1*(group + group_member + 1*stride)].imag = fmaddpd (c.imag, real_twiddle1, mulpd (c.real, imag_twiddle1));
 						dest[outstride1*(group + group_member + 3*stride)].real = fmaddpd (d.real, real_twiddle1, mulpd (d.imag, imag_twiddle1));
 						dest[outstride1*(group + group_member + 3*stride)].imag = fmsubpd (d.imag, real_twiddle1, mulpd (d.real, imag_twiddle1));
 					}
@@ -1865,15 +1949,86 @@ void fft_line (
 			}
 		    }
 
-		    // Radix-2 FFT (if needed it is the last radix block done in pass 2)
-		    if (size == 2) {
-			stride = 1;		// Stride for this radix-2 step
-			for (unsigned int group = 0; group < pass_size; group += stride * 2) {
+		    // Radix-8 FFT (if needed it is the last radix block done in pass 2)
+		    if (size == 8) {
+			VDT _707 = broadcastsd (0.70710678118654752440084436210485);
+			stride = 1;
+			for (unsigned int group = 0; group < pass_size; group += stride * 8) {
 				for (unsigned int group_member = 0; group_member < stride; group_member++) {
 					CVDT a = src[group + group_member];
 					CVDT b = src[group + group_member + stride];
-					cvadd (dest[group + group_member], a, b);
-					cvsub (dest[group + group_member + stride], a, b);
+					CVDT c = src[group + group_member + 2*stride];
+					CVDT d = src[group + group_member + 3*stride];
+					CVDT e = src[group + group_member + 4*stride];
+					CVDT f = src[group + group_member + 5*stride];
+					CVDT g = src[group + group_member + 6*stride];
+					CVDT h = src[group + group_member + 7*stride];
+
+					CVDT new_a, new_b, new_c, new_d, new_e, new_f, new_g, new_h, twid_f, twid_h;
+					cvadd (new_a, a, e);					// a + e
+					cvsub (new_e, a, e);					// a - e
+					cvadd (new_b, b, f);					// b + f
+					cvsub (new_f, b, f);					// b - f
+					cvadd (new_c, c, g);					// c + g
+					cvsub (new_g, c, g);					// c - g
+					cvadd (new_d, d, h);					// d + h
+					cvsub (new_h, d, h);					// d - h
+
+					cvadd (a, new_a, new_c);				// a + c
+					cvsub (c, new_a, new_c);				// a - c
+					cvadd (b, new_b, new_d);				// b + d
+					cvsub (d, new_b, new_d);				// b - d
+					e.real = subpd (new_e.real, new_g.imag);		// e + ig
+					e.imag = addpd (new_e.imag, new_g.real);
+					g.real = addpd (new_e.real, new_g.imag);		// e - ig
+					g.imag = subpd (new_e.imag, new_g.real);
+					f.real = subpd (new_f.real, new_h.imag);		// f + ih
+					f.imag = addpd (new_f.imag, new_h.real);
+					h.real = addpd (new_f.real, new_h.imag);		// f - ih
+					h.imag = subpd (new_f.imag, new_h.real);
+
+					cvadd (new_a, a, b);					// a + b
+					cvsub (new_b, a, b);					// a - b
+					new_c.real = subpd (c.real, d.imag);			// c + id
+					new_c.imag = addpd (c.imag, d.real);
+					new_d.real = addpd (c.real, d.imag);			// c - id
+					new_d.imag = subpd (c.imag, d.real);
+#if !VFMA
+					twid_f.real = mulpd (_707, subpd (f.real, f.imag));	// twiddled f
+					twid_f.imag = mulpd (_707, addpd (f.real, f.imag));
+					twid_h.real = mulpd (_707, addpd (h.real, h.imag));	// -twiddled h
+					twid_h.imag = mulpd (_707, subpd (h.imag, h.real));
+					new_e.real = addpd (e.real, twid_f.real);		// e + (sqrthalf+sqrthalf*i)f
+					new_e.imag = addpd (e.imag, twid_f.imag);
+					new_f.real = subpd (e.real, twid_f.real);		// e - (sqrthalf+sqrthalf*i)f
+					new_f.imag = subpd (e.imag, twid_f.imag);
+					new_g.real = subpd (g.real, twid_h.real);		// g + (-sqrthalf+sqrthalf*i)h
+					new_g.imag = subpd (g.imag, twid_h.imag);
+					new_h.real = addpd (g.real, twid_h.real);		// g - (-sqrthalf+sqrthalf*i)h
+					new_h.imag = addpd (g.imag, twid_h.imag);
+#else
+					twid_f.real = subpd (f.real, f.imag);			// twiddled f / .707
+					twid_f.imag = addpd (f.real, f.imag);
+					twid_h.real = addpd (h.real, h.imag);			// -twiddled h / .707
+					twid_h.imag = subpd (h.imag, h.real);
+					new_e.real = fmaddpd  (_707, twid_f.real, e.real);	// e + (sqrthalf+sqrthalf*i)f
+					new_e.imag = fmaddpd  (_707, twid_f.imag, e.imag);
+					new_f.real = fnmaddpd (_707, twid_f.real, e.real);	// e - (sqrthalf+sqrthalf*i)f
+					new_f.imag = fnmaddpd (_707, twid_f.imag, e.imag);
+					new_g.real = fnmaddpd (_707, twid_h.real, g.real);	// g + (-sqrthalf+sqrthalf*i)h
+					new_g.imag = fnmaddpd (_707, twid_h.imag, g.imag);
+					new_h.real = fmaddpd  (_707, twid_h.real, g.real);	// g - (-sqrthalf+sqrthalf*i)h
+					new_h.imag = fmaddpd  (_707, twid_h.imag, g.imag);
+#endif
+
+					dest[group + group_member] = new_a;			// Do not bit reverse outputs
+					dest[group + group_member + 4*stride] = new_b;
+					dest[group + group_member + 2*stride] = new_c;
+					dest[group + group_member + 6*stride] = new_d;
+					dest[group + group_member + 1*stride] = new_e;
+					dest[group + group_member + 5*stride] = new_f;
+					dest[group + group_member + 3*stride] = new_g;
+					dest[group + group_member + 7*stride] = new_h;
 				}
 			}
 		    }
@@ -1959,18 +2114,90 @@ void invfft_line (
 		    twiddle3_stride = saved_twiddle3_stride;
 		    twiddle45_stride = saved_twiddle45_stride;
 
-		    // Radix-2 FFT
-		    if (pass == 2 && powers_of_two & 1) {		// If odd number of powers of two do a radix-2 step
-			twiddle45_stride /= 2;		// Next twiddle stride amount
-			for (unsigned int group = 0; group < pass_size; group += stride * 2) {
-			    for (unsigned int group_member = 0; group_member < stride; group_member++) {
-				CVDT a = src[group + group_member];
-				CVDT b = src[group + group_member + stride];
-				cvadd (dest[group + group_member], a, b);
-				cvsub (dest[group + group_member + stride], a, b);
-			    }
+		    // Radix-8 FFT (if needed it is the last radix block done in pass 2)
+		    if (pass == 2 && powers_of_two & 1) {		// If odd number of powers of two do a radix-8 step
+			VDT _707 = broadcastsd (0.70710678118654752440084436210485);
+			twiddle45_stride /= 8;		// Next twiddle stride amount
+			stride = 1;
+			for (unsigned int group = 0; group < pass_size; group += stride * 8) {
+				for (unsigned int group_member = 0; group_member < stride; group_member++) {
+					CVDT a = src[group + group_member];
+					CVDT b = src[group + group_member + stride];
+					CVDT c = src[group + group_member + 2*stride];
+					CVDT d = src[group + group_member + 3*stride];
+					CVDT e = src[group + group_member + 4*stride];
+					CVDT f = src[group + group_member + 5*stride];
+					CVDT g = src[group + group_member + 6*stride];
+					CVDT h = src[group + group_member + 7*stride];
+
+					CVDT new_a, new_b, new_c, new_d, new_e, new_f, new_g, new_h, twid_f, twid_h;
+					cvadd (new_a, a, e);					// a + e
+					cvsub (new_e, a, e);					// a - e
+					cvadd (new_b, b, f);					// b + f
+					cvsub (new_f, b, f);					// b - f
+					cvadd (new_c, c, g);					// c + g
+					cvsub (new_g, c, g);					// c - g
+					cvadd (new_d, d, h);					// d + h
+					cvsub (new_h, d, h);					// d - h
+
+					cvadd (a, new_a, new_c);				// a + c
+					cvsub (c, new_a, new_c);				// a - c
+					cvadd (b, new_b, new_d);				// b + d
+					cvsub (d, new_b, new_d);				// b - d
+					e.real = addpd (new_e.real, new_g.imag);		// e - ig
+					e.imag = subpd (new_e.imag, new_g.real);
+					g.real = subpd (new_e.real, new_g.imag);		// e + ig
+					g.imag = addpd (new_e.imag, new_g.real);
+					f.real = addpd (new_f.real, new_h.imag);		// f - ih
+					f.imag = subpd (new_f.imag, new_h.real);
+					h.real = subpd (new_f.real, new_h.imag);		// f + ih
+					h.imag = addpd (new_f.imag, new_h.real);
+
+					cvadd (new_a, a, b);					// a + b
+					cvsub (new_b, a, b);					// a - b
+					new_c.real = addpd (c.real, d.imag);			// c - id
+					new_c.imag = subpd (c.imag, d.real);
+					new_d.real = subpd (c.real, d.imag);			// c + id
+					new_d.imag = addpd (c.imag, d.real);
+#if !VFMA
+					twid_f.real = mulpd (_707, addpd (f.real, f.imag));	// twiddled f
+					twid_f.imag = mulpd (_707, subpd (f.imag, f.real));
+					twid_h.real = mulpd (_707, subpd (h.real, h.imag));	// -twiddled h
+					twid_h.imag = mulpd (_707, addpd (h.real, h.imag));
+					new_e.real = addpd (e.real, twid_f.real);		// e + (sqrthalf-sqrthalf*i)f
+					new_e.imag = addpd (e.imag, twid_f.imag);
+					new_f.real = subpd (e.real, twid_f.real);		// e - (sqrthalf-sqrthalf*i)f
+					new_f.imag = subpd (e.imag, twid_f.imag);
+					new_g.real = subpd (g.real, twid_h.real);		// g + (-sqrthalf-sqrthalf*i)h
+					new_g.imag = subpd (g.imag, twid_h.imag);
+					new_h.real = addpd (g.real, twid_h.real);		// g - (-sqrthalf-sqrthalf*i)h
+					new_h.imag = addpd (g.imag, twid_h.imag);
+#else
+					twid_f.real = addpd (f.real, f.imag);			// twiddled f / .707
+					twid_f.imag = subpd (f.imag, f.real);
+					twid_h.real = subpd (h.real, h.imag);			// -twiddled h / .707
+					twid_h.imag = addpd (h.real, h.imag);
+					new_e.real = fmaddpd  (_707, twid_f.real, e.real);	// e + (sqrthalf-sqrthalf*i)f
+					new_e.imag = fmaddpd  (_707, twid_f.imag, e.imag);
+					new_f.real = fnmaddpd (_707, twid_f.real, e.real);	// e - (sqrthalf-sqrthalf*i)f
+					new_f.imag = fnmaddpd (_707, twid_f.imag, e.imag);
+					new_g.real = fnmaddpd (_707, twid_h.real, g.real);	// g + (-sqrthalf-sqrthalf*i)h
+					new_g.imag = fnmaddpd (_707, twid_h.imag, g.imag);
+					new_h.real = fmaddpd  (_707, twid_h.real, g.real);	// g - (-sqrthalf-sqrthalf*i)h
+					new_h.imag = fmaddpd  (_707, twid_h.imag, g.imag);
+#endif
+
+					dest[group + group_member] = new_a;			// Do not bit reverse outputs
+					dest[group + group_member + 4*stride] = new_b;
+					dest[group + group_member + 2*stride] = new_c;
+					dest[group + group_member + 6*stride] = new_d;
+					dest[group + group_member + 1*stride] = new_e;
+					dest[group + group_member + 5*stride] = new_f;
+					dest[group + group_member + 3*stride] = new_g;
+					dest[group + group_member + 7*stride] = new_h;
+				}
 			}
-			stride *= 2;			// Next stride amount
+			stride *= 8;			// Next stride amount
 		    }
 
 		    // Radix-4 FFT, one fewer complex multiply than radix-2, does more work while data is in registers
@@ -1998,30 +2225,30 @@ void invfft_line (
 						VDT imag_twiddle1 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+1]);
 						VDT real_twiddle2 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+2]);
 						VDT imag_twiddle2 = broadcastsd (pmdata->twiddles2[4*twiddle_idx+3]);
-						twiddled_b.real = fmaddpd (b.real, real_twiddle2, mulpd (b.imag, imag_twiddle2));
-						twiddled_b.imag = fmsubpd (b.imag, real_twiddle2, mulpd (b.real, imag_twiddle2));
-						twiddled_c.real = fmaddpd (c.real, real_twiddle1, mulpd (c.imag, imag_twiddle1));
-						twiddled_c.imag = fmsubpd (c.imag, real_twiddle1, mulpd (c.real, imag_twiddle1));
+						twiddled_b.real = fmaddpd (b.real, real_twiddle1, mulpd (b.imag, imag_twiddle1));
+						twiddled_b.imag = fmsubpd (b.imag, real_twiddle1, mulpd (b.real, imag_twiddle1));
+						twiddled_c.real = fmaddpd (c.real, real_twiddle2, mulpd (c.imag, imag_twiddle2));
+						twiddled_c.imag = fmsubpd (c.imag, real_twiddle2, mulpd (c.real, imag_twiddle2));
 						twiddled_d.real = fmsubpd (d.real, real_twiddle1, mulpd (d.imag, imag_twiddle1));
 						twiddled_d.imag = fmaddpd (d.imag, real_twiddle1, mulpd (d.real, imag_twiddle1));
 					}
 
-					CVDT new_a; cvadd (new_a, a, twiddled_b);			// a + b
-					CVDT new_b; cvsub (new_b, a, twiddled_b);			// a - b
-					CVDT new_c; cvadd (new_c, twiddled_c, twiddled_d);		// c + d
-					CVDT new_d; cvsub (new_d, twiddled_c, twiddled_d);		// c - d
+					CVDT new_a; cvadd (new_a, a, twiddled_c);			// a + c
+					CVDT new_c; cvsub (new_c, a, twiddled_c);			// a - c
+					CVDT new_b; cvadd (new_b, twiddled_b, twiddled_d);		// b + d
+					CVDT new_d; cvsub (new_d, twiddled_b, twiddled_d);		// b - d
 
-					cvadd (a, new_a, new_c);					// a + c
-					cvsub (c, new_a, new_c);					// a - c
-					b.real = addpd (new_b.real, new_d.imag);			// b - id
-					b.imag = subpd (new_b.imag, new_d.real);
-					d.real = subpd (new_b.real, new_d.imag);			// b + id
-					d.imag = addpd (new_b.imag, new_d.real);
+					cvadd (a, new_a, new_b);					// a + b
+					cvsub (b, new_a, new_b);					// a - b
+					c.real = addpd (new_c.real, new_d.imag);			// c - id
+					c.imag = subpd (new_c.imag, new_d.real);
+					d.real = subpd (new_c.real, new_d.imag);			// c + id
+					d.imag = addpd (new_c.imag, new_d.real);
 
 					// Save results
-					dest[outstride1*(group + group_member)]            = a;
-					dest[outstride1*(group + group_member + stride)]   = b;
-					dest[outstride1*(group + group_member + 2*stride)] = c;
+					dest[outstride1*(group + group_member)]            = a;		// Do not bit reverse outputs
+					dest[outstride1*(group + group_member + 2*stride)] = b;
+					dest[outstride1*(group + group_member + 1*stride)] = c;
 					dest[outstride1*(group + group_member + 3*stride)] = d;
 				}
 			}
@@ -2083,18 +2310,15 @@ void invfft_line (
 					CVDT b_minus_e; cvsub (b_minus_e, twiddled_b, twiddled_e);			// b - e
 					CVDT c_minus_d; cvsub (c_minus_d, twiddled_c, twiddled_d);			// c - d
 
+#if !VFMA
 					VDT real_tmp25a = fmaddpd (_309, b_plus_e.real, fnmaddpd (_809, c_plus_d.real, a.real)); // a +.309*(b+e) -.809*(c+d)
 					VDT imag_tmp25a = fmaddpd (_309, b_plus_e.imag, fnmaddpd (_809, c_plus_d.imag, a.imag));
 					VDT real_tmp34a = fnmaddpd (_809, b_plus_e.real, fmaddpd (_309, c_plus_d.real, a.real)); // a -.809*(b+e) +.309*(c+d)
 					VDT imag_tmp34a = fnmaddpd (_809, b_plus_e.imag, fmaddpd (_309, c_plus_d.imag, a.imag));
-//GW: delay mul by .951 on true	FMA CPUs
 					VDT real_tmp25b = mulpd (_951, fmaddpd (_588_951, c_minus_d.imag, b_minus_e.imag));	// .951*(b-e) + 0.588*(c-d)
 					VDT imag_tmp25b = mulpd (_951, fmaddpd (_588_951, c_minus_d.real, b_minus_e.real));
 					VDT real_tmp34b = mulpd (_951, fmsubpd (_588_951, b_minus_e.imag, c_minus_d.imag));	// .588*(b-e) - 0.951*(c-d)
 					VDT imag_tmp34b = mulpd (_951, fmsubpd (_588_951, b_minus_e.real, c_minus_d.real));
-
-					cvadd (a, a, b_plus_e);							// a + b + c + d + e
-					cvadd (a, a, c_plus_d);
 					b.real = addpd (real_tmp25a, real_tmp25b);				// combine 25a and 25b
 					b.imag = subpd (imag_tmp25a, imag_tmp25b);
 					e.real = subpd (real_tmp25a, real_tmp25b);
@@ -2103,6 +2327,27 @@ void invfft_line (
 					c.imag = subpd (imag_tmp34a, imag_tmp34b);
 					d.real = subpd (real_tmp34a, real_tmp34b);
 					d.imag = addpd (imag_tmp34a, imag_tmp34b);
+#else
+					VDT real_tmp25a = fmaddpd (_309, b_plus_e.real, fnmaddpd (_809, c_plus_d.real, a.real)); // a +.309*(b+e) -.809*(c+d)
+					VDT imag_tmp25a = fmaddpd (_309, b_plus_e.imag, fnmaddpd (_809, c_plus_d.imag, a.imag));
+					VDT real_tmp34a = fnmaddpd (_809, b_plus_e.real, fmaddpd (_309, c_plus_d.real, a.real)); // a -.809*(b+e) +.309*(c+d)
+					VDT imag_tmp34a = fnmaddpd (_809, b_plus_e.imag, fmaddpd (_309, c_plus_d.imag, a.imag));
+					VDT real_tmp25b = fmaddpd (_588_951, c_minus_d.imag, b_minus_e.imag);			// delayed .951*(b-e) + 0.588*(c-d)
+					VDT imag_tmp25b = fmaddpd (_588_951, c_minus_d.real, b_minus_e.real);
+					VDT real_tmp34b = fmsubpd (_588_951, b_minus_e.imag, c_minus_d.imag);			// delayed .588*(b-e) - 0.951*(c-d)
+					VDT imag_tmp34b = fmsubpd (_588_951, b_minus_e.real, c_minus_d.real);
+					b.real = fmaddpd  (_951, real_tmp25b, real_tmp25a);				// combine 25a and 25b
+					b.imag = fnmaddpd (_951, imag_tmp25b, imag_tmp25a);
+					e.real = fnmaddpd (_951, real_tmp25b, real_tmp25a);
+					e.imag = fmaddpd  (_951, imag_tmp25b, imag_tmp25a);
+					c.real = fmaddpd  (_951, real_tmp34b, real_tmp34a);				// combine 34a and 34b
+					c.imag = fnmaddpd (_951, imag_tmp34b, imag_tmp34a);
+					d.real = fnmaddpd (_951, real_tmp34b, real_tmp34a);
+					d.imag = fmaddpd  (_951, imag_tmp34b, imag_tmp34a);
+#endif
+
+					cvadd (a, a, b_plus_e);							// a + b + c + d + e
+					cvadd (a, a, c_plus_d);
 
 					// Save results
 					dest[outstride1*(group + group_member)]            = a;
@@ -2149,18 +2394,27 @@ void invfft_line (
 
 					CVDT b_plus_c; cvadd (b_plus_c, twiddled_b, twiddled_c);			// b + c
 
+#if !VFMA
 					VDT real_tmp23a = fnmaddpd (half, b_plus_c.real, a.real);			// a - 0.5 * (b + c)
 					VDT imag_tmp23a = fnmaddpd (half, b_plus_c.imag, a.imag);
-//GW: delay mul by 866 on true FMA CPUs
 					VDT real_tmp23b = mulpd (_866, subpd (twiddled_b.imag, twiddled_c.imag));	// 0.866 * (b - c)
 					VDT imag_tmp23b = mulpd (_866, subpd (twiddled_b.real, twiddled_c.real));
-
-					cvadd (a, a, b_plus_c);								// a + b + c
 					b.real = addpd (real_tmp23a, real_tmp23b);					// combine 23a and 23b
 					b.imag = subpd (imag_tmp23a, imag_tmp23b);
 					c.real = subpd (real_tmp23a, real_tmp23b);
 					c.imag = addpd (imag_tmp23a, imag_tmp23b);
+#else
+					VDT real_tmp23a = fnmaddpd (half, b_plus_c.real, a.real);			// a - 0.5 * (b + c)
+					VDT imag_tmp23a = fnmaddpd (half, b_plus_c.imag, a.imag);
+					VDT real_tmp23b = subpd (twiddled_b.imag, twiddled_c.imag);			// 0.866 delayed * (b - c)
+					VDT imag_tmp23b = subpd (twiddled_b.real, twiddled_c.real);
+					b.real = fmaddpd  (_866, real_tmp23b, real_tmp23a);				// combine 23a and 23b
+					b.imag = fnmaddpd (_866, imag_tmp23b, imag_tmp23a);
+					c.real = fnmaddpd (_866, real_tmp23b, real_tmp23a);
+					c.imag = fmaddpd  (_866, imag_tmp23b, imag_tmp23a);
+#endif
 
+					cvadd (a, a, b_plus_c);								// a + b + c
 					dest[outstride1*(group + group_member)] = a;
 					dest[outstride1*(group + group_member + stride)] = b;
 					dest[outstride1*(group + group_member + 2*stride)] = c;
