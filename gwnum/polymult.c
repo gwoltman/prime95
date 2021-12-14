@@ -29,7 +29,7 @@
 // 14) Compressed gwnums.  Does it pay off?
 // 15) Add polymult to gwtest or as a standalone program
 // 16) Handle out-of-memory gracefully
-// 17) Sin/cos accuracy, right collection of PFA FFT sizes?
+// 17) Right collection of PFA FFT sizes?
 // 19) For large ffts, use Pavel's idea of copying the complex values to a gwnum and use an unweighted FFT with a special no-carry-propagation norm routine.
 //     Perhaps only do this for most common architectures, such as AVX-512 and FMA 64-bit.
 // 21) Should polymult be its own library or a part of the gwnum library?
@@ -396,7 +396,7 @@ void generate_sincos (
 	pmhandle *pmdata,		// Handle for polymult library
 	const unsigned int fft_size)
 {
-	const double twopi = 2.0 * 3.1415926535897932384626433;
+	const long double twopi = 2.0L * 3.1415926535897932384626433L;
 	unsigned int size = fft_size;
 
 	// Return quickly if twiddles have already been initialized
@@ -419,23 +419,27 @@ void generate_sincos (
 		aligned_free (pmdata->twiddles2), pmdata->twiddles2 = NULL;
 	}
 
-//GW: Consider long doubles for better accuracy
+	// Generate twiddles for radix-3 butterflies
 	if (size % 3 == 0) {
+		long double twopi_over_size = twopi / (long double) size;
 		pmdata->twiddles1 = (double *) aligned_malloc (size/3 * 2 * sizeof (double), 64);
 		for (unsigned int i = 0; i < size/3; i++) {
-			double angle = twopi * (double) i / (double) size;
-			pmdata->twiddles1[2*i] = cos (angle);
-			pmdata->twiddles1[2*i+1] = sin (angle);
+			long double angle = twopi_over_size * (long double) i;
+			pmdata->twiddles1[2*i] = (double) cosl (angle);
+			pmdata->twiddles1[2*i+1] = (double) sinl (angle);
 		}
 		while (size % 3 == 0) size /= 3;
 	}
+
+	// Generate twiddles for radix-4/5 butterflies
+	long double twopi_over_size = twopi / (long double) size;
 	pmdata->twiddles2 = (double *) aligned_malloc (size/4 * 2 * 2 * sizeof (double), 64);
 	for (unsigned int i = 0; i < size/4; i++) {
-		double angle = twopi * (double) i / (double) size;
-		pmdata->twiddles2[2*(2*i)] = cos (angle);
-		pmdata->twiddles2[2*(2*i)+1] = sin (angle);
-		pmdata->twiddles2[2*(2*i+1)] = cos (2.0*angle);
-		pmdata->twiddles2[2*(2*i+1)+1] = sin (2.0*angle);
+		double long angle = twopi_over_size * (long double) i;
+		pmdata->twiddles2[2*(2*i)] = (double) cosl (angle);
+		pmdata->twiddles2[2*(2*i)+1] = (double) sinl (angle);
+		pmdata->twiddles2[2*(2*i+1)] = (double) cosl (2.0L*angle);
+		pmdata->twiddles2[2*(2*i+1)+1] = (double) sinl (2.0L*angle);
 	}
 
 	pmdata->twiddles_initialized = fft_size;
