@@ -2781,15 +2781,12 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 			float	tests_saved;
 			tests_saved = 0.0;
 			q = strchr (value, ','); *q = 0; w->k = atof (value);
-			sscanf (q+1, "%lu,%lu,%ld,%f,%f",
-				&w->b, &w->n, &w->c, &sieve_depth,
-				&tests_saved);
+			sscanf (q+1, "%lu,%lu,%ld,%f,%f", &w->b, &w->n, &w->c, &sieve_depth, &tests_saved);
 			w->sieve_depth = sieve_depth;
 			w->tests_saved = tests_saved;
 		} else {				/* Old style */
 			int	dblchk;
-			sscanf (value, "%lu,%f,%d",
-				&w->n, &sieve_depth, &dblchk);
+			sscanf (value, "%lu,%f,%d", &w->n, &sieve_depth, &dblchk);
 			w->sieve_depth = sieve_depth;
 			w->tests_saved = dblchk ? 1.0 : 2.0;
 		}
@@ -2847,11 +2844,9 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		q = strchr (q+1, ',');
 		w->sieve_depth = 0.0;
 		if (q != NULL && q[1] != '"') {
-			double	j = atof (q+1);
-			if (j < 100.0) {
-				w->sieve_depth = j;
-				q = strchr (q+1, ',');
-			}
+			double j = atof (q+1);
+			if (j <= 300.0) w->sieve_depth = j;
+			q = strchr (q+1, ',');
 		}
 		w->B2_start = 0;
 		if (q != NULL && q[1] != '"') {
@@ -2891,8 +2886,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		w->sieve_depth = 0.0;
 		if (q != NULL && q[1] != '"') {
 			double j = atof (q+1);
-			if (j >= 100.0) j = 0.0;
-			w->sieve_depth = j;
+			if (j <= 300.0) w->sieve_depth = j;
 			q = strchr (q+1, ',');
 		}
 		if (q != NULL && q[1] == '"') {
@@ -3295,30 +3289,22 @@ int writeWorkToDoFile (
 
 		case WORK_ECM:
 			sprintf (buf, "ECM2=%s%.0f,%lu,%lu,%ld,%" PRIu64 ",%" PRIu64 ",%u", idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2, w->curves_to_do);
-			if (w->B2_start > w->B1)
-				sprintf (buf + strlen (buf), ",%.0f,%" PRIu64, w->curve, w->B2_start);
-			else if (w->curve)
-				sprintf (buf + strlen (buf), ",%.0f", w->curve);
-			if (w->known_factors != NULL)
-				sprintf (buf + strlen (buf), ",\"%s\"", w->known_factors);
+			if (w->B2_start > w->B1) sprintf (buf + strlen (buf), ",%.0f,%" PRIu64, w->curve, w->B2_start);
+			else if (w->curve) sprintf (buf + strlen (buf), ",%.0f", w->curve);
+			if (w->known_factors != NULL) sprintf (buf + strlen (buf), ",\"%s\"", w->known_factors);
 			break;
 
 		case WORK_PMINUS1:
 			sprintf (buf, "Pminus1=%s%.0f,%lu,%lu,%ld,%" PRIu64 ",%" PRIu64, idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2);
-			if (w->sieve_depth > 0.0)
-				sprintf (buf + strlen (buf), ",%.0f", w->sieve_depth);
-			if (w->B2_start > w->B1)
-				sprintf (buf + strlen (buf), ",%" PRIu64, w->B2_start);
-			if (w->known_factors != NULL)
-				sprintf (buf + strlen (buf), ",\"%s\"", w->known_factors);
+			if (w->sieve_depth > 0.0) sprintf (buf + strlen (buf), ",%.0f", w->sieve_depth);
+			if (w->B2_start > w->B1) sprintf (buf + strlen (buf), ",%" PRIu64, w->B2_start);
+			if (w->known_factors != NULL) sprintf (buf + strlen (buf), ",\"%s\"", w->known_factors);
 			break;
 
 		case WORK_PPLUS1:
 			sprintf (buf, "Pplus1=%s%.0f,%lu,%lu,%ld,%" PRIu64 ",%" PRIu64 ",%d", idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2, w->nth_run);
-			if (w->sieve_depth > 0.0)
-				sprintf (buf + strlen (buf), ",%.0f", w->sieve_depth);
-			if (w->known_factors != NULL)
-				sprintf (buf + strlen (buf), ",\"%s\"", w->known_factors);
+			if (w->sieve_depth > 0.0) sprintf (buf + strlen (buf), ",%.0f", w->sieve_depth);
+			if (w->known_factors != NULL) sprintf (buf + strlen (buf), ",\"%s\"", w->known_factors);
 			break;
 
 		case WORK_PRP:
@@ -3328,8 +3314,7 @@ int writeWorkToDoFile (
 				if (w->prp_base || w->prp_residue_type)
 					sprintf (buf + strlen (buf), ",%u,%d", w->prp_base, w->prp_residue_type);
 			}
-			if (w->known_factors != NULL)
-				sprintf (buf + strlen (buf), ",\"%s\"", w->known_factors);
+			if (w->known_factors != NULL) sprintf (buf + strlen (buf), ",\"%s\"", w->known_factors);
 			break;
 
 		case WORK_CERT:
