@@ -511,8 +511,10 @@ void SetPriority (
 
 		if (worker_core_count < HW_NUM_COMPUTE_CORES && HW_NUM_COMPUTE_CORES == HW_NUM_CORES) {
 			bind_type = 0;			// Set affinity to a specific physical CPU core
-			// Map prime95 core number and auxiliary thread number to hwloc core number
-			core = map_aux_to_core (cores_used_by_lower_workers + 1, info->aux_thread_num, info->normal_work_hyperthreading);
+			// Map prime95 core number and auxiliary thread number to hwloc core number.
+			// Normally this works great, but now P-1 can request extra threads (in case hyperthreading helps in polymult) which lets
+			// aux_thread_num exceed the number of cores.  Thus, we do a modulo to make the core numbering work out OK.
+			core = map_aux_to_core (cores_used_by_lower_workers + 1, info->aux_thread_num % HW_NUM_CORES, info->normal_work_hyperthreading);
 			break;
 		}
 
@@ -520,8 +522,10 @@ void SetPriority (
 
 		if (worker_core_count <= HW_NUM_CORES) {
 			bind_type = 0;			// Set affinity to a specific physical CPU core
-			// Map prime95 core number and auxiliary thread number to hwloc core number
-			core = map_aux_to_core (cores_used_by_lower_workers, info->aux_thread_num, info->normal_work_hyperthreading);
+			// Map prime95 core number and auxiliary thread number to hwloc core number.
+			// Normally this works great, but now P-1 can request extra threads (in case hyperthreading helps in polymult) which lets
+			// aux_thread_num exceed the number of cores.  Thus, we do a modulo to make the core numbering work out OK.
+			core = map_aux_to_core (cores_used_by_lower_workers, info->aux_thread_num % HW_NUM_CORES, info->normal_work_hyperthreading);
 			break;
 		}
 
@@ -543,7 +547,7 @@ void SetPriority (
 /*	(3,5,7),(4,6)	Run main worker thread on logical CPUs #3, #5, & #7, run aux thread on logical CPUs #4 & #6 */
 /*	[3,5-7],(4,6)	Run main worker thread on logical CPUs #3, #5, #6, & #7, run aux thread on logical CPUs #4 & #6 */
 
-	if (bind_type == 2) {		// Find the subset of the logical CPU string for this auxillary thread
+	if (bind_type == 2) {		// Find the subset of the logical CPU string for this auxilary thread
 		uint32_t i;
 		const char *p;
 		for (i = 0, p = logical_CPU_string; i <= info->aux_thread_num && *p; i++) {
