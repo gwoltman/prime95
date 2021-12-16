@@ -6343,40 +6343,6 @@ void pm1_cleanup (
 	end_sieve (pm1data->sieve_info), pm1data->sieve_info = NULL;
 }
 
-/* Raises number to the given power */
-
-void pm1_mul (
-	pm1handle *pm1data,
-	gwnum	xx,
-	gwnum	orig_xx_fft,
-	uint64_t n)
-{
-	uint64_t c;
-
-/* Find most significant bit and then ignore it */
-
-	c = 1;
-	c <<= 63;
-	while ((c&n) == 0) c >>= 1;
-	c >>= 1;
-
-/* Handle the second most significant bit */
-
-//GW: use exponentiate??
-	gwfft (&pm1data->gwdata, xx, orig_xx_fft);
-	gwmul3 (&pm1data->gwdata, orig_xx_fft, orig_xx_fft, xx, (c > 1 ? GWMUL_STARTNEXTFFT : 0));
-	if (c&n) gwmul3 (&pm1data->gwdata, orig_xx_fft, xx, xx, c > 1 ? GWMUL_STARTNEXTFFT : 0);
-	c >>= 1;
-
-/* Do the rest of the bits */
-
-	while (c) {
-		gwsquare2 (&pm1data->gwdata, xx, xx, c > 1 ? GWMUL_STARTNEXTFFT : 0);
-		if (c&n) gwmul3 (&pm1data->gwdata, orig_xx_fft, xx, xx, c > 1 ? GWMUL_STARTNEXTFFT : 0);
-		c >>= 1;
-	}
-}
-
 /* Computes the modular inverse of a number.  This is done using the extended GCD algorithm.  If a factor is accidentally found, it is */
 /* returned in factor.  Function returns stop_reason if there is an allocation error. */
 
@@ -6636,7 +6602,6 @@ int pm1_old_restore (
 			goto readerr;
 		}
 	} else if (state == 0) {			// PM1_STATE_STAGE1
-//GW: This may not be compatible if we switch to sliding window / big calc_exp approach
 		pm1data->state = PM1_STATE_STAGE1;
 		pm1data->B_done = B_done;			//GW: set this to processed???
 		pm1data->interim_B = B;
@@ -7334,6 +7299,49 @@ void calc_exp (
 	}
 }
 
+/* Recursively compute more exp used in computing stage_0_result^exp of a P-1 factoring run */
+
+void calc_exp2 (
+	void	*sieve_info,	/* Sieve to use calculating primes */
+	mpz_t	g,		/* Variable to accumulate multiplied small primes */
+	uint64_t B1_completed,	/* P-1 stage 1 bound already completed */
+	uint64_t B1,		/* P-1 stage 1 bound */
+	uint64_t *p,		/* Variable to fetch next small prime into */
+	uint64_t len)		/* Approximate number of bits to gather */
+{
+
+/* Use recursion to compute the exponent.  This should perform better because mpz_mul will be handling arguments of equal size. */
+
+	if (len >= 256) {
+		mpz_t	x;
+		calc_exp2 (sieve_info, g, B1_completed, B1, p, len >> 1);
+		mpz_init (x);
+		calc_exp2 (sieve_info, x, B1_completed, B1, p, len >> 1);
+		mpz_mul (g, x, g);
+		mpz_clear (x);
+		return;
+	}
+
+/* Find all the primes in the range and use as many powers as possible */
+
+	mpz_set_ui (g, 1);
+	for ( ; *p <= B1 && mpz_sizeinbase (g, 2) < len; *p = sieve (sieve_info)) {
+		uint64_t no_more_vals_above_here = B1 / *p;
+		for (uint64_t val = *p; ; val *= *p) {
+			if (val > B1_completed) {
+				if (sizeof (unsigned int) == 4 && *p > 0xFFFFFFFF) {
+					mpz_t	mpz_val;
+					mpz_init_set_d (mpz_val, (double) *p);		/* Works for B1 up to 2^53 */
+					mpz_mul (g, g, mpz_val);
+					mpz_clear (mpz_val);
+				} else
+					mpz_mul_ui (g, g, (unsigned int) *p);
+			}
+			if (val > no_more_vals_above_here) break;
+		}
+	}
+}
+
 /*****************************************************************************/
 /*                         Main P-1 routine				     */
 /*****************************************************************************/
@@ -7350,8 +7358,7 @@ int pminus1 (
 	int	exp_initialized;
 	uint64_t stage0_limit;
 	unsigned int memused;
-	unsigned long SQRT_B;
-	int	i;
+	int	i, stage1_batch_size;
 	unsigned long len;
 	int	maxerr_restart_count = 0;
 	gwnum	tmp_gwnum;
@@ -7745,11 +7752,7 @@ restart0:
 
 	pm1data.stage1_prime--;				// Stage1_prime was not included by calc_exp.  Back up one for next sieve call.
 
-/* Do the larger primes of stage 1.  This stage uses 3 transforms per exponent bit.  Proceed until interim_B is finished. */
-
-//GW  more efficient would be to build another big exponent and do a sliding window exponentiate!  Far less than 3 transforms / bit.
-// We could (possibly) eliminate interim_B and put it's primes in the big exponent.
-// For really large B, repeat until done
+/* Do the larger primes of stage 1.  This stage uses 2.5 transforms per exponent bit using a sliding window exponentiate.  Proceed until interim_B is finished. */
 
 restart1:
 	strcpy (w->stage, "S1");
@@ -7758,41 +7761,30 @@ restart1:
 	start_timer_from_zero (timers, 0);
 	start_timer (timers, 1);
 	pm1data.state = PM1_STATE_STAGE1;
-	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pm1data.gwdata, 2));
+	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pm1data.gwdata, 4));
 	tmp_gwnum = gwalloc (&pm1data.gwdata);
 	if (tmp_gwnum == NULL) goto oom;
-	stop_reason = start_sieve_with_limit (thread_num, pm1data.stage1_prime + 1, (uint32_t) sqrt((double) pm1data.B), &pm1data.sieve_info);
+	stop_reason = start_sieve_with_limit (thread_num, pm1data.stage1_prime, (uint32_t) sqrt((double) pm1data.B), &pm1data.sieve_info);
 	if (stop_reason) goto exit;
-	SQRT_B = (unsigned long) sqrt ((double) pm1data.interim_B);
-	for ( ; ; ) {
-		pm1data.stage1_prime = sieve (pm1data.sieve_info);
-		if (pm1data.stage1_prime > pm1data.interim_B) break;
 
-/* Test for user interrupt, save files, and error checking */
+/* Loop doing small batches of primes until interim_B is finished.  Default batch size is based on FFT length (30000 bits for a 4K FFT). */
 
+	stage1_batch_size = IniGetInt (INI_FILE, "Stage1BatchSize", (int) (30000.0 / ((double) pm1data.gwdata.FFTLEN / 4096.0)));
+	for (pm1data.stage1_prime = sieve (pm1data.sieve_info); pm1data.stage1_prime < pm1data.interim_B; ) {
+
+		// Calc a new exponent for exponentiate.  This is our small batch.  Batch sizes should be smallish as they cannot be interrupted.
+		mpz_init (exp);  exp_initialized = TRUE;
+		calc_exp2 (pm1data.sieve_info, exp, pm1data.B_done, pm1data.interim_B, &pm1data.stage1_prime, stage1_batch_size);
+
+		// Test for user interrupt, save files, and error checking
 		stop_reason = stopCheck (thread_num);
 		saving = testSaveFilesFlag (thread_num);
 		echk = stop_reason || saving || ERRCHK || near_fft_limit || ((pm1data.stage1_prime & 127) == 127);
 		gwerror_checking (&pm1data.gwdata, echk);
 
-/* Apply as many powers of prime as long as prime^n <= B */
-
-//GW: gather up pm1_mul inputs into a uint64_t (or larger) and call exponentiate.  Sliding window should be faster.
-		if (pm1data.stage1_prime > pm1data.B_done) {
-			pm1_mul (&pm1data, pm1data.x, tmp_gwnum, pm1data.stage1_prime);
-		}
-		if (pm1data.stage1_prime <= SQRT_B) {
-			uint64_t mult, max;
-			mult = pm1data.stage1_prime;
-			max = pm1data.interim_B / pm1data.stage1_prime;
-			for ( ; ; ) {
-				mult *= pm1data.stage1_prime;
-				if (mult > pm1data.B_done) {
-					pm1_mul (&pm1data, pm1data.x, tmp_gwnum, pm1data.stage1_prime);
-				}
-				if (mult > max) break;
-			}
-		}
+		// Do some exponentiating
+		exponentiate_mpz (&pm1data.gwdata, pm1data.x, exp);
+		mpz_clear (exp), exp_initialized = FALSE;
 
 /* Test for an error */
 
