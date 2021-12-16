@@ -9393,6 +9393,7 @@ void gwunfft2 (
 			else asm_data->ffttype = 3;
 			asm_mul (gwdata, s, s, d, options);
 			gwdata->read_count += 2, gwdata->write_count += 2;
+			if (gwdata->GENERAL_MOD) emulate_mod (gwdata, d);
 		}
 #endif
 
