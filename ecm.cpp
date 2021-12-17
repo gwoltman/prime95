@@ -7761,7 +7761,7 @@ restart1:
 	start_timer_from_zero (timers, 0);
 	start_timer (timers, 1);
 	pm1data.state = PM1_STATE_STAGE1;
-	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pm1data.gwdata, 4));
+	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pm1data.gwdata, 17));
 	tmp_gwnum = gwalloc (&pm1data.gwdata);
 	if (tmp_gwnum == NULL) goto oom;
 	stop_reason = start_sieve_with_limit (thread_num, pm1data.stage1_prime, (uint32_t) sqrt((double) pm1data.B), &pm1data.sieve_info);
@@ -7843,7 +7843,6 @@ restart1:
 	gwfree (&pm1data.gwdata, tmp_gwnum);
 	pm1data.B_done = pm1data.interim_B;
 	end_timer (timers, 0);
-	end_timer (timers, 1);
 
 /* Check for the rare case where we need to do even more stage 1.  This happens using a save file created with a smaller bound #1. */
 
@@ -7857,6 +7856,7 @@ more_B:		pm1data.interim_B = pm1data.B;
 
 /* Stage 1 complete, print a message */
 
+	end_timer (timers, 1);
 	sprintf (buf, "%s stage 1 complete. %.0f transforms. Total time: ", gwmodulo_as_string (&pm1data.gwdata), gw_get_fft_count (&pm1data.gwdata));
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
