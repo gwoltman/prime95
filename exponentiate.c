@@ -50,19 +50,13 @@ void simple_exponentiate (gwhandle *gwdata, gwnum x, uint64_t power)
 
 #define is_bit_set(array,bitnum)	((array)[(bitnum)>>6] & (1ULL << ((bitnum) & 63)))
 
-// This version uses a 3-bit windowing scheme to reduce multiplies a little
+// Raise a gwnum to a power.  This version uses a 3-bit windowing scheme to reduce multiplies a little
 
-// Raise a gwnum to a power
-void exponentiate_array (gwhandle *gwdata, gwnum x, uint64_t *power, int arraylen)
+void exponentiate_window3 (gwhandle *gwdata, gwnum x, uint64_t *power, int arraylen)
 {
 	int	current_bit, top3, first_squaring_done;
 	gwnum	x1, x3, x5, x7;		// Scratch gwnums for code to use
 	int	x7_is_really_x2;
-
-	// Handle simple cases.  We've not studied the best power to switch from simple to windowed exponentiate
-	while (arraylen >= 1 && power[arraylen-1] == 0) arraylen--;
-	if (arraylen <= 0) { simple_exponentiate (gwdata, x, 0); return; }
-	if (arraylen == 1 && *power <= 64) { simple_exponentiate (gwdata, x, *power); return; }
 
 	// Allocate space for temporaries
 	x1 = gwalloc (gwdata);
@@ -123,7 +117,6 @@ void exponentiate_array (gwhandle *gwdata, gwnum x, uint64_t *power, int arrayle
 				gwmul3 (gwdata, x3, x, x, current_bit != 1 ? GWMUL_STARTNEXTFFT : 0);
 				current_bit -= 1;
 			} else {				// Apply x^1
-				gwstartnextfft (gwdata, current_bit != 0);
 				gwmul3 (gwdata, x1, x, x, current_bit != 1 ? GWMUL_STARTNEXTFFT : 0);
 			}
 		}
@@ -134,6 +127,123 @@ void exponentiate_array (gwhandle *gwdata, gwnum x, uint64_t *power, int arrayle
 	gwfree (gwdata, x3);
 	gwfree (gwdata, x5);
 	gwfree (gwdata, x7);
+}
+
+// Raise a gwnum to a power.  This version uses a 4-bit windowing scheme to reduce multiplies even more.
+
+void exponentiate_window4 (gwhandle *gwdata, gwnum x, uint64_t *power, int arraylen)
+{
+	gwnum	x1, x3, x5, x7, x9, x11, x13, x15;		// Scratch gwnums for code to use
+	int	current_bit, top4;
+	bool	first_squaring_done;
+
+	// Allocate space for temporaries
+	x1 = gwalloc (gwdata);
+	x3 = gwalloc (gwdata);
+	x5 = gwalloc (gwdata);
+	x7 = gwalloc (gwdata);
+	x9 = gwalloc (gwdata);
+	x11 = gwalloc (gwdata);
+	x13 = gwalloc (gwdata);
+	x15 = gwalloc (gwdata);
+//BUG	if (x1 == NULL || x3 == NULL || x5 == NULL || x7 == NULL || x9 == NULL || x11 == NULL || x13 == NULL || x15 == NULL) goto oom;
+
+	// Pre-compute x^1, x^3, x^5, ... x^15
+	gwfft (gwdata, x, x1);
+	gwmul3 (gwdata, x1, x1, x15, GWMUL_STARTNEXTFFT);
+	gwmul3 (gwdata, x15, x1, x3, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);
+	gwmul3 (gwdata, x15, x3, x5, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+	gwmul3 (gwdata, x15, x5, x7, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+	gwmul3 (gwdata, x15, x7, x9, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+	gwmul3 (gwdata, x15, x9, x11, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+	gwmul3 (gwdata, x15, x11, x13, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+	gwmul3 (gwdata, x15, x13, x15, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+
+	// Find the topmost bit in power
+	current_bit = arraylen * 64 - 1;
+	while (!is_bit_set (power, current_bit)) current_bit--;
+
+	// Special case the first 4 bits of the exponent.
+	top4 = 8;
+	if (is_bit_set (power, current_bit - 1)) top4 += 4;
+	if (is_bit_set (power, current_bit - 2)) top4 += 2;
+	if (is_bit_set (power, current_bit - 3)) top4 += 1;
+	if (top4 == 8) gwmul3 (gwdata, x7, x9, x, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	// x^16
+	if (top4 == 9) gwmul3 (gwdata, x9, x9, x, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	// x^18
+	if (top4 == 10) gwmul3 (gwdata, x9, x11, x, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	// x^20
+	if (top4 == 11) gwmul3 (gwdata, x11, x11, x, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	// x^22
+	if (top4 == 12) gwmul3 (gwdata, x11, x13, x, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	// x^24
+	if (top4 == 13) gwmul3 (gwdata, x13, x13, x, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	// x^26
+	if (top4 == 14) gwmul3 (gwdata, x13, x15, x, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	// x^28
+	if (top4 == 15) gwmul3 (gwdata, x15, x15, x, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	// x^30
+	first_squaring_done = 1;	// Set flag indicating we've already done the first squaring needed in exponentiate loop
+
+	// Sliding window exponentiate
+	for (current_bit -= 4; current_bit >= 0; current_bit--) {
+		if (first_squaring_done) first_squaring_done = 0;
+		else gwsquare2 (gwdata, x, x, current_bit || is_bit_set (power, 0) ? GWMUL_STARTNEXTFFT : 0);
+		if (!is_bit_set (power, current_bit)) continue;
+		// We have a window starting with a set bit, see if we want to apply x^1, x^3, x^5, x^7, x^9, x^11, x^13, or x^15
+		if (current_bit >= 3 && is_bit_set (power, current_bit - 3)) {
+			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
+			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
+			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
+			if (is_bit_set (power, current_bit - 2)) {	// Apply x^11 or x^15
+				if (is_bit_set (power, current_bit - 1)) {	// Apply x^15
+					gwmul3 (gwdata, x15, x, x, GWMUL_FFT_S1 | (current_bit != 3 ? GWMUL_STARTNEXTFFT : 0));
+				} else {					// Apply x^11
+					gwmul3 (gwdata, x11, x, x, GWMUL_FFT_S1 | (current_bit != 3 ? GWMUL_STARTNEXTFFT : 0));
+				}
+			}
+			else if (is_bit_set (power, current_bit - 1)) {	// Apply x^13
+				gwmul3 (gwdata, x13, x, x, GWMUL_FFT_S1 | (current_bit != 3 ? GWMUL_STARTNEXTFFT : 0));
+			} else {					// Apply x^9
+				gwmul3 (gwdata, x9, x, x, GWMUL_FFT_S1 | (current_bit != 3 ? GWMUL_STARTNEXTFFT : 0));
+			}
+			current_bit -= 3;
+		}
+		else if (current_bit >= 2 && is_bit_set (power, current_bit - 2)) {
+			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
+			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
+			if (is_bit_set (power, current_bit - 1)) {	// Apply x^7
+				gwmul3 (gwdata, x7, x, x, GWMUL_FFT_S1 | (current_bit != 2 ? GWMUL_STARTNEXTFFT : 0));
+			} else {					// Apply x^5
+				gwmul3 (gwdata, x5, x, x, GWMUL_FFT_S1 | (current_bit != 2 ? GWMUL_STARTNEXTFFT : 0));
+			}
+			current_bit -= 2;
+		} else {
+			if (current_bit >= 1 && is_bit_set (power, current_bit - 1)) {	// Apply x^3
+				gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
+				gwmul3 (gwdata, x3, x, x, current_bit != 1 ? GWMUL_STARTNEXTFFT : 0);
+				current_bit -= 1;
+			} else {				// Apply x^1
+				gwmul3 (gwdata, x1, x, x, current_bit != 1 ? GWMUL_STARTNEXTFFT : 0);
+			}
+		}
+	}
+
+	// Free allocated memory
+	gwfree (gwdata, x1);
+	gwfree (gwdata, x3);
+	gwfree (gwdata, x5);
+	gwfree (gwdata, x7);
+	gwfree (gwdata, x9);
+	gwfree (gwdata, x11);
+	gwfree (gwdata, x13);
+	gwfree (gwdata, x15);
+}
+
+// Internal routine to call an exponentiate routine using the appropriate window size
+
+void exponentiate_array (gwhandle *gwdata, gwnum x, uint64_t *power, int arraylen)
+{
+	// Handle simple cases.  In theory, window size 3 breaks even with simple exponentiation at around 9 bits.
+	while (arraylen >= 1 && power[arraylen-1] == 0) arraylen--;
+	if (arraylen <= 0) { simple_exponentiate (gwdata, x, 0); return; }
+	if (arraylen == 1 && power[0] <= 256) { simple_exponentiate (gwdata, x, *power); return; }
+	// In theory, window size 4 breaks even with window size 3 at about 64 bits
+	if (arraylen == 1) exponentiate_window3 (gwdata, x, power, arraylen);
+	else exponentiate_window4 (gwdata, x, power, arraylen);
 }
 
 // Raise a gwnum to a power
