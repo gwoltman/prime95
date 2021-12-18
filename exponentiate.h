@@ -19,8 +19,11 @@ void simple_exponentiate (gwhandle *gwdata, gwnum x, uint64_t power);
 // Raise a gwnum to a power
 void exponentiate (gwhandle *gwdata, gwnum x, uint64_t power);
 
-// Raise a gwnum to a mpz power
+// Raise a gwnum to a mpz power (assume 1GB memory available for temps
 void exponentiate_mpz (gwhandle *gwdata, gwnum x, mpz_t power);
+
+// Raise a gwnum to a mpz power using a maximum number of temporaries
+void exponentiate_mpz_limited_temps (gwhandle *gwdata, gwnum x, mpz_t power, int num_temps);
 
 #ifdef __cplusplus
 }

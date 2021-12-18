@@ -7358,10 +7358,9 @@ int pminus1 (
 	int	exp_initialized;
 	uint64_t stage0_limit;
 	unsigned int memused;
-	int	i, stage1_batch_size;
+	int	i, stage1_batch_size, stage1_temps;
 	unsigned long len;
 	int	maxerr_restart_count = 0;
-	gwnum	tmp_gwnum;
 	char	filename[32], buf[255], JSONbuf[4000], testnum[100];
 	int	res, stop_reason, saving, near_fft_limit, echk;
 	double	one_over_len, one_over_B, base_pct_complete, one_relp_pct;
@@ -7534,6 +7533,7 @@ restart:
 
 /* Handle stage 1 save files.  If the save file that had a higher B1 target then we can reduce the target B1 to the desired B1. */
 
+		clear_timer (timers, 1);
 		if (pm1data.state == PM1_STATE_STAGE1) {
 			if (pm1data.interim_B > pm1data.B) pm1data.interim_B = pm1data.B;
 			goto restart1;
@@ -7761,15 +7761,31 @@ restart1:
 	start_timer_from_zero (timers, 0);
 	start_timer (timers, 1);
 	pm1data.state = PM1_STATE_STAGE1;
-	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pm1data.gwdata, 17));
-	tmp_gwnum = gwalloc (&pm1data.gwdata);
-	if (tmp_gwnum == NULL) goto oom;
 	stop_reason = start_sieve_with_limit (thread_num, pm1data.stage1_prime, (uint32_t) sqrt((double) pm1data.B), &pm1data.sieve_info);
 	if (stop_reason) goto exit;
 
-/* Loop doing small batches of primes until interim_B is finished.  Default batch size is based on FFT length (30000 bits for a 4K FFT). */
+/* Loop doing small batches of primes until interim_B is finished.  Default batch size is based on FFT length (on my aging Broadwell CPUs I get */
+/* about 200000 squarings for a single core in 3 seconds on a 4K FFT, since exponentiation also does some multiplies I chose 150000 bits as the default). */
 
-	stage1_batch_size = IniGetInt (INI_FILE, "Stage1BatchSize", (int) (30000.0 / ((double) pm1data.gwdata.FFTLEN / 4096.0)));
+	stage1_batch_size = (int) ((double) IniGetInt (INI_FILE, "Stage1BatchSize", 150000) / ((double) pm1data.gwdata.FFTLEN / 4096.0));
+
+/* Most likely we are working on small exponents where 100MB of memory gives us all the temporaries we could possibly want.  If so, skip the variable */
+/* mem usage routines. */
+
+	if (cvt_gwnums_to_mem (&pm1data.gwdata, 513) <= 100) {
+		stage1_temps = cvt_mem_to_gwnums (&pm1data.gwdata, 100);
+	} else {
+		unsigned int memory;
+		stop_reason = avail_mem (thread_num, cvt_gwnums_to_mem (&pm1data.gwdata, 8), cvt_gwnums_to_mem (&pm1data.gwdata, 150), &memory);
+		if (stop_reason) { pm1_save (&pm1data); goto exit;}
+		stage1_temps = cvt_mem_to_gwnums (&pm1data.gwdata, memory);
+	}
+	stage1_temps = IniGetInt (INI_FILE, "Stage1Temps", stage1_temps);
+
+	// We probably won't use more than 500 temps
+	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pm1data.gwdata, _intmin (stage1_temps, 500)));
+
+	// Loop processing small batches of primes
 	for (pm1data.stage1_prime = sieve (pm1data.sieve_info); pm1data.stage1_prime < pm1data.interim_B; ) {
 
 		// Calc a new exponent for exponentiate.  This is our small batch.  Batch sizes should be smallish as they cannot be interrupted.
@@ -7783,7 +7799,7 @@ restart1:
 		gwerror_checking (&pm1data.gwdata, echk);
 
 		// Do some exponentiating
-		exponentiate_mpz (&pm1data.gwdata, pm1data.x, exp);
+		exponentiate_mpz_limited_temps (&pm1data.gwdata, pm1data.x, exp, stage1_temps);
 		mpz_clear (exp), exp_initialized = FALSE;
 
 /* Test for an error */
@@ -7840,7 +7856,6 @@ restart1:
 			if (stop_reason) goto exit;
 		}
 	}
-	gwfree (&pm1data.gwdata, tmp_gwnum);
 	pm1data.B_done = pm1data.interim_B;
 	end_timer (timers, 0);
 
@@ -7889,6 +7904,7 @@ more_B:		pm1data.interim_B = pm1data.B;
 		strcpy (buf, "Stage 1 GCD complete. Time: ");
 		print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
 		OutputStr (thread_num, buf);
+		pm1data.state = PM1_STATE_DONE;
 		if (factor != NULL) goto bingo;
 		// No factor found and no second stage
 		goto msg_and_exit;

@@ -9,6 +9,10 @@
 #include "common.h"		// Included in all GIMPS sources
 #include "exponentiate.h"
 
+// Macro copied from commonb.h
+
+#define cvt_mem_to_gwnums(g,m) ((unsigned long)(((double)(m)*1048576.0-1000000.0-(double)gwmemused(g))/(double)gwnum_size(g)))
+
 // This version is a simple left-to-right powering
 
 // Raise a gwnum to a power
@@ -129,185 +133,150 @@ void exponentiate_window3 (gwhandle *gwdata, gwnum x, uint64_t *power, int array
 	gwfree (gwdata, x7);
 }
 
-// Raise a gwnum to a power.  This version uses a 4-bit windowing scheme to reduce multiplies even more.
-
-void exponentiate_window4 (gwhandle *gwdata, gwnum x, uint64_t *power, int arraylen)
-{
-	gwnum	xm[16];			// Scratch gwnums for code to use
-	int	current_bit, top4;
-	bool	first_squaring_done;
-
-	// Allocate space for temporaries
-	for (int i = 1; i <= 15; i += 2) {
-		xm[i] = gwalloc (gwdata);
-//BUG		if (xm[i] == NULL) goto oom;
-	}
-
-	// Pre-compute x^1, x^3, x^5, ... x^15
-	gwfft (gwdata, x, xm[1]);
-	gwmul3 (gwdata, xm[1], xm[1], xm[15], GWMUL_STARTNEXTFFT);
-	for (int i = 3; i <= 15; i += 2) gwmul3 (gwdata, xm[15], xm[i-2], xm[i], GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
-
-	// Find the topmost bit in power
-	current_bit = arraylen * 64 - 1;
-	while (!is_bit_set (power, current_bit)) current_bit--;
-
-	// Special case the first 4 bits of the exponent.
-	top4 = 8;
-	if (is_bit_set (power, current_bit - 1)) top4 += 4;
-	if (is_bit_set (power, current_bit - 2)) top4 += 2;
-	if (is_bit_set (power, current_bit - 3)) top4 += 1;
-	if ((top4 & 1) == 0)
-		gwmul3 (gwdata, xm[top4-1], xm[top4+1], x, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
-	else
-		gwmul3 (gwdata, xm[top4], xm[top4], x, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
-	first_squaring_done = 1;	// Set flag indicating we've already done the first squaring needed in exponentiate loop
-
-	// Sliding window exponentiate
-	for (current_bit -= 4; current_bit >= 0; current_bit--) {
-		int	mult;
-		if (first_squaring_done) first_squaring_done = 0;
-		else gwsquare2 (gwdata, x, x, current_bit || is_bit_set (power, 0) ? GWMUL_STARTNEXTFFT : 0);
-		if (!is_bit_set (power, current_bit)) continue;
-		// We have a window starting with a set bit, see if we want to apply x^1, x^3, x^5, x^7, x^9, x^11, x^13, or x^15
-		if (current_bit >= 3 && is_bit_set (power, current_bit - 3)) {
-			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
-			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
-			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
-			mult = 9;
-			if (is_bit_set (power, current_bit - 1)) mult += 4;
-			if (is_bit_set (power, current_bit - 2)) mult += 2;
-			current_bit -= 3;
-		} else if (current_bit >= 2 && is_bit_set (power, current_bit - 2)) {
-			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
-			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
-			mult = 5;
-			if (is_bit_set (power, current_bit - 1)) mult += 2;
-			current_bit -= 2;
-		} else if (current_bit >= 1 && is_bit_set (power, current_bit - 1)) {	// Apply x^3
-			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
-			mult = 3;
-			current_bit -= 1;
-		} else {				// Apply x^1
-			mult = 1;
-		}
-		gwmul3 (gwdata, xm[mult], x, x, GWMUL_FFT_S1 | (current_bit != 0 ? GWMUL_STARTNEXTFFT : 0));
-	}
-
-	// Free allocated memory
-	for (int i = 1; i <= 15; i += 2) gwfree (gwdata, xm[i]);
-}
-
 // Raise a gwnum to a power.  This version uses a 5-bit windowing scheme to reduce multiplies even more.
 
-void exponentiate_window5 (gwhandle *gwdata, gwnum x, uint64_t *power, int arraylen)
+void exponentiate_windowed (gwhandle *gwdata, gwnum x, uint64_t *power, int bitlen, int num_temps)
 {
-	gwnum	xm[32];			// Scratch gwnums for code to use
-	int	current_bit, top5;
+	gwnum	*xm;			// Scratch gwnums for code to use
+	int	max_mult, current_bit, topbits;
 	bool	first_squaring_done;
 
+	// Allocate space for array of temporaries
+	max_mult = num_temps * 2 - 1;
+	xm = (gwnum *) malloc ((max_mult + 1) * sizeof (gwnum));
+
 	// Allocate space for temporaries
-	for (int i = 1; i <= 31; i += 2) {
+	for (int i = 1; i <= max_mult; i += 2) {
 		xm[i] = gwalloc (gwdata);
-//BUG		if (xm[i] == NULL) goto oom;
+		if (xm[i] == NULL) {
+			max_mult = i - 2;
+			break;
+		}
 	}
 
-	// Pre-compute x^1, x^3, x^5, ... x^31
+	// Pre-compute x^1, x^3, x^5, ... x^max_mult
 	gwfft (gwdata, x, xm[1]);
-	gwmul3 (gwdata, xm[1], xm[1], xm[31], GWMUL_STARTNEXTFFT);
-	for (int i = 3; i <= 31; i += 2) gwmul3 (gwdata, xm[31], xm[i-2], xm[i], GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+	gwmul3 (gwdata, xm[1], xm[1], xm[max_mult], GWMUL_STARTNEXTFFT);
+	for (int i = 3; i <= max_mult; i += 2) gwmul3 (gwdata, xm[max_mult], xm[i-2], xm[i], GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 
-	// Find the topmost bit in power
-	current_bit = arraylen * 64 - 1;
-	while (!is_bit_set (power, current_bit)) current_bit--;
-
-	// Special case the first 4 bits of the exponent.
-	top5 = 16;
-	if (is_bit_set (power, current_bit - 1)) top5 += 8;
-	if (is_bit_set (power, current_bit - 2)) top5 += 4;
-	if (is_bit_set (power, current_bit - 3)) top5 += 2;
-	if (is_bit_set (power, current_bit - 4)) top5 += 1;
-	if ((top5 & 1) == 0)
-		gwmul3 (gwdata, xm[top5-1], xm[top5+1], x, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+	// Special case the top bits of the exponent
+	for (topbits = 1, current_bit = bitlen - 2; topbits + topbits + 1 <= max_mult; current_bit--)
+		topbits = topbits + topbits + (is_bit_set (power, current_bit) ? 1 : 0);
+	if ((topbits & 1) == 0)
+		gwmul3 (gwdata, xm[topbits-1], xm[topbits+1], x, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 	else
-		gwmul3 (gwdata, xm[top5], xm[top5], x, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+		gwmul3 (gwdata, xm[topbits], xm[topbits], x, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 	first_squaring_done = 1;	// Set flag indicating we've already done the first squaring needed in exponentiate loop
 
 	// Sliding window exponentiate
-	for (current_bit -= 5; current_bit >= 0; current_bit--) {
+	while (current_bit >= 0) {
 		int	mult;
 		if (first_squaring_done) first_squaring_done = 0;
 		else gwsquare2 (gwdata, x, x, current_bit || is_bit_set (power, 0) ? GWMUL_STARTNEXTFFT : 0);
-		if (!is_bit_set (power, current_bit)) continue;
-		// We have a window starting with a set bit, see if we want to apply x^1, x^3, ... x^31
-		if (current_bit >= 4 && is_bit_set (power, current_bit - 4)) {
-			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
-			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
-			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
-			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
-			mult = 17;
-			if (is_bit_set (power, current_bit - 1)) mult += 8;
-			if (is_bit_set (power, current_bit - 2)) mult += 4;
-			if (is_bit_set (power, current_bit - 3)) mult += 2;
-			current_bit -= 4;
-		} else if (current_bit >= 3 && is_bit_set (power, current_bit - 3)) {
-			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
-			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
-			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
-			mult = 9;
-			if (is_bit_set (power, current_bit - 1)) mult += 4;
-			if (is_bit_set (power, current_bit - 2)) mult += 2;
-			current_bit -= 3;
-		} else if (current_bit >= 2 && is_bit_set (power, current_bit - 2)) {
-			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
-			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
-			mult = 5;
-			if (is_bit_set (power, current_bit - 1)) mult += 2;
-			current_bit -= 2;
-		} else if (current_bit >= 1 && is_bit_set (power, current_bit - 1)) {	// Apply x^3
-			gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
-			mult = 3;
-			current_bit -= 1;
-		} else {				// Apply x^1
-			mult = 1;
-		}
+		if (!is_bit_set (power, current_bit)) { current_bit--; continue; }
+		// We have a window starting with a set bit, see if we want to apply x^1, x^3, ... x^max_bits
+		for (mult = 1, current_bit--; current_bit >= 0 && mult + mult + 1 <= max_mult; current_bit--)
+			mult = mult + mult + (is_bit_set (power, current_bit) ? 1 : 0);
+		while ((mult & 1) == 0) mult >>= 1, current_bit++;
+		for (int temp = mult; temp > 1; temp >>= 1) gwsquare2 (gwdata, x, x, GWMUL_STARTNEXTFFT);
 		gwmul3 (gwdata, xm[mult], x, x, GWMUL_FFT_S1 | (current_bit != 0 ? GWMUL_STARTNEXTFFT : 0));
 	}
 
 	// Free allocated memory
-	for (int i = 1; i <= 31; i += 2) gwfree (gwdata, xm[i]);
+	for (int i = 1; i <= max_mult; i += 2) gwfree (gwdata, xm[i]);
+	free (xm);
 }
 
 // Internal routine to call an exponentiate routine that uses the appropriate window size
 
-void exponentiate_array (gwhandle *gwdata, gwnum x, uint64_t *power, int arraylen)
+void exponentiate_array (gwhandle *gwdata, gwnum x, uint64_t *power, int arraylen, int num_temps)
 {
 	// Handle simple cases.  In theory, window size 3 breaks even with simple exponentiation at around 9 bits.
 	while (arraylen >= 1 && power[arraylen-1] == 0) arraylen--;
-	if (arraylen <= 0) { simple_exponentiate (gwdata, x, 0); return; }
-	if (arraylen == 1 && power[0] <= 256) simple_exponentiate (gwdata, x, *power);
-	// In theory, window size 4 breaks even with window size 3 at about 64 bits
-	else if (arraylen == 1) exponentiate_window3 (gwdata, x, power, arraylen);
-	// In theory, window size 5 breaks even with window size 4 at about 209 bits
-	else if (arraylen <= 3 || power[3] < 131072) exponentiate_window4 (gwdata, x, power, arraylen);
-	else exponentiate_window5 (gwdata, x, power, arraylen);
+	// For extra safety, use legacy code for small exponentiations
+	if (arraylen <= 1) {
+		if (arraylen == 0 || power[0] <= 256) simple_exponentiate (gwdata, x, 0);
+		else exponentiate_window3 (gwdata, x, power, arraylen);
+	}
+	// This formula is the expected number of squarings/multiplies for a window size of 3 (8 gwnum temps):  9 + (len-5) + (len-4)/5
+	// Generalize this formula to "temps+1 + (len-(log2(temps)+2)) + (len-(log2(temps)+1))/(log2(temps)+2)" and use a binary
+	// search to find the best number of temps.
+	else {
+		int	bitlen;
+		struct {
+			int	temps;		/* Number of temps to use */
+			double	cost;		/* Expected cost in squarings/multiplies */
+		} best[3], midpoint;
+		#define expcost(x,t)	x.temps = t, x.cost = (t+1) + (bitlen-(log2(t)+2)) + (bitlen-(log2(t)+1))/(log2(t)+2)
+
+		// Compute the bitlength of the power
+		for (bitlen = arraylen * 64; !is_bit_set (power, bitlen-1); bitlen--);
+
+		// Three random starting points for binary searching
+		expcost (best[0], 8);
+		expcost (best[1], 250);
+		expcost (best[2], 500);
+
+		// Handle case where midpoint is worse than the start point.  Search code requires best[1] is better than best[0] and best[2].
+		while (best[0].cost < best[1].cost) {
+			best[2] = best[1];
+			expcost (best[1], (best[0].temps + best[2].temps) / 2);
+		}
+		// Handle case where midpoint is worse than the end point.  Search code requires best[1] is better than best[0] and best[2].
+		while (best[1].cost > best[2].cost) {
+			best[0] = best[1];
+			best[1] = best[2];
+			expcost (best[2], best[1].temps * 2);
+		}
+
+		// Find the best number of temps
+		while (best[0].temps + 2 != best[2].temps) {
+			// Work on the bigger of the lower section and upper section
+			if (best[1].temps - best[0].temps > best[2].temps - best[1].temps) {	// Work on lower section
+				expcost (midpoint, (best[0].temps + best[1].temps) / 2);
+				if (midpoint.cost < best[1].cost) {				// Make middle the new end point
+					best[2] = best[1];
+					best[1] = midpoint;
+				} else {							// Create new start point
+					best[0] = midpoint;
+				}
+			} else {								// Work on upper section
+				expcost (midpoint, (best[1].temps + best[2].temps) / 2);
+				if (midpoint.cost < best[1].cost) {				// Make middle the new start point
+					best[0] = best[1];
+					best[1] = midpoint;
+				} else {							// Create new end point
+					best[2] = midpoint;
+				}
+			}
+		}
+
+		// Exponentiate using optimal number of temps
+		exponentiate_windowed (gwdata, x, power, bitlen, _intmin (num_temps, best[1].temps));
+	}
 }
 
 // Raise a gwnum to a power
 void exponentiate (gwhandle *gwdata, gwnum x, uint64_t power)
 {
-	exponentiate_array (gwdata, x, &power, 1);
+	exponentiate_array (gwdata, x, &power, 1, 16);
 }
 
-// Raise a gwnum to a mpz power
+// Raise a gwnum to a mpz power (assume 1GB memory available for temps
 void exponentiate_mpz (gwhandle *gwdata, gwnum x, mpz_t power)
+{
+	exponentiate_mpz_limited_temps (gwdata, x, power, cvt_mem_to_gwnums (gwdata, 1024));
+}
+
+// Raise a gwnum to a mpz power using a maximum number of temporaries
+void exponentiate_mpz_limited_temps (gwhandle *gwdata, gwnum x, mpz_t power, int num_temps)
 {
 	uint64_t *array;
 	size_t	len;
 
 	array = (uint64_t *) malloc (divide_rounding_up (mpz_sizeinbase (power, 2), 64) * sizeof (uint64_t));
 	mpz_export (array, &len, -1, sizeof (uint64_t), 0, 0, power);
-	exponentiate_array (gwdata, x, array, (int) len);
+	exponentiate_array (gwdata, x, array, (int) len, num_temps);
 	free (array);
 }
 
