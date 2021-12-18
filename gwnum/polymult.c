@@ -60,15 +60,13 @@
 // 44) Cache several sincos tables for different FFT sizes.
 // 45) If twiddle_stride gets large, build a smaller twiddle table for smaller strides.
 // 46) Look for more FMA opportunities.
-// 47) Combine last fft step with pointmul and first invfft step?  Can save a memory read/write.
 // 48) Test if hyperthreading is beneficial
 // 49) Problems if FFT(1)!=1!!! The pointwise mul code ought to divide by FFT(1) OR have a special asm entry point for unfft that deals with data that
 //	has already had a pointwise mul.  Furthermore, the monic_adjustments code can't simply add data - it must add FFT(1)*data.
 // 51) Scratch area (like prime95) to avoid large strides,  Read_partial_line could populate the scratch area (makes monic_adjustment difficult)?
 // 52) Half-sized DCT for RLPs?  The DJB FFTs may make reordering DCT outputs for an inverse FFT tricky.
 // 53) Can P-1's circular monic-poly times monic-RLP be safely done without monic_adjustments allowing us to save the FFT'ed RLP that is half-sized due to DCT?
-// 54) Write monolithic two-forward-FFTs-pointmul-and-one-inverse-FFT routine.  If we optimize for half the cache size it should save some memory read/writes.
-//	poly1 rw rw, poly2 rw rrw rw	vs. monolithic:   rrww rrw rw
+// 54) Does monolithic two-forward-FFTs-pointmul-and-one-inverse-FFT routine suggest different preferred pass sizes (use half the L2 cache)?
 // 55) For VFMA machines, store twiddles as cos/sin, sin to allow a few more FMA opportunities
 
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
@@ -92,8 +90,6 @@ void polymult_line_avx512 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, 
 #define	brute_line	brute_line_avx512
 #define	karatsuba_line	karatsuba_line_avx512
 #define	fft_line	fft_line_avx512
-#define	invfft_line	invfft_line_avx512
-#define	pointmul_line	pointmul_line_avx512
 #define pick_pass_sizes	pick_pass_sizes_avx512
 #define	monic_line_add_hi monic_line_add_hi_avx512
 #define	monic_line_add_lo monic_line_add_lo_avx512
@@ -115,8 +111,6 @@ void polymult_line_avx512 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, 
 #define	brute_line	brute_line_fma
 #define	karatsuba_line	karatsuba_line_fma
 #define	fft_line	fft_line_fma
-#define	invfft_line	invfft_line_fma
-#define	pointmul_line	pointmul_line_fma
 #define pick_pass_sizes	pick_pass_sizes_fma
 #define	monic_line_add_hi monic_line_add_hi_fma
 #define	monic_line_add_lo monic_line_add_lo_fma
@@ -138,8 +132,6 @@ void polymult_line_avx512 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, 
 #define	brute_line	brute_line_avx
 #define	karatsuba_line	karatsuba_line_avx
 #define	fft_line	fft_line_avx
-#define	invfft_line	invfft_line_avx
-#define	pointmul_line	pointmul_line_avx
 #define pick_pass_sizes	pick_pass_sizes_avx
 #define	monic_line_add_hi monic_line_add_hi_avx
 #define	monic_line_add_lo monic_line_add_lo_avx
@@ -158,8 +150,6 @@ void polymult_line_avx512 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, 
 #define	brute_line	brute_line_sse2
 #define	karatsuba_line	karatsuba_line_sse2
 #define	fft_line	fft_line_sse2
-#define	invfft_line	invfft_line_sse2
-#define	pointmul_line	pointmul_line_sse2
 #define pick_pass_sizes	pick_pass_sizes_sse2
 #define	monic_line_add_hi monic_line_add_hi_sse2
 #define	monic_line_add_lo monic_line_add_lo_sse2
@@ -178,8 +168,6 @@ void polymult_line_avx512 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, 
 #define	brute_line	brute_line_dbl
 #define	karatsuba_line	karatsuba_line_dbl
 #define	fft_line	fft_line_dbl
-#define	invfft_line	invfft_line_dbl
-#define	pointmul_line	pointmul_line_dbl
 #define pick_pass_sizes	pick_pass_sizes_dbl
 #define	monic_line_add_hi monic_line_add_hi_dbl
 #define	monic_line_add_lo monic_line_add_lo_dbl
@@ -1220,466 +1208,46 @@ void pick_pass_sizes (
 }
 #endif
 
-#ifdef ONE_PASS_FFTS
+// Perform forward FFT, pointmul, inverse FFT in as few passes over memory as possible.
+// This routine can be called several different ways:
+#define	FORWARD_FFT_INVEC1	0x1	// Forward FFT invec1 required
+#define	FORWARD_FFT_INVEC2	0x2	// Forward FFT invec2 required
+#define FORWARD_FFT_ONLY	0x4	// No pointwise multiply and inverse FFT
 
 void fft_line (
 	pmhandle *pmdata,		// Handle for polymult library
-	CVDT	*vec,			// Array of complex values
+	CVDT	*invec1,		// Array of complex values
+	CVDT	*invec2,		// Array of complex values
+	CVDT	*outvec,		// Array of complex values
 	CVDT	*scratch,		// Scratch area for two-pass FFTs       
-	unsigned int fft_size)		// The fft size
-{
-	unsigned int size = fft_size;		// The current group size to process
-	unsigned int stride;			// Stride through FFT data
-	unsigned int twiddle_stride;		// Stride through the twiddles data
-
-	generate_sincos (pmdata, fft_size);
-
-	// Radix-3 FFT
-	// A 3-complex FFT is:
-	// Res1:  (R1+R2+R3) + (I1+I2+I3)i
-	// Res2:  (R1-.5R2-.5R3-.866I2+.866I3) + (I1-.5I2-.5I3+.866R2-.866R3)i
-	// Res3:  (R1-.5R2-.5R3+.866I2-.866I3) + (I1-.5I2-.5I3-.866R2+.866R3)i
-	twiddle_stride = 1;
-	for ( ; size % 3 == 0; size /= 3, twiddle_stride *= 3) {
-		stride = size / 3;
-		VDT half = broadcastsd (0.5);
-		VDT _866 = broadcastsd (0.86602540378443864676372317075294);
-		for (unsigned int group = 0; group < fft_size; group += stride * 3) {
-			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += twiddle_stride) {
-				CVDT a = vec[group + group_member];
-				CVDT b = vec[group + group_member + stride];
-				CVDT c = vec[group + group_member + 2*stride];
-
-				CVDT b_plus_c; cvadd (b_plus_c, b, c);				// b + c
-
-#if !VFMA
-				VDT real_tmp23a = fnmaddpd (half, b_plus_c.real, a.real);	// a - 0.5 * (b + c)
-				VDT imag_tmp23a = fnmaddpd (half, b_plus_c.imag, a.imag);
-				VDT real_tmp23b = mulpd (_866, subpd (b.imag, c.imag));		// 0.866 * (b - c)
-				VDT imag_tmp23b = mulpd (_866, subpd (b.real, c.real));
-				b.real = subpd (real_tmp23a, real_tmp23b);			// combine 23a and 23b
-				b.imag = addpd (imag_tmp23a, imag_tmp23b);
-				c.real = addpd (real_tmp23a, real_tmp23b);
-				c.imag = subpd (imag_tmp23a, imag_tmp23b);
-#else
-				VDT real_tmp23a = fnmaddpd (half, b_plus_c.real, a.real);	// a - 0.5 * (b + c)
-				VDT imag_tmp23a = fnmaddpd (half, b_plus_c.imag, a.imag);
-				VDT real_tmp23b = subpd (b.imag, c.imag);			// 0.866 delayed * (b - c)
-				VDT imag_tmp23b = subpd (b.real, c.real);
-				b.real = fnmaddpd (_866, real_tmp23b, real_tmp23a);		// combine 23a and 23b
-				b.imag = fmaddpd  (_866, imag_tmp23b, imag_tmp23a);
-				c.real = fmaddpd  (_866, real_tmp23b, real_tmp23a);
-				c.imag = fnmaddpd (_866, imag_tmp23b, imag_tmp23a);
-#endif
-
-				cvadd (a, a, b_plus_c);						// a + b + c
-				vec[group + group_member] = a;
-				if (group_member == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-					vec[group + group_member + stride]   = b;
-					vec[group + group_member + 2*stride] = c;
-				}
-				else {			// Apply twiddles
-					CVDT twiddle1; cvload (twiddle1, pmdata->twiddles1[2*twiddle_idx], pmdata->twiddles1[2*twiddle_idx+1]);
-					cvmul     (vec[group + group_member + stride], b, twiddle1);
-					cvconjmul (vec[group + group_member + 2*stride], c, twiddle1);
-				}
-			}
-		}
-	}
-
-	// Radix-5 FFT
-	// R1= r1     +(r2+r5)     +(r3+r4)
-	// R2= r1 +.309(r2+r5) -.809(r3+r4)    -.951(i2-i5) -.588(i3-i4)
-	// R5= r1 +.309(r2+r5) -.809(r3+r4)    +.951(i2-i5) +.588(i3-i4)
-	// R3= r1 -.809(r2+r5) +.309(r3+r4)    -.588(i2-i5) +.951(i3-i4)
-	// R4= r1 -.809(r2+r5) +.309(r3+r4)    +.588(i2-i5) -.951(i3-i4)
-	// I1= i1     +(i2+i5)     +(i3+i4)
-	// I2= i1 +.309(i2+i5) -.809(i3+i4)    +.951(r2-r5) +.588(r3-r4)
-	// I5= i1 +.309(i2+i5) -.809(i3+i4)    -.951(r2-r5) -.588(r3-r4)
-	// I3= i1 -.809(i2+i5) +.309(i3+i4)    +.588(r2-r5) -.951(r3-r4)
-	// I4= i1 -.809(i2+i5) +.309(i3+i4)    -.588(r2-r5) +.951(r3-r4)
-	twiddle_stride = 1;
-	for ( ; size % 5 == 0; size /= 5, twiddle_stride *= 5) {
-		VDT _309 = broadcastsd (0.30901699437494742410229341718282);
-		VDT _809 = broadcastsd (0.80901699437494742410229341718282);
-		VDT _951 = broadcastsd (0.95105651629515357211643933337938);
-		VDT _588_951 = broadcastsd (0.61803398874989484820458683436564);
-		stride = size / 5;
-		for (unsigned int group = 0; group < fft_size; group += stride * 5) {
-			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += 2*twiddle_stride) {
-				CVDT a = vec[group + group_member];
-				CVDT b = vec[group + group_member + stride];
-				CVDT c = vec[group + group_member + 2*stride];
-				CVDT d = vec[group + group_member + 3*stride];
-				CVDT e = vec[group + group_member + 4*stride];
-
-				CVDT b_plus_e; cvadd (b_plus_e, b, e);				// b + e
-				CVDT c_plus_d; cvadd (c_plus_d, c, d);				// c + d
-				CVDT b_minus_e; cvsub (b_minus_e, b, e);			// b - e
-				CVDT c_minus_d; cvsub (c_minus_d, c, d);			// c - d
-
-#if !VFMA
-				VDT real_tmp25a = fmaddpd (_309, b_plus_e.real, fnmaddpd (_809, c_plus_d.real, a.real)); // a +.309*(b+e) -.809*(c+d)
-				VDT imag_tmp25a = fmaddpd (_309, b_plus_e.imag, fnmaddpd (_809, c_plus_d.imag, a.imag));
-				VDT real_tmp34a = fnmaddpd (_809, b_plus_e.real, fmaddpd (_309, c_plus_d.real, a.real)); // a -.809*(b+e) +.309*(c+d)
-				VDT imag_tmp34a = fnmaddpd (_809, b_plus_e.imag, fmaddpd (_309, c_plus_d.imag, a.imag));
-				VDT real_tmp25b = mulpd (_951, fmaddpd (_588_951, c_minus_d.imag, b_minus_e.imag));	// .951*(b-e) + 0.588*(c-d)
-				VDT imag_tmp25b = mulpd (_951, fmaddpd (_588_951, c_minus_d.real, b_minus_e.real));
-				VDT real_tmp34b = mulpd (_951, fmsubpd (_588_951, b_minus_e.imag, c_minus_d.imag));	// .588*(b-e) - 0.951*(c-d)
-				VDT imag_tmp34b = mulpd (_951, fmsubpd (_588_951, b_minus_e.real, c_minus_d.real));
-				b.real = subpd (real_tmp25a, real_tmp25b);				// combine 25a and 25b
-				b.imag = addpd (imag_tmp25a, imag_tmp25b);
-				e.real = addpd (real_tmp25a, real_tmp25b);
-				e.imag = subpd (imag_tmp25a, imag_tmp25b);
-				c.real = subpd (real_tmp34a, real_tmp34b);				// combine 34a and 34b
-				c.imag = addpd (imag_tmp34a, imag_tmp34b);
-				d.real = addpd (real_tmp34a, real_tmp34b);
-				d.imag = subpd (imag_tmp34a, imag_tmp34b);
-#else
-				VDT real_tmp25a = fmaddpd (_309, b_plus_e.real, fnmaddpd (_809, c_plus_d.real, a.real)); // a +.309*(b+e) -.809*(c+d)
-				VDT imag_tmp25a = fmaddpd (_309, b_plus_e.imag, fnmaddpd (_809, c_plus_d.imag, a.imag));
-				VDT real_tmp34a = fnmaddpd (_809, b_plus_e.real, fmaddpd (_309, c_plus_d.real, a.real)); // a -.809*(b+e) +.309*(c+d)
-				VDT imag_tmp34a = fnmaddpd (_809, b_plus_e.imag, fmaddpd (_309, c_plus_d.imag, a.imag));
-				VDT real_tmp25b = fmaddpd (_588_951, c_minus_d.imag, b_minus_e.imag);			// delayed .951*(b-e) + 0.588*(c-d)
-				VDT imag_tmp25b = fmaddpd (_588_951, c_minus_d.real, b_minus_e.real);
-				VDT real_tmp34b = fmsubpd (_588_951, b_minus_e.imag, c_minus_d.imag);			// delayed .588*(b-e) - 0.951*(c-d)
-				VDT imag_tmp34b = fmsubpd (_588_951, b_minus_e.real, c_minus_d.real);
-				b.real = fnmaddpd (_951, real_tmp25b, real_tmp25a);				// combine 25a and 25b
-				b.imag = fmaddpd  (_951, imag_tmp25b, imag_tmp25a);
-				e.real = fmaddpd  (_951, real_tmp25b, real_tmp25a);
-				e.imag = fnmaddpd (_951, imag_tmp25b, imag_tmp25a);
-				c.real = fnmaddpd (_951, real_tmp34b, real_tmp34a);				// combine 34a and 34b
-				c.imag = fmaddpd  (_951, imag_tmp34b, imag_tmp34a);
-				d.real = fmaddpd  (_951, real_tmp34b, real_tmp34a);
-				d.imag = fnmaddpd (_951, imag_tmp34b, imag_tmp34a);
-#endif
-
-				cvadd (a, a, b_plus_e);							// a + b + c + d + e
-				cvadd (a, a, c_plus_d);
-				vec[group + group_member]   = a;
-				if (group_member == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-					vec[group + group_member + stride]   = b;
-					vec[group + group_member + 2*stride] = c;
-					vec[group + group_member + 3*stride] = d;
-					vec[group + group_member + 4*stride] = e;
-				}
-				else {			// Apply twiddles
-					CVDT twiddle1; cvload (twiddle1, pmdata->twiddles2[4*twiddle_idx], pmdata->twiddles2[4*twiddle_idx+1]);
-					CVDT twiddle2; cvload (twiddle2, pmdata->twiddles2[4*twiddle_idx+2], pmdata->twiddles2[4*twiddle_idx+3]);
-					cvmul     (vec[group + group_member + stride], b, twiddle1);
-					cvmul     (vec[group + group_member + 2*stride], c, twiddle2);
-					cvconjmul (vec[group + group_member + 3*stride], d, twiddle2);
-					cvconjmul (vec[group + group_member + 4*stride], e, twiddle1);
-				}
-			}
-		}
-	}
-
-	// Radix-4 FFT, one fewer complex multiply than radix-2, does more work while data is in registers
-	for ( ; size % 4 == 0; size /= 4, twiddle_stride *= 4) {
-		stride = size / 4;
-		for (unsigned int group = 0; group < fft_size; group += stride * 4) {
-			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += 2*twiddle_stride) {
-				CVDT a = vec[group + group_member];
-				CVDT b = vec[group + group_member + stride];
-				CVDT c = vec[group + group_member + 2*stride];
-				CVDT d = vec[group + group_member + 3*stride];
-
-				CVDT new_a; cvadd (new_a, a, c);			// a + c
-				CVDT new_c; cvsub (new_c, a, c);			// a - c
-				CVDT new_b; cvadd (new_b, b, d);			// b + d
-				CVDT new_d; cvsub (new_d, b, d);			// b - d
-
-				cvadd (a, new_a, new_b);				// a + b
-				cvsub (b, new_a, new_b);				// a - b
-				c.real = subpd (new_c.real, new_d.imag);		// c + id
-				c.imag = addpd (new_c.imag, new_d.real);
-				d.real = addpd (new_c.real, new_d.imag);		// c - id
-				d.imag = subpd (new_c.imag, new_d.real);
-
-				vec[group + group_member]   = a;
-				if (group_member == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-					vec[group + group_member + stride]     = b;
-					vec[group + group_member + 2*stride]   = c;
-					vec[group + group_member + 3*stride]   = d;
-				}
-				else {			// Apply twiddles
-					CVDT twiddle1; cvload (twiddle1, pmdata->twiddles2[2*twiddle_idx], pmdata->twiddles2[2*twiddle_idx+1]);
-					CVDT twiddle2; cvload (twiddle2, pmdata->twiddles2[2*(twiddle_idx+1)], pmdata->twiddles2[2*(twiddle_idx+1)+1]);
-					cvmul     (vec[group + group_member + stride], b, twiddle2);
-					cvmul     (vec[group + group_member + 2*stride], c, twiddle1);
-					cvconjmul (vec[group + group_member + 3*stride], d, twiddle1);
-				}
-			}
-		}
-	}
-
-	// Radix-2 FFT
-	if (size == 2) {
-		stride = 1;		// Stride for this radix-2 step
-		for (unsigned int group = 0; group < fft_size; group += stride * 2) {
-			for (unsigned int group_member = 0; group_member < stride; group_member++) {
-				CVDT a = vec[group + group_member];
-				CVDT b = vec[group + group_member + stride];
-				cvadd (vec[group + group_member], a, b);
-				cvsub (vec[group + group_member + stride], a, b);
-			}
-		}
-	}
-}
-
-void invfft_line (
-	pmhandle *pmdata,		// Handle for polymult library
-	CVDT	*vec,			// Array of complex values
-	CVDT	*scratch,		// Scratch area for two-pass FFTs       
-	unsigned int fft_size)		// The fft size
-{
-	unsigned int stride;			// Stride through FFT data
-	unsigned int twiddle_stride;		// Stride through the twiddles data
-	unsigned int powers_of_two;
-
-	generate_sincos (pmdata, fft_size);
-
-	// Radix-2 FFT
-	stride = 1;										// First FFT data stride
-	for (twiddle_stride = fft_size;	twiddle_stride % 3 == 0; twiddle_stride /= 3);		// First twiddle stride
-	for (powers_of_two = 0; (fft_size & (1 << powers_of_two)) == 0; powers_of_two++);
-	if (powers_of_two & 1) {		// If odd number of powers of two do a radix-2 step
-		for (unsigned int group = 0; group < fft_size; group += stride * 2) {
-			for (unsigned int group_member = 0; group_member < stride; group_member++) {
-				CVDT a = vec[group + group_member];
-				CVDT b = vec[group + group_member + stride];
-				cvadd (vec[group + group_member], a, b);
-				cvsub (vec[group + group_member + stride], a, b);
-			}
-		}
-		stride *= 2;			// Next stride amount
-		twiddle_stride /= 2;		// Next twiddle stride amount
-		powers_of_two--;
-	}
-
-	// Radix-4 FFT, one fewer complex multiply than radix-2, does more work while data is in registers
-	for ( ; powers_of_two; powers_of_two -= 2, stride *= 4) {
-		twiddle_stride /= 4;
-		for (unsigned int group = 0; group < fft_size; group += stride * 4) {
-			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += 2*twiddle_stride) {
-				CVDT a = vec[group + group_member];
-				CVDT b = vec[group + group_member + stride];
-				CVDT c = vec[group + group_member + 2*stride];
-				CVDT d = vec[group + group_member + 3*stride];
-
-				// Special case first group member, no twiddles necessary
-				CVDT twiddled_b, twiddled_c, twiddled_d;
-				if (group_member == 0) {
-					twiddled_b = b;
-					twiddled_c = c;
-					twiddled_d = d;
-				}
-				// Apply the CONJUGATE of the twiddle
-				else {
-					CVDT twiddle1; cvload (twiddle1, pmdata->twiddles2[4*twiddle_idx], pmdata->twiddles2[4*twiddle_idx+1]);
-					CVDT twiddle2; cvload (twiddle2, pmdata->twiddles2[4*twiddle_idx+2], pmdata->twiddles2[4*twiddle_idx+3]);
-					cvconjmul (twiddled_b, b, twiddle1);
-					cvconjmul (twiddled_c, c, twiddle2);
-					cvmul     (twiddled_d, d, twiddle1);
-				}
-
-				CVDT new_a; cvadd (new_a, a, twiddled_b);			// a + b
-				CVDT new_b; cvsub (new_b, a, twiddled_b);			// a - b
-				CVDT new_c; cvadd (new_c, twiddled_c, twiddled_d);		// c + d
-				CVDT new_d; cvsub (new_d, twiddled_c, twiddled_d);		// c - d
-
-				cvadd  (a, new_a, new_c);					// a + c
-				cvsub  (c, new_a, new_c);					// a - c
-				cvisub (b, new_b, new_d);					// b - id
-				cviadd (d, new_b, new_d);					// b + id
-
-				// Save results
-				vec[group + group_member]            = a;
-				vec[group + group_member + stride]   = b;
-				vec[group + group_member + 2*stride] = c;
-				vec[group + group_member + 3*stride] = d;
-			}
-		}
-	}
-
-	// Radix-5 FFT
-	// R1= r1     +(r2+r5)     +(r3+r4)
-	// R2= r1 +.309(r2+r5) -.809(r3+r4)    +.951(i2-i5) +.588(i3-i4)
-	// R5= r1 +.309(r2+r5) -.809(r3+r4)    -.951(i2-i5) -.588(i3-i4)
-	// R3= r1 -.809(r2+r5) +.309(r3+r4)    +.588(i2-i5) -.951(i3-i4)
-	// R4= r1 -.809(r2+r5) +.309(r3+r4)    -.588(i2-i5) +.951(i3-i4)
-	// I1= i1     +(i2+i5)     +(i3+i4)
-	// I2= i1 +.309(i2+i5) -.809(i3+i4)    -.951(r2-r5) -.588(r3-r4)
-	// I5= i1 +.309(i2+i5) -.809(i3+i4)    +.951(r2-r5) +.588(r3-r4)
-	// I3= i1 -.809(i2+i5) +.309(i3+i4)    -.588(r2-r5) +.951(r3-r4)
-	// I4= i1 -.809(i2+i5) +.309(i3+i4)    +.588(r2-r5) -.951(r3-r4)
-	for ( ; (fft_size / stride) % 5 == 0; stride *= 5) {
-		twiddle_stride /= 5;
-		VDT _309 = broadcastsd (0.30901699437494742410229341718282);
-		VDT _809 = broadcastsd (0.80901699437494742410229341718282);
-		VDT _951 = broadcastsd (0.95105651629515357211643933337938);
-		VDT _588_951 = broadcastsd (0.61803398874989484820458683436564);
-		for (unsigned int group = 0; group < fft_size; group += stride * 5) {
-			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += 2*twiddle_stride) {
-				CVDT a = vec[group + group_member];
-				CVDT b = vec[group + group_member + stride];
-				CVDT c = vec[group + group_member + 2*stride];
-				CVDT d = vec[group + group_member + 3*stride];
-				CVDT e = vec[group + group_member + 4*stride];
-
-				// Special case first group member, no twiddles necessary
-				CVDT twiddled_b, twiddled_c, twiddled_d, twiddled_e;
-				if (group_member == 0) {
-					twiddled_b = b;
-					twiddled_c = c;
-					twiddled_d = d;
-					twiddled_e = e;
-				}
-				// Apply the CONJUGATE of the twiddle
-				else {
-					CVDT twiddle1; cvload (twiddle1, pmdata->twiddles2[4*twiddle_idx], pmdata->twiddles2[4*twiddle_idx+1]);
-					CVDT twiddle2; cvload (twiddle2, pmdata->twiddles2[4*twiddle_idx+2], pmdata->twiddles2[4*twiddle_idx+3]);
-					cvconjmul (twiddled_b, b, twiddle1);
-					cvconjmul (twiddled_c, c, twiddle2);
-					cvmul     (twiddled_d, d, twiddle2);
-					cvmul     (twiddled_e, e, twiddle1);
-				}
-
-				CVDT b_plus_e; cvadd (b_plus_e, twiddled_b, twiddled_e);			// b + e
-				CVDT c_plus_d; cvadd (c_plus_d, twiddled_c, twiddled_d);			// c + d
-				CVDT b_minus_e; cvsub (b_minus_e, twiddled_b, twiddled_e);			// b - e
-				CVDT c_minus_d; cvsub (c_minus_d, twiddled_c, twiddled_d);			// c - d
-
-#if !VFMA
-				VDT real_tmp25a = fmaddpd (_309, b_plus_e.real, fnmaddpd (_809, c_plus_d.real, a.real)); // a +.309*(b+e) -.809*(c+d)
-				VDT imag_tmp25a = fmaddpd (_309, b_plus_e.imag, fnmaddpd (_809, c_plus_d.imag, a.imag));
-				VDT real_tmp34a = fnmaddpd (_809, b_plus_e.real, fmaddpd (_309, c_plus_d.real, a.real)); // a -.809*(b+e) +.309*(c+d)
-				VDT imag_tmp34a = fnmaddpd (_809, b_plus_e.imag, fmaddpd (_309, c_plus_d.imag, a.imag));
-				VDT real_tmp25b = mulpd (_951, fmaddpd (_588_951, c_minus_d.imag, b_minus_e.imag));	// .951*(b-e) + 0.588*(c-d)
-				VDT imag_tmp25b = mulpd (_951, fmaddpd (_588_951, c_minus_d.real, b_minus_e.real));
-				VDT real_tmp34b = mulpd (_951, fmsubpd (_588_951, b_minus_e.imag, c_minus_d.imag));	// .588*(b-e) - 0.951*(c-d)
-				VDT imag_tmp34b = mulpd (_951, fmsubpd (_588_951, b_minus_e.real, c_minus_d.real));
-				b.real = addpd (real_tmp25a, real_tmp25b);				// combine 25a and 25b
-				b.imag = subpd (imag_tmp25a, imag_tmp25b);
-				e.real = subpd (real_tmp25a, real_tmp25b);
-				e.imag = addpd (imag_tmp25a, imag_tmp25b);
-				c.real = addpd (real_tmp34a, real_tmp34b);				// combine 34a and 34b
-				c.imag = subpd (imag_tmp34a, imag_tmp34b);
-				d.real = subpd (real_tmp34a, real_tmp34b);
-				d.imag = addpd (imag_tmp34a, imag_tmp34b);
-#else
-				VDT real_tmp25a = fmaddpd (_309, b_plus_e.real, fnmaddpd (_809, c_plus_d.real, a.real)); // a +.309*(b+e) -.809*(c+d)
-				VDT imag_tmp25a = fmaddpd (_309, b_plus_e.imag, fnmaddpd (_809, c_plus_d.imag, a.imag));
-				VDT real_tmp34a = fnmaddpd (_809, b_plus_e.real, fmaddpd (_309, c_plus_d.real, a.real)); // a -.809*(b+e) +.309*(c+d)
-				VDT imag_tmp34a = fnmaddpd (_809, b_plus_e.imag, fmaddpd (_309, c_plus_d.imag, a.imag));
-				VDT real_tmp25b = fmaddpd (_588_951, c_minus_d.imag, b_minus_e.imag);			// delayed .951*(b-e) + 0.588*(c-d)
-				VDT imag_tmp25b = fmaddpd (_588_951, c_minus_d.real, b_minus_e.real);
-				VDT real_tmp34b = fmsubpd (_588_951, b_minus_e.imag, c_minus_d.imag);			// delayed .588*(b-e) - 0.951*(c-d)
-				VDT imag_tmp34b = fmsubpd (_588_951, b_minus_e.real, c_minus_d.real);
-				b.real = fmaddpd  (_951, real_tmp25b, real_tmp25a);				// combine 25a and 25b
-				b.imag = fnmaddpd (_951, imag_tmp25b, imag_tmp25a);
-				e.real = fnmaddpd (_951, real_tmp25b, real_tmp25a);
-				e.imag = fmaddpd  (_951, imag_tmp25b, imag_tmp25a);
-				c.real = fmaddpd  (_951, real_tmp34b, real_tmp34a);				// combine 34a and 34b
-				c.imag = fnmaddpd (_951, imag_tmp34b, imag_tmp34a);
-				d.real = fnmaddpd (_951, real_tmp34b, real_tmp34a);
-				d.imag = fmaddpd  (_951, imag_tmp34b, imag_tmp34a);
-#endif
-
-				cvadd (a, a, b_plus_e);							// a + b + c + d + e
-				cvadd (a, a, c_plus_d);
-
-				// Save results
-				vec[group + group_member]              = a;
-				vec[group + group_member + stride]     = b;
-				vec[group + group_member + 2*stride]   = c;
-				vec[group + group_member + 3*stride]   = d;
-				vec[group + group_member + 4*stride]   = e;
-			}
-		}
-	}
-
-	// Radix-3 FFT
-	// A 3-complex inverse FFT is:
-	// Res1: (R1+R2+R3) + (I1+I2+I3)i
-	// Res2:  (R1-.5R2-.5R3+.866I2-.866I3) + (I1-.5I2-.5I3-.866R2+.866R3)i
-	// Res3:  (R1-.5R2-.5R3-.866I2+.866I3) + (I1-.5I2-.5I3+.866R2-.866R3)i
-	twiddle_stride = fft_size / stride;		// First radix-3 twiddle stride
-	for ( ; stride < fft_size; stride *= 3) {
-		twiddle_stride /= 3;
-		VDT half = broadcastsd (0.5);
-		VDT _866 = broadcastsd (0.86602540378443864676372317075294);
-		for (unsigned int group = 0; group < fft_size; group += stride * 3) {
-			for (unsigned int group_member = 0, twiddle_idx = 0; group_member < stride; group_member++, twiddle_idx += twiddle_stride) {
-				CVDT a = vec[group + group_member];
-				CVDT b = vec[group + group_member + stride];
-				CVDT c = vec[group + group_member + 2*stride];
-
-				// Special case first group member, no twiddles necessary
-				CVDT twiddled_b, twiddled_c;
-				if (group_member == 0) {
-					twiddled_b = b;
-					twiddled_c = c;
-				}
-				// Apply the CONJUGATE of the twiddle
-				else {
-					CVDT twiddle1; cvload (twiddle1, pmdata->twiddles1[2*twiddle_idx], pmdata->twiddles1[2*twiddle_idx+1]);
-					cvconjmul (twiddled_b, b, twiddle1);
-					cvmul     (twiddled_c, c, twiddle1);
-				}
-
-				CVDT b_plus_c; cvadd (b_plus_c, twiddled_b, twiddled_c);			// b + c
-
-#if !VFMA
-				VDT real_tmp23a = fnmaddpd (half, b_plus_c.real, a.real);			// a - 0.5 * (b + c)
-				VDT imag_tmp23a = fnmaddpd (half, b_plus_c.imag, a.imag);
-				VDT real_tmp23b = mulpd (_866, subpd (twiddled_b.imag, twiddled_c.imag));	// 0.866 * (b - c)
-				VDT imag_tmp23b = mulpd (_866, subpd (twiddled_b.real, twiddled_c.real));
-				b.real = addpd (real_tmp23a, real_tmp23b);					// combine 23a and 23b
-				b.imag = subpd (imag_tmp23a, imag_tmp23b);
-				c.real = subpd (real_tmp23a, real_tmp23b);
-				c.imag = addpd (imag_tmp23a, imag_tmp23b);
-#else
-				VDT real_tmp23a = fnmaddpd (half, b_plus_c.real, a.real);			// a - 0.5 * (b + c)
-				VDT imag_tmp23a = fnmaddpd (half, b_plus_c.imag, a.imag);
-				VDT real_tmp23b = subpd (twiddled_b.imag, twiddled_c.imag);			// 0.866 delayed * (b - c)
-				VDT imag_tmp23b = subpd (twiddled_b.real, twiddled_c.real);
-				b.real = fmaddpd  (_866, real_tmp23b, real_tmp23a);				// combine 23a and 23b
-				b.imag = fnmaddpd (_866, imag_tmp23b, imag_tmp23a);
-				c.real = fnmaddpd (_866, real_tmp23b, real_tmp23a);
-				c.imag = fmaddpd  (_866, imag_tmp23b, imag_tmp23a);
-#endif
-
-				cvadd (a, a, b_plus_c);								// a + b + c
-				vec[group + group_member] = a;
-				vec[group + group_member + stride] = b;
-				vec[group + group_member + 2*stride] = c;
-			}
-		}
-	}
-}
-
-#else			// Two-pass FFTs
-
-void fft_line (
-	pmhandle *pmdata,		// Handle for polymult library
-	CVDT	*vec,			// Array of complex values
-	CVDT	*scratch,		// Scratch area for two-pass FFTs       
-	unsigned int fft_size)		// The fft size
+	unsigned int fft_size,		// The fft size
+	int	options)
 {
 	unsigned int pass1_size, pass2_size;	// Parameters for creating a two-pass FFT
 	unsigned int twiddle3_stride = 1;	// Stride through the radix-3 twiddles data
 	unsigned int twiddle45_stride = 1;	// Stride through the radix-4/5 twiddles data
+	unsigned int inv_twiddle3_stride;	// Starting stride for the inverse FFT radix-3 twiddles data
+	unsigned int inv_twiddle45_stride;	// Starting stride for the inverse FFT radix-4/5 twiddles data
+	unsigned int powers_of_two;
+	VDT	inv_fft_size = broadcastsd (1.0 / (double) fft_size);
 
 	generate_sincos (pmdata, fft_size);
+
+	// Init some needed items
+	for (powers_of_two = 0; (fft_size & (1 << powers_of_two)) == 0; powers_of_two++);		// Inverse FFT check for a radix-8 step
+	for (inv_twiddle3_stride = 1, inv_twiddle45_stride = fft_size; inv_twiddle45_stride % 3 == 0; ) {// Calc first inverse FFT twiddle strides
+		inv_twiddle3_stride *= 3;
+		inv_twiddle45_stride /= 3;
+	}
 
 	// When the data set gets large it overflows the L2 cache.  This causes every radix-step to read & write data from main memory.  To combat
 	// this we use two passes to complete the FFT, doing as much work as possible while FFT data is in the L2 cache.
 	pick_pass_sizes (pmdata, fft_size, &pass1_size, &pass2_size);
 
-	// Do two-pass FFT
-	for (unsigned int pass = 1; pass <= 2; pass++) {
+	// Do two-pass forward FFT merged with a pointmul and a two-pass inverse FFT.
+	// Pass 1 is first half of the forward FFT.  Pass 2 is second half of the forward FFT, pointwise multiply, and half of the inverse FFT.
+	// Pass 3 is the remaining half of the inverse FFT.
+	for (unsigned int pass = 1; pass <= 3; pass++) {
 	    unsigned int pass_size;			// The size of this pass
 	    unsigned int pass_stride;			// Distance between smallest elements in the pass
 	    unsigned int num_interior_blks;		// Num blocks smaller than pass_stride (for 2-pass FFTs this equals pass2_size or 1)
@@ -1687,11 +1255,11 @@ void fft_line (
 	    unsigned int saved_twiddle3_stride = twiddle3_stride;
 	    unsigned int saved_twiddle45_stride = twiddle45_stride;
 
-	    // Skip pass 1 for small FFTs (perform a one-pass FFT)
-	    if (pass == 1 && pass1_size == 1) continue;
+	    // Skip pass 1 and 3 for small FFTs (perform a one-pass FFT)
+	    if (pass1_size == 1 && pass != 2) continue;
 
 	    // Init some pass-specific variables
-	    if (pass == 1) {
+	    if (pass == 1 || pass == 3) {
 		pass_size = pass1_size;
 		pass_stride = pass2_size;
 		num_interior_blks = pass2_size;
@@ -1703,47 +1271,59 @@ void fft_line (
 		num_exterior_blks = pass1_size;
 	    }
 
-	    // Do pass one exterior a block at a time (we're prepared for three-pass FFTs)
+	    // Do pass an exterior a block at a time, then do pass an interior a block at a time (we're prepared for future three-pass FFTs)
 	    for (unsigned int blke = 0; blke < num_exterior_blks; blke++) {
+	    for (unsigned int blki = 0; blki < num_interior_blks; blki++) {
+		CVDT *src;				// FFT source data
+		CVDT *dest;				// FFT destination data
+		unsigned int size;			// The current group size to process
+		unsigned int stride;			// Logical stride through the FFT (often the same as input and output stride through memory)
+		unsigned int instride1;			// Unit stride through input FFT data in memory
+		unsigned int outstride1;		// Unit stride through output FFT data in memory
 
-		// Do pass one interior a block at a time
-		for (unsigned int blki = 0; blki < num_interior_blks; blki++) {
-		    unsigned int size;			// The current group size to process
-		    unsigned int stride;		// Logical stride through the FFT (often the same as input and output stride through memory)
-		    unsigned int instride1;		// Unit stride through input FFT data in memory
-		    unsigned int outstride1;		// Unit stride through output FFT data in memory
-		    CVDT *src;				// FFT source data
-		    CVDT *dest;				// FFT destination data
+// Forward FFT.  Loop over both input vectors.  Both may need a forward FFT.
+		
+		if (pass <= 2) {
+		    for (int srcarg = 1; srcarg <= 2; srcarg++) {
 
-		    size = pass_size;
-		    if (pass == 1) {
-			src = vec + blki;
-			dest = scratch;
-			instride1 = pass2_size;
-			outstride1 = 1;
-		    } else {
-			src = vec + blke * pass2_size;
-			dest = src;
-			instride1 = outstride1 = 1;
-		    }
+			// Skip input vectors that do not need a forward FFT
+			if (srcarg == 1 && !(options & FORWARD_FFT_INVEC1)) continue;
+			if (srcarg == 2 && !(options & FORWARD_FFT_INVEC2)) continue;
+//GW: If neither are to be FFTed, need to skip to pointmul
 
-		    // Reset twiddle strides each time we execute the pass
-		    twiddle3_stride = saved_twiddle3_stride;
-		    twiddle45_stride = saved_twiddle45_stride;
+			// Pass 1 reads from an input vector into a scratch area to reduce large strides which CPU caches hate.  At end, result written
+			// back to input vector.  Pass 2 reads/writes directly from/to an input vector.
+			if (pass == 1) {
+			    src = (srcarg == 1 ? invec1 : invec2) + blki;
+			    dest = scratch;
+			    instride1 = pass2_size;
+			    outstride1 = 1;
+			}
+			else {
+			    src = dest = (srcarg == 1 ? invec1 : invec2) + blke * pass2_size;
+			    instride1 = outstride1 = 1;
+			}
+
+			// Forward FFT.  Start working with group size as the whole pass size, then work on progressively smaller group sizes.
+			size = pass_size;
+
+			// Reset twiddle strides each time we execute the pass
+			twiddle3_stride = saved_twiddle3_stride;
+			twiddle45_stride = saved_twiddle45_stride;
 
 //GW: Assume all radix-3 and radix-5 work is in the first (or only) pass???
 
-		    // Radix-3 FFT
-		    // A 3-complex FFT is:
-		    // Res1:  (R1+R2+R3) + (I1+I2+I3)i
-		    // Res2:  (R1-.5R2-.5R3-.866I2+.866I3) + (I1-.5I2-.5I3+.866R2-.866R3)i
-		    // Res3:  (R1-.5R2-.5R3+.866I2-.866I3) + (I1-.5I2-.5I3-.866R2+.866R3)i
-		    for ( ; size % 3 == 0; size /= 3, twiddle3_stride *= 3, src = dest, instride1 = 1) {
-			stride = size / 3;
-			if (pass == 1 && stride == 1) dest = vec + blki, outstride1 = pass2_size;
-			VDT half = broadcastsd (0.5);
-			VDT _866 = broadcastsd (0.86602540378443864676372317075294);
-			for (unsigned int group = 0; group < pass_size; group += stride * 3) {
+			// Radix-3 FFT
+			// A 3-complex FFT is:
+			// Res1:  (R1+R2+R3) + (I1+I2+I3)i
+			// Res2:  (R1-.5R2-.5R3-.866I2+.866I3) + (I1-.5I2-.5I3+.866R2-.866R3)i
+			// Res3:  (R1-.5R2-.5R3+.866I2-.866I3) + (I1-.5I2-.5I3-.866R2+.866R3)i
+			for ( ; size % 3 == 0; size /= 3, twiddle3_stride *= 3, src = dest, instride1 = 1) {
+			    stride = size / 3;
+			    if (pass == 1 && stride == 1) dest = (srcarg == 1 ? invec1 : invec2) + blki, outstride1 = pass2_size;
+			    VDT half = broadcastsd (0.5);
+			    VDT _866 = broadcastsd (0.86602540378443864676372317075294);
+			    for (unsigned int group = 0; group < pass_size; group += stride * 3) {
 				for (unsigned int group_member = 0; group_member < stride; group_member++) {
 					unsigned int twiddle_idx = ((group_member * pass_stride) + blki) * twiddle3_stride;
 					CVDT a = src[instride1*(group + group_member)];
@@ -1784,28 +1364,28 @@ void fft_line (
 						cvconjmul (dest[outstride1*(group + group_member + 2*stride)], c, twiddle1);
 					}
 				}
+			    }
 			}
-		    }
 
-		    // Radix-5 FFT
-		    // R1= r1     +(r2+r5)     +(r3+r4)
-		    // R2= r1 +.309(r2+r5) -.809(r3+r4)    -.951(i2-i5) -.588(i3-i4)
-		    // R5= r1 +.309(r2+r5) -.809(r3+r4)    +.951(i2-i5) +.588(i3-i4)
-		    // R3= r1 -.809(r2+r5) +.309(r3+r4)    -.588(i2-i5) +.951(i3-i4)
-		    // R4= r1 -.809(r2+r5) +.309(r3+r4)    +.588(i2-i5) -.951(i3-i4)
-		    // I1= i1     +(i2+i5)     +(i3+i4)
-		    // I2= i1 +.309(i2+i5) -.809(i3+i4)    +.951(r2-r5) +.588(r3-r4)
-		    // I5= i1 +.309(i2+i5) -.809(i3+i4)    -.951(r2-r5) -.588(r3-r4)
-		    // I3= i1 -.809(i2+i5) +.309(i3+i4)    +.588(r2-r5) -.951(r3-r4)
-		    // I4= i1 -.809(i2+i5) +.309(i3+i4)    -.588(r2-r5) +.951(r3-r4)
-		    for ( ; size % 5 == 0; size /= 5, twiddle45_stride *= 5, src = dest, instride1 = 1) {
-			VDT _309 = broadcastsd (0.30901699437494742410229341718282);
-			VDT _809 = broadcastsd (0.80901699437494742410229341718282);
-			VDT _951 = broadcastsd (0.95105651629515357211643933337938);
-			VDT _588_951 = broadcastsd (0.61803398874989484820458683436564);
-			stride = size / 5;
-			if (pass == 1 && stride == 1) dest = vec + blki, outstride1 = pass2_size;
-			for (unsigned int group = 0; group < pass_size; group += stride * 5) {
+			// Radix-5 FFT
+			// R1= r1     +(r2+r5)     +(r3+r4)
+			// R2= r1 +.309(r2+r5) -.809(r3+r4)    -.951(i2-i5) -.588(i3-i4)
+			// R5= r1 +.309(r2+r5) -.809(r3+r4)    +.951(i2-i5) +.588(i3-i4)
+			// R3= r1 -.809(r2+r5) +.309(r3+r4)    -.588(i2-i5) +.951(i3-i4)
+			// R4= r1 -.809(r2+r5) +.309(r3+r4)    +.588(i2-i5) -.951(i3-i4)
+			// I1= i1     +(i2+i5)     +(i3+i4)
+			// I2= i1 +.309(i2+i5) -.809(i3+i4)    +.951(r2-r5) +.588(r3-r4)
+			// I5= i1 +.309(i2+i5) -.809(i3+i4)    -.951(r2-r5) -.588(r3-r4)
+			// I3= i1 -.809(i2+i5) +.309(i3+i4)    +.588(r2-r5) -.951(r3-r4)
+			// I4= i1 -.809(i2+i5) +.309(i3+i4)    -.588(r2-r5) +.951(r3-r4)
+			for ( ; size % 5 == 0; size /= 5, twiddle45_stride *= 5, src = dest, instride1 = 1) {
+			    VDT _309 = broadcastsd (0.30901699437494742410229341718282);
+			    VDT _809 = broadcastsd (0.80901699437494742410229341718282);
+			    VDT _951 = broadcastsd (0.95105651629515357211643933337938);
+			    VDT _588_951 = broadcastsd (0.61803398874989484820458683436564);
+			    stride = size / 5;
+			    if (pass == 1 && stride == 1) dest = (srcarg == 1 ? invec1 : invec2) + blki, outstride1 = pass2_size;
+			    for (unsigned int group = 0; group < pass_size; group += stride * 5) {
 				for (unsigned int group_member = 0; group_member < stride; group_member++) {
 					unsigned int twiddle_idx = ((group_member * pass_stride) + blki) * twiddle45_stride;
 					CVDT a = src[instride1*(group + group_member)];
@@ -1873,14 +1453,14 @@ void fft_line (
 						cvconjmul (dest[outstride1*(group + group_member + 4*stride)], e, twiddle1);
 					}
 				}
+			    }
 			}
-		    }
 
-		    // Radix-4 FFT
-		    for ( ; size != 8 && size % 4 == 0; size /= 4, twiddle45_stride *= 4, src = dest, instride1 = 1) {
-			stride = size / 4;
-			if (pass == 1 && stride == 1) dest = vec + blki, outstride1 = pass2_size;
-			for (unsigned int group = 0; group < pass_size; group += stride * 4) {
+			// Radix-4 FFT
+			for ( ; size != 8 && size % 4 == 0; size /= 4, twiddle45_stride *= 4, src = dest, instride1 = 1) {
+			    stride = size / 4;
+			    if (pass == 1 && stride == 1) dest = (srcarg == 1 ? invec1 : invec2) + blki, outstride1 = pass2_size;
+			    for (unsigned int group = 0; group < pass_size; group += stride * 4) {
 				for (unsigned int group_member = 0; group_member < stride; group_member++) {
 					unsigned int twiddle_idx = ((group_member * pass_stride) + blki) * twiddle45_stride;
 					CVDT a = src[instride1*(group + group_member)];
@@ -1912,14 +1492,14 @@ void fft_line (
 						cvconjmul (dest[outstride1*(group + group_member + 3*stride)], d, twiddle1);
 					}
 				}
+			    }
 			}
-		    }
 
-		    // Radix-8 FFT (if needed it is the last radix block done in pass 2)
-		    if (size == 8) {
-			VDT _707 = broadcastsd (0.70710678118654752440084436210485);
-			stride = 1;
-			for (unsigned int group = 0; group < pass_size; group += stride * 8) {
+			// Radix-8 FFT (if needed it is the last radix block done in pass 2)
+			if (size == 8) {
+			    VDT _707 = broadcastsd (0.70710678118654752440084436210485);
+			    stride = 1;
+			    for (unsigned int group = 0; group < pass_size; group += stride * 8) {
 				for (unsigned int group_member = 0; group_member < stride; group_member++) {
 					CVDT a = src[group + group_member];
 					CVDT b = src[group + group_member + stride];
@@ -1982,95 +1562,56 @@ void fft_line (
 					dest[group + group_member + 3*stride] = new_g;
 					dest[group + group_member + 7*stride] = new_h;
 				}
+			    }
 			}
 		    }
 		}
-	    }
-	}
-}
 
-void invfft_line (
-	pmhandle *pmdata,		// Handle for polymult library
-	CVDT	*vec,			// Array of complex values
-	CVDT	*scratch,		// Scratch area for two-pass FFTs       
-	unsigned int fft_size)		// The fft size
-{
-	unsigned int pass1_size, pass2_size;	// Parameters for creating a two-pass FFT
-	unsigned int twiddle3_stride;		// Stride through the radix-3 twiddles data
-	unsigned int twiddle45_stride;		// Stride through the radix-4/5 twiddles data
-	unsigned int powers_of_two;
+// If pass 1 then there is no pointmul and inverse FFT to do.  If only FFTing the input(s) also skip pointmul and inverse FFT.
 
-	generate_sincos (pmdata, fft_size);
+		if (pass == 1 || (options & FORWARD_FFT_ONLY)) continue;
 
-	// Init some needed items
-	for (powers_of_two = 0; (fft_size & (1 << powers_of_two)) == 0; powers_of_two++);		// We will need to check if there is a radix-2 step
-	for (twiddle3_stride = 1, twiddle45_stride = fft_size; twiddle45_stride % 3 == 0; ) {		// Calc first radix-3 and radix-4/5 twiddle strides
-		twiddle3_stride *= 3;
-		twiddle45_stride /= 3;
-	}
+// Pointwise multiply
 
-	// When the data set gets large it overflows the L2 cache.  This causes every radix-step to read & write data from main memory.  To combat
-	// this we use two passes to complete the FFT, doing as much work as possible while FFT data is in the L2 cache.
-	pick_pass_sizes (pmdata, fft_size, &pass1_size, &pass2_size);
+		if (pass == 2) {
+		    for (unsigned int j = 0; j < pass_size; j++) {
+			CVDT x = invec1[blke * pass2_size + j];
+			CVDT y = invec2[blke * pass2_size + j];
+			outvec[blke * pass2_size + j].real = mulpd (fmsubpd (x.real, y.real, mulpd (x.imag, y.imag)), inv_fft_size);
+			outvec[blke * pass2_size + j].imag = mulpd (fmaddpd (x.real, y.imag, mulpd (x.imag, y.real)), inv_fft_size);
+		    }
+		}
 
-	// Do two-pass FFT
-	for (unsigned int pass = 2; pass >= 1; pass--) {
-	    unsigned int pass_size;			// The size of this pass
-	    unsigned int pass_stride;			// Distance between smallest elements in the pass
-	    unsigned int num_interior_blks;		// Num blocks smaller than pass_stride (for 2-pass FFTs this equals pass2_size or 1)
-	    unsigned int num_exterior_blks;		// Num blocks larger than pass_stride (for 2-pass FFTs this equals 1 or pass1_size)
-	    unsigned int saved_twiddle3_stride = twiddle3_stride;
-	    unsigned int saved_twiddle45_stride = twiddle45_stride;
-
-	    // Skip pass 1 for small FFTs (perform a one-pass FFT)
-	    if (pass == 1 && pass1_size == 1) continue;
-
-	    // Init some pass-specific variables
-	    if (pass == 1) {
-		pass_size = pass1_size;
-		pass_stride = pass2_size;
-		num_interior_blks = pass2_size;
-		num_exterior_blks = 1;
-	    } else {
-		pass_size = pass2_size;
-		pass_stride = 1;
-		num_interior_blks = 1;
-		num_exterior_blks = pass1_size;
-	    }
-
-	    // Do pass one exterior a block at a time (we're prepared for three-pass FFTs)
-	    for (unsigned int blke = 0; blke < num_exterior_blks; blke++) {
-
-		// Do pass one interior a block at a time
-		for (unsigned int blki = 0; blki < num_interior_blks; blki++) {
-		    unsigned int size;			// The current group size to process
-		    unsigned int stride;		// Logical stride through the FFT (often the same as input and output stride through memory)
-		    unsigned int instride1;		// Unit stride through input FFT data in memory
-		    unsigned int outstride1;		// Unit stride through output FFT data in memory
-		    CVDT *src;				// FFT source data
-		    CVDT *dest;				// FFT destination data
-
-		    stride = 1;
-		    if (pass == 1) {
-			src = vec + blki;
+// Inverse FFT
+		
+		// Pass 2 reads/writes directly from/to output vector.
+		// Pass 3 reads from output vector into a scratch area to reduce large strides.  At end, result written back to output vector.
+		if (pass == 2) {
+			src = dest = outvec + blke * pass2_size;
+			instride1 = outstride1 = 1;
+		} else {
+			src = outvec + blki;
 			dest = scratch;
 			instride1 = pass2_size;
 			outstride1 = 1;
-		    } else {
-			src = vec + blke * pass2_size;
-			dest = src;
-			instride1 = outstride1 = 1;
-		    }
+		}
 
-		    // Reset twiddle strides each time we execute the pass
-		    twiddle3_stride = saved_twiddle3_stride;
-		    twiddle45_stride = saved_twiddle45_stride;
+		// Inverse FFT starts with stride = 1 and moves to progressive smaller group sizes with larger strides.
+		stride = 1;
 
-		    // Radix-8 FFT (if needed it is the last radix block done in pass 2)
-		    if (pass == 2 && powers_of_two & 1) {		// If odd number of powers of two do a radix-8 step
+		// In pass 2, use the starting twiddle strides.  In pass 3, restore the saved twiddle strides from the end of pass 2.
+		if (pass == 2) {
+			twiddle3_stride = inv_twiddle3_stride;
+			twiddle45_stride = inv_twiddle45_stride;
+		} else {
+			twiddle3_stride = saved_twiddle3_stride;
+			twiddle45_stride = saved_twiddle45_stride;
+		}
+
+		// Radix-8 FFT (if needed it is the last radix block done in pass 2)
+		if (pass == 2 && powers_of_two & 1) {		// If odd number of powers of two do a radix-8 step
 			VDT _707 = broadcastsd (0.70710678118654752440084436210485);
 			twiddle45_stride /= 8;		// Next twiddle stride amount
-			stride = 1;
 			for (unsigned int group = 0; group < pass_size; group += stride * 8) {
 				for (unsigned int group_member = 0; group_member < stride; group_member++) {
 					CVDT a = src[group + group_member];
@@ -2136,12 +1677,12 @@ void invfft_line (
 				}
 			}
 			stride *= 8;			// Next stride amount
-		    }
+		}
 
-		    // Radix-4 FFT, one fewer complex multiply than radix-2, does more work while data is in registers
-		    for ( ; (size = pass_size / stride) % 4 == 0; stride *= 4, src = dest, instride1 = 1) {
+		// Radix-4 FFT, one fewer complex multiply than radix-2, does more work while data is in registers
+		for ( ; (size = pass_size / stride) % 4 == 0; stride *= 4, src = dest, instride1 = 1) {
 			twiddle45_stride /= 4;
-			if (pass == 1 && stride * 4 == pass_size) dest = vec + blki, outstride1 = pass2_size;
+			if (pass == 3 && stride * 4 == pass_size) dest = outvec + blki, outstride1 = pass2_size;
 			for (unsigned int group = 0; group < pass_size; group += stride * 4) {
 				for (unsigned int group_member = 0; group_member < stride; group_member++) {
 					unsigned int twiddle_idx = ((group_member * pass_stride) + blki) * twiddle45_stride;
@@ -2183,22 +1724,22 @@ void invfft_line (
 					dest[outstride1*(group + group_member + 3*stride)] = d;
 				}
 			}
-		    }
+		}
 
-		    // Radix-5 FFT
-		    // R1= r1     +(r2+r5)     +(r3+r4)
-		    // R2= r1 +.309(r2+r5) -.809(r3+r4)    +.951(i2-i5) +.588(i3-i4)
-		    // R5= r1 +.309(r2+r5) -.809(r3+r4)    -.951(i2-i5) -.588(i3-i4)
-		    // R3= r1 -.809(r2+r5) +.309(r3+r4)    +.588(i2-i5) -.951(i3-i4)
-		    // R4= r1 -.809(r2+r5) +.309(r3+r4)    -.588(i2-i5) +.951(i3-i4)
-		    // I1= i1     +(i2+i5)     +(i3+i4)
-		    // I2= i1 +.309(i2+i5) -.809(i3+i4)    -.951(r2-r5) -.588(r3-r4)
-		    // I5= i1 +.309(i2+i5) -.809(i3+i4)    +.951(r2-r5) +.588(r3-r4)
-		    // I3= i1 -.809(i2+i5) +.309(i3+i4)    -.588(r2-r5) +.951(r3-r4)
-		    // I4= i1 -.809(i2+i5) +.309(i3+i4)    +.588(r2-r5) -.951(r3-r4)
-		    for ( ; (size = pass_size / stride) % 5 == 0; stride *= 5, src = dest, instride1 = 1) {
+		// Radix-5 FFT
+		// R1= r1     +(r2+r5)     +(r3+r4)
+		// R2= r1 +.309(r2+r5) -.809(r3+r4)    +.951(i2-i5) +.588(i3-i4)
+		// R5= r1 +.309(r2+r5) -.809(r3+r4)    -.951(i2-i5) -.588(i3-i4)
+		// R3= r1 -.809(r2+r5) +.309(r3+r4)    +.588(i2-i5) -.951(i3-i4)
+		// R4= r1 -.809(r2+r5) +.309(r3+r4)    -.588(i2-i5) +.951(i3-i4)
+		// I1= i1     +(i2+i5)     +(i3+i4)
+		// I2= i1 +.309(i2+i5) -.809(i3+i4)    -.951(r2-r5) -.588(r3-r4)
+		// I5= i1 +.309(i2+i5) -.809(i3+i4)    +.951(r2-r5) +.588(r3-r4)
+		// I3= i1 -.809(i2+i5) +.309(i3+i4)    -.588(r2-r5) +.951(r3-r4)
+		// I4= i1 -.809(i2+i5) +.309(i3+i4)    +.588(r2-r5) -.951(r3-r4)
+		for ( ; (size = pass_size / stride) % 5 == 0; stride *= 5, src = dest, instride1 = 1) {
 			twiddle45_stride /= 5;
-			if (pass == 1 && stride * 5 == pass_size) dest = vec + blki, outstride1 = pass2_size;
+			if (pass == 3 && stride * 5 == pass_size) dest = outvec + blki, outstride1 = pass2_size;
 			VDT _309 = broadcastsd (0.30901699437494742410229341718282);
 			VDT _809 = broadcastsd (0.80901699437494742410229341718282);
 			VDT _951 = broadcastsd (0.95105651629515357211643933337938);
@@ -2282,16 +1823,16 @@ void invfft_line (
 					dest[outstride1*(group + group_member + 4*stride)] = e;
 				}
 			}
-		    }
+		}
 
-		    // Radix-3 FFT
-		    // A 3-complex inverse FFT is:
-		    // Res1: (R1+R2+R3) + (I1+I2+I3)i
-		    // Res2:  (R1-.5R2-.5R3+.866I2-.866I3) + (I1-.5I2-.5I3-.866R2+.866R3)i
-		    // Res3:  (R1-.5R2-.5R3-.866I2+.866I3) + (I1-.5I2-.5I3+.866R2-.866R3)i
-		    for ( ; (size = pass_size / stride) % 3 == 0; stride *= 3, src = dest, instride1 = 1) {
+		// Radix-3 FFT
+		// A 3-complex inverse FFT is:
+		// Res1: (R1+R2+R3) + (I1+I2+I3)i
+		// Res2:  (R1-.5R2-.5R3+.866I2-.866I3) + (I1-.5I2-.5I3-.866R2+.866R3)i
+		// Res3:  (R1-.5R2-.5R3-.866I2+.866I3) + (I1-.5I2-.5I3+.866R2-.866R3)i
+		for ( ; (size = pass_size / stride) % 3 == 0; stride *= 3, src = dest, instride1 = 1) {
 			twiddle3_stride /= 3;
-			if (pass == 1 && stride * 3 == pass_size) dest = vec + blki, outstride1 = pass2_size;
+			if (pass == 3 && stride * 3 == pass_size) dest = outvec + blki, outstride1 = pass2_size;
 			VDT half = broadcastsd (0.5);
 			VDT _866 = broadcastsd (0.86602540378443864676372317075294);
 			for (unsigned int group = 0; group < pass_size; group += stride * 3) {
@@ -2342,23 +1883,9 @@ void invfft_line (
 					dest[outstride1*(group + group_member + 2*stride)] = c;
 				}
 			}
-		    }
 		}
 	    }
-	}
-}
-
-#endif
-
-// out = in1 * in2 pointwise also divide by FFT length
-void pointmul_line (CVDT *invec1, CVDT *invec2, CVDT *outvec, int size)
-{
-	VDT inv_fft_size = broadcastsd (1.0 / (double) size);
-	for (int j = 0; j < size; j++) {
-		CVDT x = invec1[j];
-		CVDT y = invec2[j];
-		outvec[j].real = mulpd (fmsubpd (x.real, y.real, mulpd (x.imag, y.imag)), inv_fft_size);
-		outvec[j].imag = mulpd (fmaddpd (x.real, y.imag, mulpd (x.imag, y.real)), inv_fft_size);
+	    }
 	}
 }
 
@@ -2478,22 +2005,17 @@ void polymult_line (
 			karatsuba_line (pmdata, invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, tmpvec, outvec);
 		}
 		else {
-			if (!(options & POLYMULT_INVEC1_FFTED)) {
-				if (invec1 != tmpvec) memcpy (tmpvec, invec1, adjusted_invec1_size * sizeof (CVDT));
-				memset (tmpvec + adjusted_invec1_size, 0, (fft_size - adjusted_invec1_size) * sizeof (CVDT));
-				fft_line (pmdata, tmpvec, scratch, fft_size);
-			}
-			if (options & POLYMULT_FORWARD_FFT) {
-				write_line (pmdata->gwdata, gw_outvec, fft_size, line, tmpvec, 0);
-				continue;
-			}
-			if (!(options & POLYMULT_INVEC2_FFTED)) {
-				if (invec2 != outvec) memcpy (outvec, invec2, adjusted_invec2_size * sizeof (CVDT));
-				memset (outvec + adjusted_invec2_size, 0, (fft_size - adjusted_invec2_size) * sizeof (CVDT));
-				fft_line (pmdata, outvec, scratch, fft_size);
-			}
-			pointmul_line (tmpvec, outvec, outvec, fft_size);
-			invfft_line (pmdata, outvec, scratch, fft_size);
+			ASSERTG (!(options & POLYMULT_INVEC1_FFTED));	// Not supported yet
+			ASSERTG (!(options & POLYMULT_INVEC2_FFTED));	// Not supported yet
+			if (invec1 != tmpvec) memcpy (tmpvec, invec1, adjusted_invec1_size * sizeof (CVDT));
+			memset (tmpvec + adjusted_invec1_size, 0, (fft_size - adjusted_invec1_size) * sizeof (CVDT));
+//			if (options & POLYMULT_FORWARD_FFT) {
+//				write_line (pmdata->gwdata, gw_outvec, fft_size, line, tmpvec, 0);
+//				continue;
+//			}
+			if (invec2 != outvec) memcpy (outvec, invec2, adjusted_invec2_size * sizeof (CVDT));
+			memset (outvec + adjusted_invec2_size, 0, (fft_size - adjusted_invec2_size) * sizeof (CVDT));
+			fft_line (pmdata, tmpvec, outvec, outvec, scratch, fft_size, FORWARD_FFT_INVEC1 | FORWARD_FFT_INVEC2);
 		}
 		if (post_process_monics) monic_line_adjustments (invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, outvec, adjusted_outvec_size, options);
 		write_line (pmdata->gwdata, gw_outvec, outvec_size, line, outvec, options & POLYMULT_CIRCULAR ? 0 : options);
