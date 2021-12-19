@@ -75,9 +75,10 @@ void polymult (
 #define	POLYMULT_FORWARD_FFT	0x100	// Forward FFT the first polynomial, the second polynomial is ignored.  FFT size is outvec_size.
 #define POLYMULT_CIRCULAR	0x200	// Circular convolution based on outvec_size.  Only makes sense for small outvec sizes or outvec_size that
 					// matches the FFT length used to multiply the polynomials.
-#define POLYMULT_STARTNEXTFFT	0x400	// Similar to GWMUL_STARTNEXTFFT.  Applied to all output coefficients.
-//#define GWMUL_ADDINCONST	0x0800		/* Addin the optional gwsetaddin value to the multiplication result */
-//#define GWMUL_MULBYCONST	0x1000		/* Multiply the final result by the small mulbyconst */
+#define POLYMULT_NO_UNFFT	0x400	// Do not perform the required unfft on output coefficients.  Caller might do this to multithread this operation.
+#define POLYMULT_STARTNEXTFFT	0x800	// Similar to GWMUL_STARTNEXTFFT.  Applied to all output coefficients.
+//#define GWMUL_ADDINCONST	0x1000		/* Addin the optional gwsetaddin value to the multiplication result */
+//#define GWMUL_MULBYCONST	0x2000		/* Multiply the final result by the small mulbyconst */
 #define POLYMULT_INVEC2_MONIC_TIMES_MONIC_RLP_OK 0x80000000 // Obscure prime95 option  that says it is OK to multiply a monic RLP poly #1 with a monic
 					// poly #2 using POLYMULT_CIRCULAR.  Normally this is dangerous because one time one is not safe from roundoff
 					// errors.  However, this instructs the library to treat poly #2 as non-monic and add one to the output affected

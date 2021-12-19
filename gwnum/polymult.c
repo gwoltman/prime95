@@ -68,6 +68,7 @@
 // 53) Can P-1's circular monic-poly times monic-RLP be safely done without monic_adjustments allowing us to save the FFT'ed RLP that is half-sized due to DCT?
 // 54) Does monolithic two-forward-FFTs-pointmul-and-one-inverse-FFT routine suggest different preferred pass sizes (use half the L2 cache)?
 // 55) For VFMA machines, store twiddles as cos/sin, sin to allow a few more FMA opportunities
+// 56) Move mul by 1/FFTLEN to last unfft level (perhaps into the twiddle table itself).  Saves 65%+ of the multiplies if VFMA is available.
 
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
 int next_line (pmhandle *pmdata);
@@ -1538,10 +1539,10 @@ void fft_line (
 					twid_h.real = addpd (h.real, h.imag);			// -twiddled h / .707
 					twid_h.imag = subpd (h.imag, h.real);
 #if !VFMA
-					twid_f.real = mulpd (_707, f.real);			// twiddled f
-					twid_f.imag = mulpd (_707, f.imag);
-					twid_h.real = mulpd (_707, h.real);			// -twiddled h
-					twid_h.imag = mulpd (_707, h.imag);
+					twid_f.real = mulpd (_707, twid_f.real);		// twiddled f
+					twid_f.imag = mulpd (_707, twid_f.imag);
+					twid_h.real = mulpd (_707, twid_h.real);		// -twiddled h
+					twid_h.imag = mulpd (_707, twid_h.imag);
 					cvadd (new_e, e, twid_f);				// e + (sqrthalf+sqrthalf*i)f
 					cvsub (new_f, e, twid_f);				// e - (sqrthalf+sqrthalf*i)f
 					cvsub (new_g, g, twid_h);				// g + (-sqrthalf+sqrthalf*i)h
@@ -1651,10 +1652,10 @@ void fft_line (
 					twid_h.real = subpd (h.real, h.imag);			// -twiddled h / .707
 					twid_h.imag = addpd (h.real, h.imag);
 #if !VFMA
-					twid_f.real = mulpd (_707, f.real);			// twiddled f
-					twid_f.imag = mulpd (_707, f.imag);
-					twid_h.real = mulpd (_707, h.real);			// -twiddled h
-					twid_h.imag = mulpd (_707, h.imag);
+					twid_f.real = mulpd (_707, twid_f.real);		// twiddled f
+					twid_f.imag = mulpd (_707, twid_f.imag);
+					twid_h.real = mulpd (_707, twid_h.real);		// -twiddled h
+					twid_h.imag = mulpd (_707, twid_h.imag);
 					cvadd (new_e, e, twid_f);				// e + (sqrthalf-sqrthalf*i)f
 					cvsub (new_f, e, twid_f);				// e - (sqrthalf-sqrthalf*i)f
 					cvsub (new_g, g, twid_h);				// g + (-sqrthalf-sqrthalf*i)h
@@ -2217,6 +2218,7 @@ void polymult (
 		for (int j = 0; j < outvec_size; j++) {
 			if (outvec[j] == NULL) continue;
 			FFT_state (outvec[j]) = FULLY_FFTed;
+			if ((options & POLYMULT_NO_UNFFT) && j != addin1 && j != addin2) continue;
 			gwunfft2 (pmdata->gwdata, outvec[j], outvec[j], (j != addin1 && j != addin2 && (options & POLYMULT_STARTNEXTFFT)) ? GWMUL_STARTNEXTFFT : 0);
 			if (j == addin1) gwaddsmall (pmdata->gwdata, outvec[j], 1);
 			if (j == addin2) gwaddsmall (pmdata->gwdata, outvec[j], 1);
