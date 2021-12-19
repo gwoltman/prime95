@@ -1057,66 +1057,70 @@ int setN (
 	dblmulg (w->k, *N);
 	iaddg (w->c, *N);
 
-/* If we have a list of known factors then process it */
+/* If we have a list of known factors then process it.  Use GMP library - much better at division than giants. */
 
 	if (w->known_factors != NULL) {
-		char	*comma, *p;
-		giant	tmp, f;
+		mpz_t	__N, __f, __r;
 
-		tmp = allocgiant ((bits >> 5) + 5);
-		if (tmp == NULL) return (OutOfMemory (thread_num));
-		f = allocgiant ((bits >> 5) + 5);
-		if (f == NULL) return (OutOfMemory (thread_num));
+/* Init GMP variables, convert N to mpz format */
+
+		mpz_init (__N);
+		mpz_init (__f);
+		mpz_init (__r);
+		gtompz (*N, __N);
 
 /* Process each factor */
 
-		for (p = w->known_factors; ; ) {
+		for (char *p = w->known_factors; ; ) {
+			char	*comma, facstr[500];
+			int	res;
 
 /* Get the factor - raise error is it is less than or equal to one */
 
-			ctog (p, f);
-			if (gsign (f) < 1 || isone (f)) {
-				char	msg[1000], kbnc[80];
-				strcpy (buf, p);
-				buf[10] = 0;
+			comma = strchr (p, ',');
+			if (comma != NULL) *comma = 0;
+			strcpy (facstr, p);
+			if (comma != NULL) *comma = ',';
+			res = mpz_set_str (__f, facstr, 10);
+			if (res < 0 || mpz_cmp_ui (__f, 1) <= 0) {
+				char	kbnc[80];
 				gw_as_string (kbnc, w->k, w->b, w->n, w->c);
-				sprintf (msg, "Error parsing known factors of %s near: '%s'\n", kbnc, buf);
-				OutputStr (thread_num, msg);
-				free (f);
-				free (tmp);
+				sprintf (buf, "Error parsing known factors of %s near: '%s'\n", kbnc, facstr);
+				OutputStr (thread_num, buf);
+				mpz_clear (__N);
+				mpz_clear (__f);
+				mpz_clear (__r);
 				deleteWorkToDoLine (thread_num, w, FALSE);
 				return (STOP_ABORT);
 			}
 
 /* Divide N by factor - then verify the factor */
 
-			gtog (*N, tmp);
-			divg (f, tmp);
-			mulg (tmp, f);
-			if (gcompg (f, *N)) {
+			mpz_fdiv_qr (__N, __r, __N, __f);	// N = N / f, remainder r
+			if (mpz_sgn (__r) != 0) {		// Is remainder non-zero
 				char	kbnc[80];
-				strcpy (buf, p);
-				comma = strchr (buf, ',');
-				if (comma != NULL) *comma = 0;
 				gw_as_string (kbnc, w->k, w->b, w->n, w->c);
-				sprintf (buf+strlen(buf), " does not divide %s\n", kbnc);
+				sprintf (buf, "%s does not divide %s\n", facstr, kbnc);
 				OutputBoth (thread_num, buf);
-				free (f);
-				free (tmp);
+				mpz_clear (__N);
+				mpz_clear (__f);
+				mpz_clear (__r);
 				deleteWorkToDoLine (thread_num, w, FALSE);
 				return (STOP_ABORT);
 			}
-			gtog (tmp, *N);
 
 /* Skip to next factor in list */
 
-			comma = strchr (p, ',');
 			if (comma == NULL) break;
 			p = comma + 1;
 		}
-		free (f);
-		free (tmp);
-		return (0);
+
+/* Convert N back to a giant, cleanup */
+
+		mpztog (__N, *N);
+		mpz_clear (__N);
+		mpz_clear (__f);
+		mpz_clear (__r);
 	}
 
 /* Return success */
