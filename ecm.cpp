@@ -7788,15 +7788,15 @@ restart1:
 	// Loop processing small batches of primes
 	for (pm1data.stage1_prime = sieve (pm1data.sieve_info); pm1data.stage1_prime < pm1data.interim_B; ) {
 
-		// Calc a new exponent for exponentiate.  This is our small batch.  Batch sizes should be smallish as they cannot be interrupted.
-		mpz_init (exp);  exp_initialized = TRUE;
-		calc_exp2 (pm1data.sieve_info, exp, pm1data.B_done, pm1data.interim_B, &pm1data.stage1_prime, stage1_batch_size);
-
 		// Test for user interrupt, save files, and error checking
 		stop_reason = stopCheck (thread_num);
 		saving = testSaveFilesFlag (thread_num);
 		echk = stop_reason || saving || ERRCHK || near_fft_limit || ((pm1data.stage1_prime & 127) == 127);
 		gwerror_checking (&pm1data.gwdata, echk);
+
+		// Calc a new exponent for exponentiate.  This is our small batch.  Batch sizes should be smallish as they cannot be interrupted.
+		mpz_init (exp);  exp_initialized = TRUE;
+		calc_exp2 (pm1data.sieve_info, exp, pm1data.B_done, pm1data.interim_B, &pm1data.stage1_prime, stop_reason ? stage1_batch_size/10 : stage1_batch_size);
 
 		// Do some exponentiating
 		exponentiate_mpz_limited_temps (&pm1data.gwdata, pm1data.x, exp, stage1_temps);
