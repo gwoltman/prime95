@@ -195,7 +195,8 @@ void exponentiate_array (gwhandle *gwdata, gwnum x, uint64_t *power, int arrayle
 	while (arraylen >= 1 && power[arraylen-1] == 0) arraylen--;
 	// For extra safety, use legacy code for small exponentiations
 	if (arraylen <= 1) {
-		if (arraylen == 0 || power[0] <= 256) simple_exponentiate (gwdata, x, 0);
+		if (arraylen == 0) simple_exponentiate (gwdata, x, 0);
+		else if (power[0] <= 256) simple_exponentiate (gwdata, x, power[0]);
 		else exponentiate_window3 (gwdata, x, power, arraylen);
 	}
 	// This formula is the expected number of squarings/multiplies for a window size of 3 (8 gwnum temps):  9 + (len-5) + (len-4)/5
