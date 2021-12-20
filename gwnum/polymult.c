@@ -227,12 +227,15 @@ int polymult_fft_size (int n)
 	int	pfas[] = {40, 45, 48, 50, 54, 60, 64, 72, 75};		// Provide a variety of radix-3 and radix-5 FFT sizes
 
 	// Power of two when n is small -- brute force is probably faster anyway
-	if (n <= 32) for (int i = 2; ; i *= 2) if (i >= n) return (i);
+	if (n <= 32) for (int i = 4; ; i *= 2) if (i >= n) return (i);
 
 	// Increase n by a power of two until it
 	for (int two_multiplier = 1; ; two_multiplier *= 2) {
 		if (n > two_multiplier * 75) continue;
-		for (int i = 0; i < sizeof (pfas) / sizeof (int); i++) if (two_multiplier * pfas[i] >= n) return (two_multiplier * pfas[i]);
+		for (int i = 0; i < sizeof (pfas) / sizeof (int); i++) {
+			int fft_size = two_multiplier * pfas[i];
+			if (fft_size >= n && (fft_size % 4 == 0 || fft_size % 2 == 1)) return (fft_size);  // Weed out fft sizes that would require a radix-2 step
+		}
 	}
 }
 
