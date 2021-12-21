@@ -684,6 +684,7 @@ struct common_cost_data {
 	int	totrels;		/* Total number of relative primes used for pairing */
 	int	numrels;		/* Number of relative primes less than D / 2 */
 	double	multiplier;		/* Totrels / numrels */
+	int	first_missing_prime;	/* First missing prime - used to calculate B2_start */
 	int16_t *relp_sets;		/* The relp_sets to use in stage 2 */
 	uint64_t B1;			/* Stage 1 end */
 	uint64_t B2;			/* Stage 2 end */
@@ -765,15 +766,26 @@ double best_stage2_impl_internal (
 		// Compute values needed by the costing functions
 		c->B1 = C_start;
 		c->B2 = C;
-		B2_end = round_up_to_multiple_of (C - D / 2, D) + D / 2;
-		c->B2_start = (uint64_t) floor ((double) (B2_end / (double) d_data[i].first_missing_prime));
-//GW: P-1 polymult pairs around a D/2 multiple, prime pairing pairs around a D multiple.  Affects calc of B2_start.
-		if (c->B2_start < C_start) c->B2_start = C_start;
-		if (c->gap_end && c->B2_start < c->gap_end) c->B2_start = c->gap_end;
-		if (c->B2_start < D / 2) break;		// Protects against next line returning negative result
-		c->B2_start = round_down_to_multiple_of (c->B2_start + D / 2, D) - D / 2;
 		c->D = D;
 		c->numrels = d_data[i].numrels;
+		c->first_missing_prime = d_data[i].first_missing_prime;
+		// Prime pairing "centers" on a multiple of D, thus start and end points are an odd multiple of D/2
+		if (!c->use_poly_D_data) {
+			B2_end = round_up_to_multiple_of (C - D / 2, D) + D / 2;
+			c->B2_start = (uint64_t) floor ((double) (B2_end / (double) d_data[i].first_missing_prime));
+			if (c->B2_start < C_start) c->B2_start = C_start;
+			if (c->gap_end && c->B2_start < c->gap_end) c->B2_start = c->gap_end;
+			if (c->B2_start < D / 2) break;		// Protects against next line returning negative result
+			c->B2_start = round_down_to_multiple_of (c->B2_start + D / 2, D) - D / 2;
+		}
+		// Polymult pairing "centers" on odd multiples of D/2, thus start and end points are multiples of D
+		else {
+			B2_end = round_up_to_multiple_of (C, D);
+			c->B2_start = (uint64_t) floor ((double) (B2_end / (double) d_data[i].first_missing_prime));
+			if (c->B2_start < C_start) c->B2_start = C_start;
+			if (c->gap_end && c->B2_start < c->gap_end) c->B2_start = c->gap_end;
+			c->B2_start = round_down_to_multiple_of (c->B2_start, D);
+		}			
 		c->numDsections = (B2_end - c->B2_start) / D;
 
 /* When pairmaps are split, the last_relocatable set by the first pairmap restricts which D values can now be used */
@@ -6889,6 +6901,19 @@ double pm1_stage2_cost (
 		int num_points = poly2_size - (2*poly1_size) + 1;
 		if (num_points < 1) return (1.0e99);
 
+/* Loop increasing B2_start based on the fact that numDsections will be a multiple of num_points.  In essence this gives a free increase in the B2 enpoint. */
+
+		uint64_t num_polyevals = divide_rounding_up (cost_data->c.numDsections, num_points);
+		cost_data->c.numDsections = num_polyevals * num_points;
+		if (cost_data->c.gap_end == 0) {
+			for ( ; ; ) {
+				uint64_t B2_end = cost_data->c.B2_start + cost_data->c.numDsections * cost_data->c.D;
+				uint64_t B2_start = round_down_to_multiple_of (B2_end / cost_data->c.first_missing_prime, cost_data->c.D);
+				if (cost_data->c.B2_start == B2_start) break;
+				cost_data->c.B2_start = B2_start;
+			}
+		}
+
 /* For the relative primes below D there are 2 luc_add calls for each increment of 6 in the nQx setup loop (plus 6 luc_dbls/luc_adds for setup). */
 /* Computing VD is another luc_dbl and luc_add.  For the relative primes above D, we perform one luc_add for each rel_prime to calculate. */
 /* We assume relp set -1 is not used, which means there are totrels - numrels relative primes above D to calculate.  Also, each nQx value will */
@@ -6930,13 +6955,13 @@ double pm1_stage2_cost (
 
 /* Now multiply by the number of loop iterations required to reach B2 (and beyond). */
 
-//GW:  Need option that adheres to B2 -- that is no credit for going past B2.  return fewer stage2_numvals
-		double num_loops = (double) divide_rounding_up (cost_data->c.numDsections, num_points);
-		cost_data->c.est_stage2_transforms *= num_loops;
+//GW:  Need option that adheres to B2? -- that is no credit for going past B2.  return fewer stage2_numvals
+		cost_data->c.est_stage2_transforms *= (double) num_polyevals;
 
 /* Now compute a cost credit for doing more work than requested.  This will help us find the most efficient D value. */
 
-		excess_work_credit = (cost_data->c.B2_start + num_loops * num_points * cost_data->c.D) / (cost_data->c.B2 - cost_data->c.B1);
+		excess_work_credit = (double) (cost_data->c.B2_start + cost_data->c.numDsections * cost_data->c.D - cost_data->c.B1) /
+				     (double) (cost_data->c.B2 - cost_data->c.B1);
 
 /* Stage 2 memory is totrels gwnums for the polymult arrays, 4 gwnums for V,Vn,Vn1,gg values. */
 
@@ -7172,7 +7197,8 @@ int pm1_stage2_impl (
 /* accumulator.  Set C_done appropriately, but do not change first_relocatable as there is no guarantee which relocatables are in the accumulator. */
 
 	if (pm1data->state == PM1_STATE_STAGE2) {
-		int	max_relp_set = get_max_relp_set (pm1data->relp_sets);
+		int	max_relp_set;
+		max_relp_set = (pm1data->stage2_type == PM1_STAGE2_PAIRING) ? get_max_relp_set (pm1data->relp_sets) : 0;
 		if (pm1data->Dsection > max_relp_set) pm1data->C_done = pm1data->B2_start + (pm1data->Dsection - max_relp_set) * pm1data->D;
 		else pm1data->C_done = pm1data->B2_start;
 	}
@@ -7200,13 +7226,12 @@ int pm1_stage2_impl (
 
 /* Set all the variables needed for this stage 2 plan */
 
-	pm1data->interim_C = pm1data->C;
 	pm1data->stage2_numvals = cost_data.c.stage2_numvals;
 	pm1data->D = cost_data.c.D;
 	pm1data->numrels = cost_data.c.numrels;
 	pm1data->B2_start = cost_data.c.B2_start;
-//GW: returning exact number of Dsections may not make sense for polymult.  Compression, new FFT size, etc. could change num_points by 1 or 2.
 	pm1data->numDsections = cost_data.c.numDsections;
+//GW: returning exact number of Dsections may not make sense for polymult.  Compression, new FFT size, etc. could change num_points by 1 or 2?
 	if (pm1data->state == PM1_STATE_MIDSTAGE || pm1data->last_relocatable > pm1data->B2_start) pm1data->last_relocatable = pm1data->B2_start;
 	pm1data->stage2_type = cost_data.stage2_type;
 	if (pm1data->stage2_type == PM1_STAGE2_PAIRING) {
@@ -8571,8 +8596,6 @@ pm1_polymult:
 	int	num_points;			// Number of points (multiples of D) that can be evalualted with each polymult.
 	gwnum	*poly1, *poly2, *outpoly, e, e_incr, r, invr, r_squared;
 
-//GW: bug  --  study code to convince ourselves we are covering the full B1 - B2 range
-//pm1data.B2_start += pm1data.D;	
 	// Detemine poly sizes.
 	poly1_size = pm1data.numrels;
 	// Make poly #2 as large as we can.  Other than poly #1, we must save these values in gwnums:  r^2, gg, e_incr (//GW: x and/or 1/x and/or V for save file?)
@@ -8583,6 +8606,7 @@ pm1_polymult:
 	// Need numrels coefficients in poly #1.  Need 2 * numrels coefficients in poly #2 to eval poly #1 at one point.
 	// Each additional coefficient evaluates one more point.
 	num_points = poly2_size - (2*poly1_size) + 1;
+	ASSERTG (pm1data.numDsections % num_points == 0);
 
 // Polymult stage 2 does not need a prime sieve
 
@@ -8890,13 +8914,13 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 // Calculate diff2 (r^2) and first diff1 (e^1*r^((j-1)^2-j^2)) values so that the main loop can calculate the rest of poly #2.
 // Allocate gwnums for poly #2.
 
-	// Calculate e (the first polyeval point).  e = x^B2_start, this can be computed in terms of r = x^(D/2).  B2_start is an odd multiple of D/2.
+	// Calculate e (the first polyeval point).  e = x^(B2_start+D/2), this can be computed in terms of r = x^(D/2).  B2_start is a multiple of D.
 	e = gwalloc (&pm1data.gwdata);
 	if (e == NULL) goto lowmem;
 // GW: This fft of r needed again for e_incr and r_squared
 	gwfft (&pm1data.gwdata, r, e);
-	ASSERTG ((pm1data.B2_start % (pm1data.D / 2)) == 0 && ((pm1data.B2_start / (pm1data.D / 2)) & 1) == 1);
-	exponentiate (&pm1data.gwdata, e, pm1data.B2_start / (pm1data.D / 2));
+	ASSERTG (pm1data.B2_start % pm1data.D == 0);
+	exponentiate (&pm1data.gwdata, e, (pm1data.B2_start + pm1data.D / 2) / (pm1data.D / 2));
 	// Calculate e_incr (the distance between polymult starting points).  e_incr = x^(num_points * D), this can be computed in terms of r = x^(D/2).
 	e_incr = gwalloc (&pm1data.gwdata);
 	if (e_incr == NULL) goto lowmem;
@@ -8947,6 +8971,13 @@ gwfree (&pm1data.gwdata, e); e = NULL;
 	OutputStr (thread_num, buf);
 	gw_clear_fft_count (&pm1data.gwdata);
 
+// Stage 2 init is successful.  Set interim_C so that continuing from a save file will go to our current B2_end.  This will ensure that the
+// relocatable primes just below b2_start will get properly relocated.
+
+	ASSERTG (pm1data.C <= pm1data.B2_start + pm1data.numDsections * pm1data.D);
+	ASSERTG (pm1data.interim_C <= pm1data.B2_start + pm1data.numDsections * pm1data.D);
+	pm1data.interim_C = pm1data.B2_start + pm1data.numDsections * pm1data.D;
+
 // Loop over all the D-sections between B1 and B2
 
 	pm1data.state = PM1_STATE_STAGE2;
@@ -8966,7 +8997,7 @@ gwfree (&pm1data.gwdata, e); e = NULL;
 			gwmul3 (&pm1data.gwdata, diff1, diff2, diff1, GWMUL_STARTNEXTFFT);			// Next diff1
 			gwmul3 (&pm1data.gwdata, poly2[poly2_size-j+1], diff1, poly2[poly2_size-j], GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			stop_reason = stopCheck (thread_num);
-			if (stop_reason) goto possible_lowmem;
+			if (stop_reason) { pm1_save (&pm1data); goto exit; }
 		}
 		gwmul3 (&pm1data.gwdata, diff1, diff2, diff1, GWMUL_STARTNEXTFFT);				// Last diff1
 		gwmul3 (&pm1data.gwdata, poly2[1], diff1, poly2[0], GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);		// Last coeff
@@ -8998,12 +9029,12 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 // Keep track of the sections processed thusfar
 
 		pm1data.Dsection += num_points;
-		if (pm1data.Dsection >= pm1data.numDsections && pm1data.B2_start + pm1data.Dsection * pm1data.D + pm1data.D / 2 > pm1data.C) break;
+		if (pm1data.Dsection >= pm1data.numDsections && pm1data.B2_start + pm1data.Dsection * pm1data.D > pm1data.C) break;
 
 /* Calculate stage 2 percentage. */
 
 //GW - factor in B2-start? base_pct_complete? overshoot?
-		w->pct_complete = /*base_pct_complete +*/ (double) (pm1data.B2_start + pm1data.Dsection * pm1data.D + pm1data.D / 2) / (double) pm1data.C;
+		w->pct_complete = /*base_pct_complete +*/ (double) (pm1data.B2_start + pm1data.Dsection * pm1data.D) / (double) pm1data.C;
 
 /* Test for errors */
 
@@ -9011,21 +9042,22 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 /* Output the title every so often */
 
+//GW: The * 3 is a total guess to compensate for time spent in polymult
+#define ITER_FUDGE 3
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) * ITER_FUDGE >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
 			sprintf (buf, "%.*f%% of %s P-1 stage 2 (using %uMB)",
 				 (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&pm1data.gwdata), memused);
 			title (thread_num, buf);
-			last_output_t = gw_get_fft_count (&pm1data.gwdata);
+			last_output_t = gw_get_fft_count (&pm1data.gwdata) * ITER_FUDGE;
 		}
 
 /* Write out a message every now and then */
 
-//GW: The * 3 is a total guess to compensate for time spent in polymult
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) * 3 >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) * ITER_FUDGE >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
 			sprintf (buf, "%s stage 2 at B2=%" PRIu64 "[%.*f%%]",
-				 gwmodulo_as_string (&pm1data.gwdata), pm1data.B2_start + pm1data.Dsection * pm1data.D + pm1data.D / 2,
+				 gwmodulo_as_string (&pm1data.gwdata), pm1data.B2_start + pm1data.Dsection * pm1data.D,
 				 (int) PRECISION, trunc_percent (w->pct_complete));
 			end_timer (timers, 0);
 			if (first_iter_msg) {
@@ -9036,20 +9068,19 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 			}
 			OutputStr (thread_num, buf);
 			start_timer_from_zero (timers, 0);
-			last_output = gw_get_fft_count (&pm1data.gwdata);
+			last_output = gw_get_fft_count (&pm1data.gwdata) * ITER_FUDGE;
 			first_iter_msg = FALSE;
 		}
 
 /* Write out a message to the results file every now and then */
 
-//GW: The * 3 is a total guess to compensate for time spent in polymult
-		if ((ITER_OUTPUT_RES != 999999999 && gw_get_fft_count (&pm1data.gwdata) * 3 >= last_output_r + 2 * ITER_OUTPUT_RES) ||
+		if ((ITER_OUTPUT_RES != 999999999 && gw_get_fft_count (&pm1data.gwdata) * ITER_FUDGE >= last_output_r + 2 * ITER_OUTPUT_RES) ||
 		    (NO_GUI && stop_reason)) {
 			sprintf (buf, "%s stage 2 at B2=%" PRIu64 "[%.*f%%]\n",
-				 gwmodulo_as_string (&pm1data.gwdata), pm1data.B2_start + pm1data.Dsection * pm1data.D + pm1data.D / 2,
+				 gwmodulo_as_string (&pm1data.gwdata), pm1data.B2_start + pm1data.Dsection * pm1data.D,
 				 (int) PRECISION, trunc_percent (w->pct_complete));
 			writeResults (buf);
-			last_output_r = gw_get_fft_count (&pm1data.gwdata);
+			last_output_r = gw_get_fft_count (&pm1data.gwdata) * ITER_FUDGE;
 		}
 
 /* Periodicly write a save file */
@@ -9063,7 +9094,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 		gwmul3 (&pm1data.gwdata, poly2[poly2_size-1], e_incr, poly2[poly2_size-1], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 	}
-	pm1data.C = pm1data.C_done = pm1data.B2_start + pm1data.Dsection * pm1data.D + pm1data.D / 2;
+	pm1data.C = pm1data.C_done = pm1data.B2_start + pm1data.Dsection * pm1data.D;
 
 /* Cleanup */
 
