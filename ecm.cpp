@@ -6340,6 +6340,8 @@ typedef struct {
 
 	/* Polymult stage 2 data */
 	pmhandle polydata;	/* Polymult data structure */
+	int	poly1_size;	/* Size of the first RLP poly */
+	int	poly2_size;	/* Size of the second RLP that evaluates poly #1 at multiple points */
 } pm1handle;
 
 /* Perform cleanup functions. */
@@ -8590,22 +8592,22 @@ replan:	{
 +---------------------------------------------------------------------*/
 
 pm1_polymult:
-	int	poly1_size;			// Size of poly #1, called f(X) in the literature.
-	int	poly2_size;			// Size of poly #2 used to evaluate poly #1 at multiple points.
 	int	outpoly_size;			// Called L in the literature.  Make this value as large as we can given amount of free memory.
 	int	num_points;			// Number of points (multiples of D) that can be evalualted with each polymult.
 	gwnum	*poly1, *poly2, *outpoly, e, e_incr, r, invr, r_squared;
 
 	// Detemine poly sizes.
-	poly1_size = pm1data.numrels;
-	// Make poly #2 as large as we can.  Other than poly #1, we must save these values in gwnums:  r^2, gg, e_incr (//GW: x and/or 1/x and/or V for save file?)
-	poly2_size = (pm1data.stage2_numvals - 4) - poly1_size;		//GW:  (3??? 5???)
-	ASSERTG (poly2_size >= poly1_size*2);
+	pm1data.poly1_size = pm1data.numrels;			// Size of poly #1, called f(X) in the literature.
+	// Poly #2 is used to evaluate poly #1 at multiple points.  Make poly #2 as large as we can.
+	// Other than poly #1, we must save these values in gwnums:  r^2, gg, e_incr (//GW: x and/or 1/x and/or V for save file?)
+//GW: Is it beneficial to make poly#2 just smaller than a supported polymult FFT size?
+	pm1data.poly2_size = (pm1data.stage2_numvals - 4) - pm1data.poly1_size;		//GW:  (3??? 5???)
+	ASSERTG (pm1data.poly2_size >= pm1data.poly1_size*2);
 	// Compute output poly size -- we use circular convolution with an FFT size supported by the polymult library
-	outpoly_size = polymult_fft_size (poly2_size+1);
+	outpoly_size = polymult_fft_size (pm1data.poly2_size+1);
 	// Need numrels coefficients in poly #1.  Need 2 * numrels coefficients in poly #2 to eval poly #1 at one point.
 	// Each additional coefficient evaluates one more point.
-	num_points = poly2_size - (2*poly1_size) + 1;
+	num_points = pm1data.poly2_size - (2*pm1data.poly1_size) + 1;
 	ASSERTG (pm1data.numDsections % num_points == 0);
 
 // Polymult stage 2 does not need a prime sieve
@@ -8614,7 +8616,7 @@ pm1_polymult:
 
 // Switch to larger FFT size if necessary!  Polymult requires a few EXTRA_BITS to safely accumulate products in FFT space.
 
-	if (!gw_passes_safety_margin (&pm1data.gwdata, polymult_safety_margin (poly1_size*2, poly2_size))) {
+	if (!gw_passes_safety_margin (&pm1data.gwdata, polymult_safety_margin (pm1data.poly1_size*2, pm1data.poly2_size))) {
 		giant	binary_gg;
 		if (pm1data.gg != NULL) {
 			binary_gg = allocgiant (((int) pm1data.gwdata.bit_length >> 5) + 10);
@@ -8636,7 +8638,8 @@ pm1_polymult:
 		gwset_num_threads (&pm1data.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
 		gwset_thread_callback (&pm1data.gwdata, SetAuxThreadPriority);
 		gwset_thread_callback_data (&pm1data.gwdata, sp_info);
-		gwset_safety_margin (&pm1data.gwdata, polymult_safety_margin (poly1_size*2, poly2_size));
+//GW: Why are we using the safety margins for a larger poly than we will end up using??
+		gwset_safety_margin (&pm1data.gwdata, polymult_safety_margin (pm1data.poly1_size*2, pm1data.poly2_size));
 		gwset_larger_fftlen_count (&pm1data.gwdata, maxerr_restart_count < 3 ? maxerr_restart_count : 3);
 		gwset_minimum_fftlen (&pm1data.gwdata, w->minimum_fftlen);
 		res = gwsetup (&pm1data.gwdata, w->k, w->b, w->n, w->c);
@@ -8688,7 +8691,7 @@ pm1_polymult:
 
 /* Output a useful message regarding memory usage, poly sizes. */
 
-	sprintf (buf, "Using %uMB of memory.  D: %d, %dx%d polynomial multiplication.\n", memused, pm1data.D, poly1_size, poly2_size);
+	sprintf (buf, "Using %uMB of memory.  D: %d, %dx%d polynomial multiplication.\n", memused, pm1data.D, pm1data.poly1_size, pm1data.poly2_size);
 	OutputStr (thread_num, buf);
 
 /* Initialize gg to x-1 in case the user opted to skip the GCD after stage 1. */
@@ -8714,11 +8717,11 @@ pm1_polymult:
 
 /* Allocate nQx array of pointers to gwnums.  This will be the coefficients of our input and output polynomials. */
 
-	pm1data.nQx = (gwnum *) malloc ((poly1_size + poly2_size + outpoly_size) * sizeof (gwnum));
+	pm1data.nQx = (gwnum *) malloc ((pm1data.poly1_size + pm1data.poly2_size + outpoly_size) * sizeof (gwnum));
 	if (pm1data.nQx == NULL) goto lowmem;
-	poly1 = &pm1data.nQx[0];				// Poly #1, a monic RLP of size numrels
-	poly2 = &pm1data.nQx[poly1_size];			// Poly #2, a monic polynomial of size 2 * numrels + num_points - 1
-	outpoly = &pm1data.nQx[poly1_size + poly2_size];	// Output poly evaluating poly #1 at num_points
+	poly1 = &pm1data.nQx[0];						// Poly #1, a monic RLP of size numrels
+	poly2 = &pm1data.nQx[pm1data.poly1_size];				// Poly #2, a monic polynomial of size 2 * numrels + num_points - 1
+	outpoly = &pm1data.nQx[pm1data.poly1_size + pm1data.poly2_size];	// Output poly evaluating poly #1 at num_points
 
 // From Montgomery/Silverman paper (near formulas 9.4 & 9.5), D = 2 mod 4.  Calculate monic RLP coefficients
 // for u=1..D/4  if (gcd (u, D/2) == 1) compute V(2u).  The monic RLP is (x^2 - V(2u) + 1).
@@ -8887,7 +8890,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 		gwmul3 (&pm1data.gwdata, multiplier, diff1, multiplier, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);		// r^(j^2)*r^-1
 		gwmul3 (&pm1data.gwdata, poly1[1], multiplier, poly1[1], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);		// Mul by r^(j^2-1)
 		// Loop multiplying the remaining RLP coefficients
-		for (int j = 2; j < poly1_size; j++) {
+		for (int j = 2; j < pm1data.poly1_size; j++) {
 			gwmul3 (&pm1data.gwdata, diff1, diff2, diff1, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			gwmul3 (&pm1data.gwdata, multiplier, diff1, multiplier, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			gwmul3 (&pm1data.gwdata, poly1[j], multiplier, poly1[j], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
@@ -8931,9 +8934,9 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 //GW: Free x???
 
 	// Free invr, calculate first diff1 (e*r^((j-1)^2-j^2)) and store in poly2[poly2_size-1]
-	poly2[poly2_size-1] = invr;
-	exponentiate (&pm1data.gwdata, poly2[poly2_size-1], pm1data.numrels * 2 - 1);
-   	gwmul3 (&pm1data.gwdata, poly2[poly2_size-1], e, poly2[poly2_size-1], GWMUL_STARTNEXTFFT);
+	poly2[pm1data.poly2_size-1] = invr;
+	exponentiate (&pm1data.gwdata, poly2[pm1data.poly2_size-1], pm1data.numrels * 2 - 1);
+   	gwmul3 (&pm1data.gwdata, poly2[pm1data.poly2_size-1], e, poly2[pm1data.poly2_size-1], GWMUL_STARTNEXTFFT);
 
 //GW: free e
 gwfree (&pm1data.gwdata, e); e = NULL;
@@ -8945,7 +8948,7 @@ gwfree (&pm1data.gwdata, e); e = NULL;
 //GW:free internal memory for peak
 
 	// Allocate remaining gwnums for poly #2
-	for (int j = 0; j < poly2_size-1; j++) {
+	for (int j = 0; j < pm1data.poly2_size-1; j++) {
 		poly2[j] = gwalloc (&pm1data.gwdata);
 		if (poly2[j] == NULL) goto lowmem;
 		stop_reason = stopCheck (thread_num);
@@ -8991,11 +8994,11 @@ gwfree (&pm1data.gwdata, e); e = NULL;
 
 		gwnum diff1 = poly2[0];		// Scratch gwnum (the last gwnum we will write to) to use for remaining calculations
 		gwnum diff2 = r_squared;
-		gwmul3 (&pm1data.gwdata, poly2[poly2_size-1], diff2, diff1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);			// Next diff1
-		gwmul3 (&pm1data.gwdata, poly2[poly2_size-1], diff1, poly2[poly2_size-2], GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	// Next coeff
-		for (int j = 3; j < poly2_size; j++) {
+		gwmul3 (&pm1data.gwdata, poly2[pm1data.poly2_size-1], diff2, diff1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);		// Next diff1
+		gwmul3 (&pm1data.gwdata, poly2[pm1data.poly2_size-1], diff1, poly2[pm1data.poly2_size-2], GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT); // Next coeff
+		for (int j = 3; j < pm1data.poly2_size; j++) {
 			gwmul3 (&pm1data.gwdata, diff1, diff2, diff1, GWMUL_STARTNEXTFFT);			// Next diff1
-			gwmul3 (&pm1data.gwdata, poly2[poly2_size-j+1], diff1, poly2[poly2_size-j], GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (&pm1data.gwdata, poly2[pm1data.poly2_size-j+1], diff1, poly2[pm1data.poly2_size-j], GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			stop_reason = stopCheck (thread_num);
 			if (stop_reason) { pm1_save (&pm1data); goto exit; }
 		}
@@ -9005,7 +9008,7 @@ gwfree (&pm1data.gwdata, e); e = NULL;
 // Evaluate poly #1 at many points using polymult!
 
 //GW: Does the fft of a RLP have any special format?  Such as half the data?  Can that be meaningfully expoited? See Montgomery/Kruppa 6.3.
-		polymult (&pm1data.polydata, poly1, poly1_size, poly2, poly2_size, outpoly, outpoly_size,
+		polymult (&pm1data.polydata, poly1, pm1data.poly1_size, poly2, pm1data.poly2_size, outpoly, outpoly_size,
 			  POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC_TIMES_MONIC_RLP_OK | POLYMULT_CIRCULAR | POLYMULT_STARTNEXTFFT);
 if (pm1data.Dsection==0) {
 sprintf (buf, "Round off: %.10g\n", gw_get_maxerr (&pm1data.gwdata));
@@ -9092,7 +9095,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 // Set up difference for next poly #2
 
-		gwmul3 (&pm1data.gwdata, poly2[poly2_size-1], e_incr, poly2[poly2_size-1], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+		gwmul3 (&pm1data.gwdata, poly2[pm1data.poly2_size-1], e_incr, poly2[pm1data.poly2_size-1], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 	}
 	pm1data.C = pm1data.C_done = pm1data.B2_start + pm1data.Dsection * pm1data.D;
 
@@ -9151,8 +9154,8 @@ msg_and_exit:
 	writeResults (buf);
 
 /* Format a JSON version of the result.  An example follows: */
-/* {"status":"NF", "exponent":45581713, "worktype":"P-1", "b1":50000, "b2":5000000, "fft-length":5120, "security-code":"39AB1238", */
-/* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
+/* {"status":"NF", "exponent":45581713, "worktype":"P-1", "b1":50000, "b2":5000000, "D":2310, "poly1-size":240, "poly2-size": 600, */
+/* "fft-length":5120, "security-code":"39AB1238", "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "user":"gw_2", "cpu":"work_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
 	strcpy (JSONbuf, "{\"status\":\"NF\"");
@@ -9160,6 +9163,11 @@ msg_and_exit:
 	strcat (JSONbuf, ", \"worktype\":\"P-1\"");
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"b1\":%" PRIu64, pm1data.B);
 	if (pm1data.C > pm1data.B) sprintf (JSONbuf+strlen(JSONbuf), ", \"b2\":%" PRIu64, pm1data.C);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"D\":%d", pm1data.D);
+	if (pm1data.stage2_type == PM1_STAGE2_POLYMULT) {
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"poly1-size\":%d", pm1data.poly1_size);
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"poly2-size\":%d", pm1data.poly2_size);
+	}
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", pm1data.gwdata.FFTLEN);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, pm1data.B, pm1data.C));
 	JSONaddProgramTimestamp (JSONbuf);
@@ -9288,8 +9296,8 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 
 /* Format a JSON version of the result.  An example follows: */
 /* {"status":"F", "exponent":45581713, "worktype":"P-1", "factors":["430639100587696027847"], */
-/* "b1":50000, "b2":5000000, "fft-length":5120, "security-code":"39AB1238", */
-/* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
+/* "b1":50000, "b2":5000000, "D":2310, "poly1-size":240, "poly2-size": 600, "fft-length":5120, */
+/* "security-code":"39AB1238", "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "user":"gw_2", "cpu":"work_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
 	strcpy (JSONbuf, "{\"status\":\"F\"");
@@ -9298,6 +9306,11 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"factors\":[\"%s\"]", str);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"b1\":%" PRIu64, pm1data.B);
 	if (pm1data.state > PM1_STATE_MIDSTAGE) sprintf (JSONbuf+strlen(JSONbuf), ", \"b2\":%" PRIu64, pm1data.C);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"D\":%d", pm1data.D);
+	if (pm1data.stage2_type == PM1_STAGE2_POLYMULT) {
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"poly1-size\":%d", pm1data.poly1_size);
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"poly2-size\":%d", pm1data.poly2_size);
+	}
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", pm1data.gwdata.FFTLEN);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, pm1data.B, pm1data.C));
 	JSONaddProgramTimestamp (JSONbuf);
