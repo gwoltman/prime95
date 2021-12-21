@@ -8449,6 +8449,13 @@ replan:	{
 	OutputStr (thread_num, buf);
 	gw_clear_fft_count (&pm1data.gwdata);
 
+// Stage 2 init is successful.  Set interim_C so that continuing from a save file will go to our current B2_end.  This will ensure that the
+// relocatable primes just below b2_start will get properly relocated.
+
+	ASSERTG (pm1data.C <= pm1data.B2_start + pm1data.numDsections * pm1data.D);
+	ASSERTG (pm1data.interim_C <= pm1data.B2_start + pm1data.numDsections * pm1data.D);
+	pm1data.interim_C = pm1data.B2_start + pm1data.numDsections * pm1data.D;
+
 /* We do prime pairing with each loop iteration handling the range m-Q to m+Q where m is a multiple of D and Q is the */
 /* Q-th relative prime to D.  Totrels is often much larger than the number of relative primes less than D.  This Preda/Montgomery */
 /* optimization provides us with many more chances to find a prime pairing. */
