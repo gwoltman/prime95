@@ -8617,6 +8617,7 @@ pm1_polymult:
 // Switch to larger FFT size if necessary!  Polymult requires a few EXTRA_BITS to safely accumulate products in FFT space.
 
 	if (!gw_passes_safety_margin (&pm1data.gwdata, polymult_safety_margin (pm1data.poly1_size*2, pm1data.poly2_size))) {
+		unsigned long current_fftlen = gwfftlen (&pm1data.gwdata);
 		giant	binary_gg;
 		if (pm1data.gg != NULL) {
 			binary_gg = allocgiant (((int) pm1data.gwdata.bit_length >> 5) + 10);
@@ -8638,10 +8639,7 @@ pm1_polymult:
 		gwset_num_threads (&pm1data.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
 		gwset_thread_callback (&pm1data.gwdata, SetAuxThreadPriority);
 		gwset_thread_callback_data (&pm1data.gwdata, sp_info);
-//GW: Why are we using the safety margins for a larger poly than we will end up using??
-		gwset_safety_margin (&pm1data.gwdata, polymult_safety_margin (pm1data.poly1_size*2, pm1data.poly2_size));
-		gwset_larger_fftlen_count (&pm1data.gwdata, maxerr_restart_count < 3 ? maxerr_restart_count : 3);
-		gwset_minimum_fftlen (&pm1data.gwdata, w->minimum_fftlen);
+		gwset_minimum_fftlen (&pm1data.gwdata, current_fftlen + 1);  // Try next larger FFT length
 		res = gwsetup (&pm1data.gwdata, w->k, w->b, w->n, w->c);
 		if (res) {
 			sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
@@ -8672,6 +8670,7 @@ pm1_polymult:
 		pm1data.V = gwalloc (&pm1data.gwdata);
 		if (pm1data.V == NULL) goto oom;
 		gwadd3o (&pm1data.gwdata, pm1data.x, pm1data.invx, pm1data.V, GWADD_SQUARE_INPUT);
+		goto replan;
 	}
 
 /* Record the amount of memory this thread will be using in stage 2. */
