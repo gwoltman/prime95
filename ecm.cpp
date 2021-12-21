@@ -876,8 +876,8 @@ double best_stage2_impl (
 
 	ASSERTG (gap_start == 0 || (gap_start > C_start && gap_start <= gap_end));
 	ASSERTG (gap_start == 0 || (gap_end >= gap_start && gap_end < C));
-	c->gap_start = gap_start;
-	c->gap_end = gap_end;
+	c->gap_start = (gap_start > C_start ? gap_start : 0);
+	c->gap_end = (gap_end > C_start ? gap_end : 0);
 
 /* Return infinite cost if numvals is less than D=30 needs */
 
