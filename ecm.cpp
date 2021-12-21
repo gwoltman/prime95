@@ -7003,11 +7003,18 @@ double pm1_stage2_impl_given_numvals (
 	cost_data.c.fftlen = gwfftlen (&pm1data->gwdata);
 	cost_data.c.threads = gwget_num_threads (&pm1data->gwdata);
 	for (impl = 0; impl <= 1; impl++) {
-//GW: OPT - if numvals > some value, only cost out polymult
+
+//GW: OPT - if numvals > some value, only cost out polymult or < some val only cost prime pairing?
+		
 
 /* Check for QA'ing a specific P-1 implementation type */
 
 		if (QA_TYPE != 0 && QA_TYPE != impl + 1) continue;
+
+/* Check for option to force one type of stage 2 - mainly used for QA/debugging */
+
+		int specific_impl = IniGetInt (INI_FILE, "ForceP1Stage2Type", 99);
+		if (!(specific_impl == 99 || impl == specific_impl)) continue;
 
 /* Cost out a P-1 stage 2 implementation.  Keep track of the best implementation. */
 /* Try various values of D until we find the best one.  gwnums are required for V,Vn,Vn1,gg. */
@@ -8017,7 +8024,7 @@ restart3b:
 /* Loop here when prime pairing completes to a B2 from a save file, but the B2 in worktodo.txt is even higher. */
 
 more_C:
-//GW: more_C likely has x and invx = NULL ---> crash!
+//GW: more_C likely has x and invx = NULL ---> crash if polymult plan is chosen!
 	start_timer_from_zero (timers, 0);
 	sprintf (buf, "%s P-1 stage 2 init", gwmodulo_as_string (&pm1data.gwdata));
 	title (thread_num, buf);
