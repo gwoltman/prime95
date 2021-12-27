@@ -9022,7 +9022,7 @@ gwfree (&pm1data.gwdata, e); e = NULL;
 
 //GW: Does the fft of a RLP have any special format?  Such as half the data?  Can that be meaningfully expoited? See Montgomery/Kruppa 6.3.
 		polymult (&pm1data.polydata, poly1, pm1data.poly1_size, poly2, pm1data.poly2_size, outpoly, outpoly_size,
-			  POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC_TIMES_MONIC_RLP_OK | POLYMULT_CIRCULAR | POLYMULT_STARTNEXTFFT);
+			  POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC_TIMES_MONIC_RLP_OK | POLYMULT_CIRCULAR | POLYMULT_NO_UNFFT);
 if (pm1data.Dsection==0) {
 sprintf (buf, "Round off: %.10g\n", gw_get_maxerr (&pm1data.gwdata));
 OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
@@ -9037,10 +9037,12 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 		
 // Accumulate the evaluated points in gg for a later GCD
 
-		for (int j = 0; j < num_points; j++)
+		for (int j = 0; j < num_points; j++) {
 //GW: re-check for saving/stop prior to last gg multiply?   
+			gwunfft2 (&pm1data.gwdata, outpoly[2*pm1data.numrels+j], outpoly[2*pm1data.numrels+j], GWMUL_STARTNEXTFFT);
 			gwmul3 (&pm1data.gwdata, outpoly[2*pm1data.numrels+j], pm1data.gg, pm1data.gg,
-				(j == num_points-1 && (saving || stop_reason)) ? 0 : GWMUL_STARTNEXTFFT);
+				  (j == num_points-1 && (saving || stop_reason)) ? 0 : GWMUL_STARTNEXTFFT);
+		}
 
 // Keep track of the sections processed thusfar
 
@@ -9118,8 +9120,12 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 	gwfree (&pm1data.gwdata, e_incr), e_incr = NULL;
 	polymult_done (&pm1data.polydata);
 
-//GW: free poly gwnums before GCD
-	
+// Free poly gwnums before GCD.  GCD can use significant amounts of memory.
+
+	for (int i = 0; i < pm1data.poly1_size + pm1data.poly2_size + outpoly_size; i++)
+		gwfree (&pm1data.gwdata, pm1data.nQx[i]), pm1data.nQx[i] = NULL;
+	gwfree_internal_memory (&pm1data.gwdata);
+
 /* Stage 2 is complete */
 
 stage2_done:
