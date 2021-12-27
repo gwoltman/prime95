@@ -9122,7 +9122,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 // Free poly gwnums before GCD.  GCD can use significant amounts of memory.
 
-	for (int i = 0; i < pm1data.poly1_size + pm1data.poly2_size + outpoly_size; i++)
+	for (int i = 0; i < pm1data.poly1_size + pm1data.poly2_size; i++)
 		gwfree (&pm1data.gwdata, pm1data.nQx[i]), pm1data.nQx[i] = NULL;
 	gwfree_internal_memory (&pm1data.gwdata);
 
