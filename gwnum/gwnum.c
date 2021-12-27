@@ -2579,6 +2579,92 @@ int gwsetup_without_mod (
 	return (0);
 }
 
+#ifdef CLONING
+/* Clone a gwhandle.  The cloned handle can be used in a limited way in another thread.  Valid operations in the cloned handle are single threaded */
+/* multiplication, addition, subtraction.  Operations to avoid are memory allocation and freeing including any routines that may allocate gwnums internally */
+
+int gwclone (
+	gwhandle *cloned_gwdata,	/* Empty handle to be populated */
+	gwhandle *gwdata)		/* Handle to clone */
+{
+
+/* Start by copying the handle, set flag indicating this is a cloned handle */
+
+	memcpy (cloned_gwdata, gwdata, sizeof (struct gwhandle_struct));
+	cloned_gwdata->cloned = TRUE;
+
+/* For now turn off multi-threading and thread callback.  We could re-visit this at a later date.  Our first use of cloned handles is in P-1 stage 2 */
+/* where we are piggybacking off of polymult's thread locks and callbacks. */
+
+	cloned_gwdata->num_threads = 1;
+	cloned_gwdata->hyperthread_prefetching = 0;
+	cloned_gwdata->thread_callback = NULL;
+	cloned_gwdata->thread_callback_data = NULL;
+	cloned_gwdata->thread_ids = NULL;
+
+/* Keep allocated memory separate between the two handles */
+
+	cloned_gwdata->gwnum_alloc = NULL;
+	cloned_gwdata->gwnum_alloc_count = 0;
+	cloned_gwdata->gwnum_alloc_array_size = 50;
+	cloned_gwdata->gwnum_free = NULL;
+	cloned_gwdata->gwnum_free_count = 0;
+	cloned_gwdata->large_pages_ptr = NULL;
+	cloned_gwdata->large_pages_gwnum = NULL;
+	cloned_gwdata->gwnum_memory = NULL;
+
+/* Each cloned handle must have their own asm_data structure */
+
+	asm_data_alloc = aligned_malloc (sizeof (struct gwasm_data) + NEW_STACK_SIZE, 4096);
+	if (asm_data_alloc == NULL) 
+		gwdone (cloned_gwdata);
+		return (GWERROR_MALLOC);
+	}
+	cloned_gwdata->asm_data = (char *) asm_data_alloc + NEW_STACK_SIZE;
+	memcpy (cloned_gwdata->asm_data, gwdata->asm_data, sizeof (struct gwasm_data));
+
+/* Can't share radix FFTs */
+
+	cloned_gwdata->to_radix_gwdata = NULL;
+	cloned_gwdata->from_radix_gwdata = NULL;
+
+/* Clear counters.  Each handle will keep there own counts. */
+
+	cloned_gwdata->fft_count = 0;
+	cloned_gwdata->read_count = 0;
+	cloned_gwdata->write_count = 0;
+
+	void	*asm_data;		/* Memory allocated for ASM global data */
+	struct pass1_carry_sections *pass1_carry_sections; /* Array of pass1 sections for carry propagation */
+	void	*multithread_op_data;	/* Data shared amongst add/sub/addsub/smallmul compute threads */
+
+	asm_data->gwdata = gwdata;
+	asm_data->thread_num = 0;
+	asm_data->carries = tables;		// can't be shared
+			if (gwdata->PASS2_SIZE) {
+				int	i, carry_table_size;
+				double	carryval;
+				ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
+				asm_data->carries = tables;
+				carry_table_size = gwdata->PASS1_SIZE;
+				if (b == 2) carryval = 3.0 * 131072.0 * 131072.0 * 131072.0;
+				else carryval = 0.0;
+				for (i = 0; i < carry_table_size; i++)
+					if (gwdata->ZERO_PADDED_FFT && (i & 4)) *tables++ = 0.0;
+					else *tables++ = carryval;
+				tables += (8 - (tables - gwdata->gwnum_memory)) & 7;
+			}
+			if (gwdata->SCRATCH_SIZE) {
+				ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
+				asm_data->scratch_area = tables;
+				tables = (double *) ((char *) tables + gwdata->SCRATCH_SIZE);
+			}
+
+/* Return success */
+
+	return (0);
+}
+#endif
 
 /* Examine a giant to see if it a (k*2^n+c)/d value. */
 /* Returns TRUE if conversion was successful. */
@@ -4718,7 +4804,7 @@ int internal_gwsetup (
 /* 28 of the 32 cache lines. */
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
-		if (gwdata->PASS2_SIZE == 0) {		/* One pass */
+		if (gwdata->PASS1_SIZE == 0) {		/* One pass */
 			gwdata->GW_ALIGNMENT = 128;	/* Not tested yet */
 			gwdata->GW_ALIGNMENT_MOD = 0;
 		} else {				/* Two passes */
@@ -10831,7 +10917,6 @@ void gwadd3o (			/* Add two numbers normalizing if needed */
 /* If either input is partially or fully FFTed, we cannot normalize the result.  Use a different assembly routine. */
 
 	if (FFT_state (s1) != NOT_FFTed || FFT_state (s2) != NOT_FFTed) {
-		ASSERTG (!(options & GWADD_FORCE_NORMALIZE));
 
 /* If the two FFT states are not the same, make them so */
 
@@ -10872,6 +10957,10 @@ void gwadd3o (			/* Add two numbers normalizing if needed */
 
 		unnorms (d) = new_normcnt;
 		FFT_state (d) = FFT_state (s1);
+
+/* If force normalize requested, do so */
+
+		if (options & GWADD_FORCE_NORMALIZE) gwunfft (gwdata, d, d);
 	}
 
 /* If we can do an addquick, do that - it should be faster. */
@@ -10967,7 +11056,6 @@ void gwsub3o (			/* Compute s1 - s2 normalizing if needed */
 /* If either input is partially or fully FFTed, we cannot normalize the result.  Use a different assembly routine. */
 
 	if (FFT_state (s1) != NOT_FFTed || FFT_state (s2) != NOT_FFTed) {
-		ASSERTG (!(options & GWADD_FORCE_NORMALIZE));
 
 /* If the two FFT states are not the same, make them so */
 
@@ -11008,6 +11096,10 @@ void gwsub3o (			/* Compute s1 - s2 normalizing if needed */
 
 		unnorms (d) = new_normcnt;
 		FFT_state (d) = FFT_state (s1);
+
+/* If force normalize requested, do so */
+
+		if (options & GWADD_FORCE_NORMALIZE) gwunfft (gwdata, d, d);
 	}
 
 /* If we can do an subquick, do that - it should be faster. */
@@ -11147,6 +11239,13 @@ void gwaddsub4o (		/* Add & sub two nums normalizing if needed */
 
 		unnorms (d1) = unnorms (d2) = new_normcnt;
 		FFT_state (d1) = FFT_state (d2) = FFT_state (s1);
+
+/* If force normalize requested, do so */
+
+		if (options & GWADD_FORCE_NORMALIZE) {
+			gwunfft (gwdata, d1, d1);
+			gwunfft (gwdata, d2, d2);
+		}
 	}
 
 /* If we can do an addsubquick, do that - it should be faster. */
