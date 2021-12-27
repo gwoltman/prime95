@@ -9072,7 +9072,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 		if (first_iter_msg ||
 		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) * ITER_FUDGE >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
-			sprintf (buf, "%s stage 2 at B2=%" PRIu64 "[%.*f%%]",
+			sprintf (buf, "%s stage 2 at B2=%" PRIu64 " [%.*f%%]",
 				 gwmodulo_as_string (&pm1data.gwdata), pm1data.B2_start + pm1data.Dsection * pm1data.D,
 				 (int) PRECISION, trunc_percent (w->pct_complete));
 			end_timer (timers, 0);
@@ -9092,7 +9092,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 		if ((ITER_OUTPUT_RES != 999999999 && gw_get_fft_count (&pm1data.gwdata) * ITER_FUDGE >= last_output_r + 2 * ITER_OUTPUT_RES) ||
 		    (NO_GUI && stop_reason)) {
-			sprintf (buf, "%s stage 2 at B2=%" PRIu64 "[%.*f%%]\n",
+			sprintf (buf, "%s stage 2 at B2=%" PRIu64 " [%.*f%%]\n",
 				 gwmodulo_as_string (&pm1data.gwdata), pm1data.B2_start + pm1data.Dsection * pm1data.D,
 				 (int) PRECISION, trunc_percent (w->pct_complete));
 			writeResults (buf);
