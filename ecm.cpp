@@ -6342,6 +6342,10 @@ typedef struct {
 	pmhandle polydata;	/* Polymult data structure */
 	int	poly1_size;	/* Size of the first RLP poly */
 	int	poly2_size;	/* Size of the second RLP that evaluates poly #1 at multiple points */
+	int	num_points;	/* Number of points (multiples of D) that can be evalualted with each polymult. */
+	int	helper_work;	/* Type of work helper routine should perform */
+	gwnum	*points;	/* Array of evaluated points for helper routine to accumulate into gg for later GCD */
+	int	current_point;	/* Next point for helper routine to accumulate */
 } pm1handle;
 
 /* Perform cleanup functions. */
@@ -7379,6 +7383,57 @@ void calc_exp2 (
 		}
 	}
 }
+
+/* Helper routine for multithreading P-1 stage 2 */
+
+#define PM1_ACCUMULATING_GG	1
+
+void pm1_helper (
+	int	helper_num,	// 0 = main thread, 1+ = helper thread num
+	gwhandle *gwdata,	// Single-threaded, thread-safe gwdata (probably cloned) to use
+	void	*info)
+{
+	pm1handle *pm1data = (pm1handle *) info;
+
+/* Accumulate output poly results into gg for later GCD */
+
+	if (pm1data->helper_work == PM1_ACCUMULATING_GG) {
+		gwnum	accumulator = NULL;
+
+		// Loop multiplying points from the output poly
+		for ( ; ; ) {
+			// Get one of the output poly's gwnums.  We will accumulate here and later multiply with gg.
+			gwmutex_lock (&pm1data->polydata.poly_mutex);
+			int point = pm1data->current_point++;
+			gwmutex_unlock (&pm1data->polydata.poly_mutex);
+
+			// If the other helper threads have completed processing of the output poly, then we're done
+			if (point >= pm1data->num_points) break;
+
+			// Unfft the gwnum
+			gwunfft2 (gwdata, pm1data->points[point], pm1data->points[point], GWMUL_STARTNEXTFFT);
+
+			// Either set the accumulator or multiply with the accumulator
+			if (accumulator == NULL) accumulator = pm1data->points[point];
+			else gwmul3 (gwdata, pm1data->points[point], accumulator, accumulator, GWMUL_STARTNEXTFFT);
+		}
+
+		// Now apply the accumulator to gg
+		if (accumulator != NULL) {
+			gwfft (gwdata, accumulator, accumulator);
+			gwmutex_lock (&pm1data->polydata.poly_mutex);
+			gwmul3 (gwdata, accumulator, pm1data->gg, pm1data->gg, GWMUL_STARTNEXTFFT);
+//GW: (j == num_points-1 && (saving || stop_reason)) ? 0 : GWMUL_STARTNEXTFFT);
+//GW: re-check for saving/stop prior to last gg multiply?   
+			gwmutex_unlock (&pm1data->polydata.poly_mutex);
+		}
+
+//GW: accumulate counts and maxerr!   or does caller do this when all helpers have exited?  gwnum routine should help with this
+// gwerror too
+// do this in polymult
+	}
+}
+
 
 /*****************************************************************************/
 /*                         Main P-1 routine				     */
@@ -8607,7 +8662,6 @@ replan:	{
 
 pm1_polymult:
 	int	outpoly_size;			// Called L in the literature.  Make this value as large as we can given amount of free memory.
-	int	num_points;			// Number of points (multiples of D) that can be evalualted with each polymult.
 	gwnum	*poly1, *poly2, *outpoly, e, e_incr, r, invr, r_squared;
 
 	// Detemine poly sizes.
@@ -8621,8 +8675,8 @@ pm1_polymult:
 	outpoly_size = polymult_fft_size (pm1data.poly2_size+1);
 	// Need numrels coefficients in poly #1.  Need 2 * numrels coefficients in poly #2 to eval poly #1 at one point.
 	// Each additional coefficient evaluates one more point.
-	num_points = pm1data.poly2_size - (2*pm1data.poly1_size) + 1;
-	ASSERTG (pm1data.numDsections % num_points == 0);
+	pm1data.num_points = pm1data.poly2_size - (2*pm1data.poly1_size) + 1;
+	ASSERTG (pm1data.numDsections % pm1data.num_points == 0);
 
 // Polymult stage 2 does not need a prime sieve
 
@@ -8835,11 +8889,20 @@ pm1_polymult:
 		gwfree (&pm1data.gwdata, V6);
 	}
 
-// Multiply monic RLPs into one big monic RLP.  This is done in-place.
+/* Initialize the polymult library */
 
 	polymult_init (&pm1data.polydata, &pm1data.gwdata);
 	polymult_set_num_threads (&pm1data.polydata, get_worker_num_threads (thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0));
 	polymult_set_cache_size (&pm1data.polydata, IniGetInt (INI_FILE, "PolymultCacheSize", 256));
+	bool use_polymult_multithreading;		// TRUE if we should use polymult multithreading instead of gwnum multithreading
+	use_polymult_multithreading = pm1data.polydata.num_threads > 1 && (int) gwfftlen (&pm1data.gwdata) <= IniGetInt (INI_FILE, "PolyThreadingFFTlength", 256) * 1024;
+	if (use_polymult_multithreading) {
+		pm1data.polydata.helper_callback = &pm1_helper;
+		pm1data.polydata.helper_callback_data = &pm1data;
+	}
+
+// Multiply monic RLPs into one big monic RLP.  This is done in-place.
+
 	{
 		int	num_polys = pm1data.numrels;	// Number of polys to multiply together
 		int	poly_size = 1;			// All polys are this size (except maybe the last one)
@@ -8942,7 +9005,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 	if (e_incr == NULL) goto lowmem;
 // GW: This fft of r needed again for r_squared.  e_incr not needed if DSection + num_points > numDsections
 	gwfft (&pm1data.gwdata, r, e_incr);
-	exponentiate (&pm1data.gwdata, e_incr, num_points * 2);
+	exponentiate (&pm1data.gwdata, e_incr, pm1data.num_points * 2);
 
 //GW: Free x???
 
@@ -8974,7 +9037,7 @@ gwfree (&pm1data.gwdata, e); e = NULL;
 // GW: cost function should take into account fft boundaries!  choosing fewer numvals may sometimes make sense.  Do this by costing using maximum numvals
 // and costing a reduced numvals/poly2size to next lower fft size.
 	memset (outpoly, 0, outpoly_size * sizeof (gwnum));
-	for (int j = 0; j < num_points; j++) outpoly[2*pm1data.numrels+j] = poly2[j];
+	for (int j = 0; j < pm1data.num_points; j++) outpoly[2*pm1data.numrels+j] = poly2[j];
 
 /* Stage 2 init complete, change the title, output a message */
 
@@ -9033,20 +9096,28 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 		if (gw_test_for_error (&pm1data.gwdata)) goto err;
 		stop_reason = stopCheck (thread_num);
 		saving = testSaveFilesFlag (thread_num);
-// Skip accumulating gg if stopping?  Save file prior to accumulating ggs??  All depends on how fast we think these gg accumulates will be
-		
-// Accumulate the evaluated points in gg for a later GCD
+//GW: Skip accumulating gg if stopping?  Save file prior to accumulating ggs??  All depends on how fast we think these gg accumulates will be
 
-		for (int j = 0; j < num_points; j++) {
-//GW: re-check for saving/stop prior to last gg multiply?   
-			gwunfft2 (&pm1data.gwdata, outpoly[2*pm1data.numrels+j], outpoly[2*pm1data.numrels+j], GWMUL_STARTNEXTFFT);
-			gwmul3 (&pm1data.gwdata, outpoly[2*pm1data.numrels+j], pm1data.gg, pm1data.gg,
-				  (j == num_points-1 && (saving || stop_reason)) ? 0 : GWMUL_STARTNEXTFFT);
-		}
+// Multithreaded accumulation of the evaluated points from outpoly into gg for a later GCD
+
+		// Initialize data needed for helper routine to access each coefficient
+		pm1data.helper_work = PM1_ACCUMULATING_GG;		// Work type for helper to do
+		pm1data.points = &outpoly[2*pm1data.numrels];		// First point to accumulate
+		pm1data.current_point = 0;				// Next point to accumulate
+//GW:	stop reason/saving?
+				
+		// If using polymult helper threads to accumulate the evaluated points, set gwnum to use only one thread and launch the helpers
+		if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);
+
+		// Call the helper routine so the main thread can also accumulate the evaluated points for GCD
+		pm1_helper (0, &pm1data.gwdata, &pm1data);
+
+		// If using polymult helper threads to accumulate the evaluated points, wait for the helpers and restore gwnum's num threads
+		if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);
 
 // Keep track of the sections processed thusfar
 
-		pm1data.Dsection += num_points;
+		pm1data.Dsection += pm1data.num_points;
 		if (pm1data.Dsection >= pm1data.numDsections && pm1data.B2_start + pm1data.Dsection * pm1data.D > pm1data.C) break;
 
 /* Calculate stage 2 percentage. */
