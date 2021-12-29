@@ -654,6 +654,22 @@ int gwiszero (gwhandle *, gwnum);
 int gwequal (gwhandle *, gwnum, gwnum);
 
 /*---------------------------------------------------------------------+
+|                          CLONING ROUTINES                            |
++---------------------------------------------------------------------*/
+
+/* Experimental routine to clone a gwhandle.  The cloned handle uses less resources than a full gwsetup by sharing many data structures with */
+/* the original handle.  The cloned handle can be used in a limited way in another thread.  Valid operations in the cloned handle are single */
+/* threaded multiplication, addition, subtraction.  Other operations may work as well. */
+int gwclone (
+	gwhandle *cloned_gwdata,	/* Empty handle to be populated */
+	gwhandle *gwdata);		/* Handle to clone */
+
+/* Merge various stats (MAXERR, fft_count, etc.) back into the parent gwdata.  This routine does not do any locking to make sure the */
+/* parent gwdata is not busy nor are any other cloned gwdatas simultaneously merging stats.  Locking is the caller's responsibility. */
+void gwclone_merge_stats (
+	gwhandle *cloned_gwdata);	/* Handle for a cloned gwdata */
+
+/*---------------------------------------------------------------------+
 |                 ALTERNATIVE INTERFACES USING GIANTS                  |
 +---------------------------------------------------------------------*/
 
@@ -1037,7 +1053,6 @@ struct gwhandle_struct {
 	gwnum	GW_RANDOM;		/* A random number used in gwmul3_carefully. */
 	gwnum	GW_ADDIN;		/* The gwsetaddin value when we need to emulate GWMUL3_ADDINCONST. */
 	gwnum	GW_FFT1;		/* The number 1 FFTed.  Sometimes need by gwmuladd4 and gwmulsub4. */
-	char	cloned;			/* TRUE if this is a cloned gwhandle */
 	char	FFT1_state;		/* 0 = FFT(1) needed for FMA but not yet allocated, 1 = FFT(1) needed for FMA and allocated, */
 					/* 2 = FFT(1) is not needed for FMA. */
 	char	FFT1_user_allocated;	/* TRUE if FFT(1) was allocated at user's request */
@@ -1107,6 +1122,7 @@ struct gwhandle_struct {
 	double	ZPAD_COPY7_ADJUST[7];	/* Adjustments for copying the 7 words around the halfway point of a zero pad FFT. */
 	double	ZPAD_0_6_ADJUST[7];	/* Adjustments for ZPAD0_6 in a r4dwpn FFT */
 	unsigned long wpn_count;	/* Count of r4dwpn pass 1 blocks that use the same ttp/ttmp grp multipliers */
+	gwhandle *clone_of;		/* If this is a cloned gwhandle, this points to the handle that was cloned */
 	gwhandle *to_radix_gwdata;	/* FFTs used in converting to base b from binary in nonbase2_gianttogw */
 	gwhandle *from_radix_gwdata;	/* FFTs used in converting from base b to binary in nonbase2_gwtogiant */
 };
