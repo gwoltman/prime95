@@ -89,6 +89,14 @@ void polymult (
 //GW: option to accept compressed poly inputs?
 //GW: invec1_ffted and invec2_ffted not needed if it is part of the FFT_STATE.
 
+/* This routine launches the polymult helper threads.  The polymult library uses this routine to do multithreading, users can too! */
+void polymult_launch_helpers (
+	pmhandle *pmdata);		// Handle for polymult library
+
+/* This routine waits for the launched polymult helper threads to finish */
+void polymult_wait_on_helpers (
+	pmhandle *pmdata);		// Handle for polymult library
+
 /* The pmhandle structure containing all of polymult's "global" data. */
 struct pmhandle_struct {
 	gwhandle *gwdata;		// Handle for gwnum FFT library
@@ -107,7 +115,7 @@ struct pmhandle_struct {
 	int	twiddles_initialized;	// size of the twiddle tables
 	double	*twiddles1;		// Sin/cos table for radix-3
 	double	*twiddles2;		// Sin/cos table for radix-4 and radix-5
-	// Brute force from outvec_size [1..KARAT_BREAK), Karatsuba from [KARAT_BREAK..FFT_BREAK). FFT from [FFT_BREAK..infinity)
+	// Brute force from outvec_size [1..KARAT_BREAK), Karatsuba from [KARAT_BREAK..FFT_BREAK), FFT from [FFT_BREAK..infinity)
 	int	KARAT_BREAK;		// Output vector size where we switch from brute force to Karatsuba
 	int	FFT_BREAK;		// Output vector size where we switch from Karatsuba to FFTs
 	int	L2_CACHE_SIZE;		// Optimize FFTs to fit in this size cache (number is in KB).  Default is 256KB.
@@ -119,6 +127,12 @@ struct pmhandle_struct {
 	gwnum	*outvec;		// Output poly
 	int	outvec_size;		// Size of the output polynomial (or fft_size if POLYMULT_FORWARD_FFT)
 	int	options;
+	// These items allow users of the polymult library to also use the polymult helper threads for whatever they see fit.
+	bool	helpers_doing_polymult;	// TRUE if helpers are doing polymult work, not user work
+	bool	helpers_sync_clone_stats; // TRUE if helpers are syncing cloned gwdata stats, not user work
+	void	(*helper_callback)(int, gwhandle *, void *); // User-defined helper callback routine
+	void	*helper_callback_data;	// User-defined data to pass to the user-defined helper callback routine
+	int	saved_gwdata_num_threads; // Used internally to restore gwdata's multithreading after a user defined callback
 };
 
 
