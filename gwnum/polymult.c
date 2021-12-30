@@ -1984,16 +1984,19 @@ void polymult_line (
 		scratch = NULL;
 	}
 	else {
+		unsigned int pass1_size, pass2_size;
 		fft_size = (options & (POLYMULT_FORWARD_FFT | POLYMULT_CIRCULAR)) ? outvec_size :
 			   (options & POLYMULT_INVEC1_FFTED) ? invec1_size :
 			   (options & POLYMULT_INVEC2_FFTED) ? invec2_size : polymult_fft_size (adjusted_outvec_size);
+		pick_pass_sizes (pmdata, fft_size, &pass1_size, &pass2_size);
 		tmpvec = (CVDT *) aligned_malloc (fft_size * sizeof (CVDT), 64);		// FFT of invec1 goes here
 		outvec = (CVDT *) aligned_malloc ((fft_size + 2) * sizeof (CVDT), 64) + 1;	// FFT of invec2 goes here as does outvec
 		if (post_process_monics && (options & POLYMULT_INVEC2_MONIC)) invec1 = (CVDT *) aligned_malloc (fft_size * sizeof (CVDT), 64);
 		else invec1 = tmpvec;
 		if (post_process_monics && (options & POLYMULT_INVEC1_MONIC)) invec2 = (CVDT *) aligned_malloc (fft_size * sizeof (CVDT), 64);
 		else invec2 = outvec;
-		scratch = (CVDT *) aligned_malloc (fft_size * sizeof (CVDT), 64);		//GW: could alloc much less here
+		if (pass1_size > 1) scratch = (CVDT *) aligned_malloc (pass1_size * sizeof (CVDT), 64);
+		else scratch = NULL;
 	}
 
 	// Grab four complex values from each gwnum coefficient.  Work that data set.  Then move onto remaining complex vals in gwnums.
