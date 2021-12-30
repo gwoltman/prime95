@@ -9244,7 +9244,7 @@ msg_and_exit:
 	writeResults (buf);
 
 /* Format a JSON version of the result.  An example follows: */
-/* {"status":"NF", "exponent":45581713, "worktype":"P-1", "b1":50000, "b2":5000000, "D":2310, "poly1-size":240, "poly2-size": 600, */
+/* {"status":"NF", "exponent":45581713, "worktype":"P-1", "b1":50000, "b2":5000000, "d":2310, "poly1-size":240, "poly2-size": 600, */
 /* "fft-length":5120, "security-code":"39AB1238", "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "user":"gw_2", "cpu":"work_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
@@ -9252,11 +9252,13 @@ msg_and_exit:
 	JSONaddExponent (JSONbuf, w);
 	strcat (JSONbuf, ", \"worktype\":\"P-1\"");
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"b1\":%" PRIu64, pm1data.B);
-	if (pm1data.C > pm1data.B) sprintf (JSONbuf+strlen(JSONbuf), ", \"b2\":%" PRIu64, pm1data.C);
-	sprintf (JSONbuf+strlen(JSONbuf), ", \"D\":%d", pm1data.D);
-	if (pm1data.stage2_type == PM1_STAGE2_POLYMULT) {
-		sprintf (JSONbuf+strlen(JSONbuf), ", \"poly1-size\":%d", pm1data.poly1_size);
-		sprintf (JSONbuf+strlen(JSONbuf), ", \"poly2-size\":%d", pm1data.poly2_size);
+	if (pm1data.C > pm1data.B) {
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"b2\":%" PRIu64, pm1data.C);
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"d\":%d", pm1data.D);
+		if (pm1data.stage2_type == PM1_STAGE2_POLYMULT) {
+			sprintf (JSONbuf+strlen(JSONbuf), ", \"poly1-size\":%d", pm1data.poly1_size);
+			sprintf (JSONbuf+strlen(JSONbuf), ", \"poly2-size\":%d", pm1data.poly2_size);
+		}
 	}
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", pm1data.gwdata.FFTLEN);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, pm1data.B, pm1data.C));
@@ -9386,7 +9388,7 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 
 /* Format a JSON version of the result.  An example follows: */
 /* {"status":"F", "exponent":45581713, "worktype":"P-1", "factors":["430639100587696027847"], */
-/* "b1":50000, "b2":5000000, "D":2310, "poly1-size":240, "poly2-size": 600, "fft-length":5120, */
+/* "b1":50000, "b2":5000000, "d":2310, "poly1-size":240, "poly2-size": 600, "fft-length":5120, */
 /* "security-code":"39AB1238", "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "user":"gw_2", "cpu":"work_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
@@ -9395,11 +9397,13 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 	strcat (JSONbuf, ", \"worktype\":\"P-1\"");
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"factors\":[\"%s\"]", str);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"b1\":%" PRIu64, pm1data.B);
-	if (pm1data.state > PM1_STATE_MIDSTAGE) sprintf (JSONbuf+strlen(JSONbuf), ", \"b2\":%" PRIu64, pm1data.C);
-	sprintf (JSONbuf+strlen(JSONbuf), ", \"D\":%d", pm1data.D);
-	if (pm1data.stage2_type == PM1_STAGE2_POLYMULT) {
-		sprintf (JSONbuf+strlen(JSONbuf), ", \"poly1-size\":%d", pm1data.poly1_size);
-		sprintf (JSONbuf+strlen(JSONbuf), ", \"poly2-size\":%d", pm1data.poly2_size);
+	if (pm1data.state > PM1_STATE_MIDSTAGE) {
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"b2\":%" PRIu64, pm1data.C);
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"d\":%d", pm1data.D);
+		if (pm1data.stage2_type == PM1_STAGE2_POLYMULT) {
+			sprintf (JSONbuf+strlen(JSONbuf), ", \"poly1-size\":%d", pm1data.poly1_size);
+			sprintf (JSONbuf+strlen(JSONbuf), ", \"poly2-size\":%d", pm1data.poly2_size);
+		}
 	}
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", pm1data.gwdata.FFTLEN);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, pm1data.B, pm1data.C));
