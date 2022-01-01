@@ -69,6 +69,7 @@
 // 54) Does monolithic two-forward-FFTs-pointmul-and-one-inverse-FFT routine suggest different preferred pass sizes (use half the L2 cache)?
 // 55) For VFMA machines, store twiddles as cos/sin, sin to allow a few more FMA opportunities
 // 56) Move mul by 1/FFTLEN to last unfft level (perhaps into the twiddle table itself).  Saves 65%+ of the multiplies if VFMA is available.
+// 57) Option to save memory by processing AVX-512 data using FMA3.  (reduces sizeof(CVDT)).
 
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
 int next_line (pmhandle *pmdata);
