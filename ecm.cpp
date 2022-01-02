@@ -10,7 +10,7 @@
  *	Other important ideas courtesy of Peter Montgomery, Mihai Preda, Pavel Atnashev.
  *
  *	c. 1997 Perfectly Scientific, Inc.
- *	c. 1998-2021 Mersenne Research, Inc.
+ *	c. 1998-2022 Mersenne Research, Inc.
  *	All Rights Reserved.
  *
  *************************************************************/
@@ -6343,7 +6343,12 @@ typedef struct {
 	int	poly1_size;	/* Size of the first RLP poly */
 	int	poly2_size;	/* Size of the second RLP that evaluates poly #1 at multiple points */
 	int	num_points;	/* Number of points (multiples of D) that can be evalualted with each polymult. */
+	gwnum	r_squared;	/* Used in finite differences to compute poly #2 coefficients (actually this is r^(2*helper_count)) */
+	gwnum	r_squared2;	/* Used in finite differences to compute poly #2 coefficients (actually this is r^(2*helper_count^2)) */
 	int	helper_work;	/* Type of work helper routine should perform */
+	int	helper_count;	/* Total number of threads including main thread doing helper work */
+	gwnum	*poly2;		/* Array of poly2 coefficients for helper routine to compute */
+	int	remaining_poly2_size; /* Number of poly2 coefficients to compute */
 	gwnum	*points;	/* Array of evaluated points for helper routine to accumulate into gg for later GCD */
 	int	current_point;	/* Next point for helper routine to accumulate */
 } pm1handle;
@@ -7386,7 +7391,8 @@ void calc_exp2 (
 
 /* Helper routine for multithreading P-1 stage 2 */
 
-#define PM1_ACCUMULATING_GG	1
+#define PM1_COMPUTE_POLY2	1
+#define PM1_ACCUMULATING_GG	2
 
 void pm1_helper (
 	int	helper_num,	// 0 = main thread, 1+ = helper thread num
@@ -7395,9 +7401,23 @@ void pm1_helper (
 {
 	pm1handle *pm1data = (pm1handle *) info;
 
+// Generate the next poly #2 coefficients using differences.  The highest coefficient and next difference is already computed.
+
+	if (pm1data->helper_work == PM1_COMPUTE_POLY2) {
+		gwnum diff1 = pm1data->poly2[helper_num];	// The pre-computed first distance is stored here
+		gwnum diff2 = pm1data->r_squared2;		// r^(2*helper_count^2)
+//GW: handle no work to do case
+		for (int j = (pm1data->remaining_poly2_size - helper_num - 1) / pm1data->helper_count; ; j--) {
+			gwmul3 (gwdata, pm1data->poly2[(j+1)*pm1data->helper_count+helper_num], diff1,
+				pm1data->poly2[j*pm1data->helper_count+helper_num], GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT); // Next coeff
+			if (j == 0) break;
+			gwmul3 (gwdata, diff1, diff2, diff1, GWMUL_STARTNEXTFFT); // Next diff1
+		}
+	}
+
 /* Accumulate output poly results into gg for later GCD */
 
-	if (pm1data->helper_work == PM1_ACCUMULATING_GG) {
+	else if (pm1data->helper_work == PM1_ACCUMULATING_GG) {
 		gwnum	accumulator = NULL;
 
 		// Loop multiplying points from the output poly
@@ -7427,10 +7447,6 @@ void pm1_helper (
 //GW: re-check for saving/stop prior to last gg multiply?   
 			gwmutex_unlock (&pm1data->polydata.poly_mutex);
 		}
-
-//GW: accumulate counts and maxerr!   or does caller do this when all helpers have exited?  gwnum routine should help with this
-// gwerror too
-// do this in polymult
 	}
 }
 
@@ -8662,7 +8678,7 @@ replan:	{
 
 pm1_polymult:
 	int	outpoly_size;			// Called L in the literature.  Make this value as large as we can given amount of free memory.
-	gwnum	*poly1, *poly2, *outpoly, e, e_incr, r, invr, r_squared;
+	gwnum	*poly1, *poly2, *outpoly, e, e_incr, r, invr;
 
 	// Detemine poly sizes.
 	pm1data.poly1_size = pm1data.numrels;			// Size of poly #1, called f(X) in the literature.
@@ -8896,10 +8912,13 @@ pm1_polymult:
 	polymult_set_cache_size (&pm1data.polydata, IniGetInt (INI_FILE, "PolymultCacheSize", 256));
 	bool use_polymult_multithreading;		// TRUE if we should use polymult multithreading instead of gwnum multithreading
 	use_polymult_multithreading = pm1data.polydata.num_threads > 1 && (int) gwfftlen (&pm1data.gwdata) <= IniGetInt (INI_FILE, "PolyThreadingFFTlength", 256) * 1024;
+//GW: if poly2 is small do not use polymult threading.  Poly2 compute coefficients needs poly2size > 2*helper_count (I think)
 	if (use_polymult_multithreading) {
+		pm1data.helper_count = pm1data.polydata.num_threads;
 		pm1data.polydata.helper_callback = &pm1_helper;
 		pm1data.polydata.helper_callback_data = &pm1data;
-	}
+	} else
+		pm1data.helper_count = 1;
 
 // Multiply monic RLPs into one big monic RLP.  This is done in-place.
 
@@ -8935,31 +8954,36 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 // Differences are:		....  r^-5  r^-3  r^-1
 // Differences are:	            ...  r^-2  r^-2
 
-	// Set r = x^(D/2)
-	r = gwalloc (&pm1data.gwdata);
-	if (r == NULL) goto lowmem;
-	gwfft (&pm1data.gwdata, pm1data.x, r);
+	// Set r = x^(D/2), free x
+	r = pm1data.x, pm1data.x = NULL;
 	exponentiate (&pm1data.gwdata, r, pm1data.D / 2);
-	// Set invr = x^-(D/2)
-	invr = gwalloc (&pm1data.gwdata);
-	if (invr == NULL) goto lowmem;
-	gwfft (&pm1data.gwdata, pm1data.invx, invr);
+	// Calc r^2 = x^D
+	pm1data.r_squared = gwalloc (&pm1data.gwdata);
+	if (pm1data.r_squared == NULL) goto lowmem;
+	gwsquare2 (&pm1data.gwdata, r, pm1data.r_squared, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);
+	gwfft (&pm1data.gwdata, pm1data.r_squared, pm1data.r_squared);
+	// Set invr = x^-(D/2), free invx
+	invr = pm1data.invx, pm1data.invx = NULL;
 	exponentiate (&pm1data.gwdata, invr, pm1data.D / 2);
 	{
-		// Set diff1 to r^-1.  Free 1/x.  It is no longer needed.
-		gwnum diff1 = pm1data.invx; pm1data.invx = NULL;
-//GW: This fft(invr) will be needed again calculating first diff1 for poly #2
-		gwfft (&pm1data.gwdata, invr, diff1);									// r^-1
 		// Set diff2 to r^-2
 		gwnum diff2 = gwalloc (&pm1data.gwdata);
 		if (diff2 == NULL) goto lowmem;
-		gwsquare2 (&pm1data.gwdata, diff1, diff2, GWMUL_STARTNEXTFFT);						// r^-2
+		gwsquare2 (&pm1data.gwdata, invr, diff2, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);				// r^-2
+		// Set diff1 to r^-1
+		gwnum diff1 = gwalloc (&pm1data.gwdata);
+		if (diff1 == NULL) goto lowmem;
+		gwcopy (&pm1data.gwdata, invr, diff1);									// r^-1
 		// Unlike the Montgomery/Kruppa algorithm, multiply all coefficients by an additional r^(j^2) so that RLP remains monic.
 		gwnum multiplier = gwalloc (&pm1data.gwdata);
 		if (multiplier == NULL) goto lowmem;
-//GW: This fft of r will be done again when we compute r^2 (since numrels is even we can save one multiply by computing r^2 first)
-		gwfft (&pm1data.gwdata, r, multiplier);
-		exponentiate (&pm1data.gwdata, multiplier, (uint64_t) pm1data.numrels * (uint64_t) pm1data.numrels);	// r^(j^2)
+		if (pm1data.numrels & 1) {		// Since numrels is often even we save one multiply by exponentiating from r^2
+			gwcopy (&pm1data.gwdata, r, multiplier);
+			exponentiate (&pm1data.gwdata, multiplier, (uint64_t) pm1data.numrels * (uint64_t) pm1data.numrels);	// r^(j^2)
+		} else {
+			gwcopy (&pm1data.gwdata, pm1data.r_squared, multiplier);
+			exponentiate (&pm1data.gwdata, multiplier, (uint64_t) pm1data.numrels * (uint64_t) pm1data.numrels / 2);// r^(j^2)
+		}
 		// Apply first multiplier (r^0 * r^(j^2))
 		gwmul3 (&pm1data.gwdata, poly1[0], multiplier, poly1[0], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);		// Mul by r^(j^2)
 		// Apply second multiplier (r^-1 * r^(j^2))
@@ -8974,6 +8998,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 			if (stop_reason) goto possible_lowmem;
 		}
 		gwfree (&pm1data.gwdata, diff2);
+		gwfree (&pm1data.gwdata, diff1);
 		gwfree (&pm1data.gwdata, multiplier);
 	}
 
@@ -8993,35 +9018,24 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 // Calculate diff2 (r^2) and first diff1 (e^1*r^((j-1)^2-j^2)) values so that the main loop can calculate the rest of poly #2.
 // Allocate gwnums for poly #2.
 
-	// Calculate e (the first polyeval point).  e = x^(B2_start+D/2), this can be computed in terms of r = x^(D/2).  B2_start is a multiple of D.
-	e = gwalloc (&pm1data.gwdata);
-	if (e == NULL) goto lowmem;
-// GW: This fft of r needed again for e_incr and r_squared
-	gwfft (&pm1data.gwdata, r, e);
+	// Calculate e (the first polyeval point).  e = x^(B2_start+D/2), this can be computed in terms of r = x^(D/2).  B2_start is a multiple of D.  Free r.
+	e = r, r = NULL;
 	ASSERTG (pm1data.B2_start % pm1data.D == 0);
 	exponentiate (&pm1data.gwdata, e, (pm1data.B2_start + pm1data.D / 2) / (pm1data.D / 2));
-	// Calculate e_incr (the distance between polymult starting points).  e_incr = x^(num_points * D), this can be computed in terms of r = x^(D/2).
-	e_incr = gwalloc (&pm1data.gwdata);
-	if (e_incr == NULL) goto lowmem;
-// GW: This fft of r needed again for r_squared.  e_incr not needed if DSection + num_points > numDsections
-	gwfft (&pm1data.gwdata, r, e_incr);
-	exponentiate (&pm1data.gwdata, e_incr, pm1data.num_points * 2);
 
-//GW: Free x???
-
-	// Free invr, calculate first diff1 (e*r^((j-1)^2-j^2)) and store in poly2[poly2_size-1]
-	poly2[pm1data.poly2_size-1] = invr;
+	// Calculate first diff1 (e*r^((j-1)^2-j^2)) and store in poly2[poly2_size-1], free invr.
+	poly2[pm1data.poly2_size-1] = invr, invr = NULL;
 	exponentiate (&pm1data.gwdata, poly2[pm1data.poly2_size-1], pm1data.numrels * 2 - 1);
    	gwmul3 (&pm1data.gwdata, poly2[pm1data.poly2_size-1], e, poly2[pm1data.poly2_size-1], GWMUL_STARTNEXTFFT);
 
-//GW: free e
-gwfree (&pm1data.gwdata, e); e = NULL;
+	// Calculate e_incr (the distance between polymult starting points).  e_incr = x^(num_points * D), this can be computed in terms of r^2 = x^D.  Free e.
+// GW: e_incr not needed if DSection + num_points > numDsections.  That should be a rare optimization.
+	e_incr = e, e = NULL;
+	gwcopy (&pm1data.gwdata, pm1data.r_squared, e_incr);
+	exponentiate (&pm1data.gwdata, e_incr, pm1data.num_points);
 
-	// Free r, calc diff2 (r^2)
-	r_squared = r;
-	gwsquare2 (&pm1data.gwdata, r, r_squared, GWMUL_STARTNEXTFFT);
-
-//GW:free internal memory for peak
+//GW:free internal memory for upcoming peak
+//gwfree_internal_memory (&pm1data.gwdata);			// BUG -- move to elsewhere??
 
 	// Allocate remaining gwnums for poly #2
 	for (int j = 0; j < pm1data.poly2_size-1; j++) {
@@ -9063,23 +9077,86 @@ gwfree (&pm1data.gwdata, e); e = NULL;
 	start_timer_from_zero (timers, 0);
 	start_timer_from_zero (timers, 1);
 	last_output = last_output_t = last_output_r = 0;
-	for ( ; ; ) {
+	for (int first_polymult = TRUE; ; first_polymult = FALSE) {
 
-// Generate the next poly #2 using differences.  The highest coefficient is already computed, which is also the first diff1 value used to
-// compute subsequent coefficients.
+// Before embarking on multithreaded computation of poly #2 coefficients, we must compute the first few coefficients and first few differences.
+// This will let each helper thread independently compute their own subset of the remaining poly #2 coefficients.
 
-		gwnum diff1 = poly2[0];		// Scratch gwnum (the last gwnum we will write to) to use for remaining calculations
-		gwnum diff2 = r_squared;
-		gwmul3 (&pm1data.gwdata, poly2[pm1data.poly2_size-1], diff2, diff1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);		// Next diff1
-		gwmul3 (&pm1data.gwdata, poly2[pm1data.poly2_size-1], diff1, poly2[pm1data.poly2_size-2], GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT); // Next coeff
-		for (int j = 3; j < pm1data.poly2_size; j++) {
-			gwmul3 (&pm1data.gwdata, diff1, diff2, diff1, GWMUL_STARTNEXTFFT);			// Next diff1
-			gwmul3 (&pm1data.gwdata, poly2[pm1data.poly2_size-j+1], diff1, poly2[pm1data.poly2_size-j], GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
-			stop_reason = stopCheck (thread_num);
-			if (stop_reason) { pm1_save (&pm1data); goto exit; }
+// The first time poly #2 coefficients are computed we use finite differences where diff2 is r^2.  The highest coefficient is already computed
+// which is also the first diff1.
+
+		if (first_polymult) {
+			gwnum diff1 = poly2[0];		// Scratch gwnum
+			gwnum diff2 = pm1data.r_squared;
+			for (int j = 2; j <= pm1data.helper_count; j++) {
+				// Compute next diff1.  The first diff1 value comes from the first poly #2 coefficient.
+				if (j == 2) gwmul3 (&pm1data.gwdata, poly2[pm1data.poly2_size-1], diff2, diff1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+				else gwmul3 (&pm1data.gwdata, diff1, diff2, diff1, GWMUL_STARTNEXTFFT);
+				// Compute the next poly #2 coefficient
+				int options = GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT;
+				if (j != pm1data.helper_count) options |= GWMUL_FFT_S2;
+				gwmul3 (&pm1data.gwdata, poly2[pm1data.poly2_size-(j-1)], diff1, poly2[pm1data.poly2_size-j], options);
+			}
+			// Compute r^(2*helper_count)
+			exponentiate (&pm1data.gwdata, pm1data.r_squared, pm1data.helper_count);
+			gwfft (&pm1data.gwdata, pm1data.r_squared, pm1data.r_squared);
+			// Compute r^(2*helper_count^2)
+			if (pm1data.helper_count == 1) pm1data.r_squared2 = pm1data.r_squared;
+			else {
+				pm1data.r_squared2 = gwalloc (&pm1data.gwdata);
+				if (pm1data.r_squared2 == NULL) goto lowmem;
+				gwcopy (&pm1data.gwdata, pm1data.r_squared, pm1data.r_squared2);
+				exponentiate (&pm1data.gwdata, pm1data.r_squared2, pm1data.helper_count);
+				gwfft (&pm1data.gwdata, pm1data.r_squared2, pm1data.r_squared2);
+			}
 		}
-		gwmul3 (&pm1data.gwdata, diff1, diff2, diff1, GWMUL_STARTNEXTFFT);				// Last diff1
-		gwmul3 (&pm1data.gwdata, poly2[1], diff1, poly2[0], GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);		// Last coeff
+
+// The second time poly #2 coefficients are computed, we use multiply the previously computed coefficients by a power of e_incr (if we didn't use this
+// different algorithm we would need to keep both r^2 and r^(2*helper_count).
+
+		else {
+			gwnum tmp = poly2[0];		// Scratch gwnum
+			gwmul3 (&pm1data.gwdata, poly2[pm1data.poly2_size-1], e_incr, poly2[pm1data.poly2_size-1], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			for (int j = 2; j <= pm1data.helper_count; j++) {
+				// Compute next power of e_incr
+				if (j == 2) gwmul3 (&pm1data.gwdata, e_incr, e_incr, tmp, GWMUL_STARTNEXTFFT);
+				else gwmul3 (&pm1data.gwdata, tmp, e_incr, tmp, GWMUL_STARTNEXTFFT);
+				// Compute next poly #2 coefficient
+				int options = GWMUL_STARTNEXTFFT;
+				if (j != pm1data.helper_count) options |= GWMUL_FFT_S2;
+				gwmul3 (&pm1data.gwdata, poly2[pm1data.poly2_size-j], tmp, poly2[pm1data.poly2_size-j], options);
+			}
+		}
+
+// Now compute the first few diff1 values -- one for each helper
+
+		gwnum prev_diff = poly2[pm1data.poly2_size-pm1data.helper_count];
+		for (int j = 1; j <= pm1data.helper_count; j++) {
+			gwnum this_diff = poly2[(pm1data.poly2_size-j) % pm1data.helper_count];	// The last gwnum the helper that uses this diff will write to
+			gwmul3 (&pm1data.gwdata, prev_diff, pm1data.r_squared, this_diff, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			prev_diff = this_diff;
+		}
+
+// Multithreaded computation of remaining poly2 coefficients
+
+		// Initialize data needed for helper routine to access each coefficient
+		pm1data.helper_work = PM1_COMPUTE_POLY2;				// Work type for helper to do
+		pm1data.poly2 = poly2;							// Array of poly2 coefficients
+		pm1data.remaining_poly2_size = pm1data.poly2_size-pm1data.helper_count; // Number of poly2 coefficients to compute
+
+		// If using polymult helper threads to accumulate the evaluated points, set gwnum to use only one thread and launch the helpers
+		if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);
+
+		// Call the helper routine so the main thread can also accumulate the evaluated points for GCD
+		pm1_helper (0, &pm1data.gwdata, &pm1data);
+
+		// If using polymult helper threads to accumulate the evaluated points, wait for the helpers and restore gwnum's num threads
+		if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);
+
+// Check for ESC before doing expensive polymult
+
+		stop_reason = stopCheck (thread_num);
+		if (stop_reason) { pm1_save (&pm1data); goto exit; }
 
 // Evaluate poly #1 at many points using polymult!
 
@@ -9105,7 +9182,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 		pm1data.points = &outpoly[2*pm1data.numrels];		// First point to accumulate
 		pm1data.current_point = 0;				// Next point to accumulate
 //GW:	stop reason/saving?
-				
+
 		// If using polymult helper threads to accumulate the evaluated points, set gwnum to use only one thread and launch the helpers
 		if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);
 
@@ -9178,16 +9255,12 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 			pm1_save (&pm1data);
 			if (stop_reason) goto exit;
 		}
-
-// Set up difference for next poly #2
-
-		gwmul3 (&pm1data.gwdata, poly2[pm1data.poly2_size-1], e_incr, poly2[pm1data.poly2_size-1], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 	}
 	pm1data.C = pm1data.C_done = pm1data.B2_start + pm1data.Dsection * pm1data.D;
 
 /* Cleanup */
 
-	gwfree (&pm1data.gwdata, r_squared), r_squared = NULL;
+	gwfree (&pm1data.gwdata, pm1data.r_squared), pm1data.r_squared = NULL;
 	gwfree (&pm1data.gwdata, e_incr), e_incr = NULL;
 	polymult_done (&pm1data.polydata);
 
