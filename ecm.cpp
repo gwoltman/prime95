@@ -6920,7 +6920,7 @@ double pm1_stage2_cost (
 			for ( ; ; ) {
 				uint64_t B2_end = cost_data->c.B2_start + cost_data->c.numDsections * cost_data->c.D;
 				uint64_t B2_start = round_down_to_multiple_of (B2_end / cost_data->c.first_missing_prime, cost_data->c.D);
-				if (cost_data->c.B2_start == B2_start) break;
+				if (cost_data->c.B2_start >= B2_start) break;
 				cost_data->c.B2_start = B2_start;
 			}
 		}
@@ -7250,7 +7250,8 @@ int pm1_stage2_impl (
 	pm1data->B2_start = cost_data.c.B2_start;
 	pm1data->numDsections = cost_data.c.numDsections;
 //GW: returning exact number of Dsections may not make sense for polymult.  Compression, new FFT size, etc. could change num_points by 1 or 2?
-	if (pm1data->state == PM1_STATE_MIDSTAGE || pm1data->last_relocatable > pm1data->B2_start) pm1data->last_relocatable = pm1data->B2_start;
+	if (pm1data->state == PM1_STATE_MIDSTAGE || pm1data->last_relocatable > pm1data->B2_start)
+		pm1data->last_relocatable = max (pm1data->B2_start, pm1data->C_done);
 	pm1data->stage2_type = cost_data.stage2_type;
 	if (pm1data->stage2_type == PM1_STAGE2_PAIRING) {
 		pm1data->totrels = cost_data.c.totrels;
@@ -7714,8 +7715,10 @@ restart:
 		ASSERTG (pm1data.state == PM1_STATE_DONE);
 		if (pm1data.B > pm1data.B_done) goto more_B;
 		if (pm1data.C > pm1data.C_done) {
-			pm1data.state = PM1_STATE_MIDSTAGE;
+			pm1data.state = PM1_STATE_STAGE1;		// We're not in mid-stage until invx is calculated
 			if (pm1data.first_C_start == pm1data.B) pm1data.first_C_start = pm1data.C_done;
+			sprintf (buf, "Resuming P-1 in stage 2 with B2 from %" PRIu64 " to %" PRIu64 "\n", pm1data.C_done, pm1data.C);
+			OutputStr (thread_num, buf);
 			goto restart3a;
 		}
 
