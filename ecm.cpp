@@ -7638,6 +7638,11 @@ restart:
 /* Handle stage 0 save files.  If the B values do not match we use the bound from the save file for now.  Later we'll do more B if necessary. */
 
 		if (pm1data.state == PM1_STATE_STAGE0) {
+			if (pm1data.interim_B > pm1data.B) {
+				pm1data.B = pm1data.interim_B;
+				sprintf (buf, "Ignoring suggested B1 value, using B1=%" PRIu64 " from the save file\n", pm1data.B);
+				OutputStr (thread_num, buf);
+			}
 			goto restart0;
 		}
 
