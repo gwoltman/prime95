@@ -6367,6 +6367,8 @@ void pm1_cleanup (
 	free (pm1data->pairmap), pm1data->pairmap = NULL;
 	polymult_done (&pm1data->polydata);
 	gwdone (&pm1data->gwdata);
+	pm1data->x = NULL;
+	pm1data->gg = NULL;
 	end_sieve (pm1data->sieve_info), pm1data->sieve_info = NULL;
 }
 
@@ -8801,11 +8803,6 @@ pm1_polymult:
 		}
 	}
 
-/* Initialize variables for second stage */
-
-	// Calculate the percent completed by previous pairmaps
-//GW	base_pct_complete = (double) (pm1data.B2_start - pm1data.last_relocatable) / (double) (pm1data.C - pm1data.last_relocatable);
-
 /* Allocate nQx array of pointers to gwnums.  This will be the coefficients of our input and output polynomials. */
 
 	poly1 = gwalloc_array (&pm1data.gwdata, pm1data.poly1_size);	// Poly #1, a monic RLP of size numrels
@@ -9076,6 +9073,10 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 	ASSERTG (pm1data.interim_C <= pm1data.B2_start + pm1data.numDsections * pm1data.D);
 	pm1data.interim_C = pm1data.B2_start + pm1data.numDsections * pm1data.D;
 
+// Calculate the percent completed by previous stage 2 efforts
+
+	base_pct_complete = (double) (pm1data.B2_start - pm1data.last_relocatable) / (double) (pm1data.C - pm1data.last_relocatable);
+
 // Loop over all the D-sections between B1 and B2
 
 	pm1data.state = PM1_STATE_STAGE2;
@@ -9204,8 +9205,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 /* Calculate stage 2 percentage. */
 
-//GW - factor in B2-start? base_pct_complete? overshoot?
-		w->pct_complete = /*base_pct_complete +*/ (double) (pm1data.B2_start + pm1data.Dsection * pm1data.D) / (double) pm1data.C;
+		w->pct_complete = base_pct_complete + (double) pm1data.Dsection / (double) pm1data.numDsections;
 
 /* Test for errors */
 
