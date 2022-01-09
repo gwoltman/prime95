@@ -9342,9 +9342,9 @@ void asm_mul (
 	}
 
 /* Adjust if necessary the SUM(INPUTS) vs. SUM(OUTPUTS).  If unnormalized add count is more than one, then the sums will be */
-/* larger than normal.  This could trigger a spurious MAXDIFF warning.  Shrink the two SUMS to compensate.  Not needed for unfft opcode. */
+/* larger than normal.  This could trigger a spurious MAXDIFF warning.  Shrink the two SUMS to compensate. */
 
-	if (gwdata->sum_inputs_checking && asm_data->mul4_opcode != 5) {
+	if (gwdata->sum_inputs_checking) {
 		float	unnorm_count1, unnorm_count2;
 
 		unnorm_count1 = unnorms (s1);
@@ -9562,6 +9562,7 @@ void gwunfft2 (
 	int	options)	/* Any of GWMUL_ADDINCONST, GWMUL_MULBYCONST, GWMUL_STARTNEXTFFT */
 {
 	int	save_count;
+	char	save_sum_inputs_checking;
 
 	ASSERTG (unnorms (s) >= 0.0f);
 
@@ -9577,6 +9578,11 @@ void gwunfft2 (
 
 	save_count = gwdata->careful_count;
 	gwdata->careful_count = 0;
+
+/* Turn off sum(inputs) checking.  Polymult produces results where the sum(inputs) value is not valid.  Polymult then unffts this these results. */
+
+	save_sum_inputs_checking = gwdata->sum_inputs_checking;
+	gwdata->sum_inputs_checking = 0;
 
 /* For partially or fully FFTed data, multiply source by 1.0 */
 
@@ -9633,6 +9639,7 @@ void gwunfft2 (
 
 /* Restore state */
 
+	gwdata->sum_inputs_checking = save_sum_inputs_checking;
 	gwdata->careful_count = save_count;
 }
 
