@@ -8808,11 +8808,11 @@ pm1_polymult:
 
 /* Allocate nQx array of pointers to gwnums.  This will be the coefficients of our input and output polynomials. */
 
-	pm1data.nQx = (gwnum *) malloc ((pm1data.poly1_size + pm1data.poly2_size + outpoly_size) * sizeof (gwnum));
+	poly1 = gwalloc_array (&pm1data.gwdata, pm1data.poly1_size);	// Poly #1, a monic RLP of size numrels
+	if (poly1 == NULL) goto lowmem;
+	pm1data.nQx = (gwnum *) malloc (outpoly_size * sizeof (gwnum));
 	if (pm1data.nQx == NULL) goto lowmem;
-	poly1 = &pm1data.nQx[0];						// Poly #1, a monic RLP of size numrels
-	poly2 = &pm1data.nQx[pm1data.poly1_size];				// Poly #2, a monic polynomial of size 2 * numrels + num_points - 1
-	outpoly = &pm1data.nQx[pm1data.poly1_size + pm1data.poly2_size];	// Output poly evaluating poly #1 at num_points
+	outpoly = &pm1data.nQx[0];					// Output poly evaluating poly #1 at num_points
 
 // From Montgomery/Silverman paper (near formulas 9.4 & 9.5), D = 2 mod 4.  Calculate monic RLP coefficients
 // for u=1..D/4  if (gcd (u, D/2) == 1) compute V(2u).  The monic RLP is (x^2 - V(2u) + 1).
@@ -8872,8 +8872,6 @@ pm1_polymult:
 			if (relatively_prime (i, pm1data.D)) {
 				gwnum	V_to_double = curr->Vi;
 				for (int k = 1; i * k <= pm1data.D / 4; k *= 2) {
-					poly1[totrels] = gwalloc (&pm1data.gwdata);
-					if (poly1[totrels] == NULL) goto lowmem;
 					luc_dbl (&pm1data.gwdata, V_to_double, poly1[totrels]);
 					V_to_double = poly1[totrels];
 					totrels++;
@@ -9031,27 +9029,26 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 	ASSERTG (pm1data.B2_start % pm1data.D == 0);
 	exponentiate (&pm1data.gwdata, e, (pm1data.B2_start + pm1data.D / 2) / (pm1data.D / 2));
 
-	// Calculate first diff1 (e*r^((j-1)^2-j^2)) and store in poly2[poly2_size-1], free invr.
-	poly2[pm1data.poly2_size-1] = invr, invr = NULL;
-	exponentiate (&pm1data.gwdata, poly2[pm1data.poly2_size-1], pm1data.numrels * 2 - 1);
-   	gwmul3 (&pm1data.gwdata, poly2[pm1data.poly2_size-1], e, poly2[pm1data.poly2_size-1], GWMUL_STARTNEXTFFT);
+	// Calculate first diff1 (e*r^((j-1)^2-j^2)) and store in e for a later copy to poly2[poly2_size-1], free invr.
+	exponentiate (&pm1data.gwdata, invr, pm1data.numrels * 2 - 1);
+   	gwmul3 (&pm1data.gwdata, e, invr, e, GWMUL_STARTNEXTFFT);
+	gwfree (&pm1data.gwdata, invr), invr = NULL;
+
+//GW:free internal memory for upcoming peak
+//gwfree_internal_memory (&pm1data.gwdata);			// BUG -- move to elsewhere??
+
+	// Allocate poly #2 in one big array.  Poly #2 is a monic polynomial of size 2 * numrels + num_points - 1.
+	poly2 = gwalloc_array (&pm1data.gwdata, pm1data.poly2_size);
+	if (poly2 == NULL) goto lowmem;
+
+	// Move diff1 into poly #2
+	gwcopy (&pm1data.gwdata, e, poly2[pm1data.poly2_size - 1]);
 
 	// Calculate e_incr (the distance between polymult starting points).  e_incr = x^(num_points * D), this can be computed in terms of r^2 = x^D.  Free e.
 // GW: e_incr not needed if DSection + num_points > numDsections.  That should be a rare optimization.
 	e_incr = e, e = NULL;
 	gwcopy (&pm1data.gwdata, pm1data.r_squared, e_incr);
 	exponentiate (&pm1data.gwdata, e_incr, pm1data.num_points);
-
-//GW:free internal memory for upcoming peak
-//gwfree_internal_memory (&pm1data.gwdata);			// BUG -- move to elsewhere??
-
-	// Allocate remaining gwnums for poly #2
-	for (int j = 0; j < pm1data.poly2_size-1; j++) {
-		poly2[j] = gwalloc (&pm1data.gwdata);
-		if (poly2[j] == NULL) goto lowmem;
-		stop_reason = stopCheck (thread_num);
-		if (stop_reason) goto possible_lowmem;
-	}
 
 // The evaluated points during a polymult overwrite some of the poly #2 coefficients.  Take advantage of this by using circular convolution where
 // the "wrapped" results are coefficients we don't care about.  The output poly is the first fft size >= poly2_size.
@@ -9274,8 +9271,8 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 // Free poly gwnums before GCD.  GCD can use significant amounts of memory.
 
-	for (int i = 0; i < pm1data.poly1_size + pm1data.poly2_size; i++)
-		gwfree (&pm1data.gwdata, pm1data.nQx[i]), pm1data.nQx[i] = NULL;
+	gwfree_array (&pm1data.gwdata, poly1);
+	gwfree_array (&pm1data.gwdata, poly2);
 	gwfree_internal_memory (&pm1data.gwdata);
 
 /* Stage 2 is complete */

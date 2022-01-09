@@ -5,7 +5,7 @@
 | in the multi-precision arithmetic routines.  That is, all routines
 | that deal with the gwnum data type.
 | 
-|  Copyright 2002-2021 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2022 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -2609,6 +2609,7 @@ int gwclone (
 	cloned_gwdata->gwnum_alloc_array_size = 50;
 	cloned_gwdata->gwnum_free = NULL;
 	cloned_gwdata->gwnum_free_count = 0;
+	cloned_gwdata->array_list = NULL;
 	cloned_gwdata->large_pages_ptr = NULL;
 	cloned_gwdata->large_pages_gwnum = NULL;
 	cloned_gwdata->gwnum_memory = NULL;
@@ -6647,6 +6648,7 @@ void gwdone (
 		}
 		free (gwdata->gwnum_alloc); gwdata->gwnum_alloc = NULL;
 	}
+	while (gwdata->array_list != NULL) gwfree_array (gwdata, (gwnum *) gwdata->array_list);
 	if (gwdata->large_pages_ptr != NULL) large_pages_free (gwdata->large_pages_ptr), gwdata->large_pages_ptr = NULL;
 	else aligned_free (gwdata->gwnum_memory), gwdata->gwnum_memory = NULL;
 
@@ -6871,6 +6873,94 @@ void gwfree_cached (
 			gwdata->gwnum_free[i--] = gwdata->gwnum_free[--gwdata->gwnum_free_count];
 		}
 	}
+}
+
+/* Define the hidden fields before an allocated gwarray */
+
+typedef struct {
+	int	flags;		// Flags such as how array was allocated
+	gwarray *prev;		// Prev pointer in doubly linked list
+	gwarray next;		// Next pointer in doubly linked list
+} gwarray_header;
+
+/* Allocate an array and fill it with gwnums.  Uses a little less memory than allocating an array and calling gwalloc many times. */
+gwarray gwalloc_array (		/* Pointer to an array of gwnums */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	int	n)		/* Size of the array of gwnums */
+{
+	size_t	array_header_size, gwnum_header_size, aligned_gwnum_size, array_size;
+	char	*p = NULL;			// Pointer to the allocated memory
+	int	freeable;			// Flags indicating how memory was allocated
+
+	// Calc needed space for the array_header, array, 128 bytes to get gwnums aligned on an even cache line, and room for n aligned gwnums
+	array_header_size = sizeof (gwarray_header);
+	gwnum_header_size = gwdata->ZERO_PADDED_FFT ? GW_HEADER_SIZE : GW_SMALL_HEADER_SIZE;
+	aligned_gwnum_size = gwnum_datasize (gwdata) + gwnum_header_size;
+	aligned_gwnum_size = round_up_to_multiple_of (aligned_gwnum_size, 64);
+	array_size = array_header_size + n * sizeof (gwnum) + 128 + n * aligned_gwnum_size;
+
+	// Allocate memory using large pages or regular malloc
+	if (gwdata->use_large_pages) {
+		p = (char *) large_pages_malloc (array_size);
+		freeable = GWFREE_LARGE_PAGES;
+	}
+	// Allocate memory using plain old malloc
+	if (p == NULL) {
+		p = (char *) malloc (array_size);
+		freeable = 0;
+	}
+	// On failure, return NULL
+	if (p == NULL) return (NULL);
+
+	// Create pointers to the array, first gwnum, and array header
+	gwarray array = (gwarray) (p + array_header_size);
+	array = (gwarray) round_up_to_multiple_of ((intptr_t) array, sizeof (gwnum));
+	gwnum next_gwnum = (gwnum) ((char *) array + n * sizeof (gwnum) + gwnum_header_size);
+	next_gwnum = (gwnum) round_up_to_multiple_of ((intptr_t) next_gwnum, 64);
+	gwarray_header *array_header = (gwarray_header *) ((char *) array - array_header_size);
+
+	// Init the array and each gwnum
+	for (int i = 0; i < n; i++) {
+		array[i] = next_gwnum;
+		memset ((char *) next_gwnum - gwnum_header_size, 0, gwnum_header_size);
+		next_gwnum = (gwnum) ((char *) next_gwnum + aligned_gwnum_size);
+	}
+
+	// Init array's double-linked list and flags field
+	array_header->flags = freeable;			// Flags
+	array_header->next = gwdata->array_list;	// Next in linked list of allocated arrays
+	array_header->prev = &gwdata->array_list;	// Prev in linked list of allocated arrays
+	if (array_header->next != NULL) {		// Patch new next's prev pointer
+		gwarray_header *next_header = (gwarray_header *) ((char *) array_header->next - sizeof (gwarray_header));
+		next_header->prev = &array_header->next;
+	}
+	gwdata->array_list = array;			// New head of doubly linked list
+
+	// Return pointer to array
+	return (array);
+}
+
+/* Free a previously allocated array of gwnums */
+void gwfree_array (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	*array)		/* Array of gwnums to free */
+{
+	// Return if never allocated
+	if (array == NULL) return;
+
+	// Remove array from doubly-linked list
+	gwarray_header *array_header = (gwarray_header *) ((char *) array - sizeof (gwarray_header));
+	*array_header->prev = array_header->next;	// Change prev to point to next
+	if (array_header->next != NULL) {		// Change next to point to prev
+		gwarray_header *next_header = (gwarray_header *) ((char *) array_header->next - sizeof (gwarray_header));
+		next_header->prev = array_header->prev;
+	}
+
+	// Free array
+	int freeable = (int) (intptr_t) array[-3];		// Flags
+	size_t array_header_size = 3 * sizeof (void *);
+	if (freeable & GWFREE_LARGE_PAGES) large_pages_free ((char *) array - array_header_size);
+	else free ((char *) array - array_header_size);
 }
 
 /* Typeless gwalloc and gwfree routines for giants code to call */
@@ -11246,8 +11336,8 @@ void gwaddsub4o (		/* Add & sub two nums normalizing if needed */
 			v1 = s1[-7]; v2 = s2[-7]; d1[-7] = v1 + v2; d2[-7] = v1 - v2;
 			v1 = s1[-8]; v2 = s2[-8]; d1[-8] = v1 + v2; d2[-8] = v1 - v2;
 			v1 = s1[-9]; v2 = s2[-9]; d1[-9] = v1 + v2; d2[-9] = v1 - v2;
-			v1 = s1[-10]; v2 = s2[-10]; d1[-10] = v1+v2; d2[-10] = v1-v2;
-			v1 = s1[-11]; v2 = s2[-11]; d1[-11] = v1+v2; d2[-11] = v1-v2;
+			v1 = s1[-10]; v2 = s2[-10]; d1[-10] = v1 + v2; d2[-10] = v1 - v2;
+			v1 = s1[-11]; v2 = s2[-11]; d1[-11] = v1 + v2; d2[-11] = v1 - v2;
 		}
 
 /* Do an AVX-512 or two-pass AVX addsubquick */

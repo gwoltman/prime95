@@ -16,7 +16,7 @@
 | threads IF AND ONLY IF each uses a different gwhandle structure
 | initialized by gwinit.
 | 
-|  Copyright 2002-2021 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2022 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 #ifndef _GWNUM_H
@@ -42,6 +42,9 @@ typedef struct gwhandle_struct gwhandle;
 /* The gwnum data type.  A gwnum points to an array of doubles - the FFT data.  In practice, there is */
 /* data stored before the doubles.  See the internals section below if you really must know. */
 typedef double *gwnum;
+
+/* The array of gwnums data type.  In practice, there is data stored before the array. */
+typedef gwnum *gwarray;
 
 /*---------------------------------------------------------------------+
 |                     SETUP AND TERMINATION ROUTINES                   |
@@ -233,6 +236,16 @@ gwnum gwalloc (
 void gwfree (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	val);		/* Gwnum to free */
+
+/* Allocate an array and fill it with gwnums.  Uses a little less memory than allocating an array and calling gwalloc many times. */
+gwarray gwalloc_array (		/* Pointer to an array of gwnums */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	int	n);		/* Size of the array of gwnums */
+
+/* Free a previously allocated array of gwnums */
+void gwfree_array (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwarray	array);		/* Array of gwnums to free */
 
 /* Free all previously allocated gwnums */
 void gwfreeall (
@@ -1078,6 +1091,7 @@ struct gwhandle_struct {
 	gwnum	*gwnum_free;		/* Array of available gwnums */
 	unsigned int gwnum_free_count;	/* Count of available gwnums */
 	unsigned int gwnum_max_free_count; /* Count of free gwnums that should be cached (default is 10) */
+	gwarray	array_list;		/* List of arrays allocated by gwalloc_array */
 	size_t	GW_BIGBUF_SIZE;		/* Size of the optional buffer */
 	char	*GW_BIGBUF;		/* Optional buffer to allocate gwnums in */
 	void	*large_pages_ptr;	/* Pointer to the large pages memory block we allocated. */
@@ -1145,7 +1159,8 @@ struct gwhandle_struct {
 /*	char	pad[96];	   Used to track unnormalized add/sub and original address */
 /*	double	data[512];	   The big number broken into chunks.  This array is variably sized. */
 /* } *gwnum; */
-#define GW_HEADER_SIZE	96	/* Number of data bytes before a gwnum ptr */
+#define GW_HEADER_SIZE		96	/* Number of data bytes before a gwnum ptr */
+#define GW_SMALL_HEADER_SIZE	32	/* Sometimes we do not allocate space for the seven doubles only used by zero-padded FFTs */
 
 /* Some mis-named #defines that describe the maximum Mersenne number exponent that the gwnum routines can process. */
 #define MAX_PRIME	79300000L	/* Maximum number of x87 bits */
