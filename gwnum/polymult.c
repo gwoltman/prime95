@@ -68,17 +68,12 @@
 // 57) Option to save memory by processing AVX-512 data using FMA3.  (reduces sizeof(CVDT)).
 // 58) Should we multi-thread FFTing the polymult input arguments?
 // 59) monic_line_adjust could avoid complex mul by fft1 when k == 1.  Is it worthwhile?
-// 60) can we avoid repeatedly FFTing the ZPAD7 header in read_line (for less than AVX-512)?  Do we care?  We cannot change the header values -- invecs are read only.
-//	Yes, add 13 doubles to gw header.
-// 61) ZPAD problem.  If output overwrites input and not AVX-512 then processing one of the zpad header lines overwrites part of the zpad header which corrupts
-//	future zpad7_fft calls.
-//	Yes, add 13 doubles to gw header.
 
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
 int next_line (pmhandle *pmdata);
 unsigned long cache_line_offset (gwhandle *gwdata, unsigned long i);
 void generate_sincos (pmhandle *pmdata, const unsigned int size);
-void zpad7_fft (gwhandle *gwdata, gwnum g, double r[7], double i[7]);
+void zpad7_fft (gwhandle *gwdata, gwnum g);
 void polymult_line_sse2 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwnum *gw_invec2, int invec2_size, gwnum *gw_outvec, int outvec_size, int options);
 void polymult_line_avx (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwnum *gw_invec2, int invec2_size, gwnum *gw_outvec, int outvec_size, int options);
 void polymult_line_fma (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwnum *gw_invec2, int invec2_size, gwnum *gw_outvec, int outvec_size, int options);
@@ -276,6 +271,7 @@ void polymult_init (
 
 	// Init FFT(1) if needed
 	if (pmdata->gwdata->k != 1.0) gwuser_init_FFT1 (pmdata->gwdata);
+	if (pmdata->gwdata->ZERO_PADDED_FFT) zpad7_fft (pmdata->gwdata, pmdata->gwdata->GW_FFT1);
 }
 
 // Terminate use of a polymult handle.  Free up memory.
@@ -432,9 +428,7 @@ const long double w12s = -0.4647231720437685456560153351331;	// sin(2*pi/13*12)
 
 void zpad7_fft (
 	gwhandle *gwdata,		// Handle for gwnum library
-	gwnum	g,			// gwnum to process the 7 zpad values in the header
-	double	r[7],			// Returned seven real values
-	double	i[7])			// Returned seven imag values (first one is not set, always zero)
+	gwnum	g)			// gwnum to process the 7 zpad values in the header
 {
 	double r1, r2, r3, r4, r5, r6, r7;		// The 7 reals from the header (r7=MSW, r1=LSW)
 
@@ -458,19 +452,19 @@ void zpad7_fft (
 	}
 
 	// Brute force a zero padded 13-point FFT.  Hermetian symetry allows this to be stored in 7 complex values.
-	r[0] = r1 + r2 + r3 + r4 + r5 + r6 + r7;
-	r[1] = r1 + w1c*r2 +  w2c*r3 +  w3c*r4 +  w4c*r5 +  w5c*r6 +  w6c*r7;
-	r[2] = r1 + w2c*r2 +  w4c*r3 +  w6c*r4 +  w8c*r5 + w10c*r6 + w12c*r7;
-	r[3] = r1 + w3c*r2 +  w6c*r3 +  w9c*r4 + w12c*r5 +  w2c*r6 +  w5c*r7;
-	r[4] = r1 + w4c*r2 +  w8c*r3 + w12c*r4 +  w3c*r5 +  w7c*r6 + w11c*r7;
-	r[5] = r1 + w5c*r2 + w10c*r3 +  w2c*r4 +  w7c*r5 + w12c*r6 +  w4c*r7;
-	r[6] = r1 + w6c*r2 + w12c*r3 +  w5c*r4 + w11c*r5 +  w4c*r6 + w10c*r7;
-	i[1] =      w1s*r2 +  w2s*r3 +  w3s*r4 +  w4s*r5 +  w5s*r6 +  w6s*r7;
-	i[2] =      w2s*r2 +  w4s*r3 +  w6s*r4 +  w8s*r5 + w10s*r6 + w12s*r7;
-	i[3] =      w3s*r2 +  w6s*r3 +  w9s*r4 + w12s*r5 +  w2s*r6 +  w5s*r7;
-	i[4] =      w4s*r2 +  w8s*r3 + w12s*r4 +  w3s*r5 +  w7s*r6 + w11s*r7;
-	i[5] =      w5s*r2 + w10s*r3 +  w2s*r4 +  w7s*r5 + w12s*r6 +  w4s*r7;
-	i[6] =      w6s*r2 + w12s*r3 +  w5s*r4 + w11s*r5 +  w4s*r6 + w10s*r7;
+	g[-12] = r1 + r2 + r3 + r4 + r5 + r6 + r7;
+	g[-13] = r1 + w1c*r2 +  w2c*r3 +  w3c*r4 +  w4c*r5 +  w5c*r6 +  w6c*r7;
+	g[-14] = r1 + w2c*r2 +  w4c*r3 +  w6c*r4 +  w8c*r5 + w10c*r6 + w12c*r7;
+	g[-15] = r1 + w3c*r2 +  w6c*r3 +  w9c*r4 + w12c*r5 +  w2c*r6 +  w5c*r7;
+	g[-16] = r1 + w4c*r2 +  w8c*r3 + w12c*r4 +  w3c*r5 +  w7c*r6 + w11c*r7;
+	g[-17] = r1 + w5c*r2 + w10c*r3 +  w2c*r4 +  w7c*r5 + w12c*r6 +  w4c*r7;
+	g[-18] = r1 + w6c*r2 + w12c*r3 +  w5c*r4 + w11c*r5 +  w4c*r6 + w10c*r7;
+	g[-19] =      w1s*r2 +  w2s*r3 +  w3s*r4 +  w4s*r5 +  w5s*r6 +  w6s*r7;
+	g[-20] =      w2s*r2 +  w4s*r3 +  w6s*r4 +  w8s*r5 + w10s*r6 + w12s*r7;
+	g[-21] =      w3s*r2 +  w6s*r3 +  w9s*r4 + w12s*r5 +  w2s*r6 +  w5s*r7;
+	g[-22] =      w4s*r2 +  w8s*r3 + w12s*r4 +  w3s*r5 +  w7s*r6 + w11s*r7;
+	g[-23] =      w5s*r2 + w10s*r3 +  w2s*r4 +  w7s*r5 + w12s*r6 +  w4s*r7;
+	g[-24] =      w6s*r2 + w12s*r3 +  w5s*r4 + w11s*r5 +  w4s*r6 + w10s*r7;
 }
 
 // Inverse FFT to reconstruct the 7 zpad values
@@ -628,10 +622,10 @@ bool read_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT 
 			}
 			// Zero padded FFTs also return the 7 FFTed values for the 7 real values stored in the header
 			else {
-				double r[7], i[7];
-				zpad7_fft (gwdata, data[j], r, i);
-				vec[j].real = _mm512_set_pd (r[6], r[5], r[4], r[3], r[2], r[1], r[0], data[j][0]);
-				vec[j].imag = _mm512_set_pd (i[6], i[5], i[4], i[3], i[2], i[1], 0.0, 0.0);
+				vec[j].real = _mm512_set_pd (data[j][-18], data[j][-17], data[j][-16], data[j][-15],
+							     data[j][-14], data[j][-13], data[j][-12], data[j][0]);
+				vec[j].imag = _mm512_set_pd (data[j][-24], data[j][-23], data[j][-22], data[j][-21],
+							     data[j][-20], data[j][-19], 0.0, 0.0);
 			}
 		}
 	}
@@ -783,10 +777,8 @@ bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *ve
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 			// Zero padded FFTs, return 4 of the FFTed values for the 7 real values stored in the header
-			double r[7], i[7];
-			zpad7_fft (gwdata, data[j], r, i);
-			vec[j].real = _mm256_set_pd (r[6], r[5], r[4], r[3]);
-			vec[j].imag = _mm256_set_pd (i[6], i[5], i[4], i[3]);
+			vec[j].real = _mm256_set_pd (data[j][-18], data[j][-17], data[j][-16], data[j][-15]);
+			vec[j].imag = _mm256_set_pd (data[j][-24], data[j][-23], data[j][-22], data[j][-21]);
 		}
 	}
 	else if (index == -1) {			// First real-only value and optionally three of the seven FFTed zero-pad values
@@ -799,10 +791,8 @@ bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *ve
 			}
 			// Zero padded FFTs also return 3 of the FFTed values for the 7 real values stored in the header
 			else {
-				double r[7], i[7];
-				zpad7_fft (gwdata, data[j], r, i);
-				vec[j].real = _mm256_set_pd (r[2], r[1], r[0], data[j][0]);
-				vec[j].imag = _mm256_set_pd (i[2], i[1], 0.0, 0.0);
+				vec[j].real = _mm256_set_pd (data[j][-14], data[j][-13], data[j][-12], data[j][0]);
+				vec[j].imag = _mm256_set_pd (data[j][-20], data[j][-19], 0.0, 0.0);
 			}
 		}
 	}
@@ -964,10 +954,8 @@ bool read_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *v
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 			// Zero padded FFTs, return 1 of the FFTed values for the 7 real values stored in the header
-			double r[7], i[7];
-			zpad7_fft (gwdata, data[j], r, i);
-			vec[j].real = _mm_set_pd (r[-index*2-2], r[-index*2-3]);	
-			vec[j].imag = _mm_set_pd (i[-index*2-2], i[-index*2-3]);
+			vec[j].real = _mm_set_pd (data[j][index*2-10], data[j][index*2-9]);
+			vec[j].imag = _mm_set_pd (data[j][index*2-16], data[j][index*2-15]);
 		}
 	}
 	else if (index == -1) {			// First real-only valueand optionally one of the seven zero-pad values
@@ -980,9 +968,7 @@ bool read_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *v
 			}
 			// Zero padded FFTs also return 1 of the FFTed values for the 7 real values stored in the header
 			else {
-				double r[7], i[7];
-				zpad7_fft (gwdata, data[j], r, i);
-				vec[j].real = _mm_set_pd (r[0], data[j][0]);
+				vec[j].real = _mm_set_pd (data[j][-12], data[j][0]);
 				vec[j].imag = broadcastsd (0.0);
 			}
 		}
@@ -1167,10 +1153,8 @@ bool read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *ve
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 			// Zero padded FFTs return 1 of the FFTed values for the 7 real values stored in the header
-			double r[7], i[7];
-			zpad7_fft (gwdata, data[j], r, i); i[0] = 0.0;
-			vec[j].real = r[-index-2];
-			vec[j].imag = i[-index-2];
+			vec[j].real = data[j][index-10];
+			vec[j].imag = data[j][index-17];
 		}
 	}
 	else if (index == -1) {			// First real-only value
@@ -2509,9 +2493,22 @@ void polymult (
 #undef outsz1
 #undef outsz2
 
-	// FFT inputs if needed
-	if (!(options & POLYMULT_INVEC1_FFTED)) for (int j = 0; j < invec1_size; j++) if (invec1[j] != NULL) gwfft (pmdata->gwdata, invec1[j], invec1[j]);
-	if (!(options & POLYMULT_INVEC2_FFTED)) for (int j = 0; j < invec2_size; j++) if (invec2[j] != NULL) gwfft (pmdata->gwdata, invec2[j], invec2[j]);
+	// FFT inputs if needed.  FFT the 7 zero padded FFT values in the header.  Even though we are not allowed to change the input vectors, we
+	// can write to the 13 values values in the header reserved for use by the polymult library.
+	if (!(options & POLYMULT_INVEC1_FFTED)) {
+		for (int j = 0; j < invec1_size; j++) {
+			if (invec1[j] == NULL) continue;
+			gwfft (pmdata->gwdata, invec1[j], invec1[j]);
+			if (pmdata->gwdata->ZERO_PADDED_FFT) zpad7_fft (pmdata->gwdata, invec1[j]);
+		}
+	}
+	if (!(options & POLYMULT_INVEC2_FFTED)) {
+		for (int j = 0; j < invec2_size; j++) {
+			if (invec2[j] == NULL) continue;
+			gwfft (pmdata->gwdata, invec2[j], invec2[j]);
+			if (pmdata->gwdata->ZERO_PADDED_FFT) zpad7_fft (pmdata->gwdata, invec2[j]);
+		}
+	}
 
 	// Prepare for polymult in parallel
 	pmdata->invec1 = invec1;

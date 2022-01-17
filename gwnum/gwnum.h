@@ -1160,7 +1160,7 @@ struct gwhandle_struct {
 /* data-28: Flag indicating gwnum value has been partially FFTed. */
 /* data-32: Allocation flags - used to free memory when done. */
 /* data-88: Seven doubles (input FFT values near the halfway point when doing a zero-padded FFT). */
-/* data-96: Eight unused bytes */
+/* data-192: Thirteen doubles only used by the polymult library for zero-padded FFTs */
 /* typedef struct { */
 /*	char	pad[96];	   Used to track unnormalized add/sub and original address */
 /*	double	data[512];	   The big number broken into chunks.  This array is variably sized. */
