@@ -874,8 +874,9 @@ double best_stage2_impl (
 
 /* Sanity check and save the gap parameters */
 
-	ASSERTG (gap_start == 0 || (gap_start > C_start && gap_start <= gap_end));
-	ASSERTG (gap_start == 0 || (gap_end >= gap_start && gap_end < C));
+	if (gap_start > gap_end) gap_start = gap_end = 0;
+	ASSERTG (gap_start == 0 || gap_start > C_start);
+	ASSERTG (gap_start == 0 || gap_end < C);
 	c->gap_start = (gap_start > C_start ? gap_start : 0);
 	c->gap_end = (gap_end > C_start ? gap_end : 0);
 
@@ -7216,11 +7217,10 @@ int pm1_stage2_impl (
 /* If we are contemplating ditching the save file pairmap, figure out which non-relocatable primes are definitely included in the stage 2 */
 /* accumulator.  Set C_done appropriately, but do not change first_relocatable as there is no guarantee which relocatables are in the accumulator. */
 
-	if (pm1data->state == PM1_STATE_STAGE2) {
+	if (pm1data->state == PM1_STATE_STAGE2 && pm1data->Dsection) {
 		int	max_relp_set;
 		max_relp_set = (pm1data->stage2_type == PM1_STAGE2_PAIRING) ? get_max_relp_set (pm1data->relp_sets) : 0;
 		if (pm1data->Dsection > max_relp_set) pm1data->C_done = pm1data->B2_start + (pm1data->Dsection - max_relp_set) * pm1data->D;
-		else pm1data->C_done = pm1data->B2_start;
 	}
 
 /* Find the least costly stage 2 plan. */
@@ -7253,7 +7253,7 @@ int pm1_stage2_impl (
 	pm1data->numDsections = cost_data.c.numDsections;
 //GW: returning exact number of Dsections may not make sense for polymult.  Compression, new FFT size, etc. could change num_points by 1 or 2?
 	if (pm1data->state == PM1_STATE_MIDSTAGE || pm1data->last_relocatable > pm1data->B2_start)
-		pm1data->last_relocatable = max (pm1data->B2_start, pm1data->C_done);
+		pm1data->last_relocatable = (pm1data->B2_start > pm1data->C_done ? pm1data->B2_start : pm1data->C_done);
 	pm1data->stage2_type = cost_data.stage2_type;
 	if (pm1data->stage2_type == PM1_STAGE2_PAIRING) {
 		pm1data->totrels = cost_data.c.totrels;
@@ -7572,6 +7572,7 @@ restart:
 	gwset_safety_margin (&pm1data.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
 	gwset_larger_fftlen_count (&pm1data.gwdata, maxerr_restart_count < 3 ? maxerr_restart_count : 3);
 	gwset_minimum_fftlen (&pm1data.gwdata, w->minimum_fftlen);
+	gwset_using_polymult (&pm1data.gwdata);
 	res = gwsetup (&pm1data.gwdata, w->k, w->b, w->n, w->c);
 	if (res) {
 		sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
@@ -8734,6 +8735,7 @@ pm1_polymult:
 		gwset_thread_callback (&pm1data.gwdata, SetAuxThreadPriority);
 		gwset_thread_callback_data (&pm1data.gwdata, sp_info);
 		gwset_minimum_fftlen (&pm1data.gwdata, current_fftlen + 1);  // Try next larger FFT length
+		gwset_using_polymult (&pm1data.gwdata);
 		res = gwsetup (&pm1data.gwdata, w->k, w->b, w->n, w->c);
 		if (res) {
 			sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
