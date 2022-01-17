@@ -4,7 +4,7 @@
 | This file contains the headers and definitions that are used in the
 | polynomial multiplication built upon the gwnum library.
 | 
-|  Copyright 2021 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2021-2022 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 #ifndef _POLYMULT_H
@@ -111,7 +111,6 @@ struct pmhandle_struct {
 	int	helpers_waiting_work;	// Count of helper threads thathave reached waiting for work_to_do
 	bool	termination_in_progress; // Flag for helper threads to exit
 	gwthread *thread_ids;		// Thread ids for the spawned threads
-//	bool	will_use_polymult_forward_fft;   Affects GW_HEADER_SIZE (thus a gwinit option rather than a polymult option?)
 	int	twiddles_initialized;	// size of the twiddle tables
 	double	*twiddles1;		// Sin/cos table for radix-3
 	double	*twiddles2;		// Sin/cos table for radix-4 and radix-5

@@ -3,7 +3,7 @@
 |
 | This file contains the C routines for fast polynomial multiplication
 | 
-|  Copyright 2021 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2021-2022 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -22,7 +22,6 @@
 // TO DO:
 // 1) Support non-power-of-two FFTs below 32?  Support FFT size requiring a radix-2 step?
 // 2) Zero padded gwnums.  Test all FFT sizes and FFT types -- especially funky PFA ffts.
-// 7) Variable GW_HEADER_SIZE.
 // 9) Is a fast convert-gwnum-to-larger-FFT feasible? necessary?
 // 10) Tune for Brute / Karatsuba / FFT crossovers.
 // 12) Tune routine that returns needed safety margin needed for given poly sizes
@@ -37,13 +36,12 @@
 // 25) Optimize.  Read/write several cache lines at a time (fill up L2 cache?).  Prefetch future cache lines.
 // 28) Optimize brute_force to do less compute when outvec entries are NULL.
 // 28) Optimize brute_force to do less compute when one or both invec entries are RLPs.
-// 29) monic polynomials are tricky if FFT(1) is not all ones.  Use GW_FFT1 and treat as non-monic?
 // 30) option to negate outputs??
 // 32) If monic input and polymult is doing an FFT and there is zero padding going on, then pad with one (or GW_FFT1) rather than use monic_add.  Be careful
 //	that this does not cause any unwanted wrapping of data!
 // 33) Are there cases with brute/Karatsuba would benefit from using a bigger poly rather than using monic_add?
-// 34) Support GWMUL_BY_CONST, GWMUL_ADD_CONST option in gwunfft2.
-// 35) A monic 1024 times monic 1024 using length 2048 FFT could apply the two ones in the FFT vectors and patch outvec[0] (possibly with gwsetaddin(-1)).
+// 34) Support GWMUL_BY_CONST, GWMUL_ADD_CONST option in gwunfft2.  No, use the no_UNFFT2 option (requires user to know where 1*1 took place)??
+// 35) A monic 1024 times monic 1024 using length 2048 FFT could apply the two ones in the FFT vectors and patch outvec[0] (possibly with gwsetaddin(-1))??how?
 //	A monic 1023 times monic 1023 using length 2048 FFT could apply the two ones in the FFT vectors with no patching rather than monic  post-processing.
 //	That should be a little faster.  Other monic combinations have similar optimizations.
 // 36) For cached FFTs, is there a way to avoid the transpose(write_line/read_line) step?
@@ -61,8 +59,6 @@
 // 45) If twiddle_stride gets large, build a smaller twiddle table for smaller strides.
 // 46) Look for more FMA opportunities.
 // 48) Test if hyperthreading is beneficial
-// 49) Problems if FFT(1)!=1!!! The pointwise mul code ought to divide by FFT(1) OR have a special asm entry point for unfft that deals with data that
-//	has already had a pointwise mul.  Furthermore, the monic_adjustments code can't simply add data - it must add FFT(1)*data.
 // 51) Scratch area (like prime95) to avoid large strides,  Read_partial_line could populate the scratch area (makes monic_adjustment difficult)?
 // 52) Half-sized DCT for RLPs?  The DJB FFTs may make reordering DCT outputs for an inverse FFT tricky.
 // 53) Can P-1's circular monic-poly times monic-RLP be safely done without monic_adjustments allowing us to save the FFT'ed RLP that is half-sized due to DCT?
@@ -70,11 +66,19 @@
 // 55) For VFMA machines, store twiddles as cos/sin, sin to allow a few more FMA opportunities
 // 56) Move mul by 1/FFTLEN to last unfft level (perhaps into the twiddle table itself).  Saves 65%+ of the multiplies if VFMA is available.
 // 57) Option to save memory by processing AVX-512 data using FMA3.  (reduces sizeof(CVDT)).
+// 58) Should we multi-thread FFTing the polymult input arguments?
+// 59) monic_line_adjust could avoid complex mul by fft1 when k == 1.  Is it worthwhile?
+// 60) can we avoid repeatedly FFTing the ZPAD7 header in read_line (for less than AVX-512)?  Do we care?  We cannot change the header values -- invecs are read only.
+//	Yes, add 13 doubles to gw header.
+// 61) ZPAD problem.  If output overwrites input and not AVX-512 then processing one of the zpad header lines overwrites part of the zpad header which corrupts
+//	future zpad7_fft calls.
+//	Yes, add 13 doubles to gw header.
 
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
 int next_line (pmhandle *pmdata);
 unsigned long cache_line_offset (gwhandle *gwdata, unsigned long i);
 void generate_sincos (pmhandle *pmdata, const unsigned int size);
+void zpad7_fft (gwhandle *gwdata, gwnum g, double r[7], double i[7]);
 void polymult_line_sse2 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwnum *gw_invec2, int invec2_size, gwnum *gw_outvec, int outvec_size, int options);
 void polymult_line_avx (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwnum *gw_invec2, int invec2_size, gwnum *gw_outvec, int outvec_size, int options);
 void polymult_line_fma (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwnum *gw_invec2, int invec2_size, gwnum *gw_outvec, int outvec_size, int options);
@@ -101,6 +105,7 @@ void polymult_line_avx512 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, 
 #define addpd		_mm512_add_pd
 #define subpd		_mm512_sub_pd
 #define mulpd		_mm512_mul_pd
+#define divpd		_mm512_div_pd
 #define fmaddpd		_mm512_fmadd_pd
 #define fmsubpd		_mm512_fmsub_pd
 #define fnmaddpd	_mm512_fnmadd_pd
@@ -122,6 +127,7 @@ void polymult_line_avx512 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, 
 #define addpd		_mm256_add_pd
 #define subpd		_mm256_sub_pd
 #define mulpd		_mm256_mul_pd
+#define divpd		_mm256_div_pd
 #define fmaddpd		_mm256_fmadd_pd
 #define fmsubpd		_mm256_fmsub_pd
 #define fnmaddpd	_mm256_fnmadd_pd
@@ -143,6 +149,7 @@ void polymult_line_avx512 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, 
 #define addpd		_mm256_add_pd
 #define subpd		_mm256_sub_pd
 #define mulpd		_mm256_mul_pd
+#define divpd		_mm256_div_pd
 #elif defined (SSE2)
 #define VLEN		128			// Vector is 256 bits wide
 #define VDT		__m128d			// Vector data type
@@ -161,6 +168,7 @@ void polymult_line_avx512 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, 
 #define addpd		_mm_add_pd
 #define subpd		_mm_sub_pd
 #define mulpd		_mm_mul_pd
+#define divpd		_mm_div_pd
 #else
 #define VLEN		64			// Vector is 256 bits wide
 #define VDT		double			// Vector data type
@@ -179,12 +187,14 @@ void polymult_line_avx512 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, 
 #define addpd		_mm64_add_pd
 #define subpd		_mm64_sub_pd
 #define mulpd		_mm64_mul_pd
+#define divpd		_mm64_div_pd
 // Emulate vector length 1 using Intel-style instrinsic naming conventions
 #define __m64d			double
 #define _mm64_set1_pd(a)	(a)
 #define _mm64_add_pd(a,b)	((a)+(b))
 #define _mm64_sub_pd(a,b)	((a)-(b))
 #define _mm64_mul_pd(a,b)	((a)*(b))
+#define _mm64_div_pd(a,b)	((a)/(b))
 #endif
 
 // Emulate FMA on CPUs that do not have an FMA instruction
@@ -263,6 +273,9 @@ void polymult_init (
 
 	// Set default cache size to optimize FFTs for
 	pmdata->L2_CACHE_SIZE = 256;
+
+	// Init FFT(1) if needed
+	if (pmdata->gwdata->k != 1.0) gwuser_init_FFT1 (pmdata->gwdata);
 }
 
 // Terminate use of a polymult handle.  Free up memory.
@@ -382,6 +395,139 @@ unsigned long cache_line_offset (
 }
 
 
+//
+// Process the 7 values in the header of zero-padded FFT gwnums.  These seven values cannot be multiplied pointwise as is required by polymult.
+// The assembly code (see zmult7) multiplies the 7 values keeping the high half of the result.  An zero-padded 13-reals FFT of the 7 values allows
+// us to do pointwise multiplies.  A zero-padded FFT produces 1 real value and 6 complex values for a total of 13 doubles.  The extra 6 doubles need
+// to be stored somewhere in the gwnum header or a pad line in the gwnum.
+//
+
+// Roots of unity for radix-13 FFT
+const long double w1c = 0.8854560256532098959003755220151;	// cos(2*pi/13*1)
+const long double w1s = 0.4647231720437685456560153351331;	// sin(2*pi/13*1)
+const long double w2c = 0.56806474673115580251180755912752;	// cos(2*pi/13*2)
+const long double w2s = 0.82298386589365639457961742343938;	// sin(2*pi/13*2)
+const long double w3c = 0.12053668025532305334906768745254;	// cos(2*pi/13*3)
+const long double w3s = 0.99270887409805399280075164949252;	// sin(2*pi/13*3)
+const long double w4c = -0.35460488704253562596963789260002;	// cos(2*pi/13*4)
+const long double w4s = 0.93501624268541482343978459983783;	// sin(2*pi/13*4)
+const long double w5c = -0.74851074817110109863463059970135;	// cos(2*pi/13*5)
+const long double w5s = 0.66312265824079520237678549266677;	// sin(2*pi/13*5)
+const long double w6c = -0.97094181742605202715698227629379;	// cos(2*pi/13*6)
+const long double w6s = 0.23931566428755776714875372626021;	// sin(2*pi/13*6)
+const long double w7c = -0.97094181742605202715698227629379;	// cos(2*pi/13*7)
+const long double w7s = -0.23931566428755776714875372626021;	// sin(2*pi/13*7)
+const long double w8c = -0.74851074817110109863463059970135;	// cos(2*pi/13*8)
+const long double w8s = -0.66312265824079520237678549266677;	// sin(2*pi/13*8)
+const long double w9c = -0.35460488704253562596963789260002;	// cos(2*pi/13*9)
+const long double w9s = -0.93501624268541482343978459983783;	// sin(2*pi/13*9)
+const long double w10c = 0.12053668025532305334906768745254;	// cos(2*pi/13*10)
+const long double w10s = -0.99270887409805399280075164949252;	// sin(2*pi/13*10)
+const long double w11c = 0.56806474673115580251180755912752;	// cos(2*pi/13*11)
+const long double w11s = -0.82298386589365639457961742343938;	// sin(2*pi/13*11)
+const long double w12c = 0.8854560256532098959003755220151;	// cos(2*pi/13*12)
+const long double w12s = -0.4647231720437685456560153351331;	// sin(2*pi/13*12)
+
+// FFT the 7 zpad values
+
+void zpad7_fft (
+	gwhandle *gwdata,		// Handle for gwnum library
+	gwnum	g,			// gwnum to process the 7 zpad values in the header
+	double	r[7],			// Returned seven real values
+	double	i[7])			// Returned seven imag values (first one is not set, always zero)
+{
+	double r1, r2, r3, r4, r5, r6, r7;		// The 7 reals from the header (r7=MSW, r1=LSW)
+
+	// Load the zpad doubles from the header
+	if (gwdata->cpu_flags & CPU_AVX512F) {
+		r1 = g[-11];		// Load input FFT word at halfway - 3
+		r2 = g[-10];		// Load input FFT word at halfway - 2
+		r3 = g[-9];		// Load input FFT word at halfway - 1
+		r4 = g[-8];		// Load input FFT word at halfway + 0
+		r5 = g[-7];		// Load input FFT word at halfway + 1
+		r6 = g[-6];		// Load input FFT word at halfway + 2
+		r7 = g[-5];		// Load input FFT word at halfway + 3
+	} else {
+		r1 = g[-11];		// Load input FFT word at halfway - 3
+		r2 = g[-10];		// Load input FFT word at halfway - 2
+		r3 = g[-9];		// Load input FFT word at halfway - 1
+		r4 = g[-5];		// Load input FFT word at halfway + 0
+		r5 = g[-6];		// Load input FFT word at halfway + 1
+		r6 = g[-7];		// Load input FFT word at halfway + 2
+		r7 = g[-8];		// Load input FFT word at halfway + 3
+	}
+
+	// Brute force a zero padded 13-point FFT.  Hermetian symetry allows this to be stored in 7 complex values.
+	r[0] = r1 + r2 + r3 + r4 + r5 + r6 + r7;
+	r[1] = r1 + w1c*r2 +  w2c*r3 +  w3c*r4 +  w4c*r5 +  w5c*r6 +  w6c*r7;
+	r[2] = r1 + w2c*r2 +  w4c*r3 +  w6c*r4 +  w8c*r5 + w10c*r6 + w12c*r7;
+	r[3] = r1 + w3c*r2 +  w6c*r3 +  w9c*r4 + w12c*r5 +  w2c*r6 +  w5c*r7;
+	r[4] = r1 + w4c*r2 +  w8c*r3 + w12c*r4 +  w3c*r5 +  w7c*r6 + w11c*r7;
+	r[5] = r1 + w5c*r2 + w10c*r3 +  w2c*r4 +  w7c*r5 + w12c*r6 +  w4c*r7;
+	r[6] = r1 + w6c*r2 + w12c*r3 +  w5c*r4 + w11c*r5 +  w4c*r6 + w10c*r7;
+	i[1] =      w1s*r2 +  w2s*r3 +  w3s*r4 +  w4s*r5 +  w5s*r6 +  w6s*r7;
+	i[2] =      w2s*r2 +  w4s*r3 +  w6s*r4 +  w8s*r5 + w10s*r6 + w12s*r7;
+	i[3] =      w3s*r2 +  w6s*r3 +  w9s*r4 + w12s*r5 +  w2s*r6 +  w5s*r7;
+	i[4] =      w4s*r2 +  w8s*r3 + w12s*r4 +  w3s*r5 +  w7s*r6 + w11s*r7;
+	i[5] =      w5s*r2 + w10s*r3 +  w2s*r4 +  w7s*r5 + w12s*r6 +  w4s*r7;
+	i[6] =      w6s*r2 + w12s*r3 +  w5s*r4 + w11s*r5 +  w4s*r6 + w10s*r7;
+}
+
+// Inverse FFT to reconstruct the 7 zpad values
+
+void zpad7_unfft (
+	gwhandle *gwdata,		// Handle for gwnum library
+	gwnum	g)			// gwnum to process the 7 zpad values in the header
+{
+const	double INV13 = 0.07692307692307692307692307692308;	// 1/13
+	double r1, r2, r3, r4, r5, r6, r7;			// The 7 FFTed reals
+	double i2, i3, i4, i5, i6, i7;				// The 7 FFTed imaginaries (first imaginary is zero)
+	double o[7];						// The 13 output reals (we don't need first 6 reals)
+
+	// Load FFT of the zpad doubles
+	r1 = g[-12];
+	r2 = g[-13];
+	r3 = g[-14];
+	r4 = g[-15];
+	r5 = g[-16];
+	r6 = g[-17];
+	r7 = g[-18];
+	i2 = g[-19];
+	i3 = g[-20];
+	i4 = g[-21];
+	i5 = g[-22];
+	i6 = g[-23];
+	i7 = g[-24];
+
+	// Brute force the padded 13-point inverse FFT discarding the lower 6 values
+	o[0] = r1 + 2.0 * ( w6c*r2 + w12c*r3 +  w5c*r4 + w11c*r5 +  w4c*r6 + w10c*r7 +  w6s*i2 + w12s*i3 +  w5s*i4 + w11s*i5 +  w4s*i6 + w10s*i7);
+	o[1] = r1 + 2.0 * ( w7c*r2 +  w1c*r3 +  w8c*r4 +  w2c*r5 +  w9c*r6 +  w3c*r7 +  w7s*i2 +  w1s*i3 +  w8s*i4 +  w2s*i5 +  w9s*i6 +  w3s*i7);
+	o[2] = r1 + 2.0 * ( w8c*r2 +  w3c*r3 + w11c*r4 +  w6c*r5 +  w1c*r6 +  w9c*r7 +  w8s*i2 +  w3s*i3 + w11s*i4 +  w6s*i5 +  w1s*i6 +  w9s*i7);
+	o[3] = r1 + 2.0 * ( w9c*r2 +  w5c*r3 +  w1c*r4 + w10c*r5 +  w6c*r6 +  w2c*r7 +  w9s*i2 +  w5s*i3 +  w1s*i4 + w10s*i5 +  w6s*i6 +  w2s*i7);
+	o[4] = r1 + 2.0 * (w10c*r2 +  w7c*r3 +  w4c*r4 +  w1c*r5 + w11c*r6 +  w8c*r7 + w10s*i2 +  w7s*i3 +  w4s*i4 +  w1s*i5 + w11s*i6 +  w8s*i7);
+	o[5] = r1 + 2.0 * (w11c*r2 +  w9c*r3 +  w7c*r4 +  w5c*r5 +  w3c*r6 +  w1c*r7 + w11s*i2 +  w9s*i3 +  w7s*i4 +  w5s*i5 +  w3s*i6 +  w1s*i7);
+	o[6] = r1 + 2.0 * (w12c*r2 + w11c*r3 + w10c*r4 +  w9c*r5 +  w8c*r6 +  w7c*r7 + w12s*i2 + w11s*i3 + w10s*i4 +  w9s*i5 +  w8s*i6 +  w7s*i7);
+
+	// Store the zpad doubles in the header
+	if (gwdata->cpu_flags & CPU_AVX512F) {
+		g[-11] = o[0] * INV13;	// Store output FFT word at halfway - 3
+		g[-10] = o[1] * INV13;	// Store output FFT word at halfway - 2
+		g[-9]  = o[2] * INV13;	// Store output FFT word at halfway - 1
+		g[-8]  = o[3] * INV13;	// Store output FFT word at halfway + 0
+		g[-7]  = o[4] * INV13;	// Store output FFT word at halfway + 1
+		g[-6]  = o[5] * INV13;	// Store output FFT word at halfway + 2
+		g[-5]  = o[6] * INV13;	// Store output FFT word at halfway + 3
+	} else {
+		g[-11] = o[0] * INV13;	// Store output FFT word at halfway - 3
+		g[-10] = o[1] * INV13;	// Store output FFT word at halfway - 2
+		g[-9]  = o[2] * INV13;	// Store output FFT word at halfway - 1
+		g[-5]  = o[3] * INV13;	// Store output FFT word at halfway + 0
+		g[-6]  = o[4] * INV13;	// Store output FFT word at halfway + 1
+		g[-7]  = o[5] * INV13;	// Store output FFT word at halfway + 2
+		g[-8]  = o[6] * INV13;	// Store output FFT word at halfway + 3
+	}
+}
+
 // Helper routines for FFT code
 
 // Generate radix-3/4/5 twiddle factors
@@ -452,9 +598,12 @@ bool read_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT 
 {
 	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
-//GW: check if GW_FFT1 should be used instead
-		vec[0].real = broadcastsd (1.0);
-		vec[0].imag = broadcastsd (0.0);
+		if (gwdata->k == 1.0) {
+			vec[0].real = broadcastsd (1.0);
+			vec[0].imag = broadcastsd (0.0);
+		} else {
+			read_line (gwdata, &gwdata->GW_FFT1, 1, index, vec, 0, FALSE);
+		}
 		vec++;
 	}
 
@@ -465,30 +614,31 @@ bool read_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT 
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
 	if (!gwdata->ALL_COMPLEX_FFT) index--;
 
-	// Zero padded FFTs must also return for processing the 7 real values stored in the header
-	if (gwdata->ZERO_PADDED_FFT) index -= 7;
-//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
-//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
-
 	// If we've read all the gwnum data, return FALSE
 	if (index * 16 >= (int) gwdata->FFTLEN) return (FALSE);
 
 	// AVX512 implementation
-	if (index == -1) {			// First real-only value
+	if (index == -1) {			// First real-only value and optionally seven zero-pad values
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
-			vec[j].real = _mm512_set_pd (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, data[j][0]);
-//bug? return 0.0 instead of -11
-//			vec[j].imag = _mm512_set_pd (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, data[j][-11]);
-			vec[j].imag = _mm512_set_pd (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+			// Return the first real-only value
+			if (!gwdata->ZERO_PADDED_FFT) {
+				vec[j].real = _mm512_set_pd (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, data[j][0]);
+				vec[j].imag = broadcastsd (0.0);
+			}
+			// Zero padded FFTs also return the 7 FFTed values for the 7 real values stored in the header
+			else {
+				double r[7], i[7];
+				zpad7_fft (gwdata, data[j], r, i);
+				vec[j].real = _mm512_set_pd (r[6], r[5], r[4], r[3], r[2], r[1], r[0], data[j][0]);
+				vec[j].imag = _mm512_set_pd (i[6], i[5], i[4], i[3], i[2], i[1], 0.0, 0.0);
+			}
 		}
 	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
+	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {	// Second real-only value and 7 complex values
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 			vec[j].real = _mm512_set_pd (data[j][7], data[j][6], data[j][5], data[j][4], data[j][3], data[j][2], data[j][1], data[j][8]);
-//bug? return 0.0 instead of -10
-//			vec[j].imag = _mm512_set_pd (data[j][7], data[j][6], data[j][5], data[j][-10]);
 			vec[j].imag = _mm512_set_pd (data[j][15], data[j][14], data[j][13], data[j][12], data[j][11], data[j][10], data[j][9], 0.0);
 		}
 	}
@@ -518,9 +668,12 @@ bool read_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT 
 
 	// If not post-processing monics and the input is monic, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
-//GW: check if GW_FFT1 should be used instead
-		vec[size].real = broadcastsd (1.0);
-		vec[size].imag = broadcastsd (0.0);
+		if (gwdata->k == 1.0) {
+			vec[size].real = broadcastsd (1.0);
+			vec[size].imag = broadcastsd (0.0);
+		} else {
+			read_line (gwdata, &gwdata->GW_FFT1, 1, index, &vec[size], 0, FALSE);
+		}
 	}
 
 	// Return success
@@ -539,30 +692,41 @@ void write_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
 	if (!gwdata->ALL_COMPLEX_FFT) index--;
 
-	// Zero padded FFTs must also return for processing the 7 real values stored in the header
-	if (gwdata->ZERO_PADDED_FFT) index -= 7;
-//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
-//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
-
 	// AVX512 implementation
 	union {
 		VDT	a;
 		double	b[8];
 	} x;
-	if (index == -1) {			// First real-only value
+	if (index == -1) {			// First real-only value and optionally seven zero-pad values
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
-			x.a = vec[j].real, data[j][0] = x.b[0];
-//bug? return 0.0 instead of -11
-//			x.a = vec[j].imag, data[j][-11] = x.b[0];
+			// Return the first real-only value
+			x.a = vec[j].real;
+			data[j][0] = x.b[0];
+			// Zero padded FFTs also return the 7 real values stored in the header
+			if (gwdata->ZERO_PADDED_FFT) {
+				data[j][-18] = x.b[7];
+				data[j][-17] = x.b[6];
+				data[j][-16] = x.b[5];
+				data[j][-15] = x.b[4];
+				data[j][-14] = x.b[3];
+				data[j][-13] = x.b[2];
+				data[j][-12] = x.b[1];
+				x.a = vec[j].imag;
+				data[j][-24] = x.b[7];
+				data[j][-23] = x.b[6];
+				data[j][-22] = x.b[5];
+				data[j][-21] = x.b[4];
+				data[j][-20] = x.b[3];
+				data[j][-19] = x.b[2];
+			}
 		}
 	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
+	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {	// Second real-only value and 7 complex values
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
 			x.a = vec[j].real, data[j][7] = x.b[7], data[j][6] = x.b[6], data[j][5] = x.b[5], data[j][4] = x.b[4],
 					   data[j][3] = x.b[3], data[j][2] = x.b[2], data[j][1] = x.b[1], data[j][8] = x.b[0];
-//bug? return 0.0 instead of -10
 			x.a = vec[j].imag, data[j][15] = x.b[7], data[j][14] = x.b[6], data[j][13] = x.b[5], data[j][12] = x.b[4],
 					   data[j][11] = x.b[3], data[j][10] = x.b[2], data[j][9] = x.b[1];
 		}
@@ -592,9 +756,12 @@ bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *ve
 {
 	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
-//GW: check if GW_FFT1 should be used instead
-		vec[0].real = broadcastsd (1.0);
-		vec[0].imag = broadcastsd (0.0);
+		if (gwdata->k == 1.0) {
+			vec[0].real = broadcastsd (1.0);
+			vec[0].imag = broadcastsd (0.0);
+		} else {
+			read_line (gwdata, &gwdata->GW_FFT1, 1, index, vec, 0, FALSE);
+		}
 		vec++;
 	}
 
@@ -605,30 +772,44 @@ bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *ve
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
 	if (!gwdata->ALL_COMPLEX_FFT) index--;
 
-	// Zero padded FFTs must also return for processing the 7 real values stored in the header
-	if (gwdata->ZERO_PADDED_FFT) index -= 7;
-//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
-//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
+	// Zero padded FFTs return another cache line for processing the 7 real values stored in the header
+	if (gwdata->ZERO_PADDED_FFT) index--;
 
 	// If we've read all the gwnum data, return FALSE
 	if (index * 8 >= (int) gwdata->FFTLEN) return (FALSE);
 
 	// AVX implementation
-	if (index == -1) {			// First real-only value
+	if (index == -2) {			// Four of the seven FFTed zero pad header values
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
-			vec[j].real = _mm256_set_pd (0.0, 0.0, 0.0, data[j][0]);
-//bug? return 0.0 instead of -11
-//			vec[j].imag = _mm256_set_pd (0.0, 0.0, 0.0, data[j][-11]);
-			vec[j].imag = _mm256_set_pd (0.0, 0.0, 0.0, 0.0);
+			// Zero padded FFTs, return 4 of the FFTed values for the 7 real values stored in the header
+			double r[7], i[7];
+			zpad7_fft (gwdata, data[j], r, i);
+			vec[j].real = _mm256_set_pd (r[6], r[5], r[4], r[3]);
+			vec[j].imag = _mm256_set_pd (i[6], i[5], i[4], i[3]);
 		}
 	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
+	else if (index == -1) {			// First real-only value and optionally three of the seven FFTed zero-pad values
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+			// Return the first real-only value
+			if (!gwdata->ZERO_PADDED_FFT) {
+				vec[j].real = _mm256_set_pd (0.0, 0.0, 0.0, data[j][0]);
+				vec[j].imag = broadcastsd (0.0);
+			}
+			// Zero padded FFTs also return 3 of the FFTed values for the 7 real values stored in the header
+			else {
+				double r[7], i[7];
+				zpad7_fft (gwdata, data[j], r, i);
+				vec[j].real = _mm256_set_pd (r[2], r[1], r[0], data[j][0]);
+				vec[j].imag = _mm256_set_pd (i[2], i[1], 0.0, 0.0);
+			}
+		}
+	}
+	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {	// Second real-only value and 3 complex values
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 			vec[j].real = _mm256_set_pd (data[j][3], data[j][2], data[j][1], data[j][4]);
-//bug? return 0.0 instead of -10
-//			vec[j].imag = _mm256_set_pd (data[j][7], data[j][6], data[j][5], data[j][-10]);
 			vec[j].imag = _mm256_set_pd (data[j][7], data[j][6], data[j][5], 0.0);
 		}
 	}
@@ -658,9 +839,12 @@ bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *ve
 
 	// If not post-processing monics and the input is monic, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
-//GW: check if GW_FFT1 should be used instead
-		vec[size].real = broadcastsd (1.0);
-		vec[size].imag = broadcastsd (0.0);
+		if (gwdata->k == 1.0) {
+			vec[size].real = broadcastsd (1.0);
+			vec[size].imag = broadcastsd (0.0);
+		} else {
+			read_line (gwdata, &gwdata->GW_FFT1, 1, index, &vec[size], 0, FALSE);
+		}
 	}
 
 	// Return success
@@ -679,30 +863,51 @@ void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *v
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
 	if (!gwdata->ALL_COMPLEX_FFT) index--;
 
-	// Zero padded FFTs must also return for processing the 7 real values stored in the header
-	if (gwdata->ZERO_PADDED_FFT) index -= 7;
-//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
-//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
+	// Zero padded FFTs return another cache line for processing the 7 real values stored in the header
+	if (gwdata->ZERO_PADDED_FFT) index--;
 
 	// AVX implementation
 	union {
 		VDT	a;
 		double	b[4];
 	} x;
-	if (index == -1) {			// First real-only value
+	if (index == -2) {			// Four of the seven zero pad value in the header
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
-			x.a = vec[j].real, data[j][0] = x.b[0];
-//bug? return 0.0 instead of -11
-//			x.a = vec[j].imag, data[j][-11] = x.b[0];
+			x.a = vec[j].real;
+			data[j][-18] = x.b[3];
+			data[j][-17] = x.b[2];
+			data[j][-16] = x.b[1];
+			data[j][-15] = x.b[0];
+			x.a = vec[j].imag;
+			data[j][-24] = x.b[3];
+			data[j][-23] = x.b[2];
+			data[j][-22] = x.b[1];
+			data[j][-21] = x.b[0];
+		}
+	}
+	else if (index == -1) {			// First real-only value and optionally three of the seven zero-pad values
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) continue;
+			// Return the first real-only value
+			x.a = vec[j].real;
+			data[j][0] = x.b[0];
+			// Return 3 of the 7 real values stored in the header
+			if (gwdata->ZERO_PADDED_FFT) {
+				data[j][-14] = x.b[3];
+				data[j][-13] = x.b[2];
+				data[j][-12] = x.b[1];
+				x.a = vec[j].imag;
+				data[j][-20] = x.b[3];
+				data[j][-19] = x.b[2];
+			}
 		}
 	}
 	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
 			x.a = vec[j].real, data[j][3] = x.b[3], data[j][2] = x.b[2], data[j][1] = x.b[1], data[j][4] = x.b[0];
-//bug? return 0.0 instead of -10
-			x.a = vec[j].imag, data[j][7] = x.b[3], data[j][6] = x.b[2], data[j][5] = x.b[1] /*, data[j][-10] = x.b[0]*/ ;
+			x.a = vec[j].imag, data[j][7] = x.b[3], data[j][6] = x.b[2], data[j][5] = x.b[1];
 		}
 	}
 	else {				// Process complex values where imaginary part is in the high half of the cache line
@@ -721,9 +926,12 @@ bool read_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *v
 {
 	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
-//GW: check if GW_FFT1 should be used instead
-		vec[0].real = broadcastsd (1.0);
-		vec[0].imag = broadcastsd (0.0);
+		if (gwdata->k == 1.0) {
+			vec[0].real = broadcastsd (1.0);
+			vec[0].imag = broadcastsd (0.0);
+		} else {
+			read_line (gwdata, &gwdata->GW_FFT1, 1, index, vec, 0, FALSE);
+		}
 		vec++;
 	}
 
@@ -734,10 +942,8 @@ bool read_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *v
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
 	if (!gwdata->ALL_COMPLEX_FFT) index--;
 
-	// Zero padded FFTs must also return for processing the 7 real values stored in the header
-	if (gwdata->ZERO_PADDED_FFT) index -= 7;
-//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
-//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
+	// Zero padded FFTs return another 3 cache lines for processing the 7 real values stored in the header
+	if (gwdata->ZERO_PADDED_FFT) index -= 3;
 
 	// If we've read all the gwnum data, return FALSE
 	if (index * 4 >= (int) gwdata->FFTLEN) return (FALSE);
@@ -753,28 +959,46 @@ bool read_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *v
 	else if (gwdata->PASS2_SIZE != 0 && gwdata->FFT_TYPE == 0 && (index <= 1 || index == 4 || index == 5)) imag_dist = 8;	// hg ffts
 	else imag_dist = 16;
 
-	// SSE2 instructions implementation
-	if (index == -1) {			// First real-only value
+	// SSE2 implementation
+	if (index <= -2) {			// Six of the seven zero pad header values
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
-			vec[j].real = _mm_set_pd (0.0, data[j][0]);
-//bug? return 0.0 instead of -11 ---- fix when we support FFTing invec
-			vec[j].imag = _mm_set_pd (0.0, 0.0);
+			// Zero padded FFTs, return 1 of the FFTed values for the 7 real values stored in the header
+			double r[7], i[7];
+			zpad7_fft (gwdata, data[j], r, i);
+			vec[j].real = _mm_set_pd (r[-index*2-2], r[-index*2-3]);	
+			vec[j].imag = _mm_set_pd (i[-index*2-2], i[-index*2-3]);
 		}
 	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
+	else if (index == -1) {			// First real-only valueand optionally one of the seven zero-pad values
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+			// Return the first real-only value
+			if (!gwdata->ZERO_PADDED_FFT) {
+				vec[j].real = _mm_set_pd (0.0, data[j][0]);
+				vec[j].imag = broadcastsd (0.0);
+			}
+			// Zero padded FFTs also return 1 of the FFTed values for the 7 real values stored in the header
+			else {
+				double r[7], i[7];
+				zpad7_fft (gwdata, data[j], r, i);
+				vec[j].real = _mm_set_pd (r[0], data[j][0]);
+				vec[j].imag = broadcastsd (0.0);
+			}
+		}
+	}
+	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {	// Second real-only value and one complex value
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 			if (imag_dist == 8) {
 				vec[j].real = _mm_set_pd (data[j][2], data[j][1]);
-				vec[j].imag = _mm_set_pd (data[j][3], 0.0); //data[j][-10];
+				vec[j].imag = _mm_set_pd (data[j][3], 0.0);
 			} else if (imag_dist == 16) {
 				vec[j].real = _mm_set_pd (data[j][1], data[j][2]);
-//bug? return 0.0 instead of -10.  How are we going to implement FFTed poly read?  Its own routine? It's own FFT state? Compressed?
-				vec[j].imag = _mm_set_pd (data[j][3], 0.0); //data[j][-10];
+				vec[j].imag = _mm_set_pd (data[j][3], 0.0);
 			} else {
 				vec[j].real = _mm_set_pd (data[j][1], data[j][4]);
-				vec[j].imag = _mm_set_pd (data[j][5], 0.0); //data[j][-10];
+				vec[j].imag = _mm_set_pd (data[j][5], 0.0);
 			}
 		}
 	}
@@ -812,9 +1036,12 @@ bool read_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *v
 
 	// If not post-processing monics and the input is monic, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
-//GW: check if GW_FFT1 should be used instead
-		vec[size].real = broadcastsd (1.0);
-		vec[size].imag = broadcastsd (0.0);
+		if (gwdata->k == 1.0) {
+			vec[size].real = broadcastsd (1.0);
+			vec[size].imag = broadcastsd (0.0);
+		} else {
+			read_line (gwdata, &gwdata->GW_FFT1, 1, index, &vec[size], 0, FALSE);
+		}
 	}
 
 	// Return success
@@ -833,10 +1060,8 @@ void write_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
 	if (!gwdata->ALL_COMPLEX_FFT) index--;
 
-	// Zero padded FFTs must also return for processing the 7 real values stored in the header
-	if (gwdata->ZERO_PADDED_FFT) index -= 7;
-//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
-//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
+	// Zero padded FFTs also return 3 extra cache lines for processing the 7 real values stored in the header
+	if (gwdata->ZERO_PADDED_FFT) index -= 3;
 
 	// Various SSE2 FFT implementations store the imaginary part of a complex number either 8, 16, or 32 bytes above the real part
 	int	imag_dist;
@@ -854,11 +1079,25 @@ void write_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *
 		VDT	a;
 		double	b[2];
 	} x;
-	if (index == -1) {			// First real-only value
+	if (index <= -2) {		// Six of the seven real values in the header
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
-			x.a = vec[j].real, data[j][0] = x.b[0];
-//			data[j][-11] = vec[j].imag;  //GW:bug?
+			x.a = vec[j].real;
+			data[j][index*2-10] = x.b[1];
+			data[j][index*2-9] = x.b[0];
+			x.a = vec[j].imag;
+			data[j][index*2-16] = x.b[1];
+			data[j][index*2-15] = x.b[0];
+		}
+	}
+	else if (index == -1) {		// First real-only value and optionally one of the seven zero-pad values
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) continue;
+			// Return the first real-only value
+			x.a = vec[j].real;
+			data[j][0] = x.b[0];
+			// Return 1 of the 7 real values stored in the header
+			if (gwdata->ZERO_PADDED_FFT) data[j][-12] = x.b[1];
 		}
 	}
 	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {		// Second real-only value
@@ -875,7 +1114,6 @@ void write_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *
 				x.a = vec[j].real, data[j][1] = x.b[1], data[j][4] = x.b[0];
 				x.a = vec[j].imag, data[j][5] = x.b[1];
 			}
-//bug? return 0.0 instead of -10
 		}
 	}
 	else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
@@ -902,9 +1140,12 @@ bool read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *ve
 {
 	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
-//GW: check if GW_FFT1 should be used instead
-		vec[0].real = 1.0;
-		vec[0].imag = 0.0;
+		if (gwdata->k == 1.0) {
+			vec[0].real = broadcastsd (1.0);
+			vec[0].imag = broadcastsd (0.0);
+		} else {
+			read_line (gwdata, &gwdata->GW_FFT1, 1, index, vec, 0, FALSE);
+		}
 		vec++;
 	}
 
@@ -917,19 +1158,26 @@ bool read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *ve
 
 	// Zero padded FFTs must also return for processing the 7 real values stored in the header
 	if (gwdata->ZERO_PADDED_FFT) index -= 7;
-//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
-//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
 
 	// If we've read all the gwnum data, return FALSE
 	if (index * 2 >= (int) gwdata->FFTLEN) return (FALSE);
 
 	// No special instructions implementation
-	if (index == -1) {			// First real-only value
+	if (index <= -2) {			// Seven zero pad header values
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+			// Zero padded FFTs return 1 of the FFTed values for the 7 real values stored in the header
+			double r[7], i[7];
+			zpad7_fft (gwdata, data[j], r, i); i[0] = 0.0;
+			vec[j].real = r[-index-2];
+			vec[j].imag = i[-index-2];
+		}
+	}
+	else if (index == -1) {			// First real-only value
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 			vec[j].real = data[j][0];
-//bug? return 0.0 instead of -11 ---- fix when we support FFTing invec
-			vec[j].imag = 0.0; //data[j][-11];
+			vec[j].imag = 0.0;
 		}
 	}
 	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
@@ -937,8 +1185,7 @@ bool read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *ve
 			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 			if (gwdata->PASS2_SIZE == 0) vec[j].real = data[j][1];
 			else vec[j].real = data[j][2];
-//bug? return 0.0 instead of -10.  How are we going to implement FFTed poly read?  Its own routine? It's own FFT state? Compressed?
-			vec[j].imag = 0.0; //data[j][-10];
+			vec[j].imag = 0.0;
 		}
 	}
 	else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
@@ -972,9 +1219,12 @@ bool read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *ve
 
 	// If not post-processing monics and the input is monic, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
-//GW: check if GW_FFT1 should be used instead
-		vec[size].real = 1.0;
-		vec[size].imag = 0.0;
+		if (gwdata->k == 1.0) {
+			vec[size].real = broadcastsd (1.0);
+			vec[size].imag = broadcastsd (0.0);
+		} else {
+			read_line (gwdata, &gwdata->GW_FFT1, 1, index, &vec[size], 0, FALSE);
+		}
 	}
 
 	// Return success
@@ -995,15 +1245,19 @@ void write_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *v
 
 	// Zero padded FFTs must also return for processing the 7 real values stored in the header
 	if (gwdata->ZERO_PADDED_FFT) index -= 7;
-//BUG-Zero-padded not handled yet.  Need bigger gwnum header (if we allow storing ffted polys)
-//BUG-current use of header location -10 conflicts with zero-padded use of location -10.
 
 	// No special instructions implementation
-	if (index == -1) {			// First real-only value
+	if (index <= -2) {			// Seven zero pad header values
+		for (int j = 0; j < size; j++) {
+			if (data[j] == NULL) continue;
+			data[j][index-10] = vec[j].real;
+			data[j][index-17] = vec[j].imag;
+		}
+	}
+	else if (index == -1) {			// First real-only value
 		for (int j = 0; j < size; j++) {
 			if (data[j] == NULL) continue;
 			data[j][0] = vec[j].real;
-//			data[j][-11] = vec[j].imag;  //GW:bug?
 		}
 	}
 	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {		// Second real-only value
@@ -1011,7 +1265,6 @@ void write_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *v
 			if (data[j] == NULL) continue;
 			if (gwdata->PASS2_SIZE == 0) data[j][1] = vec[j].real;
 			else data[j][2] = vec[j].real;
-//			data[j][-10] = vec[j].imag;	//GW:bug?
 		}
 	}
 	else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
@@ -1895,21 +2148,40 @@ void fft_line (
 }
 
 // outvec += input vector shifted the proper amount to create a monic polymult result
-void monic_line_add_hi (CVDT *invec, int invec_size, CVDT *outvec, int outvec_size)
+void monic_line_add_hi (CVDT *fft1, CVDT *invec, int invec_size, CVDT *outvec, int outvec_size)
 {
 	// Add words starting from the highest word
-	for (invec += invec_size-1, outvec += outvec_size-1; invec_size; invec--, outvec--, invec_size--) cvadd (outvec[0], outvec[0], invec[0]);
+	for (invec += invec_size-1, outvec += outvec_size-1; invec_size; invec--, outvec--, invec_size--) {
+		CVDT	tmp;
+		cvmul (tmp, *fft1, invec[0]);
+		cvadd (outvec[0], outvec[0], tmp);
+	}
 }
 
 // outvec += input vector shifted to the low part of outvec
-void monic_line_add_lo (CVDT *invec, int invec_size, CVDT *outvec, int outvec_size)
+void monic_line_add_lo (CVDT *fft1, CVDT *invec, int invec_size, CVDT *outvec, int outvec_size)
 {
-	for ( ; invec_size; invec++, outvec++, invec_size--) cvadd (outvec[0], outvec[0], invec[0]);
+	for ( ; invec_size; invec++, outvec++, invec_size--) {
+		CVDT	tmp;
+		cvmul (tmp, *fft1, invec[0]);
+		cvadd (outvec[0], outvec[0], tmp);
+	}
 }
 
 // Make adjustments to outvec for any monic input vectors
-void monic_line_adjustments (CVDT *invec1, int invec1_size, CVDT *invec2, int invec2_size, CVDT *outvec, int outvec_size, int options)
+void monic_line_adjustments (
+	gwhandle *gwdata,
+	CVDT	*invec1,
+	int	invec1_size,
+	CVDT	*invec2,
+	int	invec2_size,
+	CVDT	*outvec,
+	int	outvec_size,
+	int	line,
+	int	options)
 {
+	CVDT	fft1;
+
 	// If neither input is monic, no adjustments are necessary
 	if (! (options & POLYMULT_INVEC1_MONIC) && ! (options & POLYMULT_INVEC2_MONIC)) return;
 
@@ -1925,13 +2197,21 @@ void monic_line_adjustments (CVDT *invec1, int invec1_size, CVDT *invec2, int in
 	outvec_size++;
 	memset (&outvec[outvec_size-1], 0, sizeof (CVDT));
 
+	// If k != 1, we need to multiply the monic add-ins by FFT(1).
+	if (gwdata->k != 1.0) {
+		read_line (gwdata, &gwdata->GW_FFT1, 1, line, &fft1, 0, FALSE);
+	} else {
+		fft1.real = broadcastsd (1.0);
+		fft1.imag = broadcastsd (0.0);
+	}
+
 	// Adjust for an implied high coefficient of one -- add in the other poly in the high words
-	if (options & POLYMULT_INVEC1_MONIC) monic_line_add_hi (invec2, invec2_size, outvec, outvec_size);
-	if (options & POLYMULT_INVEC2_MONIC) monic_line_add_hi (invec1, invec1_size, outvec, outvec_size);
+	if (options & POLYMULT_INVEC1_MONIC) monic_line_add_hi (&fft1, invec2, invec2_size, outvec, outvec_size);
+	if (options & POLYMULT_INVEC2_MONIC) monic_line_add_hi (&fft1, invec1, invec1_size, outvec, outvec_size);
 
 	// Adjust for an implied low coefficient of one -- add in the other poly to the low words
-	if ((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) monic_line_add_lo (invec2, invec2_size, outvec, outvec_size);
-	if ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)) monic_line_add_lo (invec1, invec1_size, outvec, outvec_size);
+	if ((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) monic_line_add_lo (&fft1, invec2, invec2_size, outvec, outvec_size);
+	if ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)) monic_line_add_lo (&fft1, invec1, invec1_size, outvec, outvec_size);
 }
 
 // Select from various polymult algorithms
@@ -2025,7 +2305,10 @@ void polymult_line (
 			memset (outvec + adjusted_invec2_size, 0, (fft_size - adjusted_invec2_size) * sizeof (CVDT));
 			fft_line (pmdata, tmpvec, outvec, outvec, scratch, fft_size, FORWARD_FFT_INVEC1 | FORWARD_FFT_INVEC2);
 		}
-		if (post_process_monics) monic_line_adjustments (invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, outvec, adjusted_outvec_size, options);
+		// Handle adjustments needed due to monic inputs
+		if (post_process_monics) monic_line_adjustments (pmdata->gwdata, invec1, adjusted_invec1_size, invec2, adjusted_invec2_size,
+								 outvec, adjusted_outvec_size, line, options);
+		// Copy outvec to the output gwnums
 		write_line (pmdata->gwdata, gw_outvec, outvec_size, line, outvec, options & POLYMULT_CIRCULAR ? 0 : options);
 	}
 
@@ -2276,7 +2559,8 @@ void polymult (
 	if (!(options & POLYMULT_FORWARD_FFT)) {
 		for (int j = 0; j < outvec_size; j++) {
 			if (outvec[j] == NULL) continue;
-			FFT_state (outvec[j]) = FULLY_FFTed;
+			if (pmdata->gwdata->ZERO_PADDED_FFT) zpad7_unfft (pmdata->gwdata, outvec[j]);
+			FFT_state (outvec[j]) = (pmdata->gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
 			if ((options & POLYMULT_NO_UNFFT) && j != addin1 && j != addin2) continue;
 			gwunfft2 (pmdata->gwdata, outvec[j], outvec[j], (j != addin1 && j != addin2 && (options & POLYMULT_STARTNEXTFFT)) ? GWMUL_STARTNEXTFFT : 0);
 			if (j == addin1) gwaddsmall (pmdata->gwdata, outvec[j], 1);
