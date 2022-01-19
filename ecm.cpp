@@ -7989,6 +7989,10 @@ more_B:		pm1data.interim_B = pm1data.B;
 	}
 	pm1data.C_done = pm1data.B;
 
+/* Make sure end result is not in FFTed state */
+
+	gwunfft (&pm1data.gwdata, pm1data.x, pm1data.x);
+
 /* Stage 1 complete, print a message */
 
 	end_timer (timers, 1);
@@ -8013,9 +8017,9 @@ more_B:		pm1data.interim_B = pm1data.B;
 	if (pm1data.C <= pm1data.B) {
 		if (w->work_type != WORK_PMINUS1) OutputStr (thread_num, "Starting stage 1 GCD - please be patient.\n");
 		start_timer_from_zero (timers, 0);
-		gwaddsmall (&pm1data.gwdata, pm1data.x, -1);
+		gwsmalladd (&pm1data.gwdata, -1, pm1data.x);
 		stop_reason = gcd (&pm1data.gwdata, thread_num, pm1data.x, N, &factor);
-		gwaddsmall (&pm1data.gwdata, pm1data.x, 1);
+		gwsmalladd (&pm1data.gwdata, 1, pm1data.x);
 		if (stop_reason) {
 			pm1_save (&pm1data);
 			goto exit;
@@ -8064,7 +8068,7 @@ restart3a:
 		gwnum x_minus_1 = gwalloc (&pm1data.gwdata);
 		if (x_minus_1 == NULL) goto oom;
 		gwcopy (&pm1data.gwdata, pm1data.x, x_minus_1);
-		gwaddsmall (&pm1data.gwdata, x_minus_1, -1);
+		gwsmalladd (&pm1data.gwdata, -1, x_minus_1);
 		gwmul3 (&pm1data.gwdata, pm1data.x, x_minus_1, pm1data.invx, GWMUL_PRESERVE_S1 | GWMUL_FFT_S2);	// x * (x-1)
 		stop_reason = pm1_modinv (&pm1data, pm1data.invx, N, factor);					// 1 / (x * (x-1))
 		if (factor != NULL) goto bingo;
@@ -8797,7 +8801,7 @@ pm1_polymult:
 		// If stage 1 GCD was not run, init gg to x-1
 		if (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "Stage1GCD", 1) == -1) {
 			gwcopy (&pm1data.gwdata, pm1data.x, pm1data.gg);
-			gwaddsmall (&pm1data.gwdata, pm1data.gg, -1);
+			gwsmalladd (&pm1data.gwdata, -1, pm1data.gg);
 		}
 		// Otherwise, just set gg to one
 		else {
@@ -11430,9 +11434,9 @@ more_B:		pp1data.interim_B = pp1data.B;
 	w->pct_complete = 1.0;
 	if (pp1data.C <= pp1data.B || (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "Stage1GCD", 1))) {
 		start_timer_from_zero (timers, 0);
-		gwaddsmall (&pp1data.gwdata, pp1data.V, -2);
+		gwsmalladd (&pp1data.gwdata, -2, pp1data.V);
 		stop_reason = gcd (&pp1data.gwdata, thread_num, pp1data.V, N, &factor);
-		gwaddsmall (&pp1data.gwdata, pp1data.V, 2);
+		gwsmalladd (&pp1data.gwdata, 2, pp1data.V);
 		if (stop_reason) {
 			pp1_save (&pp1data);
 			goto exit;
