@@ -9077,7 +9077,8 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 // Calculate the percent completed by previous stage 2 efforts
 
-	base_pct_complete = (double) (pm1data.B2_start - pm1data.last_relocatable) / (double) (pm1data.C - pm1data.last_relocatable);
+	base_pct_complete = (double) (pm1data.B2_start - pm1data.last_relocatable) /
+			    (double) (pm1data.B2_start + pm1data.numDsections * pm1data.D - pm1data.last_relocatable);
 
 // Loop over all the D-sections between B1 and B2
 
@@ -9207,7 +9208,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 /* Calculate stage 2 percentage. */
 
-		w->pct_complete = base_pct_complete + (double) pm1data.Dsection / (double) pm1data.numDsections;
+		w->pct_complete = base_pct_complete + (1.0 - base_pct_complete) * (double) pm1data.Dsection / (double) pm1data.numDsections;
 
 /* Test for errors */
 
