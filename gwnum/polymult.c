@@ -21,7 +21,6 @@
 
 // TO DO:
 // 1) Support non-power-of-two FFTs below 32?  Support FFT size requiring a radix-2 step?
-// 2) Zero padded gwnums.  Test all FFT sizes and FFT types -- especially funky PFA ffts.
 // 9) Is a fast convert-gwnum-to-larger-FFT feasible? necessary?
 // 10) Tune for Brute / Karatsuba / FFT crossovers.
 // 12) Tune routine that returns needed safety margin needed for given poly sizes
@@ -2345,9 +2344,11 @@ void polymult_thread (void *arg)
 		else if (!pmdata->helpers_doing_polymult)
 			(*pmdata->helper_callback) (thread_num, &cloned_gwdata, pmdata->helper_callback_data);
 		// Optimized routines for AVX512 instructions
+#ifdef X86_64
 		else if (pmdata->gwdata->cpu_flags & CPU_AVX512F)
 			polymult_line_avx512 (pmdata, pmdata->invec1, pmdata->invec1_size, pmdata->invec2, pmdata->invec2_size,
 					      pmdata->outvec, pmdata->outvec_size, pmdata->options);
+#endif
 		// Optimized routines for FMA3 instructions
 		else if (pmdata->gwdata->cpu_flags & CPU_FMA3)
 			polymult_line_fma (pmdata, pmdata->invec1, pmdata->invec1_size, pmdata->invec2, pmdata->invec2_size,
@@ -2525,9 +2526,12 @@ void polymult (
 	polymult_launch_helpers (pmdata);
 
 	// This thread works on the polymult too.  Select which optimized routines to use.
+#ifdef X86_64
 	if (pmdata->gwdata->cpu_flags & CPU_AVX512F)
 		polymult_line_avx512 (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
-	else if (pmdata->gwdata->cpu_flags & CPU_FMA3)
+	else
+#endif
+	if (pmdata->gwdata->cpu_flags & CPU_FMA3)
 		polymult_line_fma (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
 	else if (pmdata->gwdata->cpu_flags & CPU_AVX)
 		polymult_line_avx (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
