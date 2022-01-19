@@ -2577,7 +2577,10 @@ avx512sv512:
 	vpbroadcastd zmm11, [rsi+44]	; Load bit offset to clear
 	vpbroadcastd zmm12, [rsi+48]	; Load bit offset to clear
 
-	vmovdqa32 zmm15, ZMM_INIT_SV521	; Load offsets for each dword in AVX512 count word
+;; UASM BUG
+;	vmovdqa32 zmm15, ZMM_INIT_SV521	; Load offsets for each dword in AVX512 count word
+lea rdx, ZMM_INIT_SV521
+vmovdqa32 zmm15, [rdx]
 	vpaddd	zmm0, zmm0, zmm15	; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm1, zmm1, zmm15	; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm2, zmm2, zmm15	; Create each word's shift count from the single bit-to-clr value
