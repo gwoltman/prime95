@@ -1,4 +1,4 @@
-; Copyright 1995-2017 Mersenne Research, Inc., all rights reserved
+; Copyright 1995-2022 Mersenne Research, Inc., all rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -636,7 +636,9 @@ ZMM_INIT_SV503		DD	0, -(32 MOD 503), -(64 MOD 503), -(96 MOD 503), -(128 MOD 503
 			DD	-(256 MOD 503), -(288 MOD 503), -(320 MOD 503), -(352 MOD 503), -(384 MOD 503), -(416 MOD 503), -(448 MOD 503), -(480 MOD 503)
 ZMM_INIT_SV509		DD	0, -(32 MOD 509), -(64 MOD 509), -(96 MOD 509), -(128 MOD 509), -(160 MOD 509), -(192 MOD 509), -(224 MOD 509)
 			DD	-(256 MOD 509), -(288 MOD 509), -(320 MOD 509), -(352 MOD 509), -(384 MOD 509), -(416 MOD 509), -(448 MOD 509), -(480 MOD 509)
-ZMM_INIT_SV521		DD	0, -32, -64, -96, -128, -160, -192, -224, -256, -288, -320, -352, -384, -416, -448, -480
+;; UASM BUG	ZMM_INIT_SV521		DD	0, -32, -64, -96, -128, -160, -192, -224, -256, -288, -320, -352, -384, -416, -448, -480
+ZMM_INIT_SV521		DD	0
+REST_OF_ZMM_INIT_SV521	DD	-32, -64, -96, -128, -160, -192, -224, -256, -288, -320, -352, -384, -416, -448, -480
 ZMM_INIT_SV523		DD	0, -32, -64, -96, -128, -160, -192, -224, -256, -288, -320, -352, -384, -416, -448, -480
 ZMM_INIT_SV541		DD	0, -32, -64, -96, -128, -160, -192, -224, -256, -288, -320, -352, -384, -416, -448, -480
 ZMM_INIT_SV547		DD	0, -32, -64, -96, -128, -160, -192, -224, -256, -288, -320, -352, -384, -416, -448, -480
@@ -2577,10 +2579,7 @@ avx512sv512:
 	vpbroadcastd zmm11, [rsi+44]	; Load bit offset to clear
 	vpbroadcastd zmm12, [rsi+48]	; Load bit offset to clear
 
-;; UASM BUG
-;	vmovdqa32 zmm15, ZMM_INIT_SV521	; Load offsets for each dword in AVX512 count word
-lea rdx, ZMM_INIT_SV521
-vmovdqa32 zmm15, [rdx]
+	vmovdqa32 zmm15, ZMM_INIT_SV521	; Load offsets for each dword in AVX512 count word
 	vpaddd	zmm0, zmm0, zmm15	; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm1, zmm1, zmm15	; Create each word's shift count from the single bit-to-clr value
 	vpaddd	zmm2, zmm2, zmm15	; Create each word's shift count from the single bit-to-clr value
