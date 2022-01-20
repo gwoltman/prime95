@@ -6726,6 +6726,11 @@ int pm1_restore (			/* For version 30.4 and later save files */
 		if (! read_uint64 (fd, &pm1data->B_done, &sum)) goto readerr;
 		if (! read_uint64 (fd, &pm1data->interim_B, &sum)) goto readerr;
 		if (! read_uint64 (fd, &pm1data->stage1_prime, &sum)) goto readerr;
+		// Some early 30.8 builds set state to PM1_STATE_STAGE1 rather than PM1_STATE_DONE when a factor was found in stage 1.  Correct this.
+		if (pm1data->interim_B < pm1data->B_done) {
+			pm1data->state = PM1_STATE_DONE;
+			if (pm1data->C_done < pm1data->B) pm1data->C_done = pm1data->B;
+		}
 	}
 
 	else if (pm1data->state == PM1_STATE_MIDSTAGE) {
@@ -7725,8 +7730,10 @@ restart:
 		if (pm1data.C > pm1data.C_done) {
 			pm1data.state = PM1_STATE_STAGE1;		// We're not in mid-stage until invx is calculated
 			if (pm1data.first_C_start == pm1data.B) pm1data.first_C_start = pm1data.C_done;
-			sprintf (buf, "Resuming P-1 in stage 2 with B2 from %" PRIu64 " to %" PRIu64 "\n", pm1data.C_done, pm1data.C);
-			OutputStr (thread_num, buf);
+			if (pm1data.C_done > pm1data.B) {
+				sprintf (buf, "Resuming P-1 in stage 2 with B2 from %" PRIu64 " to %" PRIu64 "\n", pm1data.C_done, pm1data.C);
+				OutputStr (thread_num, buf);
+			}
 			goto restart3a;
 		}
 
@@ -9532,8 +9539,11 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 		pm1data.write_save_file_state.base_filename[0] = 'p';
 		unlinkSaveFiles (&pm1data.write_save_file_state);
 	}
-	if (!QA_IN_PROGRESS && w->work_type == WORK_PMINUS1 && IniGetInt (INI_FILE, "KeepPminus1SaveFiles", 1))
+	if (!QA_IN_PROGRESS && w->work_type == WORK_PMINUS1 && IniGetInt (INI_FILE, "KeepPminus1SaveFiles", 1)) {
+		pm1data.state = PM1_STATE_DONE;
+		ASSERTG (pm1data.C_done >= pm1data.B_done);
 		pm1_save (&pm1data);
+	}
 
 /* Since we found a factor, then we may have performed less work than */
 /* expected.  Make sure we do not update the rolling average with */
