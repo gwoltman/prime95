@@ -322,7 +322,7 @@ If doing P-1 with a very large B1, the program uses about 47MB of memory to
 pre-calculate the product of all small primes below 250 million.  The primes above
 250 million are processed using a somewhat slower method.  You can elect to use
 more memory to move the 250 million threshold higher.  In prime.txt enter:
-	MaxStage0Prime=n		(n is in millions, default is 250)
+	MaxStage0Prime=n	(n is in millions, default is 250, max is 2000)
 
 By default P-1 work does not delete the save files when the work unit completes.
 This lets you run P-1 to a higher bound at a later date.  You can force

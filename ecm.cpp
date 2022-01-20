@@ -7751,8 +7751,12 @@ restart:
 
 /* Stage 0 pre-calculates an exponent that is the product of small primes.  Our default uses only small */
 /* primes below 250,000,000 (roughly 375 million bits).  This is configurable starting in version 29.8 build 8. */
+/* Reports of GMP having trouble with products larger than 2^32 bits leads us to cap MaxStage0Prime at 2000. */
 
-	pm1data.max_stage0_prime = (uint64_t) IniGetInt (INI_FILE, "MaxStage0Prime", 250) * 1000000;
+	pm1data.max_stage0_prime = (uint64_t) IniGetInt (INI_FILE, "MaxStage0Prime", 250);
+	if (pm1data.max_stage0_prime < 1) pm1data.max_stage0_prime = 1;
+	if (pm1data.max_stage0_prime > 2000) pm1data.max_stage0_prime = 2000;
+	pm1data.max_stage0_prime *= 1000000;
 
 /* First restart point.  Compute the big exponent (product of small primes).  Then compute 3^exponent. */
 /* The exponent always contains 2*p.  We only use primes below (roughly) max_stage0_prime.  The rest of the */
