@@ -1925,34 +1925,45 @@ void fft_line (
 						cvsub (new_c, a, c);		// a - c
 						cvadd (new_b, b, d);		// b + d
 						cvsub (new_d, b, d);		// b - d
+
+						cvadd  (a, new_a, new_b);	// a + b
+						cvsub  (b, new_a, new_b);	// a - b
+						cvisub (c, new_c, new_d);	// c - id
+						cviadd (d, new_c, new_d);	// c + id
 					}
 					// Apply the CONJUGATE of the twiddle
 					else {
 						CVDT	twiddled_b, twiddled_c, twiddled_d;
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
 						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
-						twidconjmul (twiddled_b, b, twiddle1);
 #if !VFMA
+						twidconjmul (twiddled_b, b, twiddle1);
 						twidconjmul (twiddled_c, c, twiddle2);
 						twidmul     (twiddled_d, d, twiddle1);
 						cvadd (new_a, a, twiddled_c);				// a + c
 						cvsub (new_c, a, twiddled_c);				// a - c
 						cvadd (new_b, twiddled_b, twiddled_d);			// b + d
 						cvsub (new_d, twiddled_b, twiddled_d);			// b - d
+
+						cvadd  (a, new_a, new_b);				// a + b
+						cvsub  (b, new_a, new_b);				// a - b
+						cvisub (c, new_c, new_d);				// c - id
+						cviadd (d, new_c, new_d);				// c + id
 #else
+						twidconjmuldelay (twiddled_b, b, twiddle1);
 						twidconjmuldelay (twiddled_c, c, twiddle2);
 						twidmuldelay     (twiddled_d, d, twiddle1);
 						cvaddfm (new_a, a, twiddle2.sin, twiddled_c);		// a + c
 						cvsubfm (new_c, a, twiddle2.sin, twiddled_c);		// a - c
-						cvaddfm (new_b, twiddled_b, twiddle1.sin, twiddled_d);	// b + d
-						cvsubfm (new_d, twiddled_b, twiddle1.sin, twiddled_d);	// b - d
+						cvadd (new_b, twiddled_b, twiddled_d);			// b + d
+						cvsub (new_d, twiddled_b, twiddled_d);			// b - d
+
+						cvaddfm  (a, new_a, twiddle1.sin, new_b);		// a + b
+						cvsubfm  (b, new_a, twiddle1.sin, new_b);		// a - b
+						cvisubfm (c, new_c, twiddle1.sin, new_d);		// c - id
+						cviaddfm (d, new_c, twiddle1.sin, new_d);		// c + id
 #endif
 					}
-
-					cvadd  (a, new_a, new_b);					// a + b
-					cvsub  (b, new_a, new_b);					// a - b
-					cvisub (c, new_c, new_d);					// c - id
-					cviadd (d, new_c, new_d);					// c + id
 
 					// Save results
 					dest[outstride1*(group + group_member)]            = a;		// Do not bit reverse outputs
