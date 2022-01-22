@@ -61,7 +61,7 @@
 // 52) Half-sized DCT for RLPs?  The DJB FFTs may make reordering DCT outputs for an inverse FFT tricky.
 // 53) Can P-1's circular monic-poly times monic-RLP be safely done without monic_adjustments allowing us to save the FFT'ed RLP that is half-sized due to DCT?
 // 54) Does monolithic two-forward-FFTs-pointmul-and-one-inverse-FFT routine suggest different preferred pass sizes (use half the L2 cache)?
-// 56) Move mul by 1/FFTLEN to last unfft level (perhaps into the twiddle table itself).  Saves 65%+ of the multiplies if VFMA is available.
+// 56) Option to not mul by 1/FFTLEN?
 // 57) Option to save memory by processing AVX-512 data using FMA3.  (reduces sizeof(CVDT)).
 // 58) Should we multi-thread FFTing the polymult input arguments?
 // 59) monic_line_adjust could avoid complex mul by fft1 when k == 1.  Is it worthwhile?
@@ -1486,6 +1486,8 @@ void fft_line (
 	unsigned int inv_twiddle45_stride;	// Starting stride for the inverse FFT radix-4/5 twiddles data
 	unsigned int powers_of_two;
 	VDT	inv_fft_size = broadcastsd (1.0 / (double) fft_size);
+	VDT	inv_fft_size_707 = broadcastsd (0.70710678118654752440084436210485 / (double) fft_size);
+	bool	inv_fft_applied;		// Set to TRUE when all inverse FFT data has been multiplied by inv_fft_size
 
 	generate_sincos (pmdata, fft_size);
 
@@ -1806,9 +1808,9 @@ void fft_line (
 		    for (unsigned int j = 0; j < pass_size; j++) {
 			CVDT x = invec1[blke * pass2_size + j];
 			CVDT y = invec2[blke * pass2_size + j];
-			outvec[blke * pass2_size + j].real = mulpd (fmsubpd (x.real, y.real, mulpd (x.imag, y.imag)), inv_fft_size);
-			outvec[blke * pass2_size + j].imag = mulpd (fmaddpd (x.real, y.imag, mulpd (x.imag, y.real)), inv_fft_size);
+			cvmul (outvec[blke * pass2_size + j], x, y);
 		    }
+		    inv_fft_applied = FALSE;
 		}
 
 // Inverse FFT
@@ -1839,7 +1841,6 @@ void fft_line (
 
 		// Radix-8 FFT (if needed it is the last radix block done in pass 2)
 		if (pass == 2 && powers_of_two & 1) {		// If odd number of powers of two do a radix-8 step
-			VDT _707 = broadcastsd (0.70710678118654752440084436210485);
 			twiddle45_stride /= 8;		// Next twiddle stride amount
 			for (unsigned int group = 0; group < pass_size; group += stride * 8) {
 				for (unsigned int group_member = 0; group_member < stride; group_member++) {
@@ -1853,8 +1854,17 @@ void fft_line (
 					CVDT h = src[group + group_member + 7*stride];
 
 					CVDT new_a, new_b, new_c, new_d, new_e, new_f, new_g, new_h, twid_f, twid_h;
+
+					// Do the distance = 4 round, mul by inv_fft_size as efficiently as possible
+					cvrmul (a, inv_fft_size, a);
+#if !VFMA
+					cvrmul (e, inv_fft_size, e);
 					cvadd (new_a, a, e);					// a + e
 					cvsub (new_e, a, e);					// a - e
+#else
+					cvaddfm (new_a, a, inv_fft_size, e);			// a + e
+					cvsubfm (new_e, a, inv_fft_size, e);			// a - e
+#endif
 					cvadd (new_b, b, f);					// b + f
 					cvsub (new_f, b, f);					// b - f
 					cvadd (new_c, c, g);					// c + g
@@ -1862,35 +1872,55 @@ void fft_line (
 					cvadd (new_d, d, h);					// d + h
 					cvsub (new_h, d, h);					// d - h
 
+					// Do the distance = 2 round, mul by inv_fft_size as efficiently as possible
+#if !VFMA
+					cvrmul (new_c, inv_fft_size, new_c);
+					cvrmul (new_g, inv_fft_size, new_g);
 					cvadd  (a, new_a, new_c);				// a + c
 					cvsub  (c, new_a, new_c);				// a - c
-					cvadd  (b, new_b, new_d);				// b + d
-					cvsub  (d, new_b, new_d);				// b - d
 					cvisub (e, new_e, new_g);				// e - ig
 					cviadd (g, new_e, new_g);				// e + ig
+#else
+					cvaddfm  (a, new_a, inv_fft_size, new_c);		// a + c
+					cvsubfm  (c, new_a, inv_fft_size, new_c);		// a - c
+					cvisubfm (e, new_e, inv_fft_size, new_g);		// e - ig
+					cviaddfm (g, new_e, inv_fft_size, new_g);		// e + ig
+#endif
+					cvadd  (b, new_b, new_d);				// b + d
+					cvsub  (d, new_b, new_d);				// b - d
 					cvisub (f, new_f, new_h);				// f - ih
 					cviadd (h, new_f, new_h);				// f + ih
 
+					// Do the distance = 1 round, mul by inv_fft_size as efficiently as possible
+#if !VFMA
+					cvrmul (b, inv_fft_size, b);
+					cvrmul (d, inv_fft_size, d);
 					cvadd  (new_a, a, b);					// a + b
 					cvsub  (new_b, a, b);					// a - b
 					cvisub (new_c, c, d);					// c - id
 					cviadd (new_d, c, d);					// c + id
+#else
+					cvaddfm  (new_a, a, inv_fft_size, b);			// a + b
+					cvsubfm  (new_b, a, inv_fft_size, b);			// a - b
+					cvisubfm (new_c, c, inv_fft_size, d);			// c - id
+					cviaddfm (new_d, c, inv_fft_size, d);			// c + id
+#endif
 					twid_f.real = addpd (f.real, f.imag);			// twiddled f / .707
 					twid_f.imag = subpd (f.imag, f.real);
 					twid_h.real = subpd (h.real, h.imag);			// -twiddled h / .707
 					twid_h.imag = addpd (h.real, h.imag);
 #if !VFMA
-					cvrmul (twid_f, _707, twid_f);				// twiddled f
-					cvrmul (twid_h, _707, twid_h);				// -twiddled h
+					cvrmul (twid_f, inv_fft_size_707, twid_f);		// twiddled f
+					cvrmul (twid_h, inv_fft_size_707, twid_h);		// -twiddled h
 					cvadd (new_e, e, twid_f);				// e + (sqrthalf-sqrthalf*i)f
 					cvsub (new_f, e, twid_f);				// e - (sqrthalf-sqrthalf*i)f
 					cvsub (new_g, g, twid_h);				// g + (-sqrthalf-sqrthalf*i)h
 					cvadd (new_h, g, twid_h);				// g - (-sqrthalf-sqrthalf*i)h
 #else
-					cvaddfm (new_e, e, _707, twid_f);			// e + (sqrthalf-sqrthalf*i)f
-					cvsubfm (new_f, e, _707, twid_f);			// e - (sqrthalf-sqrthalf*i)f
-					cvsubfm (new_g, g, _707, twid_h);			// g + (-sqrthalf-sqrthalf*i)h
-					cvaddfm (new_h, g, _707, twid_h);			// g - (-sqrthalf-sqrthalf*i)h
+					cvaddfm (new_e, e, inv_fft_size_707, twid_f);		// e + (sqrthalf-sqrthalf*i)f
+					cvsubfm (new_f, e, inv_fft_size_707, twid_f);		// e - (sqrthalf-sqrthalf*i)f
+					cvsubfm (new_g, g, inv_fft_size_707, twid_h);		// g + (-sqrthalf-sqrthalf*i)h
+					cvaddfm (new_h, g, inv_fft_size_707, twid_h);		// g - (-sqrthalf-sqrthalf*i)h
 #endif
 
 					dest[group + group_member] = new_a;			// Do not bit reverse outputs
@@ -1904,6 +1934,7 @@ void fft_line (
 				}
 			}
 			stride *= 8;			// Next stride amount
+			inv_fft_applied = TRUE;
 		}
 
 		// Radix-4 FFT, one fewer complex multiply than radix-2, does more work while data is in registers
@@ -1921,15 +1952,44 @@ void fft_line (
 					// Special case first group member, no twiddles necessary
 					CVDT	new_a, new_b, new_c, new_d;
 					if (twiddle_idx == 0) {
-						cvadd (new_a, a, c);		// a + c
-						cvsub (new_c, a, c);		// a - c
-						cvadd (new_b, b, d);		// b + d
-						cvsub (new_d, b, d);		// b - d
+						if (inv_fft_applied) {
+							cvadd (new_a, a, c);		// a + c
+							cvsub (new_c, a, c);		// a - c
+							cvadd (new_b, b, d);		// b + d
+							cvsub (new_d, b, d);		// b - d
 
-						cvadd  (a, new_a, new_b);	// a + b
-						cvsub  (b, new_a, new_b);	// a - b
-						cvisub (c, new_c, new_d);	// c - id
-						cviadd (d, new_c, new_d);	// c + id
+							cvadd  (a, new_a, new_b);	// a + b
+							cvsub  (b, new_a, new_b);	// a - b
+							cvisub (c, new_c, new_d);	// c - id
+							cviadd (d, new_c, new_d);	// c + id
+						} else {
+							cvrmul (a, inv_fft_size, a);
+#if !VFMA
+							cvrmul (b, inv_fft_size, b);
+							cvrmul (c, inv_fft_size, c);
+							cvrmul (d, inv_fft_size, d);
+
+							cvadd (new_a, a, c);		// a + c
+							cvsub (new_c, a, c);		// a - c
+							cvadd (new_b, b, d);		// b + d
+							cvsub (new_d, b, d);		// b - d
+
+							cvadd  (a, new_a, new_b);	// a + b
+							cvsub  (b, new_a, new_b);	// a - b
+							cvisub (c, new_c, new_d);	// c - id
+							cviadd (d, new_c, new_d);	// c + id
+#else
+							cvaddfm (new_a, a, inv_fft_size, c);		// a + c
+							cvsubfm (new_c, a, inv_fft_size, c);		// a - c
+							cvadd   (new_b, b, d);				// b + d
+							cvsub   (new_d, b, d);				// b - d
+
+							cvaddfm  (a, new_a, inv_fft_size, new_b);	// a + b
+							cvsubfm  (b, new_a, inv_fft_size, new_b);	// a - b
+							cvisubfm (c, new_c, inv_fft_size, new_d);	// c - id
+							cviaddfm (d, new_c, inv_fft_size, new_d);	// c + id
+#endif
+						}
 					}
 					// Apply the CONJUGATE of the twiddle
 					else {
@@ -1972,6 +2032,7 @@ void fft_line (
 					dest[outstride1*(group + group_member + 3*stride)] = d;
 				}
 			}
+			inv_fft_applied = TRUE;
 		}
 
 		// Radix-5 FFT
