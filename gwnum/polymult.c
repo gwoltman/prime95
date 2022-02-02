@@ -731,13 +731,14 @@ void decompress_vec (
 	// Init input queue
 	unsigned char *inptr = (unsigned char *) inbuf;
 	inval = inbits = 0;
-#define get_bits(v,len)	{ if (inbits<len) inval=(inval<<8)+(*inptr++),inbits+=8; inbits-=len; v=inval>>inbits; inval-=((int)v<<inbits); }
+#define get_bits(v,len)	{ if (inbits<len) inval=(inval<<8)+(*inptr++),inbits+=8; inbits-=len; v=(inval>>inbits)&((1<<(len))-1); }
 #define get_m48(v)	{ union {uint64_t a; char b[8];} x; x.a = 0; memcpy (x.b, inptr, 6); inptr += 6; v = x.a; }
 
 	// Read peak exponent and above-peak-flag
 	get_bits (peak, 7);  peak += 960;
 	get_bits (above_peak_flag, 1);
 
+#ifdef STRAIGHTFORWARD_IMPL
 	while (size) {
 		uint64_t expo, sign, nibble, mantissa48;
 		int	code;
@@ -770,6 +771,49 @@ void decompress_vec (
 		outbuf += sizeof (double);
 		size -= sizeof (double);
 	}
+
+#else		// This version is less readable but a little faster
+
+	for ( ; size; outbuf += sizeof (double), size -= sizeof (double)) {
+		int	code, more_code, expo, sign, nibble;
+
+		// We need to get at least 7 bits, cheaper to get them all at once.
+		// The goal is to decompress ~75% of the expos using just one get_bits call.
+		get_bits (code, 7);
+		
+		// Decompress the exponent
+		if (code < 0b1100000) expo = peak - (code >> 5);
+		else if (code < 0b1111000) {
+			if (code < 0b1110000) expo = peak - 3 - ((code & 0b0011000) >> 3);
+			else expo = above_peak_flag ? peak + 1 : peak - 5;
+			get_bits (more_code, 2);
+			code = (code << 2) + more_code;
+		} else if (code < 0b1111100) {
+			expo = above_peak_flag ? peak - 5 : peak - 6;
+			get_bits (more_code, 3);
+			code = (code << 3) + more_code;
+		} else {
+			get_bits (more_code, 4);
+			code = ((code & 0b0000011) << 4) + more_code;
+			if (code >= 19) expo = code - 19 + (peak-50);	// Handle up to 45 values below peak coded as 19 through 63
+			else if (code >= 1) expo = code - 1 + (peak+1);	// Handle up to 18 values above peak coded as 1 through 18
+			else { memset (outbuf, 0, sizeof (double)); continue; }
+			get_bits (code, 5);
+		}
+
+		// Get the sign bit and high nibble of mantissa
+		sign = code >> 4;
+		nibble = code & 0xF;
+
+		// Copy 6 mantissa bytes
+		memcpy (outbuf, inptr, 6), inptr += 6;
+
+		// Output the top two bytes of the double
+		uint16_t top2 = (uint16_t) ((sign << 15) + (expo << 4) + nibble);
+		memcpy (outbuf+6, &top2, 2);
+	}
+#endif
+
 #undef get_bits
 #undef get_m48
 }
