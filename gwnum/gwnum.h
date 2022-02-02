@@ -43,7 +43,7 @@ typedef struct gwhandle_struct gwhandle;
 /* data stored before the doubles.  See the internals section below if you really must know. */
 typedef double *gwnum;
 
-/* The array of gwnums data type.  In practice, there is data stored before the array. */
+/* An array of gwnums data type.  In practice, there is data stored before the array. */
 typedef gwnum *gwarray;
 
 /*---------------------------------------------------------------------+
@@ -1169,6 +1169,13 @@ struct gwhandle_struct {
 #define GW_ZPAD_HEADER_SIZE	96	/* Number of data bytes before a gwnum ptr when using zero-padded FFTs */
 #define GW_LARGE_HEADER_SIZE	192	/* Number of data bytes before a gwnum ptr when using zero-padded FFTs and polymult */
 #define GW_HEADER_SIZE(h)	(!(h)->ZERO_PADDED_FFT ? GW_SMALL_HEADER_SIZE : !(h)->polymult ? GW_ZPAD_HEADER_SIZE : GW_LARGE_HEADER_SIZE)
+
+/* Define the hidden fields before an allocated gwarray */
+typedef struct {
+	int	flags;		// Flags such as how array was allocated
+	gwarray *prev;		// Prev pointer in doubly linked list
+	gwarray next;		// Next pointer in doubly linked list
+} gwarray_header;
 
 /* Some mis-named #defines that describe the maximum Mersenne number exponent that the gwnum routines can process. */
 #define MAX_PRIME	79300000L	/* Maximum number of x87 bits */

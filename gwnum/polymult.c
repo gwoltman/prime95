@@ -24,7 +24,6 @@
 // 9) Is a fast convert-gwnum-to-larger-FFT feasible? necessary?
 // 10) Tune for Brute / Karatsuba / FFT crossovers.
 // 12) Tune routine that returns needed safety margin needed for given poly sizes
-// 14) Compressed gwnums.  Does it pay off?
 // 15) Add polymult to gwtest or as a standalone program
 // 16) Handle out-of-memory gracefully
 // 17) Right collection of PFA FFT sizes?
@@ -34,7 +33,6 @@
 // 25) Optimize.  Read/write several cache lines at a time (fill up L2 cache?).  Prefetch future cache lines.
 // 28) Optimize brute_force to do less compute when outvec entries are NULL.
 // 28) Optimize brute_force to do less compute when one or both invec entries are RLPs.
-// 30) option to negate outputs??
 // 32) If monic input and polymult is doing an FFT and there is zero padding going on, then pad with one (or GW_FFT1) rather than use monic_add.  Be careful
 //	that this does not cause any unwanted wrapping of data!
 // 33) Are there cases with brute/Karatsuba would benefit from using a bigger poly rather than using monic_add?
@@ -42,14 +40,10 @@
 // 35) A monic 1024 times monic 1024 using length 2048 FFT could apply the two ones in the FFT vectors and patch outvec[0] (possibly with gwsetaddin(-1))??how?
 //	A monic 1023 times monic 1023 using length 2048 FFT could apply the two ones in the FFT vectors with no patching rather than monic  post-processing.
 //	That should be a little faster.  Other monic combinations have similar optimizations.
-// 36) For cached FFTs, is there a way to avoid the transpose(write_line/read_line) step?
-// 37) If transpose is expensive, can we offer a way to "pre-transpose" invec1 for use multiple times?  With compression of exponent field in double??
-//	Compression still needs semi-random/sequential access to invec1 for multi-threading.
 // 38)  For poly #2, is there a quick block compression we can do where the extra read/write cost will be more than compensated by the few more extra
 //	gwnums we can add to poly #2?
 // 39)  Think more on unbalanced poly mults.  Is a 100 x 200 mult better done as two 100 x 100 multiplies?  Answer: Never for brute force, maybe for FFT.
 //	If we can save the smaller RLP in FFTed state using smaller FFT size that might influence our decision.
-// 40) Is invec1_negate code OK when GW_FFT1 is not all ones?  I would think so.
 // 41) Add callback routine to check for ^C/ESC
 // 42) Transparent / or easy way to store gwnums on disk as part of input and/or output vectors.  Picture using 12GB memory and 50GB disk for really huge polys.
 // 43) Read_line/write_line that reads/writes data with stride=1?
@@ -63,123 +57,140 @@
 // 54) Does monolithic two-forward-FFTs-pointmul-and-one-inverse-FFT routine suggest different preferred pass sizes (use half the L2 cache)?
 // 56) Option to not mul by 1/FFTLEN?
 // 57) Option to save memory by processing AVX-512 data using FMA3.  (reduces sizeof(CVDT)).
-// 58) Should we multi-thread FFTing the polymult input arguments?
+// 58) Should we multi-thread FFTing the polymult input arguments?  Should we multithread polymult_preprocess?
 // 59) monic_line_adjust could avoid complex mul by fft1 when k == 1.  Is it worthwhile?
+// 60) Optimize decompress
 
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
 int next_line (pmhandle *pmdata);
 unsigned long cache_line_offset (gwhandle *gwdata, unsigned long i);
 void generate_sincos (pmhandle *pmdata, const unsigned int size);
 void zpad7_fft (gwhandle *gwdata, gwnum g);
+int compress_vec (char *buf, int size);
+void decompress_vec (char *inbuf, char *outbuf, int size);
+gwarray polymult_line_preprocess_sse2 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, int invec2_size, int outvec_size, int options);
+gwarray polymult_line_preprocess_avx (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, int invec2_size, int outvec_size, int options);
+gwarray polymult_line_preprocess_fma (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, int invec2_size, int outvec_size, int options);
+gwarray polymult_line_preprocess_avx512 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, int invec2_size, int outvec_size, int options);
 void polymult_line_sse2 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwnum *gw_invec2, int invec2_size, gwnum *gw_outvec, int outvec_size, int options);
 void polymult_line_avx (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwnum *gw_invec2, int invec2_size, gwnum *gw_outvec, int outvec_size, int options);
 void polymult_line_fma (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwnum *gw_invec2, int invec2_size, gwnum *gw_outvec, int outvec_size, int options);
 void polymult_line_avx512 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, gwnum *gw_invec2, int invec2_size, gwnum *gw_outvec, int outvec_size, int options);
 
-#define INVEC1_OPTIONS	(POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_RLP | POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC1_FFTED)
-#define INVEC2_OPTIONS	(POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_RLP | POLYMULT_INVEC2_NEGATE | POLYMULT_INVEC2_FFTED)
+#define INVEC1_OPTIONS	(POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_RLP | POLYMULT_INVEC1_NEGATE)
+#define INVEC2_OPTIONS	(POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_RLP | POLYMULT_INVEC2_NEGATE)
 
 #if defined (AVX512)
-#define VLEN		512			// Vector is 256 bits wide
-#define VDT		__m512d			// Vector data type
-#define VFMA		1			// FMA is supported
-#define	read_line	read_line_avx512	// Naming extension for this option
-#define	write_line	write_line_avx512
-#define	brute_line	brute_line_avx512
-#define	karatsuba_line	karatsuba_line_avx512
-#define	fft_line	fft_line_avx512
-#define pick_pass_sizes	pick_pass_sizes_avx512
-#define	monic_line_add_hi monic_line_add_hi_avx512
-#define	monic_line_add_lo monic_line_add_lo_avx512
-#define	monic_line_adjustments monic_line_adjustments_avx512
-#define	polymult_line	polymult_line_avx512
-#define broadcastsd	_mm512_set1_pd
-#define addpd		_mm512_add_pd
-#define subpd		_mm512_sub_pd
-#define mulpd		_mm512_mul_pd
-#define divpd		_mm512_div_pd
-#define fmaddpd		_mm512_fmadd_pd
-#define fmsubpd		_mm512_fmsub_pd
-#define fnmaddpd	_mm512_fnmadd_pd
+#define VLEN			512			// Vector is 256 bits wide
+#define VDT			__m512d			// Vector data type
+#define VFMA			1			// FMA is supported
+#define	read_line		read_line_avx512	// Naming extension for this option
+#define	read_preprocess_line	read_preprocess_line_avx512
+#define	write_line		write_line_avx512
+#define	brute_line		brute_line_avx512
+#define	karatsuba_line		karatsuba_line_avx512
+#define	fft_line		fft_line_avx512
+#define pick_pass_sizes		pick_pass_sizes_avx512
+#define	monic_line_add_hi	monic_line_add_hi_avx512
+#define	monic_line_add_lo	monic_line_add_lo_avx512
+#define	monic_line_adjustments	monic_line_adjustments_avx512
+#define	polymult_line_preprocess polymult_line_preprocess_avx512
+#define	polymult_line		polymult_line_avx512
+#define broadcastsd		_mm512_set1_pd
+#define addpd			_mm512_add_pd
+#define subpd			_mm512_sub_pd
+#define mulpd			_mm512_mul_pd
+#define divpd			_mm512_div_pd
+#define fmaddpd			_mm512_fmadd_pd
+#define fmsubpd			_mm512_fmsub_pd
+#define fnmaddpd		_mm512_fnmadd_pd
 #elif defined (FMA)
-#define VLEN		256			// Vector is 256 bits wide
-#define VDT		__m256d			// Vector data type
-#define VFMA		1			// FMA is supported
-#define	read_line	read_line_fma		// Naming extension for this option
-#define	write_line	write_line_fma
-#define	brute_line	brute_line_fma
-#define	karatsuba_line	karatsuba_line_fma
-#define	fft_line	fft_line_fma
-#define pick_pass_sizes	pick_pass_sizes_fma
-#define	monic_line_add_hi monic_line_add_hi_fma
-#define	monic_line_add_lo monic_line_add_lo_fma
-#define	monic_line_adjustments monic_line_adjustments_fma
-#define	polymult_line	polymult_line_fma
-#define broadcastsd	_mm256_set1_pd
-#define addpd		_mm256_add_pd
-#define subpd		_mm256_sub_pd
-#define mulpd		_mm256_mul_pd
-#define divpd		_mm256_div_pd
-#define fmaddpd		_mm256_fmadd_pd
-#define fmsubpd		_mm256_fmsub_pd
-#define fnmaddpd	_mm256_fnmadd_pd
+#define VLEN			256			// Vector is 256 bits wide
+#define VDT			__m256d			// Vector data type
+#define VFMA			1			// FMA is supported
+#define	read_line		read_line_fma		// Naming extension for this option
+#define	read_preprocess_line	read_preprocess_line_fma
+#define	write_line		write_line_fma
+#define	brute_line		brute_line_fma
+#define	karatsuba_line		karatsuba_line_fma
+#define	fft_line		fft_line_fma
+#define pick_pass_sizes		pick_pass_sizes_fma
+#define	monic_line_add_hi	monic_line_add_hi_fma
+#define	monic_line_add_lo	monic_line_add_lo_fma
+#define	monic_line_adjustments	monic_line_adjustments_fma
+#define	polymult_line_preprocess polymult_line_preprocess_fma
+#define	polymult_line		polymult_line_fma
+#define broadcastsd		_mm256_set1_pd
+#define addpd			_mm256_add_pd
+#define subpd			_mm256_sub_pd
+#define mulpd			_mm256_mul_pd
+#define divpd			_mm256_div_pd
+#define fmaddpd			_mm256_fmadd_pd
+#define fmsubpd			_mm256_fmsub_pd
+#define fnmaddpd		_mm256_fnmadd_pd
 #elif defined (AVX)
-#define VLEN		256			// Vector is 256 bits wide
-#define VDT		__m256d			// Vector data type
-#define VFMA		0			// FMA not supported
-#define	read_line	read_line_avx		// Naming extension for this option
-#define	write_line	write_line_avx
-#define	brute_line	brute_line_avx
-#define	karatsuba_line	karatsuba_line_avx
-#define	fft_line	fft_line_avx
-#define pick_pass_sizes	pick_pass_sizes_avx
-#define	monic_line_add_hi monic_line_add_hi_avx
-#define	monic_line_add_lo monic_line_add_lo_avx
-#define	monic_line_adjustments monic_line_adjustments_avx
-#define	polymult_line	polymult_line_avx
-#define broadcastsd	_mm256_set1_pd
-#define addpd		_mm256_add_pd
-#define subpd		_mm256_sub_pd
-#define mulpd		_mm256_mul_pd
-#define divpd		_mm256_div_pd
+#define VLEN			256			// Vector is 256 bits wide
+#define VDT			__m256d			// Vector data type
+#define VFMA			0			// FMA not supported
+#define	read_line		read_line_avx		// Naming extension for this option
+#define	read_preprocess_line	read_preprocess_line_avx
+#define	write_line		write_line_avx
+#define	brute_line		brute_line_avx
+#define	karatsuba_line		karatsuba_line_avx
+#define	fft_line		fft_line_avx
+#define pick_pass_sizes		pick_pass_sizes_avx
+#define	monic_line_add_hi	monic_line_add_hi_avx
+#define	monic_line_add_lo	monic_line_add_lo_avx
+#define	monic_line_adjustments	monic_line_adjustments_avx
+#define	polymult_line_preprocess polymult_line_preprocess_avx
+#define	polymult_line		polymult_line_avx
+#define broadcastsd		_mm256_set1_pd
+#define addpd			_mm256_add_pd
+#define subpd			_mm256_sub_pd
+#define mulpd			_mm256_mul_pd
+#define divpd			_mm256_div_pd
 #elif defined (SSE2)
-#define VLEN		128			// Vector is 256 bits wide
-#define VDT		__m128d			// Vector data type
-#define VFMA		0			// FMA not supported
-#define	read_line	read_line_sse2		// Naming extension for this option
-#define	write_line	write_line_sse2
-#define	brute_line	brute_line_sse2
-#define	karatsuba_line	karatsuba_line_sse2
-#define	fft_line	fft_line_sse2
-#define pick_pass_sizes	pick_pass_sizes_sse2
-#define	monic_line_add_hi monic_line_add_hi_sse2
-#define	monic_line_add_lo monic_line_add_lo_sse2
-#define	monic_line_adjustments monic_line_adjustments_sse2
-#define	polymult_line	polymult_line_sse2
-#define broadcastsd	_mm_set1_pd
-#define addpd		_mm_add_pd
-#define subpd		_mm_sub_pd
-#define mulpd		_mm_mul_pd
-#define divpd		_mm_div_pd
+#define VLEN			128			// Vector is 256 bits wide
+#define VDT			__m128d			// Vector data type
+#define VFMA			0			// FMA not supported
+#define	read_line		read_line_sse2		// Naming extension for this option
+#define	read_preprocess_line	read_preprocess_line_sse2
+#define	write_line		write_line_sse2
+#define	brute_line		brute_line_sse2
+#define	karatsuba_line		karatsuba_line_sse2
+#define	fft_line		fft_line_sse2
+#define pick_pass_sizes		pick_pass_sizes_sse2
+#define	monic_line_add_hi	monic_line_add_hi_sse2
+#define	monic_line_add_lo	monic_line_add_lo_sse2
+#define	monic_line_adjustments	monic_line_adjustments_sse2
+#define	polymult_line_preprocess polymult_line_preprocess_sse2
+#define	polymult_line		polymult_line_sse2
+#define broadcastsd		_mm_set1_pd
+#define addpd			_mm_add_pd
+#define subpd			_mm_sub_pd
+#define mulpd			_mm_mul_pd
+#define divpd			_mm_div_pd
 #else
-#define VLEN		64			// Vector is 256 bits wide
-#define VDT		double			// Vector data type
-#define VFMA		0			// FMA not supported
-#define	read_line	read_line_dbl		// Naming extension for this option
-#define	write_line	write_line_dbl
-#define	brute_line	brute_line_dbl
-#define	karatsuba_line	karatsuba_line_dbl
-#define	fft_line	fft_line_dbl
-#define pick_pass_sizes	pick_pass_sizes_dbl
-#define	monic_line_add_hi monic_line_add_hi_dbl
-#define	monic_line_add_lo monic_line_add_lo_dbl
-#define	monic_line_adjustments monic_line_adjustments_dbl
-#define	polymult_line	polymult_line_dbl
-#define broadcastsd	_mm64_set1_pd
-#define addpd		_mm64_add_pd
-#define subpd		_mm64_sub_pd
-#define mulpd		_mm64_mul_pd
-#define divpd		_mm64_div_pd
+#define VLEN			64			// Vector is 256 bits wide
+#define VDT			double			// Vector data type
+#define VFMA			0			// FMA not supported
+#define	read_line		read_line_dbl		// Naming extension for this option
+#define	read_preprocess_line	read_preprocess_line_dbl
+#define	write_line		write_line_dbl
+#define	brute_line		brute_line_dbl
+#define	karatsuba_line		karatsuba_line_dbl
+#define	fft_line		fft_line_dbl
+#define pick_pass_sizes		pick_pass_sizes_dbl
+#define	monic_line_add_hi	monic_line_add_hi_dbl
+#define	monic_line_add_lo	monic_line_add_lo_dbl
+#define	monic_line_adjustments	monic_line_adjustments_dbl
+#define	polymult_line_preprocess polymult_line_preprocess_dbl
+#define	polymult_line		polymult_line_dbl
+#define broadcastsd		_mm64_set1_pd
+#define addpd			_mm64_add_pd
+#define subpd			_mm64_sub_pd
+#define mulpd			_mm64_mul_pd
+#define divpd			_mm64_div_pd
 // Emulate vector length 1 using Intel-style instrinsic naming conventions
 #define __m64d			double
 #define _mm64_set1_pd(a)	(a)
@@ -406,7 +417,6 @@ unsigned long cache_line_offset (
 	return (addr);
 }
 
-
 //
 // Process the 7 values in the header of zero-padded FFT gwnums.  These seven values cannot be multiplied pointwise as is required by polymult.
 // The assembly code (see zmult7) multiplies the 7 values keeping the high half of the result.  An zero-padded 13-reals FFT of the 7 values allows
@@ -441,7 +451,6 @@ const long double w12c = 0.8854560256532098959003755220151;	// cos(2*pi/13*12)
 const long double w12s = -0.4647231720437685456560153351331;	// sin(2*pi/13*12)
 
 // FFT the 7 zpad values
-
 void zpad7_fft (
 	gwhandle *gwdata,		// Handle for gwnum library
 	gwnum	g)			// gwnum to process the 7 zpad values in the header
@@ -484,7 +493,6 @@ void zpad7_fft (
 }
 
 // Inverse FFT to reconstruct the 7 zpad values
-
 void zpad7_unfft (
 	gwhandle *gwdata,		// Handle for gwnum library
 	gwnum	g)			// gwnum to process the 7 zpad values in the header
@@ -593,6 +601,179 @@ void generate_sincos (
 	if (pmdata->num_threads > 1) gwmutex_unlock (&pmdata->poly_mutex);
 }
 
+// Compress a vector of doubles
+// The compression algorithm is pretty simple.  It relies on the observation that exponents in the double are clustered around a peak, dropping rapidly
+// in frequency as you move away from the peak.
+// The three exponents that constitute the peak are output with 2-bit values.
+// Three more exponents are output with 4-bit values (either 1 above the peak and 2 below the peak or 3 below the peak).
+// The next exponent below the peak is output with a 5-bit value.
+// The remaining exponents are output with a 5-bit escape code followed by the 11-bit exponent (many 11-bit exponents are "impossible" and we can
+// likely reduce this to a 5-bit escape code followed by a 6-bit exponent).
+int compress_vec (		// Returns size of the compressed buffer
+	char	*buf,		// Array of doubles to compress
+	int	size)		// Size of buffer in bytes
+{
+	short	counts[2048];
+	int	peak;			// The highest exponent in the set of three most common exponents
+	bool	above_peak_flag;	// TRUE if exponent above the peak is compressed
+
+//char *orig_buf = malloc (size);
+//memcpy(orig_buf, buf, size);
+
+	// Init the output queues
+	unsigned char *outptr = (unsigned char *) buf;
+	int	outval = 0;		// Compressed exponent and sign bits output in multiples of 8 bits
+	int	outlen = 0;		// Number of bits in outval
+	unsigned char mbuf[48];		// Mantissa buffer
+	int	mlen = 0;		// Number of chars in mbuf
+	int	last_m48len = 0;	// Number of chars in the last mantissa48 (either 0 or 6)
+#define put_bits(v,len)	outval = (outval << (len)) + (int)(v), outlen += len
+#define put_m48(m)	{ union {uint64_t a; char b[8];} x; x.a = m; memcpy (mbuf + mlen, x.b, 6); mlen += 6; last_m48len = 6; }
+#define emptyQ()	{ if (outlen>=8) outlen-=8, *outptr++ = (unsigned char)(outval>>outlen); \
+			  if (mlen > last_m48len) mlen-=last_m48len, memcpy(outptr,mbuf,mlen), outptr+=mlen, memcpy(mbuf,mbuf+mlen,last_m48len), mlen=last_m48len; \
+			  while (outlen>=8) outlen-=8, *outptr++ = (unsigned char)(outval>>outlen); \
+			  if (outlen == 0 && mlen) memcpy(outptr,mbuf,mlen), outptr+=mlen, mlen=0; \
+			  last_m48len = 0; }
+
+	// Sample 1000 doubles to find the most common exponents in the doubles
+//GW: count only expos between 960 an 1080  (a smaller array)
+	memset (&counts, 0, sizeof (counts));
+	for (int i = 0; i < size && i < 8000; i += 8) {
+		uint64_t expo;
+		expo = * (uint64_t *) (buf + i);
+		expo = (expo << 1) >> 53;	// strip off sign bit and mantissa
+		counts[expo]++;
+	}
+
+	// Find the set of three exponents that are most common
+	peak = 960;
+	for (int i = 961; i < 1080; i++)
+		if (counts[i-2] + counts[i-1]  + counts[i] > counts[peak-2] + counts[peak-1] + counts[peak]) peak = i;
+	ASSERTG (peak != 960);
+
+	// Determine expo just above the peak will be compressed (or output raw)
+	above_peak_flag = (counts[peak+1] > counts[peak-5]);
+
+	// Output header bits
+	put_bits (peak - 960, 7);
+	put_bits (above_peak_flag, 1);
+
+	// Loop compressing doubles
+	for (int i = 0; i < size; i += 8) {
+		uint64_t expo, sign, nibble, mantissa48;
+
+		// Parse the double
+		expo = * (uint64_t *) (buf + i);
+		sign = expo >> 63;
+		nibble = (expo << 12) >> 60;
+		mantissa48 = expo & 0xFFFFFFFFFFFFULL;
+		expo = (expo << 1) >> 53;	// strip off sign bit and mantissa
+
+		// Empty the output queues (as much as possible)
+		emptyQ ();
+
+		// Rare case of compressing FFTed data that contained lots of zeros.  The FFTed data may contain lots of really small exponent values (noise)
+		// that would greatly dimish our compression.  Turn the noise into zeros.
+		if (expo < peak - 50) expo = 0;
+
+		// Compress the exponent
+		if (expo == peak) put_bits (0, 2);
+		else if (expo == peak-1) put_bits (1, 2);
+		else if (expo == peak-2) put_bits (2, 2);
+		else if (expo == peak-3) put_bits (12, 4);
+		else if (expo == peak-4) put_bits (13, 4);
+		else if (above_peak_flag && expo == peak+1) put_bits (14, 4);
+		else if (above_peak_flag && expo == peak-5) put_bits (30, 5);
+		else if (!above_peak_flag && expo == peak-5) put_bits (14, 4);
+		else if (!above_peak_flag && expo == peak-6) put_bits (30, 5);
+		else {
+			put_bits (31, 5);
+			ASSERTG (expo == 0 || (expo >= peak-50 && expo <= peak-6) || (expo >= peak+1 && expo <= peak+18));
+			if (expo > peak) expo = expo - (peak+1) + 1;		// Handle up to 18 values above peak coded as 1 through 18
+			else if (expo > 0) expo = expo - (peak-50) + 19;	// Handle up to 45 values below peak coded as 19 through 63
+			ASSERTG (expo <= 63);
+			put_bits (expo, 6);
+		}
+
+		// Output the sign bit, high nibble of mantissa, and rest of the mantissa
+		if (expo != 0) { put_bits (sign, 1); put_bits (nibble, 4); put_m48 (mantissa48); }
+	}
+
+	// Empty the output queues
+	if (outlen & 7) put_bits (0, 8 - (outlen & 7));
+	emptyQ ();
+
+//char *xxx = malloc (size);
+//decompress_vec (buf, xxx, size);
+//int foo;
+//foo=memcmp(orig_buf, xxx, size);
+//free(xxx);
+//free(orig_buf);
+
+	// Return size of the compressed vector
+	return ((int) ((char *) outptr - buf));
+
+#undef put_bits
+#undef put_m48
+#undef emptyQ
+}
+
+// Decompress a vector of doubles
+void decompress_vec (
+	char	*inbuf,		// Compressed array of doubles
+	char	*outbuf,	// Decompressed array of doubles
+	int	size)		// Size of output buffer in bytes
+{
+	unsigned int inval, inbits;	// Queue to extract bits from inbuf
+	int	peak;			// The highest exponent in the set of three most common exponents
+	bool	above_peak_flag;	// TRUE if exponent above the peak is compressed
+
+	// Init input queue
+	unsigned char *inptr = (unsigned char *) inbuf;
+	inval = inbits = 0;
+#define get_bits(v,len)	{ if (inbits<len) inval=(inval<<8)+(*inptr++),inbits+=8; inbits-=len; v=inval>>inbits; inval-=((int)v<<inbits); }
+#define get_m48(v)	{ union {uint64_t a; char b[8];} x; x.a = 0; memcpy (x.b, inptr, 6); inptr += 6; v = x.a; }
+
+	// Read peak exponent and above-peak-flag
+	get_bits (peak, 7);  peak += 960;
+	get_bits (above_peak_flag, 1);
+
+	while (size) {
+		uint64_t expo, sign, nibble, mantissa48;
+		int	code;
+
+		// Decompress the exponent
+		get_bits (code, 2);
+		if (code <= 2) expo = peak - code;
+		else {
+			get_bits (code, 2);
+			if (code <= 1) expo = peak - 3 - code;
+			else if (code == 2) expo = above_peak_flag ? peak + 1 : peak - 5;
+			else {
+				get_bits (code, 1);
+				if (code == 0) expo = above_peak_flag ? peak - 5 : peak - 6;
+				else {
+					get_bits (code, 6);
+					if (code >= 19) expo = code - 19 + (peak-50);	// Handle up to 45 values below peak coded as 19 through 63
+					else if (code >= 1) expo = code - 1 + (peak+1);	// Handle up to 18 values above peak coded as 1 through 18
+					else expo = 0;
+				}
+			}
+		}
+
+		// Get the sign bit and mantissa
+		if (expo != 0) { get_bits (sign, 1); get_bits (nibble, 4); get_m48 (mantissa48); }
+		else sign = nibble = mantissa48 = 0;
+
+		// Output the uncompressed double, move onto next double
+		* (uint64_t *) outbuf = (sign << 63) + (expo << 52) + (nibble << 48) + mantissa48;
+		outbuf += sizeof (double);
+		size -= sizeof (double);
+	}
+#undef get_bits
+#undef get_m48
+}
+
 #endif
 
 //--------------------------------------------------------------------
@@ -602,15 +783,17 @@ void generate_sincos (
 
 #if defined (AVX512)
 
-bool read_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
+void read_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
 {
+	int	orig_index = index;			// Save for a possible recursive call to read_line
+
 	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
 		if (gwdata->k == 1.0) {
 			vec[0].real = broadcastsd (1.0);
 			vec[0].imag = broadcastsd (0.0);
 		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, index, vec, 0, FALSE);
+			read_line (gwdata, &gwdata->GW_FFT1, 1, orig_index, vec, 0, FALSE);
 		}
 		vec++;
 	}
@@ -622,8 +805,8 @@ bool read_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT 
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
 	if (!gwdata->ALL_COMPLEX_FFT) index--;
 
-	// If we've read all the gwnum data, return FALSE
-	if (index * 16 >= (int) gwdata->FFTLEN) return (FALSE);
+	// Check if we've read all the gwnum data
+	ASSERTG (index * 16 < (int) gwdata->FFTLEN);
 
 	// AVX512 implementation
 	if (index == -1) {			// First real-only value and optionally seven zero-pad values
@@ -680,12 +863,9 @@ bool read_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT 
 			vec[size].real = broadcastsd (1.0);
 			vec[size].imag = broadcastsd (0.0);
 		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, index, &vec[size], 0, FALSE);
+			read_line (gwdata, &gwdata->GW_FFT1, 1, orig_index, &vec[size], 0, FALSE);
 		}
 	}
-
-	// Return success
-	return (TRUE);
 }
 
 void write_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options)
@@ -752,23 +932,27 @@ void write_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT
 #elif defined (FMA)				// FMA and AVX FFTs use the same memory layout
 
 #define read_line_fma		read_line_avx
+#define read_preprocess_line_fma read_preprocess_line_avx
 #define write_line_fma		write_line_avx
 #define pick_pass_sizes_fma	pick_pass_sizes_avx
-bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics);
+void read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics);
+void read_preprocess_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics);
 void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options);
 void pick_pass_sizes_avx (pmhandle *pmdata, unsigned int fftsize, unsigned int *p1size, unsigned int *p2size);
 
 #elif defined (AVX)
 
-bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
+void read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
 {
+	int	orig_index = index;			// Save for a possible recursive call to read_line
+
 	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
 		if (gwdata->k == 1.0) {
 			vec[0].real = broadcastsd (1.0);
 			vec[0].imag = broadcastsd (0.0);
 		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, index, vec, 0, FALSE);
+			read_line (gwdata, &gwdata->GW_FFT1, 1, orig_index, vec, 0, FALSE);
 		}
 		vec++;
 	}
@@ -783,8 +967,8 @@ bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *ve
 	// Zero padded FFTs return another cache line for processing the 7 real values stored in the header
 	if (gwdata->ZERO_PADDED_FFT) index--;
 
-	// If we've read all the gwnum data, return FALSE
-	if (index * 8 >= (int) gwdata->FFTLEN) return (FALSE);
+	// Check if we've read all the gwnum data
+	ASSERTG (index * 8 < (int) gwdata->FFTLEN);
 
 	// AVX implementation
 	if (index == -2) {			// Four of the seven FFTed zero pad header values
@@ -847,12 +1031,9 @@ bool read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *ve
 			vec[size].real = broadcastsd (1.0);
 			vec[size].imag = broadcastsd (0.0);
 		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, index, &vec[size], 0, FALSE);
+			read_line (gwdata, &gwdata->GW_FFT1, 1, orig_index, &vec[size], 0, FALSE);
 		}
 	}
-
-	// Return success
-	return (TRUE);
 }
 
 void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options)
@@ -926,15 +1107,17 @@ void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *v
 
 #elif defined (SSE2)
 
-bool read_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
+void read_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
 {
+	int	orig_index = index;			// Save for a possible recursive call to read_line
+
 	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
 		if (gwdata->k == 1.0) {
 			vec[0].real = broadcastsd (1.0);
 			vec[0].imag = broadcastsd (0.0);
 		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, index, vec, 0, FALSE);
+			read_line (gwdata, &gwdata->GW_FFT1, 1, orig_index, vec, 0, FALSE);
 		}
 		vec++;
 	}
@@ -949,8 +1132,8 @@ bool read_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *v
 	// Zero padded FFTs return another 3 cache lines for processing the 7 real values stored in the header
 	if (gwdata->ZERO_PADDED_FFT) index -= 3;
 
-	// If we've read all the gwnum data, return FALSE
-	if (index * 4 >= (int) gwdata->FFTLEN) return (FALSE);
+	// Check if we've read all the gwnum data
+	ASSERTG (index * 4 < (int) gwdata->FFTLEN);
 
 	// Various SSE2 FFT implementations store the imaginary part of a complex number either 8, 16, or 32 bytes above the real part
 	int	imag_dist;
@@ -1040,12 +1223,9 @@ bool read_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *v
 			vec[size].real = broadcastsd (1.0);
 			vec[size].imag = broadcastsd (0.0);
 		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, index, &vec[size], 0, FALSE);
+			read_line (gwdata, &gwdata->GW_FFT1, 1, orig_index, &vec[size], 0, FALSE);
 		}
 	}
-
-	// Return success
-	return (TRUE);
 }
 
 void write_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options)
@@ -1136,15 +1316,17 @@ void write_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *
 
 #elif !defined (X86_64)				// x87 FFTs only supported in 32-bit mode
 
-bool read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
+void read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
 {
+	int	orig_index = index;			// Save for a possible recursive call to read_line
+
 	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
 		if (gwdata->k == 1.0) {
 			vec[0].real = broadcastsd (1.0);
 			vec[0].imag = broadcastsd (0.0);
 		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, index, vec, 0, FALSE);
+			read_line (gwdata, &gwdata->GW_FFT1, 1, orig_index, vec, 0, FALSE);
 		}
 		vec++;
 	}
@@ -1159,8 +1341,8 @@ bool read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *ve
 	// Zero padded FFTs must also return for processing the 7 real values stored in the header
 	if (gwdata->ZERO_PADDED_FFT) index -= 7;
 
-	// If we've read all the gwnum data, return FALSE
-	if (index * 2 >= (int) gwdata->FFTLEN) return (FALSE);
+	// Check if we've read all the gwnum data
+	ASSERTG (index * 2 < (int) gwdata->FFTLEN);
 
 	// No special instructions implementation
 	if (index <= -2) {			// Seven zero pad header values
@@ -1221,12 +1403,9 @@ bool read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *ve
 			vec[size].real = broadcastsd (1.0);
 			vec[size].imag = broadcastsd (0.0);
 		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, index, &vec[size], 0, FALSE);
+			read_line (gwdata, &gwdata->GW_FFT1, 1, orig_index, &vec[size], 0, FALSE);
 		}
 	}
-
-	// Return success
-	return (TRUE);
 }
 
 void write_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options)
@@ -2253,6 +2432,254 @@ void monic_line_adjustments (
 	if ((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)) monic_line_add_lo (&fft1, invec1, invec1_size, outvec, outvec_size);
 }
 
+// Read a line that was preprocessed by polymult_preprocess
+#ifndef FMA
+void read_preprocess_line (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
+{
+	preprocessed_poly_header *hdr;  // Header of the preprocessed poly under construction
+	CVDT	*first_element;		// First element in the preprocessed poly array
+
+	// Typecast to access the preprocessed poly header
+	hdr = (preprocessed_poly_header *) ((char *) data - sizeof (gwarray_header));
+	first_element = (CVDT *) round_up_to_multiple_of ((intptr_t) hdr + sizeof (preprocessed_poly_header), 64);
+
+	// If preprocessed data is FFTed, then return the data "as is" optionally decompressing.  Ignore the passed in size, use the poly FFT size
+	// that was computed by polymult_line_preprocess.
+	if (hdr->options & POLYMULT_FFT) {
+		if (!(hdr->options & POLYMULT_COMPRESS)) memcpy (vec, (char *) first_element + index * hdr->padded_element_size, hdr->element_size);
+		else decompress_vec ((char *) first_element + index * hdr->padded_element_size, (char *) vec, hdr->fft_size * sizeof (CVDT));
+		return;
+	}
+
+	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
+	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
+		if (gwdata->k == 1.0) {
+			vec[0].real = broadcastsd (1.0);
+			vec[0].imag = broadcastsd (0.0);
+		} else {
+			read_line (gwdata, &gwdata->GW_FFT1, 1, index, vec, 0, FALSE);
+		}
+		vec++;
+	}
+
+	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
+	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += (size-1);
+
+	// If we've delayed splitting the two real values in !ALL_COMPLEX_FFT, then read the first array entry for the first two indexes
+	int	index_to_read = index;
+	if (!gwdata->ALL_COMPLEX_FFT && !gwdata->ZERO_PADDED_FFT) {
+		index_to_read--;
+		if (index_to_read < 0) index_to_read = 0;
+	}
+
+	// Test for valid index
+	ASSERTG (index_to_read < hdr->num_lines);
+
+	// Copy the preprocessed entry
+	ASSERTG ((hdr->options & POLYMULT_COMPRESS) || hdr->element_size == size * sizeof (CVDT));
+	if (!(hdr->options & POLYMULT_COMPRESS)) memcpy (vec, (char *) first_element + index_to_read * hdr->padded_element_size, hdr->element_size);
+	else decompress_vec ((char *) first_element + index_to_read * hdr->padded_element_size, (char *) vec, size * sizeof (CVDT));
+
+	// If we've delayed splitting the two real values in !ALL_COMPLEX_FFT turn the two reals into two complex values here
+	if (!gwdata->ALL_COMPLEX_FFT && !gwdata->ZERO_PADDED_FFT && index_to_read == 0) {
+		for (int j = 0; j < size; j++) {
+			union {
+				VDT	a;
+				double	b[VLEN / sizeof(double)];
+			} r, i;
+			r.a = vec[j].real;
+			i.a = vec[j].imag;
+			if (index == 0) {
+				double	tmp = r.b[0];
+				memset (&r, 0, sizeof (r));
+				memset (&i, 0, sizeof (i));
+				r.b[0] = tmp;
+			} else {
+				r.b[0] = i.b[0];
+				i.b[0] = 0.0;
+			}
+			vec[j].real = r.a;
+			vec[j].imag = i.a;
+		}
+	}
+
+	// Duplicate RLP data in reverse order
+	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
+		for (int j = 1; j < size; j++) vec[-j] = vec[j];
+	}
+
+	// If not post-processing monics and the input is monic, then output a 1+0i
+	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
+		if (gwdata->k == 1.0) {
+			vec[size].real = broadcastsd (1.0);
+			vec[size].imag = broadcastsd (0.0);
+		} else {
+			read_line (gwdata, &gwdata->GW_FFT1, 1, index, &vec[size], 0, FALSE);
+		}
+	}
+}
+#endif
+
+/* Preprocess a poly that will be used in multiple polymult calls.  Preprocessing can reduce memory consumption or reduce CPU time. */
+/* Returns a massaged poly.  Caller should then free the unmassaged poly.  The massaged poly cannot be used in any gwnum calls, it can only be used */
+/* in future polymult calls with poly sizes and options that match those passed to this routine. */
+gwarray polymult_line_preprocess (	// Returns a plug-in replacement for the input poly
+	pmhandle *pmdata,		// Handle for polymult library
+	gwnum	*gw_invec1,		// First input poly
+	int	invec1_size,		// Size of the first input polynomial
+	int	invec2_size,		// Size of the second input polynomial
+	int	outvec_size,		// Size of the second input polynomial
+	int	options)
+{
+	int	adjusted_invec1_size, adjusted_invec2_size, adjusted_outvec_size, fft_size, num_lines, element_size, padded_element_size, max_element_size;
+	bool	must_brute, must_fft, post_process_monics;
+	char	saved_all_complex_fft;
+	CVDT	*invec1, *scratch;
+	preprocessed_poly_header *hdr;  // Header of the preprocessed poly under construction
+	CVDT	*first_element;		// First element in the preprocessed poly array
+
+	// Save ALL_COMPLEX_FFT as we sometimes change it
+	saved_all_complex_fft = pmdata->gwdata->ALL_COMPLEX_FFT;
+
+	// Adjust sizes due to RLPs.  Calculate the output size assuming no monic inputs.
+	adjusted_invec1_size = (options & POLYMULT_INVEC1_RLP) ? 2 * invec1_size - 1 : invec1_size;
+	adjusted_invec2_size = (options & POLYMULT_INVEC2_RLP) ? 2 * invec2_size - 1 : invec2_size;
+	adjusted_outvec_size = adjusted_invec1_size + adjusted_invec2_size - 1;
+
+	// Sometimes we must (or it is beneficial) handle monic input polynomials as part of invec1/invec2 as opposed to a post-processing call to
+	// monic_line_adjustments.  Find those cases and adjust vector sizes.
+	if (options & POLYMULT_CIRCULAR) {
+//GW: Find more cases where monic processing would be better done this way
+		if (options & POLYMULT_INVEC1_MONIC) adjusted_invec1_size += (options & POLYMULT_INVEC1_RLP) ? 2 : 1;
+		if (options & POLYMULT_INVEC2_MONIC) adjusted_invec2_size += (options & POLYMULT_INVEC2_RLP) ? 2 : 1;
+		adjusted_outvec_size = outvec_size;
+		post_process_monics = FALSE;
+	} else
+		post_process_monics = TRUE;
+
+
+	// Allocate memory for polymult preprocessing
+	must_brute = (options & POLYMULT_CIRCULAR) && outvec_size != polymult_fft_size (outvec_size);
+	must_fft = FALSE;
+//GW: The POLYMULT_FFT option is not a commandment to pre-FFT the poly.  It a request to pre-FFT if polymult would normally choose to do an FFT multiply.
+//GW: Do we want a POLYMULT_FORCE_FFT option?  or have caller temporarily set BRUTE_BREAK and KARAT_BREAK?
+//	must_fft = options & POLYMULT_FORCE_FFT;
+	ASSERTG (!(must_fft && must_brute));
+	if (must_brute || (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK)) {
+		invec1 = (CVDT *) aligned_malloc (adjusted_invec1_size * sizeof (CVDT), 64);
+		scratch = NULL;
+		options &= ~POLYMULT_FFT;
+	}
+	else if (!must_fft && !(options & POLYMULT_CIRCULAR) && adjusted_outvec_size < pmdata->FFT_BREAK) {
+		invec1 = (CVDT *) aligned_malloc (adjusted_invec1_size * sizeof (CVDT), 64);
+		scratch = NULL;
+		options &= ~POLYMULT_FFT;
+	}
+	else {
+		unsigned int pass1_size, pass2_size;
+		fft_size = (options & POLYMULT_CIRCULAR) ? outvec_size : polymult_fft_size (adjusted_outvec_size);
+		pick_pass_sizes (pmdata, fft_size, &pass1_size, &pass2_size);
+		invec1 = (CVDT *) aligned_malloc (fft_size * sizeof (CVDT), 64);
+		if (pass1_size > 1) scratch = (CVDT *) aligned_malloc (pass1_size * sizeof (CVDT), 64);
+		else scratch = NULL;
+	}
+
+// Allocate space for the preprocessed poly under construction
+
+	// If FFTing compute number of lines the same way polymult does
+	if (options & POLYMULT_FFT) {
+		num_lines = gwfftlen (pmdata->gwdata);
+		if (!pmdata->gwdata->ALL_COMPLEX_FFT) num_lines += 2;
+		if (pmdata->gwdata->ZERO_PADDED_FFT) num_lines += 14;
+	}
+	// Not FFTing.  To save memory, delay splitting the two real values in a !ALL_COMPLEX_FFT until read_processed_line.
+	// We temporarily set ALL_COMPLEX_FFT so that read_line does not split the two real values.
+	else {
+		num_lines = gwfftlen (pmdata->gwdata);
+		if (pmdata->gwdata->ZERO_PADDED_FFT) num_lines += 16;
+		else if (!pmdata->gwdata->ALL_COMPLEX_FFT) pmdata->gwdata->ALL_COMPLEX_FFT = TRUE;
+	}
+	num_lines = divide_rounding_up (num_lines, sizeof (CVDT) / sizeof (double));
+
+	if (options & POLYMULT_FFT) element_size = sizeof (CVDT) * fft_size;
+	else element_size = sizeof (CVDT) * invec1_size;
+//GW:  shrink element-size if/when we support sparse non-ffted invec1
+	padded_element_size = round_up_to_multiple_of (element_size, 64);
+
+	hdr = (preprocessed_poly_header *) malloc (sizeof (preprocessed_poly_header) + 64 + num_lines * padded_element_size);
+	if (hdr == NULL) return (NULL);
+	memset (hdr, 0, sizeof (preprocessed_poly_header));
+	hdr->num_lines = num_lines;
+	hdr->element_size = element_size;
+	hdr->padded_element_size = padded_element_size;
+	hdr->options = options;
+	if (options & POLYMULT_FFT) hdr->fft_size = fft_size;
+	first_element = (CVDT *) round_up_to_multiple_of ((intptr_t) hdr + sizeof (preprocessed_poly_header), 64);
+
+	// When compressing we need to track the size of the largest compressed vector (for resizing the array smaller)
+	max_element_size = 0;
+
+	// Grab a "line" of complex values from each gwnum coefficient.  Work that data set.  Then move onto remaining lines in the gwnums.
+	for (int line = 0; line < num_lines; line++) {
+
+		// Read the line.  If not-FFTing then set post_process_monics so that read_line won't add 1+0i to invec1.  We'll add 1+0i in read_preprocess_line.
+		if (!(options & POLYMULT_FFT)) post_process_monics = TRUE;
+		read_line (pmdata->gwdata, gw_invec1, invec1_size, line, invec1, options & INVEC1_OPTIONS, post_process_monics);
+
+		// Optionally forward FFT the line
+		if (options & POLYMULT_FFT) {
+			memset (invec1 + adjusted_invec1_size, 0, (fft_size - adjusted_invec1_size) * sizeof (CVDT));
+			fft_line (pmdata, invec1, NULL, NULL, scratch, fft_size, FORWARD_FFT_INVEC1 | FORWARD_FFT_ONLY);
+		}
+
+		// For non-FFTed RLPs, we only save the upper half of invec1.  Alternatively, we could make read_line not expand RLPs when preprocessing.
+		if ((options & POLYMULT_INVEC1_RLP) && !(options & POLYMULT_FFT)) invec1 += invec1_size-1;
+
+		// If compressing each line, compress the vector of doubles.  Track the maximum compressed vector size.
+		if (options & POLYMULT_COMPRESS) {
+			element_size = compress_vec ((char *) invec1, hdr->element_size);
+			ASSERTG (element_size <= hdr->element_size);
+			if (element_size > max_element_size) max_element_size = element_size;
+		}
+
+		// Copy line to the preprocessed poly under construction
+		memcpy ((char *) first_element + line * padded_element_size, invec1, element_size);
+
+		// Undo RLP pointer hack
+		if ((options & POLYMULT_INVEC1_RLP) && !(options & POLYMULT_FFT)) invec1 -= invec1_size-1;
+	}
+
+	// Free memory
+	aligned_free (invec1);
+	aligned_free (scratch);
+
+	// Restore ALL_COMPLEX_FFT
+	pmdata->gwdata->ALL_COMPLEX_FFT = saved_all_complex_fft;
+
+	// Shrink a compressed poly to its minimum possible size using realloc.
+	if (options & POLYMULT_COMPRESS) {
+		for (int line = 1; line < num_lines; line++) {
+			memmove ((char *) first_element + line * max_element_size, (char *) first_element + line * padded_element_size, max_element_size);
+		}
+		hdr = (preprocessed_poly_header *) realloc (hdr, sizeof (preprocessed_poly_header) + 64 + num_lines * max_element_size);
+		hdr->element_size = max_element_size;
+		hdr->padded_element_size = max_element_size;
+	}
+
+	// Link into gwnum's list of arrays to free when gwdone is called
+	hdr->linkage.next = pmdata->gwdata->array_list;		// Next in linked list of allocated arrays
+	hdr->linkage.prev = &pmdata->gwdata->array_list;	// Prev in linked list of allocated arrays
+	if (hdr->linkage.next != NULL) {			// Patch new next's prev pointer
+		gwarray_header *next_header = (gwarray_header *) ((char *) hdr->linkage.next - sizeof (gwarray_header));
+		next_header->prev = &hdr->linkage.next;
+	}
+	pmdata->gwdata->array_list = (gwarray) &hdr->self_ptr;	// New head of doubly linked list
+
+	// Return the address of the self_ptr that identifies this as a preprocessed poly
+	hdr->self_ptr = (gwnum *) &hdr->self_ptr;
+	return ((gwnum *) &hdr->self_ptr);
+}
+
 // Select from various polymult algorithms
 void polymult_line (
 	pmhandle *pmdata,		// Handle for polymult library
@@ -2264,9 +2691,15 @@ void polymult_line (
 	int	outvec_size,		// Size of the output polynomial.  Should be invec1_size + invec2_size (less one if not monic).
 	int	options)
 {
-	int	adjusted_invec1_size, adjusted_invec2_size, adjusted_outvec_size, fft_size;
-	bool	must_brute, must_fft, post_process_monics;
+	int	adjusted_invec1_size, adjusted_invec2_size, adjusted_outvec_size, fft_size, fft_options, line, num_lines;
+	bool	invec1_preprocessed, invec1_pre_ffted, invec2_preprocessed, invec2_pre_ffted, must_brute, must_fft, post_process_monics;
 	CVDT	*invec1, *invec2, *outvec, *tmpvec, *scratch;
+
+	// Look for pre-processed input polys
+	invec1_preprocessed = is_preprocessed_poly (gw_invec1);
+	invec1_pre_ffted = invec1_preprocessed && is_preffted_poly (gw_invec1);
+	invec2_preprocessed = is_preprocessed_poly (gw_invec2);
+	invec2_pre_ffted = invec2_preprocessed && is_preffted_poly (gw_invec2);
 
 	// Adjust sizes due to RLPs.  Calculate the output size assuming no monic inputs.
 	adjusted_invec1_size = (options & POLYMULT_INVEC1_RLP) ? 2 * invec1_size - 1 : invec1_size;
@@ -2286,9 +2719,10 @@ void polymult_line (
 	} else
 		post_process_monics = TRUE;
 
-	// Polymult using AVX instructions.  Allocate memory.  For the output vector allocate two extra in case there are any monic RLP inputs.
+	// Allocate memory for polymult.  For the output vector allocate two extra in case there are any monic RLP inputs.
 	must_brute = (options & POLYMULT_CIRCULAR) && outvec_size != polymult_fft_size (outvec_size);
-	must_fft = !must_brute && (options & (POLYMULT_FORWARD_FFT | POLYMULT_INVEC1_FFTED | POLYMULT_INVEC2_FFTED));
+	must_fft = invec1_pre_ffted || invec2_pre_ffted;
+	ASSERTG (!(must_fft && must_brute));
 	if (must_brute || (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK)) {
 		invec1 = (CVDT *) aligned_malloc (adjusted_invec1_size * sizeof (CVDT), 64);
 		invec2 = (CVDT *) aligned_malloc (adjusted_invec2_size * sizeof (CVDT), 64);
@@ -2305,10 +2739,10 @@ void polymult_line (
 	}
 	else {
 		unsigned int pass1_size, pass2_size;
-		fft_size = (options & (POLYMULT_FORWARD_FFT | POLYMULT_CIRCULAR)) ? outvec_size :
-			   (options & POLYMULT_INVEC1_FFTED) ? invec1_size :
-			   (options & POLYMULT_INVEC2_FFTED) ? invec2_size : polymult_fft_size (adjusted_outvec_size);
+		fft_size = (options & POLYMULT_CIRCULAR) ? outvec_size : polymult_fft_size (adjusted_outvec_size);
+		fft_options = (!invec1_pre_ffted ? FORWARD_FFT_INVEC1 : 0) | (!invec2_pre_ffted ? FORWARD_FFT_INVEC2 : 0);
 		pick_pass_sizes (pmdata, fft_size, &pass1_size, &pass2_size);
+//GW: if pre-ffted and not compressed find a clean way to use the preprocessed data without allocating or copying
 		tmpvec = (CVDT *) aligned_malloc (fft_size * sizeof (CVDT), 64);		// FFT of invec1 goes here
 		outvec = (CVDT *) aligned_malloc ((fft_size + 2) * sizeof (CVDT), 64) + 1;	// FFT of invec2 goes here as does outvec
 		if (post_process_monics && (options & POLYMULT_INVEC2_MONIC)) invec1 = (CVDT *) aligned_malloc (fft_size * sizeof (CVDT), 64);
@@ -2319,11 +2753,16 @@ void polymult_line (
 		else scratch = NULL;
 	}
 
-	// Grab four complex values from each gwnum coefficient.  Work that data set.  Then move onto remaining complex vals in gwnums.
-	for ( ; ; ) {
-		int line = next_line (pmdata);
-		if (!read_line (pmdata->gwdata, gw_invec1, invec1_size, line, invec1, options & INVEC1_OPTIONS, post_process_monics)) break;
-		read_line (pmdata->gwdata, gw_invec2, invec2_size, line, invec2, options & INVEC2_OPTIONS, post_process_monics);
+	// Grab a "line" of complex values from each gwnum coefficient.  Work that data set.  Then move onto remaining lines in the gwnums.
+	num_lines = gwfftlen (pmdata->gwdata);
+	if (!pmdata->gwdata->ALL_COMPLEX_FFT) num_lines += 2;
+	if (pmdata->gwdata->ZERO_PADDED_FFT) num_lines += 14;
+	num_lines = divide_rounding_up (num_lines, sizeof (CVDT) / sizeof (double));
+	while ((line = next_line (pmdata)) < num_lines) {
+		if (!invec1_preprocessed) read_line (pmdata->gwdata, gw_invec1, invec1_size, line, invec1, options & INVEC1_OPTIONS, post_process_monics);
+		else read_preprocess_line (pmdata->gwdata, gw_invec1, invec1_size, line, invec1, options & INVEC1_OPTIONS, post_process_monics);
+		if (!invec2_preprocessed) read_line (pmdata->gwdata, gw_invec2, invec2_size, line, invec2, options & INVEC2_OPTIONS, post_process_monics);
+		else read_preprocess_line (pmdata->gwdata, gw_invec2, invec2_size, line, invec2, options & INVEC2_OPTIONS, post_process_monics);
 
 		if (must_brute || (!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK)) {
 			brute_line (invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, outvec, adjusted_outvec_size, options, gw_outvec);
@@ -2332,17 +2771,15 @@ void polymult_line (
 			karatsuba_line (pmdata, invec1, adjusted_invec1_size, invec2, adjusted_invec2_size, tmpvec, outvec);
 		}
 		else {
-			ASSERTG (!(options & POLYMULT_INVEC1_FFTED));	// Not supported yet
-			ASSERTG (!(options & POLYMULT_INVEC2_FFTED));	// Not supported yet
-			if (invec1 != tmpvec) memcpy (tmpvec, invec1, adjusted_invec1_size * sizeof (CVDT));
-			memset (tmpvec + adjusted_invec1_size, 0, (fft_size - adjusted_invec1_size) * sizeof (CVDT));
-//			if (options & POLYMULT_FORWARD_FFT) {
-//				write_line (pmdata->gwdata, gw_outvec, fft_size, line, tmpvec, 0);
-//				continue;
-//			}
-			if (invec2 != outvec) memcpy (outvec, invec2, adjusted_invec2_size * sizeof (CVDT));
-			memset (outvec + adjusted_invec2_size, 0, (fft_size - adjusted_invec2_size) * sizeof (CVDT));
-			fft_line (pmdata, tmpvec, outvec, outvec, scratch, fft_size, FORWARD_FFT_INVEC1 | FORWARD_FFT_INVEC2);
+			if (!invec1_pre_ffted) {
+				if (invec1 != tmpvec) memcpy (tmpvec, invec1, adjusted_invec1_size * sizeof (CVDT));
+				memset (tmpvec + adjusted_invec1_size, 0, (fft_size - adjusted_invec1_size) * sizeof (CVDT));
+			}
+			if (!invec2_pre_ffted) {
+				if (invec2 != outvec) memcpy (outvec, invec2, adjusted_invec2_size * sizeof (CVDT));
+				memset (outvec + adjusted_invec2_size, 0, (fft_size - adjusted_invec2_size) * sizeof (CVDT));
+			}
+			fft_line (pmdata, tmpvec, outvec, outvec, scratch, fft_size, fft_options);
 		}
 		// Handle adjustments needed due to monic inputs
 		if (post_process_monics) monic_line_adjustments (pmdata->gwdata, invec1, adjusted_invec1_size, invec2, adjusted_invec2_size,
@@ -2508,8 +2945,44 @@ void polymult_wait_on_helpers (
 }
 
 /*--------------------------------------------------------------------------
-|			Polymult main routine
+|			Polymult main routines
 +-------------------------------------------------------------------------*/
+
+/* Preprocess a poly that will be used in multiple polymult calls.  Preprocessing can reduce memory consumption or reduce CPU time. */
+/* Returns a massaged poly.  Caller should then free the unmassaged poly.  The massaged poly cannot be used in any gwnum calls, it can only be used */
+/* in future polymult calls with poly sizes and options that match those passed to this routine. */
+gwarray polymult_preprocess (		// Returns a plug-in replacement for the input poly
+	pmhandle *pmdata,		// Handle for polymult library
+	gwnum	*invec1,		// Input poly
+	int	invec1_size,		// Size of the input polynomial
+	int	invec2_size,		// Size of the other polynomial that will be used in a future polymult call
+	int	outvec_size,		// Size of the output polynomial that will be used in a future polymult call
+	int	options)		// Future polymult options preprocessing options (FFT, compress -- see polymult.h)
+{
+	// Cannot preprocess an already preprocessed poly
+	ASSERTG (!is_preprocessed_poly(invec1));
+
+	// FFT inputs if needed.  FFT the 7 zero padded FFT values in the header.  Even though we are not allowed to change the input vectors, we
+	// can write to the 13 values values in the header reserved for use by the polymult library.
+	for (int j = 0; j < invec1_size; j++) {
+		if (invec1[j] == NULL) continue;
+		gwfft (pmdata->gwdata, invec1[j], invec1[j]);
+		if (pmdata->gwdata->ZERO_PADDED_FFT) zpad7_fft (pmdata->gwdata, invec1[j]);
+	}
+
+	// Call the instruction set specific version.
+#ifdef X86_64
+	if (pmdata->gwdata->cpu_flags & CPU_AVX512F) return (polymult_line_preprocess_avx512 (pmdata, invec1, invec1_size, invec2_size, outvec_size, options));
+	else
+#endif
+	if (pmdata->gwdata->cpu_flags & CPU_FMA3) return (polymult_line_preprocess_fma (pmdata, invec1, invec1_size, invec2_size, outvec_size, options));
+	else if (pmdata->gwdata->cpu_flags & CPU_AVX) return (polymult_line_preprocess_avx (pmdata, invec1, invec1_size, invec2_size, outvec_size, options));
+	else if (pmdata->gwdata->cpu_flags & CPU_SSE2) return (polymult_line_preprocess_sse2 (pmdata, invec1, invec1_size, invec2_size, outvec_size, options));
+#ifndef X86_64
+	else return (polymult_line_preprocess_dbl (pmdata, invec1, invec1_size, invec2_size, outvec_size, options));
+#endif
+	return (NULL);			// Can't happen but keeps compiler happy
+}
 
 /* Multiply two polynomials producing FFTed gwnums as output.  The output gwnums need to be normalized before use in further gwnum operations. */
 /* It is safe to use input gwnums in the output vector.  For a normal polynomial multiply outvec_size must be invec1_size + invec2_size - 1. */
@@ -2525,14 +2998,13 @@ void polymult (
 	int	outvec_size,		// Size of the output polynomial (or fft_size if POLYMULT_FORWARD_FFT or POLYMULT_CIRCULAR)
 	int	options)
 {
-	// Forward FFT not allowed on already FFTed polynomial
-	ASSERTG (! ((options & POLYMULT_FORWARD_FFT) && (options & POLYMULT_INVEC1_FFTED)));
-	// An already FFTed input cannot be multiplied with a monic polynomial
-	ASSERTG (! ((options & POLYMULT_INVEC1_FFTED) && !(options & POLYMULT_INVEC2_MONIC)));
-	ASSERTG (! ((options & POLYMULT_INVEC2_FFTED) && !(options & POLYMULT_INVEC1_MONIC)));
+	// An already FFTed input cannot be multiplied with a monic polynomial (unless it is circular or other case that does not do monic_adjust)
+//GW	ASSERTG (! ((options & POLYMULT_INVEC1_FFTED) && !(options & POLYMULT_INVEC2_MONIC)));
+//GW	ASSERTG (! ((options & POLYMULT_INVEC2_FFTED) && !(options & POLYMULT_INVEC1_MONIC)));
 	// An already FFTed input must be at least as big as the output vector
-	ASSERTG (! ((options & POLYMULT_INVEC1_FFTED) && invec1_size >= outvec_size));
-	ASSERTG (! ((options & POLYMULT_INVEC2_FFTED) && invec2_size >= outvec_size));
+//GW	ASSERTG (! ((options & POLYMULT_INVEC1_FFTED) && invec1_size >= outvec_size));
+//GW	ASSERTG (! ((options & POLYMULT_INVEC2_FFTED) && invec2_size >= outvec_size));
+//GW verify preprocessed vector matches how it was preprocessed?
 	// Verify output vector size when we know the input vector sizes (no pre-FFTed inputs)
 #define insz1	(invec1_size + !!(options & POLYMULT_INVEC1_MONIC))		// Adjust size for monic poly
 #define insz2	(invec2_size + !!(options & POLYMULT_INVEC2_MONIC))
@@ -2541,7 +3013,8 @@ void polymult (
 #define outsz	(insz1a + insz2a - 1)						// Output poly size
 #define outsz1	((options & POLYMULT_INVEC1_RLP && options & POLYMULT_INVEC2_RLP) ? (outsz + 1) / 2 : outsz)	// Output size adjusted for RLP
 #define outsz2	(outsz1 - !!(options & POLYMULT_INVEC1_MONIC && options & POLYMULT_INVEC2_MONIC))		// Output size adjusted for monic
-	ASSERTG ((options & (POLYMULT_FORWARD_FFT | POLYMULT_CIRCULAR | POLYMULT_INVEC1_FFTED | POLYMULT_INVEC2_FFTED) || outvec_size == outsz2));
+//GW	ASSERTG ((options & (POLYMULT_CIRCULAR | POLYMULT_INVEC1_FFTED | POLYMULT_INVEC2_FFTED) || outvec_size == outsz2));
+	ASSERTG ((options & POLYMULT_CIRCULAR) || outvec_size == outsz2);
 #undef insz1
 #undef insz2
 #undef insz1a
@@ -2552,14 +3025,14 @@ void polymult (
 
 	// FFT inputs if needed.  FFT the 7 zero padded FFT values in the header.  Even though we are not allowed to change the input vectors, we
 	// can write to the 13 values values in the header reserved for use by the polymult library.
-	if (!(options & POLYMULT_INVEC1_FFTED)) {
+	if (! is_preprocessed_poly (invec1)) {
 		for (int j = 0; j < invec1_size; j++) {
 			if (invec1[j] == NULL) continue;
 			gwfft (pmdata->gwdata, invec1[j], invec1[j]);
 			if (pmdata->gwdata->ZERO_PADDED_FFT) zpad7_fft (pmdata->gwdata, invec1[j]);
 		}
 	}
-	if (!(options & POLYMULT_INVEC2_FFTED)) {
+	if (! is_preprocessed_poly (invec2)) {
 		for (int j = 0; j < invec2_size; j++) {
 			if (invec2[j] == NULL) continue;
 			gwfft (pmdata->gwdata, invec2[j], invec2[j]);
@@ -2583,19 +3056,14 @@ void polymult (
 
 	// This thread works on the polymult too.  Select which optimized routines to use.
 #ifdef X86_64
-	if (pmdata->gwdata->cpu_flags & CPU_AVX512F)
-		polymult_line_avx512 (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
+	if (pmdata->gwdata->cpu_flags & CPU_AVX512F) polymult_line_avx512 (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
 	else
 #endif
-	if (pmdata->gwdata->cpu_flags & CPU_FMA3)
-		polymult_line_fma (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
-	else if (pmdata->gwdata->cpu_flags & CPU_AVX)
-		polymult_line_avx (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
-	else if (pmdata->gwdata->cpu_flags & CPU_SSE2)
-		polymult_line_sse2 (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
+	if (pmdata->gwdata->cpu_flags & CPU_FMA3) polymult_line_fma (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
+	else if (pmdata->gwdata->cpu_flags & CPU_AVX) polymult_line_avx (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
+	else if (pmdata->gwdata->cpu_flags & CPU_SSE2) polymult_line_sse2 (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
 #ifndef X86_64
-	else
-		polymult_line_dbl (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
+	else polymult_line_dbl (pmdata, invec1, invec1_size, invec2, invec2_size, outvec, outvec_size, options);
 #endif
 
 	// Wait for all helper threads to complete
@@ -2605,7 +3073,6 @@ void polymult (
 	// Figure out which output entries (if any) need to get 1.0 added to the result because a monic poly is multiplied by a monic RLP poly.
 	// We used to add the FFT(1) in monic_adjustments but this led to excessive round off error as FFT(1) is NOT a random signal.  It only
 	// affects the least significant bits and is apt to get drowned out by the many multiplied signals.
-
 	int	addin1 = -1;
 	int	addin2 = -1;
 	if ((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)) addin1 = outvec_size - (2 * invec2_size);
@@ -2613,23 +3080,14 @@ void polymult (
 	if (options & POLYMULT_INVEC2_MONIC_TIMES_MONIC_RLP_OK) addin2 = invec2_size;
 			
 	// Unfft all output coefficients
-	if (!(options & POLYMULT_FORWARD_FFT)) {
-		for (int j = 0; j < outvec_size; j++) {
-			if (outvec[j] == NULL) continue;
-			if (pmdata->gwdata->ZERO_PADDED_FFT) zpad7_unfft (pmdata->gwdata, outvec[j]);
-			FFT_state (outvec[j]) = (pmdata->gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
-			if ((options & POLYMULT_NO_UNFFT) && j != addin1 && j != addin2) continue;
-			gwunfft2 (pmdata->gwdata, outvec[j], outvec[j], (j != addin1 && j != addin2 && (options & POLYMULT_STARTNEXTFFT)) ? GWMUL_STARTNEXTFFT : 0);
-			if (j == addin1) gwaddsmall (pmdata->gwdata, outvec[j], 1);
-			if (j == addin2) gwaddsmall (pmdata->gwdata, outvec[j], 1);
-		}
-	} else {
-		// Mark all results poly FFTed
-//		for (int j = 0; j < outvec_size; j++)
-//GW - set unnorm count too? Don't need to do that if always unffting.
-//GW - have a special FFT state for POLYMULT_FORWARD_FFT?
-//		ASSERTG (outvec[j] != NULL);
-//		FFT_state (outvec[j]) = FULLY_FFTed;
+	for (int j = 0; j < outvec_size; j++) {
+		if (outvec[j] == NULL) continue;
+		if (pmdata->gwdata->ZERO_PADDED_FFT) zpad7_unfft (pmdata->gwdata, outvec[j]);
+		FFT_state (outvec[j]) = (pmdata->gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
+		if ((options & POLYMULT_NO_UNFFT) && j != addin1 && j != addin2) continue;
+		gwunfft2 (pmdata->gwdata, outvec[j], outvec[j], (j != addin1 && j != addin2 && (options & POLYMULT_STARTNEXTFFT)) ? GWMUL_STARTNEXTFFT : 0);
+		if (j == addin1) gwaddsmall (pmdata->gwdata, outvec[j], 1);
+		if (j == addin2) gwaddsmall (pmdata->gwdata, outvec[j], 1);
 	}
 }
 

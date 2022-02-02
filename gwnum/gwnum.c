@@ -6872,14 +6872,6 @@ void gwfree_cached (
 	}
 }
 
-/* Define the hidden fields before an allocated gwarray */
-
-typedef struct {
-	int	flags;		// Flags such as how array was allocated
-	gwarray *prev;		// Prev pointer in doubly linked list
-	gwarray next;		// Next pointer in doubly linked list
-} gwarray_header;
-
 /* Allocate an array and fill it with gwnums.  Uses a little less memory than allocating an array and calling gwalloc many times. */
 gwarray gwalloc_array (		/* Pointer to an array of gwnums */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -9634,13 +9626,18 @@ void gwunfft2 (
 		{
 			gwnum	tmp = gwalloc (gwdata);
 			dbltogw (gwdata, gwdata->k, tmp);		// should be all ones when FFTed
+			gwfft (gwdata, tmp, tmp);
+			if (gwdata->ZERO_PADDED_FFT) {	// trick zmult7/ymult7/xmult7 into copying the 7 ZPAD header values that polymult already computed
+				if (gwdata->cpu_flags & CPU_AVX512F) tmp[-5] = 1.0;
+				else tmp[-8] = 1.0;
+			}
 
 			struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 			if (options & GWMUL_MULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM | 2)];
 			else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM & ~2)];
 			asm_data->mul4_opcode = 0;
 			asm_data->DEST2ARG = 0;
-			asm_data->ffttype = 3;
+			asm_data->ffttype = 4;
 			asm_mul (gwdata, tmp, s, d, options);
 			gwdata->read_count += 2, gwdata->write_count += 2;
 			if (gwdata->GENERAL_MOD) emulate_mod (gwdata, d);

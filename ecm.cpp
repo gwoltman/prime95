@@ -7,7 +7,7 @@
  *	Original author:  Richard Crandall - www.perfsci.com
  *	Adapted to Mersenne numbers and optimized by George Woltman
  *	Further optimizations from Paul Zimmerman's GMP-ECM program
- *	Other important ideas courtesy of Peter Montgomery, Mihai Preda, Pavel Atnashev.
+ *	Other important ideas courtesy of Peter Montgomery, Alex Kruppa, Mihai Preda, Pavel Atnashev.
  *
  *	c. 1997 Perfectly Scientific, Inc.
  *	c. 1998-2022 Mersenne Research, Inc.
@@ -6843,9 +6843,11 @@ struct pm1_stage2_cost_data {
 	/* Cost data common to ECM, P-1, P+1 */
 	struct common_cost_data c;
 	/* P-1 specific data sent to cost function follows */
+	double	poly1_compression;		// Adjustment for poly1_size based on the expected compression from polymult_preprocess
 //GW: modinv cost???  not needed sice it is constant for all stage 2 impls
 	/* P-1 specific data returned from cost function follows */
-	int	stage2_type;			// Prime pairing vs. polymult 
+	int	stage2_type;			// Prime pairing vs. polymult
+	int	poly2_size;			// Size of second poly (poly1_size is same as numrels)
 };
 
 double pm1_stage2_cost (
@@ -6915,7 +6917,7 @@ double pm1_stage2_cost (
 /* Compute the stage 2 init costs based on poly sizes */
 
 		int poly1_size = cost_data->c.numrels;
-		int poly2_size = (cost_data->c.totrels) - poly1_size;		//GW:  (totrels minus 3??? 5???)
+		int poly2_size = (cost_data->c.totrels) - (int) floor ((double) poly1_size * cost_data->poly1_compression + 0.5);	//GW:  (totrels minus 3??? 5???)
 		int outpoly_size = poly1_size*2 + poly2_size;
 		int num_points = poly2_size - (2*poly1_size) + 1;
 		if (num_points < 1) return (1.0e99);
@@ -6982,10 +6984,11 @@ double pm1_stage2_cost (
 		excess_work_credit = (double) (cost_data->c.B2_start + cost_data->c.numDsections * cost_data->c.D - cost_data->c.B1) /
 				     (double) (cost_data->c.B2 - cost_data->c.B1);
 
-/* Stage 2 memory is totrels gwnums for the polymult arrays, 4 gwnums for V,Vn,Vn1,gg values. */
+/* Stage 2 memory is totrels gwnums for the polymult arrays, 4 gwnums for V,Vn,Vn1,gg values.  Return the poly2_size. */
 
 //GW: plus one more if x is kept around???
 		cost_data->c.stage2_numvals = cost_data->c.totrels + 4;
+		cost_data->poly2_size = poly2_size;
 	}
 
 /* Pass 2 FFT multiplications seem to be at least 20% slower than the squarings in pass 1.  This is probably due */
@@ -7019,10 +7022,18 @@ double pm1_stage2_impl_given_numvals (
 	cost_data.c.numvals = numvals;
 	cost_data.c.fftlen = gwfftlen (&pm1data->gwdata);
 	cost_data.c.threads = gwget_num_threads (&pm1data->gwdata);
+
+/* Compute the expected compression of poly1 using polymult_preprocess.  Default compression is usually 1.6%.  Some FFT sizes may have more padding */
+/* and thus more compression.  If poly compression option is set we'll get another 12.5%. */
+
+	cost_data.poly1_compression = (double) gwfftlen (&pm1data->gwdata) * (double) sizeof (double) / (double) gwnum_size (&pm1data->gwdata);
+	if (IniGetInt (INI_FILE, "CompressPoly", 1)) cost_data.poly1_compression *= 0.875;
+
+/* Find the least costly stage 2 plan looking at the two available algorithms */
+
 	for (impl = 0; impl <= 1; impl++) {
 
 //GW: OPT - if numvals > some value, only cost out polymult or < some val only cost prime pairing?
-		
 
 /* Check for QA'ing a specific P-1 implementation type */
 
@@ -7264,6 +7275,8 @@ int pm1_stage2_impl (
 		pm1data->totrels = cost_data.c.totrels;
 		memcpy (pm1data->relp_sets, cost_data.c.relp_sets, sizeof (pm1data->relp_sets));
 		pm1data->max_pairmap_Dsections = cost_data.c.max_pairmap_Dsections;
+	} else {
+		pm1data->poly2_size = cost_data.poly2_size;
 	}
 
 /* Output some debugging data so we can compare estimateds to actuals */
@@ -8706,12 +8719,12 @@ pm1_polymult:
 	int	outpoly_size;			// Called L in the literature.  Make this value as large as we can given amount of free memory.
 	gwnum	*poly1, *poly2, *outpoly, e, e_incr, r, invr;
 
-	// Detemine poly sizes.
+	// Determine poly sizes.
 	pm1data.poly1_size = pm1data.numrels;			// Size of poly #1, called f(X) in the literature.
-	// Poly #2 is used to evaluate poly #1 at multiple points.  Make poly #2 as large as we can.
+	// Poly #2 is used to evaluate poly #1 at multiple points.  Make poly #2 as large as we can.  This was calculated in pm1_stage2_cost.
 	// Other than poly #1, we must save these values in gwnums:  r^2, gg, e_incr (//GW: x and/or 1/x and/or V for save file?)
 //GW: Is it beneficial to make poly#2 just smaller than a supported polymult FFT size?
-	pm1data.poly2_size = (pm1data.stage2_numvals - 4) - pm1data.poly1_size;		//GW:  (3??? 5???)
+	//pm1data.poly2_size = (pm1data.stage2_numvals - 4) - pm1data.poly1_size;		//GW:  (3??? 5???)
 	ASSERTG (pm1data.poly2_size >= pm1data.poly1_size*2);
 	// Compute output poly size -- we use circular convolution with an FFT size supported by the polymult library
 	outpoly_size = polymult_fft_size (pm1data.poly2_size+1);
@@ -8966,8 +8979,6 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 		}
 	}
 
-//GW:  Compress and pre-transpose the monic RLP -- will reduce monic RLP mem usage by maybe 10%!
-
 // Prep monic RLP poly #1 for evaluation at multiple points by polymult/FFT (see Montgomery/Kruppa)
 // If j = numrels, multiply the j+1 RLP coefficients by r^(-(j^2)), r^(-(j-1)^2) ... r^(-1^2), r^(-0^2).
 // Multipliers are:	       .... r^-9  r^-4  r^-1  r^0
@@ -9020,6 +9031,23 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 		gwfree (&pm1data.gwdata, diff2);
 		gwfree (&pm1data.gwdata, diff1);
 		gwfree (&pm1data.gwdata, multiplier);
+	}
+
+// Compress and pre-transpose the monic RLP -- will reduce monic RLP mem usage by maybe 1.6% without compression plus another 12.5% with compression.
+
+	{
+		int options = POLYMULT_INVEC1_MONIC_RLP | POLYMULT_CIRCULAR | POLYMULT_COMPRESS;
+		if (IniGetInt (INI_FILE, "CompressPoly", 1)) options |= POLYMULT_COMPRESS;
+		gwarray tmp = polymult_preprocess (&pm1data.polydata, poly1, pm1data.poly1_size, pm1data.poly2_size, outpoly_size, options);
+		gwfree_array (&pm1data.gwdata, poly1);
+		poly1 = tmp;
+		sprintf (buf, "Gwnum size: %lu, Unpadded gwnum size: %lu, est. compressed size: %6.4f, act. compressed size: %6.4f, excess: %6.4f\n",
+			 gwnum_size (&pm1data.gwdata), gwfftlen (&pm1data.gwdata)*8,
+			 (double) gwfftlen (&pm1data.gwdata)*8 / (double) gwnum_size (&pm1data.gwdata),
+			 (double) preprocessed_poly_size (poly1) / ((double) pm1data.poly1_size * (double) gwnum_size (&pm1data.gwdata)),
+			 ((double) preprocessed_poly_size (poly1) / ((double) pm1data.poly1_size * (double) gwnum_size (&pm1data.gwdata))) /
+			 ((double) gwfftlen (&pm1data.gwdata)*8 / (double) gwnum_size (&pm1data.gwdata)));
+		OutputStr (thread_num, buf);
 	}
 
 // Create poly #2
@@ -9694,7 +9722,6 @@ void cost_pm1 (
 	struct global_pm1_cost_data *g,
 	struct cost_pm1_data *c)
 {
-	struct pm1_stage2_cost_data cost_data;
 
 /* Not sure this test is needed.  Handle no stage 2. */
 
@@ -9705,9 +9732,13 @@ void cost_pm1 (
 /* Compute how many squarings will be required in the best implementation of pass 2 given V,Vn,Vn1,gg gwnum temporaries will be needed. */
 
 	else {
+		struct pm1_stage2_cost_data cost_data;
+		memset (&cost_data, 0, sizeof (cost_data));
 		cost_data.c.numvals = g->vals;
 		cost_data.c.fftlen = g->fftlen;
 		cost_data.c.threads = g->threads;
+		cost_data.poly1_compression = 0.984;
+		if (IniGetInt (INI_FILE, "CompressPoly", 1)) cost_data.poly1_compression *= 0.875;
 		for (int impl = 0; impl <= 1; impl++) {
 			cost_data.stage2_type = (impl == 0 ? PM1_STAGE2_PAIRING : PM1_STAGE2_POLYMULT);
 			cost_data.c.only_cost_max_numvals = (impl == 1);
@@ -11494,7 +11525,6 @@ more_C:
 	title (thread_num, buf);
 
 /* Clear flag indicating we need to restart if the maximum amount of memory changes. */
-/* Prior to this point we allow changing the optimal bounds of a Pfactor assignment. */
 
 	clear_restart_if_max_memory_change (thread_num);
 
