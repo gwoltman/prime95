@@ -59,7 +59,9 @@
 // 57) Option to save memory by processing AVX-512 data using FMA3.  (reduces sizeof(CVDT)).
 // 58) Should we multi-thread FFTing the polymult input arguments?  Should we multithread polymult_preprocess?
 // 59) monic_line_adjust could avoid complex mul by fft1 when k == 1.  Is it worthwhile?
-// 60) Optimize decompress
+// 60) In polymult_line_preprocess, most cases do not need an invec1 allocation.  We can write directly into the output buffer.  I think only RLPs without
+//	POLYMULT_FFT are an issue.  Perhaps fix readline not to duplicate RLP data for when preprocessing without POLYMULT_FFT, or allocate a little more
+//	space in the output buffer.
 
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
 int next_line (pmhandle *pmdata);
@@ -2490,8 +2492,8 @@ void read_preprocess_line (gwhandle *gwdata, gwnum *data, int size, int index, C
 	// If preprocessed data is FFTed, then return the data "as is" optionally decompressing.  Ignore the passed in size, use the poly FFT size
 	// that was computed by polymult_line_preprocess.
 	if (hdr->options & POLYMULT_FFT) {
-		if (!(hdr->options & POLYMULT_COMPRESS)) memcpy (vec, (char *) first_element + index * hdr->padded_element_size, hdr->element_size);
-		else decompress_vec ((char *) first_element + index * hdr->padded_element_size, (char *) vec, hdr->fft_size * sizeof (CVDT));
+		if (!(hdr->options & POLYMULT_COMPRESS)) memcpy (vec, (char *) first_element + (intptr_t) index * (intptr_t) hdr->padded_element_size, hdr->element_size);
+		else decompress_vec ((char *) first_element + (intptr_t) index * (intptr_t) hdr->padded_element_size, (char *) vec, hdr->fft_size * sizeof (CVDT));
 		return;
 	}
 
@@ -2521,8 +2523,8 @@ void read_preprocess_line (gwhandle *gwdata, gwnum *data, int size, int index, C
 
 	// Copy the preprocessed entry
 	ASSERTG ((hdr->options & POLYMULT_COMPRESS) || hdr->element_size == size * sizeof (CVDT));
-	if (!(hdr->options & POLYMULT_COMPRESS)) memcpy (vec, (char *) first_element + index_to_read * hdr->padded_element_size, hdr->element_size);
-	else decompress_vec ((char *) first_element + index_to_read * hdr->padded_element_size, (char *) vec, size * sizeof (CVDT));
+	if (!(hdr->options & POLYMULT_COMPRESS)) memcpy (vec, (char *) first_element + (intptr_t) index_to_read * (intptr_t) hdr->padded_element_size, hdr->element_size);
+	else decompress_vec ((char *) first_element + (intptr_t) index_to_read * (intptr_t) hdr->padded_element_size, (char *) vec, size * sizeof (CVDT));
 
 	// If we've delayed splitting the two real values in !ALL_COMPLEX_FFT turn the two reals into two complex values here
 	if (!gwdata->ALL_COMPLEX_FFT && !gwdata->ZERO_PADDED_FFT && index_to_read == 0) {
@@ -2601,7 +2603,6 @@ gwarray polymult_line_preprocess (	// Returns a plug-in replacement for the inpu
 	} else
 		post_process_monics = TRUE;
 
-
 	// Allocate memory for polymult preprocessing
 	must_brute = (options & POLYMULT_CIRCULAR) && outvec_size != polymult_fft_size (outvec_size);
 	must_fft = FALSE;
@@ -2650,7 +2651,7 @@ gwarray polymult_line_preprocess (	// Returns a plug-in replacement for the inpu
 //GW:  shrink element-size if/when we support sparse non-ffted invec1
 	padded_element_size = round_up_to_multiple_of (element_size, 64);
 
-	hdr = (preprocessed_poly_header *) malloc (sizeof (preprocessed_poly_header) + 64 + num_lines * padded_element_size);
+	hdr = (preprocessed_poly_header *) malloc (sizeof (preprocessed_poly_header) + 64 + (intptr_t) num_lines * (intptr_t) padded_element_size);
 	if (hdr == NULL) return (NULL);
 	memset (hdr, 0, sizeof (preprocessed_poly_header));
 	hdr->num_lines = num_lines;
@@ -2703,9 +2704,10 @@ gwarray polymult_line_preprocess (	// Returns a plug-in replacement for the inpu
 	// Shrink a compressed poly to its minimum possible size using realloc.
 	if (options & POLYMULT_COMPRESS) {
 		for (int line = 1; line < num_lines; line++) {
-			memmove ((char *) first_element + line * max_element_size, (char *) first_element + line * padded_element_size, max_element_size);
+			memmove ((char *) first_element + (intptr_t) line * (intptr_t) max_element_size,
+				 (char *) first_element + (intptr_t) line * (intptr_t) padded_element_size, max_element_size);
 		}
-		hdr = (preprocessed_poly_header *) realloc (hdr, sizeof (preprocessed_poly_header) + 64 + num_lines * max_element_size);
+		hdr = (preprocessed_poly_header *) realloc (hdr, sizeof (preprocessed_poly_header) + 64 + (intptr_t) num_lines * (intptr_t) max_element_size);
 		hdr->element_size = max_element_size;
 		hdr->padded_element_size = max_element_size;
 	}

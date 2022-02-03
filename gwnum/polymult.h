@@ -163,7 +163,7 @@ typedef struct {
 #define is_preffted_poly(p)		(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->options & POLYMULT_FFT)
 #define preprocessed_num_elements(p)	(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->num_lines)
 #define preprocessed_element_size(p)	(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->padded_element_size)
-#define preprocessed_poly_size(p)	(preprocessed_num_elements(p) * preprocessed_element_size(p))
+#define preprocessed_poly_size(p)	((intptr_t) preprocessed_num_elements(p) * (intptr_t) preprocessed_element_size(p))
 
 #ifdef __cplusplus
 }
