@@ -62,6 +62,8 @@
 // 60) In polymult_line_preprocess, most cases do not need an invec1 allocation.  We can write directly into the output buffer.  I think only RLPs without
 //	POLYMULT_FFT are an issue.  Perhaps fix readline not to duplicate RLP data for when preprocessing without POLYMULT_FFT, or allocate a little more
 //	space in the output buffer.
+// 61) Can loop unrolling help in radix-3/4/5 sections?  Seems unlikely.
+// 62) Linux stage 2 timings vary widely from 6.7 to 7.0 sec.  What explains the 5% slower runs?  4KB/64KB alignments?
 
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
 int next_line (pmhandle *pmdata);
@@ -1813,30 +1815,46 @@ void fft_line (
 					CVDT b = src[instride1*(group + group_member + stride)];
 					CVDT c = src[instride1*(group + group_member + 2*stride)];
 
-					CVDT	b_plus_c, b_minus_c;
+					CVDT	b_plus_c, b_minus_c, tmp23;
 					cvadd (b_plus_c, b, c);			// b + c
 					cvsub (b_minus_c, b, c);		// b - c
 
-					CVDT tmp23; cvsubfm (tmp23, a, half, b_plus_c);			// tmp23 = a - 0.5 * (b + c)
-#if !VFMA
-					cvrmul (b_minus_c, _866, b_minus_c);
-					cviadd (b, tmp23, b_minus_c);					// b = tmp23 + i * .866 * (b - c)
-					cvisub (c, tmp23, b_minus_c);					// c = tmp23 - i * .866 * (b - c)
-#else
-					cviaddfm (b, tmp23, _866, b_minus_c);				// b = tmp23 + i * .866 * (b - c)
-					cvisubfm (c, tmp23, _866, b_minus_c);				// c = tmp23 - i * .866 * (b - c)
-#endif
+					cvsubfm (tmp23, a, half, b_plus_c);			// tmp23 = a - 0.5 * (b + c)
 
-					cvadd (a, a, b_plus_c);						// a + b + c
-					dest[outstride1*(group + group_member)] = a;
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
+#if !VFMA
+						cvrmul (b_minus_c, _866, b_minus_c);
+						cviadd (b, tmp23, b_minus_c);			// b = tmp23 + i * .866 * (b - c)
+						cvisub (c, tmp23, b_minus_c);			// c = tmp23 - i * .866 * (b - c)
+#else
+						cviaddfm (b, tmp23, _866, b_minus_c);		// b = tmp23 + i * .866 * (b - c)
+						cvisubfm (c, tmp23, _866, b_minus_c);		// c = tmp23 - i * .866 * (b - c)
+#endif
+						cvadd (a, a, b_plus_c);				// a + b + c
+						dest[outstride1*(group + group_member)] = a;
 						dest[outstride1*(group + group_member + stride)]   = b;
 						dest[outstride1*(group + group_member + 2*stride)] = c;
 					}
 					else {			// Apply twiddles
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles1[2*twiddle_idx]);
+#if !VFMA
+						cvrmul (b_minus_c, _866, b_minus_c);
+						cvadd (a, a, b_plus_c);				// a + b + c
+						cviadd (b, tmp23, b_minus_c);			// b = tmp23 + i * .866 * (b - c)
+						cvisub (c, tmp23, b_minus_c);			// c = tmp23 - i * .866 * (b - c)
+						dest[outstride1*(group + group_member)] = a;
 						twidmul     (dest[outstride1*(group + group_member + stride)], b, twiddle1);
 						twidconjmul (dest[outstride1*(group + group_member + 2*stride)], c, twiddle1);
+#else
+						VDT sin866 = mulpd (_866, twiddle1.sin);
+						cvrmul (tmp23, twiddle1.sin, tmp23);
+						cvadd (a, a, b_plus_c);				// a + b + c
+						cviaddfm (b, tmp23, sin866, b_minus_c);		// b = tmp23 + i * .866 * (b - c)
+						cvisubfm (c, tmp23, sin866, b_minus_c);		// c = tmp23 - i * .866 * (b - c)
+						dest[outstride1*(group + group_member)] = a;
+						twidmuldelay     (dest[outstride1*(group + group_member + stride)], b, twiddle1);
+						twidconjmuldelay (dest[outstride1*(group + group_member + 2*stride)], c, twiddle1);
+#endif
 					}
 				}
 			    }
@@ -1869,34 +1887,37 @@ void fft_line (
 					CVDT d = src[instride1*(group + group_member + 3*stride)];
 					CVDT e = src[instride1*(group + group_member + 4*stride)];
 
-					CVDT b_plus_e; cvadd (b_plus_e, b, e);				// b + e
-					CVDT b_minus_e; cvsub (b_minus_e, b, e);			// b - e
-					CVDT c_plus_d; cvadd (c_plus_d, c, d);				// c + d
-					CVDT c_minus_d; cvsub (c_minus_d, c, d);			// c - d
+					CVDT b_plus_e, b_minus_e, c_plus_d, c_minus_d, tmp25a, tmp25b, tmp34a, tmp34b;
 
-					CVDT tmp25a, tmp25b, tmp34a, tmp34b;
-					cvaddfm (tmp25a, a, _309, b_plus_e); cvsubfm (tmp25a, tmp25a, _809, c_plus_d);	// tmp25a = a +.309*(b+e) -.809*(c+d)
-					cvsubfm (tmp34a, a, _809, b_plus_e); cvaddfm (tmp34a, tmp34a, _309, c_plus_d);	// tmp34a = a -.809*(b+e) +.309*(c+d)
-					cvaddfm (tmp25b, b_minus_e, _588_951, c_minus_d);				// tmp25b = delayed .951*(b-e) + 0.588*(c-d)
-					cvsubfm (tmp34b, c_minus_d, _588_951, b_minus_e);				// tmp34b = delayed -.588*(b-e) + 0.951*(c-d)
-#if !VFMA
-					cvrmul (tmp25b, _951, tmp25b);				// tmp25b *= .951
-					cvrmul (tmp34b, _951, tmp34b);				// tmp34b *= .951
-					cviadd (b, tmp25a, tmp25b);				// b = tmp25a + i*tmp25b
-					cvisub (e, tmp25a, tmp25b);				// e = tmp25a - i*tmp25b
-					cvisub (c, tmp34a, tmp34b);				// c = tmp34a + i*tmp34b
-					cviadd (d, tmp34a, tmp34b);				// d = tmp34a - i*tmp34b
-#else
-					cviaddfm (b, tmp25a, _951, tmp25b);			// b = tmp25a + i*.951*tmp25b
-					cvisubfm (e, tmp25a, _951, tmp25b);			// e = tmp25a - i*.951*tmp25b
-					cvisubfm (c, tmp34a, _951, tmp34b);			// c = tmp34a + i*.951*tmp34b
-					cviaddfm (d, tmp34a, _951, tmp34b);			// d = tmp34a - i*.951*tmp34b
-#endif
-					cvadd (a, a, b_plus_e);					// a + b + c + d + e
-					cvadd (a, a, c_plus_d);
+					cvadd (b_plus_e, b, e);					// b + e
+					cvsub (b_minus_e, b, e);				// b - e
+					cvadd (c_plus_d, c, d);					// c + d
+					cvsub (c_minus_d, c, d);				// c - d
 
-					dest[outstride1*(group + group_member)]   = a;
+					cvaddfm (tmp25a, a, _309, b_plus_e);
+					cvsubfm (tmp34a, a, _809, b_plus_e);
+					cvadd   (a, a, b_plus_e);
+					cvaddfm (tmp25b, b_minus_e, _588_951, c_minus_d);	// tmp25b = delayed .951*(b-e) + 0.588*(c-d)
+					cvsubfm (tmp34b, c_minus_d, _588_951, b_minus_e);	// tmp34b = delayed -.588*(b-e) + 0.951*(c-d)
+					cvsubfm (tmp25a, tmp25a, _809, c_plus_d);		// tmp25a = a +.309*(b+e) -.809*(c+d)
+					cvaddfm (tmp34a, tmp34a, _309, c_plus_d);		// tmp34a = a -.809*(b+e) +.309*(c+d)
+					cvadd   (a, a, c_plus_d);				// a + b + c + d + e
+
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
+#if !VFMA
+						cvrmul (tmp25b, _951, tmp25b);			// tmp25b *= .951
+						cvrmul (tmp34b, _951, tmp34b);			// tmp34b *= .951
+						cviadd (b, tmp25a, tmp25b);			// b = tmp25a + i*tmp25b
+						cvisub (e, tmp25a, tmp25b);			// e = tmp25a - i*tmp25b
+						cvisub (c, tmp34a, tmp34b);			// c = tmp34a + i*tmp34b
+						cviadd (d, tmp34a, tmp34b);			// d = tmp34a - i*tmp34b
+#else
+						cviaddfm (b, tmp25a, _951, tmp25b);		// b = tmp25a + i*.951*tmp25b
+						cvisubfm (e, tmp25a, _951, tmp25b);		// e = tmp25a - i*.951*tmp25b
+						cvisubfm (c, tmp34a, _951, tmp34b);		// c = tmp34a + i*.951*tmp34b
+						cviaddfm (d, tmp34a, _951, tmp34b);		// d = tmp34a - i*.951*tmp34b
+#endif
+						dest[outstride1*(group + group_member)] = a;
 						dest[outstride1*(group + group_member + stride)]   = b;
 						dest[outstride1*(group + group_member + 2*stride)] = c;
 						dest[outstride1*(group + group_member + 3*stride)] = d;
@@ -1905,10 +1926,33 @@ void fft_line (
 					else {			// Apply twiddles
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
 						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
+#if !VFMA
+						cvrmul (tmp25b, _951, tmp25b);			// tmp25b *= .951
+						cvrmul (tmp34b, _951, tmp34b);			// tmp34b *= .951
+						cviadd (b, tmp25a, tmp25b);			// b = tmp25a + i*tmp25b
+						cvisub (e, tmp25a, tmp25b);			// e = tmp25a - i*tmp25b
+						cvisub (c, tmp34a, tmp34b);			// c = tmp34a + i*tmp34b
+						cviadd (d, tmp34a, tmp34b);			// d = tmp34a - i*tmp34b
+						dest[outstride1*(group + group_member)] = a;
 						twidmul     (dest[outstride1*(group + group_member + stride)], b, twiddle1);
 						twidmul     (dest[outstride1*(group + group_member + 2*stride)], c, twiddle2);
 						twidconjmul (dest[outstride1*(group + group_member + 3*stride)], d, twiddle2);
 						twidconjmul (dest[outstride1*(group + group_member + 4*stride)], e, twiddle1);
+#else
+						VDT sin1_951 = mulpd (_951, twiddle1.sin);
+						VDT sin2_951 = mulpd (_951, twiddle2.sin);
+						cvrmul   (tmp25a, twiddle1.sin, tmp25a);
+						cvrmul   (tmp34a, twiddle2.sin, tmp34a);
+						cviaddfm (b, tmp25a, sin1_951, tmp25b);		// b = tmp25a + i*.951*tmp25b
+						cvisubfm (e, tmp25a, sin1_951, tmp25b);		// e = tmp25a - i*.951*tmp25b
+						cvisubfm (c, tmp34a, sin2_951, tmp34b);		// c = tmp34a + i*.951*tmp34b
+						cviaddfm (d, tmp34a, sin2_951, tmp34b);		// d = tmp34a - i*.951*tmp34b
+						dest[outstride1*(group + group_member)] = a;
+						twidmuldelay     (dest[outstride1*(group + group_member + stride)], b, twiddle1);
+						twidmuldelay     (dest[outstride1*(group + group_member + 2*stride)], c, twiddle2);
+						twidconjmuldelay (dest[outstride1*(group + group_member + 3*stride)], d, twiddle2);
+						twidconjmuldelay (dest[outstride1*(group + group_member + 4*stride)], e, twiddle1);
+#endif
 					}
 				}
 			    }
@@ -1926,18 +1970,17 @@ void fft_line (
 					CVDT c = src[instride1*(group + group_member + 2*stride)];
 					CVDT d = src[instride1*(group + group_member + 3*stride)];
 
-					CVDT new_a; cvadd (new_a, a, c);			// a + c
 					CVDT new_c; cvsub (new_c, a, c);			// a - c
-					CVDT new_b; cvadd (new_b, b, d);			// b + d
 					CVDT new_d; cvsub (new_d, b, d);			// b - d
+					CVDT new_a; cvadd (new_a, a, c);			// a + c
+					CVDT new_b; cvadd (new_b, b, d);			// b + d
 
-					cvadd  (a, new_a, new_b);				// a + b
-					cvsub  (b, new_a, new_b);				// a - b
-					cviadd (c, new_c, new_d);				// c + id
-					cvisub (d, new_c, new_d);				// c - id
-
-					dest[outstride1*(group + group_member)] = a;
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
+						cviadd (c, new_c, new_d);			// c + id
+						cvisub (d, new_c, new_d);			// c - id
+						cvadd  (a, new_a, new_b);			// a + b
+						cvsub  (b, new_a, new_b);			// a - b
+						dest[outstride1*(group + group_member)] = a;
 						dest[outstride1*(group + group_member + 1*stride)] = c;		// Do not bit-reverse outputs
 						dest[outstride1*(group + group_member + 2*stride)] = b;
 						dest[outstride1*(group + group_member + 3*stride)] = d;
@@ -1945,9 +1988,26 @@ void fft_line (
 					else {			// Apply twiddles
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
 						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
+#if !VFMA
+						cviadd (c, new_c, new_d);			// c + id
+						cvisub (d, new_c, new_d);			// c - id
+						cvadd  (a, new_a, new_b);			// a + b
+						cvsub  (b, new_a, new_b);			// a - b
+						dest[outstride1*(group + group_member)] = a;
 						twidmul     (dest[outstride1*(group + group_member + 1*stride)], c, twiddle1);
 						twidmul     (dest[outstride1*(group + group_member + 2*stride)], b, twiddle2);
 						twidconjmul (dest[outstride1*(group + group_member + 3*stride)], d, twiddle1);
+#else
+						cvrmul   (new_c, twiddle1.sin, new_c);
+						cvadd  (a, new_a, new_b);			// a + b
+						cvsub  (b, new_a, new_b);			// a - b
+						cviaddfm (c, new_c, twiddle1.sin, new_d);	// c + id
+						cvisubfm (d, new_c, twiddle1.sin, new_d);	// c - id
+						dest[outstride1*(group + group_member)] = a;
+						twidmuldelay     (dest[outstride1*(group + group_member + 1*stride)], c, twiddle1);
+						twidmul          (dest[outstride1*(group + group_member + 2*stride)], b, twiddle2);
+						twidconjmuldelay (dest[outstride1*(group + group_member + 3*stride)], d, twiddle1);
+#endif
 					}
 				}
 			    }
