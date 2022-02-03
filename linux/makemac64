@@ -1,7 +1,7 @@
 # Makefile for Mac OS X 64-bit mprime
 #
 # Hwloc can be downloaded from https://www.open-mpi.org/projects/hwloc/
-# Configure hwloc with --enable-static --disable-shared --disable-pci --disable-cuda --disable-gl --disable-opencl
+# Configure hwloc with --enable-static --disable-shared --disable-pci --disable-cuda --disable-gl --disable-opencl --disable-rsmi
 #
 # GMP can be configured with --prefix=/usr/local --enable-fat --enable-static --disable-shared
 #
