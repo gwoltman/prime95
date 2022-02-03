@@ -9041,13 +9041,13 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 		gwarray tmp = polymult_preprocess (&pm1data.polydata, poly1, pm1data.poly1_size, pm1data.poly2_size, outpoly_size, options);
 		gwfree_array (&pm1data.gwdata, poly1);
 		poly1 = tmp;
-		sprintf (buf, "Gwnum size: %lu, Unpadded gwnum size: %lu, est. compressed size: %6.4f, act. compressed size: %6.4f, excess: %6.4f\n",
-			 gwnum_size (&pm1data.gwdata), gwfftlen (&pm1data.gwdata)*8,
-			 (double) gwfftlen (&pm1data.gwdata)*8 / (double) gwnum_size (&pm1data.gwdata),
-			 (double) preprocessed_poly_size (poly1) / ((double) pm1data.poly1_size * (double) gwnum_size (&pm1data.gwdata)),
-			 ((double) preprocessed_poly_size (poly1) / ((double) pm1data.poly1_size * (double) gwnum_size (&pm1data.gwdata))) /
-			 ((double) gwfftlen (&pm1data.gwdata)*8 / (double) gwnum_size (&pm1data.gwdata)));
-		OutputStr (thread_num, buf);
+//		sprintf (buf, "Gwnum size: %lu, Unpadded gwnum size: %lu, est. compressed size: %6.4f, act. compressed size: %6.4f, excess: %6.4f\n",
+//			 gwnum_size (&pm1data.gwdata), gwfftlen (&pm1data.gwdata)*8,
+//			 (double) gwfftlen (&pm1data.gwdata)*8 / (double) gwnum_size (&pm1data.gwdata),
+//			 (double) preprocessed_poly_size (poly1) / ((double) pm1data.poly1_size * (double) gwnum_size (&pm1data.gwdata)),
+//			 ((double) preprocessed_poly_size (poly1) / ((double) pm1data.poly1_size * (double) gwnum_size (&pm1data.gwdata))) /
+//			 ((double) gwfftlen (&pm1data.gwdata)*8 / (double) gwnum_size (&pm1data.gwdata)));
+//		OutputStr (thread_num, buf);
 	}
 
 // Create poly #2
