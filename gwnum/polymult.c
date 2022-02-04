@@ -251,7 +251,7 @@ typedef struct {
 
 // Get the needed safety_margin required for an invec1_size by invec2_size polymult
 double polymult_safety_margin (int invec1_size, int invec2_size) {
-	int	n = (invec1_size < invec2_size) ? invec1_size : invec2_size;
+	int	n = (invec1_size > invec2_size) ? invec1_size : invec2_size;
 	// The number of EXTRA_BITS (output FFT bits) consumed by a polymult ~= log2(n)/2.  However, gwinit's safety margin parameter refers to
 	// input FFT bits.  Thus, divide by another 2.
 	return (log2 ((double) n) / 4.0);
