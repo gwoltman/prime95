@@ -7027,7 +7027,8 @@ double pm1_stage2_impl_given_numvals (
 /* and thus more compression.  If poly compression option is set we'll get another 12.5%. */
 
 	cost_data.poly1_compression = (double) gwfftlen (&pm1data->gwdata) * (double) sizeof (double) / (double) gwnum_size (&pm1data->gwdata);
-	if (IniGetInt (INI_FILE, "CompressPoly", 1)) cost_data.poly1_compression *= 0.875;
+	if (IniGetInt (INI_FILE, "Poly1Compress", 1)) cost_data.poly1_compression *= 0.875;
+	if (!IniGetInt (INI_FILE, "Poly1Preprocess", 1)) cost_data.poly1_compression = 1.0;
 
 /* Find the least costly stage 2 plan looking at the two available algorithms */
 
@@ -9035,13 +9036,13 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 // Compress and pre-transpose the monic RLP -- will reduce monic RLP mem usage by maybe 1.6% without compression plus another 12.5% with compression.
 
-	{
+	if (IniGetInt (INI_FILE, "Poly1Preprocess", 1)) {
 		int options = POLYMULT_INVEC1_MONIC_RLP | POLYMULT_CIRCULAR | POLYMULT_COMPRESS;
-		if (IniGetInt (INI_FILE, "CompressPoly", 1)) options |= POLYMULT_COMPRESS;
+		if (IniGetInt (INI_FILE, "Poly1Compress", 1)) options |= POLYMULT_COMPRESS;
 		gwarray tmp = polymult_preprocess (&pm1data.polydata, poly1, pm1data.poly1_size, pm1data.poly2_size, outpoly_size, options);
 		gwfree_array (&pm1data.gwdata, poly1);
 		poly1 = tmp;
-//		sprintf (buf, "Gwnum size: %lu, Unpadded gwnum size: %lu, est. compressed size: %6.4f, act. compressed size: %6.4f, excess: %6.4f\n",
+//		sprintf (buf, "Gwnum size: %lu, unpadded gwnum size: %lu, est. compressed size: %6.4f, act. compressed size: %6.4f, excess: %6.4f\n",
 //			 gwnum_size (&pm1data.gwdata), gwfftlen (&pm1data.gwdata)*8,
 //			 (double) gwfftlen (&pm1data.gwdata)*8 / (double) gwnum_size (&pm1data.gwdata),
 //			 (double) preprocessed_poly_size (poly1) / ((double) pm1data.poly1_size * (double) gwnum_size (&pm1data.gwdata)),
@@ -9738,7 +9739,8 @@ void cost_pm1 (
 		cost_data.c.fftlen = g->fftlen;
 		cost_data.c.threads = g->threads;
 		cost_data.poly1_compression = 0.984;
-		if (IniGetInt (INI_FILE, "CompressPoly", 1)) cost_data.poly1_compression *= 0.875;
+		if (IniGetInt (INI_FILE, "Poly1Compress", 1)) cost_data.poly1_compression *= 0.875;
+		if (!IniGetInt (INI_FILE, "Poly1Preprocess", 1)) cost_data.poly1_compression = 1.0;
 		for (int impl = 0; impl <= 1; impl++) {
 			cost_data.stage2_type = (impl == 0 ? PM1_STAGE2_PAIRING : PM1_STAGE2_POLYMULT);
 			cost_data.c.only_cost_max_numvals = (impl == 1);
