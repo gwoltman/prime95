@@ -251,10 +251,17 @@ typedef struct {
 
 // Get the needed safety_margin required for an invec1_size by invec2_size polymult
 double polymult_safety_margin (int invec1_size, int invec2_size) {
-	int	n = (invec1_size > invec2_size) ? invec1_size : invec2_size;
-	// The number of EXTRA_BITS (output FFT bits) consumed by a polymult ~= log2(n)/2.  However, gwinit's safety margin parameter refers to
-	// input FFT bits.  Thus, divide by another 2.
-	return (log2 ((double) n) / 4.0);
+	// The smaller poly determines the number of partial products that are added together
+	int	n = (invec1_size < invec2_size) ? invec1_size : invec2_size;
+	// The larger poly approximates the FFT size of the polymult (assumes POLYMULT_CIRCULAR)
+	int	fft_size = (invec1_size > invec2_size) ? invec1_size : invec2_size;
+	// According to roe_gwnum.cpp, the number of EXTRA_BITS (output FFT bits) consumed by a polymult ~= log2(n)/2.  However, gwinit's safety margin
+	// parameter refers to input FFT bits.  Thus, divide by another 2.  However, in practice the formula fails for large polymults.  P-1 with FFT size 4608,
+	// and an RLP poly1 of size 320000 multiplied by poly2 of size 1.3M we get roundoff errors.  My theory is that while roe_gwnum.cpp accurately estimates
+	// the number of most significant bits needed to safely add 640000 partial products, it is not accurately estimating the rounding errors introduced
+	// to the least significant bits computing a 1.3M size FFT in fft_line.  Until we get more data points (the example got a 0.48 roundoff where 0.4 should
+	// be the maximum acceptable error -- that's log2(0.49/0.4)=0.3 extra output bits), adjust the needed expected bits by 0.3*log2(FFTsize)/log2(1.3M).
+	return ((log2 ((double) n) / 2.0 + 0.3 * log2 ((double) fft_size) / log2 (1300000.0)) / 2.0);
 }
 
 // Get the FFT size that will be used for an n = invec1_size + invec2_size polymult
