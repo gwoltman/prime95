@@ -6922,7 +6922,7 @@ double pm1_stage2_cost (
 		int num_points = poly2_size - (2*poly1_size) + 1;
 		if (num_points < 1) return (1.0e99);
 
-/* Loop increasing B2_start based on the fact that numDsections will be a multiple of num_points.  In essence this gives a free increase in the B2 enpoint. */
+/* Loop increasing B2_start based on the fact that numDsections will be a multiple of num_points.  In essence this gives a free increase in the B2 endpoint. */
 
 		uint64_t num_polyevals = divide_rounding_up (cost_data->c.numDsections, num_points);
 		cost_data->c.numDsections = num_polyevals * num_points;
@@ -7027,8 +7027,8 @@ double pm1_stage2_impl_given_numvals (
 /* and thus more compression.  If poly compression option is set we'll get another 12.5%. */
 
 	cost_data.poly1_compression = (double) gwfftlen (&pm1data->gwdata) * (double) sizeof (double) / (double) gwnum_size (&pm1data->gwdata);
-	if (IniGetInt (INI_FILE, "Poly1Compress", 1)) cost_data.poly1_compression *= 0.875;
-	if (!IniGetInt (INI_FILE, "Poly1Preprocess", 1)) cost_data.poly1_compression = 1.0;
+	if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 2) cost_data.poly1_compression *= 0.875;
+	if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 0) cost_data.poly1_compression = 1.0;
 
 /* Find the least costly stage 2 plan looking at the two available algorithms */
 
@@ -9036,9 +9036,9 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 // Compress and pre-transpose the monic RLP -- will reduce monic RLP mem usage by maybe 1.6% without compression plus another 12.5% with compression.
 
-	if (IniGetInt (INI_FILE, "Poly1Preprocess", 1)) {
-		int options = POLYMULT_INVEC1_MONIC_RLP | POLYMULT_CIRCULAR | POLYMULT_COMPRESS;
-		if (IniGetInt (INI_FILE, "Poly1Compress", 1)) options |= POLYMULT_COMPRESS;
+	if (IniGetInt (INI_FILE, "Poly1Compress", 2)) {
+		int options = POLYMULT_INVEC1_MONIC_RLP | POLYMULT_CIRCULAR;
+		if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 2) options |= POLYMULT_COMPRESS;
 		gwarray tmp = polymult_preprocess (&pm1data.polydata, poly1, pm1data.poly1_size, pm1data.poly2_size, outpoly_size, options);
 		gwfree_array (&pm1data.gwdata, poly1);
 		poly1 = tmp;
@@ -9055,7 +9055,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 // From the Montgomery/Kruppa paper, to evaluate poly #1 at a single point, do a polymult with these 2*numrels-1 coefficients:
 //		e^-j*r^(j^2) ...  e^-2*r^(2^2)  e^-1*r^(1^2)  e^0*r^0  e^1*r^(1^2) ...  e^j*r^(j^2)    j = 0..relps/2
-// To evalutate poly #1 at a second point, simply add one more coefficient, e^(j+1)*r^((j+1)^2), and so on.
+// To evaluate poly #1 at a second point, simply add one more coefficient, e^(j+1)*r^((j+1)^2), and so on.
 //
 // We can save one coefficient by making the above a monic polynomial.  Multiply all coefficients by e^j * r^-(j^2)
 //		1  e^1*r^((j-1)^2-j^2) ...  e^(j-2)*r^(2^2-j^2)  e^(j-1)*r^(1^2-j^2)  e^j*r^(0-j^2)  e^(j+1)*r^(1^2-j^2) ...  e^(j+j)*r^(j^2-j^2)
@@ -9739,8 +9739,8 @@ void cost_pm1 (
 		cost_data.c.fftlen = g->fftlen;
 		cost_data.c.threads = g->threads;
 		cost_data.poly1_compression = 0.984;
-		if (IniGetInt (INI_FILE, "Poly1Compress", 1)) cost_data.poly1_compression *= 0.875;
-		if (!IniGetInt (INI_FILE, "Poly1Preprocess", 1)) cost_data.poly1_compression = 1.0;
+		if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 2) cost_data.poly1_compression *= 0.875;
+		if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 0) cost_data.poly1_compression = 1.0;
 		for (int impl = 0; impl <= 1; impl++) {
 			cost_data.stage2_type = (impl == 0 ? PM1_STAGE2_PAIRING : PM1_STAGE2_POLYMULT);
 			cost_data.c.only_cost_max_numvals = (impl == 1);
