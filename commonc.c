@@ -6071,7 +6071,7 @@ retry:
 /* double-checks to process quick work that they believe is not part of GIMPS main purpose).  If the user is doing cofactor work, */
 /* then by all means default to getting cert work on PRP cofactor proofs. */
 
-	can_get_cert_work = (header_words[1] & HEADER_FLAG_WORK_QUEUE) && IniGetInt (LOCALINI_FILE, "CertWork", 1);
+	can_get_cert_work = (header_words[1] & HEADER_FLAG_WORK_QUEUE) && IniGetInt (LOCALINI_FILE, "CertWork", 1) && DAYS_OF_WORK > 0.0;
 	if (WELL_BEHAVED_WORK || SEQUENTIAL_WORK == 1) can_get_cert_work = FALSE;
 	if (CPU_HOURS <= 12) can_get_cert_work = FALSE;
 	if (PAUSEABLE_WORKERS_RUNNING) can_get_cert_work = FALSE;
