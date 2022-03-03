@@ -261,8 +261,9 @@ double polymult_safety_margin (int invec1_size, int invec2_size) {
 	// the number of most significant bits needed to safely add 640000 partial products, it is not accurately estimating the rounding errors introduced
 	// to the least significant bits computing a 1.3M size FFT in fft_line.  Until we get more data points (the example got a 0.48+ roundoff where 0.4 should
 	// be the target maximum acceptable error -- that's log2(0.49/0.4)=0.3 extra output bits), adjust the needed expected bits by 0.3*log2(FFTsize)/log2(1.3M).
-	// 2022-02-05: AVX-512 M76333 fails with poly1-size:322560, poly2-size:1339033.  Increasing to 0.4.
-	return ((log2 ((double) n) / 2.0 + 0.4 * log2 ((double) fft_size) / log2 (1300000.0)) / 2.0);
+	// 2022-02-05: AVX-512 FFT size 4608 on M76333 fails with poly1-size:322560, poly2-size:1339033.  Increasing to 0.4.
+	// 2022-03-02: FMA FFT size 640 on M10303 fails with poly1-size:9123840, poly2-size:37280030, roundoff: 0.4453.  Increasing to 0.45.
+	return ((log2 ((double) n) / 2.0 + 0.45 * log2 ((double) fft_size) / log2 (1300000.0)) / 2.0);
 }
 
 // Get the FFT size that will be used for an n = invec1_size + invec2_size polymult
@@ -2642,7 +2643,7 @@ gwarray polymult_line_preprocess (	// Returns a plug-in replacement for the inpu
 	gwnum	*gw_invec1,		// First input poly
 	int	invec1_size,		// Size of the first input polynomial
 	int	invec2_size,		// Size of the second input polynomial
-	int	outvec_size,		// Size of the second input polynomial
+	int	outvec_size,		// Size of the output polynomial
 	int	options)
 {
 	int	adjusted_invec1_size, adjusted_invec2_size, adjusted_outvec_size, fft_size, num_lines, element_size, padded_element_size, max_element_size;
