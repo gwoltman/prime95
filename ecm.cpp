@@ -7438,8 +7438,9 @@ void pm1_helper (
 			// If the other helper threads have completed processing poly1, then we're done
 			if (coeff >= pm1data->numrels) break;
 
-			// Unfft the gwnum
+			// Unfft the gwnum, then fft for next round of poly1 polymults
 			gwunfft2 (gwdata, poly1[coeff], poly1[coeff], GWMUL_STARTNEXTFFT);
+			gwfft (gwdata, poly1[coeff], poly1[coeff]);
 		}
 	}
 
