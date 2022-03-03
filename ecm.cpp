@@ -7413,8 +7413,9 @@ void calc_exp2 (
 
 /* Helper routine for multithreading P-1 stage 2 */
 
-#define PM1_COMPUTE_POLY2	1
-#define PM1_ACCUMULATING_GG	2
+#define PM1_COMPUTE_POLY1	1
+#define PM1_COMPUTE_POLY2	2
+#define PM1_ACCUMULATING_GG	3
 
 void pm1_helper (
 	int	helper_num,	// 0 = main thread, 1+ = helper thread num
@@ -7423,9 +7424,28 @@ void pm1_helper (
 {
 	pm1handle *pm1data = (pm1handle *) info;
 
+/* Accumulate output poly results into gg for later GCD */
+
+	if (pm1data->helper_work == PM1_COMPUTE_POLY1) {
+		// Loop unffting coefficients from poly1
+		gwarray poly1 = pm1data->points;
+		for ( ; ; ) {
+			// Get one of poly1's gwnums
+			gwmutex_lock (&pm1data->polydata.poly_mutex);
+			int coeff = pm1data->current_point++;
+			gwmutex_unlock (&pm1data->polydata.poly_mutex);
+
+			// If the other helper threads have completed processing poly1, then we're done
+			if (coeff >= pm1data->numrels) break;
+
+			// Unfft the gwnum
+			gwunfft2 (gwdata, poly1[coeff], poly1[coeff], GWMUL_STARTNEXTFFT);
+		}
+	}
+
 // Generate the next poly #2 coefficients using differences.  The highest coefficient and next difference is already computed.
 
-	if (pm1data->helper_work == PM1_COMPUTE_POLY2) {
+	else if (pm1data->helper_work == PM1_COMPUTE_POLY2) {
 		gwnum diff1 = pm1data->poly2[helper_num];	// The pre-computed first distance is stored here
 		gwnum diff2 = pm1data->r_squared2;		// r^(2*helper_count^2)
 //GW: handle no work to do case
@@ -8967,8 +8987,16 @@ pm1_polymult:
 					  &poly1[i*poly_size], poly_size + poly2_size,
 					  (poly_size == 1 ? POLYMULT_INVEC1_NEGATE : 0) +
 					  (poly2_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) +
-					  POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC_RLP | POLYMULT_STARTNEXTFFT);
+					  POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC_RLP | POLYMULT_STARTNEXTFFT | POLYMULT_NO_UNFFT);
 			}
+			// Multithreaded unfft poly coefficients
+			pm1data.helper_work = PM1_COMPUTE_POLY1;		// Work type for helper to do
+			pm1data.points = poly1;					// Array of poly1 coefficients
+			pm1data.current_point = 0;				// Next coefficient to unfft
+			if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);	// Launch helper threads
+			pm1_helper (0, &pm1data.gwdata, &pm1data);		// Have main thread help too
+			if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);	// Wait for helper threads to finish
+			// Poly sizes have doubled
 			if ((num_polys & 1) == 0) last_poly_size += poly_size;
 			poly_size *= 2;
 			num_polys = (num_polys + 1) / 2;
