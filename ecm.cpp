@@ -6918,7 +6918,6 @@ double pm1_stage2_cost (
 
 		int poly1_size = cost_data->c.numrels;
 		int poly2_size = (cost_data->c.totrels) - (int) floor ((double) poly1_size * cost_data->poly1_compression + 0.5);	//GW:  (totrels minus 3??? 5???)
-		int outpoly_size = poly1_size*2 + poly2_size;
 		int num_points = poly2_size - (2*poly1_size) + 1;
 		if (num_points < 1) return (1.0e99);
 
@@ -6935,40 +6934,66 @@ double pm1_stage2_cost (
 			}
 		}
 
-/* For the relative primes below D there are 2 luc_add calls for each increment of 6 in the nQx setup loop (plus 6 luc_dbls/luc_adds for setup). */
-/* Computing VD is another luc_dbl and luc_add.  For the relative primes above D, we perform one luc_add for each rel_prime to calculate. */
-/* We assume relp set -1 is not used, which means there are totrels - numrels relative primes above D to calculate.  Also, each nQx value will */
-/* be FFTed once but this usually happens as a by-product of the luc_add calls.  Each luc_add/luc_dbl is 2 transforms. */
+/* Estimating the cost of a polymult is a nightmare.  When working on small numbers the poly sizes are large -- gwnum squarings are likely one pass FFTs */
+/* operating from the CPU caches in pass 1, poly sizes are likely quite large requiring 2 passes and operating out of main memory.  When working on large */
+/* numbers, gwnum squarings are two passes operating out of main memory while poly sizes are quite small (possibly one pass) and operating mostly out of */
+/* the CPU caches.  What follows is a crude attempt to compensate for the above - guess a polymult cost based on the number of input gwnums.  We could */
+/* further compensate for stage 2 init polymults writing to all input gwnums, whereas stage 2 main loop only writes to about 2/3 of the input gwnums. */
 
-		cost_data->c.est_init_transforms = 3.0 * 2.0;						// V2, V3, V6 setup costs, 3 luc_dbls/luc_adds at 2 transforms each
+
+		// The default polymult cost is 8.1 coming from two P-1 data points.  Skylake-X using 4 threads, 57GB memory on M108889691, B1=529000,
+		// B2=40710000, D: 1470, 168x925 polynomial multiplication.  An FMA3 CPU using 4 threads, 40MB memory, on M80051, B1=1B, B2=9190491899820,
+		// D: 1470, 168x818 polynomial multiplication.  Poly FFTs easily fit in L2 cache.
+
+		// If the poly FFT does not fit in the L2 caches, then polymult does more reading/writing from/to the slower L3 cache and main memory.
+		// The max polymult cost of 24.5 comes from a single data point of P-1 on M80051, on an FMA3 CPU using 6.7GB memory.
+		// B1=1B, B2=9190491899820, D: 330330, 31680x143193 polynomial multiplication.  Poly FFT does not fit in L3 cache.
+		// Polymult FFT memory consumption is poly2 size * 2 (need FFT mem for poly1 and poly2) * 2 (real and complex values) * 32-or-64
+		// (for AVX or AVX-512 vector size).  Ramp up the cost slowly as we exceed the L2 cache.  The ramping formula is pulled out of thin air.
+
+		double polyfft_mem = (double) poly2_size * 2.0 * 2.0 * ((CPU_FLAGS & CPU_AVX512F) ? 64.0 : 32.0);
+		double L2_cache_size;		// Size of the L2 cache
+		double	polymult_cost;		// Cost of a polymult compared to a pass 1 transform
+		L2_cache_size = (CPU_NUM_L2_CACHES >= 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 0);
+		if (polyfft_mem <= L2_cache_size) polymult_cost = 8.1;
+		else if (polyfft_mem >= 8 * L2_cache_size) polymult_cost = 24.5;
+		else polymult_cost = 8.1 + (24.5 - 8.1) * (polyfft_mem - L2_cache_size) / (7 * L2_cache_size);
+
+/* For the relative primes below D there are 2 luc_add calls for each increment of 6 in the nQx setup loop (plus 2 luc_dbls/luc_adds for setup). */
+/* We perform one luc_add for each rel_prime to calculate. */
+
+		cost_data->c.est_init_transforms = 4.0 * 2.0;						// V2 thru V6 setup costs, 2 luc_dbls/luc_adds at 2 FFTs each
 		cost_data->c.est_init_transforms += (double) (cost_data->c.D / 4.0 / 6.0) * 2.0 * 2.0;	// Up to D/4 stepping by 6, two i values at 1 luc_add each
-		cost_data->c.est_init_transforms += (cost_data->c.numrels) * 2.0;				// One luc_dbl for each relprimes
+		cost_data->c.est_init_transforms += (cost_data->c.numrels) * 2.0;			// One luc_dbl for each relprimes
 
-/* Building poly #1 requires log2(numrels) that FFT and inverse FFT each poly coefficient */
+/* Building poly #1 requires log2(numrels) polymults with an FFT and inverse FFT on each poly coefficient */
 
-		cost_data->c.est_init_transforms += log2 ((double) cost_data->c.numrels) * cost_data->c.numrels * 2;
+		cost_data->c.est_init_transforms += log2 ((double) cost_data->c.numrels) * cost_data->c.numrels * (2.0 + polymult_cost);
 
-/* Calculation of various constants,  For exponentiate assume 1.5 muls per bit. */
+/* Calculation of various constants,  for exponentiate calls assume 1 squaring (2 transforms) plus 0.5 muls (also 2 transformson average) per bit. */
 
-		cost_data->c.est_init_transforms += log2 ((double)(cost_data->c.D / 2)) * 2.5 * 2.0;	// Calc r and invr.
-		cost_data->c.est_init_transforms += (double)(cost_data->c.numrels * 3) * 2.0;	// Three multiplies for each poly #1 coefficient
-		cost_data->c.est_init_transforms += log2 ((double)(cost_data->c.B2_start / (cost_data->c.D / 2))) * 2.5 * 2.0;	// Calc e
-		cost_data->c.est_init_transforms += log2 ((double) (cost_data->c.numrels * 2 - 1)) * 2.5 * 2.0 + 2.0;		// Calc e_incr
-		cost_data->c.est_init_transforms += log2 ((double) num_points) * 2.5 * 2.0;	// Calc first diff1
+		cost_data->c.est_init_transforms += log2 ((double)(cost_data->c.D / 2)) * 3.0;		// Calc r
 		cost_data->c.est_init_transforms += 2.0;						// Calc r^2
+		cost_data->c.est_init_transforms += log2 ((double)(cost_data->c.D / 2)) * 3.0;		// Calc invr
+		cost_data->c.est_init_transforms += 2.0;						// Calc r^-2
+		cost_data->c.est_init_transforms += log2 ((double)(cost_data->c.numrels * cost_data->c.numrels / 2)) * 3.0; // Calc r^(j^2)
+		cost_data->c.est_init_transforms += (double)(cost_data->c.numrels * 3) * 2.0;		// Three multiplies for each poly #1 coefficient
+		cost_data->c.est_init_transforms += cost_data->c.numrels * 1.0;				// Compress poly #1 (about 0.5 transforms per coefficient)
+		cost_data->c.est_init_transforms += log2 ((double)(cost_data->c.B2_start / (cost_data->c.D / 2))) * 3.0;	// Calc e
+		cost_data->c.est_init_transforms += log2 ((double) (cost_data->c.numrels * 2)) * 3.0 + 2.0; // Calc first diff1
+		cost_data->c.est_init_transforms += log2 ((double) num_points) * 3.0;			// Calc e_incr
 
-/* Start main loop cost with two multiplies for each poly #2 coefficient */
+/* Main loop cost starts with two multiplies for each poly #2 coefficient */
 
 		cost_data->c.est_stage2_transforms = (double) (poly2_size * 2) * 2.0;
 
-/* Cost polymult at one inverse FFT for each polymult output.  This would mean the actual polymult cost is zero. */
-/* For now, assume the polymult cost is roughly the same as inverse FFT cost of all the polymult outputs that are not needed. */
+/* Add the polymult cost */
 
-		cost_data->c.est_stage2_transforms += (double) outpoly_size * 1.0;
+		cost_data->c.est_stage2_transforms += (double) (poly1_size + poly2_size) * polymult_cost;
 
-/* Output poly coefficients are multiplied into gg */
+/* Each polymult output must be inverse FFTed (one transform), then multiplied into gg (three transforms). */
 
-		cost_data->c.est_stage2_transforms += (double) num_points * 2.0;
+		cost_data->c.est_stage2_transforms += (double) num_points * 4.0;
 
 /* Finally, one multiply required to move between D-sections */
 
@@ -6991,16 +7016,20 @@ double pm1_stage2_cost (
 		cost_data->poly2_size = poly2_size;
 	}
 
-/* Pass 2 FFT multiplications seem to be at least 20% slower than the squarings in pass 1.  This is probably due */
-/* to several factors.  These include: better L2 cache usage and no calls to the faster gwsquare routine. */
+/* When pairing, pass 2 FFT multiplications seem to be at least 20% slower than the squarings in pass 1.  This is probably */
+/* due to several factors.  These include: better L2 cache usage and no calls to the faster gwsquare routine. */
 /* Nov, 2009: On my Macbook Pro, with exponents around 45M and using 800MB memory, pass2 squarings are 40% slower. */
 /* Sept. 2021: With gwsubmul4 implemented in assembly for AVX and later, we re-ran the timings using 4 threads. */
 /* According to time_gwnum.cpp, gwsubmul4 is 30% slower than gwsquare on my AVX-512 machine and 47% slower on my FMA machines. */
+/* When doing polymult, some of the same factors likely come into play, but it has not yet been quantified. */
 
 	cost = cost_data->c.est_pairing_runtime + (cost_data->c.est_init_transforms + cost_data->c.est_stage2_transforms) * 1.35;
 	cost /= excess_work_credit;
 //GW: bug
-cost *= IniGetFloat (INI_FILE, "Pm1CostFudge", 2.5);
+	cost *= IniGetFloat (INI_FILE, "Pm1CostFudge2", 1.0);
+
+// For historical reasons total cost is returned as number of squarings.  P+1 and ECM cost functions return number of transforms.
+
 	return (cost / 2.0);
 }
 
@@ -7069,7 +7098,8 @@ double pm1_stage2_impl_given_numvals (
 
 void pm1_choose_B2 (
 	pm1handle *pm1data,
-	unsigned long numvals)
+	unsigned long numvals,
+	char	optimal_B2_msg[256])		/* Message to be output if this optimal B2 selection is used */
 {
 	int	max_B2mult;
 	struct pm1_stage2_cost_data cost_data;	/* Extra data passed to P-1 costing function */
@@ -7079,7 +7109,6 @@ void pm1_choose_B2 (
 		double	fac_pct;		/* Percentage chance of finding a factor */
 	} best[3];
 	int	sieve_depth;
-	char	buf[160];
 	double	takeAwayBits;			/* Bits we get for free in smoothness of P-1 factor */
 
 // Cost out a B2 value
@@ -7149,13 +7178,11 @@ void pm1_choose_B2 (
 		}
 	}
 
-/* Return the best B2 */
+/* Return the best B2 and message to output */
 
 	pm1data->C = best[1].i * pm1data->B;
-	sprintf (buf, "With trial factoring done to 2^%d, optimal B2 is %d*B1 = %" PRIu64 ".\n", sieve_depth, best[1].i, pm1data->C);
-	OutputStr (pm1data->thread_num, buf);
-	sprintf (buf, "If no prior P-1, chance of a new factor is %.3g%%\n", best[1].fac_pct * 100.0);
-	OutputStr (pm1data->thread_num, buf);
+	sprintf (optimal_B2_msg, "With trial factoring done to 2^%d, optimal B2 is %d*B1 = %" PRIu64 ".\n", sieve_depth, best[1].i, pm1data->C);
+	sprintf (optimal_B2_msg + strlen (optimal_B2_msg), "If no prior P-1, chance of a new factor is %.3g%%\n", best[1].fac_pct * 100.0);
 }
 #undef p1eval
 #undef B1increase
@@ -7172,6 +7199,7 @@ int pm1_stage2_impl (
 	int	numvals;			/* Number of gwnums we can allocate */
 	struct pm1_stage2_cost_data cost_data;
 	int	stop_reason;
+	char	optimal_B2_msg[256];
 
 /* Calculate the amount of memory we can use in stage 2.  We must have 1MB for a pairing map + a minimum of 8 temporaries (D = 30). */
 /* If not continuing from a stage 2 save file then assume 144 temporaries (D = 210, multiplier = 5) and a few MB for a pairing map will */
@@ -7208,11 +7236,12 @@ int pm1_stage2_impl (
 /* Set first_relocatable for future best_stage2_impl calls. */
 /* Override B2 with optimal B2 based on amount of memory available. */
 
+	optimal_B2_msg[0] = 0;
 	if (pm1data->state == PM1_STATE_MIDSTAGE) {
 		if (pm1data->C_done == pm1data->B) {
 			pm1data->first_relocatable = pm1data->first_C_start;
 			pm1data->last_relocatable = 0;
-			if (pm1data->optimal_B2) pm1_choose_B2 (pm1data, numvals);
+			if (pm1data->optimal_B2) pm1_choose_B2 (pm1data, numvals, optimal_B2_msg);
 		} else {
 			pm1data->first_relocatable = pm1data->C_done;
 			pm1data->last_relocatable = 0;
@@ -7280,15 +7309,31 @@ int pm1_stage2_impl (
 		pm1data->poly2_size = cost_data.poly2_size;
 	}
 
-/* Output some debugging data so we can compare estimateds to actuals */
+/* Output data regarding our optimal B2 selection and our cost estimates so user can make adjustments when our estimates are wildly off the mark */
 
-	if (IniGetInt (INI_FILE, "Stage2Estimates", 0)) {
+	if (pm1data->stage2_type == PM1_STAGE2_PAIRING ||
+	    gw_passes_safety_margin (&pm1data->gwdata, polymult_safety_margin (pm1data->numrels*2, pm1data->poly2_size))) {
 		char	buf[120];
-		if (pm1data->stage2_type == PM1_STAGE2_PAIRING)
-			sprintf (buf, "Est pair%%: %5.2f, init transforms: %.0f, main loop transforms: %.0f\n",
-				 cost_data.c.est_pair_pct * 100.0, cost_data.c.est_init_transforms, cost_data.c.est_stage2_transforms);
+		// Output optimal B2 selection
+		if (optimal_B2_msg[0]) OutputStr (pm1data->thread_num, optimal_B2_msg);
+		// Output additional debugging upon request
+		if (IniGetInt (INI_FILE, "Stage2Estimates", 0)) {
+			if (pm1data->stage2_type == PM1_STAGE2_PAIRING)
+				sprintf (buf, "Est. pair%%: %5.2f, init transforms: %.0f, main loop transforms: %.0f\n",
+					 cost_data.c.est_pair_pct * 100.0, cost_data.c.est_init_transforms, cost_data.c.est_stage2_transforms);
+			else
+				sprintf (buf, "Est. init transforms: %.0f, main loop transforms: %.0f\n",
+					 cost_data.c.est_init_transforms, cost_data.c.est_stage2_transforms);
+			OutputStr (pm1data->thread_num, buf);
+		}
+		// Output estimated runtime of stage 2 vs. stage 1.  The better the accuracy, the better our deduced optimal B2 value.
+		if (IniGetFloat (INI_FILE, "Pm1CostFudge2", 1.0) == 1.0)
+			sprintf (buf, "Estimated stage 2 vs. stage 1 runtime ratio: %.3f\n",
+				 (cost_data.c.est_init_transforms + cost_data.c.est_stage2_transforms) / (pm1data->B * 1.44 * 2.0));
 		else
-			sprintf (buf, "Est init transforms: %.0f, main loop transforms: %.0f\n", cost_data.c.est_init_transforms, cost_data.c.est_stage2_transforms);
+			sprintf (buf, "Estimated stage 2 vs. stage 1 runtime ratio: %.3f, using adjustment of %.2f\n",
+				 (cost_data.c.est_init_transforms + cost_data.c.est_stage2_transforms) / (pm1data->B * 1.44 * 2.0),
+				 IniGetFloat (INI_FILE, "Pm1CostFudge2", 1.0));
 		OutputStr (pm1data->thread_num, buf);
 	}
 
@@ -9001,9 +9046,11 @@ pm1_polymult:
 			if ((num_polys & 1) == 0) last_poly_size += poly_size;
 			poly_size *= 2;
 			num_polys = (num_polys + 1) / 2;
+if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
 if (poly_size==2)sprintf (buf, "Round off: %.10g, poly_size: %d, EB: %g, SM: %g\n", gw_get_maxerr (&pm1data.gwdata), poly_size, pm1data.gwdata.EXTRA_BITS, pm1data.gwdata.safety_margin);
 else sprintf (buf, "Round off: %.10g, poly_size: %d\n", gw_get_maxerr (&pm1data.gwdata), poly_size);
 OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
+}
 			stop_reason = stopCheck (thread_num);
 			if (stop_reason) goto possible_lowmem;
 		}
@@ -9245,9 +9292,11 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 //GW: Does the fft of a RLP have any special format?  Such as half the data?  Can that be meaningfully expoited? See Montgomery/Kruppa 6.3.
 		polymult (&pm1data.polydata, poly1, pm1data.poly1_size, poly2, pm1data.poly2_size, outpoly, outpoly_size,
 			  POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC_TIMES_MONIC_RLP_OK | POLYMULT_CIRCULAR | POLYMULT_NO_UNFFT);
+if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
 if (pm1data.Dsection==0) {
 sprintf (buf, "Round off: %.10g\n", gw_get_maxerr (&pm1data.gwdata));
 OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
+}
 }
 
 // Check for errors, user esc, restart for mem changed, saving, etc.
