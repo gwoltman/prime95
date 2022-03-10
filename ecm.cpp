@@ -8900,7 +8900,7 @@ pm1_polymult:
 		}
 	}
 
-/* Allocate nQx array of pointers to gwnums.  This will be the coefficients of our input and output polynomials. */
+/* Allocate array of pointers to gwnums.  This will be the coefficients of our input and output polynomials. */
 
 	poly1 = gwalloc_array (&pm1data.gwdata, pm1data.poly1_size);	// Poly #1, a monic RLP of size numrels
 	if (poly1 == NULL) goto lowmem;
@@ -8954,7 +8954,7 @@ pm1_polymult:
 
 /* Compute the rest of the poly1 coefficients (V_i for i >= 7) */
 
-		for (i = 1, i_gap = 4; i <= pm1data.D/4; i += i_gap, i_gap = 6 - i_gap) {
+		for (i = 1, i_gap = 4; /*i <= pm1data.D/4*/; i += i_gap, i_gap = 6 - i_gap) {
 			gwnum	next_i;
 
 /* Point to the i, i-6 pair to work on */
@@ -8970,11 +8970,11 @@ pm1_polymult:
 					V_to_double = poly1[totrels];
 					totrels++;
 				}
+				if (totrels >= pm1data.numrels) break;
 			}
 
 /* Get next i value.  Don't destroy Vi_minus6 for V1 and V5. */
 
-//GW: if i+6 > pm1data.D/4, we do not need to compute next_i 
 			if (i < 6) {
 				next_i = gwalloc (&pm1data.gwdata);
 				if (next_i == NULL) goto lowmem;
@@ -8994,7 +8994,7 @@ pm1_polymult:
 			stop_reason = stopCheck (thread_num);
 			if (stop_reason) goto possible_lowmem;
 		}
-		ASSERTG (totrels == pm1data.numrels);
+		ASSERTG (totrels == pm1data.numrels && i <= pm1data.D/4);
 
 /* Free memory used in computing poly1 values */
 
@@ -9153,8 +9153,8 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
    	gwmul3 (&pm1data.gwdata, e, invr, e, GWMUL_STARTNEXTFFT);
 	gwfree (&pm1data.gwdata, invr), invr = NULL;
 
-//GW:free internal memory for upcoming peak
-//gwfree_internal_memory (&pm1data.gwdata);			// BUG -- move to elsewhere??
+	// Free cached and internal memory for upcoming peak memory usage
+	gwfree_internal_memory (&pm1data.gwdata);
 
 	// Allocate poly #2 in one big array.  Poly #2 is a monic polynomial of size 2 * numrels + num_points - 1.
 	poly2 = gwalloc_array (&pm1data.gwdata, pm1data.poly2_size);
@@ -9289,7 +9289,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 // Evaluate poly #1 at many points using polymult!
 
-//GW: Does the fft of a RLP have any special format?  Such as half the data?  Can that be meaningfully expoited? See Montgomery/Kruppa 6.3.
+//GW: Does the fft of a RLP have any special format?  Such as half the data?  Can that be meaningfully exploited? See Montgomery/Kruppa 6.3.
 		polymult (&pm1data.polydata, poly1, pm1data.poly1_size, poly2, pm1data.poly2_size, outpoly, outpoly_size,
 			  POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC_TIMES_MONIC_RLP_OK | POLYMULT_CIRCULAR | POLYMULT_NO_UNFFT);
 if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
