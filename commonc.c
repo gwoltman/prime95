@@ -2290,8 +2290,7 @@ unsigned int countCommas (
 }
 
 /* Do some more initialization of work_unit fields.  These values do */
-/* not appear in the worktodo.txt file, but need initializing in a */
-/* common place. */
+/* not appear in the worktodo.txt file, but need initializing in a common place. */
 
 void auxiliaryWorkUnitInit (
 	struct work_unit *w)
@@ -2302,19 +2301,17 @@ void auxiliaryWorkUnitInit (
 	if ((w->work_type == WORK_FACTOR || w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK || w->work_type == WORK_PRP) && w->factor_to == 0.0)
 		w->factor_to = factorLimit (w);
 
-/* Initialize the number of LL tests saved */
+/* Initialize the number of PRP tests saved.  For PRP with proof, we choose 1.3 tests saved because we like factors even though the proper value s.b. 1.0. */
 
-	if (w->work_type == WORK_TEST) w->tests_saved = 2.0;
+	if (w->work_type == WORK_TEST) w->tests_saved = 1.3;
 	if (w->work_type == WORK_DBLCHK) w->tests_saved = 1.0;
 
-/* Guard against wild tests_saved values.  Huge values will cause guess_pminus1_bounds */
-/* to run for a very long time. */
+/* Guard against wild tests_saved values.  Huge values will cause guess_pminus1_bounds to run for a very long time. */
 
 	if (w->tests_saved > 10) w->tests_saved = 10;
 }
 
-/* Fill in a work unit's stage and percentage complete based on any */
-/* save files. */
+/* Fill in a work unit's stage and percentage complete based on any save files. */
 
 void pct_complete_from_savefile (
 	struct work_unit *w)
@@ -2732,7 +2729,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		w->pminus1ed = 1;
 		sscanf (value, "%lu,%f,%d", &w->n, &sieve_depth, &w->pminus1ed);
 		w->sieve_depth = sieve_depth;
-		w->tests_saved = 2.0;
+		w->tests_saved = 1.3;
 	    }
 	    else if (_stricmp (keyword, "DoubleCheck") == 0) {
 		float	sieve_depth;
@@ -2788,7 +2785,7 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 			int	dblchk;
 			sscanf (value, "%lu,%f,%d", &w->n, &sieve_depth, &dblchk);
 			w->sieve_depth = sieve_depth;
-			w->tests_saved = dblchk ? 1.0 : 2.0;
+			w->tests_saved = dblchk ? 1.0 : 1.3;
 		}
 	    }
 
@@ -6465,6 +6462,7 @@ retry:
 			w.c = pkt1.c;
 			w.sieve_depth = pkt1.how_far_factored;
 			w.tests_saved = pkt1.tests_saved;
+			if (w.tests_saved == 2) w.tests_saved = 1.3;
 			w.prp_base = pkt1.prp_base;
 			w.prp_residue_type = pkt1.prp_residue_type;
 			w.prp_dblchk = pkt1.prp_dblchk;
