@@ -699,6 +699,9 @@ struct common_cost_data {
 	double	est_pairing_runtime;	/* Estimated stage 2 pairing cost (expressed as equivalent number of transforms) */
 	double	est_init_transforms;	/* Estimated stage 2 init cost (expressed as number of transforms) */
 	double	est_stage2_transforms;	/* Estimated stage 2 main loop cost (expressed as number of transforms) */
+	double	est_init_polymult;	/* Estimated stage 2 init polymult cost (expressed as number of equivalent gwnum transforms) */
+	double	est_stage2_polymult;	/* Estimated stage 2 main loop polymult cost (expressed as number of equivalent gwnum transforms) */
+	double	est_stage2_stage1_ratio;/* Estimated stage 2 runtime / stage 1 runtime ratio */
 	int	stage2_numvals;		/* Returned total number of gwnum temporaries that will be used in stage 2 */
 };
 
@@ -6854,13 +6857,20 @@ double pm1_stage2_cost (
 	void	*data)		/* P-1 specific costing data */
 {
 	struct pm1_stage2_cost_data *cost_data = (struct pm1_stage2_cost_data *) data;
-	double	cost, excess_work_credit;
+	double	cost;
+
+/* We're going to return an estimated stage 2 cost vs. stage 1 cost.  Estimate the stage 1 cost at 1.44*B1 bits in the exponent and 2 transforms per squaring */
+
+	double stage1_cost = (double) cost_data->c.B1 * 1.44 * 2.0;
 
 /* First estimate the stage 2 costs using prime pairing */
 
 	if (cost_data->stage2_type == PM1_STAGE2_PAIRING) {
 
 /* Compute the stage 2 init costs */
+
+		cost_data->c.est_init_polymult = 0.0;
+		cost_data->c.est_stage2_polymult = 0.0;
 
 /* For the relative primes below D there are 2 luc_add calls for each increment of 6 in the nQx setup loop (plus 6 luc_dbls/luc_adds for setup). */
 /* Computing VD is another luc_dbl and luc_add.  For the relative primes above D, we perform one luc_add for each rel_prime to calculate. */
@@ -6896,23 +6906,42 @@ double pm1_stage2_cost (
 
 		cost_data->c.est_stage2_transforms += (cost_data->c.est_numpairs + cost_data->c.est_numsingles) * 2.0;
 
+/* Begin computing the total stage 2 cost */
+/* Stage 2 FFT multiplications seem to be at least 20% slower than the squarings in pass 1.  This is likely due to several factors, */
+/* including gwmult reading more data than gwsquare, worse L2/L3 cache behavior, and perhaps more startnextfft opportunities. */
+/* Nov, 2009: On my Macbook Pro, with exponents around 45M and using 800MB memory, stage 2 transforms measured at 40% slower. */
+/* Sept. 2021: With gwsubmul4 implemented in assembly for AVX and later, we re-ran the timings using 4 threads. */
+/* According to time_gwnum.cpp, gwsubmul4 is 30% slower than gwsquare on an AVX-512 machine and 47% slower on some FMA machines. */
+/* It is important to get the estimated pairing stage 2 cost and the estimated polymult stage 2 cost accurate so that we choose the pairing vs. polymult */
+/* crossover correctly.  The default adjustment was determined by a typical P-1 on an exponent near 108 million using 6.5GB of memory on a i5-6500 and */
+/* a Skylake-X box. */
+
+		cost = cost_data->c.est_init_transforms + cost_data->c.est_stage2_transforms;
+		cost *= IniGetFloat (INI_FILE, "Pm1TransformCost", (float) 1.502);
+
+/* Add in the cost of prime pairing */
+
+		cost += cost_data->c.est_pairing_runtime;
+
+/* The adjustment above certainly won't be correct for all current and future CPUs.  Let the attentive user correct the stage 2 cost by */
+/* monitoring the estimated stage 2 / stage 1 runtime ratio vs. the actual stage 2 / stage 1 runtime. */
+
+		cost *= IniGetFloat (INI_FILE, "Pm1PairRatioAdjust", 1.0);
+		cost_data->c.est_stage2_stage1_ratio = cost / stage1_cost;
+
 /* Return data P-1 implementation will need */
 /* Stage 2 memory is totrels gwnums for the nQx array, 4 gwnums for V,Vn,Vn1,gg values. */
 
 //GW: plus one more if x is kept around???
 		cost_data->c.stage2_numvals = cost_data->c.totrels + 4;
 
-/* Prime pairing algorithm does a negligible amount of extra work beyond B2 */
-
-		excess_work_credit = 1.0;
 	}
 
 /* Next estimate stage 2 costs using polymult */
 
 	else {
 		struct pm1_stage2_cost_data poly_cost = *cost_data;
-		cost_data->stage2_type = PM1_STAGE2_POLYMULT;
-		cost_data->c.est_pairing_runtime = 0;
+		cost_data->c.est_pairing_runtime = 0.0;
 
 /* Compute the stage 2 init costs based on poly sizes */
 
@@ -6940,24 +6969,33 @@ double pm1_stage2_cost (
 /* the CPU caches.  What follows is a crude attempt to compensate for the above - guess a polymult cost based on the number of input gwnums.  We could */
 /* further compensate for stage 2 init polymults writing to all input gwnums, whereas stage 2 main loop only writes to about 2/3 of the input gwnums. */
 
+		// The default polymult costs come from P-1 on two exponents and two machines (Skylake-X and i5-6500).
+		// A big exponent, M108889691 using 3.25GB, 6.5GB, and 57GB memory.  All poly FFTs should fit in the L2 cache.
+		//	D: 90, 12x52 poly cost = 2.55
+		//	D: 210, 24x105 poly cost = 3.22
+		//	D: 1470, 168x925 poly cost = 5.99
+		// A small exponent, M80051, using 3.25GB and 6.5GB.  Poly FFTs will not fit in the L2 cache.
+		//	D: 150150, 14400x68338 poly cost = 23.12
+		//	D: 330330, 31680x134268 poly cost = 25.55
 
-		// The default polymult cost is 8.1 coming from two P-1 data points.  Skylake-X using 4 threads, 57GB memory on M108889691, B1=529000,
-		// B2=40710000, D: 1470, 168x925 polynomial multiplication.  An FMA3 CPU using 4 threads, 40MB memory, on M80051, B1=1B, B2=9190491899820,
-		// D: 1470, 168x818 polynomial multiplication.  Poly FFTs easily fit in L2 cache.
-
-		// If the poly FFT does not fit in the L2 caches, then polymult does more reading/writing from/to the slower L3 cache and main memory.
-		// The max polymult cost of 24.5 comes from a single data point of P-1 on M80051, on an FMA3 CPU using 6.7GB memory.
-		// B1=1B, B2=9190491899820, D: 330330, 31680x143193 polynomial multiplication.  Poly FFT does not fit in L3 cache.
+		// I could not find a decent formula that fits the above data.  If the poly FFT does not fit in the L2 caches, then polymult does more
+		// reading/writing from/to the slower L3 cache and main memory.  So, I assume that once the poly FFT does not fit in the L2 cache there is a
+		// jump in poly costs.  Which led to the formula below.  
+		
 		// Polymult FFT memory consumption is poly2 size * 2 (need FFT mem for poly1 and poly2) * 2 (real and complex values) * 32-or-64
 		// (for AVX or AVX-512 vector size).  Ramp up the cost slowly as we exceed the L2 cache.  The ramping formula is pulled out of thin air.
 
+		// Use the 24x105 poly as a baseline and increment cost 0.58 for every doubling of the poly size
+		double	polymult_cost;		// Cost of a polymult compared to a pass 1 transform
+		polymult_cost = 3.22 + 0.87 * log2 ((double) poly2_size / 105.0);
+
+		// Roughly double the poly cost when we exceed the L2 cache.
 		double polyfft_mem = (double) poly2_size * 2.0 * 2.0 * ((CPU_FLAGS & CPU_AVX512F) ? 64.0 : 32.0);
 		double L2_cache_size;		// Size of the L2 cache
-		double	polymult_cost;		// Cost of a polymult compared to a pass 1 transform
-		L2_cache_size = (CPU_NUM_L2_CACHES >= 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 0);
-		if (polyfft_mem <= L2_cache_size) polymult_cost = 8.1;
-		else if (polyfft_mem >= 8 * L2_cache_size) polymult_cost = 24.5;
-		else polymult_cost = 8.1 + (24.5 - 8.1) * (polyfft_mem - L2_cache_size) / (7 * L2_cache_size);
+		L2_cache_size = (CPU_NUM_L2_CACHES >= 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 0) * 1024;
+		if (polyfft_mem >= 8 * L2_cache_size) polymult_cost *= 2.05;
+		else if (polyfft_mem > L2_cache_size) polymult_cost *= 1.0 + 1.05 * (polyfft_mem - L2_cache_size) / (7 * L2_cache_size);
+		polymult_cost *= IniGetFloat (INI_FILE, "Pm1PolymultCostAdjust", 1.0);
 
 /* For the relative primes below D there are 2 luc_add calls for each increment of 6 in the nQx setup loop (plus 2 luc_dbls/luc_adds for setup). */
 /* We perform one luc_add for each rel_prime to calculate. */
@@ -6968,7 +7006,8 @@ double pm1_stage2_cost (
 
 /* Building poly #1 requires log2(numrels) polymults with an FFT and inverse FFT on each poly coefficient */
 
-		cost_data->c.est_init_transforms += log2 ((double) cost_data->c.numrels) * cost_data->c.numrels * (2.0 + polymult_cost);
+		cost_data->c.est_init_polymult = log2 ((double) cost_data->c.numrels) * cost_data->c.numrels * polymult_cost;
+		cost_data->c.est_init_transforms += log2 ((double) cost_data->c.numrels) * cost_data->c.numrels * 2.0;
 
 /* Calculation of various constants,  for exponentiate calls assume 1 squaring (2 transforms) plus 0.5 muls (also 2 transformson average) per bit. */
 
@@ -6983,31 +7022,48 @@ double pm1_stage2_cost (
 		cost_data->c.est_init_transforms += log2 ((double) (cost_data->c.numrels * 2)) * 3.0 + 2.0; // Calc first diff1
 		cost_data->c.est_init_transforms += log2 ((double) num_points) * 3.0;			// Calc e_incr
 
-/* Main loop cost starts with two multiplies for each poly #2 coefficient */
+/* Main loop cost starts with two multiplies (four transforms) for each poly #2 coefficient.  The first coefficient requires two less transforms */
+/* as it also accounts for the move between D-sections. */
 
-		cost_data->c.est_stage2_transforms = (double) (poly2_size * 2) * 2.0;
+		cost_data->c.est_stage2_transforms = (double) poly2_size * 4.0 - 2.0;
 
 /* Add the polymult cost */
 
-		cost_data->c.est_stage2_transforms += (double) (poly1_size + poly2_size) * polymult_cost;
+		cost_data->c.est_stage2_polymult = (double) (poly1_size + poly2_size) * polymult_cost;
 
 /* Each polymult output must be inverse FFTed (one transform), then multiplied into gg (three transforms). */
 
 		cost_data->c.est_stage2_transforms += (double) num_points * 4.0;
 
-/* Finally, one multiply required to move between D-sections */
-
-		cost_data->c.est_stage2_transforms += 2.0;
-
 /* Now multiply by the number of loop iterations required to reach B2 (and beyond). */
 
-//GW:  Need option that adheres to B2? -- that is no credit for going past B2.  return fewer stage2_numvals
 		cost_data->c.est_stage2_transforms *= (double) num_polyevals;
+		cost_data->c.est_stage2_polymult *= (double) num_polyevals;
 
-/* Now compute a cost credit for doing more work than requested.  This will help us find the most efficient D value. */
+/* Begin computing the total stage 2 cost */
+/* Stage 2 FFT multiplications are at least 20% slower than the squarings in pass 1.  This is likely due to several factors, including gwmult */
+/* reading more data than gwsquare, worse L2 cache behavior, and perhaps more startnextfft opportunities.  Increase the stage 2 cost so that we get */
+/* more accurate stage 2 / stage 1 ratios.  The default adjustment was determined on Skylake-X and i5-6500 CPUs doing P-1 on an exponent near 108 million. */
 
-		excess_work_credit = (double) (cost_data->c.B2_start + cost_data->c.numDsections * cost_data->c.D - cost_data->c.B1) /
-				     (double) (cost_data->c.B2 - cost_data->c.B1);
+		cost = cost_data->c.est_init_transforms + cost_data->c.est_stage2_transforms;
+		cost *= IniGetFloat (INI_FILE, "Pm1TransformCost", (float) 1.502);
+
+/* Add in the cost of the polymults */
+
+		cost += cost_data->c.est_init_polymult + cost_data->c.est_stage2_polymult;
+
+/* The calculations above certainly won't be correct for all current and future CPUs.  Let the attentive user correct the stage 2 cost by */
+/* monitoring the estimated stage 2 / stage 1 runtime ratio vs. the actual stage 2 / stage 1 runtime. */
+
+		cost *= IniGetFloat (INI_FILE, "Pm1PolyRatioAdjust", 1.0);
+		cost_data->c.est_stage2_stage1_ratio = cost / stage1_cost;
+
+/* Now compute a cost credit for doing more work than requested.  This helps us find the most efficient D value. */
+
+//GW:  Need option that adheres to B2? -- that is, no credit for going past B2.  We'd also return fewer stage2_numvals.
+		double excess_work_credit = (double) (cost_data->c.B2_start + cost_data->c.numDsections * cost_data->c.D - cost_data->c.B1) /
+					    (double) (cost_data->c.B2 - cost_data->c.B1);
+		cost /= excess_work_credit;
 
 /* Stage 2 memory is totrels gwnums for the polymult arrays, 4 gwnums for V,Vn,Vn1,gg values.  Return the poly2_size. */
 
@@ -7015,18 +7071,6 @@ double pm1_stage2_cost (
 		cost_data->c.stage2_numvals = cost_data->c.totrels + 4;
 		cost_data->poly2_size = poly2_size;
 	}
-
-/* When pairing, pass 2 FFT multiplications seem to be at least 20% slower than the squarings in pass 1.  This is probably */
-/* due to several factors.  These include: better L2 cache usage and no calls to the faster gwsquare routine. */
-/* Nov, 2009: On my Macbook Pro, with exponents around 45M and using 800MB memory, pass2 squarings are 40% slower. */
-/* Sept. 2021: With gwsubmul4 implemented in assembly for AVX and later, we re-ran the timings using 4 threads. */
-/* According to time_gwnum.cpp, gwsubmul4 is 30% slower than gwsquare on my AVX-512 machine and 47% slower on my FMA machines. */
-/* When doing polymult, some of the same factors likely come into play, but it has not yet been quantified. */
-
-	cost = cost_data->c.est_pairing_runtime + (cost_data->c.est_init_transforms + cost_data->c.est_stage2_transforms) * 1.35;
-	cost /= excess_work_credit;
-//GW: bug
-	cost *= IniGetFloat (INI_FILE, "Pm1CostFudge2", 1.0);
 
 // For historical reasons total cost is returned as number of squarings.  P+1 and ECM cost functions return number of transforms.
 
@@ -7297,7 +7341,6 @@ int pm1_stage2_impl (
 	pm1data->numrels = cost_data.c.numrels;
 	pm1data->B2_start = cost_data.c.B2_start;
 	pm1data->numDsections = cost_data.c.numDsections;
-//GW: returning exact number of Dsections may not make sense for polymult.  Compression, new FFT size, etc. could change num_points by 1 or 2?
 	if (pm1data->state == PM1_STATE_MIDSTAGE || pm1data->last_relocatable > pm1data->B2_start)
 		pm1data->last_relocatable = (pm1data->B2_start > pm1data->C_done ? pm1data->B2_start : pm1data->C_done);
 	pm1data->stage2_type = cost_data.stage2_type;
@@ -7313,7 +7356,7 @@ int pm1_stage2_impl (
 
 	if (pm1data->stage2_type == PM1_STAGE2_PAIRING ||
 	    gw_passes_safety_margin (&pm1data->gwdata, polymult_safety_margin (pm1data->numrels*2, pm1data->poly2_size))) {
-		char	buf[120];
+		char	buf[256];
 		// Output optimal B2 selection
 		if (optimal_B2_msg[0]) OutputStr (pm1data->thread_num, optimal_B2_msg);
 		// Output additional debugging upon request
@@ -7322,18 +7365,14 @@ int pm1_stage2_impl (
 				sprintf (buf, "Est. pair%%: %5.2f, init transforms: %.0f, main loop transforms: %.0f\n",
 					 cost_data.c.est_pair_pct * 100.0, cost_data.c.est_init_transforms, cost_data.c.est_stage2_transforms);
 			else
-				sprintf (buf, "Est. init transforms: %.0f, main loop transforms: %.0f\n",
-					 cost_data.c.est_init_transforms, cost_data.c.est_stage2_transforms);
+				sprintf (buf, "Est. init transforms: %.0f, main loop transforms: %.0f, init poly cost: %.0f, main loop poly cost: %.0f\n",
+					 cost_data.c.est_init_transforms, cost_data.c.est_stage2_transforms,
+					 cost_data.c.est_init_polymult, cost_data.c.est_stage2_polymult);
 			OutputStr (pm1data->thread_num, buf);
 		}
-		// Output estimated runtime of stage 2 vs. stage 1.  The better the accuracy, the better our deduced optimal B2 value.
-		if (IniGetFloat (INI_FILE, "Pm1CostFudge2", 1.0) == 1.0)
-			sprintf (buf, "Estimated stage 2 vs. stage 1 runtime ratio: %.3f\n",
-				 (cost_data.c.est_init_transforms + cost_data.c.est_stage2_transforms) / (pm1data->B * 1.44 * 2.0));
-		else
-			sprintf (buf, "Estimated stage 2 vs. stage 1 runtime ratio: %.3f, using adjustment of %.2f\n",
-				 (cost_data.c.est_init_transforms + cost_data.c.est_stage2_transforms) / (pm1data->B * 1.44 * 2.0),
-				 IniGetFloat (INI_FILE, "Pm1CostFudge2", 1.0));
+		// Output estimated runtime of stage 2 vs. stage 1.  The better the accuracy, the better our deduced optimal B2 value and the
+		// better we can judge pairing vs. polymult crossover.  User can create ratio adjustments if necessary.
+		sprintf (buf, "Estimated stage 2 vs. stage 1 runtime ratio: %.3f\n", cost_data.c.est_stage2_stage1_ratio);
 		OutputStr (pm1data->thread_num, buf);
 	}
 
@@ -7601,9 +7640,10 @@ int pminus1 (
 	pm1data.pct_mem_to_use = 1.0;				// Use as much memory as we can unless we get allocation errors
 
 /* Decide if we will calculate an optimal B2 when stage 2 begins.  We do this by default for P-1 work where we know how much TF has been done. */
+/* You might think WORK_PFACTOR should also set optimal_B2, but PFACTOR optimizes PRP test time saved whereas optimal_B2 maximizes factor found over time. */
 
-	pm1data.optimal_B2 = (!QA_IN_PROGRESS && w->work_type == WORK_PMINUS1 && pm1data.first_C_start == pm1data.B &&
-			      w->sieve_depth > 50 && IniGetInt (INI_FILE, "Pminus1BestB2", 1));
+	pm1data.optimal_B2 = (!QA_IN_PROGRESS &&
+			      w->work_type == WORK_PMINUS1 && pm1data.first_C_start == pm1data.B && w->sieve_depth > 50 && IniGetInt (INI_FILE, "Pminus1BestB2", 1));
 	if (pm1data.optimal_B2 && pm1data.C <= pm1data.B) pm1data.C = 100 * pm1data.B;	// A guess to use for calling start_sieve_with_limit
 
 /* Compute the number we are factoring */
@@ -9240,7 +9280,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 			}
 		}
 
-// The second time poly #2 coefficients are computed, we use multiply the previously computed coefficients by a power of e_incr (if we didn't use this
+// The second time poly #2 coefficients are computed, we multiply the previously computed coefficients by a power of e_incr (if we didn't use this
 // different algorithm we would need to keep both r^2 and r^(2*helper_count).
 
 		else {
@@ -9992,6 +10032,12 @@ void guess_pminus1_bounds (
 
 	g.vals = cvt_mem_to_estimated_gwnums (max_mem (thread_num), k, b, n, c);
 	if (g.vals < 1) g.vals = 1;
+
+	// If there are more than ~140 vals, then we are likely to use polymult which will likely require a larger FFT length and fewer vals
+	if (g.vals >= 140) {
+		g.fftlen = (unsigned long) ((double) g.fftlen * 1.08);
+		g.vals = (unsigned long) ((double) g.vals * 0.92);
+	}
 
 /* Find the best B1 somewhere between n/3300 and 250*(n/3300). */
 
