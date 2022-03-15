@@ -282,6 +282,21 @@ And P+1 can also override the B2 value in worktodo.txt.  Turn this feature off i
 prime.txt with:
 	Pplus1BestB2=0
 
+For P-1 stage 2 to accurately choose optimal B2 bounds as well as whether prime pairing
+stage 2 is more appropriate than polynomial multiplication stage 2, the program must
+accurately estimate stage 2 vs. stage 1 runtime.  The default formula will not work for
+all current and future CPUs, cache, and memory configurations.  Hopefully, the default
+formula is "good enough".  You can correct for errors in the program's default formula
+with two adjustments in prime.txt:
+	Pm1PairRatioAdjust=n	(default is 1.0)
+	Pm1PolyRatioAdjust=n	(default is 1.0)
+One adjustment is for stage 2 using prime pairing and the other is for stage 2 using
+polynomial multiplication.  When P-1 starts stage 2 the estimated stage 2 vs. stage 1
+runtime is output (example: "Estimated stage 2 vs. stage 1 runtime ratio: 1.034").
+Set Pm1____RatioAdjust to the actual ratio divided by the estimated ratio.  For example,
+if stage 1 took 5000 seconds and stage 2 took 8000 seconds the actual ratio is 1.6, set
+the adjustment to 1.6 / 1.034 = 1.547.
+
 In P-1, P+1, and ECM stage 2 a pairing map is allocated for recording prime pairs.  The default
 maximum size for this map is 250MB.  Only very large B2 values need a map this large.
 You can change the maximum map size with this poorly named prime.txt entry:
