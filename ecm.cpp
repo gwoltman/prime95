@@ -10040,8 +10040,8 @@ void guess_pminus1_bounds (
 	g.vals = cvt_mem_to_estimated_gwnums (max_mem (thread_num), k, b, n, c);
 	if (g.vals < 1) g.vals = 1;
 
-	// If there are more than ~140 vals, then we are likely to use polymult which will likely require a larger FFT length and fewer vals
-	if (g.vals >= 140) {
+	// If there are more than ~90 vals, then we are likely to use polymult which will likely require a larger FFT length and fewer vals
+	if (g.vals >= 90) {
 		g.fftlen = (unsigned long) ((double) g.fftlen * 1.08);
 		g.vals = (unsigned long) ((double) g.vals * 0.92);
 	}
