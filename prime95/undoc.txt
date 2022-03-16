@@ -293,9 +293,9 @@ with two adjustments in prime.txt:
 One adjustment is for stage 2 using prime pairing and the other is for stage 2 using
 polynomial multiplication.  When P-1 starts stage 2 the estimated stage 2 vs. stage 1
 runtime is output (example: "Estimated stage 2 vs. stage 1 runtime ratio: 1.034").
-Set Pm1____RatioAdjust to the actual ratio divided by the estimated ratio.  For example,
-if stage 1 took 5000 seconds and stage 2 took 8000 seconds the actual ratio is 1.6, set
-the adjustment to 1.6 / 1.034 = 1.547.
+Set Pm1____RatioAdjust to the actual ratio divided by the estimated ratio times the
+current RatioAdjust setting.  For example, if stage 1 took 5000 seconds and stage 2 took
+8000 seconds the actual ratio is 1.6, set the adjustment to 1.6 / 1.034 * 1.0 = 1.547.
 
 In P-1, P+1, and ECM stage 2 a pairing map is allocated for recording prime pairs.  The default
 maximum size for this map is 250MB.  Only very large B2 values need a map this large.
@@ -461,8 +461,16 @@ Put this line in prime.txt:
 	PrintTimedIterations=0
 
 You can output some informational message on ECM/P-1/P+1 estimated pairing percentages
-to compare with actual paining percentages.  Add to prime.txt:
+to compare with actual pairing percentages.  Add to prime.txt:
 	Stage2Estimates=1
+
+You can also output more detailed P-1 stage 2 information with this prime.txt:
+	PolyVerbose=1
+
+P-1 stage 2 can compress data to create bigger polynomials.  In prime.txt, set
+	Poly1Compress=0,1,2		(default 2)
+where 0 is no compression, 1 is quick compression gaining about 1.6%, 2 is serious
+compression gaining about 12%.
 
 LINUX/FREEBSD ONLY:  When mprime runs out of work to do, it normally loops waiting for the
 server to assign more work.  This prime.txt option can be used to have mprime exit

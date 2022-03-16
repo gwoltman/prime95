@@ -6973,12 +6973,12 @@ double pm1_stage2_cost (
 
 		// The default polymult costs come from P-1 on two exponents and two machines (Skylake-X and i5-6500).
 		// A big exponent, M108889691 using 3.25GB, 6.5GB, and 57GB memory.  All poly FFTs should fit in the L2 cache.
-		//	D: 90, 12x52 poly cost = 2.55
-		//	D: 210, 24x105 poly cost = 3.22
-		//	D: 1470, 168x925 poly cost = 5.99
+		//	D: 90, 12x52 poly cost = 1.7
+		//	D: 210, 24x105 poly cost = 2.145
+		//	D: 1470, 168x925 poly cost = 3.95
 		// A small exponent, M80051, using 3.25GB and 6.5GB.  Poly FFTs will not fit in the L2 cache.
-		//	D: 150150, 14400x68338 poly cost = 23.12
-		//	D: 330330, 31680x134268 poly cost = 25.55
+		//	D: 150150, 14400x68338 poly cost = 15.394
+		//	D: 330330, 31680x134268 poly cost = 17.02
 
 		// I could not find a decent formula that fits the above data.  If the poly FFT does not fit in the L2 caches, then polymult does more
 		// reading/writing from/to the slower L3 cache and main memory.  So, I assume that once the poly FFT does not fit in the L2 cache there is a
@@ -6987,9 +6987,9 @@ double pm1_stage2_cost (
 		// Polymult FFT memory consumption is poly2 size * 2 (need FFT mem for poly1 and poly2) * 2 (real and complex values) * 32-or-64
 		// (for AVX or AVX-512 vector size).  Ramp up the cost slowly as we exceed the L2 cache.  The ramping formula is pulled out of thin air.
 
-		// Use the 24x105 poly as a baseline and increment cost 0.58 for every doubling of the poly size
+		// Use the 24x105 poly cost as a baseline and increment cost 0.58 for every doubling of the poly size
 		double	polymult_cost;		// Cost of a polymult compared to a pass 1 transform
-		polymult_cost = 3.22 + 0.87 * log2 ((double) poly2_size / 105.0);
+		polymult_cost = 2.145 + 0.58 * log2 ((double) poly2_size / 105.0);
 
 		// Roughly double the poly cost when we exceed the L2 cache.
 		double polyfft_mem = (double) poly2_size * 2.0 * 2.0 * ((CPU_FLAGS & CPU_AVX512F) ? 64.0 : 32.0);
