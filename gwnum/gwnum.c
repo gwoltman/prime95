@@ -10666,6 +10666,10 @@ static	struct mt_state rand_info;
 	g->n[1] = (uint32_t) genrand_int32 (&rand_info);
 	g->n[2] = (uint32_t) genrand_int32 (&rand_info);
 	g->n[3] = (uint32_t) genrand_int32 (&rand_info) | 0x80000000;
+	if (gwdata->GW_MODULUS != NULL && gcompg (g, gwdata->GW_MODULUS) >= 0) {
+		modg (gwdata->GW_MODULUS, g);
+		if (isZero (g) || isone (g)) itog (3, g);
+	}
 	gianttogw (gwdata, g, x);
 	// Square until number exceeds MODULUS. Do 4 extra squarings "for good measure".
 	for (bitlen = 128 >> 4; bitlen < gwdata->bit_length; bitlen <<= 1) {
