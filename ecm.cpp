@@ -7711,6 +7711,7 @@ restart:
 	gw_clear_fft_count (&pm1data.gwdata);
 	first_iter_msg = TRUE;
 	calc_output_frequencies (&pm1data.gwdata, &output_frequency, &output_title_frequency);
+	clear_timers (timers, 2);
 
 /* Output message about the FFT length chosen */
 
@@ -7772,7 +7773,6 @@ restart:
 
 /* Handle stage 1 save files.  If the save file that had a higher B1 target then we can reduce the target B1 to the desired B1. */
 
-		clear_timer (timers, 1);
 		if (pm1data.state == PM1_STATE_STAGE1) {
 			if (pm1data.interim_B > pm1data.B) pm1data.interim_B = pm1data.B;
 			goto restart1;
@@ -7999,13 +7999,13 @@ restart0:
 
 	pm1data.stage1_prime--;				// Stage1_prime was not included by calc_exp.  Back up one for next sieve call.
 
-/* Do the larger primes of stage 1.  This stage uses 2.5 transforms per exponent bit using a sliding window exponentiate.  Proceed until interim_B is finished. */
+/* Do the larger primes of stage 1.  This stage uses 2+ transforms per exponent bit using a sliding window exponentiate.  Proceed until interim_B is finished. */
 
 restart1:
 	strcpy (w->stage, "S1");
 	one_over_B = 1.0 / (double) pm1data.B;
 	w->pct_complete = (double) pm1data.stage1_prime * one_over_B;
-	start_timer_from_zero (timers, 0);
+	start_timer (timers, 0);
 	start_timer (timers, 1);
 	pm1data.state = PM1_STATE_STAGE1;
 	stop_reason = start_sieve_with_limit (thread_num, pm1data.stage1_prime, (uint32_t) sqrt((double) pm1data.B), &pm1data.sieve_info);
