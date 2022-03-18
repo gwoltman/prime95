@@ -7008,17 +7008,17 @@ double pm1_stage2_cost (
 		cost_data->c.est_init_polymult = log2 ((double) cost_data->c.numrels) * cost_data->c.numrels * polymult_cost;
 		cost_data->c.est_init_transforms += log2 ((double) cost_data->c.numrels) * cost_data->c.numrels * 2.0;
 
-/* Calculation of various constants,  for exponentiate calls assume 1 squaring (2 transforms) plus 0.5 muls (also 2 transformson average) per bit. */
+/* Calculation of various constants,  for exponentiate calls assume 1 squaring (2 transforms) plus 0.5 muls (1 transform on average) per bit. */
 
 		cost_data->c.est_init_transforms += log2 ((double)(cost_data->c.D / 2)) * 3.0;		// Calc r
 		cost_data->c.est_init_transforms += 2.0;						// Calc r^2
 		cost_data->c.est_init_transforms += log2 ((double)(cost_data->c.D / 2)) * 3.0;		// Calc invr
 		cost_data->c.est_init_transforms += 2.0;						// Calc r^-2
-		cost_data->c.est_init_transforms += log2 ((double)(cost_data->c.numrels * cost_data->c.numrels / 2)) * 3.0; // Calc r^(j^2)
-		cost_data->c.est_init_transforms += (double)(cost_data->c.numrels * 3) * 2.0;		// Three multiplies for each poly #1 coefficient
+		cost_data->c.est_init_transforms += log2 ((double) cost_data->c.numrels * (double) cost_data->c.numrels / 2.0) * 3.0; // Calc r^(j^2)
+		cost_data->c.est_init_transforms += (double) cost_data->c.numrels * 3.0 * 2.0;		// Three multiplies for each poly #1 coefficient
 		cost_data->c.est_init_transforms += cost_data->c.numrels * 1.0;				// Compress poly #1 (about 0.5 transforms per coefficient)
-		cost_data->c.est_init_transforms += log2 ((double)(cost_data->c.B2_start / (cost_data->c.D / 2))) * 3.0;	// Calc e
-		cost_data->c.est_init_transforms += log2 ((double) (cost_data->c.numrels * 2)) * 3.0 + 2.0; // Calc first diff1
+		cost_data->c.est_init_transforms += log2 ((double) cost_data->c.B2_start / ((double) cost_data->c.D / 2.0)) * 3.0; // Calc e
+		cost_data->c.est_init_transforms += log2 ((double) cost_data->c.numrels * 2.0) * 3.0 + 2.0; // Calc first diff1
 
 /* Main loop requires two multiplies (four transforms) for every poly #2 coefficient.  Well the first is free and second is just two transforms. */
 
