@@ -7592,6 +7592,7 @@ int pminus1 (
 	int	i, stage1_batch_size, stage1_temps;
 	unsigned long len;
 	int	maxerr_restart_count = 0;
+	unsigned long maxerr_fftlen = 0;
 	char	filename[32], buf[255], JSONbuf[4000], testnum[100];
 	int	res, stop_reason, saving, near_fft_limit, echk;
 	double	one_over_len, one_over_B, base_pct_complete, one_relp_pct;
@@ -8841,7 +8842,8 @@ pm1_polymult:
 
 // Switch to larger FFT size if necessary!  Polymult requires a few EXTRA_BITS to safely accumulate products in FFT space.
 
-	if (!gw_passes_safety_margin (&pm1data.gwdata, polymult_safety_margin (pm1data.poly1_size*2, pm1data.poly2_size))) {
+	if (!gw_passes_safety_margin (&pm1data.gwdata, polymult_safety_margin (pm1data.poly1_size*2, pm1data.poly2_size)) ||
+	    gwfftlen (&pm1data.gwdata) <= maxerr_fftlen) {
 		unsigned long current_fftlen = gwfftlen (&pm1data.gwdata);
 		giant	binary_gg;
 		if (pm1data.gg != NULL) {
@@ -8864,6 +8866,7 @@ pm1_polymult:
 		gwset_num_threads (&pm1data.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
 		gwset_thread_callback (&pm1data.gwdata, SetAuxThreadPriority);
 		gwset_thread_callback_data (&pm1data.gwdata, sp_info);
+		if (current_fftlen < maxerr_fftlen) current_fftlen = maxerr_fftlen;
 		gwset_minimum_fftlen (&pm1data.gwdata, current_fftlen + 1);  // Try next larger FFT length
 		gwset_using_polymult (&pm1data.gwdata);
 		res = gwsetup (&pm1data.gwdata, w->k, w->b, w->n, w->c);
@@ -9712,9 +9715,11 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 /* Sleep five minutes before restarting from last save file. */
 
 err:	if (gw_get_maxerr (&pm1data.gwdata) > allowable_maxerr) {
-		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file and using larger FFT.\n", gw_get_maxerr (&pm1data.gwdata));
+		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file and using larger FFT.\n\n", gw_get_maxerr (&pm1data.gwdata));
 		OutputStr (thread_num, buf);
 		maxerr_restart_count++;
+		maxerr_fftlen = gwfftlen (&pm1data.gwdata);
+		pm1data.interim_C = 0;				// We'll get the new interim_C from a save file
 	} else {
 		OutputBoth (thread_num, "SUMOUT error occurred.\n");
 		stop_reason = SleepFive (thread_num);
