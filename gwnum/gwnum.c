@@ -7044,6 +7044,7 @@ void gwfreeall (
 		else
 			gwdata->gwnum_free[gwdata->gwnum_free_count++] = q;
 	}
+	while (gwdata->array_list != NULL) gwfree_array (gwdata, (gwnum *) gwdata->array_list);
 }
 
 /* To optimize use of the L1 cache we scramble the FFT data. */
