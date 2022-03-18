@@ -6849,7 +6849,6 @@ struct pm1_stage2_cost_data {
 	struct common_cost_data c;
 	/* P-1 specific data sent to cost function follows */
 	double	poly1_compression;		// Adjustment for poly1_size based on the expected compression from polymult_preprocess
-//GW: modinv cost???  not needed sice it is constant for all stage 2 impls
 	/* P-1 specific data returned from cost function follows */
 	int	stage2_type;			// Prime pairing vs. polymult
 	int	poly2_size;			// Size of second poly (poly1_size is same as numrels)
@@ -6934,12 +6933,10 @@ double pm1_stage2_cost (
 /* Return data P-1 implementation will need */
 /* Stage 2 memory is totrels gwnums for the nQx array, 4 gwnums for V,Vn,Vn1,gg values. */
 
-//GW: plus one more if x is kept around???
 		cost_data->c.stage2_numvals = cost_data->c.totrels + 4;
-
 	}
 
-/* Next estimate stage 2 costs using polymult */
+/* Estimate stage 2 costs using polymult */
 
 	else {
 		struct pm1_stage2_cost_data poly_cost = *cost_data;
@@ -7060,10 +7057,9 @@ double pm1_stage2_cost (
 					    (double) (cost_data->c.B2 - cost_data->c.B1);
 		cost /= excess_work_credit;
 
-/* Stage 2 memory is totrels gwnums for the polymult arrays, 4 gwnums for V,Vn,Vn1,gg values.  Return the poly2_size. */
+/* Stage 2 memory is totrels gwnums for the polymult arrays, 3 gwnums for diff1,r^2,gg.  Return the poly2_size. */
 
-//GW: plus one more if x is kept around???
-		cost_data->c.stage2_numvals = cost_data->c.totrels + 4;
+		cost_data->c.stage2_numvals = cost_data->c.totrels + 3;
 		cost_data->poly2_size = poly2_size;
 	}
 
@@ -7102,8 +7098,6 @@ double pm1_stage2_impl_given_numvals (
 
 	for (impl = 0; impl <= 1; impl++) {
 
-//GW: OPT - if numvals > some value, only cost out polymult or < some val only cost prime pairing?
-
 /* Check for QA'ing a specific P-1 implementation type */
 
 		if (QA_TYPE != 0 && QA_TYPE != impl + 1) continue;
@@ -7113,14 +7107,19 @@ double pm1_stage2_impl_given_numvals (
 		int specific_impl = IniGetInt (INI_FILE, "ForceP1Stage2Type", 99);
 		if (!(specific_impl == 99 || impl == specific_impl)) continue;
 
+/* Polymult is faster somewhere around 90 numvals.  This minor optimization skips costing for numvals that are much lower or higher than 90. */
+
+		if (impl == 0 && specific_impl != 0 && numvals > 150) continue;
+		if (impl == 1 && specific_impl != 1 && numvals < 50) continue;
+
 /* Cost out a P-1 stage 2 implementation.  Keep track of the best implementation. */
-/* Try various values of D until we find the best one.  gwnums are required for V,Vn,Vn1,gg. */
-//GW: polymult may need fewer than 4 additional gwnums
+/* Try various values of D until we find the best one.  Pairing requires V,Vn,Vn1,gg gwnums, polymult requires diff1,r^2,gg gwnums. */
 //GW: polymult does not need to look at the reduced numvals costs -- no binary search needed (at least if we want to sail on past B2)
 		cost_data.stage2_type = (impl == 0 ? PM1_STAGE2_PAIRING : PM1_STAGE2_POLYMULT);
 		cost_data.c.only_cost_max_numvals = (impl == 1);
 		cost_data.c.use_poly_D_data = (impl == 1);
-		cost = best_stage2_impl (pm1data->first_relocatable, pm1data->last_relocatable, pm1data->C_done, pm1data->C, numvals - 4, &pm1_stage2_cost, &cost_data);
+		cost = best_stage2_impl (pm1data->first_relocatable, pm1data->last_relocatable, pm1data->C_done, pm1data->C,
+					 numvals - (impl == 0 ? 4 : 3), &pm1_stage2_cost, &cost_data);
 		if (cost < best_cost) {
 			best_cost = cost;
 			*return_cost_data = cost_data;
@@ -7265,10 +7264,9 @@ int pm1_stage2_impl (
 		OutputStr (pm1data->thread_num, buf);
 	}
 
-/* Compute the number of gwnum temporaries we can allocate.  User nordi had over-allocating memory troubles on Linux testing M1277, presumably */
-/* because our estimate gwnum size was too low.  As a work-around limit numvals to 100,000 by default. */
+/* Compute the number of gwnum temporaries we can allocate.  Assume the binary values of x and 1/x needed for save file creation consume about a half a gwnum. */
 
-	numvals = cvt_mem_to_gwnums (&pm1data->gwdata, memory);
+	numvals = cvt_mem_to_gwnums_adj (&pm1data->gwdata, memory, -0.5);
 	if (numvals < 8) numvals = 8;
 	if (QA_TYPE) numvals = QA_TYPE;			/* Optionally override numvals for QA purposes */
 
@@ -7309,7 +7307,7 @@ int pm1_stage2_impl (
 	}
 
 /* Find the least costly stage 2 plan. */
-/* Try various values of D until we find the best one.  gwnums are required for V,Vn,Vn1,gg. */
+/* Try various values of D until we find the best one.  Pairing requires V,Vn,Vn1,gg gwnums, polymult requires diff1,r^2,gg gwnums. */
 
 	pm1_stage2_impl_given_numvals (pm1data, numvals, &cost_data);
 
@@ -8826,9 +8824,9 @@ pm1_polymult:
 	// Determine poly sizes.
 	pm1data.poly1_size = pm1data.numrels;			// Size of poly #1, called f(X) in the literature.
 	// Poly #2 is used to evaluate poly #1 at multiple points.  Make poly #2 as large as we can.  This was calculated in pm1_stage2_cost.
-	// Other than poly #1, we must save these values in gwnums:  r^2, gg, diff1 (//GW: x and/or 1/x and/or V for save file?)
+	// Other than poly #1, we must save these values in gwnums (r^2, gg, diff1) plus binary values (x and 1/x) for save file.
 //GW: Is it beneficial to make poly#2 just smaller than a supported polymult FFT size?
-	//pm1data.poly2_size = (pm1data.stage2_numvals - 4) - pm1data.poly1_size;		//GW:  (3??? 5???)
+	//pm1data.poly2_size = (pm1data.stage2_numvals - 3.5) - pm1data.poly1_size;
 	ASSERTG (pm1data.poly2_size >= pm1data.poly1_size*2);
 	// Compute output poly size -- we use circular convolution with an FFT size supported by the polymult library
 	outpoly_size = polymult_fft_size (pm1data.poly2_size+1);

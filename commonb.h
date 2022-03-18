@@ -231,8 +231,9 @@ int avail_mem_not_sufficient (int thread_num, unsigned long min_memory, unsigned
 /* as machines with more than 4GB are becoming commonplace.  We assume */
 /* code and other data will add 1MB or 2MB to our working set. */
 
-#define cvt_mem_to_gwnums(g,m) ((unsigned long)(((double)(m)*1048576.0-1000000.0-(double)gwmemused(g))/(double)gwnum_size(g)))
-#define cvt_gwnums_to_mem(g,n) ((unsigned long)(((double)gwmemused(g)+2000000.0+(double)(n)*(double)gwnum_size(g))/1048576.0))
+#define cvt_mem_to_gwnums(g,m)		cvt_mem_to_gwnums_adj(g,m,0.0)
+#define cvt_mem_to_gwnums_adj(g,m,a)	((unsigned long)(((double)(m)*1048576.0-1000000.0-(double)gwmemused(g))/(double)gwnum_size(g)+(a)))
+#define cvt_gwnums_to_mem(g,n)		((unsigned long)(((double)gwmemused(g)+2000000.0+(double)(n)*(double)gwnum_size(g))/1048576.0))
 #define cvt_mem_to_estimated_gwnums(m,k,b,n,c) ((unsigned long)(((double)(m)*1048576.0-1000000.0-(double)gwmap_to_memused(k,b,n,c))/(double)gwmap_to_estimated_size(k,b,n,c)))
 
 /* battery routines */
