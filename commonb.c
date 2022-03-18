@@ -5477,10 +5477,12 @@ begin:	factor_found = 0;
 	    unsigned int end_bits;
 	    unsigned long iters, iters_r, iters_just_processed;
 
-/* Advance one bit at a time to minimize wasted time looking for a */
-/* second factor after a first factor is found. */
+/* Advance one bit at a time to minimize wasted time looking for a second factor after a first factor is found. */
+/* 2022-03-17:  Changed from 2^50 to 2^60 for one-bit-at-a-time advancement.  The change to multi-threaded TF had the unintended */
+/* side effect of a single call factorChunk testing multiple bit levels for large Mersennes.  As a result a found factor was */
+/* reported multiple times when not stopping on a found factor. */
 
-	    end_bits = (bits < 50) ? 50 : bits + 1;
+	    end_bits = (bits < 60) ? 60 : bits + 1;
 	    if (end_bits > test_bits) end_bits = test_bits;
 	    sprintf (w->stage, "TF%d", end_bits);
 
