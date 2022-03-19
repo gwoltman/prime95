@@ -9366,7 +9366,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 // Keep track of the sections processed thusfar
 
 		pm1data.Dsection += pm1data.num_points;
-		if (pm1data.Dsection >= pm1data.numDsections && pm1data.B2_start + pm1data.Dsection * pm1data.D > pm1data.C) break;
+		if (pm1data.Dsection >= pm1data.numDsections && pm1data.B2_start + pm1data.Dsection * pm1data.D >= pm1data.C) break;
 
 /* Calculate stage 2 percentage. */
 
