@@ -6318,6 +6318,7 @@ typedef struct {
 	gwnum	invx;		/* For polymult stage 2, 1/x needed during stage 2 init */
 	giant	x_binary;	/* The stage 1 result - ready for writing to a save file */
 	giant	invx_binary;	/* The stage 1 result inverse - ready for writing to a save file */
+	giant	gg_binary;	/* The stage 2 accmulator converted to binary (drint stage 2 init) */
 	int	stage2_type;	/* Prime pairing or polymult stage 2 */
 	int	D;		/* Stage 2 loop size */
 	int	numrels;	/* Number of relative primes less than D/2 (the number of relative primes in one full relp_set) */
@@ -6540,15 +6541,10 @@ void pm1_save (
 
 	// Save stage 1's x value from either gwnum x or the compressed x_binary.
 	// For backward compatibility with version 4 and 5 save files, output a we-have-x flag.
-	{
-		int	have_x = TRUE;
-		if (! write_int (fd, have_x, &sum)) goto writeerr;
-	}
-	if (pm1data->x_binary != NULL) {
-		if (! write_giant (fd, pm1data->x_binary, &sum)) goto writeerr;
-	} else {
-		if (! write_gwnum (fd, &pm1data->gwdata, pm1data->x, &sum)) goto writeerr;
-	}
+	int have_x = TRUE;
+	if (! write_int (fd, have_x, &sum)) goto writeerr;
+	if (pm1data->x_binary != NULL) { if (! write_giant (fd, pm1data->x_binary, &sum)) goto writeerr; }
+	else { if (! write_gwnum (fd, &pm1data->gwdata, pm1data->x, &sum)) goto writeerr; }
 
 	// Save stage 1's 1/x value that allows us to do either a prime pairing or polymult stage 2.
 	if (pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_STAGE2) {
@@ -6557,9 +6553,10 @@ void pm1_save (
 
 	// Save the stage 2 accumulator
 	if (pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_GCD) {
-		int	have_gg = (pm1data->gg != NULL);
+		int have_gg = (pm1data->gg != NULL || pm1data->gg_binary != NULL);
 		if (! write_int (fd, have_gg, &sum)) goto writeerr;
-		if (have_gg && !write_gwnum (fd, &pm1data->gwdata, pm1data->gg, &sum)) goto writeerr;
+		if (have_gg && pm1data->gg_binary != NULL && !write_giant (fd, pm1data->gg_binary, &sum)) goto writeerr;
+		if (have_gg && pm1data->gg != NULL && !write_gwnum (fd, &pm1data->gwdata, pm1data->gg, &sum)) goto writeerr;
 	}
 
 /* In case we're at peak memory usage, free the cached gwnums that write_gwnum allocated (one for gwunfft and one for gwtobinary result) */
@@ -8237,10 +8234,23 @@ restart3b:
 /* Loop here when prime pairing completes to a B2 from a save file, but the B2 in worktodo.txt is even higher. */
 
 more_C:
-//GW: more_C likely has x and invx = NULL ---> crash if polymult plan is chosen!
 	start_timer_from_zero (timers, 0);
 	sprintf (buf, "%s P-1 stage 2 init", gwmodulo_as_string (&pm1data.gwdata));
 	title (thread_num, buf);
+
+/* Initialize gg to x-1 in case the user opted to skip the GCD after stage 1.  Temporarily convert to binary (for FFT size switching). */
+
+	if (pm1data.gg == NULL) {
+		pm1data.gg = gwalloc (&pm1data.gwdata);
+		if (pm1data.gg == NULL) goto oom;
+		// In case stage 1 GCD was not run, init gg to x-1
+		gwcopy (&pm1data.gwdata, pm1data.x, pm1data.gg);
+		gwsmalladd (&pm1data.gwdata, -1, pm1data.gg);
+	}
+	pm1data.gg_binary = allocgiant (((int) pm1data.gwdata.bit_length >> 5) + 10);
+	if (pm1data.gg_binary == NULL) goto oom;
+	gwtogiant (&pm1data.gwdata, pm1data.gg, pm1data.gg_binary);
+	gwfree (&pm1data.gwdata, pm1data.gg), pm1data.gg = NULL;
 
 /* Clear flag indicating we need to restart if the maximum amount of memory changes. */
 /* Prior to this point we allow changing the optimal bounds of a Pfactor assignment. */
@@ -8303,10 +8313,8 @@ replan:	{
 
 /* Free the stage 1 value, it is no longer needed.  Free 1/x,  it too is not needed in a prime pairing stage 2. */
 
-	gwfree (&pm1data.gwdata, pm1data.x);
-	pm1data.x = NULL;
-	gwfree (&pm1data.gwdata, pm1data.invx);
-	pm1data.invx = NULL;
+	gwfree (&pm1data.gwdata, pm1data.x), pm1data.x = NULL;
+	gwfree (&pm1data.gwdata, pm1data.invx), pm1data.invx = NULL;
 
 /* Do preliminary processing of the relp_sets */
 
@@ -8631,26 +8639,12 @@ replan:	{
 	Dmultiple_map.clear ();
 	relp_set_map.clear ();
 
-/* Initialize gg to a multiple of x-1 in case the user opted to skip the GCD after stage 1.  We used to init gg to x-1 at the beginning */
-/* of stage 2 init.  This more complicated delayed initialization reduces peak memory utilization by one gwnum. */
+/* Re-initialize gg */
 
-	if (pm1data.gg == NULL) {
-		pm1data.gg = gwalloc (&pm1data.gwdata);
-		if (pm1data.gg == NULL) goto oom;
-		// If stage 1 GCD was not run, do the tricky  init of gg
-		if (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "Stage1GCD", 1) == -1) {
-			if (addmul_safe (&pm1data.gwdata, 0, 0, 1)) {
-				gwsub3o (&pm1data.gwdata, pm1data.V, pm1data.nQx[0], pm1data.gg, GWADD_MUL_INPUT);
-			} else {
-				dbltogw (&pm1data.gwdata, 1.0, pm1data.gg);
-				gwsubmul4 (&pm1data.gwdata, pm1data.V, pm1data.nQx[0], pm1data.gg, pm1data.gg, GWMUL_STARTNEXTFFT);
-			}
-		}
-		// Otherwise, just set gg to one
-		else {
-			dbltogw (&pm1data.gwdata, 1.0, pm1data.gg);
-		}
-	}
+	pm1data.gg = gwalloc (&pm1data.gwdata);
+	if (pm1data.gg == NULL) goto lowmem;
+	gianttogw (&pm1data.gwdata, pm1data.gg_binary, pm1data.gg);
+	free (pm1data.gg_binary), pm1data.gg_binary = NULL;
 
 /* We're at peak memory usage, free any cached gwnums */
 
@@ -8672,7 +8666,6 @@ replan:	{
 // Stage 2 init is successful.  Set interim_C so that continuing from a save file will go to our current B2_end.  This will ensure that the
 // relocatable primes just below b2_start will get properly relocated.
 
-	ASSERTG (pm1data.C <= pm1data.B2_start + pm1data.numDsections * pm1data.D);
 	ASSERTG (pm1data.interim_C <= pm1data.B2_start + pm1data.numDsections * pm1data.D);
 	pm1data.interim_C = pm1data.B2_start + pm1data.numDsections * pm1data.D;
 
@@ -8845,12 +8838,6 @@ pm1_polymult:
 	if (!gw_passes_safety_margin (&pm1data.gwdata, polymult_safety_margin (pm1data.poly1_size*2, pm1data.poly2_size)) ||
 	    gwfftlen (&pm1data.gwdata) <= maxerr_fftlen) {
 		unsigned long current_fftlen = gwfftlen (&pm1data.gwdata);
-		giant	binary_gg;
-		if (pm1data.gg != NULL) {
-			binary_gg = allocgiant (((int) pm1data.gwdata.bit_length >> 5) + 10);
-			if (binary_gg == NULL) goto oom;
-			gwtogiant (&pm1data.gwdata, pm1data.gg, binary_gg);
-		}
 		// Terminate current FFT size
 		gwdone (&pm1data.gwdata);
 		// Re-init gwnum with a larger FFT
@@ -8882,19 +8869,13 @@ pm1_polymult:
 		gwfft_description (&pm1data.gwdata, fft_desc);
 		sprintf (buf, "Switching to %s\n", fft_desc);
 		OutputStr (thread_num, buf);
-		// Convert x, invx, gg back to gwnums
+		// Convert x, invx back to gwnums
 		pm1data.x = gwalloc (&pm1data.gwdata);
 		if (pm1data.x == NULL) goto oom;
 		gianttogw (&pm1data.gwdata, pm1data.x_binary, pm1data.x);
 		pm1data.invx = gwalloc (&pm1data.gwdata);
 		if (pm1data.invx == NULL) goto oom;
 		gianttogw (&pm1data.gwdata, pm1data.invx_binary, pm1data.invx);
-		if (pm1data.gg != NULL) {
-			pm1data.gg = gwalloc (&pm1data.gwdata);
-			if (pm1data.gg == NULL) goto oom;
-			gianttogw (&pm1data.gwdata, binary_gg, pm1data.gg);
-			free (binary_gg);
-		}
 		// Recompute V
 		pm1data.V = gwalloc (&pm1data.gwdata);
 		if (pm1data.V == NULL) goto oom;
@@ -8921,22 +8902,6 @@ pm1_polymult:
 
 	sprintf (buf, "Using %uMB of memory.  D: %d, %dx%d polynomial multiplication.\n", memused, pm1data.D, pm1data.poly1_size, pm1data.poly2_size);
 	OutputStr (thread_num, buf);
-
-/* Initialize gg to x-1 in case the user opted to skip the GCD after stage 1. */
-
-	if (pm1data.gg == NULL) {
-		pm1data.gg = gwalloc (&pm1data.gwdata);
-		if (pm1data.gg == NULL) goto oom;
-		// If stage 1 GCD was not run, init gg to x-1
-		if (!QA_IN_PROGRESS && IniGetInt (INI_FILE, "Stage1GCD", 1) == -1) {
-			gwcopy (&pm1data.gwdata, pm1data.x, pm1data.gg);
-			gwsmalladd (&pm1data.gwdata, -1, pm1data.gg);
-		}
-		// Otherwise, just set gg to one
-		else {
-			dbltogw (&pm1data.gwdata, 1.0, pm1data.gg);
-		}
-	}
 
 /* Allocate array of pointers to gwnums.  This will be the coefficients of our input and output polynomials. */
 
@@ -9211,8 +9176,18 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 		gwfft (&pm1data.gwdata, pm1data.r_2helper2, pm1data.r_2helper2);
 	}
 
+// Re-initialize gg.  If helper_count > 1 we reduce peak mem usage by delaying this re-init until r_squared is freed */
+
+	if (pm1data.helper_count == 1) {
+		pm1data.gg = gwalloc (&pm1data.gwdata);
+		if (pm1data.gg == NULL) goto lowmem;
+		gianttogw (&pm1data.gwdata, pm1data.gg_binary, pm1data.gg);
+		free (pm1data.gg_binary), pm1data.gg_binary = NULL;
+	}
+
 	// Free cached and internal memory for upcoming peak memory usage
 	gwfree_internal_memory (&pm1data.gwdata);
+	mallocFreeForOS ();
 
 	// Allocate poly #2 in one big array.  Poly #2 is a monic polynomial of size 2 * numrels + num_points - 1.
 	poly2 = gwalloc_array (&pm1data.gwdata, pm1data.poly2_size);
@@ -9267,9 +9242,16 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 			// Accumulate big diff1
 			gwmul3 (&pm1data.gwdata, big_diff1, small_diff1, big_diff1, GWMUL_STARTNEXTFFT);
 		}
-		// Free r_squared
-		gwfree (&pm1data.gwdata, pm1data.r_squared), pm1data.r_squared = NULL;
+		// Do the re-initialize of gg that we delayed to reduce peak mem usage, free r_squared. */
+		pm1data.gg = pm1data.r_squared, pm1data.r_squared = NULL;
+		gianttogw (&pm1data.gwdata, pm1data.gg_binary, pm1data.gg);
+		free (pm1data.gg_binary), pm1data.gg_binary = NULL;
 	}
+
+/* We're at peak memory usage, free any cached gwnums */
+
+	gwfree_cached (&pm1data.gwdata);
+	mallocFreeForOS ();
 
 // Loop over all the D-sections between B1 and B2
 
