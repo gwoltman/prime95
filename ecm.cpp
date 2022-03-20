@@ -670,6 +670,7 @@ int map_D_to_index (int D)
 
 struct common_cost_data {
 	/* Data sent to cost function follows */
+	gwhandle *gwdata;		/* Gwnum handle (not required) */
 	long	fftlen;			/* FFT length being used */
 	int	threads;		/* Number of threads used during FFTs */
 	int	numvals;		/* Maximum number of gwnum temporaries that can be allocated for relative prime data, pairmaps, */
@@ -3886,6 +3887,7 @@ double ecm_stage2_impl_given_numvals (
 	cost_data.c.numvals = numvals;
 	cost_data.c.only_cost_max_numvals = FALSE;
 	cost_data.c.use_poly_D_data = FALSE;
+	cost_data.c.gwdata = &ecmdata->gwdata;
 	cost_data.c.fftlen = gwfftlen (&ecmdata->gwdata);
 	cost_data.c.threads = gwget_num_threads (&ecmdata->gwdata);
 	for (impl = 0; impl <= 7; impl++) {
@@ -7081,6 +7083,7 @@ double pm1_stage2_impl_given_numvals (
 
 	best_cost = 1.0e99;
 	cost_data.c.numvals = numvals;
+	cost_data.c.gwdata = &pm1data->gwdata;
 	cost_data.c.fftlen = gwfftlen (&pm1data->gwdata);
 	cost_data.c.threads = gwget_num_threads (&pm1data->gwdata);
 
@@ -7149,6 +7152,7 @@ void pm1_choose_B2 (
 // Cost out a B2 value
 	max_B2mult = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", numvals * 100);	//GW: Is this default always reasonable?  Too liberal?
 	cost_data.c.numvals = numvals;
+	cost_data.c.gwdata = &pm1data->gwdata;
 	cost_data.c.fftlen = gwfftlen (&pm1data->gwdata);
 	cost_data.c.threads = gwget_num_threads (&pm1data->gwdata);
 #define p1eval(x,B2mult)	x.i = B2mult; \
@@ -10606,6 +10610,7 @@ void pp1_choose_B2 (
 	cost_data.c.numvals = numvals;
 	cost_data.c.only_cost_max_numvals = FALSE;
 	cost_data.c.use_poly_D_data = FALSE;
+	cost_data.c.gwdata = &pp1data->gwdata;
 	cost_data.c.fftlen = gwfftlen (&pp1data->gwdata);
 	cost_data.c.threads = gwget_num_threads (&pp1data->gwdata);
 #define p1eval(x,B2mult)	x.i = B2mult; \
@@ -10765,6 +10770,7 @@ int pp1_stage2_impl (
 	cost_data.c.numvals = numvals;
 	cost_data.c.only_cost_max_numvals = FALSE;
 	cost_data.c.use_poly_D_data = FALSE;
+	cost_data.c.gwdata = &pp1data->gwdata;
 	cost_data.c.fftlen = gwfftlen (&pp1data->gwdata);
 	cost_data.c.threads = gwget_num_threads (&pp1data->gwdata);
 	best_stage2_impl (pp1data->first_relocatable, pp1data->last_relocatable, pp1data->C_done, pp1data->C, numvals - 4, &pp1_stage2_cost, &cost_data);
