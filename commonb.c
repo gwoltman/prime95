@@ -1189,9 +1189,7 @@ void set_default_memory_usage (
 	MEM_RESTART_FLAGS[thread_num] &= ~MEM_RESTART_IF_MORE;
 }
 
-/* Set flag that restarts worker if max mem changes. */
-/* Needed for Pfactor so that we can compute new bounds */
-/* should max mem change. */
+/* Set flag that restarts worker if max mem changes.  Needed for Pfactor so that we can compute new bounds should max mem change. */
 
 void set_restart_if_max_memory_change (
 	int	thread_num)
@@ -1199,9 +1197,7 @@ void set_restart_if_max_memory_change (
 	MEM_RESTART_FLAGS[thread_num] |= MEM_RESTART_MAX_MEM_CHANGE;
 }
 
-/* Set flag that restarts worker if max mem changes. */
-/* Needed for Pfactor so that we can compute new bounds */
-/* should max mem change. */
+/* Clear flag that restarts worker if max mem changes.  Needed for Pfactor so that we can compute new bounds should max mem change. */
 
 void clear_restart_if_max_memory_change (
 	int	thread_num)
