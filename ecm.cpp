@@ -5883,6 +5883,7 @@ replan:	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13);
 	gwfree (&ecmdata.gwdata, t1);
 
 /* Move nQx[0] to xz.x in case GCD code calls ecm_save.  Free lots of other stage 2 data. */
+/* Set mem usage so that other high memory workers can resume. */
 
 	mQ_term (&ecmdata);
 	normalize_pool_term (&ecmdata);
@@ -6543,10 +6544,12 @@ void pm1_save (
 
 	// Save stage 1's x value from either gwnum x or the compressed x_binary.
 	// For backward compatibility with version 4 and 5 save files, output a we-have-x flag.
-	int have_x = TRUE;
-	if (! write_int (fd, have_x, &sum)) goto writeerr;
-	if (pm1data->x_binary != NULL) { if (! write_giant (fd, pm1data->x_binary, &sum)) goto writeerr; }
-	else { if (! write_gwnum (fd, &pm1data->gwdata, pm1data->x, &sum)) goto writeerr; }
+	{
+		int have_x = TRUE;
+		if (! write_int (fd, have_x, &sum)) goto writeerr;
+		if (pm1data->x_binary != NULL) { if (! write_giant (fd, pm1data->x_binary, &sum)) goto writeerr; }
+		else { if (! write_gwnum (fd, &pm1data->gwdata, pm1data->x, &sum)) goto writeerr; }
+	}
 
 	// Save stage 1's 1/x value that allows us to do either a prime pairing or polymult stage 2.
 	if (pm1data->state >= PM1_STATE_MIDSTAGE && pm1data->state <= PM1_STATE_STAGE2) {
@@ -8224,7 +8227,8 @@ restart3b:
 /* Test if we will ever have enough memory to do stage 2 based on the maximum available memory. */
 /* Our minimum working set is prime pairing: one gwnum for gg, 4 for nQx, 3 for eQx. */
 
-	unsigned long min_memory = cvt_gwnums_to_mem (&pm1data.gwdata, 8);
+	unsigned long min_memory;
+	min_memory = cvt_gwnums_to_mem (&pm1data.gwdata, 8.5);
 	if (max_mem (thread_num) < min_memory) {
 		sprintf (buf, "Insufficient memory to ever run stage 2 -- %luMB needed.\n", min_memory);
 		OutputStr (thread_num, buf);
@@ -8260,14 +8264,18 @@ more_C:
 
 /* Cost several FFT sizes!  Polymult may require several EXTRA_BITS to safely accumulate products in FFT space. */
 
-replan:	int forced_stage2_type = IniGetInt (INI_FILE, "ForceP1Stage2Type", 99);		// 0 = pairing, 1 = poly, 99 = not forced (either)
-	unsigned long original_fftlen = gwfftlen (&pm1data.gwdata);
-	unsigned int memory = 0;
-	unsigned long best_fftlen = 0;
-	int	best_stage2_type;
-	double	best_cost;
-	int	best_fails = 0;
+replan:	unsigned long original_fftlen, best_fftlen;
+	unsigned int memory;
+	int	forced_stage2_type, best_stage2_type, best_fails;
+	double	best_cost, best_polycost;
 	char	msgbuf[2000];
+
+	forced_stage2_type = IniGetInt (INI_FILE, "ForceP1Stage2Type", 99);		// 0 = pairing, 1 = poly, 99 = not forced (either)
+	original_fftlen = gwfftlen (&pm1data.gwdata);
+	memory = 0;
+	best_fftlen = 0;
+	best_fails = 0;
+	best_polycost = 0.0;
 	msgbuf[0] = 0;
 //GW: Can we get here (old save files) with V set and one of x or invx not set?  If so, switching is an issue unless we convert V to binary.
 	for (bool found_best = FALSE; ; ) {
@@ -8334,6 +8342,11 @@ OutputStr (thread_num, buf); }
 				best_fftlen = gwfftlen (&pm1data.gwdata);
 				best_stage2_type = pm1data.stage2_type;
 				best_cost = cost;
+			}
+
+			// Remember the best polycost found thusfar
+			if (cost != 0.0 && pm1data.stage2_type == PM1_STAGE2_POLYMULT && (best_polycost == 0.0 || cost < best_polycost)) {
+				best_polycost = cost;
 				best_fails = 0;
 			}
 		}
@@ -8344,10 +8357,10 @@ OutputStr (thread_num, buf); }
 		// Small optimization: Skip costing larger FFT lengths if there are less than 60 numvals
 		if (best_fftlen && (double) memory * 1000000.0 / (double) gwnum_size (&pm1data.gwdata) < 60.0) found_best = TRUE;
 
-		// If we fail to get a new best twice in a row, then we've found our best
+		// If we fail to get a new best polycost twice in a row, then we've found our best poly plan
 //GW: Likely costing overkill -- do we need a faster gwsetup (no computing weights and sin/cos?)
-		if (best_fftlen && best_fftlen != gwfftlen (&pm1data.gwdata)) best_fails++;
-		if (best_fails == 2) found_best = TRUE;
+		if (best_polycost != 0.0) best_fails++;
+		if (best_fails == 3) found_best = TRUE;
 
 		// Switch to next larger or confirmed best FFT length
 		for ( ; ; ) {
@@ -9505,21 +9518,21 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);}
 
 	pm1data.C = pm1data.C_done = pm1data.B2_start + pm1data.Dsection * pm1data.D;
 
-/* Cleanup */
+/* Cleanup and free poly gwnums before GCD.  GCD can use significant amounts of memory. */
 
 	gwfree (&pm1data.gwdata, pm1data.r_squared), pm1data.r_squared = NULL;
 	gwfree (&pm1data.gwdata, pm1data.diff1), pm1data.diff1 = NULL;
 	polymult_done (&pm1data.polydata);
-
-// Free poly gwnums before GCD.  GCD can use significant amounts of memory.
-
 	gwfree_array (&pm1data.gwdata, poly1);
 	gwfree_array (&pm1data.gwdata, poly2);
-	gwfree_internal_memory (&pm1data.gwdata);
 
 /* Stage 2 is complete */
 
 stage2_done:
+	gwfree_internal_memory (&pm1data.gwdata);
+	gwfree_cached (&pm1data.gwdata);
+	mallocFreeForOS ();
+	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pm1data.gwdata, 1));	// Let other high memory workers resume
 	end_timer (timers, 1);
 	sprintf (buf, "%s stage 2 complete. %.0f transforms. Total time: ", gwmodulo_as_string (&pm1data.gwdata), gw_get_fft_count (&pm1data.gwdata));
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
@@ -12245,6 +12258,13 @@ replan:	{
 		pp1data.state = PP1_STATE_MIDSTAGE;
 		goto more_C;
 	}
+
+/* Set memory usage so other high memory workers can resume */
+
+	gwfree_internal_memory (&pp1data.gwdata);
+	gwfree_cached (&pp1data.gwdata);
+	mallocFreeForOS ();
+	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pp1data.gwdata, 1));	// Let other high memory workers resume
 
 /* Stage 2 is complete */
 
