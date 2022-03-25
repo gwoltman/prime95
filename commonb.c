@@ -1520,17 +1520,18 @@ int avail_mem (
 		return (STOP_NOT_ENOUGH_MEM);
 	}
 
-/* Check if we must wait for more memory to become available.  This happens when we reach the maximum allowable number of threads using a lot of memory. */
-
-	if (are_threads_using_lots_of_memory (thread_num)) {
-		OutputStr (thread_num, "Exceeded limit on number of workers that can use lots of memory.\n");
-		MEM_RESTART_FLAGS[thread_num] |= MEM_RESTART_TOO_MANY_HIGHMEM;
-		return (STOP_NOT_ENOUGH_MEM);
-	}
-
 /* Obtain lock before accessing memory global variables */
 
 	gwmutex_lock (&MEM_MUTEX);
+
+/* Check if we must wait for more memory to become available.  This happens when we reach the maximum allowable number of threads using a lot of memory. */
+
+	if (are_threads_using_lots_of_memory (thread_num)) {
+		MEM_RESTART_FLAGS[thread_num] |= MEM_RESTART_TOO_MANY_HIGHMEM;
+		gwmutex_unlock (&MEM_MUTEX);
+		OutputStr (thread_num, "Exceeded limit on number of workers that can use lots of memory.\n");
+		return (STOP_NOT_ENOUGH_MEM);
+	}
 
 /* Set flag saying this will be a variable usage thread.  Remember the */
 /* "good enough" value as it will be helpful in determining the best */
