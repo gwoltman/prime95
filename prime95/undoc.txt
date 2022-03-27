@@ -464,7 +464,7 @@ You can output some informational message on ECM/P-1/P+1 estimated pairing perce
 to compare with actual pairing percentages.  Add to prime.txt:
 	Stage2Estimates=1
 
-You can also output more detailed P-1 stage 2 information with this prime.txt:
+You can also output more detailed P-1 stage 2 information with this prime.txt entry:
 	PolyVerbose=1
 
 P-1 stage 2 can compress data to create bigger polynomials.  In prime.txt, set
@@ -696,11 +696,11 @@ a maximum amount of memory that one particular worker can use.
 
 You can set MaxHighMemWorkers=n in local.txt.  This tells the program how
 many workers are allowed to use lots of memory.  This occurs doing stage 2
-of P-1, P+1, or ECM on medium-to-large numbers.  Default is 1.
+of P-1, P+1, or ECM.  Default is 1.
 
 You can set a threshold for what is considered lots of memory in MaxHighMemWorkers
 calculations.  In local.txt, set:
-	HighMemThreshold=n		(default is 50)
+	HighMemThreshold=n		(default is 250)
 The value n is in MB.
 
 You can change the amount of information the program outputs while setting affinities.

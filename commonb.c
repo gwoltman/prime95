@@ -1240,30 +1240,28 @@ int avail_mem_not_sufficient (
 	return (STOP_NOT_ENOUGH_MEM);
 }
 
-/* Internal routine that returns TRUE if other threads are using lots of */
-/* the available memory.  We use this to delay ECM and P-1 stage 2 while other */
-/* stage 2's are running. */
+/* Internal routine that returns TRUE if other threads are using lots of available memory.  */
+/* We use this to delay ECM and P-1 stage 2 while other stage 2's are running. */
 
 int are_threads_using_lots_of_memory (
 	int	thread_num)
 {
 	int	max_high_mem, i;
+	unsigned int high_mem_threshold;
 
-/* Get the user configurable count of workers that are allowed to use */
-/* lots of memory.  If this equals the number of workers (default) then */
-/* there is no need to scan the workers */
+/* Get the user configurable count of workers that are allowed to use lots of memory. */
+/* If this equals the number of workers then there is no need to scan the workers. */
 
 	max_high_mem = MAX_HIGH_MEM_WORKERS;
 	if (max_high_mem >= (int) NUM_WORKER_THREADS) return (FALSE);
 
 /* If there are enough threads with variable memory usage, then return TRUE. */
-/* To guard against an ECM stage 2 that really isn't using a whole lot of */
-/* memory, also require the thread to be using 50MB. */
 
+	high_mem_threshold = IniGetInt (LOCALINI_FILE, "HighMemThreshold", 250);
 	for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
 		if (i != thread_num &&
-		    (MEM_FLAGS[i] & MEM_VARIABLE_USAGE || MEM_FLAGS[i] & MEM_WILL_BE_VARIABLE_USAGE) &&
-		    MEM_IN_USE[i] >= (unsigned int) IniGetInt (LOCALINI_FILE, "HighMemThreshold", 50)) {
+		    ((MEM_FLAGS[i] & MEM_WILL_BE_VARIABLE_USAGE) ||
+		     (MEM_FLAGS[i] & MEM_VARIABLE_USAGE && MEM_IN_USE[i] >= high_mem_threshold))) {
 			max_high_mem--;
 			if (max_high_mem == 0) return (TRUE);
 		}
@@ -1281,8 +1279,7 @@ int are_threads_using_lots_of_memory (
 
 int set_memory_usage (
 	int	thread_num,
-	int	flags,		/* Valid values are MEM_VARIABLE_USAGE */
-				/* and MEM_USAGE_NOT_SET */
+	int	flags,		/* Valid values are MEM_VARIABLE_USAGE and MEM_USAGE_NOT_SET */
 	unsigned long memory)	/* Memory in use (in MB) */
 {
 	int	i, best_thread, worst_thread, all_threads_set;
@@ -1332,9 +1329,9 @@ int set_memory_usage (
 
 /* If we have allocated more than the maximum allowable, then stop a thread to free up some memory.  We also make sure we are using */
 /* significantly more memory than we should be so that minor fluctuations in memory usage by the fixed threads do not cause needless restarts. */
-/* The 64MB threshold is arbitrary. */
+/* The 250MB threshold is arbitrary. */
 
-	if (mem_usage > AVAIL_MEM + 64) {
+	if (mem_usage > AVAIL_MEM + 250) {
 
 /* If the current thread is the worst thread (should only happen if there has */
 /* been a wild change in other thread's memory usage between the call to */
@@ -1407,12 +1404,12 @@ int set_memory_usage (
 
 /* If a worker is waiting for a reduction in the number of workers */
 /* using lots of memory, then check to see if it can run now. */
-/* The 32 is an arbitrary figure that makes sure a significant amount */
+/* The 100 is an arbitrary figure that makes sure a significant amount */
 /* of new memory is available before restarting worker threads. */
 /* Be careful subtracting from AVAIL_MEM.  Since it is an unsigned long */
 /* if it goes negative it will become a large positive value instead */	
 
-	if (all_threads_set && AVAIL_MEM > mem_usage + 32 ) {
+	if (all_threads_set && AVAIL_MEM > mem_usage + 100) {
 		for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
 			if (! (MEM_RESTART_FLAGS[i] & MEM_RESTART_TOO_MANY_HIGHMEM)) continue;
 			if (are_threads_using_lots_of_memory (i)) continue;
@@ -1425,7 +1422,7 @@ int set_memory_usage (
 /* then if we have enough free memory restart a work unit that could use */
 /* more memory. */
 
-	if (all_threads_set && AVAIL_MEM > mem_usage + 32) {
+	if (all_threads_set && AVAIL_MEM > mem_usage + 100) {
 		best_thread = -1;
 		for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
 			if (MEM_RESTART_FLAGS[i] & MEM_RESTART_IF_MORE &&
@@ -1442,7 +1439,7 @@ int set_memory_usage (
 /* then if we have enough free memory restart a thread that couldn't */
 /* run a work unit due to lack of available memory. */
 
-	if (all_threads_set && AVAIL_MEM > mem_usage + 32) {
+	if (all_threads_set && AVAIL_MEM > mem_usage + 100) {
 		best_thread = -1;
 		for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
 			if (MEM_RESTART_FLAGS[i] & MEM_RESTART_MORE_AVAIL &&
@@ -1493,8 +1490,6 @@ unsigned long max_mem (
 
 /* Return memory (in MB) now available for a variable usage thread. */
 /* This routine takes into account the memory used by other worker threads. */
-/* NOTE: caller is expected to have called are_threads_using_lots_of_memory */
-/* to make sure too many workers don't become high memory users. */
 
 int avail_mem (
 	int	thread_num,
