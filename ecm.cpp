@@ -550,6 +550,9 @@ struct D_data poly_D_data[] = {
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17  *13, 4 * 6 * 10 * 12 * 16*13, 19, 23 },	// 6636630, 599040
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17  *15, 4 * 6 * 10 * 12 * 16*15, 19, 23 },	// 7657650, 691200
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17  *17, 4 * 6 * 10 * 12 * 16*17, 19, 23 },	// 8678670, 783360
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17  *25, 4 * 6 * 10 * 12 * 16*25, 19, 23 },	// 12762750, 1152000
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17  *35, 4 * 6 * 10 * 12 * 16*35, 19, 23 },	// 17867850, 1612800
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17  *45, 4 * 6 * 10 * 12 * 16*45, 19, 23 },	// 22972950, 2073600
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19     , 4 * 6 * 10 * 12 * 16 * 18   , 23, 29 }, // 9699690, 829440
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19   *3, 4 * 6 * 10 * 12 * 16 * 18 *3, 23, 29 }, // 29099070, 2488320
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19   *5, 4 * 6 * 10 * 12 * 16 * 18 *5, 23, 29 }, // 48498450, 4147200
@@ -640,6 +643,9 @@ struct D_data poly_D_data[] = {
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17  *15, 4 * 6 * 10 * 12 * 16*15, 19, 23 },	// 7657650, 691200
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17  *17, 4 * 6 * 10 * 12 * 16*17, 19, 23 },	// 8678670, 783360
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19     , 4 * 6 * 10 * 12 * 16 * 18   , 23, 29 }, // 9699690, 829440
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17  *25, 4 * 6 * 10 * 12 * 16*25, 19, 23 },	// 12762750, 1152000
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17  *35, 4 * 6 * 10 * 12 * 16*35, 19, 23 },	// 17867850, 1612800
+	{ 2 * 3 * 5 * 7 * 11 * 13 * 17  *45, 4 * 6 * 10 * 12 * 16*45, 19, 23 },	// 22972950, 2073600
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19   *3, 4 * 6 * 10 * 12 * 16 * 18 *3, 23, 29 }, // 29099070, 2488320
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19   *5, 4 * 6 * 10 * 12 * 16 * 18 *5, 23, 29 }, // 48498450, 4147200
 	{ 2 * 3 * 5 * 7 * 11 * 13 * 17 * 19   *7, 4 * 6 * 10 * 12 * 16 * 18 *7, 23, 29 }, // 67897830, 5806080
@@ -6968,6 +6974,7 @@ double pm1_stage2_cost (
 
 		int poly1_size = cost_data->c.numrels;
 		int poly1_compressed_size = (int) floor ((double) poly1_size * cost_data->poly1_compression + 0.5);
+//adjust for polymult memory allocation
 		int poly2_size = (cost_data->c.totrels) - poly1_compressed_size;
 		if (cost_data->c.gwdata != NULL) poly2_size = max_safe_poly2_size (cost_data->c.gwdata, poly1_size*2, poly2_size);
 		int num_points = poly2_size - (2*poly1_size+1) + 1;
@@ -8267,7 +8274,7 @@ more_C:
 replan:	unsigned long original_fftlen, best_fftlen;
 	unsigned int memory;
 	int	forced_stage2_type, best_stage2_type, best_fails;
-	double	best_cost, best_polycost;
+	double	best_efficiency, best_poly_efficiency;
 	char	msgbuf[2000];
 
 	forced_stage2_type = IniGetInt (INI_FILE, "ForceP1Stage2Type", 99);		// 0 = pairing, 1 = poly, 99 = not forced (either)
@@ -8275,7 +8282,7 @@ replan:	unsigned long original_fftlen, best_fftlen;
 	memory = 0;
 	best_fftlen = 0;
 	best_fails = 0;
-	best_polycost = 0.0;
+	best_poly_efficiency = 0.0;
 	msgbuf[0] = 0;
 //GW: Can we get here (old save files) with V set and one of x or invx not set?  If so, switching is an issue unless we convert V to binary.
 	for (bool found_best = FALSE; ; ) {
@@ -8283,7 +8290,7 @@ replan:	unsigned long original_fftlen, best_fftlen;
 /* When recovering from a roundoff error, only cost FFT lengths larger than the FFT length that generated the roundoff error. */
 
 		if (gwfftlen (&pm1data.gwdata) > maxerr_fftlen) {
-			double cost;
+			double cost, efficiency;
 
 /* Calculate the amount of memory we can use in stage 2.  We must have 1MB for a pairing map + a minimum of 8.5 temporaries (D = 30). */
 /* If not continuing from a stage 2 save file then assume 144 temporaries (D = 210, multiplier = 5) and a few MB for a pairing map will */
@@ -8324,29 +8331,29 @@ replan:	unsigned long original_fftlen, best_fftlen;
 			if (pm1data.pairmap != NULL) break;
 
 /* Adjust the cost for the different B2 endpoints of each stage 2 plan.  In other words search for the most efficient stage 2 plan. */
-/* Multiply cost by hundred million solely for pretty output in case PolyVerbose is set. */
+/* Multiply efficiency by hundred million solely for pretty output in case PolyVerbose is set. */
 
-			cost = cost / (double) (pm1data.B2_start + pm1data.numDsections * pm1data.D - pm1data.B) * 1.0e8;
+			efficiency = cost / (double) (pm1data.B2_start + pm1data.numDsections * pm1data.D - pm1data.B) * 1.0e8;
 if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
-if (cost == 0.0) sprintf (buf, "FFT: %d no stage 2 plans work\n", (int) gwfftlen (&pm1data.gwdata));
-else sprintf (buf, "FFT: %d, B2: %" PRIu64 "/%" PRIu64 ", numvals: %d/%d, poly: %dx%d, cost: %9.0f\n", (int) gwfftlen (&pm1data.gwdata), pm1data.C,
+if (cost == 0.0) sprintf (buf, "FFT: %d no stage 2 plan works\n", (int) gwfftlen (&pm1data.gwdata));
+else sprintf (buf, "FFT: %d, B2: %" PRIu64 "/%" PRIu64 ", numvals: %d/%d, poly: %dx%d, efficiency: %9.0f\n", (int) gwfftlen (&pm1data.gwdata), pm1data.C,
 		pm1data.B2_start + pm1data.numDsections * pm1data.D,
-		pm1data.stage2_numvals, cvt_mem_to_gwnums_adj (&pm1data.gwdata, memory, -0.5), pm1data.poly1_size, pm1data.poly2_size, cost);
+		pm1data.stage2_numvals, cvt_mem_to_gwnums_adj (&pm1data.gwdata, memory, -0.5), pm1data.poly1_size, pm1data.poly2_size, efficiency);
 OutputStr (thread_num, buf); }
 
 			// If we've found our best stage 2 implementation, break
 			if (found_best) break;
 
-			// Remember the best cost found thusfar
-			if (cost != 0.0 && (best_fftlen == 0 || cost < best_cost)) {
+			// Remember the best efficiency found thusfar
+			if (efficiency != 0.0 && (best_fftlen == 0 || efficiency < best_efficiency)) {
 				best_fftlen = gwfftlen (&pm1data.gwdata);
 				best_stage2_type = pm1data.stage2_type;
-				best_cost = cost;
+				best_efficiency = efficiency;
 			}
 
-			// Remember the best polycost found thusfar
-			if (cost != 0.0 && pm1data.stage2_type == PM1_STAGE2_POLYMULT && (best_polycost == 0.0 || cost < best_polycost)) {
-				best_polycost = cost;
+			// Remember the most efficient poly found thusfar
+			if (efficiency != 0.0 && pm1data.stage2_type == PM1_STAGE2_POLYMULT && (best_poly_efficiency == 0.0 || efficiency < best_poly_efficiency)) {
+				best_poly_efficiency = efficiency;
 				best_fails = 0;
 			}
 		}
@@ -8357,9 +8364,9 @@ OutputStr (thread_num, buf); }
 		// Small optimization: Skip costing larger FFT lengths if there are less than 60 numvals
 		if (best_fftlen && (double) memory * 1000000.0 / (double) gwnum_size (&pm1data.gwdata) < 60.0) found_best = TRUE;
 
-		// If we fail to get a new best polycost twice in a row, then we've found our best poly plan
+		// If we fail to get a new best efficient poly twice in a row, then we've found our best poly plan
 //GW: Likely costing overkill -- do we need a faster gwsetup (no computing weights and sin/cos?)
-		if (best_polycost != 0.0) best_fails++;
+		if (best_poly_efficiency != 0.0) best_fails++;
 		if (best_fails == 3) found_best = TRUE;
 
 		// Switch to next larger or confirmed best FFT length
