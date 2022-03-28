@@ -6849,7 +6849,7 @@ err:
 	return (FALSE);
 }
 
-/* Figure out the maximum safe poly2 size */
+/* Figure out the maximum safe poly2 size, where "safe" means "safe from gwnum roundoff errors" */
 
 int max_safe_poly2_size (
 	gwhandle *gwdata,
@@ -6970,13 +6970,39 @@ double pm1_stage2_cost (
 		struct pm1_stage2_cost_data poly_cost = *cost_data;
 		cost_data->c.est_pairing_runtime = 0.0;
 
-/* Compute the stage 2 init costs based on poly sizes */
+/* Stage 2 init costs are based on poly sizes.  Determine the maximum safe poly2 size that fits in memory. */
 
-		int poly1_size = cost_data->c.numrels;
-		int poly1_compressed_size = (int) floor ((double) poly1_size * cost_data->poly1_compression + 0.5);
-//adjust for polymult memory allocation
-		int poly2_size = (cost_data->c.totrels) - poly1_compressed_size;
-		if (cost_data->c.gwdata != NULL) poly2_size = max_safe_poly2_size (cost_data->c.gwdata, poly1_size*2, poly2_size);
+		int	poly1_size, poly2_size, min_poly2_size, max_poly2_size;
+		double	mem_used_by_a_gwnum, mem_saved_by_compression, mem_used_by_polymult;
+
+		poly1_size = cost_data->c.numrels;
+		if (cost_data->c.gwdata != NULL) {
+			mem_used_by_a_gwnum = (double) array_gwnum_size (cost_data->c.gwdata);
+			max_poly2_size = max_safe_poly2_size (cost_data->c.gwdata, poly1_size*2, cost_data->c.totrels);
+		} else {
+			mem_used_by_a_gwnum = (double) cost_data->c.fftlen * sizeof (double) * 1.016;
+			max_poly2_size = cost_data->c.totrels;
+		}
+		mem_saved_by_compression = (double) poly1_size * mem_used_by_a_gwnum * (1.0 - cost_data->poly1_compression);
+
+		// Binary search for largest poly2_size that does not use too much memory
+		min_poly2_size = 2*poly1_size;
+		while (max_poly2_size - min_poly2_size >= 2) {
+			int midpoint = (min_poly2_size + max_poly2_size) / 2;
+			mem_used_by_polymult = (double) polymult_mem_required (poly1_size, midpoint, POLYMULT_INVEC1_MONIC_RLP | POLYMULT_CIRCULAR,
+									       cost_data->c.gwdata != NULL ? cost_data->c.gwdata->cpu_flags : CPU_FLAGS,
+									       cost_data->c.threads);
+			if (poly1_size + midpoint + floor ((mem_used_by_polymult - mem_saved_by_compression) / mem_used_by_a_gwnum + 0.5) <= cost_data->c.totrels)
+				min_poly2_size = midpoint;		// Acceptable poly2 size
+			else
+				max_poly2_size = midpoint;		// Unacceptable poly2 size
+		}
+		poly2_size = min_poly2_size;
+		mem_used_by_polymult = (double) polymult_mem_required (poly1_size, poly2_size, POLYMULT_INVEC1_MONIC_RLP | POLYMULT_CIRCULAR,
+								       cost_data->c.gwdata != NULL ? cost_data->c.gwdata->cpu_flags : CPU_FLAGS,
+								       cost_data->c.threads);
+
+		// Calc num poly1 points evaluated by each poly2
 		int num_points = poly2_size - (2*poly1_size+1) + 1;
 		if (num_points < 1) return (1.0e99);
 
@@ -7083,7 +7109,7 @@ double pm1_stage2_cost (
 
 /* Stage 2 memory is poly sizes plus 3 gwnums for diff1,r^2,gg.  Return the poly2_size. */
 
-		cost_data->c.stage2_numvals = poly1_compressed_size + poly2_size + 3;
+		cost_data->c.stage2_numvals = poly1_size + poly2_size + (int) floor ((mem_used_by_polymult - mem_saved_by_compression) / mem_used_by_a_gwnum + 0.5) + 3;
 		cost_data->poly2_size = poly2_size;
 	}
 
@@ -7124,7 +7150,7 @@ double pm1_stage2_impl_given_numvals (
 /* Compute the expected compression of poly1 using polymult_preprocess.  Default compression is usually 1.6%.  Some FFT sizes may have more padding */
 /* and thus more compression.  If poly compression option is set we'll get another 12.5%. */
 
-	cost_data.poly1_compression = (double) gwfftlen (&pm1data->gwdata) * (double) sizeof (double) / (double) gwnum_size (&pm1data->gwdata);
+	cost_data.poly1_compression = (double) gwfftlen (&pm1data->gwdata) * (double) sizeof (double) / (double) array_gwnum_size (&pm1data->gwdata);
 	if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 2) cost_data.poly1_compression *= 0.875;
 	if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 0) cost_data.poly1_compression = 1.0;
 
@@ -7272,7 +7298,7 @@ double pm1_stage2_impl (
 
 /* Compute the number of gwnum temporaries we can allocate.  Assume the binary values of x and 1/x needed for save file creation consume about a half a gwnum. */
 
-	numvals = cvt_mem_to_gwnums_adj (&pm1data->gwdata, memory, -0.5);
+	numvals = cvt_mem_to_array_gwnums_adj (&pm1data->gwdata, memory, -0.5);
 	if (numvals < 8) numvals = 8;
 	if (QA_TYPE) numvals = QA_TYPE;			/* Optionally override numvals for QA purposes */
 
@@ -8362,7 +8388,7 @@ OutputStr (thread_num, buf); }
 		if (best_fftlen && forced_stage2_type == 0) found_best = TRUE;
 
 		// Small optimization: Skip costing larger FFT lengths if there are less than 60 numvals
-		if (best_fftlen && (double) memory * 1000000.0 / (double) gwnum_size (&pm1data.gwdata) < 60.0) found_best = TRUE;
+		if (best_fftlen && (double) memory * 1000000.0 / (double) array_gwnum_size (&pm1data.gwdata) < 60.0) found_best = TRUE;
 
 		// If we fail to get a new best efficient poly twice in a row, then we've found our best poly plan
 //GW: Likely costing overkill -- do we need a faster gwsetup (no computing weights and sin/cos?)
@@ -8448,7 +8474,7 @@ OutputStr (thread_num, buf); }
 
 /* Record the amount of memory this thread will be using in stage 2 */
 
-	memused = cvt_gwnums_to_mem (&pm1data.gwdata, pm1data.stage2_numvals);
+	memused = cvt_array_gwnums_to_mem (&pm1data.gwdata, pm1data.stage2_numvals);
 	memused += 2 * (int) pm1data.gwdata.bit_length >> 23;
 	memused += (int) (pm1data.pairmap_size >> 20);
 	// To dodge possible infinite loop if pm1_stage2_impl allocates too much memory (it shouldn't), decrease the percentage of memory we are allowed to use
