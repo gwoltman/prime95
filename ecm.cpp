@@ -8410,6 +8410,7 @@ OutputStr (thread_num, buf); }
 			pm1data.V = NULL;
 			// Re-init gwnum with a larger FFT
 			gwinit (&pm1data.gwdata);
+			if (next_fftlen != best_fftlen) gwset_information_only (&pm1data.gwdata);
 			gwset_sum_inputs_checking (&pm1data.gwdata, SUM_INPUTS_ERRCHK);
 			if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pm1data.gwdata);
 			if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pm1data.gwdata);
