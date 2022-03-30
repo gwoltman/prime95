@@ -2231,8 +2231,7 @@ void checkPauseWhileRunning (void)
 
 	checkPauseListCallback ();
 
-/* Examine pause info entries to see if a period of forced low memory usage */
-/* should be in effect. */
+/* Examine pause info entries to see if a period of forced low memory usage should be in effect. */
 
 	lowmem = NULL;
 	for (p = PAUSE_DATA; p != NULL; p = p->next) {
@@ -2243,10 +2242,14 @@ void checkPauseWhileRunning (void)
 	STOP_FOR_LOW_MEMORY = lowmem;
 	if (p == NULL && STOP_FOR_LOW_MEMORY != NULL) {
 		char	buf[150];
-		sprintf (buf, "Entering a period of low memory usage because %s is running.\n",
-			 lowmem->matching_program);
+		sprintf (buf, "Entering a period of low memory usage because %s is running.\n", lowmem->matching_program);
 		OutputStr (MAIN_THREAD_NUM, buf);
 		stop_high_memory_workers ();
+	}
+	if (p != NULL && STOP_FOR_LOW_MEMORY != NULL && p != STOP_FOR_LOW_MEMORY) {
+		char	buf[150];
+		sprintf (buf, "Now using little memory because %s is running.\n", lowmem->matching_program);
+		OutputStr (MAIN_THREAD_NUM, buf);
 	}
 	if (p != NULL && STOP_FOR_LOW_MEMORY == NULL) {
 		restart_high_memory_workers ();
