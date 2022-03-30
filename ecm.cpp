@@ -3885,7 +3885,7 @@ double ecm_stage2_impl_given_numvals (
 	if (cost_data.gcd_cost < 100.0) cost_data.gcd_cost = 100.0;
 	cost_data.modinv_cost = 570.16 * log (ecmdata->gwdata.bit_length) - 6188.4;
 	if (cost_data.modinv_cost < 1.25 * cost_data.gcd_cost) cost_data.modinv_cost = 1.25 * cost_data.gcd_cost;
-	if (gwget_num_threads (&ecmdata->gwdata)) cost_data.gcd_cost *= 2.0, cost_data.modinv_cost *= 2.0;
+	if (gwget_num_threads (&ecmdata->gwdata) > 1) cost_data.gcd_cost *= 2.0, cost_data.modinv_cost *= 2.0;
 
 /* Find the least costly stage 2 plan looking at the four combinations of 2 vs. 4 FFT and pool type N^2 vs. 3-MULT vs. 3.44-MULT vs. 3.57-MULT. */
 
@@ -3962,7 +3962,8 @@ void ecm_choose_B2 (
 
 	while (best[0].efficiency > best[1].efficiency) {
 		best[2] = best[1];
-		kruppa (best[1], (best[0].i + best[2].i) / 2);
+		best[1] = best[0];
+		kruppa (best[0], best[0].i / 2);
 	}
 
 /* Handle case where midpoint has worse efficiency than the end point */
@@ -4464,6 +4465,7 @@ int ecm (
 	}
 	if (ecmdata.C == 0) ecmdata.C = ecmdata.B * 100;
 	if (ecmdata.C <= ecmdata.B) ecmdata.C = ecmdata.B;
+	if (IniGetInt (INI_FILE, "GmpEcmHook", 0)) ecmdata.C = ecmdata.B;
 	ecmdata.pct_mem_to_use = 1.0;				// Use as much memory as we can unless we get allocation errors
 
 /* Decide if we will calculate an optimal B2 when stage 2 begins */
@@ -4472,7 +4474,7 @@ int ecm (
 
 /* Little known option to use higher bounds than assigned by PrimeNet */
 
-	if (!QA_IN_PROGRESS) {
+	if (!QA_IN_PROGRESS && !IniGetInt (INI_FILE, "GmpEcmHook", 0)) {
 		int	mult = IniGetInt (INI_FILE, "ECMBoundsMultiplier", 1);
 		if (mult < 1) mult = 1;
 		if (mult > 20) mult = 20;
