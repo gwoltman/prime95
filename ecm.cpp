@@ -7208,7 +7208,7 @@ void pm1_choose_B2 (
 	double	takeAwayBits;			/* Bits we get for free in smoothness of P-1 factor */
 
 // Cost out a B2 value
-	max_B2mult = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", numvals * 100);	//GW: Is this default always reasonable?  Too liberal?
+	max_B2mult = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", numvals < 100000 ? numvals * 100 : 10000000);
 	cost_data.c.numvals = numvals;
 	cost_data.c.gwdata = &pm1data->gwdata;
 	cost_data.c.fftlen = gwfftlen (&pm1data->gwdata);
