@@ -7614,7 +7614,7 @@ int pminus1 (
 	int	exp_initialized;
 	uint64_t stage0_limit;
 	unsigned int memused;
-	int	i, stage1_batch_size, stage1_temps;
+	int	i, stage1_batch_size, stage1_mem, stage1_temps;
 	unsigned long len;
 	int	maxerr_restart_count = 0;
 	unsigned long maxerr_fftlen = 0;
@@ -8041,21 +8041,12 @@ restart1:
 
 	stage1_batch_size = (int) ((double) IniGetInt (INI_FILE, "Stage1BatchSize", 150000) / ((double) pm1data.gwdata.FFTLEN / 4096.0));
 
-/* Most likely we are working on small exponents where 100MB of memory gives us all the temporaries we could possibly want.  If so, skip the variable */
-/* mem usage routines. */
+/* Most likely we are working on small exponents where 100MB of memory gives us all the temporaries we could possibly want. */
 
-	if (cvt_gwnums_to_mem (&pm1data.gwdata, 513) <= 100) {
-		stage1_temps = cvt_mem_to_gwnums (&pm1data.gwdata, 100);
-	} else {
-		unsigned int memory;
-		stop_reason = avail_mem (thread_num, cvt_gwnums_to_mem (&pm1data.gwdata, 8), cvt_gwnums_to_mem (&pm1data.gwdata, 150), &memory);
-		if (stop_reason) { pm1_save (&pm1data); goto exit;}
-		stage1_temps = cvt_mem_to_gwnums (&pm1data.gwdata, memory);
-	}
-	stage1_temps = IniGetInt (INI_FILE, "Stage1Temps", stage1_temps);
-
-	// We probably won't use more than 500 temps
-	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pm1data.gwdata, _intmin (stage1_temps, 500)));
+	stage1_mem = IniGetInt (INI_FILE, "Stage1Memory", 100);		// Get amount of memory in MB we are allowed to allocate in stage 1
+	stage1_temps = cvt_mem_to_gwnums (&pm1data.gwdata, stage1_mem);
+	if (stage1_temps > IniGetInt (INI_FILE, "Stage1MaxTemps", 512)) stage1_temps = IniGetInt (INI_FILE, "Stage1MaxTemps", 512);
+	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pm1data.gwdata, stage1_temps));
 
 	// Loop processing small batches of primes
 	for (pm1data.stage1_prime = sieve (pm1data.sieve_info); pm1data.stage1_prime < pm1data.interim_B; ) {
