@@ -10658,7 +10658,6 @@ void gw_random_number (
 static	int	genrand_initialized = FALSE;
 static	struct mt_state rand_info;
 	stackgiant(g,4);
-	int	bitlen;
 
 /* Init the random generator to a reproducible state for gwsquare_carefully. */
 /* For other users of this routine, initialize to a more random state. */
@@ -10684,7 +10683,7 @@ static	struct mt_state rand_info;
 	}
 	gianttogw (gwdata, g, x);
 	// Square until number exceeds MODULUS. Do 4 extra squarings "for good measure".
-	for (bitlen = 128 >> 4; bitlen < gwdata->bit_length; bitlen <<= 1) {
+	for (unsigned int bitlen = 128 >> 4; bitlen < (unsigned int) gwdata->bit_length; bitlen <<= 1) {
 		int	saved_normnum = gwdata->NORMNUM;
 		int	saved_careful_count = gwdata->careful_count;
 		gwdata->NORMNUM &= ~1;				// Turn off error checking
