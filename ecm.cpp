@@ -7147,7 +7147,7 @@ double pm1_stage2_impl_given_numvals (
 	cost_data.c.numvals = numvals;
 	cost_data.c.gwdata = &pm1data->gwdata;
 	cost_data.c.fftlen = gwfftlen (&pm1data->gwdata);
-	cost_data.c.threads = gwget_num_threads (&pm1data->gwdata);
+	cost_data.c.threads = get_worker_num_threads (pm1data->thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
 
 /* Compute the expected compression of poly1 using polymult_preprocess.  Default compression is usually 1.6%.  Some FFT sizes may have more padding */
 /* and thus more compression.  If poly compression option is set we'll get another 12.5%. */
@@ -7212,7 +7212,7 @@ void pm1_choose_B2 (
 	cost_data.c.numvals = numvals;
 	cost_data.c.gwdata = &pm1data->gwdata;
 	cost_data.c.fftlen = gwfftlen (&pm1data->gwdata);
-	cost_data.c.threads = gwget_num_threads (&pm1data->gwdata);
+	cost_data.c.threads = get_worker_num_threads (pm1data->thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
 #define p1eval(x,B2mult)	x.i = B2mult; \
 				if (x.i > max_B2mult) x.i = max_B2mult; \
 				pm1data->C = x.i * pm1data->B; \
@@ -8343,19 +8343,21 @@ replan:	unsigned long original_fftlen, best_fftlen;
 			}
 
 /* Choose the best plan implementation given the current FFT length and available memory.  We can skip costing prime pairing for larger FFT lengths. */
+/* The returned cost is independent of FFT length.  Adjust cost upwards for larger FFT lengths. */
 
 			cost = pm1_stage2_impl (&pm1data, memory, found_best ? best_stage2_type : best_fftlen ? 1 : forced_stage2_type, msgbuf + strlen (msgbuf));
+			cost *= (double) gwfftlen (&pm1data.gwdata) / (double) original_fftlen;
 
 			// If using pairmap from a save file, don't cost any other options
 			if (pm1data.pairmap != NULL) break;
 
 /* Adjust the cost for the different B2 endpoints of each stage 2 plan.  In other words search for the most efficient stage 2 plan. */
-/* Multiply efficiency by hundred million solely for pretty output in case PolyVerbose is set. */
+/* Multiply efficiency by a billion solely for pretty output in case PolyVerbose is set. */
 
-			efficiency = cost / (double) (pm1data.B2_start + pm1data.numDsections * pm1data.D - pm1data.B) * 1.0e8;
+			efficiency = cost / (double) (pm1data.B2_start + pm1data.numDsections * pm1data.D - pm1data.B) * 1.0e9;
 if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
 if (cost == 0.0) sprintf (buf, "FFT: %d no stage 2 plan works\n", (int) gwfftlen (&pm1data.gwdata));
-else sprintf (buf, "FFT: %d, B2: %" PRIu64 "/%" PRIu64 ", numvals: %d/%d, poly: %dx%d, efficiency: %9.0f\n", (int) gwfftlen (&pm1data.gwdata), pm1data.C,
+else sprintf (buf, "FFT: %d, B2: %" PRIu64 "/%" PRIu64 ", numvals: %d/%d, poly: %dx%d, efficiency: %.0f\n", (int) gwfftlen (&pm1data.gwdata), pm1data.C,
 		pm1data.B2_start + pm1data.numDsections * pm1data.D,
 		pm1data.stage2_numvals, cvt_mem_to_gwnums_adj (&pm1data.gwdata, memory, -0.5), pm1data.poly1_size, pm1data.poly2_size, efficiency);
 OutputStr (thread_num, buf); }
@@ -10138,7 +10140,7 @@ void guess_pminus1_bounds (
 /* Since GCDs are single-threaded we increase the GCD cost for multi-threaded P-1 runs. */
 
 	g.fftlen = gwmap_to_fftlen (k, b, n, c);
-	g.threads = CORES_PER_TEST[thread_num];
+	g.threads = CORES_PER_TEST[thread_num] + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
 	g.gcd_cost = 160.265 * log ((double) n) - 1651.0;
 	if (g.gcd_cost < 50.0) g.gcd_cost = 50.0;
 	g.modinv_cost = 285.08 * log ((double) n) - 3094.2;
