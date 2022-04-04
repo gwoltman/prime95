@@ -6974,7 +6974,7 @@ double pm1_stage2_cost (
 
 /* Stage 2 init costs are based on poly sizes.  Determine the maximum safe poly2 size that fits in memory. */
 
-		int	poly1_size, poly2_size, min_poly2_size, max_poly2_size;
+		int	poly1_size, poly2_size, min_poly2_size, max_poly2_size, cpu_flags;
 		double	mem_used_by_a_gwnum, mem_saved_by_compression, mem_used_by_polymult;
 
 		poly1_size = cost_data->c.numrels;
@@ -6989,11 +6989,11 @@ double pm1_stage2_cost (
 
 		// Binary search for largest poly2_size that does not use too much memory
 		min_poly2_size = 2*poly1_size;
+		cpu_flags = (cost_data->c.gwdata != NULL ? cost_data->c.gwdata->cpu_flags : CPU_FLAGS);
 		while (max_poly2_size - min_poly2_size >= 2) {
 			int midpoint = (min_poly2_size + max_poly2_size) / 2;
 			mem_used_by_polymult = (double) polymult_mem_required (poly1_size, midpoint, POLYMULT_INVEC1_MONIC_RLP | POLYMULT_CIRCULAR,
-									       cost_data->c.gwdata != NULL ? cost_data->c.gwdata->cpu_flags : CPU_FLAGS,
-									       cost_data->c.threads);
+									       cpu_flags, cost_data->c.threads);
 			if (poly1_size + midpoint + floor ((mem_used_by_polymult - mem_saved_by_compression) / mem_used_by_a_gwnum + 0.5) <= cost_data->c.totrels)
 				min_poly2_size = midpoint;		// Acceptable poly2 size
 			else
@@ -7001,8 +7001,7 @@ double pm1_stage2_cost (
 		}
 		poly2_size = min_poly2_size;
 		mem_used_by_polymult = (double) polymult_mem_required (poly1_size, poly2_size, POLYMULT_INVEC1_MONIC_RLP | POLYMULT_CIRCULAR,
-								       cost_data->c.gwdata != NULL ? cost_data->c.gwdata->cpu_flags : CPU_FLAGS,
-								       cost_data->c.threads);
+								       cpu_flags, cost_data->c.threads);
 
 		// Calc num poly1 points evaluated by each poly2
 		int num_points = poly2_size - (2*poly1_size+1) + 1;
@@ -7048,11 +7047,10 @@ double pm1_stage2_cost (
 		polymult_cost = 2.145 + 0.58 * log2 ((double) poly2_size / 105.0);
 
 		// Roughly double the poly cost when we exceed the L2 cache.
-		double polyfft_mem = (double) poly2_size * 2.0 * 2.0 * ((CPU_FLAGS & CPU_AVX512F) ? 64.0 : 32.0);
-		double L2_cache_size;		// Size of the L2 cache
-		L2_cache_size = (CPU_NUM_L2_CACHES >= 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 0) * 1024;
-		if (polyfft_mem >= 8 * L2_cache_size) polymult_cost *= 2.05;
-		else if (polyfft_mem > L2_cache_size) polymult_cost *= 1.0 + 1.05 * (polyfft_mem - L2_cache_size) / (7 * L2_cache_size);
+		double L2_cache_size = (CPU_NUM_L2_CACHES >= 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 0) * 1024.0;
+		double polymult_mem_per_thread = mem_used_by_polymult / cost_data->c.threads;
+		if (polymult_mem_per_thread >= 8 * L2_cache_size) polymult_cost *= 2.05;
+		else if (polymult_mem_per_thread > L2_cache_size) polymult_cost *= 1.0 + 1.05 * (polymult_mem_per_thread - L2_cache_size) / (7 * L2_cache_size);
 		polymult_cost *= IniGetFloat (INI_FILE, "Pm1PolymultCostAdjust", 1.0);
 
 /* For the relative primes below D there are 2 luc_add calls for each increment of 6 in the nQx setup loop (plus 2 luc_dbls/luc_adds for setup). */
