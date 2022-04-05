@@ -1157,7 +1157,7 @@ struct gwhandle_struct {
 /* data-4:  integer containing number of unnormalized adds that have been */
 /*	    done.  After a certain number of unnormalized adds, the next add */
 /*	    must be normalized to avoid overflow errors during a multiply. */
-/* data-8:  Four unused bytes
+/* data-8:  Four unused bytes. */
 /* data-16: double containing the product of the two sums of the input FFT values. */
 /* data-24: double containing the sum of the output FFT values.  These two */
 /*	    values can be used as a sanity check when multiplying numbers. */
