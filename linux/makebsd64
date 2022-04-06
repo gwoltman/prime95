@@ -1,4 +1,4 @@
-# Makefile for FreeBSD 11.0 64-bit mprime
+# Makefile for FreeBSD 12.0 64-bit mprime
 #
 # Install the curl package.  This is installed to $(LOCALBASE) by default.
 #
@@ -33,13 +33,13 @@ clean:
 	rm -f $(EXE) $(EXE2) $(OBJS)
 
 cJSON.o:
-	$(CC) $(CCFLAGS) -c ../cJSON.c
+	$(CC) $(CFLAGS) -c ../cJSON.c
 
 ecm.o:
 	$(CXX) $(CXXFLAGS) -c ../ecm.cpp
 
 exponentiate.o:
-	$(CC) $(CCFLAGS) -c ../exponentiate.c
+	$(CC) $(CFLAGS) -c ../exponentiate.c
 
 pair.o:
 	$(CXX) $(CXXFLAGS) -c ../pair.cpp

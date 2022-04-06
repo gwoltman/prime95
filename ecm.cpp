@@ -8357,7 +8357,7 @@ if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
 if (cost == 0.0) sprintf (buf, "FFT: %d no stage 2 plan works\n", (int) gwfftlen (&pm1data.gwdata));
 else sprintf (buf, "FFT: %d, B2: %" PRIu64 "/%" PRIu64 ", numvals: %d/%d, poly: %dx%d, efficiency: %.0f\n", (int) gwfftlen (&pm1data.gwdata), pm1data.C,
 		pm1data.B2_start + pm1data.numDsections * pm1data.D,
-		pm1data.stage2_numvals, cvt_mem_to_gwnums_adj (&pm1data.gwdata, memory, -0.5), pm1data.poly1_size, pm1data.poly2_size, efficiency);
+		pm1data.stage2_numvals, (int) cvt_mem_to_gwnums_adj (&pm1data.gwdata, memory, -0.5), pm1data.poly1_size, pm1data.poly2_size, efficiency);
 OutputStr (thread_num, buf); }
 
 			// If we've found our best stage 2 implementation, break
