@@ -16,6 +16,10 @@
 extern "C" {
 #endif
 
+// Forward declarations
+typedef struct pmhandle_struct pmhandle;
+typedef struct polyplan polymult_plan;
+
 // These routines can be used before polymult_init.  Use the information to select a gwnum FFT size with sufficient safety_margin
 // to do polymults of the desired size.
 
@@ -28,10 +32,7 @@ int polymult_fft_size (int n);
 // Get the memory (in bytes) required for an FFT based polymult.  Use the information to ensure over-allocating memory does not occur.
 uint64_t polymult_mem_required (int invec1_size, int invec2_size, int options, int cpu_flags, int num_threads);
 
-
 /* Callers of the polymult routines must first allocate a pmhandle (on the heap or stack) and pass it to all polymult routines. */
-typedef struct pmhandle_struct pmhandle;
-
 // Initialize a polymult handle
 void polymult_init (
 	pmhandle *pmdata,		// Handle for polymult library that needs initializing
@@ -48,32 +49,50 @@ void polymult_init (
 void polymult_done (
 	pmhandle *pmdata);		// Handle for polymult library
 
-/* Preprocess a poly that will be used in multiple polymult calls.  Preprocessing can reduce memory consumption or reduce CPU time. */
-/* Returns a massaged poly.  Caller should then free the unmassaged poly.  The massaged poly cannot be used in any gwnum calls, it can only be used */
-/* in future polymult calls with poly sizes and options that match those passed to this routine. */
-gwarray polymult_preprocess (		// Returns a plug-in replacement for the input poly
-	pmhandle *pmdata,		// Handle for polymult library
-	gwnum	*invec1,		// Input poly
-	int	invec1_size,		// Size of the input polynomial
-	int	invec2_size,		// Size of the other polynomial that will be used in a future polymult call
-	int	outvec_size,		// Size of the output polynomial that will be used in a future polymult call
-	int	options);		// Future polymult options preprocessing options (FFT, compress -- see polymult.h)
-
 /* Multiply two polynomials.  It is safe to use input gwnums in the output vector.  For a normal polynomial multiply outvec_size must be */
 /* invec1_size + invec2_size - 1.  For monic polynomial multiply, the leading input coefficients of 1 are omitted as is the leading 1 output */
 /* coefficient -- thus outvec_size must be invec1_size + invec2_size. */
 /* Entries in outvec can be NULL if caller is not interested in those output coefficients. */
-/* The POLYMULT_FORWARD_FFT option allows the FFT of invec1 to be used over and over again, for outvec the caller must know the FFT size that will */
-/* be used (see polymult_fft_size).  An FFTed input vector cannot be multiplied with a monic polynomial.  The downside to reusing input vector FFTs is */
-/* they consumes more memory. */
 void polymult (
 	pmhandle *pmdata,		// Handle for polymult library
 	gwnum	*invec1,		// First input poly
-	int	invec1_size,		// Size of the first input polynomial (or fft size if POLYMULT_INVEC1_FFTED)
+	int	invec1_size,		// Size of the first input polynomial
 	gwnum	*invec2,		// Second input poly
-	int	invec2_size,		// Size of the second input polynomial (or fft size if POLYMULT_INVEC2_FFTED)
+	int	invec2_size,		// Size of the second input polynomial
 	gwnum	*outvec,		// Output poly
-	int	outvec_size,		// Size of the output polynomial (or fft_size if POLYMULT_FORWARD_FFT)
+	int	outvec_size,		// Size of the output polynomial or if POLYMULT_CIRCULAR is set compute result modulo (X^outvec_size - 1)
+					// or if POLYMULT_MULHI or POLYMULT_MULLO is set this is the number of coefficients to return.  This interface
+					// does not allow the POLYMULT_CIRCULAR option and POLYMULT_MULHI or POLYMULT_MULLO to both be set -- use
+					// polymult2 or polymult_several instead.
+	int	options);
+
+/* Multiply two polynomials with a fused multiply add. */
+void polymult_fma (
+	pmhandle *pmdata,		// Handle for polymult library
+	gwnum	*invec1,		// First input poly
+	int	invec1_size,		// Size of the first input polynomial
+	gwnum	*invec2,		// Second input poly
+	int	invec2_size,		// Size of the second input polynomial
+	gwnum	*outvec,		// Output poly
+	int	outvec_size,		// Size of the output polynomial or if POLYMULT_CIRCULAR is set compute result modulo (X^outvec_size - 1)
+					// or if POLYMULT_MULHI or POLYMULT_MULLO is set this is the number of coefficients to return.  This interface
+					// does not allow the POLYMULT_CIRCULAR option and POLYMULT_MULHI or POLYMULT_MULLO options to both be set -- use
+					// polymult_several instead.
+	gwnum	*fmavec,		// FMA poly to add or subtract from poly multiplication result.  Same size as outvec, cannot be preprocessed.
+	int	options);
+
+/* Multiply two polynomials.  Supports every possible polymult option.  The original polymult interface overloaded the outvec_size argument. */
+void polymult2 (
+	pmhandle *pmdata,		// Handle for polymult library
+	gwnum	*invec1,		// First input poly
+	int	invec1_size,		// Size of the first input polynomial
+	gwnum	*invec2,		// Second input poly
+	int	invec2_size,		// Size of the second input polynomial
+	gwnum	*outvec,		// Output poly
+	int	outvec_size,		// Size of the output polynomial.  If POLYMULT_MULHI or POLYMULT_MULLO is set this is the number of coefficients to return.
+	gwnum	*fmavec,		// FMA poly to add or subtract from poly multiplication result.  Same size as outvec, cannot be preprocessed.
+	int	circular_size,		// If POLYMULT_CIRCULAR set, compute poly result modulo (X^circular_size - 1)
+	int	first_mulmid,		// If POLYMULT_MULMID set, this is the number of least significant coefficients that will not be returned
 	int	options);
 
 #define POLYMULT_INVEC1_MONIC	0x1	// Invec1 is a monic polynomial.  Leading coefficient of one is implied.
@@ -84,20 +103,77 @@ void polymult (
 #define POLYMULT_INVEC2_MONIC_RLP	(POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_RLP)		// A shorthand
 #define POLYMULT_INVEC1_NEGATE	0x10	// Invec1 coefficients are negated.  The implied one of a monic polynomial is not negated.
 #define POLYMULT_INVEC2_NEGATE	0x20	// Invec2 coefficients are negated.  The implied one of a monic polynomial is not negated.
-#define POLYMULT_CIRCULAR	0x200	// Circular convolution based on outvec_size.  Only makes sense for small outvec sizes or outvec_size that
-					// matches the FFT length used to multiply the polynomials.
-#define POLYMULT_NO_UNFFT	0x400	// Do not perform the required unfft on output coefficients.  Caller might use this option to multithread this gwunfft calls.
-#define POLYMULT_STARTNEXTFFT	0x800	// Similar to GWMUL_STARTNEXTFFT.  Applied to all output coefficients.
-//#define GWMUL_ADDINCONST	0x1000		/* Addin the optional gwsetaddin value to the multiplication result */
-//#define GWMUL_MULBYCONST	0x2000		/* Multiply the final result by the small mulbyconst */
-#define POLYMULT_INVEC2_MONIC_TIMES_MONIC_RLP_OK 0x80000000 // Obscure prime95 option that says it is OK to multiply a monic RLP poly #1 with a monic
-					// poly #2 using POLYMULT_CIRCULAR.  Normally this is dangerous because one times one is not safe from roundoff
-					// errors.  However, this instructs the library to treat poly #2 as non-monic and add one to the affected
-					// output coefficient after gwunfft2.  The implied one of monic poly #2 is not multiplied by any other
-					// poly #1 coefficient (the output is not needed -- outvec entry is NULL).
+#define POLYMULT_CIRCULAR	0x100	// Circular convolution based on outvec_size.  Multiplication result is modulo (X^outvec_size - 1).  If using the
+					// polymult_several interface, the result is modulo (X^circular_size - 1).
+#define POLYMULT_MULHI		0x200	// Return only the outvec_size higher degree coefficients.  Using both POLYMULT_CIRCULAR
+					// and POLYMULT_MULHI is only allowed in the polymult_several interface.
+#define POLYMULT_MULLO		0x400	// Return only the outvec_size lower degree coefficients.  Using both POLYMULT_CIRCULAR
+					// and POLYMULT_MULLO is only allowed in the polymult_several interface.
+#define POLYMULT_MULMID		0x800	// Return outvec_size coefficients from middle of the polymult result.  Only allowed in the polymult_several interface.
+#define POLYMULT_NO_UNFFT	0x1000	// Do not perform the required unfft on output coefficients.  Caller might use this option to multithread this gwunfft
+					// calls or do additional work after the gwunfft call while the gwnum is in the CPU caches.
+#define POLYMULT_STARTNEXTFFT	0x2000	// Similar to GWMUL_STARTNEXTFFT.  Applied to all output coefficients.
+#define POLYMULT_FMADD		0x4000	// Compute invec1 * invec2 + fmavec
+#define POLYMULT_FMSUB		0x8000	// Compute invec1 * invec2 - fmavec
+#define POLYMULT_FNMADD		0x10000	// Compute fmavec - invec1 * invec2
+//#define GWMUL_ADDINCONST	0x10000000		/* Addin the optional gwsetaddin value to the multiplication result */
+//#define GWMUL_MULBYCONST	0x20000000		/* Multiply the final result by the small mulbyconst */
 // The following options only apply to polymult_preprocess
-#define	POLYMULT_FFT		0x40	// Compute the forward FFT of preprocessed polynomial
-#define	POLYMULT_COMPRESS	0x80	// Compress each double in the preprocessed polynomial
+#define	POLYMULT_FFT		0x40	// Compute the forward FFT while creating a preprocessed polynomial
+#define	POLYMULT_COMPRESS	0x80	// Compress each double while creating a preprocessed polynomial
+
+/*-----------------------------------------------------------------------------
+|	Advanced polymult routines
++----------------------------------------------------------------------------*/
+
+// Accessing the preprocessed header directly is frowned upon, several accessor macros follow
+#define is_preprocessed_poly(p)		(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->self_ptr == p)
+#define is_preffted_poly(p)		(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->options & POLYMULT_FFT)
+#define preprocessed_num_elements(p)	(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->num_lines)
+#define preprocessed_element_size(p)	(intptr_t) (((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->padded_element_size)
+#define preprocessed_fft_size(p)	(intptr_t) (((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->fft_size)
+#define preprocessed_poly_size(p)	(preprocessed_num_elements(p) * preprocessed_element_size(p))
+#define preprocessed_monics_included(p)	(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->monic_ones_included)
+
+/* Preprocess a poly that will be used in multiple polymult calls.  Preprocessing can reduce memory consumption or reduce CPU time.  Returns a massaged poly. */
+/* Caller should then free the unmassaged poly.  The massaged poly cannot be used in any gwnum calls, it can only be used in future polymult calls with */
+/* poly sizes and options that match those passed to this routine. */
+/* The POLYMULT_FFT preprocessing option allows the forward FFT of invec1 to be used over and over again.  An FFTed preprocessed poly cannot be multiplied */
+/* with a monic polynomial.  The downside to the POLYMULT_FFT option is the preprocessed poly consumes more memory. */
+gwarray polymult_preprocess (		// Returns a plug-in replacement for the input poly
+	pmhandle *pmdata,		// Handle for polymult library
+	gwnum	*invec1,		// Input poly
+	int	invec1_size,		// Size of the input polynomial
+	int	invec2_size,		// Size of the other polynomial that will be used in a future polymult call
+	int	outvec_size,		// Size of the output polynomial that will be used in a future polymult call
+	int	options);		// Future polymult call options plus preprocessing options (FFT, compress -- see below)
+
+/* These routines allow multiplying one poly with several other polys.  This yields a small performance gain in that the one poly is read and FFTed just once. */
+
+typedef struct pmargument_struct polymult_arg;
+
+struct pmargument_struct {	// Each of the several polys need to describe where their input and output coefficients are located
+	gwnum	*invec2;	// Second input poly
+	int	invec2_size;	// Size of the second input polynomial
+	gwnum	*outvec;	// Output poly
+	int	outvec_size;	// Size of the output polynomial
+	gwnum	*fmavec;	// Poly to add in if FMA options are requested
+	int	circular_size;	// If POLYMULT_CIRCULAR set, compute poly result modulo (X^circular_size - 1)
+	int	first_mulmid;	// If POLYMULT_MULMID set, this is the number of least significant coefficients that will not be returned
+	int	options;	// Any of the polymult options that are not related to poly #1
+};
+
+void polymult_several (		// Multiply one poly with several polys	
+	pmhandle *pmdata,	// Handle for polymult library
+	gwnum	*invec1,	// First input poly
+	int	invec1_size,	// Size of the first input polynomial
+	polymult_arg *other_polys, // Array of "other poly descriptors" to multiply with first input poly (describes each second input poly and output poly)
+	int	num_other_polys,// Number of other polys to multiply with first input poly
+	int	options);	// Poly #1 options.  Options not associated with poly #1 are applied to all other polys.
+
+/* These routines allow the user to use the polymult helper threads and locking mechanisms to craft their own multithreaded helper routines. */
+/* The helper_callback and helper_callback_data fields must be set prior to launching the helpers.  Each helper is given its own clone of gwdata */
+/* to safely call gwnum operations -- cloning is necessary as independent threads cannot use use same gwdata structure. */
 
 /* This routine launches the polymult helper threads.  The polymult library uses this routine to do multithreading, users can too! */
 void polymult_launch_helpers (
@@ -106,6 +182,11 @@ void polymult_launch_helpers (
 /* This routine waits for the launched polymult helper threads to finish */
 void polymult_wait_on_helpers (
 	pmhandle *pmdata);		// Handle for polymult library
+
+
+/*-----------------------------------------------------------------------------
+|	Internal polymult library data structures
++----------------------------------------------------------------------------*/
 
 /* The pmhandle structure containing all of polymult's "global" data. */
 struct pmhandle_struct {
@@ -128,14 +209,17 @@ struct pmhandle_struct {
 	int	KARAT_BREAK;		// Output vector size where we switch from brute force to Karatsuba
 	int	FFT_BREAK;		// Output vector size where we switch from Karatsuba to FFTs
 	int	L2_CACHE_SIZE;		// Optimize FFTs to fit in this size cache (number is in KB).  Default is 256KB.
-	// Arguments to the current polymult call.  Copied here so that helper threads can access the arguments.
+	// Arguments to the current polymult call.  Copied here so that helper threads can access the arguments.  Also, the plan for implementing the polymult.
 	gwnum	*invec1;		// First input poly
-	int	invec1_size;		// Size of the first input polynomial (or fft size if POLYMULT_INVEC1_FFTED)
-	gwnum	*invec2;		// Second input poly
-	int	invec2_size;		// Size of the second input polynomial (or fft size if POLYMULT_INVEC2_FFTED)
-	gwnum	*outvec;		// Output poly
-	int	outvec_size;		// Size of the output polynomial (or fft_size if POLYMULT_FORWARD_FFT)
+	int	invec1_size;		// Size of the first input polynomial
+	polymult_arg *other_polys;	// Array of second polys
+	int	num_other_polys;	// Number of second polys
 	int	options;
+	int	alloc_invec1_size;	// Pre-calculated allocation size for invec1
+	int	alloc_invec2_size;	// Pre-calculated allocation size for invec2
+	int	alloc_outvec_size;	// Pre-calculated allocation size for outvec
+	int	alloc_tmpvec_size;	// Pre-calculated allocation size for tmpvec
+	polymult_plan *plan;		// Plan for implementing the multiplication of invec1 and several invec2s
 	// These items allow users of the polymult library to also use the polymult helper threads for whatever they see fit.
 	bool	helpers_doing_polymult;	// TRUE if helpers are doing polymult work, not user work
 	bool	helpers_sync_clone_stats; // TRUE if helpers are syncing cloned gwdata stats, not user work
@@ -157,15 +241,31 @@ typedef struct {
 	int	padded_element_size;	// Size of each invec in the array rounded up to a multiple of 64 (not rounded when compressing)
 	int	options;		// Copy of options passed to polymult_line_preprocess
 	int	fft_size;		// If POLYMULT_FFT is set, this is the poly FFT size used during preprocessing
-//GW:	bool[]	sparse_bitvec?
+	bool	monic_ones_included;	// TRUE if monic ones are included in pre-FFTed data
 } preprocessed_poly_header;
 
-// Accessing the preprocessed header directly is frowned upon, several accessor macros follow
-#define is_preprocessed_poly(p)		(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->self_ptr == p)
-#define is_preffted_poly(p)		(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->options & POLYMULT_FFT)
-#define preprocessed_num_elements(p)	(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->num_lines)
-#define preprocessed_element_size(p)	(intptr_t) (((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->padded_element_size)
-#define preprocessed_poly_size(p)	(preprocessed_num_elements(p) * preprocessed_element_size(p))
+// Internal description of the plan to multiply two polys
+typedef struct polyplan {
+	bool	emulate_circular;	// Emulating circular_size is required
+	bool	strip_monic_from_invec1;// True if ones are stripped from monic invec1 requiring (99% of the time) invec2 to be added in during post processing
+	bool	strip_monic_from_invec2;// True if ones are stripped from monic invec2 requiring (99% of the time) invec1 to be added in during post processing
+	bool	post_monic_addin_invec1;// True if ones are stripped from monic invec2 requiring invec1 to be added in during post processing
+	bool	post_monic_addin_invec2;// True if ones are stripped from monic invec1 requiring invec2 to be added in during post processing
+	int	impl;			// 0 = brute force, 1 = Karatsuba, 2 = poly FFT
+	int	fft_size;		// FFT size for impl type 2
+	int	adjusted_invec1_size;	// Sizes of the possibly smaller partial polymult result prior to post-monic-adjustment creating the full result
+	int	adjusted_invec2_size;
+	int	adjusted_outvec_size;
+	int	true_invec1_size;	// Sizes of the full polymult inputs and outputs
+	int	true_invec2_size;
+	int	true_outvec_size;
+	int	circular_size;		// Return result modulo (X^circular_size - 1)
+	int	LSWs_skipped;		// Least significant coefficients that do not need to be returned
+	int	MSWs_skipped;		// Most significant coefficients (of true_outvec_size) that do not need to be returned
+	int	addin[4];		// Outvec locations where four 1*1 values may need to be added at the very end of the polymult process
+	int	adjusted_shift;		// Number of coefficients to shift left the initial partial poly multiplication to reach true_outvec_size
+	int	adjusted_pad;		// Number of coefficients to pad on the left of the initial partial poly multiplication to reach true_outvec_size
+} polymult_plan;
 
 #ifdef __cplusplus
 }
