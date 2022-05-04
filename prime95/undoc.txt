@@ -264,7 +264,7 @@ If n is 1, work will never be done out of order,  You will not get certification
 assignments.  If n is -1, only certification work will be done out of order.
 If n is 0, certification and early factoring will be done out of order.
 
-The program will restrict how many exponents can be added to worktodo.txt.
+The program will restrict how many exponents can be added to worktodo.txt to 15.
 To override this, change prime.txt:
 	MaxExponents=n
 
