@@ -113,14 +113,16 @@ void polymult2 (
 #define POLYMULT_NO_UNFFT	0x1000	// Do not perform the required unfft on output coefficients.  Caller might use this option to multithread this gwunfft
 					// calls or do additional work after the gwunfft call while the gwnum is in the CPU caches.
 #define POLYMULT_STARTNEXTFFT	0x2000	// Similar to GWMUL_STARTNEXTFFT.  Applied to all output coefficients.
+#define	POLYMULT_NEXTFFT	0x40	// Perform both the required unfft and a forward FFT on output coefficients.  Caller might use this option because
+					// it may perform better because the gwnum is in the CPU caches.
 #define POLYMULT_FMADD		0x4000	// Compute invec1 * invec2 + fmavec
 #define POLYMULT_FMSUB		0x8000	// Compute invec1 * invec2 - fmavec
 #define POLYMULT_FNMADD		0x10000	// Compute fmavec - invec1 * invec2
 //#define GWMUL_ADDINCONST	0x10000000		/* Addin the optional gwsetaddin value to the multiplication result */
 //#define GWMUL_MULBYCONST	0x20000000		/* Multiply the final result by the small mulbyconst */
 // The following options only apply to polymult_preprocess
-#define	POLYMULT_FFT		0x40	// Compute the forward FFT while creating a preprocessed polynomial
-#define	POLYMULT_COMPRESS	0x80	// Compress each double while creating a preprocessed polynomial
+#define	POLYMULT_PRE_FFT	0x40	// Compute the forward FFT while creating a preprocessed polynomial
+#define	POLYMULT_PRE_COMPRESS	0x80	// Compress each double while creating a preprocessed polynomial
 
 /*-----------------------------------------------------------------------------
 |	Advanced polymult routines
@@ -128,7 +130,7 @@ void polymult2 (
 
 // Accessing the preprocessed header directly is frowned upon, several accessor macros follow
 #define is_preprocessed_poly(p)		(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->self_ptr == p)
-#define is_preffted_poly(p)		(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->options & POLYMULT_FFT)
+#define is_preffted_poly(p)		(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->options & POLYMULT_PRE_FFT)
 #define preprocessed_num_elements(p)	(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->num_lines)
 #define preprocessed_element_size(p)	(intptr_t) (((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->padded_element_size)
 #define preprocessed_fft_size(p)	(intptr_t) (((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->fft_size)

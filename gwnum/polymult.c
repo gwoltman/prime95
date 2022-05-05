@@ -69,6 +69,8 @@
 // 66) Offer polymult option where caller guarantees that invec1 and/or invec2 have all been FFTed??  Too minor an optimization?
 // 67) Offer polymult option where plan is saved??  Too minor an optimization?
 // 68) Use std::atomic (or C equivalent in https://stackoverflow.com/questions/1158374/portable-compare-and-swap-atomic-operations-c-c-library ?) to implement next_line
+// 69) When compressing with POLYMULT_PRE_COMPRESS, figure out a way to malloc a smaller buffer and grow if necessary rather than malloc a large one and
+//	shrink at end.
 
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
 int next_line (pmhandle *pmdata);
@@ -2837,8 +2839,8 @@ void read_preprocess_line (gwhandle *gwdata, gwnum *data, int size, int index, C
 
 	// If preprocessed data is FFTed, then return the data "as is" optionally decompressing.  Ignore the passed in size, use the poly FFT size
 	// that was computed by polymult_line_preprocess.
-	if (hdr->options & POLYMULT_FFT) {
-		if (!(hdr->options & POLYMULT_COMPRESS)) memcpy (vec, (char *) first_element + (intptr_t) index * (intptr_t) hdr->padded_element_size, hdr->element_size);
+	if (hdr->options & POLYMULT_PRE_FFT) {
+		if (!(hdr->options & POLYMULT_PRE_COMPRESS)) memcpy (vec, (char *) first_element + (intptr_t) index * (intptr_t) hdr->padded_element_size, hdr->element_size);
 		else decompress_vec ((char *) first_element + (intptr_t) index * (intptr_t) hdr->padded_element_size, (char *) vec, hdr->fft_size * sizeof (CVDT));
 		return;
 	}
@@ -2868,8 +2870,8 @@ void read_preprocess_line (gwhandle *gwdata, gwnum *data, int size, int index, C
 	ASSERTG (index_to_read < hdr->num_lines);
 
 	// Copy the preprocessed entry
-	ASSERTG ((hdr->options & POLYMULT_COMPRESS) || hdr->element_size == size * sizeof (CVDT));
-	if (!(hdr->options & POLYMULT_COMPRESS)) memcpy (vec, (char *) first_element + (intptr_t) index_to_read * (intptr_t) hdr->padded_element_size, hdr->element_size);
+	ASSERTG ((hdr->options & POLYMULT_PRE_COMPRESS) || hdr->element_size == size * sizeof (CVDT));
+	if (!(hdr->options & POLYMULT_PRE_COMPRESS)) memcpy (vec, (char *) first_element + (intptr_t) index_to_read * (intptr_t) hdr->padded_element_size, hdr->element_size);
 	else decompress_vec ((char *) first_element + (intptr_t) index_to_read * (intptr_t) hdr->padded_element_size, (char *) vec, size * sizeof (CVDT));
 
 	// If we've delayed splitting the two real values in !ALL_COMPLEX_FFT turn the two reals into two complex values here
@@ -2968,12 +2970,12 @@ gwarray polymult_line_preprocess (	// Returns a plug-in replacement for the inpu
 	if ((!must_fft && adjusted_outvec_size < pmdata->KARAT_BREAK)) {
 		invec1 = (CVDT *) aligned_malloc (adjusted_invec1_size * sizeof (CVDT), 64);
 		scratch = NULL;
-		options &= ~POLYMULT_FFT;
+		options &= ~POLYMULT_PRE_FFT;
 	}
 	else if (!must_fft && !(options & POLYMULT_CIRCULAR) && adjusted_outvec_size < pmdata->FFT_BREAK) {
 		invec1 = (CVDT *) aligned_malloc (adjusted_invec1_size * sizeof (CVDT), 64);
 		scratch = NULL;
-		options &= ~POLYMULT_FFT;
+		options &= ~POLYMULT_PRE_FFT;
 	}
 	else {
 		unsigned int pass1_size, pass2_size;
@@ -2985,7 +2987,7 @@ gwarray polymult_line_preprocess (	// Returns a plug-in replacement for the inpu
 	}
 
 	// If not-FFTing then clear monic_ones_included so that read_line won't add 1+0i to invec1.  We'll add 1+0i later in read_preprocess_line.
-	if (!(options & POLYMULT_FFT)) monic_ones_included = FALSE;
+	if (!(options & POLYMULT_PRE_FFT)) monic_ones_included = FALSE;
 
 // Allocate space for the preprocessed poly under construction
 
@@ -2996,7 +2998,7 @@ gwarray polymult_line_preprocess (	// Returns a plug-in replacement for the inpu
 	num_lines = divide_rounding_up (num_lines, sizeof (CVDT) / sizeof (double));
 
 	// Compute size of each line to be written
-	if (options & POLYMULT_FFT) element_size = sizeof (CVDT) * fft_size;
+	if (options & POLYMULT_PRE_FFT) element_size = sizeof (CVDT) * fft_size;
 	else element_size = sizeof (CVDT) * invec1_size;
 //GW:  shrink element-size if/when we support sparse non-ffted invec1
 	padded_element_size = round_up_to_multiple_of (element_size, 64);
@@ -3010,7 +3012,7 @@ gwarray polymult_line_preprocess (	// Returns a plug-in replacement for the inpu
 	hdr->padded_element_size = padded_element_size;
 	hdr->options = options;
 	hdr->monic_ones_included = monic_ones_included;
-	if (options & POLYMULT_FFT) hdr->fft_size = fft_size;
+	if (options & POLYMULT_PRE_FFT) hdr->fft_size = fft_size;
 	first_element = (CVDT *) round_up_to_multiple_of ((intptr_t) hdr + sizeof (preprocessed_poly_header), 64);
 
 	// When compressing we need to track the size of the largest compressed vector (for resizing the array smaller)
@@ -3021,7 +3023,7 @@ gwarray polymult_line_preprocess (	// Returns a plug-in replacement for the inpu
 	for (int line = 0; line < num_lines; line++) {
 
 		// Read a line.  If we're saving memory by delaying splitting the two reals, then combine the first two lines into one.
-		if (line == 0 && !pmdata->gwdata->ALL_COMPLEX_FFT && !pmdata->gwdata->ZERO_PADDED_FFT && !(options & POLYMULT_FFT)) {
+		if (line == 0 && !pmdata->gwdata->ALL_COMPLEX_FFT && !pmdata->gwdata->ZERO_PADDED_FFT && !(options & POLYMULT_PRE_FFT)) {
 			CVDT *temp = (CVDT *) aligned_malloc (adjusted_invec1_size * sizeof (CVDT), 64);
 			read_line (pmdata->gwdata, gw_invec1, invec1_size, 0, temp, options & INVEC1_OPTIONS, !monic_ones_included);
 			read_line (pmdata->gwdata, gw_invec1, invec1_size, 1, invec1, options & INVEC1_OPTIONS, !monic_ones_included);
@@ -3039,16 +3041,16 @@ gwarray polymult_line_preprocess (	// Returns a plug-in replacement for the inpu
 			read_line (pmdata->gwdata, gw_invec1, invec1_size, line, invec1, options & INVEC1_OPTIONS, !monic_ones_included);
 
 		// Optionally forward FFT the line
-		if (options & POLYMULT_FFT) {
+		if (options & POLYMULT_PRE_FFT) {
 			memset (invec1 + adjusted_invec1_size, 0, (fft_size - adjusted_invec1_size) * sizeof (CVDT));
 			fft_line (pmdata, invec1, NULL, NULL, scratch, fft_size, FORWARD_FFT_INVEC1 | FORWARD_FFT_ONLY);
 		}
 
 		// For non-FFTed RLPs, we only save the upper half of invec1.  Alternatively, we could make read_line not expand RLPs when preprocessing.
-		if ((options & POLYMULT_INVEC1_RLP) && !(options & POLYMULT_FFT)) invec1 += invec1_size-1;
+		if ((options & POLYMULT_INVEC1_RLP) && !(options & POLYMULT_PRE_FFT)) invec1 += invec1_size-1;
 
 		// If compressing each line, compress the vector of doubles.  Track the maximum compressed vector size.
-		if (options & POLYMULT_COMPRESS) {
+		if (options & POLYMULT_PRE_COMPRESS) {
 			element_size = compress_vec ((char *) invec1, hdr->element_size);
 			ASSERTG (element_size <= hdr->element_size);
 			if (element_size > max_element_size) max_element_size = element_size;
@@ -3059,7 +3061,7 @@ gwarray polymult_line_preprocess (	// Returns a plug-in replacement for the inpu
 		outptr += padded_element_size;
 			    
 		// Undo RLP pointer hack
-		if ((options & POLYMULT_INVEC1_RLP) && !(options & POLYMULT_FFT)) invec1 -= invec1_size-1;
+		if ((options & POLYMULT_INVEC1_RLP) && !(options & POLYMULT_PRE_FFT)) invec1 -= invec1_size-1;
 	}
 
 	// Free memory
@@ -3067,7 +3069,7 @@ gwarray polymult_line_preprocess (	// Returns a plug-in replacement for the inpu
 	aligned_free (scratch);
 
 	// Shrink a compressed poly to its minimum possible size using realloc.
-	if (options & POLYMULT_COMPRESS) {
+	if (options & POLYMULT_PRE_COMPRESS) {
 		for (int line = 1; line < num_lines; line++) {
 			memmove ((char *) first_element + (intptr_t) line * (intptr_t) max_element_size,
 				 (char *) first_element + (intptr_t) line * (intptr_t) padded_element_size, max_element_size);
@@ -4085,7 +4087,7 @@ void polymult_several (		// Multiply one poly with several polys
 			if (fft_size > pmdata->alloc_outvec_size) pmdata->alloc_outvec_size = fft_size + plan[i].adjusted_pad + plan[i].adjusted_shift;
 		}
 	}
-//GW		Change poly_preprocess to either fft_size of polmult_fft_size(insz1 + insz2 - 1) OR polymult_fft_size (outsz) if polymult circular set.
+//GW		Change poly_preprocess to either fft_size of polymult_fft_size(insz1 + insz2 - 1) OR polymult_fft_size (outsz) if polymult circular set.
 //GW		This offloads some of this monic decision crap to the caller.  And lets him manage the exact fft size in case we would have decided wrong fft size.
 
 				
@@ -4177,12 +4179,13 @@ void polymult_several (		// Multiply one poly with several polys
 			bool j_affected_by_addin = (j == plan[i].addin[0] || j == plan[i].addin[1] || j == plan[i].addin[2] || j == plan[i].addin[3]);
 			if ((options & POLYMULT_NO_UNFFT) && !j_affected_by_addin) continue;
 //GW: use gwsetaddin rather than gwaddsmall?
-			gwunfft2 (pmdata->gwdata, outvec[j], outvec[j], ((options & POLYMULT_STARTNEXTFFT) && !j_affected_by_addin) ? GWMUL_STARTNEXTFFT : 0);
+			gwunfft2 (pmdata->gwdata, outvec[j], outvec[j],
+				  ((options & (POLYMULT_STARTNEXTFFT | POLYMULT_NEXTFFT)) && !j_affected_by_addin) ? GWMUL_STARTNEXTFFT : 0);
 			if (j == plan[i].addin[0]) gwaddsmall (pmdata->gwdata, outvec[j], addin_value);
 			if (j == plan[i].addin[1]) gwaddsmall (pmdata->gwdata, outvec[j], addin_value);
 			if (j == plan[i].addin[2]) gwaddsmall (pmdata->gwdata, outvec[j], addin_value);
 			if (j == plan[i].addin[3]) gwaddsmall (pmdata->gwdata, outvec[j], addin_value);
-//GW: optionally fft coefficient while in the CPU caches
+			if (options & POLYMULT_NEXTFFT) gwfft (pmdata->gwdata, outvec[j], outvec[j]);
 		}
 	}
 
