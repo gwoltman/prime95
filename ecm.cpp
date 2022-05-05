@@ -6244,8 +6244,8 @@ OutputStr (thread_num, buf); }
 
 ecm_polymult:
 
-//GW: We don't need gg, we possibly need H(X) from a save file
-
+//GW: We don't need gg, we possibly need the full H(X) from a save file.  Wow, thats a lot of disk.  Might have to invest the CPU time reducing H(X) to
+// to create a save file.
 
 /* Output a useful message regarding memory usage */
 
@@ -6266,6 +6266,10 @@ ecm_polymult:
 	else if (ecmdata.pool_type == POOL_N_SQUARED)
 		sprintf (buf, "Stage 2 uses %uMB of memory, N^2 modinv pooling, pool size %d.\n", memused, ecmdata.E);
 	OutputStr (thread_num, buf);
+
+// We must outer loop at least twice, otherwise H(X) will be monic -- the current descent of Ftree code can't handle that.
+
+	if (ecmdata.numDsections < 2 * ecmdata.poly_size) ecmdata.numDsections = 2 * ecmdata.poly_size;
 
 /* Allocate nQx array of pointers to relative prime gwnums.  Allocate an array large enough to hold x & z values for all relp. */
 /* This is much more than we will need once stage 2 init completes. */
@@ -6596,6 +6600,69 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 		}
 	}
 
+// Use Newton's method to compute 1/F(X), starting with an initial estimate of 1 - first_non_monic_term_of_F(X).
+
+	// Allocate reciprocal of F(X) poly in one big array.
+	ecmdata.polyR = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
+	if (ecmdata.polyR == NULL) goto lowmem;
+
+	// F_recip always has coefficients that need negating!  First term or polyR is copied from polyF.
+	gwcopy (&ecmdata.gwdata, ecmdata.polyF[ecmdata.poly_size-1], ecmdata.polyR[ecmdata.poly_size-1]);
+
+	// Compute 1/F(X) roughly doubling the number of terms each iteration
+	for (int terms = 2; terms < ecmdata.poly_size; ) {	// Terms is the number of coefficients computed in F_recip (including the monic one term)
+		// Determine if we are doubling the number of terms or doubling minus one.
+		int terms_to_compute;
+		for (terms_to_compute = ecmdata.poly_size + 1; terms_to_compute > 2 * terms; terms_to_compute = (terms_to_compute + 1) / 2);
+		terms_to_compute -= terms;
+		// Let g0 = current_recip.  Compute F(x)*g0.  Let e = F(x)*g0 - 1 (simply remove "monic flag" from the result)
+//GW: It isn't legal to index into a preprocessed poly, so polyF cannot be preprocessed.  This could be overcome for a minor gain.
+		polymult2 (&ecmdata.polydata, &ecmdata.polyF[ecmdata.poly_size-(terms+terms_to_compute-1)], terms+terms_to_compute-1,
+			   &ecmdata.polyR[ecmdata.poly_size-(terms-1)], terms-1,
+			   ecmdata.polyR, terms_to_compute,		// Only return terms_to_compute
+			   NULL, 0, terms-1,				// No FMA, no circular, don't return least significant terms-1 coefficients
+			   POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_NEGATE | POLYMULT_MULMID | POLYMULT_NEXTFFT /*| POLYMULT_NO_UNFFT*/);
+		// Compute new_recip = g0 - g0*e
+		polymult2 (&ecmdata.polydata, &ecmdata.polyR[ecmdata.poly_size-(terms-1)], terms-1,
+			   ecmdata.polyR, terms_to_compute,
+			   &ecmdata.polyR[ecmdata.poly_size-(terms-1)-terms_to_compute], terms_to_compute,	// Only return terms_to_compute
+			   NULL, 0, terms-1,				// No FMA, no circular, don't return least significant terms-1 coefficients
+			   POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_NEGATE | POLYMULT_MULMID | POLYMULT_NEXTFFT /*| POLYMULT_NO_UNFFT*/);
+		// Update count of terms computed
+		terms = terms + terms_to_compute;
+	}
+
+// Compress and pre-transpose F(X) -- will reduce mem usage by maybe 1.6% without compression plus another 12.5% with compression.
+//GW: Compress F now??? or find a way to allow indexing into compressed F above??
+//GW: We could allow this by having polymult planner auto detect too many coefficients passed in for a MULHI or MULLO operation (and reduce poly fft size accordingly)
+//GW: or we could pass in a flag INVEC1_PREPROCESSED
+
+	if (IniGetInt (INI_FILE, "Poly1Compress", 2)) {
+		int options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC;
+		if (IniGetInt (INI_FILE, "Poly1Compress", 2) == -1) options |= POLYMULT_PRE_FFT;			// Hidden option (uses more memory)
+		if (IniGetInt (INI_FILE, "Poly1Compress", 2) == -2) options |= POLYMULT_PRE_FFT | POLYMULT_PRE_COMPRESS;// Hidden option (uses more memory)
+		if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 2) options |= POLYMULT_PRE_COMPRESS;
+		gwarray tmp = polymult_preprocess (&ecmdata.polydata, ecmdata.polyF, ecmdata.poly_size, ecmdata.poly_size, ecmdata.poly_size*2, options);
+		gwfree_array (&ecmdata.gwdata, ecmdata.polyF);
+		ecmdata.polyF = tmp;
+	}
+
+// Compress and pre-transpose reciprocal of F(X) -- will reduce mem usage by maybe 1.6% without compression plus another 12.5% with compression.
+
+	if (IniGetInt (INI_FILE, "Poly1Compress", 2)) {
+		int options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_NEGATE;
+		if (IniGetInt (INI_FILE, "Poly1Compress", 2) == -1) options |= POLYMULT_PRE_FFT;			// Hidden option (uses more memory)
+		if (IniGetInt (INI_FILE, "Poly1Compress", 2) == -2) options |= POLYMULT_PRE_FFT | POLYMULT_PRE_COMPRESS;// Hidden option (uses more memory)
+		if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 2) options |= POLYMULT_PRE_COMPRESS;
+		gwarray tmp = polymult_preprocess (&ecmdata.polydata, ecmdata.polyR, ecmdata.poly_size, ecmdata.poly_size, ecmdata.poly_size*2, options);
+		gwfree_array (&ecmdata.gwdata, ecmdata.polyR);
+		ecmdata.polyR = tmp;
+	}
+
+//GW:test code: F(X) * 1/F(X)
+//polymult (&ecmdata.polydata, ecmdata.polyF, ecmdata.poly_size, ecmdata.polyR, ecmdata.poly_size, polyG, 2*ecmdata.poly_size,
+//	  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_NEGATE);
+
 #ifdef OLD_CODE
 gwnum *polyT = gwalloc_array (&ecmdata.gwdata, 2*ecmdata.poly_size);
 gwnum *polyQ = gwalloc_array (&ecmdata.gwdata, 2*ecmdata.poly_size);
@@ -6603,7 +6670,9 @@ gwnum *polyT2 = gwalloc_array (&ecmdata.gwdata, 2*ecmdata.poly_size);
 gwnum *outvec = (gwnum *) malloc (ecmdata.poly_size * 2 * sizeof (gwnum));
 #endif
 
-// Free cached and internal memory for upcoming peak memory usage
+/* We're nearing peak memory usage, free any cached gwnums */
+
+	gwfree_cached (&ecmdata.gwdata);
 	gwfree_internal_memory (&ecmdata.gwdata);
 	mallocFreeForOS ();
 
@@ -6638,12 +6707,10 @@ gwnum *outvec = (gwnum *) malloc (ecmdata.poly_size * 2 * sizeof (gwnum));
 	start_timer_from_zero (timers, 0);
 	start_timer_from_zero (timers, 1);
 	last_output = last_output_t = 0;
-	for (bool first_outerloop = TRUE; ; first_outerloop = FALSE) {
+	for (int outer_loop_counter = 1; ; outer_loop_counter++) {
 
 // Compute G(X)
 
-//GW:  Make first G(X) twice as big since H(X)=1 need not been allocated yet?  Likely no better than first H(X) made with FMA subtract of F(X)
-		
 		for (int i = 0; i < ecmdata.poly_size; i++) {
 			gwnum	mQx;
 //GW: mQ code may require keeping previous batches in memory -- ugh,  calc next batch while we have current batch?  Try to save the gwcopy either by swapping
@@ -6674,13 +6741,13 @@ gwnum *outvec = (gwnum *) malloc (ecmdata.poly_size * 2 * sizeof (gwnum));
 				int options = POLYMULT_INVEC1_MONIC | (poly_size == 1 ? POLYMULT_INVEC1_NEGATE : 0) |
 					      POLYMULT_INVEC2_MONIC | (poly2_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) |
 					      POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/;
-				// On first outer loop iteration, subtract F(X) from the final polymult computing G(X).  Why? because H(X) = G(X) - F(X).
-				if (!first_outerloop || num_polys != 2)
+				// The first outer loop iteration we write the final result to H(X) rather than G(X)
+				if (outer_loop_counter > 1 || num_polys > 2)
 					polymult (&ecmdata.polydata, &polyG[i*poly_size], poly_size, &polyG[(i+1)*poly_size], poly2_size,
 						  &polyG[i*poly_size], poly_size + poly2_size, options);
 				else
-					polymult_fma (&ecmdata.polydata, &polyG[0], poly_size, &polyG[poly_size], poly2_size,
-						      polyH, poly_size + poly2_size, ecmdata.polyF, options | POLYMULT_FMSUB);
+					polymult (&ecmdata.polydata, &polyG[0], poly_size, &polyG[poly_size], poly2_size,
+						  polyH, poly_size + poly2_size, options);
 			}
 			// Multithreaded unfft poly coefficients
 //			pm1data.helper_work = PM1_COMPUTE_POLY1;		// Work type for helper to do
@@ -6698,92 +6765,17 @@ gwnum *outvec = (gwnum *) malloc (ecmdata.poly_size * 2 * sizeof (gwnum));
 		}
 		}
 
-// On first loop iteration, H(X) has been set via FMA.  We could not use a preprocessed F(X) in the FMA, so do that now.  Then calculate 1/F(X).
+// First loop iteration do nothing.
+// On subsequent loop iterations, H(X) = G(X) * H(X) mod F(X).  The first time we do this H(X) is monic.
 
-		if (first_outerloop) {
-
-			// F_recip always has coefficients that need negating!  Compute polyR using polyG memory.  First term is copied from polyF.
-			gwcopy (&ecmdata.gwdata, ecmdata.polyF[ecmdata.poly_size-1], polyG[ecmdata.poly_size-1]);
-
-// Compress and pre-transpose F(X) -- will reduce mem usage by maybe 1.6% without compression plus another 12.5% with compression.
-
-//GW: We can allow this if polymult planner auto detects too many coefficients passed in for a MULHI or MULLO operation (and reduces poly fft size accordingly)
-#ifdef ALLOWED //????
-// Preprocessing not allowed as indexing into F is illegal polymult cant figure out that indexed-F is compressed.  
-			if (IniGetInt (INI_FILE, "Poly1Compress", 2)) {
-				int options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC;
-				if (IniGetInt (INI_FILE, "Poly1Compress", 2) == -1) options |= POLYMULT_PRE_FFT;			// Hidden option (uses more memory)
-				if (IniGetInt (INI_FILE, "Poly1Compress", 2) == -2) options |= POLYMULT_PRE_FFT | POLYMULT_PRE_COMPRESS;// Hidden option (uses more memory)
-				if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 2) options |= POLYMULT_PRE_COMPRESS;
-				gwarray tmp = polymult_preprocess (&ecmdata.polydata, ecmdata.polyF, ecmdata.poly_size, ecmdata.poly_size, ecmdata.poly_size*2, options);
-				gwfree_array (&ecmdata.gwdata, ecmdata.polyF);
-				ecmdata.polyF = tmp;
-			}
-#endif
-
-/* We're at peak memory usage, free any cached gwnums */
-
-// Is this at right spot???
-			gwfree_cached (&ecmdata.gwdata);
-			mallocFreeForOS ();
-
-// Allocate reciprocal of F(X) poly in one big array.
-			ecmdata.polyR = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
-			if (ecmdata.polyR == NULL) goto lowmem;
-
-//GW:  is polyG trashable or does mQ_next need it?  Computation of G*H assumes it is trashasble.  So we compute polyR in polyG.
-
-// Use Newton's method to compute 1/F(X), starting with an initial estimate of 1 - first_non_monic_term_of_F(X).
-
-			for (int terms = 2; terms < ecmdata.poly_size; ) {	// Terms is the number of coefficients computed in F_recip (including the monic one term)
-				// Determine if we are doubling the number of terms or doubling minus one.
-				int terms_to_compute;
-				for (terms_to_compute = ecmdata.poly_size + 1; terms_to_compute > 2 * terms; terms_to_compute = (terms_to_compute + 1) / 2);
-				terms_to_compute -= terms;
-				// Let g0 = current_recip.  Compute F(x)*g0.  Let e = F(x)*g0 - 1 (simply remove "monic flag" from the result)
-// Is it legal to index into a preprocessed poly?
-				polymult2 (&ecmdata.polydata, &ecmdata.polyF[ecmdata.poly_size-(terms+terms_to_compute-1)], terms+terms_to_compute-1,
-					   &polyG[ecmdata.poly_size-(terms-1)], terms-1,
-					   polyG, terms_to_compute,			// Only return terms_to_compute
-					   NULL, 0, terms-1,				// No FMA, no circular, don't return least significant terms-1 coefficients
-					   POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_NEGATE | POLYMULT_MULMID | POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/);
-				// Compute new_recip = g0 - g0*e
-				polymult2 (&ecmdata.polydata, &polyG[ecmdata.poly_size-(terms-1)], terms-1,
-					   polyG, terms_to_compute,
-					   &polyG[ecmdata.poly_size-(terms-1)-terms_to_compute], terms_to_compute,	// Only return terms_to_compute
-					   NULL, 0, terms-1,				// No FMA, no circular, don't return least significant terms-1 coefficients
-					   POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_NEGATE | POLYMULT_MULMID | POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/);
-				// Update count of terms computed
-				terms = terms + terms_to_compute;
-			}
-
-//GW: Compress F now??? or find a way to allow indexing into compressed F above??  Find memory to do the compression now - were at peak.
-
-// Compress and pre-transpose reciprocal of F(X) -- will reduce mem usage by maybe 1.6% without compression plus another 12.5% with compression.
-
-//GW: Find a way to do this earlier as we are at peak mem usage right now!!
-//GW: NOTE we do not allow NOT compressing recip.  Should we do the same with F? with P-1?
-			int options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_NEGATE;
-			if (IniGetInt (INI_FILE, "Poly1Compress", 2) == -1) options |= POLYMULT_PRE_FFT;			// Hidden option (uses more memory)
-			if (IniGetInt (INI_FILE, "Poly1Compress", 2) == -2) options |= POLYMULT_PRE_FFT | POLYMULT_PRE_COMPRESS;// Hidden option (uses more memory)
-			if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 2) options |= POLYMULT_PRE_COMPRESS;
-			ecmdata.polyR = polymult_preprocess (&ecmdata.polydata, polyG, ecmdata.poly_size, ecmdata.poly_size, ecmdata.poly_size*2, options);
-		}
-		
-//GW:test code: F(X) * 1/F(X)
-//polymult (&ecmdata.polydata, ecmdata.polyF, ecmdata.poly_size, ecmdata.polyR, ecmdata.poly_size, polyG, 2*ecmdata.poly_size,
-//	  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_NEGATE);
-
-// On subsequent loop iterations, H(X) = G(X) * H(X) mod F(X)
-
-		else {
+		if (outer_loop_counter > 1) {
 			// Compute tmp = G(X) * H(X).  We can store tmp in polyGH.
  			polymult (&ecmdata.polydata, polyG, ecmdata.poly_size, polyH, ecmdata.poly_size, ecmdata.polyGH, 2*ecmdata.poly_size,
-				  POLYMULT_INVEC1_MONIC /* | POLYMULT_NO_UNFFT */);
+				  POLYMULT_INVEC1_MONIC | (outer_loop_counter == 2 ? POLYMULT_INVEC2_MONIC : 0)  /* | POLYMULT_NO_UNFFT */);
 
 			// Compute quot = tmp * 1/F(X).  The upper half of GH happens to be polyH.  Store the quotient in upper half of GH.
 			polymult (&ecmdata.polydata, polyH, ecmdata.poly_size, ecmdata.polyR, ecmdata.poly_size, polyH, ecmdata.poly_size,
-				  POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_NEGATE | POLYMULT_MULHI /* | POLYMULT_NO_UNFFT */);
+				  (outer_loop_counter == 2 ? POLYMULT_INVEC1_MONIC : 0) | POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_NEGATE | POLYMULT_MULHI /* | POLYMULT_NO_UNFFT */);
 
 			// Compute H(X) = tmp - quot * F(X).  Tmp is in polyG, quotient is in polyH.
 			polymult_fma (&ecmdata.polydata, polyH, ecmdata.poly_size, ecmdata.polyF, ecmdata.poly_size, polyH, ecmdata.poly_size, polyG,
