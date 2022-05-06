@@ -48,7 +48,7 @@ clean:
 	rm -f $(EXE) $(EXE2) $(LINUXOBJS)
 
 cJSON.o:
-	$(CC) $(CCFLAGS) -c ../cJSON.c
+	$(CC) $(CFLAGS) -c ../cJSON.c
 
 ecm.o:
 	$(CPP) $(CPPFLAGS) -c ../ecm.cpp
@@ -60,7 +60,7 @@ pair.o:
 	$(CPP) $(CPPFLAGS) -c ../pair.cpp
 
 pm1prob.o:
-	$(CC) $(CCFLAGS) -c ../pm1prob.c
+	$(CC) $(CFLAGS) -c ../pm1prob.c
 
 .c.o:
 	$(CC) $(CFLAGS) -c $<
