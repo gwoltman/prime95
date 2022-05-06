@@ -3189,9 +3189,9 @@ int prev_fft_size = 0;
 		invec2_preprocessed = is_preprocessed_poly (gw_invec2);
 		invec2_pre_ffted = invec2_preprocessed && is_preffted_poly (gw_invec2);
 
-		// Read invec1 on processing of first other poly OR subsequent other poly if the FFT size changes and we've overwritten invec1
-		// For FFT implementation we can usually read invec1 into a buffer shared with tmpvec (the buffer that will hold the FFT of invec1).
-		if (i == 0 || (plan->fft_size != prev_fft_size /*GW: && invec1 != tmpvec OR prev was strip_monic_from_invec1*/)) {
+		// Read invec1 on processing of first other poly.  For FFT implementation we can usually read invec1 into a buffer shared
+		// with tmpvec (the buffer that will hold the FFT of invec1).
+		if (i == 0) {
 			invec1 = (plan->impl == POLYMULT_IMPL_FFT && !post_monic_addin_invec1) ? tmpvec : invec1_buffer;
 			if (!invec1_preprocessed) read_line (pmdata->gwdata, gw_invec1, gw_invec1_size, line, invec1, options & INVEC1_OPTIONS, strip_monic_from_invec1);
 			else read_preprocess_line (pmdata->gwdata, gw_invec1, gw_invec1_size, line, invec1, options & INVEC1_OPTIONS, strip_monic_from_invec1);
@@ -3582,12 +3582,6 @@ void polymult_several (		// Multiply one poly with several polys
 	// Allocate array to plan each poly multiplication
 	pmdata->plan = plan = (polymult_plan *) malloc (num_other_polys * sizeof (polymult_plan));
 
-	// Track the largest buffer sizes that must be allocated
-	pmdata->alloc_invec1_size = 0;
-	pmdata->alloc_invec2_size = 0;
-	pmdata->alloc_outvec_size = 0;
-	pmdata->alloc_tmpvec_size = 0;
-
 	// Check for pre-processed input poly
 	bool invec1_preprocessed = is_preprocessed_poly (invec1);
 	bool invec1_pre_ffted = invec1_preprocessed && is_preffted_poly (invec1);
@@ -3600,9 +3594,17 @@ void polymult_several (		// Multiply one poly with several polys
 	int	pass;			// First or second pass through the planning process
 	bool	must_replan;		// TRUE if replanning will be required
 
-	// Loop over all the other polys to determine the plan (brute/Karatsuba/FFT, FFT size, post_process_monic, 1*1 addins, etc.) needed for each
+	// Determine the best plan (brute/Karatsuba/FFT, FFT size, post_process_monic, 1*1 addins, etc.).  Sometimes this takes two passes.
 	for (pass = 1; pass == 1 || must_replan; pass++) {
 	    must_replan = FALSE;
+
+	    // Track the largest buffer sizes that must be allocated
+	    pmdata->alloc_invec1_size = 0;
+	    pmdata->alloc_invec2_size = 0;
+	    pmdata->alloc_outvec_size = 0;
+	    pmdata->alloc_tmpvec_size = 0;
+
+	    // Loop over all the other polys to determine the plan (brute/Karatsuba/FFT, FFT size, post_process_monic, 1*1 addins, etc.) needed for each
 	    for (int i = 0; i < num_other_polys; i++) {
 		gwnum	*invec2 = other_polys[i].invec2;		// Second input poly
 		int	invec2_size = other_polys[i].invec2_size;	// Size of the second input polynomial
@@ -3926,10 +3928,10 @@ void polymult_several (		// Multiply one poly with several polys
 		// An experimental case where we allow a single 1*1 calculation that we think will not trigger roundoff errors.  If wrapping just the 1*1
 		// in a monic times monic polymult results in a smaller FFT size, then use the smaller FFT size and subtract 1*1 from the least significant
 		// coefficient.  We think this will be OK because the poly FFT will be adding the 1*1 to a single subproduct (LSW-of-invec1 * LSW-of-invec2).
-		if (!must_strip_a_monic && (options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC2_MONIC)) {
+		if (!must_strip_a_monic && (options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC2_MONIC) && LSWs_skipped == 0) {
 			int possible_fft_size = polymult_fft_size (true_outvec_size - 1);
-			if (possible_fft_size >= pmdata->FFT_BREAK &&
-			    (best_choice == 0 || possible_fft_size <= fft_size) &&
+			if ((must_fft || possible_fft_size >= pmdata->FFT_BREAK) &&
+			    (best_choice == 0 || possible_fft_size < best_fft_size) &&
 			    (!must_fft || (must_fft && fft_size == possible_fft_size))) {
 				best_choice = 2;
 				best_fft_size = possible_fft_size;
