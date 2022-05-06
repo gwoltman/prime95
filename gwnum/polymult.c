@@ -3592,8 +3592,18 @@ void polymult_several (		// Multiply one poly with several polys
 	bool invec1_preprocessed = is_preprocessed_poly (invec1);
 	bool invec1_pre_ffted = invec1_preprocessed && is_preffted_poly (invec1);
 
+	// For better or worse, if "other polys" woud select different FFT sizes we try to make them all use the largest FFT size.  That way invec1 will
+	// be forward FFTed only once.  To make this happen we track the largest FFT size, whether the FFT sizes are flexible (not pre-FFTed).  We way
+	// need to make two passes through the planning process to make this happen.
+	int	largest_fft_size = 0;	// FFT size that we can use for all the other poly plans where we are free to choose the FFT size
+	bool	all_ffts_flexible = TRUE;// TRUE if all the FFT sizes included in largest_fft_size are not pre-FFTed
+	int	pass;			// First or second pass through the planning process
+	bool	must_replan;		// TRUE if replanning will be required
+
 	// Loop over all the other polys to determine the plan (brute/Karatsuba/FFT, FFT size, post_process_monic, 1*1 addins, etc.) needed for each
-	for (int i = 0; i < num_other_polys; i++) {
+	for (pass = 1; pass == 1 || must_replan; pass++) {
+	    must_replan = FALSE;
+	    for (int i = 0; i < num_other_polys; i++) {
 		gwnum	*invec2 = other_polys[i].invec2;		// Second input poly
 		int	invec2_size = other_polys[i].invec2_size;	// Size of the second input polynomial
 		gwnum	*outvec = other_polys[i].outvec;		// Output poly of size invec1_size + invec2_size - 1
@@ -3650,9 +3660,9 @@ void polymult_several (		// Multiply one poly with several polys
 		// We now know the true input and output vector sizes.  THIS WILL NOT CHANGE.  We may do a brute/Karatsuba/FFT multiply that is smaller
 		// than the true sizes and do some post-monic-addins to create the true result, but that will be reflected in other variables.
 		// Save the true sizes to the plan.
-		plan->true_invec1_size = true_invec1_size;
-		plan->true_invec2_size = true_invec2_size;
-		plan->true_outvec_size = true_outvec_size;
+		plan[i].true_invec1_size = true_invec1_size;
+		plan[i].true_invec2_size = true_invec2_size;
+		plan[i].true_outvec_size = true_outvec_size;
 
 		// If circular size is larger than the polymult result, then the modulo operation is a no-op.
 		if (circular_size >= true_outvec_size) options &= ~POLYMULT_CIRCULAR;
@@ -3673,8 +3683,8 @@ void polymult_several (		// Multiply one poly with several polys
 		// or hundreds of multiplied signals of random numbers in the same "column".  There can be up to four 1*1 locations in the output
 		// vector (monic RLP * monic RLP).  Calculate the locations of these possible 1*1s.  These locations will need to be "patched" later
 		// and can affect the algorithm chosen to perform the polymult.
-		int	addin1, addin2, addin3, addin4;		// Locations of the up to four 1*1 values may need to be patched later
-		addin1 = addin2 = addin3 = addin4 = -1;		// Assume no addins of 1*1 are needed
+		int	addin1, addin2, addin3, addin4, subout;		// Locations of the up to five 1*1 values may need to be patched later
+		addin1 = addin2 = addin3 = addin4 = subout = -1;	// Assume no addins or subouts of 1*1 are needed
 
 		// We also need to track which of the true_outvec_size coefficients will be returned.  For example, a monic * monic will not return the
 		// leading one.  A monic-RLP * monic-RLP returns a monic-RLP where the leading one and entire lower half of outvec are not returned.
@@ -3913,6 +3923,20 @@ void polymult_several (		// Multiply one poly with several polys
 			}
 		}
 
+		// An experimental case where we allow a single 1*1 calculation that we think will not trigger roundoff errors.  If wrapping just the 1*1
+		// in a monic times monic polymult results in a smaller FFT size, then use the smaller FFT size and subtract 1*1 from the least significant
+		// coefficient.  We think this will be OK because the poly FFT will be adding the 1*1 to a single subproduct (LSW-of-invec1 * LSW-of-invec2).
+		if (!must_strip_a_monic && (options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC2_MONIC)) {
+			int possible_fft_size = polymult_fft_size (true_outvec_size - 1);
+			if (possible_fft_size >= pmdata->FFT_BREAK &&
+			    (best_choice == 0 || possible_fft_size <= fft_size) &&
+			    (!must_fft || (must_fft && fft_size == possible_fft_size))) {
+				best_choice = 2;
+				best_fft_size = possible_fft_size;
+				best_poly_addin_size = 0;
+			}
+		}
+
 		// If handling monics by removing ones from invec1 and post-adding invec2 is possible, then see if that is a better choice
 		if ((options & POLYMULT_INVEC1_MONIC) &&
 		    (!invec1_pre_ffted || !preprocessed_monics_included (invec1)) &&
@@ -3924,7 +3948,7 @@ void polymult_several (		// Multiply one poly with several polys
 			if ((!must_fft || possible_fft_size <= fft_size) &&
 			    (best_choice == 0 || possible_fft_size < best_fft_size ||
 			     (possible_fft_size == best_fft_size && possible_poly_addin_size < best_poly_addin_size))) {
-				best_choice = 2;
+				best_choice = 3;
 				best_fft_size = possible_fft_size;
 				best_poly_addin_size = possible_poly_addin_size;
 			}
@@ -3941,7 +3965,7 @@ void polymult_several (		// Multiply one poly with several polys
 			if ((!must_fft || possible_fft_size <= fft_size) &&
 			    (best_choice == 0 || possible_fft_size < best_fft_size ||
 			     (possible_fft_size == best_fft_size && possible_poly_addin_size < best_poly_addin_size))) {
-				best_choice = 3;
+				best_choice = 4;
 				best_fft_size = possible_fft_size;
 				best_poly_addin_size = possible_poly_addin_size;
 			}
@@ -3961,7 +3985,7 @@ void polymult_several (		// Multiply one poly with several polys
 			if ((!must_fft || possible_fft_size <= fft_size) &&
 			    (best_choice == 0 || possible_fft_size < best_fft_size ||
 			     (possible_fft_size == best_fft_size && possible_poly_addin_size < best_poly_addin_size))) {
-				best_choice = 4;
+				best_choice = 5;
 				best_fft_size = possible_fft_size;
 				best_poly_addin_size = possible_poly_addin_size;
 			}
@@ -3977,17 +4001,26 @@ void polymult_several (		// Multiply one poly with several polys
 			adjusted_invec1_size = true_invec1_size;
 			adjusted_invec2_size = true_invec2_size;
 		}
-		if (best_choice == 2) {		// Monics handled by strippng ones from invec1 and usually adding invec2 during post processing
+		if (best_choice == 2) {		// Monics handled without post processing by wrapping a 1*1 and later subtracting it back out
+			strip_monic_from_invec1 = post_monic_addin_invec2 = FALSE;
+			strip_monic_from_invec2 = post_monic_addin_invec1 = FALSE;
+			adjusted_invec1_size = true_invec1_size;
+			adjusted_invec2_size = true_invec2_size;
+			circular_size = best_fft_size;
+//GW:  Do we need to set or adjust anything else?
+			subout = 0;		// Subtract one from least significant coefficient
+		}
+		if (best_choice == 3) {		// Monics handled by strippng ones from invec1 and usually adding invec2 during post processing
 			strip_monic_from_invec1 = TRUE; post_monic_addin_invec2 = !invec1_can_be_stripped_cheaply;
 			strip_monic_from_invec2 = post_monic_addin_invec1 = FALSE;
 			adjusted_invec2_size = true_invec2_size;
 		}
-		if (best_choice == 3) {		// Monics handled by strippng ones from invec2 and usually adding invec1 during post processing
+		if (best_choice == 4) {		// Monics handled by strippng ones from invec2 and usually adding invec1 during post processing
 			strip_monic_from_invec2 = TRUE; post_monic_addin_invec1 = !invec2_can_be_stripped_cheaply;
 			strip_monic_from_invec1 = post_monic_addin_invec2 = FALSE;
 			adjusted_invec1_size = true_invec1_size;
 		}
-		if (best_choice == 4) {		// Monics handled by stripping ones from both invecs
+		if (best_choice == 5) {		// Monics handled by stripping ones from both invecs
 			strip_monic_from_invec1 = TRUE; post_monic_addin_invec2 = !invec1_can_be_stripped_cheaply;
 			strip_monic_from_invec2 = TRUE; post_monic_addin_invec1 = !invec2_can_be_stripped_cheaply;
 		}
@@ -4005,8 +4038,20 @@ void polymult_several (		// Multiply one poly with several polys
 		else if (!must_fft && !can_use_circular_fft_size && adjusted_outvec_size < pmdata->FFT_BREAK) {
 			plan[i].impl = POLYMULT_IMPL_KARATSUBA;
 		}
-		// FFT implementation.  There may be several possible FFT sizes to choose from.  We'll choose the smallest.
+		// FFT implementation.  There may be several possible FFT sizes to choose from.  We prefer to choose the smallest.
 		else {
+			// Make sure every "other poly" uses the same FFT size if possible.  In pass 1 we find the largest FFT size.
+			if (pass == 1) {
+				if (best_fft_size != largest_fft_size) {
+					if (largest_fft_size != 0) must_replan = TRUE;
+					if (best_fft_size > largest_fft_size && (all_ffts_flexible || !must_fft)) largest_fft_size = best_fft_size;
+					if (must_fft) all_ffts_flexible = FALSE;
+				}
+			}
+			// In pass 2, we use the largest FFT size whenever possible
+			if (pass == 2) {
+				if (!must_fft) best_fft_size = largest_fft_size;
+			}
 //GW: Does this code deal with the must_fft flag???  
 			plan[i].impl = POLYMULT_IMPL_FFT;
 			plan[i].fft_size = fft_size = best_fft_size;
@@ -4023,9 +4068,6 @@ void polymult_several (		// Multiply one poly with several polys
 			// Verify that a pre-FFTed input vector is compatible with the circular size
 //GW			ASSERTG (!must_fft || fft_size >= circular_size);
 		}
-
-
-
 
 
 		// Calculate how much to pad the adjusted polymult result.  Padding may be required on the left and right to reach true_outvec_size.
@@ -4049,7 +4091,7 @@ void polymult_several (		// Multiply one poly with several polys
 		plan[i].post_monic_addin_invec2 = post_monic_addin_invec2;
 		plan[i].strip_monic_from_invec1 = strip_monic_from_invec1;
 		plan[i].strip_monic_from_invec2 = strip_monic_from_invec2;
-
+		plan[i].subout = subout;
 
 		// Set plan's emulate_circular flag.  Brute force and ideal circular FFT size both implement circular_size for free.
 		plan[i].emulate_circular = ((options & POLYMULT_CIRCULAR) && circular_size != true_outvec_size &&
@@ -4077,8 +4119,9 @@ void polymult_several (		// Multiply one poly with several polys
 			if (adjusted_outvec_size + 32 > pmdata->alloc_tmpvec_size) pmdata->alloc_tmpvec_size = adjusted_outvec_size + 32; // May need extra for each recursion
 		}
 		else {
-			// Invec1 will be read into tmpvec unless post_monic_addin_invec1 is set
-			if (post_monic_addin_invec1 && true_invec1_size > pmdata->alloc_invec1_size) pmdata->alloc_invec1_size = true_invec1_size;
+			// Invec1 will be read into tmpvec unless post_monic_addin_invec1 is set or multiple FFT sizes will be used
+			if ((post_monic_addin_invec1 || fft_size != largest_fft_size) && true_invec1_size > pmdata->alloc_invec1_size)
+				pmdata->alloc_invec1_size = true_invec1_size;
 			// The FFT of invec1 will be stored in tmpvec
 			if (fft_size > pmdata->alloc_tmpvec_size) pmdata->alloc_tmpvec_size = fft_size;
 			// Invec2 will be read into outvec unless post_monic_addin_invec2 is set
@@ -4086,6 +4129,7 @@ void polymult_several (		// Multiply one poly with several polys
 			// The FFT of invec2 as well as the polymult result will be stored in outvec
 			if (fft_size > pmdata->alloc_outvec_size) pmdata->alloc_outvec_size = fft_size + plan[i].adjusted_pad + plan[i].adjusted_shift;
 		}
+	    }
 	}
 //GW		Change poly_preprocess to either fft_size of polymult_fft_size(insz1 + insz2 - 1) OR polymult_fft_size (outsz) if polymult circular set.
 //GW		This offloads some of this monic decision crap to the caller.  And lets him manage the exact fft size in case we would have decided wrong fft size.
@@ -4168,7 +4212,7 @@ void polymult_several (		// Multiply one poly with several polys
 		if (options & POLYMULT_FNMADD) addin_value = -1;
 
 		// Pre-planning figured out which output entries (if any) need to get 1.0 added to the result because a monic poly is multiplied by a monic poly.
-		// We used to add the FFT(1) in monic_adjustments but this led to excessive round off error as FFT(1) is NOT a random signal.  It only
+		// We used to add FFT(1) in monic_adjustments but this led to excessive round off error as FFT(1) is NOT a random signal.  It only
 		// affects the least significant bits and is apt to get drowned out by the addition of many multiplied large signals.
 
 		// Unfft all output coefficients
@@ -4176,7 +4220,8 @@ void polymult_several (		// Multiply one poly with several polys
 			if (outvec[j] == NULL) continue;
 			if (pmdata->gwdata->ZERO_PADDED_FFT) zpad7_unfft (pmdata->gwdata, outvec[j]);
 			FFT_state (outvec[j]) = (pmdata->gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
-			bool j_affected_by_addin = (j == plan[i].addin[0] || j == plan[i].addin[1] || j == plan[i].addin[2] || j == plan[i].addin[3]);
+			bool j_affected_by_addin = (j == plan[i].addin[0] || j == plan[i].addin[1] ||
+						    j == plan[i].addin[2] || j == plan[i].addin[3] || j == plan[i].subout);
 			if ((options & POLYMULT_NO_UNFFT) && !j_affected_by_addin) continue;
 //GW: use gwsetaddin rather than gwaddsmall?
 			gwunfft2 (pmdata->gwdata, outvec[j], outvec[j],
@@ -4185,6 +4230,7 @@ void polymult_several (		// Multiply one poly with several polys
 			if (j == plan[i].addin[1]) gwaddsmall (pmdata->gwdata, outvec[j], addin_value);
 			if (j == plan[i].addin[2]) gwaddsmall (pmdata->gwdata, outvec[j], addin_value);
 			if (j == plan[i].addin[3]) gwaddsmall (pmdata->gwdata, outvec[j], addin_value);
+			if (j == plan[i].subout) gwaddsmall (pmdata->gwdata, outvec[j], -addin_value);
 			if (options & POLYMULT_NEXTFFT) gwfft (pmdata->gwdata, outvec[j], outvec[j]);
 		}
 	}

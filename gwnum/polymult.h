@@ -265,6 +265,7 @@ typedef struct polyplan {
 	int	LSWs_skipped;		// Least significant coefficients that do not need to be returned
 	int	MSWs_skipped;		// Most significant coefficients (of true_outvec_size) that do not need to be returned
 	int	addin[4];		// Outvec locations where four 1*1 values may need to be added at the very end of the polymult process
+	int	subout;			// Outvec location where 1*1 value may need to be subtracted at the very end of the polymult process
 	int	adjusted_shift;		// Number of coefficients to shift left the initial partial poly multiplication to reach true_outvec_size
 	int	adjusted_pad;		// Number of coefficients to pad on the left of the initial partial poly multiplication to reach true_outvec_size
 } polymult_plan;
