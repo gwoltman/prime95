@@ -140,8 +140,8 @@ void polymult2 (
 /* Preprocess a poly that will be used in multiple polymult calls.  Preprocessing can reduce memory consumption or reduce CPU time.  Returns a massaged poly. */
 /* Caller should then free the unmassaged poly.  The massaged poly cannot be used in any gwnum calls, it can only be used in future polymult calls with */
 /* poly sizes and options that match those passed to this routine. */
-/* The POLYMULT_FFT preprocessing option allows the forward FFT of invec1 to be used over and over again.  An FFTed preprocessed poly cannot be multiplied */
-/* with a monic polynomial.  The downside to the POLYMULT_FFT option is the preprocessed poly consumes more memory. */
+/* The POLYMULT_PRE_FFT preprocessing option allows the forward FFT of invec1 to be used over and over again.  The downside to the POLYMULT_PRE_FFT option */
+/* is the preprocessed poly consumes more memory. */
 gwarray polymult_preprocess (		// Returns a plug-in replacement for the input poly
 	pmhandle *pmdata,		// Handle for polymult library
 	gwnum	*invec1,		// Input poly
@@ -204,13 +204,23 @@ struct pmhandle_struct {
 	int	helpers_waiting_work;	// Count of helper threads thathave reached waiting for work_to_do
 	bool	termination_in_progress; // Flag for helper threads to exit
 	gwthread *thread_ids;		// Thread ids for the spawned threads
-	int	twiddles_initialized;	// size of the twiddle tables
+	int	twiddles_initialized;	// Size of the twiddle tables
+	bool	twiddles_are_from_cache; // TRUE if the current twiddles came from the twiddle cache
 	double	*twiddles1;		// Sin/cos table for radix-3
 	double	*twiddles2;		// Sin/cos table for radix-4 and radix-5
 	// Brute force from outvec_size [1..KARAT_BREAK), Karatsuba from [KARAT_BREAK..FFT_BREAK), FFT from [FFT_BREAK..infinity)
 	int	KARAT_BREAK;		// Output vector size where we switch from brute force to Karatsuba
 	int	FFT_BREAK;		// Output vector size where we switch from Karatsuba to FFTs
 	int	L2_CACHE_SIZE;		// Optimize FFTs to fit in this size cache (number is in KB).  Default is 256KB.
+	// Cached twiddles
+	bool	cached_twiddles_enabled;// TRUE if caching twiddles is enabled
+	bool	twiddle_cache_additions_disabled; // TRUE if adding new entries to the twiddle cache is temporarily disabled
+	struct {
+		int	size;		// Size of the twiddle tables
+		double	*twiddles1;	// Sin/cos table for radix-3
+		double	*twiddles2;	// Sin/cos table for radix-4 and radix-5
+	} cached_twiddles[40];
+	int	cached_twiddles_count;	// Number of cached twiddles
 	// Arguments to the current polymult call.  Copied here so that helper threads can access the arguments.  Also, the plan for implementing the polymult.
 	gwnum	*invec1;		// First input poly
 	int	invec1_size;		// Size of the first input polynomial
@@ -242,7 +252,7 @@ typedef struct {
 	int	element_size;		// Size of each invec in the array
 	int	padded_element_size;	// Size of each invec in the array rounded up to a multiple of 64 (not rounded when compressing)
 	int	options;		// Copy of options passed to polymult_line_preprocess
-	int	fft_size;		// If POLYMULT_FFT is set, this is the poly FFT size used during preprocessing
+	int	fft_size;		// If POLYMULT_PRE_FFT is set, this is the poly FFT size selected during preprocessing
 	bool	monic_ones_included;	// TRUE if monic ones are included in pre-FFTed data
 } preprocessed_poly_header;
 

@@ -368,6 +368,10 @@ void polymult_init (
 		pmdata->FFT_BREAK = 64;				//GW: Fix me
 	}
 
+	// Default enables caching twiddles
+	pmdata->cached_twiddles_enabled = TRUE;
+	pmdata->twiddle_cache_additions_disabled = FALSE;
+			
 	// Set default cache size to optimize FFTs for
 	pmdata->L2_CACHE_SIZE = 256;
 
@@ -391,8 +395,20 @@ void polymult_done (
 		gwevent_destroy (&pmdata->helpers_done);
 		gwevent_destroy (&pmdata->main_can_wakeup);
 	}
-	aligned_free (pmdata->twiddles1), pmdata->twiddles1 = NULL;
-	aligned_free (pmdata->twiddles2), pmdata->twiddles2 = NULL;
+	if (pmdata->cached_twiddles_enabled) {
+		for (int i = 0; i < pmdata->cached_twiddles_count; i++) {
+			aligned_free (pmdata->cached_twiddles[i].twiddles1);
+			aligned_free (pmdata->cached_twiddles[i].twiddles2);
+		}
+		pmdata->cached_twiddles_count = 0;
+	}
+	if (pmdata->twiddles_initialized && !pmdata->twiddles_are_from_cache) {
+		aligned_free (pmdata->twiddles1);
+		aligned_free (pmdata->twiddles2);
+	}
+	pmdata->twiddles_initialized = 0;
+	pmdata->twiddles1 = NULL;
+	pmdata->twiddles2 = NULL;
 }
 
 
@@ -629,30 +645,49 @@ void generate_sincos (
 	const unsigned int fft_size)
 {
 	const long double twopi = 2.0L * 3.1415926535897932384626433L;
-	unsigned int size = fft_size;
 #define gen_twid(t,a)	{long double c,s; c=cosl(a); s=sinl(a)+1e-80; (t)[0]=(double)(c/s); (t)[1]=(double)s; }
 
 	// Return quickly if twiddles have already been initialized
-	if (pmdata->twiddles_initialized && pmdata->twiddles_initialized == size) return;
+	if (pmdata->twiddles_initialized && pmdata->twiddles_initialized == fft_size) return;
 
 	// Make sure only one thread initializes the twiddles
 	if (pmdata->num_threads > 1) gwmutex_lock (&pmdata->poly_mutex);
 
 	// If some other thread beat us to the initialization, then return
-	if (pmdata->twiddles_initialized && pmdata->twiddles_initialized == size) {
+	if (pmdata->twiddles_initialized && pmdata->twiddles_initialized == fft_size) {
 		if (pmdata->num_threads > 1) gwmutex_unlock (&pmdata->poly_mutex);
 		return;
 	}
 
-	// Free the previous twiddles
-	if (pmdata->twiddles_initialized) {
-//GW: accept size < pmdata->twiddles_initialized (at least for power of 2)
-//GW: cache several different table sizes?
-		aligned_free (pmdata->twiddles1), pmdata->twiddles1 = NULL;
-		aligned_free (pmdata->twiddles2), pmdata->twiddles2 = NULL;
+//GW: accept fft_size < pmdata->twiddles_initialized (at least for power of 2)??
+
+	// Free the previous twiddles unless they are cached
+	if (pmdata->twiddles_initialized && !pmdata->twiddles_are_from_cache) {
+		aligned_free (pmdata->twiddles1);
+		aligned_free (pmdata->twiddles2);
 	}
 
+	// Look for desired twiddles in the cache
+	if (pmdata->cached_twiddles_enabled) {
+		for (int i = 0; i < pmdata->cached_twiddles_count; i++) {
+			if (fft_size == pmdata->cached_twiddles[i].size) {
+				pmdata->twiddles_initialized = fft_size;
+				pmdata->twiddles1 = pmdata->cached_twiddles[i].twiddles1;
+				pmdata->twiddles2 = pmdata->cached_twiddles[i].twiddles2;
+				pmdata->twiddles_are_from_cache = TRUE;
+				if (pmdata->num_threads > 1) gwmutex_unlock (&pmdata->poly_mutex);
+				return;
+			}
+		}
+	}
+
+	// Clear previous state
+	pmdata->twiddles_initialized = 0;
+	pmdata->twiddles1 = NULL;
+	pmdata->twiddles2 = NULL;
+
 	// Generate twiddles for radix-3 butterflies
+	unsigned int size = fft_size;
 	if (size % 3 == 0) {
 		long double twopi_over_size = twopi / (long double) size;
 		pmdata->twiddles1 = (double *) aligned_malloc (size/3 * 2 * sizeof (double), 64);
@@ -672,7 +707,26 @@ void generate_sincos (
 		gen_twid (&pmdata->twiddles2[2*(2*i+1)], 2.0L*angle);
 	}
 
+	// Set size
 	pmdata->twiddles_initialized = fft_size;
+	pmdata->twiddles_are_from_cache = FALSE;
+
+	// Add twiddles to the cache
+	if (pmdata->cached_twiddles_enabled && !pmdata->twiddle_cache_additions_disabled) {
+		int i;
+		if (pmdata->cached_twiddles_count < 40) i = pmdata->cached_twiddles_count++;
+		else {
+			i = fft_size % 37;		// Delete random entry
+			aligned_free (pmdata->cached_twiddles[i].twiddles1);
+			aligned_free (pmdata->cached_twiddles[i].twiddles2);
+		}
+		pmdata->cached_twiddles[i].size = fft_size;
+		pmdata->cached_twiddles[i].twiddles1 = pmdata->twiddles1;
+		pmdata->cached_twiddles[i].twiddles2 = pmdata->twiddles2;
+		pmdata->twiddles_are_from_cache = TRUE;
+	}
+
+	// Unlock and return
 	if (pmdata->num_threads > 1) gwmutex_unlock (&pmdata->poly_mutex);
 }
 
