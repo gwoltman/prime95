@@ -1402,6 +1402,11 @@ typedef struct {
 	gwnum	*polyF;		/* Array of coefficients for poly F(X) */
 	gwnum	*polyR;		/* Array of coefficients for poly 1/F(X), coefficients need to be negated */
 	gwnum	*polyGH;	/* Array of coefficients for poly G(X) and H(X) */
+	gwnum	*polyGaux;	/* Scratch array for use in filling up poly G(X) */
+	int	polyGaux_size;	/* Size of the polyGaux array */
+	bool	use_preallocated_norm_temps; /* TRUE when using polyGaux for all our normalization temps */
+	gwnum	norm_pool_temps[5]; /* Free gwnums for normalization to use.  These come from polyGaux. */
+	int	norm_pool_temps_count; /* Number of free gwnums in norm_pool_temps */
 //	int	num_points;	/* Number of points (multiples of D) that can be evalualted with each polymult. */
 //	int	helper_work;	/* Type of work helper routine should perform */
 //	int	helper_count;	/* Total number of threads including main thread doing helper work */
@@ -1646,6 +1651,30 @@ void ell_add_xz_last (
 	gwmul3 (&ecmdata->gwdata, t2, diff->z, t2, 0);						/* t2 = t2 * zdiff (will become outx) */
 	gwmul3 (&ecmdata->gwdata, t1, diff->x, t1, 0);						/* t1 = t1 * xdiff (will become outz) */
 	if (out != scr) xzswap (*scr, *out);
+}
+
+/* Like ell_add_xz but in2 is normalized (z value is one) */
+
+void ell_add_xz_1norm (
+	ecmhandle *ecmdata,
+	struct xz *in1,		// Not normalized
+	gwnum	in2,		// Normalized in2.x, in2.z is 1
+	struct xz *diff,	// Not normalized
+	struct xz *out)		// Output -- cannot be same as in1, in2, or diff
+{				/* 12 FFTs */
+	gwnum	t1, t2;
+
+	ASSERTG (out != in1 && out->x != in2 && out->z != in2 && out != diff);
+
+	t1 = out->z;
+	gwmulsub4 (&ecmdata->gwdata, in1->z, in2, in1->x, t1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	/* t1 = z1x2 - x1 */
+	gwsquare2 (&ecmdata->gwdata, t1, t1, GWMUL_STARTNEXTFFT);				/* t1 = t1^2 */
+	gwmul3 (&ecmdata->gwdata, t1, diff->x, t1, GWMUL_STARTNEXTFFT);				/* t1 = t1 * xdiff (will become outz) */
+
+	t2 = out->x;
+	gwmulsub4 (&ecmdata->gwdata, in1->x, in2, in1->z, t2, GWMUL_STARTNEXTFFT);		/* t2 = x1x2 - z1 */
+	gwsquare2 (&ecmdata->gwdata, t2, t2, GWMUL_STARTNEXTFFT);				/* t2 = t2^2 (will become outx) */
+	gwmul3 (&ecmdata->gwdata, t2, diff->z, t2, 0);						/* t2 = t2 * zdiff (will become outx) */
 }
 
 /* Like ell_add_xz but in2 and diff are normalized (z values are one) */
@@ -2226,12 +2255,12 @@ void normalize_pool_term (
 	int	i;
 
 	if (ecmdata->poolz_values != NULL) {
-		for (i = 0; i < ecmdata->poolz_count; i++) gwfree (&ecmdata->gwdata, ecmdata->poolz_values[i]);
+		if (!ecmdata->use_preallocated_norm_temps) for (i = 0; i < ecmdata->poolz_count; i++) gwfree (&ecmdata->gwdata, ecmdata->poolz_values[i]);
 		free (ecmdata->poolz_values); ecmdata->poolz_values = NULL;
 	}
 
 	free (ecmdata->pool_values); ecmdata->pool_values = NULL;
-	gwfree (&ecmdata->gwdata, ecmdata->pool_modinv_value); ecmdata->pool_modinv_value = NULL;
+	if (!ecmdata->use_preallocated_norm_temps) gwfree (&ecmdata->gwdata, ecmdata->pool_modinv_value); ecmdata->pool_modinv_value = NULL;
 	ecmdata->pool_count = 0;
 	ecmdata->poolz_count = 0;
 }
@@ -2245,17 +2274,19 @@ void normalize_pool_term (
 /* 3) Use 1.14*N memory and use 3.573 multiplies per point. */
 /* 4) Use N memory and use O(N^2) multiplies per point. */
 
-int add_to_normalize_pool_internal (
+// The new add_to_normalize_pool interface. "_ro" stands for relinquish ownership.  Caller relinquishes ownership of b.  Saves a gwcopy.
+int add_to_normalize_pool_ro (
 	ecmhandle *ecmdata,
 	gwnum	a,		/* Number to multiply by 1/b.  This input can be in a full or partial FFTed state.  Not preserved! */
-	gwnum	b,		/* Preserved, will not be FFTed in place */
-	int	relinquish_b)	/* TRUE if caller is relinquishing ownership of b, saves a gwcopy */
+	gwnum	b)		/* Preserved, will not be FFTed in place */
 {
-#define allocAndFFTb(d)		if(relinquish_b){gwfft(&ecmdata->gwdata,b,b);d=b;}\
-				else{gwnum t=gwalloc(&ecmdata->gwdata);if(t==NULL)goto oom;gwfft(&ecmdata->gwdata,b,t);d=t;}
-#define allocAndCopyb(d)	if(relinquish_b)d=b;\
-				else{gwnum t=gwalloc(&ecmdata->gwdata);if(t==NULL)goto oom;gwcopy(&ecmdata->gwdata,b,t);d=t;}
-#define copyAndFFTb(d)		if(relinquish_b){gwswap(b,d);gwfree(&ecmdata->gwdata,b);}else gwfft(&ecmdata->gwdata,b,d);
+#define normalloc(d)		if(!ecmdata->use_preallocated_norm_temps){d = gwalloc (&ecmdata->gwdata); if (d == NULL) goto oom;} \
+				else {ASSERTG(ecmdata->norm_pool_temps_count > 0); d = ecmdata->norm_pool_temps[--ecmdata->norm_pool_temps_count];}
+#define normfree(d)		if(!ecmdata->use_preallocated_norm_temps){gwfree (&ecmdata->gwdata, d);} \
+				else {ASSERTG(ecmdata->norm_pool_temps_count < 5); ecmdata->norm_pool_temps[ecmdata->norm_pool_temps_count++] = d;}
+#define allocAndFFTb(d)		{gwfft(&ecmdata->gwdata,b,b);d=b;}
+#define allocAndCopyb(d)	d=b
+#define copyAndFFTb(d)		{gwswap(b,d);normfree(b);}
 
 /* Switch off the type of pooling we are going to do */
 
@@ -2376,7 +2407,7 @@ int add_to_normalize_pool_internal (
 			gwmul3 (&ecmdata->gwdata, a, tmp1, a, GWMUL_STARTNEXTFFT);
 			// tmp1 = b3*b4
 			gwmul3 (&ecmdata->gwdata, tmp1, tmp2, tmp1, GWMUL_STARTNEXTFFT);
-			gwfree (&ecmdata->gwdata, tmp2);
+			normfree (tmp2);
 			// pool[0] *= b3*b4
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[0], tmp1, ecmdata->pool_values[0], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			// pool[1] *= b3*b4
@@ -2424,7 +2455,7 @@ int add_to_normalize_pool_internal (
 			gwmul3 (&ecmdata->gwdata, a, tmp1, a, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			// tmp1 = b6*b7
 			gwmul3 (&ecmdata->gwdata, tmp1, tmp2, tmp1, GWMUL_STARTNEXTFFT);
-			gwfree (&ecmdata->gwdata, tmp2);
+			normfree (tmp2);
 			// poolz[0] *= b6*b7
 			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count-2], tmp1, ecmdata->poolz_values[ecmdata->poolz_count-2], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			// pool[4] *= b6*b7
@@ -2522,7 +2553,7 @@ int add_to_normalize_pool_internal (
 			gwmul3 (&ecmdata->gwdata, a, ecmdata->poolz_values[ecmdata->poolz_count-1], a, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			// b3 *= b4 or b5 *= b6
 			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count-1], tmp, ecmdata->poolz_values[ecmdata->poolz_count-1], GWMUL_STARTNEXTFFT);
-			gwfree (&ecmdata->gwdata, tmp);
+			normfree (tmp);
 		}
 
 /* Handle the fifth and seventh call for first set of eight points */
@@ -2537,8 +2568,7 @@ int add_to_normalize_pool_internal (
 		else if (ecmdata->pool_count == 7) {
 			gwnum	b7, b8, b34, b56, b78, b5678, b6vals;
 			// Allocate two more temporaries
-			b6vals = gwalloc (&ecmdata->gwdata);
-			if (b6vals == NULL) goto oom;
+			normalloc (b6vals);
 			// Load values temporarily stored in poolz
 			b7 = ecmdata->poolz_values[2];
 			b56 = ecmdata->poolz_values[1];
@@ -2587,10 +2617,10 @@ int add_to_normalize_pool_internal (
 			ecmdata->poolz_values[0] = b5678;
 			ecmdata->poolz_count = 1;
 			// Free temps
-			gwfree (&ecmdata->gwdata, b34);
-			gwfree (&ecmdata->gwdata, b56);
-			gwfree (&ecmdata->gwdata, b78);
-			gwfree (&ecmdata->gwdata, b6vals);
+			normfree (b34);
+			normfree (b56);
+			normfree (b78);
+			normfree (b6vals);
 		}
 
 /* Handle the first call for a new set of seven points */
@@ -2627,7 +2657,7 @@ int add_to_normalize_pool_internal (
 			gwmul3 (&ecmdata->gwdata, a, ecmdata->poolz_values[ecmdata->poolz_count-1], a, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			// b10 *= b11 or b12 *= b13
 			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count-1], tmp, ecmdata->poolz_values[ecmdata->poolz_count-1], GWMUL_STARTNEXTFFT);
-			gwfree (&ecmdata->gwdata, tmp);
+			normfree (tmp);
 		}
 
 /* Handle the fourth and sixth call for a set of seven points */
@@ -2642,8 +2672,7 @@ int add_to_normalize_pool_internal (
 		else {
 			gwnum	b14, b15, b1011, b1213, b1415, b12131415, b6vals;
 			// Allocate two more temporaries
-			b6vals = gwalloc (&ecmdata->gwdata);
-			if (b6vals == NULL) goto oom;
+			normalloc (b6vals);
 			// Load values temporarily stored in poolz
 			b14 = ecmdata->poolz_values[ecmdata->poolz_count-1];
 			b1213 = ecmdata->poolz_values[ecmdata->poolz_count-2];
@@ -2691,10 +2720,10 @@ int add_to_normalize_pool_internal (
 			//gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, b12131415, ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
 			ecmdata->poolz_values[ecmdata->poolz_count++] = b12131415;
 			// Free temps
-			gwfree (&ecmdata->gwdata, b1011);
-			gwfree (&ecmdata->gwdata, b1213);
-			gwfree (&ecmdata->gwdata, b1415);
-			gwfree (&ecmdata->gwdata, b6vals);
+			normfree (b1011);
+			normfree (b1213);
+			normfree (b1415);
+			normfree (b6vals);
 		}
 
 /* Add a to array of values to normalize */
@@ -2732,7 +2761,7 @@ int add_to_normalize_pool_internal (
 			for (i = 0; i < ecmdata->pool_count; i++)
 				gwmul3 (&ecmdata->gwdata, tmp, ecmdata->pool_values[i], ecmdata->pool_values[i], GWMUL_STARTNEXTFFT);
 			gwmul3 (&ecmdata->gwdata, tmp, ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
-			gwfree (&ecmdata->gwdata, tmp);
+			normfree (tmp);
 		}
 
 /* Add a to array of values to normalize */
@@ -2747,24 +2776,6 @@ int add_to_normalize_pool_internal (
 oom:	return (OutOfMemory (ecmdata->thread_num));
 }
 
-// The original add_to_normalize_pool interface
-int add_to_normalize_pool (
-	ecmhandle *ecmdata,
-	gwnum	a,		/* Number to multiply by 1/b.  This input can be in a full or partial FFTed state.  Not preserved! */
-	gwnum	b)		/* Preserved, will not be FFTed in place */
-{
-	return (add_to_normalize_pool_internal (ecmdata, a, b, FALSE));
-}
-
-// The new add_to_normalize_pool interface. "_ro" stands for relinquish ownership.  Caller relinquishes ownership of b.  Saves a gwcopy.
-int add_to_normalize_pool_ro (
-	ecmhandle *ecmdata,
-	gwnum	a,		/* Number to multiply by 1/b.  This input can be in a full or partial FFTed state.  Not preserved! */
-	gwnum	b)		/* Caller loses ownership of this gwnum! */
-{
-	return (add_to_normalize_pool_internal (ecmdata, a, b, TRUE));
-}
-
 /* Takes each point from add_to_normalize_pool and normalizes it. */
 /* If we accidentally find a factor, it is returned in factor. */
 /* Return stop_reason if there is a user interrupt. */
@@ -2773,6 +2784,10 @@ int normalize_pool (
 	ecmhandle *ecmdata)
 {
 	int	i, stop_reason;
+
+// Redefine normfree.  We do not need to track freed up gwnums when temps have been pre-allocated.
+#undef normfree
+#define normfree(d)		if(!ecmdata->use_preallocated_norm_temps){gwfree (&ecmdata->gwdata, d);}
 
 /* For 3-mult pooling, accumulate last b value (was delayed so that we can use GWMUL_STARTNEXTFFT on all but the last pooled b value) */
 
@@ -2789,7 +2804,7 @@ int normalize_pool (
 		if (ecmdata->pool_count == 2) {
 			// Do the delayed multiply for pool_modinv
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->poolz_values[0], ecmdata->pool_modinv_value, 0);
-			gwfree (&ecmdata->gwdata, ecmdata->poolz_values[0]);
+			normfree (ecmdata->poolz_values[0]);
 			ecmdata->poolz_count = 0;
 		}
 
@@ -2806,7 +2821,7 @@ int normalize_pool (
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[2], ecmdata->pool_modinv_value, ecmdata->pool_values[2], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			// pooled_modinv *= b3
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, b3, ecmdata->pool_modinv_value, 0);
-			gwfree (&ecmdata->gwdata, b3);
+			normfree (b3);
 		}
 
 		/* Handle having only the first point in a set of three additional points */
@@ -2827,7 +2842,7 @@ int normalize_pool (
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[ecmdata->pool_count-1], ecmdata->pool_modinv_value, ecmdata->pool_values[ecmdata->pool_count-1], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			// pooled_modinv *= b6
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, b6, ecmdata->pool_modinv_value, 0);
-			gwfree (&ecmdata->gwdata, b6);
+			normfree (b6);
 		}
 
 		/* Handle having a complete set of points */
@@ -2835,7 +2850,7 @@ int normalize_pool (
 			// Do the delayed multiply for pool_modinv
 			ecmdata->poolz_count--;
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->poolz_values[ecmdata->poolz_count], ecmdata->pool_modinv_value, 0);
-			gwfree (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count]);
+			normfree (ecmdata->poolz_values[ecmdata->poolz_count]);
 		}
 	}
 
@@ -2848,7 +2863,7 @@ int normalize_pool (
 		if (ecmdata->pool_count == 2) {
 			// Do the delayed multiply for pool_modinv
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->poolz_values[0], ecmdata->pool_modinv_value, 0);
-			gwfree (&ecmdata->gwdata, ecmdata->poolz_values[0]);
+			normfree (ecmdata->poolz_values[0]);
 			ecmdata->poolz_count = 0;
 		}
 
@@ -2867,7 +2882,7 @@ int normalize_pool (
 			// b1*b2*b3
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, b3, ecmdata->pool_modinv_value, 0);
 			// Free temps
-			gwfree (&ecmdata->gwdata, b3);
+			normfree (b3);
 		}
 
 		/* Handle having only four of first set of eight points */
@@ -2887,15 +2902,14 @@ int normalize_pool (
 			// b1*b2*b3*b4
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, b34, ecmdata->pool_modinv_value, 0);
 			// Free temps
-			gwfree (&ecmdata->gwdata, b34);
+			normfree (b34);
 		}
 
 		/* Handle having only five of first set of eight points */
 		else if (ecmdata->pool_count == 5) {
 			gwnum	b34, b5, b6vals;
 			// Allocate more temporaries
-			b6vals = gwalloc (&ecmdata->gwdata);
-			if (b6vals == NULL) goto oom;
+			normalloc (b6vals);
 			// Load values temporarily stored in poolz
 			b5 = ecmdata->poolz_values[1];
 			b34 = ecmdata->poolz_values[0];
@@ -2919,17 +2933,16 @@ int normalize_pool (
 			// b1*b2*b3*b4*b5
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, b5, ecmdata->pool_modinv_value, 0);
 			// Free temps
-			gwfree (&ecmdata->gwdata, b34);
-			gwfree (&ecmdata->gwdata, b5);
-			gwfree (&ecmdata->gwdata, b6vals);
+			normfree (b34);
+			normfree (b5);
+			normfree (b6vals);
 		}
 
 		/* Handle having only six of first set of eight points */
 		else if (ecmdata->pool_count == 6) {
 			gwnum	b34, b56, b6vals;
 			// Allocate more temporaries
-			b6vals = gwalloc (&ecmdata->gwdata);
-			if (b6vals == NULL) goto oom;
+			normalloc (b6vals);
 			// Load values temporarily stored in poolz
 			b56 = ecmdata->poolz_values[1];
 			b34 = ecmdata->poolz_values[0];
@@ -2955,9 +2968,9 @@ int normalize_pool (
 			// b1*b2*b3*b4*b5*b6
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, b56, ecmdata->pool_modinv_value, 0);
 			// Free temps
-			gwfree (&ecmdata->gwdata, b34);
-			gwfree (&ecmdata->gwdata, b56);
-			gwfree (&ecmdata->gwdata, b6vals);
+			normfree (b34);
+			normfree (b56);
+			normfree (b6vals);
 		}
 
 		/* Handle having seven of first set of eight points. */
@@ -2965,10 +2978,8 @@ int normalize_pool (
 		else if (ecmdata->pool_count == 7) {
 			gwnum	b7, b34, b56, b567, b6vals;
 			// Allocate more temporaries
-			b567 = gwalloc (&ecmdata->gwdata);
-			if (b567 == NULL) goto oom;
-			b6vals = gwalloc (&ecmdata->gwdata);
-			if (b6vals == NULL) goto oom;
+			normalloc (b567);
+			normalloc (b6vals);
 			// Load values temporarily stored in poolz
 			b7 = ecmdata->poolz_values[2];
 			b56 = ecmdata->poolz_values[1];
@@ -3003,11 +3014,11 @@ int normalize_pool (
 			// b1*b2*b3*b4*b5*b6*b7
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, b567, ecmdata->pool_modinv_value, 0);
 			// Free temps
-			gwfree (&ecmdata->gwdata, b34);
-			gwfree (&ecmdata->gwdata, b56);
-			gwfree (&ecmdata->gwdata, b7);
-			gwfree (&ecmdata->gwdata, b567);
-			gwfree (&ecmdata->gwdata, b6vals);
+			normfree (b34);
+			normfree (b56);
+			normfree (b7);
+			normfree (b567);
+			normfree (b6vals);
 		}
 
 		/* Handle having only the first point in a set of seven additional points */
@@ -3031,7 +3042,7 @@ int normalize_pool (
 			// b0*b9*b10
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, b10, ecmdata->pool_modinv_value, 0);
 			// Free temps
-			gwfree (&ecmdata->gwdata, b10);
+			normfree (b10);
 		}
 
 		/* Handle having only three of an additional set of seven points */
@@ -3051,15 +3062,14 @@ int normalize_pool (
 			// b0*b9*b10*b11
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, b1011, ecmdata->pool_modinv_value, 0);
 			// Free temps
-			gwfree (&ecmdata->gwdata, b1011);
+			normfree (b1011);
 		}
 
 		/* Handle having only four of an additional set of seven points */
 		else if (ecmdata->pool_count > 8 && ecmdata->pool_count % 7 == 5) {
 			gwnum	b1011, b12, b6vals;
 			// Allocate temporaries
-			b6vals = gwalloc (&ecmdata->gwdata);
-			if (b6vals == NULL) goto oom;
+			normalloc (b6vals);
 			// Load values temporarily stored in poolz
 			b12 = ecmdata->poolz_values[ecmdata->poolz_count-1];
 			b1011 = ecmdata->poolz_values[ecmdata->poolz_count-2];
@@ -3083,17 +3093,16 @@ int normalize_pool (
 			// b0*b9*b10*b11*b12
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, b12, ecmdata->pool_modinv_value, 0);
 			// Free temps
-			gwfree (&ecmdata->gwdata, b1011);
-			gwfree (&ecmdata->gwdata, b12);
-			gwfree (&ecmdata->gwdata, b6vals);
+			normfree (b1011);
+			normfree (b12);
+			normfree (b6vals);
 		}
 
 		/* Handle having only five of an additional set of seven points */
 		else if (ecmdata->pool_count > 8 && ecmdata->pool_count % 7 == 6) {
 			gwnum	b1011, b1213, b6vals;
 			// Allocate temporaries
-			b6vals = gwalloc (&ecmdata->gwdata);
-			if (b6vals == NULL) goto oom;
+			normalloc (b6vals);
 			// Load values temporarily stored in poolz
 			b1213 = ecmdata->poolz_values[ecmdata->poolz_count-1];
 			b1011 = ecmdata->poolz_values[ecmdata->poolz_count-2];
@@ -3119,9 +3128,9 @@ int normalize_pool (
 			// b0*b9*b10*b11*b12*b13
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, b1213, ecmdata->pool_modinv_value, 0);
 			// Free temps
-			gwfree (&ecmdata->gwdata, b1011);
-			gwfree (&ecmdata->gwdata, b1213);
-			gwfree (&ecmdata->gwdata, b6vals);
+			normfree (b1011);
+			normfree (b1213);
+			normfree (b6vals);
 		}
 
 		/* Handle having only six of an additional set of seven points */
@@ -3129,10 +3138,8 @@ int normalize_pool (
 		else if (ecmdata->pool_count > 8 && ecmdata->pool_count % 7 == 0) {
 			gwnum	b14, b1011, b1213, b121314, b6vals;
 			// Allocate temporaries
-			b121314 = gwalloc (&ecmdata->gwdata);
-			if (b121314 == NULL) goto oom;
-			b6vals = gwalloc (&ecmdata->gwdata);
-			if (b6vals == NULL) goto oom;
+			normalloc (b121314);
+			normalloc (b6vals);
 			// Load values temporarily stored in poolz
 			b14 = ecmdata->poolz_values[ecmdata->poolz_count-1];
 			b1213 = ecmdata->poolz_values[ecmdata->poolz_count-2];
@@ -3167,11 +3174,11 @@ int normalize_pool (
 			// b0*b9*b10*b11*b12*b13*b14
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, b121314, ecmdata->pool_modinv_value, 0);
 			// Free temps
-			gwfree (&ecmdata->gwdata, b14);
-			gwfree (&ecmdata->gwdata, b1011);
-			gwfree (&ecmdata->gwdata, b1213);
-			gwfree (&ecmdata->gwdata, b121314);
-			gwfree (&ecmdata->gwdata, b6vals);
+			normfree (b14);
+			normfree (b1011);
+			normfree (b1213);
+			normfree (b121314);
+			normfree (b6vals);
 		}
 
 		/* Handle having a complete set of points */
@@ -3179,12 +3186,13 @@ int normalize_pool (
 			// Do the delayed multiply for pool_modinv
 			ecmdata->poolz_count--;
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->poolz_values[ecmdata->poolz_count], ecmdata->pool_modinv_value, 0);
-			gwfree (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count]);
+			normfree (ecmdata->poolz_values[ecmdata->poolz_count]);
 		}
 	}
 
 /* Compute the modular inverse */
 
+//GW: ecm_modinv calls popg which does a gwalloc.  Use one of the pre-allocated and normfreed buffers instead.
 	gwunfft (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->pool_modinv_value);
 	stop_reason = ecm_modinv (ecmdata, ecmdata->pool_modinv_value);
 	if (stop_reason) return (stop_reason);
@@ -3202,7 +3210,7 @@ int normalize_pool (
 			if (i == 0) break;
 			ecmdata->poolz_count--;
 			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count], ecmdata->pool_modinv_value, ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
-			gwfree (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count]);
+			normfree (ecmdata->poolz_values[ecmdata->poolz_count]);
 		}
 		break;
 
@@ -3216,7 +3224,7 @@ int normalize_pool (
 			// Compute inverse for next group of 4
 			ecmdata->poolz_count--;
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->poolz_values[ecmdata->poolz_count], ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
-			gwfree (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count]);
+			normfree (ecmdata->poolz_values[ecmdata->poolz_count]);
 		}
 		break;
 
@@ -3230,7 +3238,7 @@ int normalize_pool (
 			// Compute inverse for next group of 8
 			ecmdata->poolz_count--;
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_modinv_value, ecmdata->poolz_values[ecmdata->poolz_count], ecmdata->pool_modinv_value, GWMUL_STARTNEXTFFT);
-			gwfree (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count]);
+			normfree (ecmdata->poolz_values[ecmdata->poolz_count]);
 		}
 		break;
 
@@ -3246,7 +3254,8 @@ int normalize_pool (
 
 exit:	ecmdata->pool_count = 0;
 	ecmdata->poolz_count = 0;
-	gwfree (&ecmdata->gwdata, ecmdata->pool_modinv_value); ecmdata->pool_modinv_value = NULL;
+	normfree (ecmdata->pool_modinv_value); ecmdata->pool_modinv_value = NULL;
+	ecmdata->norm_pool_temps_count = 0;
 	return (0);
 
 /* Out of memory exit path */
@@ -3464,7 +3473,7 @@ int mQ_init (
 		ecmdata->mQx_retcount = 0;
 	}
 
-/* When mQ_next calls ell_add_xz_norm3, we may need the constant one to avoid an emulation of gwsetaddin.  The gwnum code may also need */
+/* When mQ_next calls ell_add_xz_3norm, we may need the constant one to avoid an emulation of gwsetaddin.  The gwnum code may also need */
 /* the constant one for implementing gwmuladd4.  This code makes sure we do not allocate two instances of the constant one. */
 
 	if (ecmdata->TWO_FFT_STAGE2 && ecmdata->Dsection + ecmdata->mQx_count < ecmdata->numDsections) {
@@ -3594,15 +3603,238 @@ int mQ_next (
 void mQ_term (
 	ecmhandle *ecmdata)
 {
-	int	i;
 	free_xz (ecmdata, &ecmdata->Qm);
 	free_xz (ecmdata, &ecmdata->Qprevm);
 	free_xz (ecmdata, &ecmdata->QD);
 	free_xz (ecmdata, &ecmdata->QD_Eover2);
 	if (ecmdata->mQx != NULL) {
-		for (i = 0; i < ecmdata->E; i++) gwfree (&ecmdata->gwdata, ecmdata->mQx[i]);
+		for (int i = 0; i < ecmdata->E; i++) gwfree (&ecmdata->gwdata, ecmdata->mQx[i]);
 		free (ecmdata->mQx); ecmdata->mQx = NULL;
 	}
+}
+
+// Alternative mQ_preinit/mQ_init/mQ_next/mQ_term routines for polymult ECM that returns batches of mQx values.  The tmps needed by normalize are pre-allocated
+// in polyGaux.  Upon completion of a batch, caller saves part of the batch in polyGaux to make the next batch a little bit faster.
+int mQ_preinit_array (
+	ecmhandle *ecmdata,
+	Dmultiple_data_map &Dmultiple_map)	// Map used to track the Q^(multiples-of-D) that need to be computed during stage 2 init
+{
+	uint64_t m;				// The first multiple-of-D needed by stage 2
+	Dmultiple_data_map::iterator it_Dmult;
+
+/* Calculate the first needed multiple of D (the first D section in stage 2) */
+
+	m = divide_rounding_up (ecmdata->B2_start, ecmdata->D) + ecmdata->Dsection;
+	ASSERTG (m > 1); // Would require special code to the collision between QD and Qprevm
+
+/* The first two multiples of D needed for a string of ell_adds are Q^mD and Q^(m+1)D. */
+/* Schedule their computation using buffers for the D multiples allocated here. */
+
+	ecmdata->Qprevm.x = ecmdata->polyGaux[0];
+	ecmdata->Qprevm.z = gwalloc (&ecmdata->gwdata);
+	if (ecmdata->Qprevm.z == NULL) return (OutOfMemory (ecmdata->thread_num));
+	it_Dmult = Dmultiple_map.find (m);
+	if (it_Dmult == Dmultiple_map.end()) it_Dmult = Dmultiple_map.insert({m, {0, m}}).first;
+	it_Dmult->second.set_val_buffers (&ecmdata->gwdata, ecmdata->Qprevm.x, ecmdata->Qprevm.z, TRUE);
+
+	ecmdata->Qm.x = ecmdata->polyGaux[1];
+	ecmdata->Qm.z = gwalloc (&ecmdata->gwdata);
+	if (ecmdata->Qm.z == NULL) return (OutOfMemory (ecmdata->thread_num));
+	it_Dmult = Dmultiple_map.find (m+1);
+	if (it_Dmult == Dmultiple_map.end()) it_Dmult = Dmultiple_map.insert({m+1, {0, m+1}}).first;
+	it_Dmult->second.set_val_buffers (&ecmdata->gwdata, ecmdata->Qm.x, ecmdata->Qm.z, TRUE);
+
+/* If needed, precompute QD^(polyGaux_size/2) before computing the first batch of Q^multiples-of-D values. */
+/* We will need QD^(polyGaux_size/2) to compute subsequent batches of mQx values. */
+
+	if (!alloc_xz (ecmdata, &ecmdata->QD_Eover2)) return (OutOfMemory (ecmdata->thread_num));
+	it_Dmult = Dmultiple_map.find ((uint64_t)(ecmdata->polyGaux_size/2));
+	if (it_Dmult == Dmultiple_map.end()) it_Dmult = Dmultiple_map.insert({(uint64_t)(ecmdata->polyGaux_size/2), {0,(uint64_t)(ecmdata->polyGaux_size/2)}}).first;
+	it_Dmult->second.set_val_buffers (&ecmdata->gwdata, ecmdata->QD_Eover2.x, ecmdata->QD_Eover2.z, TRUE);
+
+/* All done */
+
+	return (0);
+}
+int mQ_init_array (
+	ecmhandle *ecmdata)
+{
+	int	stop_reason;
+
+/* Batch up several Q^m values and normalize them.  Makes calculating remainder of the first batch a tiny bit faster. */
+
+	for (int i = 2; i < ecmdata->polyGaux_size; i++) {
+		struct xz nextQm;
+
+		// Allocate memory for nextQm, compute next multiple of D
+		nextQm.x = ecmdata->polyGaux[i];
+		nextQm.z = gwalloc (&ecmdata->gwdata);
+		if (nextQm.z == NULL) return (OutOfMemory (ecmdata->thread_num));
+
+		// Compute next multiple of D
+		ell_add_xz (ecmdata, &ecmdata->Qm, &ecmdata->QD, &ecmdata->Qprevm, &nextQm);
+
+		// Before discarding Qprevm add it to the normalize pool
+		stop_reason = add_to_normalize_pool_ro (ecmdata, ecmdata->Qprevm.x, ecmdata->Qprevm.z);
+		if (stop_reason) return (stop_reason);
+
+		// Shuffle data along
+		ecmdata->Qprevm = ecmdata->Qm;
+		ecmdata->Qm = nextQm;
+
+		// Check for user requesting a stop, mem settings changed, etc.
+		stop_reason = stopCheck (ecmdata->thread_num);
+		if (stop_reason) return (stop_reason);
+	}
+
+	// Add last two entries to the normalize pool
+	stop_reason = add_to_normalize_pool_ro (ecmdata, ecmdata->Qprevm.x, ecmdata->Qprevm.z);
+	if (stop_reason) return (stop_reason);
+	ecmdata->Qprevm.z = NULL;
+	stop_reason = add_to_normalize_pool_ro (ecmdata, ecmdata->Qm.x, ecmdata->Qm.z);
+	if (stop_reason) return (stop_reason);
+	ecmdata->Qm.z = NULL;
+
+	// Normalize the entire pool, freeing some gwnums (amount depends on pool type)
+	stop_reason = normalize_pool (ecmdata);
+	if (stop_reason) return (stop_reason);
+	if (ecmdata->factor != NULL) return (0);
+	gwfree_cached (&ecmdata->gwdata);
+	mallocFreeForOS ();
+
+	// From here on out, use polyGaux for all our normalize temporaries
+	ecmdata->use_preallocated_norm_temps = TRUE;
+
+//GW:???
+/* QD is no longer needed except that we cannot delete it yet because ecm_save accesses QD if an error occurs during stage 2 init. */
+/* So for now, do not not free ecmdata.QD to QD^(E/2).  As the very last step of stage 2 init, we'll free ecmdata.QD. */
+
+	// Return first entry in the mQx array
+	ecmdata->mQx_retcount = 0;
+
+/* When mQ_next calls ell_add_xz_3norm, we may need the constant one to avoid an emulation of gwsetaddin.  The gwnum code may also need */
+/* the constant one for implementing gwmuladd4.  This code makes sure we do not allocate two instances of the constant one. */
+
+	if (is_gwsetaddin_emulated (&ecmdata->gwdata)) {
+		gwuser_init_FFT1 (&ecmdata->gwdata);
+	} else {
+		gwsetaddin (&ecmdata->gwdata, -1);
+	}
+
+/* Initialize Qm_state for mQ_next_array to use as it sees fit */
+
+	ecmdata->Qm_state = 0;
+
+/* All done */
+
+	return (0);
+}
+int mQ_next_array (
+	ecmhandle *ecmdata,
+	gwnum	*mQx_array)		// Array to return mQx values (polyG)
+{
+	int	next_Gaux = 0;		// Next polyGaux entry to use when a gwnum temp is needed
+	int	stop_reason;
+
+//GW!!!
+/* Polymult ECM peak memory usage occurs in this routine.  There are several options for computing next batch of mQx values. */
+//GW:  It might pay to double the number of modinvs, halving normalize pool memory requirements and making more 8 and 10 FFT ell_adds possible */
+
+	// On first call, the first G(X) values to return are already computed and normalized in polyGaux.
+	// On subsequent calls, the last G(X) values from the previous batch are normalized in polyGaux.  In either case, move the values to polyG.
+	// The movement is quirky for subsequent calls when polyGaux_size is odd (we must make sure we are properly overwriting polyG values).
+	if (ecmdata->Qm_state == 0) {
+		for (int i = 0; i < ecmdata->polyGaux_size; i++) gwswap (mQx_array[i], ecmdata->polyGaux[i]);
+	} else {
+		for (int i = 0; i < ecmdata->polyGaux_size; i++) gwswap (mQx_array[i], ecmdata->polyGaux[(i + (ecmdata->polyGaux_size & 1)) % ecmdata->polyGaux_size]);
+	}
+
+	// Loop computing chains of mQx values
+	int initial_i = (ecmdata->Qm_state == 0 ? ecmdata->polyGaux_size : 0);
+	for (int i = initial_i; i < initial_i + ecmdata->polyGaux_size / 2; i++) {
+		struct xz prevQm, Qm;
+
+		// On first call, set prevQm and Qm to the already computed values that were stored in polyGaux
+		if (ecmdata->Qm_state == 0) {
+			prevQm.x = mQx_array[i - 2 * (ecmdata->polyGaux_size / 2)];
+			prevQm.z = NULL;
+			Qm.x = mQx_array[i - (ecmdata->polyGaux_size / 2)];
+			Qm.z = NULL;
+		}
+		// On subsequent calls, set prevQm and Qm to the last G(x) values from the previous batch that were stored in polyGaux
+		// We will be overwriting values in the mQx_array.
+		else {
+			prevQm.x = mQx_array[i];
+			prevQm.z = NULL;
+			Qm.x = mQx_array[i + (ecmdata->polyGaux_size / 2)];
+			Qm.z = NULL;
+		}
+
+		// Loop computing values in this chain
+		for (int j = i; j < ecmdata->poly_size; j += ecmdata->polyGaux_size / 2) {
+			struct xz nextQm;
+
+			// Compute next value in the chain
+			nextQm.x = mQx_array[j];
+			if (ecmdata->norm_pool_temps_count) nextQm.z = ecmdata->norm_pool_temps[--ecmdata->norm_pool_temps_count];
+			else nextQm.z = ecmdata->polyGaux[next_Gaux++];
+			ASSERTG (next_Gaux <= ecmdata->polyGaux_size);
+
+			if (Qm.z == NULL) ell_add_xz_3norm (ecmdata, Qm.x, ecmdata->QD_Eover2.x, prevQm.x, &nextQm);
+			else if (prevQm.z == NULL) ell_add_xz_2norm (ecmdata, &Qm, ecmdata->QD_Eover2.x, prevQm.x, &nextQm);
+			else ell_add_xz_1norm (ecmdata, &Qm, ecmdata->QD_Eover2.x, &prevQm, &nextQm);
+
+			// Before discarding Qprevm add it to the normalize pool
+			if (prevQm.z != NULL) {
+				// Normalize could need a temporary.  If we have a temp available add it to the norm_pool_temps.
+				if (ecmdata->norm_pool_temps_count < 1 && next_Gaux < ecmdata->polyGaux_size)
+					ecmdata->norm_pool_temps[ecmdata->norm_pool_temps_count++] = ecmdata->polyGaux[next_Gaux++];
+				stop_reason = add_to_normalize_pool_ro (ecmdata, prevQm.x, prevQm.z);
+				if (stop_reason) return (stop_reason);
+			}
+
+			// Shuffle data along
+			prevQm = Qm;
+			Qm = nextQm;
+		}
+
+		// Add last two entries to the normalize pool
+		if (prevQm.z != NULL) {
+			// Normalize could need a temporary.  If we have a temp available add it to the norm_pool_temps.
+			if (ecmdata->norm_pool_temps_count < 1 && next_Gaux < ecmdata->polyGaux_size)
+				ecmdata->norm_pool_temps[ecmdata->norm_pool_temps_count++] = ecmdata->polyGaux[next_Gaux++];
+			stop_reason = add_to_normalize_pool_ro (ecmdata, prevQm.x, prevQm.z);
+			if (stop_reason) return (stop_reason);
+		}
+		if (Qm.z != NULL) {
+			// Normalize could need a temporary.  If we have a temp available add it to the norm_pool_temps.
+			if (ecmdata->norm_pool_temps_count < 1 && next_Gaux < ecmdata->polyGaux_size)
+				ecmdata->norm_pool_temps[ecmdata->norm_pool_temps_count++] = ecmdata->polyGaux[next_Gaux++];
+			stop_reason = add_to_normalize_pool_ro (ecmdata, Qm.x, Qm.z);
+			if (stop_reason) return (stop_reason);
+		}
+	}
+   
+	// Normalize the entire pool.  Normalize could need two more temporaries.  If we have temps available add them to the norm_pool_temps.
+	while (ecmdata->norm_pool_temps_count < 2 && next_Gaux < ecmdata->polyGaux_size)
+		ecmdata->norm_pool_temps[ecmdata->norm_pool_temps_count++] = ecmdata->polyGaux[next_Gaux++];
+	stop_reason = normalize_pool (ecmdata);
+	if (stop_reason) return (stop_reason);
+	if (ecmdata->factor != NULL) return (0);
+
+	// Set flag indicating this is not the first mQ_next_array call
+	ecmdata->Qm_state = 1;
+
+	// All done
+	return (0);
+}
+void mQ_term_array (
+	ecmhandle *ecmdata)
+{
+	gwfree (&ecmdata->gwdata, ecmdata->Qprevm.z), ecmdata->Qprevm.z = NULL;
+	gwfree (&ecmdata->gwdata, ecmdata->Qm.z), ecmdata->Qm.z = NULL;
+	free_xz (ecmdata, &ecmdata->QD);
+	free_xz (ecmdata, &ecmdata->QD_Eover2);
 }
 
 /* Record the amount of memory being used by this thread.  Until we get to stage 2, ECM uses 9 gwnums (x, z, AD4, 6 for ell_mul). */
@@ -6440,9 +6672,17 @@ ecm_polymult:
 		it_Dmult->second.set_val_buffers (&ecmdata.gwdata, ecmdata.QD.x, ecmdata.QD.z, TRUE);
 	}
 
+/* Allocate scratch space for computing mQx values that will be written to G(X). */
+/* Init code that computes Q^m, where m is the first D section we are working on. */
+
+//GW: formula might be different for other 1%7 vaules  (and we don't know why + 5 does not work!
+	ecmdata.polyGaux_size = divide_rounding_up (ecmdata.poly_size - 1, 7) + 6;	// Assumes 3.57MULT normalization
+	ecmdata.polyGaux = gwalloc_array (&ecmdata.gwdata, ecmdata.polyGaux_size);
+	if (ecmdata.polyGaux == NULL) goto lowmem;
+
 /* Init for computing Q^(multiples of D).  We simply add the starting multiples of D that need to be computed to the D-multiples map. */
 
-	stop_reason = mQ_preinit (&ecmdata, Dmultiple_map);
+	stop_reason = mQ_preinit_array (&ecmdata, Dmultiple_map);
 	if (stop_reason) goto possible_lowmem;
 
 // Calculate all the needed Q^(multiples-of-D).  This is needed even if multiplier<=2 case (Q^mD and Q^(m+1)D are needed) so we must be memory conscious.
@@ -6502,20 +6742,22 @@ ecm_polymult:
 
 /* We're about to reach peak memory usage, free any gwnum internal memory */
 
+//GW: ???
 	gwfree_internal_memory (&ecmdata.gwdata);
 
 /* Normalize all the nQx values */
 
-	stop_reason = normalize_pool (&ecmdata);
-	if (stop_reason) goto possible_lowmem;
+// mQ_init_array does this normalize
+//	stop_reason = normalize_pool (&ecmdata);
+//	if (stop_reason) goto possible_lowmem;
 
 /* If we found a factor, we're done */
 
-	if (ecmdata.factor != NULL) goto bingo;
+//	if (ecmdata.factor != NULL) goto bingo;
 
-/* Init code that computes Q^m, where m is the first D section we are working on */
+/* Init code that computes Q^m, where m is the first D section we are working on. */
 
-	stop_reason = mQ_init (&ecmdata);
+	stop_reason = mQ_init_array (&ecmdata);
 	if (stop_reason) goto possible_lowmem;
 
 /* Last chance to create a save file that doesn't lock us into a particular stage 2 implementation.  Check for user requesting a stop. */
@@ -6609,6 +6851,9 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 	// F_recip always has coefficients that need negating!  First term or polyR is copied from polyF.
 	gwcopy (&ecmdata.gwdata, ecmdata.polyF[ecmdata.poly_size-1], ecmdata.polyR[ecmdata.poly_size-1]);
 
+	// We don't repeat recip-like calculations, so temporarily disable caching new polymult sin/cos data.
+	ecmdata.polydata.twiddle_cache_additions_disabled = TRUE;
+
 	// Compute 1/F(X) roughly doubling the number of terms each iteration
 	for (int terms = 2; terms < ecmdata.poly_size; ) {	// Terms is the number of coefficients computed in F_recip (including the monic one term)
 		// Determine if we are doubling the number of terms or doubling minus one.
@@ -6631,6 +6876,9 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 		// Update count of terms computed
 		terms = terms + terms_to_compute;
 	}
+
+	// Resume caching new polymult sin/cos data
+	ecmdata.polydata.twiddle_cache_additions_disabled = FALSE;
 
 // Compress and pre-transpose F(X) -- will reduce mem usage by maybe 1.6% without compression plus another 12.5% with compression.
 //GW: Compress F now??? or find a way to allow indexing into compressed F above??
@@ -6663,20 +6911,13 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 //polymult (&ecmdata.polydata, ecmdata.polyF, ecmdata.poly_size, ecmdata.polyR, ecmdata.poly_size, polyG, 2*ecmdata.poly_size,
 //	  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_NEGATE);
 
-#ifdef OLD_CODE
-gwnum *polyT = gwalloc_array (&ecmdata.gwdata, 2*ecmdata.poly_size);
-gwnum *polyQ = gwalloc_array (&ecmdata.gwdata, 2*ecmdata.poly_size);
-gwnum *polyT2 = gwalloc_array (&ecmdata.gwdata, 2*ecmdata.poly_size);
-gwnum *outvec = (gwnum *) malloc (ecmdata.poly_size * 2 * sizeof (gwnum));
-#endif
-
 /* We're nearing peak memory usage, free any cached gwnums */
 
 	gwfree_cached (&ecmdata.gwdata);
 	gwfree_internal_memory (&ecmdata.gwdata);
 	mallocFreeForOS ();
 
-// Allocate space for G(X) and H(X) polys in one big array.
+// Allocate space for G(X) and H(X) polys in one big array
 
 	ecmdata.polyGH = gwalloc_array (&ecmdata.gwdata, 2*ecmdata.poly_size);
 	if (ecmdata.polyGH == NULL) goto lowmem;
@@ -6709,45 +6950,55 @@ gwnum *outvec = (gwnum *) malloc (ecmdata.poly_size * 2 * sizeof (gwnum));
 	last_output = last_output_t = 0;
 	for (int outer_loop_counter = 1; ; outer_loop_counter++) {
 
-// Compute G(X)
+// Compute G(X).  mQ_next calculations require some temporary memory to do normalizations, the polyGaux array is used for this.  PolyGaux is 1/7th the size
+// of polyG.  Subsequent mQ_next_array calls can use the values returned b the previous mQ_next_array call to improve speed.  Alas, polyG data is overwritten.
+// The memory required to save the entire polyG array is better used to choose large poly sizes.  However, we can save 1/7th of polyG in polyGaux to get some
+// of the improved speeds.  To avoid unnecessary gwcopys, 6/7 of polyG is filled in and the caller must get the last 1/7th from polyGaux.
 
-		for (int i = 0; i < ecmdata.poly_size; i++) {
-			gwnum	mQx;
-//GW: mQ code may require keeping previous batches in memory -- ugh,  calc next batch while we have current batch?  Try to save the gwcopy either by swapping
-//	the G(X) and mQX gwarrays OR by having first polymults special case poly_size == 1 by getting values from mQx rather than G(X).
 //GW: Idea: precompute all the D values and write them to disk.  Saves memory, likely reduces modinvs as we can do this before F,G,H are allocated
-			stop_reason = mQ_next (&ecmdata, &mQx, NULL);
-			if (stop_reason) {
-				// In case stop_reason is out-of-memory, free some up before calling ecm_save.
-				mQ_term (&ecmdata);
-				ecm_save (&ecmdata);
-				goto exit;
-			}
-			if (ecmdata.factor != NULL) goto bingo;
-//GW: Find way to avoid copy
-			gwcopy (&ecmdata.gwdata, mQx, polyG[i]);
+		stop_reason = mQ_next_array (&ecmdata, polyG);
+		if (stop_reason) {
+			// In case stop_reason is out-of-memory, free some up before calling ecm_save.
+			mQ_term_array (&ecmdata);
+			ecm_save (&ecmdata);
+			goto exit;
 		}
+		if (ecmdata.factor != NULL) goto bingo;
 
 // Multiply small monic polys of G(X) into one big monic poly.  This is done in-place.
 
 //GW: keep poly_sizes within one (P-1 too)  write special polymult that can multiply 3 or 4 monics in one go (if enough extra_bits)???
 		{
+		int	num_in_polyG = ecmdata.poly_size - ecmdata.polyGaux_size;  // Number of G(X) values in polyG vs. polyGaux
 		int	num_polys = ecmdata.poly_size;	// Number of polys to multiply together
 		int	poly_size = 1;			// All polys are this size (except maybe the last one)
 		int	last_poly_size = 1;		// Size of the last poly
 		while (num_polys > 1) {
 			for (int i = 0; i < num_polys-1; i += 2) {
+				// To make the next mQ_next_array call a little bit faster, save the last G(X) values in polyGaux
+				gwnum *invec1 = &polyG[i*poly_size];
+				if (poly_size == 1 && i >= num_in_polyG) {
+					gwnum *save_slot = &ecmdata.polyGaux[i - num_in_polyG];
+					gwswap (*save_slot, *invec1);
+					invec1 = save_slot;
+				}
+
 				int poly2_size = (i+1 < num_polys-1) ? poly_size : last_poly_size;
+				gwnum *invec2 = &polyG[(i+1)*poly_size];
+				if (poly2_size == 1 && (i+1)*poly_size >= num_in_polyG) {
+					gwnum *save_slot = &ecmdata.polyGaux[(i+1)*poly_size - num_in_polyG];
+					gwswap (*save_slot, *invec2);
+					invec2 = save_slot;
+				}
+				// Options for the upcoming polymult
 				int options = POLYMULT_INVEC1_MONIC | (poly_size == 1 ? POLYMULT_INVEC1_NEGATE : 0) |
 					      POLYMULT_INVEC2_MONIC | (poly2_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) |
 					      POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/;
 				// The first outer loop iteration we write the final result to H(X) rather than G(X)
 				if (outer_loop_counter > 1 || num_polys > 2)
-					polymult (&ecmdata.polydata, &polyG[i*poly_size], poly_size, &polyG[(i+1)*poly_size], poly2_size,
-						  &polyG[i*poly_size], poly_size + poly2_size, options);
+					polymult (&ecmdata.polydata, invec1, poly_size, invec2, poly2_size, &polyG[i*poly_size], poly_size + poly2_size, options);
 				else
-					polymult (&ecmdata.polydata, &polyG[0], poly_size, &polyG[poly_size], poly2_size,
-						  polyH, poly_size + poly2_size, options);
+					polymult (&ecmdata.polydata, invec1, poly_size, invec2, poly2_size, polyH, poly_size + poly2_size, options);
 			}
 			// Multithreaded unfft poly coefficients
 //			pm1data.helper_work = PM1_COMPUTE_POLY1;		// Work type for helper to do
@@ -6858,15 +7109,8 @@ saving=0;//GW:		saving = testSaveFilesFlag (thread_num);
 //dbltogw(&ecmdata.gwdata, 3.0, ecmdata.polyH[3]);
 
 	// Multiply H(X) by 1/F(X) to make scaled remainders
-#ifdef OLD_CODE
-	memset (outvec, 0, ecmdata.poly_size * 2 * sizeof (gwnum));
-	for (int i = 0; i < ecmdata.poly_size; i++) outvec[ecmdata.poly_size+i] = polyH[i];
-	polymult (&ecmdata.polydata, polyH, ecmdata.poly_size, ecmdata.polyR, ecmdata.poly_size,
-		  outvec, ecmdata.poly_size*2, POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_NEGATE | POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/);
-#else
 	polymult (&ecmdata.polydata, polyH, ecmdata.poly_size, ecmdata.polyR, ecmdata.poly_size,
 		  polyH, ecmdata.poly_size, POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_NEGATE | POLYMULT_MULHI | POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/);
-#endif
 
 	// Work down the F(X) tree
 	for (int poly_size = ecmdata.poly_size / 2; poly_size >= 1; poly_size = poly_size / 2) {
@@ -6874,26 +7118,6 @@ saving=0;//GW:		saving = testSaveFilesFlag (thread_num);
 		FtreeCount--;
 		// Work on pairs of output polys
 		for (int i = 0; i < ecmdata.poly_size; i += poly_size*2) {
-#ifdef OLD_CODE
-			// Left half of pair times saved right F(X)
-			memset (outvec, 0, ecmdata.poly_size * 2 * sizeof (gwnum));
-			for (int j = 0; j < poly_size; j++) outvec[poly_size+j] = polyT[j];
-//GW	an overwrite problem
-// is circular working efficiently here?  what if we don't do power-of-two?
-			polymult (&ecmdata.polydata, &polyH[i], poly_size*2, &polyFtree[FtreeCount][i+poly_size], poly_size, outvec, poly_size*2,
-				  (poly_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) +
-				  POLYMULT_INVEC2_MONIC | POLYMULT_CIRCULAR | POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/);
-
-			// Right half of pair times saved left F(X)
-			memset (outvec, 0, ecmdata.poly_size * 2 * sizeof (gwnum));
-			for (int j = 0; j < poly_size; j++) outvec[poly_size+j] = polyH[i+poly_size+j];
-//GW	an overwrite problem
-// is circular working efficiently here?  what if we don't do power-of-two?
-			polymult (&ecmdata.polydata, &polyH[i], poly_size*2, &polyFtree[FtreeCount][i], poly_size, outvec, poly_size*2,
-				  (poly_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) +
-				  POLYMULT_INVEC2_MONIC | POLYMULT_CIRCULAR | POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/);
-	for (int j = 0; j < poly_size; j++) gwcopy (&ecmdata.gwdata, polyT[j], polyH[i+j]);
-#else
 			polymult_arg a[2];		// Description of 2 polymult arguments
 			// Left half of pair times saved right F(X)
 			a[0].invec2 = &polyFtree[FtreeCount][i+poly_size];	// Second input poly
@@ -6916,7 +7140,6 @@ saving=0;//GW:		saving = testSaveFilesFlag (thread_num);
 			a[1].options = (poly_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) + POLYMULT_INVEC2_MONIC | POLYMULT_CIRCULAR | POLYMULT_MULHI;
 // is circular working efficiently here?  what if we don't do power-of-two?
 			polymult_several (&ecmdata.polydata, &polyH[i], poly_size*2, a, 2, POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/);
-#endif
 		}
 // Multithreaded unfft poly coefficients
 //		pm1data.helper_work = PM1_COMPUTE_POLY1;		// Work type for helper to do
@@ -6932,7 +7155,7 @@ saving=0;//GW:		saving = testSaveFilesFlag (thread_num);
 		//stop_reason = stopCheck (thread_num);
 		//if (stop_reason) goto possible_lowmem;
 	}
-	
+
 /* Now init the accumulator unless this value was read from a continuation file */
 //GW: It could have come from a save file if it started off doing prime pairing and switched to poly (or we allow save files in stage 2)
 
@@ -6945,22 +7168,20 @@ saving=0;//GW:		saving = testSaveFilesFlag (thread_num);
 //GW: Last mul should not startnextfft
 //			gg = mul together leaves
 	for (int i = 0; i < ecmdata.poly_size; i++) gwmul3 (&ecmdata.gwdata, ecmdata.gg, polyH[i], ecmdata.gg, GWMUL_STARTNEXTFFT);
-			     
+
 /* Set C_done for the final save file and the Kruppa adjustment */
 
 	ecmdata.C = ecmdata.C_done = ecmdata.B2_start + ecmdata.Dsection * ecmdata.D;
 
 /* Cleanup and free poly gwnums before GCD.  GCD can use significant amounts of memory. */
 
-#ifdef OLD_CODE
-	free (outvec), outvec = NULL;
-#endif
 	polymult_done (&ecmdata.polydata);
 	gwfree_array (&ecmdata.gwdata, ecmdata.polyF), ecmdata.polyF = NULL;
-	gwfree_array (&ecmdata.gwdata, ecmdata.polyGH), ecmdata.polyGH = NULL;
 	gwfree_array (&ecmdata.gwdata, ecmdata.polyR), ecmdata.polyR = NULL;
+	gwfree_array (&ecmdata.gwdata, ecmdata.polyGH), ecmdata.polyGH = NULL;
+	gwfree_array (&ecmdata.gwdata, ecmdata.polyGaux), ecmdata.polyGaux = NULL;
 
-	mQ_term (&ecmdata);
+	mQ_term_array (&ecmdata);
 	normalize_pool_term (&ecmdata);
 //	ecmdata.xz.x = ecmdata.nQx[0];
 //	for (i = 1; i < ecmdata.totrels; i++) gwfree (&ecmdata.gwdata, ecmdata.nQx[i]);
