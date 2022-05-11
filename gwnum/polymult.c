@@ -2809,35 +2809,38 @@ void fft_line (
 }
 
 // outvec += addin vector shifted the proper amount to create a monic polymult result
-__inline void monic_line_add_hi (CVDT *fft1, CVDT *addinvec, int addinvec_size, CVDT *outvec, int outvec_size, bool leading_one, bool trailing_one)
+__inline void monic_line_add_hi (CVDT *fft1, CVDT *addinvec, int addinvec_size, CVDT *outvec, int outvec_size, int circular_size, bool leading_one, bool trailing_one)
 {
 	// Add (or multiply and add) words starting from the highest word
-	for (addinvec += addinvec_size-1, outvec += outvec_size-1; addinvec_size; addinvec--, outvec--, addinvec_size--) {
+	int outvec_index = (outvec_size-1) % circular_size;
+	for (addinvec += addinvec_size-1; addinvec_size; addinvec--, addinvec_size--, outvec_index--) {
+		if (outvec_index < 0) outvec_index = circular_size - 1;
 		if (leading_one) { leading_one = FALSE; continue; }
 		if (trailing_one && addinvec_size == 1) continue;
 		if (fft1 == NULL) {
-			cvadd (outvec[0], outvec[0], addinvec[0]);
+			cvadd (outvec[outvec_index], outvec[outvec_index], addinvec[0]);
 		} else {
 			CVDT	tmp;
 			cvmul (tmp, *fft1, addinvec[0]);
-			cvadd (outvec[0], outvec[0], tmp);
+			cvadd (outvec[outvec_index], outvec[outvec_index], tmp);
 		}
 	}
 }
 
 // outvec += addin vector shifted to the low part of outvec
-__inline void monic_line_add_lo (CVDT *fft1, CVDT *addinvec, int addinvec_size, CVDT *outvec, int outvec_size, bool leading_one, bool trailing_one)
+__inline void monic_line_add_lo (CVDT *fft1, CVDT *addinvec, int addinvec_size, CVDT *outvec, int outvec_size, int circular_size, bool leading_one, bool trailing_one)
 {
 	// Add (or multiply and add) words starting from the lowest word
-	for ( ; addinvec_size; addinvec++, outvec++, addinvec_size--) {
+	for (int outvec_index = 0; addinvec_size; addinvec++, addinvec_size--, outvec_index++) {
+		if (outvec_index == circular_size) outvec_index = 0;
 		if (trailing_one) { trailing_one = FALSE; continue; }
 		if (leading_one && addinvec_size == 1) continue;
 		if (fft1 == NULL) {
-			cvadd (outvec[0], outvec[0], addinvec[0]);
+			cvadd (outvec[outvec_index], outvec[outvec_index], addinvec[0]);
 		} else {
 			CVDT	tmp;
 			cvmul (tmp, *fft1, addinvec[0]);
-			cvadd (outvec[0], outvec[0], tmp);
+			cvadd (outvec[outvec_index], outvec[outvec_index], tmp);
 		}
 	}
 }
@@ -2851,7 +2854,8 @@ void monic_line_adjustments (
 	bool	addinvec_monics_stripped, // TRUE if monic ones have been stripped from addin vector
 	CVDT	*outvec,		// Output polynomial
 	int	outvec_size,		// Size of output polynomial
-//GW	     need circular_size?? LSWs_skipped? gw_outvec_size?
+	int	circular_size,		// Emulating output modulo (X^circular_size - 1)
+//GW	     need LSWs_skipped? gw_outvec_size?
 	int	line,			// gwnum "line" number 
 	int	options)		// Options for the monic vector that had its ones stripped forcing the need to add in the addin_vector
 {
@@ -2874,10 +2878,11 @@ void monic_line_adjustments (
 	}
 
 	// Adjust for an implied high coefficient of one -- add in the poly to the high words
-	monic_line_add_hi (fft1p, addinvec, addinvec_size, outvec, outvec_size, leading_one, trailing_one);
+	monic_line_add_hi (fft1p, addinvec, addinvec_size, outvec, outvec_size, circular_size, leading_one, trailing_one);
 
 	// Adjust for an implied low coefficient of one -- add in the poly to the low words
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) monic_line_add_lo (fft1p, addinvec, addinvec_size, outvec, outvec_size, leading_one, trailing_one);
+	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))
+		monic_line_add_lo (fft1p, addinvec, addinvec_size, outvec, outvec_size, circular_size, leading_one, trailing_one);
 }
 
 // Read a line that was preprocessed by polymult_preprocess
@@ -3307,10 +3312,10 @@ int prev_fft_size = 0;
 //GW: circular monic adjust? mulhi/mid/lo can skip chunks of addin?
 		if (post_monic_addin_invec1)
 			monic_line_adjustments (pmdata->gwdata, invec1, invec1_size, options & POLYMULT_INVEC1_MONIC_RLP, strip_monic_from_invec1,
-						true_outvec, true_outvec_size, line, options & POLYMULT_INVEC2_MONIC_RLP);
+						true_outvec, true_outvec_size, circular_size, line, options & POLYMULT_INVEC2_MONIC_RLP);
 		if (post_monic_addin_invec2)
 			monic_line_adjustments (pmdata->gwdata, invec2, invec2_size, options & POLYMULT_INVEC2_MONIC_RLP, strip_monic_from_invec2,
-						true_outvec, true_outvec_size, line, options & POLYMULT_INVEC1_MONIC_RLP);
+						true_outvec, true_outvec_size, circular_size, line, options & POLYMULT_INVEC1_MONIC_RLP);
 
 //GWDo we emulate circular before or after monic_line_adjustments???  Do we avoid adjusting for values that are not returned??
 //GWwe need to know where the top is when we're not optimizing circular			
@@ -3972,6 +3977,7 @@ void polymult_several (		// Multiply one poly with several polys
 			int possible_fft_size = polymult_fft_size (true_outvec_size);
 			if (can_use_circular_fft_size && circular_fft_size < possible_fft_size) possible_fft_size = circular_fft_size;
 			if (must_fft && fft_size > possible_fft_size) possible_fft_size = fft_size;
+			if (!must_fft && pass == 2 && possible_fft_size < largest_fft_size) possible_fft_size = largest_fft_size;
 			if (!must_fft || possible_fft_size <= fft_size) {
 				best_choice = 1;
 				best_fft_size = possible_fft_size;
@@ -3986,6 +3992,7 @@ void polymult_several (		// Multiply one poly with several polys
 			int possible_fft_size = polymult_fft_size (true_outvec_size - 1);
 			if ((must_fft || possible_fft_size >= pmdata->FFT_BREAK) &&
 			    (best_choice == 0 || possible_fft_size < best_fft_size) &&
+			    (pass == 1 || possible_fft_size == largest_fft_size) &&
 			    (!must_fft || (must_fft && fft_size == possible_fft_size))) {
 				best_choice = 2;
 				best_fft_size = possible_fft_size;
@@ -4000,6 +4007,7 @@ void polymult_several (		// Multiply one poly with several polys
 			int possible_fft_size = polymult_fft_size (true_outvec_size - (true_invec1_size - adjusted_invec1_size));
 			int possible_poly_addin_size = (invec1_can_be_stripped_cheaply ? 0 : adjusted_invec2_size);
 			if (can_use_circular_fft_size && circular_fft_size < possible_fft_size) possible_fft_size = circular_fft_size;
+			if (!must_fft && pass == 2 && possible_fft_size < largest_fft_size) possible_fft_size = largest_fft_size;
 			if (must_fft && fft_size > possible_fft_size) possible_fft_size = fft_size;
 			if ((!must_fft || possible_fft_size <= fft_size) &&
 			    (best_choice == 0 || possible_fft_size < best_fft_size ||
@@ -4017,6 +4025,7 @@ void polymult_several (		// Multiply one poly with several polys
 			int possible_fft_size = polymult_fft_size (true_outvec_size - (true_invec2_size - adjusted_invec2_size));
 			int possible_poly_addin_size = (invec2_can_be_stripped_cheaply ? 0 : adjusted_invec1_size);
 			if (can_use_circular_fft_size && circular_fft_size < possible_fft_size) possible_fft_size = circular_fft_size;
+			if (!must_fft && pass == 2 && possible_fft_size < largest_fft_size) possible_fft_size = largest_fft_size;
 			if (must_fft && fft_size > possible_fft_size) possible_fft_size = fft_size;
 			if ((!must_fft || possible_fft_size <= fft_size) &&
 			    (best_choice == 0 || possible_fft_size < best_fft_size ||
@@ -4037,6 +4046,7 @@ void polymult_several (		// Multiply one poly with several polys
 			int possible_poly_addin_size = (invec1_can_be_stripped_cheaply ? 0 : adjusted_invec2_size) +
 						       (invec2_can_be_stripped_cheaply ? 0 : adjusted_invec1_size);
 			if (can_use_circular_fft_size && circular_fft_size < possible_fft_size) possible_fft_size = circular_fft_size;
+			if (!must_fft && pass == 2 && possible_fft_size < largest_fft_size) possible_fft_size = largest_fft_size;
 			if (must_fft && fft_size > possible_fft_size) possible_fft_size = fft_size;
 			if ((!must_fft || possible_fft_size <= fft_size) &&
 			    (best_choice == 0 || possible_fft_size < best_fft_size ||
@@ -4081,7 +4091,6 @@ void polymult_several (		// Multiply one poly with several polys
 			strip_monic_from_invec2 = TRUE; post_monic_addin_invec1 = !invec2_can_be_stripped_cheaply;
 		}
 		adjusted_outvec_size = adjusted_invec1_size + adjusted_invec2_size - 1;
-
 
 		// Verify that a pre-FFTed input vector uses an acceptable FFT size
 //GW  best_choice assert catches this?		ASSERTG (!must_fft || can_use_circular_fft_size || fft_size >= polymult_fft_size (true_outvec_size));
