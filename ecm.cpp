@@ -6761,6 +6761,7 @@ ecm_polymult:
 
 	stop_reason = mQ_init_array (&ecmdata);
 	if (stop_reason) goto possible_lowmem;
+	if (ecmdata.factor != NULL) goto bingo;
 
 /* Last chance to create a save file that doesn't lock us into a particular stage 2 implementation.  Check for user requesting a stop. */
 
