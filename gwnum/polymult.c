@@ -291,7 +291,7 @@ int polymult_fft_size (int n)
 	// Power of two when n is small -- brute force is probably faster anyway
 	if (n <= 32) for (int i = 4; ; i *= 2) if (i >= n) return (i);
 
-	// Increase n by a power of two until it
+	// Increase n by a power of two until we find the smallest fft size larger than n
 	for (int two_multiplier = 1; ; two_multiplier *= 2) {
 		if (n > two_multiplier * 75) continue;
 		for (int i = 0; i < sizeof (pfas) / sizeof (int); i++) {
@@ -711,7 +711,7 @@ void generate_sincos (
 	pmdata->twiddles_initialized = fft_size;
 	pmdata->twiddles_are_from_cache = FALSE;
 
-	// Add twiddles to the cache
+	// Add twiddles to the caches
 	if (pmdata->cached_twiddles_enabled && !pmdata->twiddle_cache_additions_disabled) {
 		int i;
 		if (pmdata->cached_twiddles_count < 40) i = pmdata->cached_twiddles_count++;
@@ -2433,6 +2433,10 @@ void fft_line (
 			cvmul (outvec[blke * pass2_size + j], x, y);
 		    }
 		    inv_fft_applied = FALSE;
+		    if (powers_of_two == 0) {
+			    for (unsigned int j = 0; j < pass_size; j++) cvrmul (outvec[blke * pass2_size + j], inv_fft_size, outvec[blke * pass2_size + j]);
+			    inv_fft_applied = TRUE;
+		    }
 		}
 
 // Inverse FFT
@@ -3187,7 +3191,7 @@ void polymult_line (
 	scratch_buffer = (CVDT *) (alloc_scratch_size ? aligned_malloc (alloc_scratch_size * sizeof (CVDT), 64) : NULL);
 
 //GW:   alternative if poly FFT size is large, reread invec1/2 in order to post process addin to save memory! Would this help P-1??? NO.
-//GW:		code would be similar to fma processing read line
+//GW:		code would be similar to fma processing
 
 	// Grab a "line of complex values" from each gwnum coefficient.  Work that data set.  Then move onto remaining lines in the gwnums.
 	num_lines = gwfftlen (pmdata->gwdata);
@@ -3201,7 +3205,6 @@ void polymult_line (
 
 	    // Loop over all the other polys to multiply with the first poly
 int prev_fft_size = 0;
-//GW: Do not allow rotation of invec1 as that would affect later uses -- this restriction could be loosened	    
 	    for (int i = 0; i < pmdata->num_other_polys; i++) {
 		gwnum	*gw_invec2 = pmdata->other_polys[i].invec2;		// Second input poly
 		int	gw_invec2_size = pmdata->other_polys[i].invec2_size;	// Size of the second input polynomial
