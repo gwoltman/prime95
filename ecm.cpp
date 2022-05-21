@@ -11430,7 +11430,7 @@ void guess_pminus1_bounds (
 /* to run for a very long time.  This shouldn't happen as auxiliaryWorkUnitInit */
 /* now has the exact same test. */
 
-	if (tests_saved > 10) tests_saved = 10;
+	if (tests_saved > 100) tests_saved = 100;
 
 /* Balance P-1 against 1 or 2 LL/PRP tests (actually more since we get a */
 /* corrupt result reported some of the time). */

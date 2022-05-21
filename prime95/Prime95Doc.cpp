@@ -1168,7 +1168,7 @@ void CPrime95Doc::OnUsrTorture()
 {
 	int num_cores = IniGetInt (INI_FILE, "TortureCores", HW_NUM_CORES);
 	if (num_cores < 1) num_cores = 1;
-	if (num_cores > HW_NUM_CORES) num_cores = HW_NUM_CORES;
+	if (num_cores > (int) HW_NUM_CORES) num_cores = HW_NUM_CORES;
 	LaunchTortureTest (num_cores, FALSE);
 }
 

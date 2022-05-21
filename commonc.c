@@ -2308,7 +2308,7 @@ void auxiliaryWorkUnitInit (
 
 /* Guard against wild tests_saved values.  Huge values will cause guess_pminus1_bounds to run for a very long time. */
 
-	if (w->tests_saved > 10) w->tests_saved = 10;
+	if (w->tests_saved > 100) w->tests_saved = 100;
 }
 
 /* Fill in a work unit's stage and percentage complete based on any save files. */
@@ -2764,10 +2764,12 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 		w->factor_to = factor_to;
 	    }
 
-/* Handle Pfactor= lines.  Old style is:				*/
-/*	Pfactor=exponent,how_far_factored,double_check_flag		*/
-/* New style is:							*/
-/*	Pfactor=k,b,n,c,how_far_factored,ll_tests_saved_if_factor_found	*/
+/* Handle Pfactor= lines.  Old style is:						*/
+/*	Pfactor=exponent,how_far_factored,double_check_flag				*/
+/* New style is:									*/
+/*	Pfactor=k,b,n,c,how_far_factored,ll_tests_saved_if_factor_found			*/
+/* Starting in 30.9:									*/
+/*	Pfactor=k,b,n,c,how_far_factored,ll_tests_saved_if_factor_found[,known_factors]	*/
 
 	    else if (_stricmp (keyword, "PFactor") == 0) {
 		float	sieve_depth;
@@ -2777,10 +2779,18 @@ illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
 			char	*q;
 			float	tests_saved;
 			tests_saved = 0.0;
-			q = strchr (value, ','); *q = 0; w->k = atof (value);
+			w->k = atof (value);
+			if ((q = strchr (value, ',')) == NULL) goto illegal_line;
 			sscanf (q+1, "%lu,%lu,%ld,%f,%f", &w->b, &w->n, &w->c, &sieve_depth, &tests_saved);
+			for (i = 1; i <= 4; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+			q = strchr (q+1, ',');
 			w->sieve_depth = sieve_depth;
 			w->tests_saved = tests_saved;
+			if (q != NULL && q[1] == '"') {
+				w->known_factors = (char *) malloc (strlen (q));
+				if (w->known_factors == NULL) goto nomem;
+				strcpy (w->known_factors, q+2);
+			}
 		} else {				/* Old style */
 			int	dblchk;
 			sscanf (value, "%lu,%f,%d", &w->n, &sieve_depth, &dblchk);
@@ -3282,6 +3292,7 @@ int writeWorkToDoFile (
 
 		case WORK_PFACTOR:
 			sprintf (buf, "Pfactor=%s%.0f,%lu,%lu,%ld,%g,%g", idbuf, w->k, w->b, w->n, w->c, w->sieve_depth, w->tests_saved);
+			if (w->known_factors != NULL) sprintf (buf + strlen (buf), ",\"%s\"", w->known_factors);
 			break;
 
 		case WORK_ECM:
