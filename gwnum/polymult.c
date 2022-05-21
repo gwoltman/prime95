@@ -3204,7 +3204,8 @@ void polymult_line (
 	    scratch = scratch_buffer;
 
 	    // Loop over all the other polys to multiply with the first poly
-int prev_fft_size = 0;
+	    int prev_fft_size = 0;
+	    bool prev_strip_monic_from_invec1;
 	    for (int i = 0; i < pmdata->num_other_polys; i++) {
 		gwnum	*gw_invec2 = pmdata->other_polys[i].invec2;		// Second input poly
 		int	gw_invec2_size = pmdata->other_polys[i].invec2_size;	// Size of the second input polynomial
@@ -3254,7 +3255,7 @@ int prev_fft_size = 0;
 		// Read invec1 on processing of first other poly.  For FFT implementation we can usually read invec1 into a buffer shared
 		// with tmpvec (the buffer that will hold the FFT of invec1).
 		if (i == 0) {
-			invec1 = (plan->impl == POLYMULT_IMPL_FFT && !post_monic_addin_invec1) ? tmpvec : invec1_buffer;
+			invec1 = (invec1_buffer == NULL ? tmpvec : invec1_buffer);
 			if (!invec1_preprocessed) read_line (pmdata->gwdata, gw_invec1, gw_invec1_size, line, invec1, options & INVEC1_OPTIONS, strip_monic_from_invec1);
 			else read_preprocess_line (pmdata->gwdata, gw_invec1, gw_invec1_size, line, invec1, options & INVEC1_OPTIONS, strip_monic_from_invec1);
 		}
@@ -3278,8 +3279,8 @@ int prev_fft_size = 0;
 
 		// Now execute a poly FFT implementation
 		else {
-			// FFT invec1 only on first other_poly OR changed fft sizes
-			if (invec1_pre_ffted || (i > 0 && fft_size == prev_fft_size)) fft_options = 0;
+			// FFT invec1 only on first other_poly OR changed fft sizes/striping
+			if (invec1_pre_ffted || (i > 0 && fft_size == prev_fft_size && strip_monic_from_invec1 == prev_strip_monic_from_invec1)) fft_options = 0;
 			else fft_options = FORWARD_FFT_INVEC1;
 			// FFT invec2 unless it was done during pre-processing
 			if (!invec2_pre_ffted) fft_options |= FORWARD_FFT_INVEC2;
@@ -3333,6 +3334,7 @@ int prev_fft_size = 0;
 
 		// Remember poly FFT size for next invec2
 		prev_fft_size = fft_size;
+		prev_strip_monic_from_invec1 = strip_monic_from_invec1;
 	    }
 	}
 
@@ -3652,6 +3654,7 @@ void polymult_several (		// Multiply one poly with several polys
 	// be forward FFTed only once.  To make this happen we track the largest FFT size, whether the FFT sizes are flexible (not pre-FFTed).  We way
 	// need to make two passes through the planning process to make this happen.
 	int	largest_fft_size = 0;	// FFT size that we can use for all the other poly plans where we are free to choose the FFT size
+	bool	largest_strip_monic_from_invec1; // Whether invec1 has its monic one stripped when using largest_fft_size
 	bool	all_ffts_flexible = TRUE;// TRUE if all the FFT sizes included in largest_fft_size are not pre-FFTed
 	int	pass;			// First or second pass through the planning process
 	bool	must_replan;		// TRUE if replanning will be required
@@ -4112,7 +4115,10 @@ void polymult_several (		// Multiply one poly with several polys
 			if (pass == 1) {
 				if (best_fft_size != largest_fft_size) {
 					if (largest_fft_size != 0) must_replan = TRUE;
-					if (best_fft_size > largest_fft_size && (all_ffts_flexible || !must_fft)) largest_fft_size = best_fft_size;
+					if (best_fft_size > largest_fft_size && (all_ffts_flexible || !must_fft)) {
+						largest_fft_size = best_fft_size;
+						largest_strip_monic_from_invec1 = strip_monic_from_invec1;
+					}
 					if (must_fft) all_ffts_flexible = FALSE;
 				}
 			}
@@ -4187,8 +4193,9 @@ void polymult_several (		// Multiply one poly with several polys
 			if (adjusted_outvec_size + 32 > pmdata->alloc_tmpvec_size) pmdata->alloc_tmpvec_size = adjusted_outvec_size + 32; // May need extra for each recursion
 		}
 		else {
-			// Invec1 will be read into tmpvec unless post_monic_addin_invec1 is set or multiple FFT sizes will be used
-			if ((post_monic_addin_invec1 || fft_size != largest_fft_size) && true_invec1_size > pmdata->alloc_invec1_size)
+			// Invec1 will be read into tmpvec unless post_monic_addin_invec1 is set or multiple FFT sizes/stripping will be used
+			if ((post_monic_addin_invec1 || fft_size != largest_fft_size || strip_monic_from_invec1 != largest_strip_monic_from_invec1) &&
+			    true_invec1_size > pmdata->alloc_invec1_size)
 				pmdata->alloc_invec1_size = true_invec1_size;
 			// The FFT of invec1 will be stored in tmpvec
 			if (fft_size > pmdata->alloc_tmpvec_size) pmdata->alloc_tmpvec_size = fft_size;
