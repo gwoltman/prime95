@@ -356,7 +356,8 @@ void polymult_init (
 	pmdata->gwdata = gwdata;
 
 	// Initialize default number of threads
-	pmdata->num_threads = gwget_num_threads (gwdata);
+	pmdata->max_num_threads = gwget_num_threads (gwdata);
+	pmdata->num_threads = pmdata->max_num_threads;
 
 	// Initialize default breakeven points
 	if (pmdata->gwdata->cpu_flags & CPU_AVX) {
@@ -387,7 +388,7 @@ void polymult_done (
 	if (pmdata->thread_ids != NULL) {
 		pmdata->termination_in_progress = TRUE;
 		gwevent_signal (&pmdata->work_to_do);
-		for (int i = 1; i < pmdata->num_threads; i++) gwthread_wait_for_exit (&pmdata->thread_ids[i]);
+		for (int i = 1; i < pmdata->max_num_threads; i++) gwthread_wait_for_exit (&pmdata->thread_ids[i]);
 		free (pmdata->thread_ids);
 		pmdata->thread_ids = NULL;
 		gwmutex_destroy (&pmdata->poly_mutex);
@@ -3383,6 +3384,8 @@ void polymult_thread (void *arg)
 			gwclone_merge_stats (&cloned_gwdata);
 			gwmutex_unlock (&pmdata->poly_mutex);
 		}
+                // If caller requests using fewer than the maximum number of threads, then some of the helpers need to do nothing
+		else if (thread_num >= pmdata->num_threads);
 		// Call user-defined routine with a cloned gwdata so the user can do multi-threaded gwnum work
 		else if (!pmdata->helpers_doing_polymult)
 			(*pmdata->helper_callback) (thread_num, &cloned_gwdata, pmdata->helper_callback_data);
@@ -3416,7 +3419,7 @@ void polymult_thread (void *arg)
 		gwmutex_lock (&pmdata->poly_mutex);
 		int num_waiting = ++pmdata->helpers_waiting_work;
 		gwmutex_unlock (&pmdata->poly_mutex);
-		if (num_waiting == pmdata->num_threads - 1) gwevent_signal (&pmdata->main_can_wakeup);
+		if (num_waiting == pmdata->max_num_threads - 1) gwevent_signal (&pmdata->main_can_wakeup);
 
 /* Wait for more work (or termination) */
 
@@ -3439,8 +3442,8 @@ void polymult_launch_helpers (
 {
 	if (pmdata->num_threads == 1) return;
 	// Set counters necessary for coordinating helper threads
-	pmdata->helpers_active = pmdata->num_threads - 1;	// When this count reaches 0, it is safe to signal helpers_done
-	pmdata->helpers_waiting_work = 0;			// When this reaches num_threads-1, it is safe for main thread to wake up
+	pmdata->helpers_active = pmdata->max_num_threads - 1;	// When this count reaches 0, it is safe to signal helpers_done
+	pmdata->helpers_waiting_work = 0;			// When this reaches max_num_threads-1, it is safe for main thread to wake up
 	// "Neuter" gwnum to single-threaded for user-definied callback
 	if (!pmdata->helpers_doing_polymult && !pmdata->helpers_sync_clone_stats) {
 		pmdata->saved_gwdata_num_threads = gwget_num_threads (pmdata->gwdata);
@@ -3448,14 +3451,14 @@ void polymult_launch_helpers (
 	}
 	// Launch helpers for the first time
 	if (pmdata->thread_ids == NULL) {
-		pmdata->thread_ids = (gwthread *) malloc (pmdata->num_threads * sizeof (gwthread));
+		pmdata->thread_ids = (gwthread *) malloc (pmdata->max_num_threads * sizeof (gwthread));
 		gwmutex_init (&pmdata->poly_mutex);
 		gwevent_init (&pmdata->work_to_do);
 		gwevent_init (&pmdata->helpers_done);
 		gwevent_init (&pmdata->main_can_wakeup);
 		gwevent_signal (&pmdata->work_to_do);
 		pmdata->next_thread_num = 0;
-		for (int i = 1; i < pmdata->num_threads; i++) gwthread_create_waitable (&pmdata->thread_ids[i], &polymult_thread, (void *) pmdata);
+		for (int i = 1; i < pmdata->max_num_threads; i++) gwthread_create_waitable (&pmdata->thread_ids[i], &polymult_thread, (void *) pmdata);
 	}
 	// Reactivate helpers.  They're waiting for work to do.
 	else {

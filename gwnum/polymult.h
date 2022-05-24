@@ -38,9 +38,11 @@ void polymult_init (
 	pmhandle *pmdata,		// Handle for polymult library that needs initializing
 	gwhandle *gwdata);		// Handle for gwnum FFT library
 
-// Control how many threads to use during polymult.  This must be set prior to first call to polymult.  If gwnum library has a thread_callback
-// routine set, the polymult library will use the same callback routine with action code 20 and 21. */
-#define polymult_set_num_threads(h,n)	(h)->num_threads = (n)
+// Control how many threads to use during polymult (or using polymult helper threads with a user-defined callback).  The maximum must be set prior to first
+// call to polymult.  One can use fewer than the maximum number of threads -- this might be useful in cases where hyperthreading benefits only some work types.
+// NOTE: If gwnum library has a thread_callback routine set, the polymult library will use the same callback routine with action code 20 and 21. */
+#define polymult_set_max_num_threads(h,n)	(h)->max_num_threads = (h)->num_threads = (n)
+#define polymult_set_num_threads(h,n)		(h)->num_threads = (n)
 
 // Set the cache size to optimize FFTs for
 #define polymult_set_cache_size(h,n)	(h)->L2_CACHE_SIZE = (n)
@@ -113,11 +115,11 @@ void polymult2 (
 #define POLYMULT_NO_UNFFT	0x1000	// Do not perform the required unfft on output coefficients.  Caller might use this option to multithread this gwunfft
 					// calls or do additional work after the gwunfft call while the gwnum is in the CPU caches.
 #define POLYMULT_STARTNEXTFFT	0x2000	// Similar to GWMUL_STARTNEXTFFT.  Applied to all output coefficients.
-#define	POLYMULT_NEXTFFT	0x40	// Perform both the required unfft and a forward FFT on output coefficients.  Caller might use this option because
+#define	POLYMULT_NEXTFFT	0x4000	// Perform both the required unfft and a forward FFT on output coefficients.  Caller might use this option because
 					// it may perform better because the gwnum is in the CPU caches.
-#define POLYMULT_FMADD		0x4000	// Compute invec1 * invec2 + fmavec
-#define POLYMULT_FMSUB		0x8000	// Compute invec1 * invec2 - fmavec
-#define POLYMULT_FNMADD		0x10000	// Compute fmavec - invec1 * invec2
+#define POLYMULT_FMADD		0x8000	// Compute invec1 * invec2 + fmavec
+#define POLYMULT_FMSUB		0x10000	// Compute invec1 * invec2 - fmavec
+#define POLYMULT_FNMADD		0x20000	// Compute fmavec - invec1 * invec2
 //#define GWMUL_ADDINCONST	0x10000000		/* Addin the optional gwsetaddin value to the multiplication result */
 //#define GWMUL_MULBYCONST	0x20000000		/* Multiply the final result by the small mulbyconst */
 // The following options only apply to polymult_preprocess
@@ -193,7 +195,8 @@ void polymult_wait_on_helpers (
 /* The pmhandle structure containing all of polymult's "global" data. */
 struct pmhandle_struct {
 	gwhandle *gwdata;		// Handle for gwnum FFT library
-	int	num_threads;		// Number of threads to use computing polymults
+	int	max_num_threads;	// Maximum number of threads that can be used to compute polymults
+	int	num_threads;		// Number of threads to use computing polymults (must not exceed max_num_threads)
 	gwevent work_to_do;		// Event to signal polymult helper threads there is work to do
 	gwevent helpers_done;		// Event to signal polymult helper threads are done
 	gwevent main_can_wakeup;	// Event to signal polymult helper threads are waiting for work, thus the main thread can resume

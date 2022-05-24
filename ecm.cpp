@@ -6775,7 +6775,7 @@ ecm_polymult:
 /* Initialize the polymult library */
 
 	polymult_init (&ecmdata.polydata, &ecmdata.gwdata);
-	polymult_set_num_threads (&ecmdata.polydata, get_worker_num_threads (thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0));
+	polymult_set_max_num_threads (&ecmdata.polydata, get_worker_num_threads (thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0));
 	polymult_set_cache_size (&ecmdata.polydata, IniGetInt (INI_FILE, "PolymultCacheSize", 256));
 	bool use_polymult_multithreading;		// TRUE if we should use polymult multithreading instead of gwnum multithreading
 	use_polymult_multithreading = ecmdata.polydata.num_threads > 1 && ecmdata.poly_size > ecmdata.polydata.num_threads &&
@@ -7162,7 +7162,7 @@ saving=0;//GW:		saving = testSaveFilesFlag (thread_num);
 			if (poly1_size == 0 || poly2_size == 0) continue;
 
 			// Left half of pair times saved right F(X)
-			polymult_arg a[2];		// Description of 2 polymult arguments
+			polymult_arg a[2];		// Description of 2 polymult_several arguments
 			a[0].invec2 = &polyFtree[FtreeCount][poly2_base];	// Second input poly
 			a[0].invec2_size = poly2_size;				// Size of the second input polynomial
 			a[0].outvec = &polyH[poly1_base];			// Output poly
@@ -10444,7 +10444,7 @@ pm1_polymult:
 /* Initialize the polymult library */
 
 	polymult_init (&pm1data.polydata, &pm1data.gwdata);
-	polymult_set_num_threads (&pm1data.polydata, get_worker_num_threads (thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0));
+	polymult_set_max_num_threads (&pm1data.polydata, get_worker_num_threads (thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0));
 	polymult_set_cache_size (&pm1data.polydata, IniGetInt (INI_FILE, "PolymultCacheSize", 256));
 	bool use_polymult_multithreading;		// TRUE if we should use polymult multithreading instead of gwnum multithreading
 	use_polymult_multithreading = pm1data.polydata.num_threads > 1 && pm1data.poly2_size > 2*pm1data.polydata.num_threads &&
