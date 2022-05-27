@@ -3919,7 +3919,7 @@ void polymult_several (		// Multiply one poly with several polys
 		// If any 1*1 calculations land in a returned coefficient, then one of the monics must have its ones stripped.
 		must_strip_a_monic = (addin1 >= 0 || addin2 >= 0 || addin3 >= 0 || addin4 >= 0);
 
-		// Stripping the ones from a monic normally requires a post processing that adds the other invec to the result.  However, if all the non-one
+		// Stripping the ones from a monic normally requires post processing that adds the other invec to the result.  However, if all the non-one
 		// coefficients in the other invec land in columns that are not returned, then the post processing step can be skipped (at most just the
 		// final 1*1 addin is needed to create the correct result).
 		invec1_can_be_stripped_cheaply = (options & POLYMULT_INVEC1_MONIC) &&
@@ -3937,15 +3937,27 @@ void polymult_several (		// Multiply one poly with several polys
 		// Post-monic processing can handle a circular adjusted polymult result, but handling a shifted circular result would be tricky (invecs would
 		// need shifting or don't delete the trailing ones, brute_line would need changing).  Since this tricky combination only occurs in the rare
 		// monic * monic-RLP case, we simply force emulating circular size.
-		bool	can_use_circular_fft_size = FALSE;	// TRUE if using circular_size smaller than the true_outvec_size as the poly FFT size is permitted
+		bool	can_use_circular_fft_size = FALSE;		// TRUE if using circular_size smaller than the true_outvec_size as poly FFT size will work
+		bool	can_use_circular_if_monic_stripped = FALSE;	// TRUE if using circular_size smaller than the true_outvec_size works if a monic is stripped
 		int	circular_fft_size;
 		if (options & POLYMULT_CIRCULAR) {
-			if (!must_strip_a_monic &&
-			    circular_size >= true_invec1_size && circular_size >= true_invec2_size &&
-			    circular_size == polymult_fft_size (circular_size) &&
-			    (!must_fft || fft_size == circular_size)) {
+			// Verify that a pre-FFTed input vector is compatible with the circular size
+			ASSERTG (!must_fft || (fft_size >= circular_size && (fft_size <= circular_size + LSWs_skipped + 1 || fft_size >= true_outvec_size)));
+			// Calculate polymult FFT size we hope we can use for a free POLYMULT_CIRCULAR operation
+			circular_fft_size = must_fft ? fft_size : polymult_fft_size (circular_size);
+			// We can use circular_fft_size for a free POLYMULT_CIRCULAR when circular_fft_size equals circular size OR when the wrapped coefficients
+			// pollute only the LSW_skipped coefficients (i.e. none of wrapped coefficients belonged in the final result).
+			// This means true_outvec_size - circular_size <= LSWs_skipped
+			// If we strip monics we can let one wrapped coefficient be in the final result: true_outvec_size - circular_size <= LSWs_skipped + 1
+			if (circular_size >= true_invec1_size && circular_size >= true_invec2_size &&
+			    circular_fft_size < true_outvec_size &&
+			    (circular_fft_size == circular_size ||
+			     (true_outvec_size - circular_size <= LSWs_skipped && !must_strip_a_monic) ||
+			     (true_outvec_size - circular_size <= LSWs_skipped + 1 && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) &&
+			      !((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC2_MONIC) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)))))) {
 				can_use_circular_fft_size = TRUE;
-				circular_fft_size = circular_size;
+				can_use_circular_if_monic_stripped = !(circular_fft_size == circular_size ||
+								       (true_outvec_size - circular_size <= LSWs_skipped && !must_strip_a_monic));
 			}
 		}
 
@@ -3954,17 +3966,15 @@ void polymult_several (		// Multiply one poly with several polys
 		// 4 MSWs skipped, 10 returned, 4 LSWs skipped => A circular mult=14 works (0 MSWs skipped, 10 returned, 4 LSWs skipped)
 		// 3 MSWs skipped, 10 returned, 5 LSWs skipped => A circular mult=15 works (0 MSWs skipped, 10 returned, 5 LSWs skipped)
 		// 5 MSWs skipped, 10 returned, 3 LSWs skipped => A circular mult=15 works (2 MSWs skipped, 10 returned, 3 LSWs skipped)
+		//GW NOTE:  We can do one better by writing monic_addin code that understands MSWs skipped.  That is a monic size9 * non-monic size9 (true_size=18)
+		// 5 MSWs skipped, 9 returned, 4 LSWs skipped => Strip the monic9 and use circular mult=13 (0 MSWs skipped, 9 returned, 4 LSWs skipped
+		// with only the lower 4 coefficients of the non-monic size9 added back in to the 9 returned coefficeints)
 		else if (MSWs_skipped > 0 && LSWs_skipped > 0 && (!must_fft || fft_size < true_outvec_size)) {
 			int savings = (LSWs_skipped <= MSWs_skipped) ? LSWs_skipped : MSWs_skipped;
-			can_use_circular_fft_size = TRUE;
 			circular_fft_size = polymult_fft_size (true_outvec_size - savings);
 			if (must_fft && fft_size > circular_fft_size) circular_fft_size = fft_size;
-//GW:	MSWs_skipped = MSWs_skipped - LSWs_skipped; --- no, see monic_line_adjustments
-//GW:  LSWs_skipped was already written to plan
-
+			if (circular_fft_size < true_outvec_size) can_use_circular_fft_size = TRUE;
 //GW: Pre-fft knows nothing about this optimization -- need a method for pre-fft to output this smaller circular size??
-			// Verify that a pre-FFTed input vector is compatible with the circular size
-//GW			ASSERTG (!must_fft || fft_size >= circular_size);
 		}
 
 		// Figure out how we want to handle monics.  If implementation is POLYMULT_IMPL_FFT, post processing monics is an O(N) cost whereas
@@ -3987,7 +3997,7 @@ void polymult_several (		// Multiply one poly with several polys
 		// If handling monics without stripping ones is possible, make that our best poly fft choice thusfar
 		if (!must_strip_a_monic && (pass == 1 || !pass2_strip_monic_from_invec1)) {
 					int possible_fft_size = polymult_fft_size (true_outvec_size);
-			if (can_use_circular_fft_size && circular_fft_size < possible_fft_size) possible_fft_size = circular_fft_size;
+			if (can_use_circular_fft_size && !can_use_circular_if_monic_stripped && circular_fft_size < possible_fft_size) possible_fft_size = circular_fft_size;
 			if (must_fft && fft_size > possible_fft_size) possible_fft_size = fft_size;
 			if (!must_fft && pass == 2 && possible_fft_size < largest_fft_size) possible_fft_size = largest_fft_size;
 			if (!must_fft || possible_fft_size <= fft_size) {
@@ -4130,9 +4140,6 @@ void polymult_several (		// Multiply one poly with several polys
 		}
 		// In pass 2, we should be using the largest FFT size whenever possible
 		ASSERTG (pass == 1 || must_fft || best_fft_size == largest_fft_size);
-
-		// Verify that a pre-FFTed input vector uses an acceptable FFT size
-//GW  best_choice assert catches this?		ASSERTG (!must_fft || can_use_circular_fft_size || fft_size >= polymult_fft_size (true_outvec_size));
 
 		// Choose a brute force implementation if we are not returning many coefficients
 		if (!must_fft && outvec_size < pmdata->KARAT_BREAK) {
