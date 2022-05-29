@@ -6790,14 +6790,12 @@ ecm_polymult:
 
 // Multiply small monic polys into one big monic poly.  This is done in-place.
 
-//GW: Copy/pad polyF to a power of 2, instead polymult nQx rather than polyF.  Create polyF by compressing nQx.
+//GW: instead polymult from nQx rather than copy to polyF.  Create polyF by compressing nQx.
 ecmdata.polyF = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
 if (ecmdata.polyF == NULL) goto lowmem;
 for (int i = 0; i < ecmdata.numrels; i++) gwcopy (&ecmdata.gwdata, ecmdata.nQx[i], ecmdata.polyF[i]);
-//for (int i = ecmdata.numrels; i < ecmdata.poly_size; i++) dbltogw (&ecmdata.gwdata, 19937.0, ecmdata.polyF[i]);
 //GW: Keep the whole F(X) tree for later use
-gwarray polyFtree[20];
-int FtreeCount = 0;
+gwarray polyFtree[2];
 //GW:  Save nQx (or first Ftree level) to disk for later rebuild of Ftree??  
 
 	// To handle non-power-of-2 poly sizes, we need to uniformly space "odd-sized" polys over 2^log2_num_polys
@@ -6806,11 +6804,13 @@ int FtreeCount = 0;
 		int	poly_base = 0;			// PolyF array index
 
 //save F(X)
+if (log2_num_polys == (int) ceil(log2((double)ecmdata.poly_size)) || log2_num_polys == 3) {
+int 	FtreeCount = (log2_num_polys == 3) ? 1 : 0;
 polyFtree[FtreeCount] = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
 for (int i = 0; i < ecmdata.poly_size; i++) gwcopy (&ecmdata.gwdata, ecmdata.polyF[i], polyFtree[FtreeCount][i]);
-FtreeCount++;
+}
 
-		// Work on pairs of polynomials.  We will combine them in-place using polymult.
+		// Work on pairs of polynomials.  We combine them in-place using polymult.
 		while (poly_base < ecmdata.poly_size) {
 			int	poly1_base, poly1_size, poly2_base, poly2_size;
 
@@ -6878,11 +6878,10 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 			   NULL, 0, terms-1,				// No FMA, no circular, don't return least significant terms-1 coefficients
 			   POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_NEGATE | POLYMULT_MULMID | POLYMULT_NEXTFFT /*| POLYMULT_NO_UNFFT*/);
 		// Compute new_recip = g0 - g0*e
-		polymult2 (&ecmdata.polydata, &ecmdata.polyR[ecmdata.poly_size-(terms-1)], terms-1,
-			   ecmdata.polyR, terms_to_compute,
-			   &ecmdata.polyR[ecmdata.poly_size-(terms-1)-terms_to_compute], terms_to_compute,	// Only return terms_to_compute
-			   NULL, 0, terms-1,				// No FMA, no circular, don't return least significant terms-1 coefficients
-			   POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_NEGATE | POLYMULT_MULMID | POLYMULT_NEXTFFT /*| POLYMULT_NO_UNFFT*/);
+		polymult (&ecmdata.polydata, &ecmdata.polyR[ecmdata.poly_size-(terms-1)], terms-1,
+			  ecmdata.polyR, terms_to_compute,
+			  &ecmdata.polyR[ecmdata.poly_size-(terms-1)-terms_to_compute], terms_to_compute,	// Only return hi-order terms_to_compute
+			  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_NEGATE | POLYMULT_MULHI | POLYMULT_NEXTFFT /*| POLYMULT_NO_UNFFT*/);
 		// Update count of terms computed
 		terms = terms + terms_to_compute;
 	}
@@ -7040,6 +7039,11 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 			if (stop_reason) goto possible_lowmem;
 		}
 		}
+strcpy (buf, "PolyG built.  Time: ");
+end_timer (timers, 0);
+print_timer (timers, 0, buf, TIMER_NL);
+OutputStr (thread_num, buf);
+start_timer_from_zero (timers, 0);
 
 // First loop iteration do nothing.
 // On subsequent loop iterations, H(X) = G(X) * H(X) mod F(X).  The first time we do this H(X) is monic.
@@ -7056,6 +7060,11 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 			// Compute H(X) = tmp - quot * F(X).  Tmp is in polyG, quotient is in polyH.
 			polymult_fma (&ecmdata.polydata, polyH, ecmdata.poly_size, ecmdata.polyF, ecmdata.poly_size, polyH, ecmdata.poly_size, polyG,
 				      POLYMULT_INVEC2_MONIC | POLYMULT_FNMADD | POLYMULT_MULLO /* | POLYMULT_NO_UNFFT */);
+strcpy (buf, "PolyH built.  Time: ");
+end_timer (timers, 0);
+print_timer (timers, 0, buf, TIMER_NL);
+OutputStr (thread_num, buf);
+start_timer_from_zero (timers, 0);
 		}
 
 // Check for ESC before doing expensive polymult
@@ -7136,7 +7145,13 @@ saving=0;//GW:		saving = testSaveFilesFlag (thread_num);
 	// Multiply H(X) by 1/F(X) to make scaled remainders
 	polymult (&ecmdata.polydata, polyH, ecmdata.poly_size, ecmdata.polyR, ecmdata.poly_size,
 		  polyH, ecmdata.poly_size, POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_NEGATE | POLYMULT_MULHI | POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/);
+strcpy (buf, "H(X) scaled.  Time: ");
+end_timer (timers, 0);
+print_timer (timers, 0, buf, TIMER_NL);
+OutputStr (thread_num, buf);
+start_timer_from_zero (timers, 0);
 
+#ifdef SIMPLE_WAY
 	// Work down the F(X) tree
 	for (int log2_num_polys = 1; log2_num_polys <= (int) ceil(log2((double)ecmdata.poly_size)); log2_num_polys++) {
 		uint64_t poly_base_calculator = 0;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
@@ -7145,7 +7160,7 @@ saving=0;//GW:		saving = testSaveFilesFlag (thread_num);
 		// Use saved F(X)
 		FtreeCount--;
 
-		// Work on pairs of polynomials.  We will combine them in-place using polymult.
+		// Work on pairs of polynomials.  We combine them in-place using polymult.
 		while (poly_base < ecmdata.poly_size) {
 			int	poly1_base, poly1_size, poly2_base, poly2_size;
 
@@ -7194,19 +7209,185 @@ saving=0;//GW:		saving = testSaveFilesFlag (thread_num);
 		//stop_reason = stopCheck (thread_num);
 		//if (stop_reason) goto possible_lowmem;
 	}
+#else
+
+	// Work down the F(X) tree in a memory efficient way.  This involves recomputing the Ftree.
+	int	num_levels;
+	gwarray	Ftree;
+
+	// Determine the number of "levels" where we break H(X) into half-size polys (scaled remainders)
+	num_levels = (int) ceil(log2((double)ecmdata.poly_size));	// Number of Ftree levels with two or more polys
+	ASSERTG (num_levels >= 4);
+
+	// Free up memory.  PolyF and PolyR may have been compressed and thus their gwnums cannot be recycled, they must be freed.
+	// The polyGH and polyGaux arrays have been co-mingled using gwswap.  They must be freed together.  We can't do that as polyH is still in use.
+	gwfree_array (&ecmdata.gwdata, ecmdata.polyF), ecmdata.polyF = NULL;
+	gwfree_array (&ecmdata.gwdata, ecmdata.polyR), ecmdata.polyR = NULL;
+	// Now allocate all the gwnums we will need below and gather all our free gwnums into one big array for use below.
+	int	gwnums_needed;
+	gwnums_needed = (num_levels - 3) * divide_rounding_up (ecmdata.poly_size, 8);		// Pass 2 needs a 1/8th sized poly for each level
+	if (gwnums_needed < 3 * ecmdata.poly_size) gwnums_needed = 3 * ecmdata.poly_size;	// Pass 1 needs 3 full-sized polys
+//GW: Allocate enough gwnums or match the previous mem peak.  Verify we've calculated this right.
+//GW: When we combine a length 0 and length 1 poly (no-op) we copy the gwnum -- we're likely overcounting the needed gwnums in pass 2
+	ecmdata.polyF = gwalloc_array (&ecmdata.gwdata, gwnums_needed - (ecmdata.poly_size + ecmdata.polyGaux_size));
+	if (ecmdata.polyF == NULL) goto lowmem;
+	Ftree = (gwarray) malloc (gwnums_needed * sizeof (gwnum));
+	if (Ftree == NULL) goto lowmem;
+	memcpy (Ftree, polyG, ecmdata.poly_size * sizeof (gwnum));
+	memcpy (Ftree + ecmdata.poly_size, ecmdata.polyGaux, ecmdata.polyGaux_size * sizeof (gwnum));
+	memcpy (Ftree + ecmdata.poly_size + ecmdata.polyGaux_size, ecmdata.polyF, (gwnums_needed - (ecmdata.poly_size + ecmdata.polyGaux_size)) * sizeof (gwnum));
+
+	// Use two passes.  The first pass does only 3 levels operating on the entire H(X) poly.  The second pass does the remaining levels operating
+	// on 1/8th of H(X) at a time.
+	for (int pass = 1; pass <= 2; pass++) {
+	    int num_levels_this_pass, log2_num_slices;
+	    if (pass == 1) num_levels_this_pass = 3, log2_num_slices = 0;
+	    else num_levels_this_pass = num_levels - 3, log2_num_slices = 3;
+
+	    // Operate on each slice of H(X)
+	    int	slice_base = 0;			// H(X) array index
+	    for (int slice = 0; slice < (1 << log2_num_slices); slice++) {
+		int	slice_size, next_slice_base;
+
+		// Calculate size of this slice
+		next_slice_base = (int) (((slice + 1) * (uint64_t) ecmdata.poly_size) >> log2_num_slices);
+		slice_size = next_slice_base - slice_base;
+
+		// Re-build this slice of Ftree working up the tree combining polys
+		for (int level = 0; level < num_levels_this_pass; level++) {
+			gwarray polyF = Ftree + level * slice_size;
+
+			// Read in the base level polyF from a saved location
+			if (level == 0) {
+//GW: Bug read data from diak
+				memcpy (polyF, &polyFtree[pass==1?1:0][slice_base], slice_size * sizeof (gwnum));
+				continue;
+			}
+
+			// Work on pairs of polynomials from the previous level.  Combine them in-place using polymult.
+			gwarray	prev_polyF = polyF - slice_size;
+			int	log2_num_polys = num_levels_this_pass - (level-1) + log2_num_slices;		// Number of polyF polys in previous level
+			uint64_t poly_base_calculator;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
+			int	poly_base = 0;
+			poly_base_calculator = (slice << (log2_num_polys - log2_num_slices)) * (uint64_t) ecmdata.poly_size;
+			while (poly_base < slice_size) {
+				int	poly1_base, poly1_size, poly2_base, poly2_size;
+
+				// Compute location and size of the two polys
+				poly1_base = poly_base;
+				poly_base_calculator += ecmdata.poly_size;
+				poly2_base = (int) (poly_base_calculator >> log2_num_polys) - slice_base;
+				poly_base_calculator += ecmdata.poly_size;
+				poly_base = (int) (poly_base_calculator >> log2_num_polys) - slice_base;
+				poly1_size = poly2_base - poly1_base;
+				poly2_size = poly_base - poly2_base;
+
+				// Combining a length 0 poly and length 1 poly is real easy - move the length 1 poly to polyF
+				if (poly1_size == 0 || poly2_size == 0) { gwswap (polyF[poly1_base], prev_polyF[poly1_base]); continue; }
+
+				// Combine the two polys
+				polymult (&ecmdata.polydata, &prev_polyF[poly1_base], poly1_size, &prev_polyF[poly2_base], poly2_size,
+					  &polyF[poly1_base], poly1_size + poly2_size,
+					  (poly1_size == 1 ? POLYMULT_INVEC1_NEGATE : 0) +
+					  (poly2_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) +
+					  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/);
+			}
+		}
+if (slice == 0) {
+strcpy (buf, "PolyF up.  Time: ");
+end_timer (timers, 0); timers[0] *= 1 << log2_num_slices;
+print_timer (timers, 0, buf, TIMER_NL);
+OutputStr (thread_num, buf);
+start_timer_from_zero (timers, 0);
+}
+
+		// Now work down this slice of Ftree
+		for (int level = num_levels_this_pass - 1; level >= 0; level--) {
+			gwarray polyF = Ftree + level * slice_size;
+			int	log2_num_polys = num_levels_this_pass - level + log2_num_slices;		// Number of polyF polys in this level
+			uint64_t poly_base_calculator;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
+			int	poly_base = 0;
+			poly_base_calculator = (slice << (log2_num_polys - log2_num_slices)) * (uint64_t) ecmdata.poly_size;
+			while (poly_base < slice_size) {
+				int	poly1_base, poly1_size, poly2_base, poly2_size;
+
+				// Compute location and size of the two polys
+				poly1_base = poly_base;
+				poly_base_calculator += ecmdata.poly_size;
+				poly2_base = (int) (poly_base_calculator >> log2_num_polys) - slice_base;
+				poly_base_calculator += ecmdata.poly_size;
+				poly_base = (int) (poly_base_calculator >> log2_num_polys) - slice_base;
+				poly1_size = poly2_base - poly1_base;
+				poly2_size = poly_base - poly2_base;
+
+				// Splitting a length 1 poly into a length 0 poly and length 1 poly is real easy - do nothing to H(X)
+				if (poly1_size == 0 || poly2_size == 0) continue;
+
+				// Left half of pair times saved right F(X)
+				polymult_arg a[2];		// Description of 2 polymult_several arguments
+				a[0].invec2 = &polyF[poly2_base];		// Second input poly
+				a[0].invec2_size = poly2_size;			// Size of the second input polynomial
+				a[0].outvec = &polyH[slice_base+poly1_base];	// Output poly
+				a[0].outvec_size = poly1_size;			// Size of the output polynomial
+				a[0].fmavec = NULL;
+				a[0].circular_size = poly1_size + poly2_size;	// Poly result modulo (X^circular_size - 1)
+				a[0].first_mulmid = 0;
+				a[0].options = (poly2_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) + POLYMULT_INVEC2_MONIC | POLYMULT_CIRCULAR | POLYMULT_MULHI;
+
+				// Right half of pair times saved left F(X)
+				a[1].invec2 = &polyF[poly1_base];		// Second input poly
+				a[1].invec2_size = poly1_size;			// Size of the second input polynomial
+				a[1].outvec = &polyH[slice_base+poly2_base];	// Output poly
+				a[1].outvec_size = poly2_size;			// Size of the output polynomial
+				a[1].fmavec = NULL;
+				a[1].circular_size = poly1_size + poly2_size;	// Poly result modulo (X^circular_size - 1)
+				a[1].first_mulmid = 0;
+				a[1].options = (poly1_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) + POLYMULT_INVEC2_MONIC | POLYMULT_CIRCULAR | POLYMULT_MULHI;
+				polymult_several (&ecmdata.polydata, &polyH[slice_base+poly1_base], poly1_size + poly2_size, a, 2, POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/);
+			}
+// Multithreaded unfft poly coefficients
+//		pm1data.helper_work = PM1_COMPUTE_POLY1;		// Work type for helper to do
+//		pm1data.points = poly1;					// Array of poly1 coefficients
+//		pm1data.current_point = 0;				// Next coefficient to unfft
+//		if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);	// Launch helper threads
+//		pm1_helper (0, &pm1data.gwdata, &pm1data);		// Have main thread help too
+//		if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);	// Wait for helper threads to finish
+		//stop_reason = stopCheck (thread_num);
+		//if (stop_reason) goto possible_lowmem;
+		}
+if (slice == 0) {
+strcpy (buf, "PolyF down.  Time: ");
+end_timer (timers, 0); timers[0] *= 1 << log2_num_slices;
+print_timer (timers, 0, buf, TIMER_NL);
+OutputStr (thread_num, buf);
+start_timer_from_zero (timers, 0);
+}
+		slice_base = next_slice_base;
+	    }
+	}
+//GW: Make sure error paths free Ftree
+	free (Ftree);
+#endif
 
 /* Now init the accumulator unless this value was read from a continuation file */
 //GW: It could have come from a save file if it started off doing prime pairing and switched to poly (or we allow save files in stage 2)
 
 	if (ecmdata.gg == NULL) {
+//GW: there are plenty of free gwnums around to choose from
 		ecmdata.gg = gwalloc (&ecmdata.gwdata);
 		if (ecmdata.gg == NULL) goto lowmem;
 		dbltogw (&ecmdata.gwdata, 1.0, ecmdata.gg);
 	}
 
-//GW: Last mul should not startnextfft
 //			gg = mul together leaves
+start_timer_from_zero (timers, 0);
+//GW: Last mul should not startnextfft
 	for (int i = 0; i < ecmdata.poly_size; i++) gwmul3 (&ecmdata.gwdata, ecmdata.gg, polyH[i], ecmdata.gg, GWMUL_STARTNEXTFFT);
+strcpy (buf, "gg = mul H(X).  Time: ");
+end_timer (timers, 0);
+print_timer (timers, 0, buf, TIMER_NL);
+OutputStr (thread_num, buf);
+start_timer_from_zero (timers, 0);
 
 /* Set C_done for the final save file and the Kruppa adjustment */
 
