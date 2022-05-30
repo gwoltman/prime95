@@ -3883,7 +3883,6 @@ struct ecm_stage2_cost_data {
 	int	pool_type;	/* Modular inverse pooling implementation */
 	int	TWO_FFT_STAGE2;	/* 2 vs. 4 FFT implementation */
 	int	E;		/* In 2-FFT stage 2, number of D sections pooled for a single modular inverse */
-	int	poly_size;	/* Size of poly to use (likely same as numrels) */
 	double	total_cost;	/* Cost in terms of gwnum transforms */
 };
 
@@ -4161,22 +4160,20 @@ double ecm_stage2_cost (
 /* Polymult stage 2 costs */
 
 	else {
+		int	poly_size, cpu_flags;
+		double	mem_used_by_a_gwnum, mem_saved_by_compression, mem_used_by_polymult;
+
+		poly_size = cost_data->c.numrels;
 		cost_data->c.est_pairing_runtime = 0.0;
 //GW: this minimum may or may not be right, we do require at least 4 polyFtree levels
 if (cost_data->c.totrels < 6*32) return (1.0e99);
 // Make poly size less than numvals/6   <--  this is no doubt wrong (if write Ftree to disk s.b. 4.14 else 6.14)  and if we never use H(X) we can do 3.14
-cost_data->poly_size = cost_data->c.numrels;		// Why have a poly_size field?  Just use numrels like P-1 does
 if (cost_data->c.numrels > cost_data->c.numvals / 6) return (1.0e99);
-if (cost_data->c.gwdata != NULL && max_safe_poly2_size (cost_data->c.gwdata, cost_data->poly_size, cost_data->poly_size) < cost_data->poly_size) return (1.0e99);
+if (cost_data->c.gwdata != NULL && max_safe_poly2_size (cost_data->c.gwdata, poly_size, poly_size) < poly_size) return (1.0e99);
 cost_data->pool_type = POOL_3POINT57MULT;
-cost_data->TWO_FFT_STAGE2 = TRUE;	//???
-cost_data->E = cost_data->poly_size;	//???
-cost_data->c.stage2_numvals = 6*cost_data->poly_size;
+cost_data->E = poly_size;	//???
+cost_data->c.stage2_numvals = 6*poly_size;
 
-		int	poly_size, min_poly2_size, max_poly2_size, cpu_flags;
-		double	mem_used_by_a_gwnum, mem_saved_by_compression, mem_used_by_polymult;
-
-		poly_size = cost_data->c.numrels;
 //		if (cost_data->c.gwdata != NULL) {
 			mem_used_by_a_gwnum = (double) array_gwnum_size (cost_data->c.gwdata);
 //			max_poly2_size = max_safe_poly2_size (cost_data->c.gwdata, poly1_size*2, cost_data->c.totrels);
@@ -4189,6 +4186,7 @@ cost_data->c.stage2_numvals = 6*cost_data->poly_size;
 		cpu_flags = cost_data->c.gwdata->cpu_flags;
 		mem_used_by_polymult = (double) polymult_mem_required (poly_size, poly_size, POLYMULT_INVEC1_MONIC, cpu_flags, cost_data->c.threads);
 //GW: Factor in max_safe same as P-1
+//GW: increase totrels based on compression savings
 
 /* Loop increasing B2_start based on the fact that numDsections will be a multiple of poly_size.  In essence this gives a free increase in the B2 endpoint. */
 
@@ -4540,17 +4538,17 @@ double ecm_stage2_impl (
 	ecmdata->numrels = cost_data.c.numrels;
 	ecmdata->pool_type = cost_data.pool_type;
 	ecmdata->D = cost_data.c.D;
-	ecmdata->E = cost_data.E;
 	ecmdata->B2_start = cost_data.c.B2_start;
 	ecmdata->numDsections = cost_data.c.numDsections;
 	ecmdata->stage2_type = cost_data.stage2_type;
-	ecmdata->TWO_FFT_STAGE2 = cost_data.TWO_FFT_STAGE2;
 	if (ecmdata->stage2_type == ECM_STAGE2_PAIRING) {
+		ecmdata->TWO_FFT_STAGE2 = cost_data.TWO_FFT_STAGE2;
+		ecmdata->E = cost_data.E;
 		ecmdata->totrels = cost_data.c.totrels;
 		memcpy (ecmdata->relp_sets, cost_data.c.relp_sets, sizeof (ecmdata->relp_sets));
 		ecmdata->max_pairmap_Dsections = cost_data.c.max_pairmap_Dsections;
 	} else {
-		ecmdata->poly_size = cost_data.poly_size;
+		ecmdata->poly_size = cost_data.c.numrels;
 	}
 	if (ecmdata->state < ECM_STATE_STAGE2 || ecmdata->last_relocatable > ecmdata->B2_start) ecmdata->last_relocatable = ecmdata->B2_start;
 
@@ -6595,23 +6593,11 @@ ecm_polymult:
 	OutputStr (thread_num, buf);
 
 //GW: does this make sense when we are allocating arrays?
-	gw_set_max_allocs (&ecmdata.gwdata, ecmdata.stage2_numvals);
-
-/* Output a useful message regarding memory usage and ECM stage 2 implementation */
-//GW: which of these pool_types we will end up supporting?
-	if (ecmdata.pool_type == POOL_3MULT)
-		sprintf (buf, "Stage 2 uses %uMB of memory, 3-mult modinv pooling, pool size %d.\n", memused, ecmdata.E);
-	else if (ecmdata.pool_type == POOL_3POINT44MULT)
-		sprintf (buf, "Stage 2 uses %uMB of memory, 3.44-mult modinv pooling, pool size %d.\n", memused, ecmdata.E);
-	else if (ecmdata.pool_type == POOL_3POINT57MULT)
-		sprintf (buf, "Stage 2 uses %uMB of memory, 3.57-mult modinv pooling, pool size %d.\n", memused, ecmdata.E);
-	else if (ecmdata.pool_type == POOL_N_SQUARED)
-		sprintf (buf, "Stage 2 uses %uMB of memory, N^2 modinv pooling, pool size %d.\n", memused, ecmdata.E);
-	OutputStr (thread_num, buf);
+	gw_set_max_allocs (&ecmdata.gwdata, ecmdata.poly_size * 2);	//GW: was ecmdata.stage2_numvals);
 
 // We must outer loop at least twice, otherwise H(X) will be monic -- the current descent of Ftree code can't handle that.
 //GW:  Someday allow ecmdata.numDsections to be ecmdata.poly_size -- dont alloc mem for H(X)
-	if (ecmdata.numDsections < 2 * ecmdata.poly_size) ecmdata.numDsections = 2 * ecmdata.poly_size;
+//GW:	if (ecmdata.numDsections < 2 * ecmdata.poly_size) ecmdata.numDsections = 2 * ecmdata.poly_size;
 
 /* Allocate nQx array of pointers to relative prime gwnums.  Allocate an array large enough to hold x & z values for all relp. */
 /* This is much more than we will need once stage 2 init completes. */
@@ -6621,7 +6607,7 @@ ecm_polymult:
 
 /* Allocate some of the memory for modular inverse pooling */
 
-	stop_reason = normalize_pool_init (&ecmdata, ecmdata.stage2_numvals);
+	stop_reason = normalize_pool_init (&ecmdata, ecmdata.poly_size * 2);	// GW: Shouldn't be more than a handfull above poly_size
 	if (stop_reason) goto possible_lowmem;
 
 /* This is a fast 1,5 mod 6 nQx initialization */
@@ -6877,7 +6863,7 @@ ecm_polymult:
 	if (stop_reason) goto possible_lowmem;
 
 /* For 2-FFT stage 2, mQ_init wanted to free QD but could not because of potential ecm_save issues.  Now that stage 2 init is finished, free QD. */
-
+//GW: we're fixing these save file issues, right?
 	free_xz (&ecmdata, &ecmdata.QD);
 
 /* Initialize the polymult library */
