@@ -683,6 +683,7 @@ struct common_cost_data {
 					/* ECM pooling.  Additional gwnums needed by ECM/P-1/P+1 are not included in this maximum number. */
 	bool	only_cost_max_numvals;	/* Set to TRUE if there is no need to cost fewer than numvals.  That is, using maximum number of temporaries is always best. */
 	bool	use_poly_D_data;	/* Set to TRUE if selecting from the alternate D_data designed for polymult */
+	bool	centers_on_Dmultiple;	/* Set to TRUE if pairing is centered on a multiple of D (as opposed to odd multiple of D/2) */
 	uint64_t gap_start;		/* last_relocatable or zero (when pairmaps are split, c_start to gap_start are the remaining relocatables to pair) */
 	uint64_t gap_end;		/* a.k.a C_done (when pairmaps are split, gap_end to C are the remaining primes to pair) */
 	/* Data returned from cost function follows */
@@ -780,7 +781,7 @@ double best_stage2_impl_internal (
 		c->numrels = d_data[i].numrels;
 		c->first_missing_prime = d_data[i].first_missing_prime;
 		// Prime pairing "centers" on a multiple of D, thus start and end points are an odd multiple of D/2
-		if (!c->use_poly_D_data) {
+		if (c->centers_on_Dmultiple) {
 			B2_end = round_up_to_multiple_of (C - D / 2, D) + D / 2;
 			c->B2_start = (uint64_t) floor ((double) (B2_end / (double) d_data[i].first_missing_prime));
 			if (c->B2_start < C_start) c->B2_start = C_start;
@@ -788,7 +789,7 @@ double best_stage2_impl_internal (
 			if (c->B2_start < D / 2) break;		// Protects against next line returning negative result
 			c->B2_start = round_down_to_multiple_of (c->B2_start + D / 2, D) - D / 2;
 		}
-		// Polymult pairing "centers" on odd multiples of D/2, thus start and end points are multiples of D
+		// P-1 polymult pairing "centers" on odd multiples of D/2, thus start and end points are multiples of D
 		else {
 			B2_end = round_up_to_multiple_of (C, D);
 			c->B2_start = (uint64_t) floor ((double) (B2_end / (double) d_data[i].first_missing_prime));
@@ -853,7 +854,8 @@ double best_stage2_impl_internal (
 /* Break out of loop after a couple of failed attempts at improving our best (we're going in the wrong direction) */
 
 		else {
-			if (best_cost < 1.0e98 && i > best_i + 2) break;
+//GW			if (best_cost < 1.0e98 && i > best_i + 2) break;
+						if (best_cost < 1.0e98 && i > best_i + 12) break;
 		}
 	    }
 	}
@@ -3894,15 +3896,18 @@ double ecm_stage2_cost (
 	double	numgcdsections;
 	double	cost, adjusted_cost, cost_modinv;
 
-/* MQ_init requires B2_start is at least 4 times D */
+/* We're going to return an estimated stage 2 cost vs. stage 1 cost.  Estimate the stage 1 cost at 25.48*B1 (copied from ecm_choose_B2) */
 
-	if (cost_data->c.B2_start < 4 * cost_data->c.D) return (1.0e99);
+	double stage1_cost = 25.48 * (double) cost_data->c.B1;
 
-/* Prime pairing and poly mult stage 2 requires completely different cost functions */
-
-/* First estimate the stage 2 costs using prime pairing */
+/* Prime pairing and poly mult stage 2 requires completely different cost functions. */
+/* First estimate the stage 2 costs using prime pairing. */
 
 	if (cost_data->stage2_type == ECM_STAGE2_PAIRING) {
+
+/* MQ_init requires B2_start is larger than D */
+
+	    if (cost_data->c.B2_start <= cost_data->c.D) return (1.0e99);
 
 /* Define constants for the number of transforms for various operations. */
 /* The ELL_ADD and ELL_DBL costs assume FFT inputs and adds 2 transforms for FFTing the outputs */
@@ -4142,34 +4147,128 @@ double ecm_stage2_cost (
 
 /* Compute the total cost including pairing runtime and modular inverses */
 
-	    cost = cost_data->c.est_pairing_runtime + cost_modinv + cost_data->c.est_init_transforms + cost_data->c.est_stage2_transforms;
+	    cost = cost_data->c.est_init_transforms + cost_data->c.est_stage2_transforms;
+	    cost *= IniGetFloat (INI_FILE, "EcmTransformCost", (float) 1.0);
+	    cost += cost_data->c.est_pairing_runtime + cost_modinv;
+
+/* The adjustment above certainly won't be correct for all current and future CPUs.  Let the attentive user correct the stage 2 cost by */
+/* monitoring the estimated stage 2 / stage 1 runtime ratio vs. the actual stage 2 / stage 1 runtime. */
+
+	    cost *= IniGetFloat (INI_FILE, "EcmPairRatioAdjust", 1.0);
+	    cost_data->c.est_stage2_stage1_ratio = cost / stage1_cost;
 	}
 
 /* Polymult stage 2 costs */
 
 	else {
-//GW: BUG? does stage 2 cost for polys also need 8 different impls?
-//GW: need lots of code here (similar to P-1 cost func)
 		cost_data->c.est_pairing_runtime = 0.0;
-//GW: this minimum may or may not be right
+//GW: this minimum may or may not be right, we do require at least 4 polyFtree levels
 if (cost_data->c.totrels < 6*32) return (1.0e99);
-// Make poly size next power of 2 smaller than numvals/6   <--  this is no doubt wrong	
-//cost_data->poly_size = (int) pow (2.0, floor (log2 ((double) cost_data->c.numvals / 6.0)));
-//if (cost_data->c.numrels > cost_data->poly_size) return (1.0e99);
-cost_data->poly_size = cost_data->c.numrels;
+// Make poly size less than numvals/6   <--  this is no doubt wrong (if write Ftree to disk s.b. 4.14 else 6.14)  and if we never use H(X) we can do 3.14
+cost_data->poly_size = cost_data->c.numrels;		// Why have a poly_size field?  Just use numrels like P-1 does
 if (cost_data->c.numrels > cost_data->c.numvals / 6) return (1.0e99);
 if (cost_data->c.gwdata != NULL && max_safe_poly2_size (cost_data->c.gwdata, cost_data->poly_size, cost_data->poly_size) < cost_data->poly_size) return (1.0e99);
 cost_data->pool_type = POOL_3POINT57MULT;
-cost_data->TWO_FFT_STAGE2 = TRUE;
-cost_data->E = cost_data->poly_size;
-cost_data->c.numDsections = round_up_to_multiple_of (cost_data->c.numDsections, cost_data->poly_size);
+cost_data->TWO_FFT_STAGE2 = TRUE;	//???
+cost_data->E = cost_data->poly_size;	//???
 cost_data->c.stage2_numvals = 6*cost_data->poly_size;
-cost_data->c.est_init_transforms = 5.0 * cost_data->c.numDsections / cost_data->poly_size;
-cost_data->c.est_stage2_transforms = 6.0 * cost_data->c.numDsections / cost_data->poly_size;
-cost_data->c.est_init_polymult = 7.0 * cost_data->c.numDsections / cost_data->poly_size;
-cost_data->c.est_stage2_polymult = 8.0 * cost_data->c.numDsections / cost_data->poly_size;
-//GW: cost out polymults
-cost = 11.0 * cost_data->c.numDsections / cost_data->poly_size;
+
+		int	poly_size, min_poly2_size, max_poly2_size, cpu_flags;
+		double	mem_used_by_a_gwnum, mem_saved_by_compression, mem_used_by_polymult;
+
+		poly_size = cost_data->c.numrels;
+//		if (cost_data->c.gwdata != NULL) {
+			mem_used_by_a_gwnum = (double) array_gwnum_size (cost_data->c.gwdata);
+//			max_poly2_size = max_safe_poly2_size (cost_data->c.gwdata, poly1_size*2, cost_data->c.totrels);
+//		} else {
+//			mem_used_by_a_gwnum = (double) cost_data->c.fftlen * sizeof (double) * 1.016;
+//			max_poly2_size = cost_data->c.totrels;
+//		}
+//GW:		mem_saved_by_compression = 2 * (double) poly_size * mem_used_by_a_gwnum * (1.0 - cost_data->poly1_compression);		// PolyF and polyR
+//GW: Factor in polymult_mem_required (like P-1)
+		cpu_flags = cost_data->c.gwdata->cpu_flags;
+		mem_used_by_polymult = (double) polymult_mem_required (poly_size, poly_size, POLYMULT_INVEC1_MONIC, cpu_flags, cost_data->c.threads);
+//GW: Factor in max_safe same as P-1
+
+/* Loop increasing B2_start based on the fact that numDsections will be a multiple of poly_size.  In essence this gives a free increase in the B2 endpoint. */
+
+		uint64_t num_polyG = divide_rounding_up (cost_data->c.numDsections, poly_size);
+		if (num_polyG < 2) num_polyG = 2; // Limitation of current code
+		cost_data->c.numDsections = num_polyG * poly_size;
+		if (cost_data->c.gap_end == 0) {
+			for ( ; ; ) {
+				uint64_t B2_end = cost_data->c.B2_start + cost_data->c.numDsections * cost_data->c.D;
+				uint64_t B2_start = round_down_to_multiple_of (B2_end / cost_data->c.first_missing_prime, cost_data->c.D);
+				if (cost_data->c.B2_start >= B2_start) break;
+				cost_data->c.B2_start = B2_start;
+			}
+		}
+
+/* Estimating the cost of a polymult is difficult.  See P-1 costing function for explanation of the code below. */
+
+		double	polymult_cost;		// Cost of a polymult (per coefficient) compared to a pass 1 transform
+		polymult_cost = 2.145 + 0.58 * log2 ((double) poly_size / 105.0);
+		double L2_cache_size = (CPU_NUM_L2_CACHES >= 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 0) * 1024.0;
+		double polymult_mem_per_thread = mem_used_by_polymult / cost_data->c.threads;
+		if (polymult_mem_per_thread >= 8 * L2_cache_size) polymult_cost *= 2.05;
+		else if (polymult_mem_per_thread > L2_cache_size) polymult_cost *= 1.0 + 1.05 * (polymult_mem_per_thread - L2_cache_size) / (7 * L2_cache_size);
+		polymult_cost *= IniGetFloat (INI_FILE, "EcmPolymultCostAdjust", 1.0);
+
+/* Cost of building initial nQx values and calculating each D value */
+//GW: Lifted from impl==7, check that new mQ_init behaves the same way
+		cost_data->c.est_init_transforms = NQX_SETUP_COST (FALSE) +					// Cost of nQx below D setup
+						   MULT3POINT57_POOL_COST (cost_data->c.totrels) +		// pool cost for nQx
+						   poly_size * ELL_ADD_COST + MULT3POINT57_POOL_COST (poly_size+1);// Cost of first GCD section in mQ_init
+		cost_data->c.est_stage2_transforms = (double) cost_data->c.numDsections +			// Cost of FFTing each normalized mQx value
+			(num_polyG - 1.0) * (poly_size * AVG_ELL_ADD_NORM_COST + MULT3POINT57_POOL_COST (poly_size));	// Cost of remaining GCD sections
+		cost_modinv = cost_data->modinv_cost * (1 + num_polyG);
+
+/* Building polyF requires log2(poly_size) polymults with an FFT and inverse FFT on each poly coefficient */
+
+		cost_data->c.est_init_polymult = log2 ((double) poly_size) * poly_size * polymult_cost;
+		cost_data->c.est_init_transforms += log2 ((double) poly_size) * poly_size * 2.0;
+
+/* Building polyR requires log2(poly_size) iterations doing two progressively larger polymults with an FFT and inverse FFT on each poly coefficient */
+
+		cost_data->c.est_init_polymult += 2 * poly_size * polymult_cost;
+		cost_data->c.est_init_transforms += 2 * poly_size * 2.0;
+
+/* Building polyG occurs num_polyG times.  Each requires log2(poly_size) polymults with an FFT and inverse FFT on each poly coefficient */
+
+		cost_data->c.est_stage2_polymult = num_polyG * log2 ((double) poly_size) * poly_size * polymult_cost;
+		cost_data->c.est_stage2_transforms += num_polyG * log2 ((double) poly_size) * poly_size * 2.0;
+
+/* Building polyH occurs num_polyG-1 times.  Each requires three poly_size times poly_size polymults with an FFT and inverse FFT on each poly coefficient */
+
+		cost_data->c.est_stage2_polymult += (num_polyG-1) * 3.0 * (double) (poly_size*2) * polymult_cost;
+		cost_data->c.est_stage2_transforms += (num_polyG-1) * 3.0 * (double) (poly_size*2) * 2;
+
+/* Building initial scaled remainders requires one poly_size times poly_size polymult with an FFT and inverse FFT on each poly coefficient */
+
+		cost_data->c.est_stage2_polymult += (double) (poly_size*2) * polymult_cost;
+		cost_data->c.est_stage2_transforms += (double) (poly_size*2) * 2.0;
+
+/* Rebuilding F(X) tree requires log2(poly_size)-2 polymults on poly_size coefficients */
+
+		cost_data->c.est_stage2_polymult = (log2 ((double) poly_size) - 2.0) * poly_size * polymult_cost;
+		cost_data->c.est_stage2_transforms += (log2 ((double) poly_size) - 2.0) * poly_size * 2.0;
+
+/* Moving down the scaled remainder tree requires log2(polysize) iterations of two full-size times half-size polymults */
+
+		cost_data->c.est_stage2_polymult += log2 (poly_size) * (3 * poly_size) * polymult_cost;
+		cost_data->c.est_stage2_transforms += log2 (poly_size) * (3 * poly_size) * 2.0;
+
+/* Finally we multiply all the H(X) coefficients together */
+
+		cost_data->c.est_stage2_transforms += poly_size * 2.0;
+
+/* Compute the total cost including pairing runtime and modular inverses */
+
+		cost = cost_data->c.est_init_transforms + cost_data->c.est_stage2_transforms;
+		cost *= IniGetFloat (INI_FILE, "EcmTransformCost", (float) 1.0);
+		cost += cost_modinv + cost_data->c.est_init_polymult + cost_data->c.est_stage2_polymult;
+		cost *= IniGetFloat (INI_FILE, "EcmPolyRatioAdjust", 1.0);
+		cost_data->c.est_stage2_stage1_ratio = cost / stage1_cost;
 	}
 
 /* Give "extra credit" for doing more work than requested.  This lets us find the most efficient stage 2 plan and D value. */
@@ -4221,11 +4320,16 @@ double ecm_stage2_impl_given_numvals (
 	cost_data.c.numvals = numvals;
 	cost_data.c.only_cost_max_numvals = FALSE;
 	cost_data.c.use_poly_D_data = FALSE;
+	cost_data.c.centers_on_Dmultiple = TRUE;
 	cost_data.c.gwdata = &ecmdata->gwdata;
 	cost_data.c.fftlen = gwfftlen (&ecmdata->gwdata);
 	cost_data.c.threads = get_worker_num_threads (ecmdata->thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
 	for (int stage2_type = 0; stage2_type <= 1; stage2_type++) {	// Prime pairing vs. polymult
 	    for (int impl = 0; impl <= 7; impl++) {			// Eight possible implementations
+
+/* For polymult only cost out 3.57-MULT modinv */
+
+		if (stage2_type == 1) impl = 7;
 
 /* Check for QA'ing a specific ECM implementation type */
 
@@ -4266,7 +4370,7 @@ void ecm_choose_B2 (
 	int	forced_stage2_type,		/* 0 = cost pairing, 1 = cost poly, 99 = cost both */
 	char	*optimal_B2_msg)		/* Message to be output if this optimal B2 selection is used */
 {
-	int	max_B2mult;
+	int	min_B2mult, max_B2mult;
 	struct ecm_stage2_cost_data cost_data;	/* Extra data passed to ECM costing function */
 	double	B1_cost, B2_cost;
 	struct ecm_stage2_efficiency {
@@ -4288,12 +4392,16 @@ void ecm_choose_B2 (
 
 	B1_cost = 25.48 * (double) ecmdata->B;
 
-/* Look for the best B2 which is likely between 50 * B1 and 150 * B1.  If optimal is not between these bounds, don't worry */
-/* we'll locate the optimal spot anyway. */
+/* Look for the best B2 which is likely between 50 * B1 and 150 * B1 when prime pairing.  With polymult best B2 is apt to be much larger.  If optimal is not */
+/* between these bounds, don't worry we'll locate the optimal spot anyway. */
 
-	kruppa (best[0], 50);
-	kruppa (best[1], 100);
-	kruppa (best[2], 150);
+	ecmdata->C = 50 * ecmdata->B;
+	ecm_stage2_impl_given_numvals (ecmdata, numvals, forced_stage2_type, &cost_data);
+	min_B2mult = (int) ((cost_data.c.B2_start + cost_data.c.numDsections * cost_data.c.D) / cost_data.c.B1);
+
+	kruppa (best[0], min_B2mult);
+	kruppa (best[1], min_B2mult * 2);
+	kruppa (best[2], min_B2mult * 3);
 
 /* Handle case where midpoint has worse efficiency than the start point */
 /* The search code requires best[1] is better than best[0] and best[2] */
@@ -6502,7 +6610,7 @@ ecm_polymult:
 	OutputStr (thread_num, buf);
 
 // We must outer loop at least twice, otherwise H(X) will be monic -- the current descent of Ftree code can't handle that.
-
+//GW:  Someday allow ecmdata.numDsections to be ecmdata.poly_size -- dont alloc mem for H(X)
 	if (ecmdata.numDsections < 2 * ecmdata.poly_size) ecmdata.numDsections = 2 * ecmdata.poly_size;
 
 /* Allocate nQx array of pointers to relative prime gwnums.  Allocate an array large enough to hold x & z values for all relp. */
@@ -6788,26 +6896,23 @@ ecm_polymult:
 //		pm1data.helper_count = 1;
 	}
 
-// Multiply small monic polys into one big monic poly.  This is done in-place.
+// Multiply small monic polys into one big monic poly.  This is done mostly in-place in polyF, but initial data comes from nQx.
 
-//GW: instead polymult from nQx rather than copy to polyF.  Create polyF by compressing nQx.
-ecmdata.polyF = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
-if (ecmdata.polyF == NULL) goto lowmem;
-for (int i = 0; i < ecmdata.numrels; i++) gwcopy (&ecmdata.gwdata, ecmdata.nQx[i], ecmdata.polyF[i]);
-//GW: Keep the whole F(X) tree for later use
+	ecmdata.polyF = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
+	if (ecmdata.polyF == NULL) goto lowmem;
+
 gwarray polyFtree[2];
-//GW:  Save nQx (or first Ftree level) to disk for later rebuild of Ftree??  
 
 	// To handle non-power-of-2 poly sizes, we need to uniformly space "odd-sized" polys over 2^log2_num_polys
 	for (int log2_num_polys = (int) ceil(log2((double)ecmdata.poly_size)); log2_num_polys >= 1; log2_num_polys--) {
 		uint64_t poly_base_calculator = 0;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
 		int	poly_base = 0;			// PolyF array index
 
-//save F(X)
+//save 2 rows from F tree ( to disk for later rebuild of Ftree?? ) 
 if (log2_num_polys == (int) ceil(log2((double)ecmdata.poly_size)) || log2_num_polys == 3) {
 int 	FtreeCount = (log2_num_polys == 3) ? 1 : 0;
 polyFtree[FtreeCount] = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
-for (int i = 0; i < ecmdata.poly_size; i++) gwcopy (&ecmdata.gwdata, ecmdata.polyF[i], polyFtree[FtreeCount][i]);
+for (int i = 0; i < ecmdata.poly_size; i++) gwcopy (&ecmdata.gwdata, log2_num_polys == 3 ? ecmdata.polyF[i] : ecmdata.nQx[i], polyFtree[FtreeCount][i]);
 }
 
 		// Work on pairs of polynomials.  We combine them in-place using polymult.
@@ -6827,7 +6932,9 @@ for (int i = 0; i < ecmdata.poly_size; i++) gwcopy (&ecmdata.gwdata, ecmdata.pol
 			if (poly1_size == 0 || poly2_size == 0) continue;
 
 			// Combine the two polys
-			polymult (&ecmdata.polydata, &ecmdata.polyF[poly1_base], poly1_size, &ecmdata.polyF[poly2_base], poly2_size,
+			polymult (&ecmdata.polydata,
+				  (poly1_size == 1) ? &ecmdata.nQx[poly1_base] : &ecmdata.polyF[poly1_base], poly1_size,
+				  (poly2_size == 1) ? &ecmdata.nQx[poly2_base] : &ecmdata.polyF[poly2_base], poly2_size,
 				  &ecmdata.polyF[poly1_base], poly1_size + poly2_size,
 				  (poly1_size == 1 ? POLYMULT_INVEC1_NEGATE : 0) +
 				  (poly2_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) +
@@ -6851,6 +6958,12 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 		stop_reason = stopCheck (thread_num);
 		if (stop_reason) goto possible_lowmem;
 	}
+
+// Free nQx array
+
+//	ecmdata.xz.x = ecmdata.nQx[0];
+	for (i = 0; i < ecmdata.numrels; i++) gwfree (&ecmdata.gwdata, ecmdata.nQx[i]);
+	free (ecmdata.nQx); ecmdata.nQx = NULL;
 
 // Use Newton's method to compute 1/F(X), starting with an initial estimate of 1 - first_non_monic_term_of_F(X).
 
@@ -7403,9 +7516,6 @@ start_timer_from_zero (timers, 0);
 
 	mQ_term_array (&ecmdata);
 	normalize_pool_term (&ecmdata);
-//	ecmdata.xz.x = ecmdata.nQx[0];
-//	for (i = 1; i < ecmdata.totrels; i++) gwfree (&ecmdata.gwdata, ecmdata.nQx[i]);
-//	free (ecmdata.nQx); ecmdata.nQx = NULL;
 
 
 /* Compute the new Kruppa-adjusted B2 work completed.  This is needed when curves are run with different optimal B2 values due to */
@@ -8557,7 +8667,7 @@ double pm1_stage2_cost (
 		cost_data->c.est_init_polymult = log2 ((double) cost_data->c.numrels) * cost_data->c.numrels * polymult_cost;
 		cost_data->c.est_init_transforms += log2 ((double) cost_data->c.numrels) * cost_data->c.numrels * 2.0;
 
-/* Calculation of various constants,  for exponentiate calls assume 1 squaring (2 transforms) plus 0.5 muls (1 transform on average) per bit. */
+/* Calculation of various constants, for exponentiate calls assume 1 squaring (2 transforms) plus 0.5 muls (1 transform on average) per bit. */
 
 		cost_data->c.est_init_transforms += log2 ((double)(cost_data->c.D / 2)) * 3.0;		// Calc r
 		cost_data->c.est_init_transforms += 2.0;						// Calc r^2
@@ -8664,6 +8774,7 @@ double pm1_stage2_impl_given_numvals (
 		cost_data.stage2_type = (stage2_type == 0 ? PM1_STAGE2_PAIRING : PM1_STAGE2_POLYMULT);
 		cost_data.c.only_cost_max_numvals = (stage2_type == 1);
 		cost_data.c.use_poly_D_data = (stage2_type == 1);
+		cost_data.c.centers_on_Dmultiple = (stage2_type != 1);
 		cost = best_stage2_impl (pm1data->first_relocatable, pm1data->last_relocatable, pm1data->C_done, pm1data->C,
 					 numvals - (stage2_type == 0 ? 4 : 3), &pm1_stage2_cost, &cost_data);
 		if (cost < best_cost) {
@@ -11466,6 +11577,7 @@ void cost_pm1 (
 			cost_data.stage2_type = (impl == 0 ? PM1_STAGE2_PAIRING : PM1_STAGE2_POLYMULT);
 			cost_data.c.only_cost_max_numvals = (impl == 1);
 			cost_data.c.use_poly_D_data = (impl == 1);
+			cost_data.c.centers_on_Dmultiple = (impl != 1);
 			double pass2_squarings = best_stage2_impl (c->B1, 0, 0, c->B2, g->vals - 4, &pm1_stage2_cost, &cost_data);
 			if (impl == 0 || pass2_squarings < c->pass2_squarings) c->pass2_squarings = pass2_squarings;
 		}
@@ -12217,6 +12329,7 @@ void pp1_choose_B2 (
 	cost_data.c.numvals = numvals;
 	cost_data.c.only_cost_max_numvals = FALSE;
 	cost_data.c.use_poly_D_data = FALSE;
+	cost_data.c.centers_on_Dmultiple = TRUE;
 	cost_data.c.gwdata = &pp1data->gwdata;
 	cost_data.c.fftlen = gwfftlen (&pp1data->gwdata);
 	cost_data.c.threads = gwget_num_threads (&pp1data->gwdata);
@@ -12377,6 +12490,7 @@ int pp1_stage2_impl (
 	cost_data.c.numvals = numvals;
 	cost_data.c.only_cost_max_numvals = FALSE;
 	cost_data.c.use_poly_D_data = FALSE;
+	cost_data.c.centers_on_Dmultiple = TRUE;
 	cost_data.c.gwdata = &pp1data->gwdata;
 	cost_data.c.fftlen = gwfftlen (&pp1data->gwdata);
 	cost_data.c.threads = gwget_num_threads (&pp1data->gwdata);
