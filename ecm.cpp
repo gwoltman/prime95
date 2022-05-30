@@ -1401,10 +1401,11 @@ typedef struct {
 	/* Polymult stage 2 data */
 	pmhandle polydata;	/* Polymult data structure */
 	int	poly_size;	/* Size of F(X), G(X), H(X) polynomials */
-	gwnum	*polyF;		/* Array of coefficients for poly F(X) */
-	gwnum	*polyR;		/* Array of coefficients for poly 1/F(X), coefficients need to be negated */
-	gwnum	*polyGH;	/* Array of coefficients for poly G(X) and H(X) */
-	gwnum	*polyGaux;	/* Scratch array for use in filling up poly G(X) */
+	gwarray	polyF;		/* Array of coefficients for poly F(X) */
+	gwarray	polyR;		/* Array of coefficients for poly 1/F(X), coefficients need to be negated */
+	gwarray	polyGH;		/* Array of coefficients for poly G(X) and H(X) */
+	gwarray	polyGaux;	/* Scratch array for use in filling up poly G(X) */
+	gwarray polyFtree[2];	/* Two saved entries from polyF tree.  Needed by scaled remainders to work down the tree. */
 	int	polyGaux_size;	/* Size of the polyGaux array */
 	bool	use_preallocated_norm_temps; /* TRUE when using polyGaux for all our normalization temps */
 	gwnum	norm_pool_temps[5]; /* Free gwnums for normalization to use.  These come from polyGaux. */
@@ -6887,19 +6888,24 @@ ecm_polymult:
 	ecmdata.polyF = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
 	if (ecmdata.polyF == NULL) goto lowmem;
 
-gwarray polyFtree[2];
-
 	// To handle non-power-of-2 poly sizes, we need to uniformly space "odd-sized" polys over 2^log2_num_polys
 	for (int log2_num_polys = (int) ceil(log2((double)ecmdata.poly_size)); log2_num_polys >= 1; log2_num_polys--) {
 		uint64_t poly_base_calculator = 0;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
 		int	poly_base = 0;			// PolyF array index
 
-//save 2 rows from F tree ( to disk for later rebuild of Ftree?? ) 
-if (log2_num_polys == (int) ceil(log2((double)ecmdata.poly_size)) || log2_num_polys == 3) {
-int 	FtreeCount = (log2_num_polys == 3) ? 1 : 0;
-polyFtree[FtreeCount] = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
-for (int i = 0; i < ecmdata.poly_size; i++) gwcopy (&ecmdata.gwdata, log2_num_polys == 3 ? ecmdata.polyF[i] : ecmdata.nQx[i], polyFtree[FtreeCount][i]);
-}
+		// Two rows from F tree must be saved either to disk or memory for later rebuilding of the full Ftree 
+		if (log2_num_polys == (int) ceil(log2((double)ecmdata.poly_size)) || log2_num_polys == 3) {
+			// Save Ftree "row" to disk
+			if (0 && IniGetInt (INI_FILE, "EcmSaveFtreeToDisk", 1)) {
+			}
+			// Save Ftree row to memory
+			else {
+				int FtreeCount = (log2_num_polys == 3) ? 1 : 0;
+				ecmdata.polyFtree[FtreeCount] = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
+				if (ecmdata.polyFtree[FtreeCount] == NULL) goto lowmem;
+				poly_copy (&ecmdata.polydata, log2_num_polys == 3 ? ecmdata.polyF : ecmdata.nQx, ecmdata.polyFtree[FtreeCount], ecmdata.poly_size);
+			}
+		}
 
 		// Work on pairs of polynomials.  We combine them in-place using polymult.
 		while (poly_base < ecmdata.poly_size) {
@@ -7358,8 +7364,14 @@ start_timer_from_zero (timers, 0);
 
 			// Read in the base level polyF from a saved location
 			if (level == 0) {
-//GW: Bug read data from diak
-				memcpy (polyF, &polyFtree[pass==1?1:0][slice_base], slice_size * sizeof (gwnum));
+				// Read base level polyF from disk
+				if (0 && IniGetInt (INI_FILE, "EcmSaveFtreeToDisk", 1)) {
+//					bug
+				}
+				// Copy base level polyF from memory
+				else {
+					memcpy (polyF, &ecmdata.polyFtree[pass==1?1:0][slice_base], slice_size * sizeof (gwnum));
+				}
 				continue;
 			}
 

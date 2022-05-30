@@ -4349,5 +4349,76 @@ void polymult_several (		// Multiply one poly with several polys
 	free (plan);
 }
 
+
+
+
+/*------------------------------------------------------------------------------------------------
+|	Easy multithreading using polymult threads.   Example code!!
++------------------------------------------------------------------------------------------------*/
+
+const	HELPER_OPCODE_COPY = 1;
+
+// Define a structure to pass all needed data to polymult_helper_example
+struct poly_helper_example_data {
+	pmhandle *pmdata;		// Polymult handle -- mainly to access mutexes if needed
+	int	opcode;			// Work type for poly_helper_example
+	int	counter;		// Counter that lets each thread work on independent data
+	union {
+		struct {		// Arguments to a poly_copy call
+			gwnum	*invec;
+			gwnum	*outvec;
+			int	poly_size;
+		} copy_args;
+	};
+};
+   
+// Copy invec to outvec
+void poly_copy (pmhandle *pmdata, gwnum *invec, gwnum *outvec, int poly_size) {
+	struct poly_helper_example_data helper_data;
+	// Copy arguments to pmdata so that every thread can access them
+	helper_data.opcode = HELPER_OPCODE_COPY;			// Work type for polymult_helper_example to execute
+	helper_data.counter = 0;					// Reset counter to no-work-done-yet state
+	helper_data.pmdata = pmdata;					// Polymult structure (not needed for this simple copy function)
+	helper_data.copy_args.invec = invec;				// Poly to copy
+	helper_data.copy_args.outvec = outvec;				// Destination
+	helper_data.copy_args.poly_size = poly_size;			// Size of the poly
+	// Multithreaded poly copy
+	pmdata->helper_callback = &poly_helper_example;
+	pmdata->helper_callback_data = &helper_data;
+	polymult_launch_helpers (pmdata);				// Launch helper threads
+	poly_helper_example (0, pmdata->gwdata, &helper_data);		// Have this thread help too
+	polymult_wait_on_helpers (pmdata);				// Wait for helper threads to finish
+}
+
+// Example helper routine
+void poly_helper_example (
+	int	helper_num,		// 0 = main thread, 1+ = helper thread num
+	gwhandle *gwdata,		// Single-threaded and thread-safe gwdata (probably cloned) to use.  Each helper thread gets its own gwdata.
+	void	*info)			// Can point to anything you choose.  In this example it points to struct polymult_helper_example_data
+{
+	struct poly_helper_example_data *helper_data = (struct poly_helper_example_data *) info;
+	pmhandle *pmdata = helper_data->pmdata;
+
+/* Copy a poly.  This example demonstrates using a mutex and counter to get next available coefficient to work on. */
+
+	if (helper_data->opcode == HELPER_OPCODE_COPY) {
+		// Loop copying coefficients from invec to outvec
+		gwnum *invec = helper_data->copy_args.invec;
+		gwnum *outvec = helper_data->copy_args.outvec;
+		for ( ; ; ) {
+			// Get poly coefficient number we are to copy
+			gwmutex_lock (&pmdata->poly_mutex);
+			int coeff = helper_data->counter++;
+			gwmutex_unlock (&pmdata->poly_mutex);
+
+			// If the other helper threads have completed copying invec to outvec, then we're done
+			if (coeff >= helper_data->copy_args.poly_size) break;
+
+			// Copy the gwnum
+			gwcopy (gwdata, invec[coeff], outvec[coeff]);
+		}
+	}
+}
+
 #endif
 
