@@ -2223,6 +2223,7 @@ int normalize_pool_init (
 	ecmdata->pool_values = NULL;
 	ecmdata->poolz_values = NULL;
 	ecmdata->pool_modinv_value = NULL;
+	ecmdata->use_preallocated_norm_temps = FALSE;
 
 /* Allocate memory for modular inverse pooling arrays of pointers to gwnums */
 
