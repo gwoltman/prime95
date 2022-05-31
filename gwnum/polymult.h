@@ -188,6 +188,17 @@ void poly_helper_example (int helper_num, gwhandle *gwdata, void *info);
 // Copy invec to outvec
 void poly_copy (pmhandle *pmdata, gwnum *invec, gwnum *outvec, int poly_size);
 
+// UNFFT and/or FFT all the coefficients in a poly.  Why might one want to do this?  In P-1/ECM Stage 2, we start with a large number of size 1 polys.  We multiply
+// pairs to create size 2 polys.  We multiply pairs again to create size 4 polys, and so on.  Say you are working with small numbers where the gwnum library
+// cannot multithread (or poorly multithreads) gwunfft or gwfft calls.  Say your machine supports 16 threads and polymult is asked to multiply two size 2 polys.
+// If polymult, fires up helper threads to gwfft inputs or gwunfft outputs, there are only 4 coefficients to work on leaving 12 threads sitting idle.  The solution,
+// is to combine the large number size 2 polys into one gigantic poly and use the routines below to gwunfft and/or gwfft all the coefficients in one batch,
+// keeping all 16 threads busy at once.  This is done in conjunction with the POLYMULT_NO_UNFFT polymult option.  Note that using poly_unfft_fft_coefficients
+// in the P-1/ECM scenario is more efficient because the gwunfft followed immediately by gwfft is likely to find the gwnum still in the CPU caches.
+void poly_fft_coefficients (pmhandle *pmdata, gwnum *vec, int poly_size);
+void poly_unfft_coefficients (pmhandle *pmdata, gwnum *vec, int poly_size);
+void poly_unfft_fft_coefficients (pmhandle *pmdata, gwnum *vec, int poly_size);
+
 	
 /* Underlying routines that allow the users of this library to use the polymult helper threads and locking mechanisms to craft their own multithreaded */
 /* helper routines.  The helper_callback and helper_callback_data fields must be set prior to launching the helpers.  Each helper is given its own clone */

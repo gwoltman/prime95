@@ -4141,8 +4141,9 @@ void polymult_several (		// Multiply one poly with several polys
 		// In pass 2, we should be using the largest FFT size whenever possible
 		ASSERTG (pass == 1 || must_fft || best_fft_size == largest_fft_size);
 
-		// Choose a brute force implementation if we are not returning many coefficients
-		if (!must_fft && outvec_size < pmdata->KARAT_BREAK) {
+		// Choose a brute force implementation if we are not returning many coefficients or one of the input polys is very small
+		// NOTE: No studies have been done regarding a close-to-optimal definition of "very small".
+		if (!must_fft && (outvec_size < pmdata->KARAT_BREAK || adjusted_invec1_size < pmdata->KARAT_BREAK || adjusted_invec2_size < pmdata->KARAT_BREAK)) {
 			plan[i].impl = POLYMULT_IMPL_BRUTE;
 		}
 		// Choose Karatsuba
@@ -4357,6 +4358,9 @@ void polymult_several (		// Multiply one poly with several polys
 +------------------------------------------------------------------------------------------------*/
 
 const	HELPER_OPCODE_COPY = 1;
+const	HELPER_OPCODE_FFT = 2;
+const	HELPER_OPCODE_UNFFT = 3;
+const	HELPER_OPCODE_UNFFT_FFT = 4;
 
 // Define a structure to pass all needed data to polymult_helper_example
 struct poly_helper_example_data {
@@ -4369,16 +4373,20 @@ struct poly_helper_example_data {
 			gwnum	*outvec;
 			int	poly_size;
 		} copy_args;
+		struct {		// Arguments to a poly_fft_coefficients, poly_unfft_coefficients, poly_unfft_fft_coefficients call
+			gwnum	*vec;
+			int	poly_size;
+		} fft_args;
 	};
 };
    
 // Copy invec to outvec
 void poly_copy (pmhandle *pmdata, gwnum *invec, gwnum *outvec, int poly_size) {
 	struct poly_helper_example_data helper_data;
-	// Copy arguments to pmdata so that every thread can access them
+	// Copy arguments to helper_data so that every thread can access them
 	helper_data.opcode = HELPER_OPCODE_COPY;			// Work type for polymult_helper_example to execute
 	helper_data.counter = 0;					// Reset counter to no-work-done-yet state
-	helper_data.pmdata = pmdata;					// Polymult structure (not needed for this simple copy function)
+	helper_data.pmdata = pmdata;					// Polymult structure (needed for locking)
 	helper_data.copy_args.invec = invec;				// Poly to copy
 	helper_data.copy_args.outvec = outvec;				// Destination
 	helper_data.copy_args.poly_size = poly_size;			// Size of the poly
@@ -4390,10 +4398,64 @@ void poly_copy (pmhandle *pmdata, gwnum *invec, gwnum *outvec, int poly_size) {
 	polymult_wait_on_helpers (pmdata);				// Wait for helper threads to finish
 }
 
+// UNFFT and/or FFT all the coefficients in a poly.  Why might one want to do this?  In P-1/ECM Stage 2, we start with a large number of size 1 polys.  We multiply
+// pairs to create size 2 polys.  We multiply pairs again to create size 4 polys, and so on.  Say you are working with small numbers where the gwnum library
+// cannot multithread (or poorly multithreads) gwunfft or gwfft calls.  Say your machine supports 16 threads and polymult is asked to multiply two size 2 polys.
+// If polymult, fires up helper threads to gwfft inputs or gwunfft outputs, there are only 4 coefficients to work on leaving 12 threads sitting idle.  The solution,
+// is to combine the large number size 2 polys into one gigantic poly and use the routines below to gwunfft and/or gwfft all the coefficients in one batch,
+// keeping all 16 threads busy at once.  This is done in conjunction with the POLYMULT_NO_UNFFT polymult option.  Note that using poly_unfft_fft_coefficients
+// in the P-1/ECM scenario is more efficient because the gwunfft followed immediately by gwfft is likely to find the gwnum still in the CPU caches.
+void poly_fft_coefficients (pmhandle *pmdata, gwnum *vec, int poly_size) {
+	struct poly_helper_example_data helper_data;
+	// Copy arguments to helper_data so that every thread can access them
+	helper_data.opcode = HELPER_OPCODE_FFT;				// Work type for polymult_helper_example to execute
+	helper_data.counter = 0;					// Reset counter to no-work-done-yet state
+	helper_data.pmdata = pmdata;					// Polymult structure (needed for locking)
+	helper_data.fft_args.vec = vec;					// Poly to fft coefficients
+	helper_data.fft_args.poly_size = poly_size;			// Size of the poly
+	// Multithreaded poly fft coefficients
+	pmdata->helper_callback = &poly_helper_example;
+	pmdata->helper_callback_data = &helper_data;
+	polymult_launch_helpers (pmdata);				// Launch helper threads
+	poly_helper_example (0, pmdata->gwdata, &helper_data);		// Have this thread help too
+	polymult_wait_on_helpers (pmdata);				// Wait for helper threads to finish
+}
+void poly_unfft_coefficients (pmhandle *pmdata, gwnum *vec, int poly_size) {
+	struct poly_helper_example_data helper_data;
+	// Copy arguments to helper_data so that every thread can access them
+	helper_data.opcode = HELPER_OPCODE_UNFFT;			// Work type for polymult_helper_example to execute
+	helper_data.counter = 0;					// Reset counter to no-work-done-yet state
+	helper_data.pmdata = pmdata;					// Polymult structure (needed for locking)
+	helper_data.fft_args.vec = vec;					// Poly to unfft coefficients
+	helper_data.fft_args.poly_size = poly_size;			// Size of the poly
+	// Multithreaded poly unfft coefficients
+	pmdata->helper_callback = &poly_helper_example;
+	pmdata->helper_callback_data = &helper_data;
+	polymult_launch_helpers (pmdata);				// Launch helper threads
+	poly_helper_example (0, pmdata->gwdata, &helper_data);		// Have this thread help too
+	polymult_wait_on_helpers (pmdata);				// Wait for helper threads to finish
+}
+void poly_unfft_fft_coefficients (pmhandle *pmdata, gwnum *vec, int poly_size) {
+	struct poly_helper_example_data helper_data;
+	// Copy arguments to helper_data so that every thread can access them
+	helper_data.opcode = HELPER_OPCODE_UNFFT_FFT;			// Work type for polymult_helper_example to execute
+	helper_data.counter = 0;					// Reset counter to no-work-done-yet state
+	helper_data.pmdata = pmdata;					// Polymult structure (needed for locking)
+	helper_data.fft_args.vec = vec;					// Poly to unfft/fft coefficients
+	helper_data.fft_args.poly_size = poly_size;			// Size of the poly
+	// Multithreaded poly unfft/fft coefficients
+	pmdata->helper_callback = &poly_helper_example;
+	pmdata->helper_callback_data = &helper_data;
+	polymult_launch_helpers (pmdata);				// Launch helper threads
+	poly_helper_example (0, pmdata->gwdata, &helper_data);		// Have this thread help too
+	polymult_wait_on_helpers (pmdata);				// Wait for helper threads to finish
+}
+
+
 // Example helper routine
 void poly_helper_example (
 	int	helper_num,		// 0 = main thread, 1+ = helper thread num
-	gwhandle *gwdata,		// Single-threaded and thread-safe gwdata (probably cloned) to use.  Each helper thread gets its own gwdata.
+	gwhandle *gwdata,		// Single-threaded and *MOSTLY* thread-safe gwdata (probably cloned) to use.  Each helper thread gets its own gwdata.
 	void	*info)			// Can point to anything you choose.  In this example it points to struct polymult_helper_example_data
 {
 	struct poly_helper_example_data *helper_data = (struct poly_helper_example_data *) info;
@@ -4416,6 +4478,64 @@ void poly_helper_example (
 
 			// Copy the gwnum
 			gwcopy (gwdata, invec[coeff], outvec[coeff]);
+		}
+	}
+
+/* FFT a poly's coefficients */
+
+	else if (helper_data->opcode == HELPER_OPCODE_FFT) {
+		// Loop FFTing coefficients in vec
+		gwnum *vec = helper_data->fft_args.vec;
+		for ( ; ; ) {
+			// Get poly coefficient number to FFT
+			gwmutex_lock (&pmdata->poly_mutex);
+			int coeff = helper_data->counter++;
+			gwmutex_unlock (&pmdata->poly_mutex);
+
+			// If the other helper threads have completed FFTing vec, then we're done
+			if (coeff >= helper_data->fft_args.poly_size) break;
+
+			// FFT the gwnum
+			gwfft (gwdata, vec[coeff], vec[coeff]);
+		}
+	}
+
+/* UNFFT a poly's coefficients */
+
+	else if (helper_data->opcode == HELPER_OPCODE_UNFFT) {
+		// Loop UNFFTing coefficients in vec
+		gwnum *vec = helper_data->fft_args.vec;
+		for ( ; ; ) {
+			// Get poly coefficient number to UNFFT
+			gwmutex_lock (&pmdata->poly_mutex);
+			int coeff = helper_data->counter++;
+			gwmutex_unlock (&pmdata->poly_mutex);
+
+			// If the other helper threads have completed UNFFTing vec, then we're done
+			if (coeff >= helper_data->fft_args.poly_size) break;
+
+			// UNFFT the gwnum
+			gwunfft (gwdata, vec[coeff], vec[coeff]);
+		}
+	}
+
+/* UNFFT then FFT a poly's coefficients */
+
+	else if (helper_data->opcode == HELPER_OPCODE_UNFFT_FFT) {
+		// Loop UNFFTing coefficients in vec
+		gwnum *vec = helper_data->fft_args.vec;
+		for ( ; ; ) {
+			// Get poly coefficient number to UNFFT/FFT
+			gwmutex_lock (&pmdata->poly_mutex);
+			int coeff = helper_data->counter++;
+			gwmutex_unlock (&pmdata->poly_mutex);
+
+			// If the other helper threads have completed UNFFT/FFTing vec, then we're done
+			if (coeff >= helper_data->fft_args.poly_size) break;
+
+			// UNFFT/FFT the gwnum
+			gwunfft2 (gwdata, vec[coeff], vec[coeff], GWMUL_STARTNEXTFFT);
+			gwfft (gwdata, vec[coeff], vec[coeff]);
 		}
 	}
 }
