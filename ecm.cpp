@@ -3879,6 +3879,7 @@ struct ecm_stage2_cost_data {
 	double	gcd_cost;	/* Cost (in FFTs) of a GCD */
 	double	modinv_cost;	/* Cost (in FFTs) of a modular inverse */
 	double	poly_compression; /* Expected compression from polymult_preprocess for polynomials that can be compressed. */
+	bool	saving_Ftree_to_disk; /* TRUE if the two Ftree rows are saved to disk rather than memory */
 	/* ECM specific data returned from cost function follows */
 	int	stage2_type;	/* Prime pairing vs. polymult */
 	int	pool_type;	/* Modular inverse pooling implementation */
@@ -4162,18 +4163,23 @@ double ecm_stage2_cost (
 
 	else {
 		int	poly_size, cpu_flags;
-		double	mem_used_by_a_gwnum, mem_saved_by_compression, mem_used_by_polymult;
+		double	num_polys, mem_used_by_a_gwnum, mem_saved_by_compression, mem_used_by_polymult;
 
+		// If this FFT size cannot safely support multiplying two polys together return "infinite" cost.
 		poly_size = cost_data->c.numrels;
-		cost_data->c.est_pairing_runtime = 0.0;
+		if (max_safe_poly2_size (cost_data->c.gwdata, poly_size, poly_size) < poly_size) return (1.0e99);
+
 //GW: this minimum may or may not be right, we do require at least 4 polyFtree levels
 if (cost_data->c.totrels < 6*32) return (1.0e99);
-// Make poly size less than numvals/6   <--  this is no doubt wrong (if write Ftree to disk s.b. 4.14 else 6.14)  and if we never use H(X) we can do 3.14
-if (cost_data->c.numrels > cost_data->c.numvals / 6) return (1.0e99);
-if (cost_data->c.gwdata != NULL && max_safe_poly2_size (cost_data->c.gwdata, poly_size, poly_size) < poly_size) return (1.0e99);
-cost_data->pool_type = POOL_3POINT57MULT;
-cost_data->E = poly_size;	//???
-cost_data->c.stage2_numvals = 6*poly_size;
+
+		// Stage 2 polymult needs 4 polys (polyF, polyR, polyGH) plus two Ftree polys unless they are saved to disk plus 1/7 for modinv temps.
+//GW: if we never use H(X) we can do 3.14
+		num_polys = (cost_data->saving_Ftree_to_disk ? 4.0 : 6.0) + 1.0 / 7.0;
+//GW: Factor in compression, but never less than 4.0/6.0 (if it could be less do we need to rethink Ftree strategy?)
+		if (cost_data->c.numrels > cost_data->c.numvals / num_polys) return (1.0e99);
+
+		cost_data->pool_type = POOL_3POINT57MULT;
+		cost_data->c.stage2_numvals = (int) (num_polys * poly_size);		//GW: plus several (gg, QDEover2, 5 for modinv temps, others?)
 
 //		if (cost_data->c.gwdata != NULL) {
 			mem_used_by_a_gwnum = (double) array_gwnum_size (cost_data->c.gwdata);
@@ -4212,6 +4218,10 @@ cost_data->c.stage2_numvals = 6*poly_size;
 		if (polymult_mem_per_thread >= 8 * L2_cache_size) polymult_cost *= 2.05;
 		else if (polymult_mem_per_thread > L2_cache_size) polymult_cost *= 1.0 + 1.05 * (polymult_mem_per_thread - L2_cache_size) / (7 * L2_cache_size);
 		polymult_cost *= IniGetFloat (INI_FILE, "EcmPolymultCostAdjust", 1.0);
+
+/* Obviously no prime pairing costs */
+
+		cost_data->c.est_pairing_runtime = 0.0;
 
 /* Cost of building initial nQx values and calculating each D value */
 //GW: Lifted from impl==7, check that new mQ_init behaves the same way
@@ -4312,6 +4322,10 @@ double ecm_stage2_impl_given_numvals (
 	cost_data.poly_compression = (double) gwfftlen (&ecmdata->gwdata) * (double) sizeof (double) / (double) array_gwnum_size (&ecmdata->gwdata);
 	if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 2) cost_data.poly_compression *= 0.875;
 	if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 0) cost_data.poly_compression = 1.0;
+
+/* Whether Ftree rows are stored in memory or on disk may make a significant difference */
+
+	cost_data.saving_Ftree_to_disk = IniGetInt (INI_FILE, "EcmSaveFtreeToDisk", 1);
 
 /* Find the least costly stage 2 plan looking at the four combinations of 2 vs. 4 FFT and pool type N^2 vs. 3-MULT vs. 3.44-MULT vs. 3.57-MULT. */
 
@@ -4877,7 +4891,7 @@ int ecm (
 	double	base_pct_complete, one_relp_pct;
 	int	i;
 	unsigned int memused;
-	char	filename[32], buf[255], JSONbuf[4000], fft_desc[200];
+	char	filename[32], ftree_filename[40], buf[255], JSONbuf[4000], fft_desc[200];
 	int	res, stop_reason, stage, first_iter_msg;
 	int	msglen, continueECM, prpAfterEcmFactor;
 	char	*str, *msg;
@@ -5211,16 +5225,17 @@ if (w->n == 604) {
 }
 #endif
 
-/* Init filename */
+/* Init filenames */
 
 	tempFileName (w, filename);
 	uniquifySaveFile (thread_num, filename);
+	sprintf (ftree_filename, "%s.ftree", filename);
 
 /* Init the random number generator */
 
 	srand ((unsigned) time (NULL));
 
-/* Perform setup functions.  This includes decding how big an FFT to use, allocating memory, calling the FFT setup code, etc. */
+/* Perform setup functions.  This includes deciding how big an FFT to use, allocating memory, calling the FFT setup code, etc. */
 
 /* Setup the gwnum assembly code */
 
@@ -6883,6 +6898,14 @@ ecm_polymult:
 //		pm1data.helper_count = 1;
 	}
 
+// Open file for saving two Ftree rows
+
+	int	fd;
+	if (IniGetInt (INI_FILE, "EcmSaveFtreeToDisk", 1)) {
+		fd = _open (ftree_filename, _O_CREAT | _O_TRUNC | _O_BINARY | _O_RDWR, CREATE_FILE_ACCESS);
+//GW				if (fd < 0) goto ???  switch to memory with smaller poly??? 
+	}
+
 // Multiply small monic polys into one big monic poly.  This is done mostly in-place in polyF, but initial data comes from nQx.
 
 	ecmdata.polyF = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
@@ -6893,17 +6916,41 @@ ecm_polymult:
 		uint64_t poly_base_calculator = 0;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
 		int	poly_base = 0;			// PolyF array index
 
-		// Two rows from F tree must be saved either to disk or memory for later rebuilding of the full Ftree 
+		// Two rows from F tree must be saved either to disk or memory for later rebuilding of the full Ftree
 		if (log2_num_polys == (int) ceil(log2((double)ecmdata.poly_size)) || log2_num_polys == 3) {
+			gwarray poly_to_save = (log2_num_polys == 3 ? ecmdata.polyF : ecmdata.nQx);
 			// Save Ftree "row" to disk
-			if (0 && IniGetInt (INI_FILE, "EcmSaveFtreeToDisk", 1)) {
+			if (IniGetInt (INI_FILE, "EcmSaveFtreeToDisk", 1)) {
+				int	array_size;
+				uint32_t *array;
+				array_size = (int) ceil (ecmdata.gwdata.bit_length);
+				array_size = divide_rounding_up (array_size, 32);
+				array = (uint32_t *) malloc (array_size * sizeof (uint32_t));
+				if (array == NULL) goto lowmem;
+				gwnum tmp = gwalloc (&ecmdata.gwdata);
+				if (tmp == NULL) { free (array); goto lowmem; }
+				for (int i = 0; i < ecmdata.poly_size; i++) {
+					long	size;
+//GW: if poly is already FFTed then we are wasting some CPU cylces here.  We could alloc a gwnum and unFFT into that before gwtobinary
+//	hmmm,  F or nQx may be FFTed - that would be unfortunate.  Need option to save it raw/binary? or maybe even preprocessed (slicing is an issue)?
+					gwunfft (&ecmdata.gwdata, poly_to_save[i], tmp);
+					size = gwtobinary (&ecmdata.gwdata, tmp, array, array_size);
+//GW: if (size <0) ???
+					memset (array + size * sizeof (uint32_t), 0, (array_size - size) * sizeof (uint32_t));
+					_write (fd, array, array_size * sizeof (uint32_t));
+				}
+				free (array);
+				gwfree (&ecmdata.gwdata, tmp);
+//explore whether multithreaded version would have cloned gwdata memory allocation issues in gwtobinary						
+//   must deal with i/o errors
+//gw:   unlink on exit/error
 			}
 			// Save Ftree row to memory
 			else {
-				int FtreeCount = (log2_num_polys == 3) ? 1 : 0;
-				ecmdata.polyFtree[FtreeCount] = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
-				if (ecmdata.polyFtree[FtreeCount] == NULL) goto lowmem;
-				poly_copy (&ecmdata.polydata, log2_num_polys == 3 ? ecmdata.polyF : ecmdata.nQx, ecmdata.polyFtree[FtreeCount], ecmdata.poly_size);
+				gwarray	saved_poly = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
+				if (saved_poly == NULL) goto lowmem;
+				poly_copy (&ecmdata.polydata, poly_to_save, saved_poly, ecmdata.poly_size);
+				ecmdata.polyFtree[(log2_num_polys == 3) ? 1 : 0] = saved_poly;
 			}
 		}
 
@@ -7365,8 +7412,24 @@ start_timer_from_zero (timers, 0);
 			// Read in the base level polyF from a saved location
 			if (level == 0) {
 				// Read base level polyF from disk
-				if (0 && IniGetInt (INI_FILE, "EcmSaveFtreeToDisk", 1)) {
-//					bug
+				if (IniGetInt (INI_FILE, "EcmSaveFtreeToDisk", 1)) {
+					int	array_size;
+					uint32_t *array;
+					int64_t	offset;
+					array_size = (int) ceil (ecmdata.gwdata.bit_length);
+					array_size = divide_rounding_up (array_size, 32);
+					array = (uint32_t *) malloc (array_size * sizeof (uint32_t));
+					if (array == NULL) goto lowmem;
+					offset = (pass == 1 ? (int64_t) ecmdata.poly_size * array_size * sizeof (uint32_t) : 0);
+					_lseeki64 (fd, offset + (int64_t) slice * array_size * sizeof (uint32_t), SEEK_SET);
+					for (int i = 0; i < slice_size; i++) {
+						_read (fd, array, array_size * sizeof (uint32_t));
+						binarytogw (&ecmdata.gwdata, array, array_size, polyF[i]);
+					}
+					free (array);
+//explore whether multithreaded version would have cloned gwdata memory allocation issues in binarytogw						
+//   must deal with i/o errors
+//gw:   unlink on exit/error
 				}
 				// Copy base level polyF from memory
 				else {
@@ -7476,7 +7539,12 @@ start_timer_from_zero (timers, 0);
 		slice_base = next_slice_base;
 	    }
 	}
-//GW: Make sure error paths free Ftree
+
+//GW: Make sure error paths close fd, free Ftree
+	if (IniGetInt (INI_FILE, "EcmSaveFtreeToDisk", 1)) {
+		_close (fd);
+		_unlink (ftree_filename);
+	}
 	free (Ftree);
 #endif
 
