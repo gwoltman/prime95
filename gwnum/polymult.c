@@ -68,12 +68,11 @@
 // 65) An fmavec of NULL could mean all zeros.  Combined with FNMADD would turn into negate outputs.  Code handles this, ASSERTS do not.
 // 66) Offer polymult option where caller guarantees that invec1 and/or invec2 have all been FFTed??  Too minor an optimization?
 // 67) Offer polymult option where plan is saved??  Too minor an optimization?
-// 68) Use std::atomic (or C equivalent in https://stackoverflow.com/questions/1158374/portable-compare-and-swap-atomic-operations-c-c-library ?) to implement next_line
+// 68) Move atomic_ints out of polymult.h so that we don't drag in windows.h.  They can be in polymult.c defined structures.  
 // 69) When compressing with POLYMULT_PRE_COMPRESS, figure out a way to malloc a smaller buffer and grow if necessary rather than malloc a large one and
 //	shrink at end.
 
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
-int next_line (pmhandle *pmdata);
 unsigned long cache_line_offset (gwhandle *gwdata, unsigned long i);
 void generate_sincos (pmhandle *pmdata, const unsigned int size);
 void zpad7_fft (gwhandle *gwdata, gwnum g);
@@ -412,19 +411,6 @@ void polymult_done (
 	pmdata->twiddles2 = NULL;
 }
 
-
-// Return the next line that needs processing
-int next_line (
-	pmhandle *pmdata)		// Handle for polymult library
-{
-	int	return_value;
-
-	// Use mutex to guard next_line counter, return next available line
-	if (pmdata->num_threads > 1) gwmutex_lock (&pmdata->poly_mutex);
-	return_value = pmdata->next_line++;
-	if (pmdata->num_threads > 1) gwmutex_unlock (&pmdata->poly_mutex);
-	return (return_value);
-}
 
 //GW -- move to gwnum.c?
 
@@ -3199,7 +3185,7 @@ void polymult_line (
 	if (!pmdata->gwdata->ALL_COMPLEX_FFT) num_lines += 2;
 	if (pmdata->gwdata->ZERO_PADDED_FFT) num_lines += 14;
 	num_lines = divide_rounding_up (num_lines, sizeof (CVDT) / sizeof (double));
-	while ((line = next_line (pmdata)) < num_lines) {
+	while ((line = atomic_fetch_incr (pmdata->next_line)) < num_lines) {
 	    CVDT *invec1, *invec2, *outvec, *true_outvec, *tmpvec, *scratch;
 	    tmpvec = tmpvec_buffer;
 	    scratch = scratch_buffer;
@@ -3365,9 +3351,7 @@ void polymult_thread (void *arg)
 /* Generate a unique helper thread number (so that callback routine to uniquely identify helper threads) */
 /* Call gwnum's optional user provided callback routine so that the caller can set the thread's priority and affinity */
 
-	gwmutex_lock (&pmdata->poly_mutex);
-	int thread_num = ++pmdata->next_thread_num;
-	gwmutex_unlock (&pmdata->poly_mutex);
+	int thread_num = atomic_incr_fetch (pmdata->next_thread_num);
 	if (pmdata->gwdata->thread_callback != NULL)
 		(*pmdata->gwdata->thread_callback) (thread_num, 20, pmdata->gwdata->thread_callback_data);
 
@@ -3406,9 +3390,7 @@ void polymult_thread (void *arg)
 
 		// When all helpers are finished, signal that all helpers are done and can now wait on the work_to_do event.
 		// Otherwise wait for all helpers to finish
-		gwmutex_lock (&pmdata->poly_mutex);
-		int num_active = --pmdata->helpers_active;
-		gwmutex_unlock (&pmdata->poly_mutex);
+		int num_active = atomic_decr_fetch (pmdata->helpers_active);
 		if (num_active == 0) {
 			gwevent_reset (&pmdata->work_to_do);
 			gwevent_signal (&pmdata->helpers_done);
@@ -3416,9 +3398,7 @@ void polymult_thread (void *arg)
 			gwevent_wait (&pmdata->helpers_done, 0);
 
 		// All helpers are done.  When all helpers wake up it will be safe to signal the main thread.
-		gwmutex_lock (&pmdata->poly_mutex);
-		int num_waiting = ++pmdata->helpers_waiting_work;
-		gwmutex_unlock (&pmdata->poly_mutex);
+		int num_waiting = atomic_incr_fetch (pmdata->helpers_waiting_work);
 		if (num_waiting == pmdata->max_num_threads - 1) gwevent_signal (&pmdata->main_can_wakeup);
 
 /* Wait for more work (or termination) */
@@ -4364,9 +4344,9 @@ const	HELPER_OPCODE_UNFFT_FFT = 4;
 
 // Define a structure to pass all needed data to polymult_helper_example
 struct poly_helper_example_data {
-	pmhandle *pmdata;		// Polymult handle -- mainly to access mutexes if needed
+	pmhandle *pmdata;		// Polymult handle -- mainly to access pmdata->poly_mutex if needed
 	int	opcode;			// Work type for poly_helper_example
-	int	counter;		// Counter that lets each thread work on independent data
+	atomic_int counter;		// Counter that lets each thread work on independent data
 	union {
 		struct {		// Arguments to a poly_copy call
 			gwnum	*invec;
@@ -4386,7 +4366,7 @@ void poly_copy (pmhandle *pmdata, gwnum *invec, gwnum *outvec, int poly_size) {
 	// Copy arguments to helper_data so that every thread can access them
 	helper_data.opcode = HELPER_OPCODE_COPY;			// Work type for polymult_helper_example to execute
 	helper_data.counter = 0;					// Reset counter to no-work-done-yet state
-	helper_data.pmdata = pmdata;					// Polymult structure (needed for locking)
+	helper_data.pmdata = pmdata;					// Polymult structure (not needed for this simple example)
 	helper_data.copy_args.invec = invec;				// Poly to copy
 	helper_data.copy_args.outvec = outvec;				// Destination
 	helper_data.copy_args.poly_size = poly_size;			// Size of the poly
@@ -4410,7 +4390,7 @@ void poly_fft_coefficients (pmhandle *pmdata, gwnum *vec, int poly_size) {
 	// Copy arguments to helper_data so that every thread can access them
 	helper_data.opcode = HELPER_OPCODE_FFT;				// Work type for polymult_helper_example to execute
 	helper_data.counter = 0;					// Reset counter to no-work-done-yet state
-	helper_data.pmdata = pmdata;					// Polymult structure (needed for locking)
+	helper_data.pmdata = pmdata;					// Polymult structure (not needed for this simple example)
 	helper_data.fft_args.vec = vec;					// Poly to fft coefficients
 	helper_data.fft_args.poly_size = poly_size;			// Size of the poly
 	// Multithreaded poly fft coefficients
@@ -4425,7 +4405,7 @@ void poly_unfft_coefficients (pmhandle *pmdata, gwnum *vec, int poly_size) {
 	// Copy arguments to helper_data so that every thread can access them
 	helper_data.opcode = HELPER_OPCODE_UNFFT;			// Work type for polymult_helper_example to execute
 	helper_data.counter = 0;					// Reset counter to no-work-done-yet state
-	helper_data.pmdata = pmdata;					// Polymult structure (needed for locking)
+	helper_data.pmdata = pmdata;					// Polymult structure (not needed for this simple example)
 	helper_data.fft_args.vec = vec;					// Poly to unfft coefficients
 	helper_data.fft_args.poly_size = poly_size;			// Size of the poly
 	// Multithreaded poly unfft coefficients
@@ -4440,7 +4420,7 @@ void poly_unfft_fft_coefficients (pmhandle *pmdata, gwnum *vec, int poly_size) {
 	// Copy arguments to helper_data so that every thread can access them
 	helper_data.opcode = HELPER_OPCODE_UNFFT_FFT;			// Work type for polymult_helper_example to execute
 	helper_data.counter = 0;					// Reset counter to no-work-done-yet state
-	helper_data.pmdata = pmdata;					// Polymult structure (needed for locking)
+	helper_data.pmdata = pmdata;					// Polymult structure (not needed for this simple example)
 	helper_data.fft_args.vec = vec;					// Poly to unfft/fft coefficients
 	helper_data.fft_args.poly_size = poly_size;			// Size of the poly
 	// Multithreaded poly unfft/fft coefficients
@@ -4461,7 +4441,7 @@ void poly_helper_example (
 	struct poly_helper_example_data *helper_data = (struct poly_helper_example_data *) info;
 	pmhandle *pmdata = helper_data->pmdata;
 
-/* Copy a poly.  This example demonstrates using a mutex and counter to get next available coefficient to work on. */
+/* Copy a poly.  This example demonstrates using an atomic counter to get next available coefficient to work on. */
 
 	if (helper_data->opcode == HELPER_OPCODE_COPY) {
 		// Loop copying coefficients from invec to outvec
@@ -4469,9 +4449,7 @@ void poly_helper_example (
 		gwnum *outvec = helper_data->copy_args.outvec;
 		for ( ; ; ) {
 			// Get poly coefficient number we are to copy
-			gwmutex_lock (&pmdata->poly_mutex);
-			int coeff = helper_data->counter++;
-			gwmutex_unlock (&pmdata->poly_mutex);
+			int coeff = atomic_fetch_incr (helper_data->counter);
 
 			// If the other helper threads have completed copying invec to outvec, then we're done
 			if (coeff >= helper_data->copy_args.poly_size) break;
@@ -4488,9 +4466,7 @@ void poly_helper_example (
 		gwnum *vec = helper_data->fft_args.vec;
 		for ( ; ; ) {
 			// Get poly coefficient number to FFT
-			gwmutex_lock (&pmdata->poly_mutex);
-			int coeff = helper_data->counter++;
-			gwmutex_unlock (&pmdata->poly_mutex);
+			int coeff = atomic_fetch_incr (helper_data->counter);
 
 			// If the other helper threads have completed FFTing vec, then we're done
 			if (coeff >= helper_data->fft_args.poly_size) break;
@@ -4507,9 +4483,7 @@ void poly_helper_example (
 		gwnum *vec = helper_data->fft_args.vec;
 		for ( ; ; ) {
 			// Get poly coefficient number to UNFFT
-			gwmutex_lock (&pmdata->poly_mutex);
-			int coeff = helper_data->counter++;
-			gwmutex_unlock (&pmdata->poly_mutex);
+			int coeff = atomic_fetch_incr (helper_data->counter);
 
 			// If the other helper threads have completed UNFFTing vec, then we're done
 			if (coeff >= helper_data->fft_args.poly_size) break;
@@ -4526,9 +4500,7 @@ void poly_helper_example (
 		gwnum *vec = helper_data->fft_args.vec;
 		for ( ; ; ) {
 			// Get poly coefficient number to UNFFT/FFT
-			gwmutex_lock (&pmdata->poly_mutex);
-			int coeff = helper_data->counter++;
-			gwmutex_unlock (&pmdata->poly_mutex);
+			int coeff = atomic_fetch_incr (helper_data->counter);
 
 			// If the other helper threads have completed UNFFT/FFTing vec, then we're done
 			if (coeff >= helper_data->fft_args.poly_size) break;
