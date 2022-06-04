@@ -682,6 +682,7 @@ struct common_cost_data {
 	int	numvals;		/* Maximum number of gwnum temporaries that can be allocated for relative prime data, pairmaps, */
 					/* ECM pooling.  Additional gwnums needed by ECM/P-1/P+1 are not included in this maximum number. */
 	bool	only_cost_max_numvals;	/* Set to TRUE if there is no need to cost fewer than numvals.  That is, using maximum number of temporaries is always best. */
+	bool	extra_credit;		/* Set to TRUE if there is "extra credit" for going past B2_end */
 	bool	use_poly_D_data;	/* Set to TRUE if selecting from the alternate D_data designed for polymult */
 	bool	centers_on_Dmultiple;	/* Set to TRUE if pairing is centered on a multiple of D (as opposed to odd multiple of D/2) */
 	uint64_t gap_start;		/* last_relocatable or zero (when pairmaps are split, c_start to gap_start are the remaining relocatables to pair) */
@@ -854,8 +855,7 @@ double best_stage2_impl_internal (
 /* Break out of loop after a couple of failed attempts at improving our best (we're going in the wrong direction) */
 
 		else {
-//GW			if (best_cost < 1.0e98 && i > best_i + 2) break;
-						if (best_cost < 1.0e98 && i > best_i + 12) break;
+			if (best_cost < 1.0e98 && i > best_i + 2) break;
 		}
 	    }
 	}
@@ -1298,7 +1298,7 @@ int isProbablePrime (
 
 #define kruppa_adjust_ratio(B2B1ratio)	(0.11 + 0.89 * pow (_log10(B2B1ratio) / 2.0, 1.5))
 #define kruppa_adjust(B2,B1)		kruppa_adjust_ratio ((double)(B2) / (double)(B1))
-#define kruppa_unadjust(worth,B1)	(uint64_t) round((B1) * pow (10.0, (pow (((worth) - 0.11) / 0.89, 1.0 / 1.5) * 2)))
+#define kruppa_unadjust(worth,B1)	(uint64_t) round((B1) * pow (10.0, pow (((worth) - 0.11) / 0.89, 1.0 / 1.5) * 2))
 
 /* When a pairmap completes, we know that all relocatable primes that could be relocated to that pairmap are processed. */
 /* Calculate the new first prime that needs relocating. */
@@ -1405,11 +1405,12 @@ typedef struct {
 	gwarray	polyR;		/* Array of coefficients for poly 1/F(X), coefficients need to be negated */
 	gwarray	polyGH;		/* Array of coefficients for poly G(X) and H(X) */
 	gwarray	polyGaux;	/* Scratch array for use in filling up poly G(X) */
-	gwarray polyFtree[2];	/* Two saved entries from polyF tree.  Needed by scaled remainders to work down the tree. */
 	int	polyGaux_size;	/* Size of the polyGaux array */
 	bool	use_preallocated_norm_temps; /* TRUE when using polyGaux for all our normalization temps */
 	gwnum	norm_pool_temps[5]; /* Free gwnums for normalization to use.  These come from polyGaux. */
 	int	norm_pool_temps_count; /* Number of free gwnums in norm_pool_temps */
+	int	Ftree_polys_in_mem; /* Number of Ftree polys to store in memory rather than on disk or rebuilding */
+	gwarray polyFtree[40];	/* Saved entries from polyF tree.  Needed by scaled remainders to work down the tree. */
 //	int	num_points;	/* Number of points (multiples of D) that can be evalualted with each polymult. */
 //	int	helper_work;	/* Type of work helper routine should perform */
 //	int	helper_count;	/* Total number of threads including main thread doing helper work */
@@ -3886,6 +3887,7 @@ struct ecm_stage2_cost_data {
 	int	pool_type;	/* Modular inverse pooling implementation */
 	int	TWO_FFT_STAGE2;	/* 2 vs. 4 FFT implementation */
 	int	E;		/* In 2-FFT stage 2, number of D sections pooled for a single modular inverse */
+	int	Ftree_polys_in_mem; /* If there is excess memory available, we can save Ftree polys in memory rather than on disk or rebuilding. */
 	double	total_cost;	/* Cost in terms of gwnum transforms */
 };
 
@@ -4174,7 +4176,6 @@ double ecm_stage2_cost (
 if (cost_data->c.totrels < 6*32) return (1.0e99);
 
 		// Stage 2 polymult needs 4 polys (polyF, polyR, polyGH) plus two Ftree polys unless they are saved to disk plus 1/7 for modinv temps.
-//GW: if we never use H(X) we can do 3.14
 		num_polys = (cost_data->saving_Ftree_to_disk ? 4.0 : 6.0) + 1.0 / 7.0;
 //GW: Factor in compression, but never less than 4.0/6.0 (if it could be less do we need to rethink Ftree strategy?)
 		if (cost_data->c.numrels > cost_data->c.numvals / num_polys) return (1.0e99);
@@ -4190,6 +4191,7 @@ if (cost_data->c.totrels < 6*32) return (1.0e99);
 //			max_poly2_size = cost_data->c.totrels;
 //		}
 //GW:		mem_saved_by_compression = 2 * (double) poly_size * mem_used_by_a_gwnum * (1.0 - cost_data->poly1_compression);		// PolyF and polyR
+//GW: if num_polyGs == 1, polyF and polyR are not compressed
 //GW: Factor in polymult_mem_required (like P-1)
 		cpu_flags = cost_data->c.gwdata->cpu_flags;
 		mem_used_by_polymult = (double) polymult_mem_required (poly_size, poly_size, POLYMULT_INVEC1_MONIC, cpu_flags, cost_data->c.threads);
@@ -4227,21 +4229,21 @@ if (cost_data->c.totrels < 6*32) return (1.0e99);
 /* Cost of building initial nQx values and calculating each D value */
 //GW: Lifted from impl==7, check that new mQ_init behaves the same way
 		cost_data->c.est_init_transforms = NQX_SETUP_COST (FALSE) +					// Cost of nQx below D setup
-						   MULT3POINT57_POOL_COST (cost_data->c.totrels) +		// pool cost for nQx
-						   poly_size * ELL_ADD_COST + MULT3POINT57_POOL_COST (poly_size+1);// Cost of first GCD section in mQ_init
+						   MULT3POINT57_POOL_COST (cost_data->c.numrels + 1);		// pool cost for nQx and QD
 		cost_data->c.est_stage2_transforms = (double) cost_data->c.numDsections +			// Cost of FFTing each normalized mQx value
-			(num_polyG - 1.0) * (poly_size * AVG_ELL_ADD_NORM_COST + MULT3POINT57_POOL_COST (poly_size));	// Cost of remaining GCD sections
+			num_polyG * (poly_size * AVG_ELL_ADD_NORM_COST + MULT3POINT57_POOL_COST (poly_size));	// Cost of computing multiples of D
 		cost_modinv = cost_data->modinv_cost * (1 + num_polyG);
 
-/* Building polyF requires log2(poly_size) polymults with an FFT and inverse FFT on each poly coefficient */
+/* Building polyF requires log2(poly_size) polymults with inverse FFT and FFT and on each output poly coefficient (always assume input coefficients are FFTed) */
 
 		cost_data->c.est_init_polymult = log2 ((double) poly_size) * poly_size * polymult_cost;
 		cost_data->c.est_init_transforms += log2 ((double) poly_size) * poly_size * 2.0;
 
 /* Building polyR requires log2(poly_size) iterations doing two progressively larger polymults with an FFT and inverse FFT on each poly coefficient */
+/* That's two size 1 polymults, two size 2 polymults, ..., two size poly_size/2 polymults.  That's equivalent to two size poly_size polymults. */
 
-		cost_data->c.est_init_polymult += 2 * poly_size * polymult_cost;
-		cost_data->c.est_init_transforms += 2 * poly_size * 2.0;
+		cost_data->c.est_init_polymult += 2 * (poly_size*2) * polymult_cost;
+		cost_data->c.est_init_transforms += 2 * (poly_size*2) * 2.0;
 
 /* Building polyG occurs num_polyG times.  Each requires log2(poly_size) polymults with an FFT and inverse FFT on each poly coefficient */
 
@@ -4249,24 +4251,47 @@ if (cost_data->c.totrels < 6*32) return (1.0e99);
 		cost_data->c.est_stage2_transforms += num_polyG * log2 ((double) poly_size) * poly_size * 2.0;
 
 /* Building polyH occurs num_polyG-1 times.  Each requires three poly_size times poly_size polymults with an FFT and inverse FFT on each poly coefficient */
+/* There are fewer output gwnum transforms thanks to POLYMULT_MULHI and POLYMULT_MULLO. */
 
 		cost_data->c.est_stage2_polymult += (num_polyG-1) * 3.0 * (double) (poly_size*2) * polymult_cost;
-		cost_data->c.est_stage2_transforms += (num_polyG-1) * 3.0 * (double) (poly_size*2) * 2;
+		cost_data->c.est_stage2_transforms += (num_polyG-1) * (double) (poly_size*2 + poly_size + poly_size) * 2;
 
 /* Building initial scaled remainders requires one poly_size times poly_size polymult with an FFT and inverse FFT on each poly coefficient */
+/* There are fewer output gwnum transforms thanks to POLYMULT_MULHI. */
 
 		cost_data->c.est_stage2_polymult += (double) (poly_size*2) * polymult_cost;
-		cost_data->c.est_stage2_transforms += (double) (poly_size*2) * 2.0;
+		cost_data->c.est_stage2_transforms += (double) poly_size * 2.0;
 
-/* Rebuilding F(X) tree requires log2(poly_size)-2 polymults on poly_size coefficients */
+/* Rebuilding F(X) tree requires up to (log2(poly_size) - 2) polymults on poly_size coefficients. */
+/* If excess memory is available, it can be used to save Ftree polys.  This will save on the costs of rebuilding F(X). */
+/* Saving (and restoring) two Ftree rows to/from disk requires gwtobinary and binarytogw on two polys.  This timed as equal to 74 transforms */
+/* on a single-threaded FMA machine.  For lack of a better place to record this cost, add it to cost_modinv. */
 
-		cost_data->c.est_stage2_polymult = (log2 ((double) poly_size) - 2.0) * poly_size * polymult_cost;
-		cost_data->c.est_stage2_transforms += (log2 ((double) poly_size) - 2.0) * poly_size * 2.0;
+		int	num_Ftree_polys, Ftree_polys_in_mem, more_Ftree_polys_in_mem, total_Ftree_polys_in_mem, needing_rebuild;
+		num_Ftree_polys = (int) ceil (log2 ((double) poly_size));
+		Ftree_polys_in_mem = (cost_data->saving_Ftree_to_disk ? 0 : 2);
+		more_Ftree_polys_in_mem = divide_rounding_down (cost_data->c.totrels - cost_data->c.stage2_numvals, poly_size);
+//gw		if (Ftree_polys_in_mem + more_Ftree_polys_in_mem > num_Ftree_polys) more_Ftree_polys_in_mem = num_Ftree_polys - Ftree_polys_in_mem;
+//gw: saving the 0/1 row will be tricky!
+if (Ftree_polys_in_mem + more_Ftree_polys_in_mem > num_Ftree_polys - 1) more_Ftree_polys_in_mem = num_Ftree_polys - Ftree_polys_in_mem - 1;
+		total_Ftree_polys_in_mem = Ftree_polys_in_mem + more_Ftree_polys_in_mem;
+		cost_data->Ftree_polys_in_mem = total_Ftree_polys_in_mem;
+		cost_data->c.stage2_numvals += more_Ftree_polys_in_mem * poly_size;
+		if (total_Ftree_polys_in_mem < 2) cost_modinv += 74.0 * (2 - total_Ftree_polys_in_mem) * poly_size;
 
-/* Moving down the scaled remainder tree requires log2(polysize) iterations of two full-size times half-size polymults */
+/* Rebuilding F(X) tree requires (log2(poly_size) - Ftree_polys_in_mem_or_on_disk) polymults on poly_size coefficients */
+
+		needing_rebuild = num_Ftree_polys - intmax (total_Ftree_polys_in_mem, 2);
+		if (needing_rebuild > 0) {
+			cost_data->c.est_stage2_polymult += needing_rebuild * poly_size * polymult_cost;
+			cost_data->c.est_stage2_transforms += needing_rebuild * poly_size * 2.0;
+		}
+
+/* Moving down the scaled remainder tree requires log2(polysize) iterations of two full-size times half-size polymults. */
+/* There are fewer output gwnum transforms thanks to POLYMULT_MULHI. */
 
 		cost_data->c.est_stage2_polymult += log2 (poly_size) * (3 * poly_size) * polymult_cost;
-		cost_data->c.est_stage2_transforms += log2 (poly_size) * (3 * poly_size) * 2.0;
+		cost_data->c.est_stage2_transforms += log2 (poly_size) * poly_size * 2.0;
 
 /* Finally we multiply all the H(X) coefficients together */
 
@@ -4283,14 +4308,15 @@ if (cost_data->c.totrels < 6*32) return (1.0e99);
 
 /* Give "extra credit" for doing more work than requested.  This lets us find the most efficient stage 2 plan and D value. */
 
-//GW:  Need polymult option that adheres to B2? -- that is, no extra credit for going past B2.
-	double excess_work_credit = (double) (cost_data->c.B2_start + cost_data->c.numDsections * cost_data->c.D - cost_data->c.B1) /
-				    (double) (cost_data->c.B2 - cost_data->c.B1);
-	adjusted_cost =	cost / excess_work_credit;
+	adjusted_cost = cost;
+	if (cost_data->c.extra_credit) {
+		double excess_work_credit = (double) (cost_data->c.B2_start + cost_data->c.numDsections * cost_data->c.D - cost_data->c.B1) /
+					    (double) (cost_data->c.B2 - cost_data->c.B1);
+		adjusted_cost /= excess_work_credit;
+	}
 
 /* For historical reasons costs returned are number of transforms.  P-1 functions return number of squarings. */
 
-//GW: Calc and set estimated runtime ratio
 	cost_data->total_cost = cost;		// Raw cost of stage 2
 	return (adjusted_cost);			// Efficiency of computing stage 2
 }
@@ -4333,6 +4359,7 @@ double ecm_stage2_impl_given_numvals (
 	best_cost = 1.0e99;
 	cost_data.c.numvals = numvals;
 	cost_data.c.only_cost_max_numvals = FALSE;
+	cost_data.c.extra_credit = FALSE;
 	cost_data.c.use_poly_D_data = FALSE;
 	cost_data.c.centers_on_Dmultiple = TRUE;
 	cost_data.c.gwdata = &ecmdata->gwdata;
@@ -4384,7 +4411,7 @@ void ecm_choose_B2 (
 	int	forced_stage2_type,		/* 0 = cost pairing, 1 = cost poly, 99 = cost both */
 	char	*optimal_B2_msg)		/* Message to be output if this optimal B2 selection is used */
 {
-	int	min_B2mult, max_B2mult;
+	int	max_B2mult;
 	struct ecm_stage2_cost_data cost_data;	/* Extra data passed to ECM costing function */
 	double	B1_cost, B2_cost;
 	struct ecm_stage2_efficiency {
@@ -4406,16 +4433,12 @@ void ecm_choose_B2 (
 
 	B1_cost = 25.48 * (double) ecmdata->B;
 
-/* Look for the best B2 which is likely between 50 * B1 and 150 * B1 when prime pairing.  With polymult best B2 is apt to be much larger.  If optimal is not */
-/* between these bounds, don't worry we'll locate the optimal spot anyway. */
+/* Look for the best B2 which is likely between 50 * B1 and 150 * B1 when prime pairing.  With polymult best B2 is apt to be much larger. */
+/* If optimal is not between these bounds, don't worry we'll locate the optimal spot anyway. */
 
-	ecmdata->C = 50 * ecmdata->B;
-	ecm_stage2_impl_given_numvals (ecmdata, numvals, forced_stage2_type, &cost_data);
-	min_B2mult = (int) ((cost_data.c.B2_start + cost_data.c.numDsections * cost_data.c.D) / cost_data.c.B1);
-
-	kruppa (best[0], min_B2mult);
-	kruppa (best[1], min_B2mult * 2);
-	kruppa (best[2], min_B2mult * 3);
+	kruppa (best[0], 50);
+	kruppa (best[1], 250);
+	kruppa (best[2], 1250);
 
 /* Handle case where midpoint has worse efficiency than the start point */
 /* The search code requires best[1] is better than best[0] and best[2] */
@@ -4432,7 +4455,7 @@ void ecm_choose_B2 (
 	while (best[2].efficiency > best[1].efficiency && best[2].i < max_B2mult) {
 		best[0] = best[1];
 		best[1] = best[2];
-		kruppa (best[2], best[1].i * 2);
+		kruppa (best[2], best[1].i * 5);
 	}
 
 /* Find the best B2.  We use a binary-like search to speed things up (new in version 30.3b3). */
@@ -4466,7 +4489,7 @@ void ecm_choose_B2 (
 /* Return the best B2 */
 
 	ecmdata->C = best[1].i * ecmdata->B;
-	sprintf (optimal_B2_msg, "Optimal B2 is %d*B1 = %" PRIu64 ".\n", best[1].i, ecmdata->C);
+	sprintf (optimal_B2_msg, "Optimal B2 is %d*B1 = %" PRIu64 ".  ", best[1].i, ecmdata->C);
 }
 
 /* Choose the best implementation of ECM stage 2 given the current memory settings.  We choose the best values for D, 2 or 4 FFT stage 2, and best */
@@ -4523,6 +4546,7 @@ double ecm_stage2_impl (
 /* Try various values of D until we find the best one. */
 
 	ecm_stage2_impl_given_numvals (ecmdata, numvals, forced_stage2_type, &cost_data);
+	sprintf (msgbuf + strlen (msgbuf), "Actual B2 will be %" PRIu64 ".\n", cost_data.c.B2_start + cost_data.c.numDsections * cost_data.c.D);
 
 /* If are continuing from a save file that was in stage 2 and the new plan doesn't look significant better than the old plan, then */
 /* we use the old plan and its partially completed pairmap. */
@@ -4556,6 +4580,7 @@ double ecm_stage2_impl (
 	ecmdata->D = cost_data.c.D;
 	ecmdata->B2_start = cost_data.c.B2_start;
 	ecmdata->numDsections = cost_data.c.numDsections;
+	ecmdata->Dsection = 0;									//GW: old ecm code did not do this.  did i break pairing?
 	ecmdata->stage2_type = cost_data.stage2_type;
 	if (ecmdata->stage2_type == ECM_STAGE2_PAIRING) {
 		ecmdata->TWO_FFT_STAGE2 = cost_data.TWO_FFT_STAGE2;
@@ -4565,6 +4590,7 @@ double ecm_stage2_impl (
 		ecmdata->max_pairmap_Dsections = cost_data.c.max_pairmap_Dsections;
 	} else {
 		ecmdata->poly_size = cost_data.c.numrels;
+		ecmdata->Ftree_polys_in_mem = cost_data.Ftree_polys_in_mem;
 	}
 	if (ecmdata->state < ECM_STATE_STAGE2 || ecmdata->last_relocatable > ecmdata->B2_start) ecmdata->last_relocatable = ecmdata->B2_start;
 
@@ -6606,7 +6632,8 @@ ecm_polymult:
 
 /* Output a useful message regarding memory usage */
 
-	sprintf (buf, "Using %uMB of memory.  D: %d, degree-%d polynomials.\n", memused, ecmdata.D, ecmdata.poly_size);
+	sprintf (buf, "Using %uMB of memory.  D: %d, degree-%d polynomials.  Ftree polys in memory: %d\n",
+		 memused, ecmdata.D, ecmdata.poly_size, ecmdata.Ftree_polys_in_mem);
 	OutputStr (thread_num, buf);
 
 //GW: does this make sense when we are allocating arrays?
@@ -6614,7 +6641,6 @@ ecm_polymult:
 
 // We must outer loop at least twice, otherwise H(X) will be monic -- the current descent of Ftree code can't handle that.
 //GW:  Someday allow ecmdata.numDsections to be ecmdata.poly_size -- dont alloc mem for H(X)
-//GW:	if (ecmdata.numDsections < 2 * ecmdata.poly_size) ecmdata.numDsections = 2 * ecmdata.poly_size;
 
 /* Allocate nQx array of pointers to relative prime gwnums.  Allocate an array large enough to hold x & z values for all relp. */
 /* This is much more than we will need once stage 2 init completes. */
@@ -6899,10 +6925,10 @@ ecm_polymult:
 //		pm1data.helper_count = 1;
 	}
 
-// Open file for saving two Ftree rows
+// Open file for saving up to two Ftree rows
 
 	int	fd;
-	if (IniGetInt (INI_FILE, "EcmSaveFtreeToDisk", 1)) {
+	if (ecmdata.Ftree_polys_in_mem < 2) {
 		fd = _open (ftree_filename, _O_CREAT | _O_TRUNC | _O_BINARY | _O_RDWR, CREATE_FILE_ACCESS);
 //GW				if (fd < 0) goto ???  switch to memory with smaller poly??? 
 	}
@@ -6912,32 +6938,39 @@ ecm_polymult:
 	ecmdata.polyF = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
 	if (ecmdata.polyF == NULL) goto lowmem;
 
+	// Work our way up the poly F tree combining size 1 polys, then size 2, then size 4, until there is only one big poly
 	// To handle non-power-of-2 poly sizes, we need to uniformly space "odd-sized" polys over 2^log2_num_polys
-	for (int log2_num_polys = (int) ceil(log2((double)ecmdata.poly_size)); log2_num_polys >= 1; log2_num_polys--) {
-		uint64_t poly_base_calculator = 0;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
-		int	poly_base = 0;			// PolyF array index
+	int num_tree_levels = (int) ceil(log2((double)ecmdata.poly_size));	// Number of Ftree levels with two or more polys
+	ASSERTG (num_tree_levels >= 4);
+	for (int tree_level = 0; tree_level < num_tree_levels; tree_level++) {
+		int log2_num_polys = num_tree_levels - tree_level;
+
+		// The default scenario is reading data from polyF.  The polyF pointer may change if this Ftree row is saved to memory.
+		gwarray	source_poly = ecmdata.polyF;
 
 		// Two rows from F tree must be saved either to disk or memory for later rebuilding of the full Ftree
-		if (log2_num_polys == (int) ceil(log2((double)ecmdata.poly_size)) || log2_num_polys == 3) {
-			gwarray poly_to_save = (log2_num_polys == 3 ? ecmdata.polyF : ecmdata.nQx);
-			// Save Ftree "row" to disk
-			if (IniGetInt (INI_FILE, "EcmSaveFtreeToDisk", 1)) {
-				int	array_size;
-				uint32_t *array;
-				array_size = (int) ceil (ecmdata.gwdata.bit_length);
+		// If excess memory was available, we can save even more Ftree levels to memory.
+		if (tree_level == 0 || log2_num_polys == 3 ||
+		    (ecmdata.Ftree_polys_in_mem >= 3 && tree_level >= num_tree_levels - ecmdata.Ftree_polys_in_mem + 2) ||
+		    (ecmdata.Ftree_polys_in_mem >= 5 && tree_level >= num_tree_levels - ecmdata.Ftree_polys_in_mem + 1)) {
+
+			// Save an Ftree "row" to disk
+			if (ecmdata.Ftree_polys_in_mem == 0 || (ecmdata.Ftree_polys_in_mem == 1 && tree_level == 0)) {
+				gwarray poly_to_save = (tree_level == 0 ? ecmdata.nQx : ecmdata.polyF);
+				int array_size = (int) ceil (ecmdata.gwdata.bit_length);
 				array_size = divide_rounding_up (array_size, 32);
-				array = (uint32_t *) malloc (array_size * sizeof (uint32_t));
+				uint32_t *array = (uint32_t *) malloc (array_size * sizeof (uint32_t));
 				if (array == NULL) goto lowmem;
 				gwnum tmp = gwalloc (&ecmdata.gwdata);
 				if (tmp == NULL) { free (array); goto lowmem; }
 				for (int i = 0; i < ecmdata.poly_size; i++) {
 					long	size;
-//GW: if poly is already FFTed then we are wasting some CPU cylces here.  We could alloc a gwnum and unFFT into that before gwtobinary
+//GW: if poly is already FFTed then we are wasting some CPU cylces here.  We could alloc a gwnum and unFFT into that before gwtobinary (wasteful if gwnum is not ffted)
 //	hmmm,  F or nQx may be FFTed - that would be unfortunate.  Need option to save it raw/binary? or maybe even preprocessed (slicing is an issue)?
 					gwunfft (&ecmdata.gwdata, poly_to_save[i], tmp);
 					size = gwtobinary (&ecmdata.gwdata, tmp, array, array_size);
 //GW: if (size <0) ???
-					memset (array + size * sizeof (uint32_t), 0, (array_size - size) * sizeof (uint32_t));
+					memset (array + size, 0, (array_size - size) * sizeof (uint32_t));
 					_write (fd, array, array_size * sizeof (uint32_t));
 				}
 				free (array);
@@ -6946,16 +6979,22 @@ ecm_polymult:
 //   must deal with i/o errors
 //gw:   unlink on exit/error
 			}
-			// Save Ftree row to memory
+
+			// Save an Ftree row to memory
 			else {
-				gwarray	saved_poly = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
-				if (saved_poly == NULL) goto lowmem;
-				poly_copy (&ecmdata.polydata, poly_to_save, saved_poly, ecmdata.poly_size);
-				ecmdata.polyFtree[(log2_num_polys == 3) ? 1 : 0] = saved_poly;
+				if (tree_level == 0) {		// Save row at nQx
+					ecmdata.polyFtree[0] = ecmdata.nQx;
+				} else {			// Save row at polyF
+					ecmdata.polyFtree[tree_level] = ecmdata.polyF;
+					ecmdata.polyF = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
+					if (ecmdata.polyF == NULL) goto lowmem;
+				}
 			}
 		}
 
 		// Work on pairs of polynomials.  We combine them in-place using polymult.
+		uint64_t poly_base_calculator = 0;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
+		int	poly_base = 0;			// PolyF array index
 		while (poly_base < ecmdata.poly_size) {
 			int	poly1_base, poly1_size, poly2_base, poly2_size;
 
@@ -6973,8 +7012,8 @@ ecm_polymult:
 
 			// Combine the two polys
 			polymult (&ecmdata.polydata,
-				  (poly1_size == 1) ? &ecmdata.nQx[poly1_base] : &ecmdata.polyF[poly1_base], poly1_size,
-				  (poly2_size == 1) ? &ecmdata.nQx[poly2_base] : &ecmdata.polyF[poly2_base], poly2_size,
+				  (poly1_size == 1) ? &ecmdata.nQx[poly1_base] : &source_poly[poly1_base], poly1_size,
+				  (poly2_size == 1) ? &ecmdata.nQx[poly2_base] : &source_poly[poly2_base], poly2_size,
 				  &ecmdata.polyF[poly1_base], poly1_size + poly2_size,
 				  (poly1_size == 1 ? POLYMULT_INVEC1_NEGATE : 0) +
 				  (poly2_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) +
@@ -6999,11 +7038,13 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 		if (stop_reason) goto possible_lowmem;
 	}
 
-// Free nQx array
+// Free nQx array (if it was not saved in polyFtree)
 
 //	ecmdata.xz.x = ecmdata.nQx[0];
-	for (i = 0; i < ecmdata.numrels; i++) gwfree (&ecmdata.gwdata, ecmdata.nQx[i]);
-	free (ecmdata.nQx); ecmdata.nQx = NULL;
+	if (ecmdata.Ftree_polys_in_mem < 2) {
+		for (i = 0; i < ecmdata.numrels; i++) gwfree (&ecmdata.gwdata, ecmdata.nQx[i]);
+		free (ecmdata.nQx); ecmdata.nQx = NULL;
+	}
 
 // Use Newton's method to compute 1/F(X), starting with an initial estimate of 1 - first_non_monic_term_of_F(X).
 
@@ -7047,6 +7088,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 //GW: We could allow this by having polymult planner auto detect too many coefficients passed in for a MULHI or MULLO operation (and reduce poly fft size accordingly)
 //GW: or we could pass in a flag INVEC1_PREPROCESSED
 
+//GW: if num_polyGs == 1, dont preprocess
 	if (IniGetInt (INI_FILE, "Poly1Compress", 2)) {
 		int options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC;
 		if (IniGetInt (INI_FILE, "Poly1Compress", 2) == -1) options |= POLYMULT_PRE_FFT;			// Hidden option (uses more memory)
@@ -7059,6 +7101,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 
 // Compress and pre-transpose reciprocal of F(X) -- will reduce mem usage by maybe 1.6% without compression plus another 12.5% with compression.
 
+//GW: if num_polyGs == 1, dont preprocess
 	if (IniGetInt (INI_FILE, "Poly1Compress", 2)) {
 		int options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_NEGATE;
 		if (IniGetInt (INI_FILE, "Poly1Compress", 2) == -1) options |= POLYMULT_PRE_FFT;			// Hidden option (uses more memory)
@@ -7081,6 +7124,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 
 // Allocate space for G(X) and H(X) polys in one big array
 
+//GW: if num_polyGs == 1, dont need polyH (or polyH == polyG)
 	ecmdata.polyGH = gwalloc_array (&ecmdata.gwdata, 2*ecmdata.poly_size);
 	if (ecmdata.polyGH == NULL) goto lowmem;
 	gwnum *polyG = &ecmdata.polyGH[0];
@@ -7132,7 +7176,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 		// To handle non-power-of-2 poly sizes, we need to uniformly space "odd-sized" polys over 2^log2_num_polys
 		{
 		int	num_in_polyG = ecmdata.poly_size - ecmdata.polyGaux_size;  // Number of G(X) values in polyG vs. polyGaux
-		for (int log2_num_polys = (int) ceil(log2((double)ecmdata.poly_size)); log2_num_polys >= 1; log2_num_polys--) {
+		for (int log2_num_polys = num_tree_levels; log2_num_polys >= 1; log2_num_polys--) {
 			uint64_t poly_base_calculator = 0;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
 			int	poly_base = 0;			// PolyG array index
 
@@ -7198,8 +7242,10 @@ print_timer (timers, 0, buf, TIMER_NL);
 OutputStr (thread_num, buf);
 start_timer_from_zero (timers, 0);
 
-// First loop iteration do nothing.
-// On subsequent loop iterations, H(X) = G(X) * H(X) mod F(X).  The first time we do this H(X) is monic.
+// First loop iteration do nothing.  On subsequent loop iterations, H(X) = G(X) * H(X) mod F(X).  The first time we do this H(X) is monic.
+// It might appear that doing just one loop could be advantageous -- we wouldn't need memory for an H(X) poly.  However, increasing the D
+// value has both extra costs (polyF, polyR, scaled remainder costs all go up) and savings (G(X) and H(X) costs go down do to fewer D values).
+// The happy balance seems to be around four iterations of this loop.
 
 		if (outer_loop_counter > 1) {
 			// Compute tmp = G(X) * H(X).  We can store tmp in polyGH.
@@ -7306,7 +7352,7 @@ start_timer_from_zero (timers, 0);
 
 #ifdef SIMPLE_WAY
 	// Work down the F(X) tree
-	for (int log2_num_polys = 1; log2_num_polys <= (int) ceil(log2((double)ecmdata.poly_size)); log2_num_polys++) {
+	for (int log2_num_polys = 1; log2_num_polys <= num_tree_levels; log2_num_polys++) {
 		uint64_t poly_base_calculator = 0;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
 		int	poly_base = 0;			// PolyH array index
 
@@ -7365,12 +7411,7 @@ start_timer_from_zero (timers, 0);
 #else
 
 	// Work down the F(X) tree in a memory efficient way.  This involves recomputing the Ftree.
-	int	num_levels;
 	gwarray	Ftree;
-
-	// Determine the number of "levels" where we break H(X) into half-size polys (scaled remainders)
-	num_levels = (int) ceil(log2((double)ecmdata.poly_size));	// Number of Ftree levels with two or more polys
-	ASSERTG (num_levels >= 4);
 
 	// Free up memory.  PolyF and PolyR may have been compressed and thus their gwnums cannot be recycled, they must be freed.
 	// The polyGH and polyGaux arrays have been co-mingled using gwswap.  They must be freed together.  We can't do that as polyH is still in use.
@@ -7378,7 +7419,7 @@ start_timer_from_zero (timers, 0);
 	gwfree_array (&ecmdata.gwdata, ecmdata.polyR), ecmdata.polyR = NULL;
 	// Now allocate all the gwnums we will need below and gather all our free gwnums into one big array for use below.
 	int	gwnums_needed;
-	gwnums_needed = (num_levels - 3) * divide_rounding_up (ecmdata.poly_size, 8);		// Pass 2 needs a 1/8th sized poly for each level
+	gwnums_needed = (num_tree_levels - 3) * divide_rounding_up (ecmdata.poly_size, 8);	// Pass 2 needs a 1/8th sized poly for each level
 	if (gwnums_needed < 3 * ecmdata.poly_size) gwnums_needed = 3 * ecmdata.poly_size;	// Pass 1 needs 3 full-sized polys
 //GW: Allocate enough gwnums or match the previous mem peak.  Verify we've calculated this right.
 //GW: When we combine a length 0 and length 1 poly (no-op) we copy the gwnum -- we're likely overcounting the needed gwnums in pass 2
@@ -7386,6 +7427,7 @@ start_timer_from_zero (timers, 0);
 	if (ecmdata.polyF == NULL) goto lowmem;
 	Ftree = (gwarray) malloc (gwnums_needed * sizeof (gwnum));
 	if (Ftree == NULL) goto lowmem;
+//GW: if num_polyGs == 1, polyG and polyH are the same  -- allocate a bigger polyF and don't copy polyG?
 	memcpy (Ftree, polyG, ecmdata.poly_size * sizeof (gwnum));
 	memcpy (Ftree + ecmdata.poly_size, ecmdata.polyGaux, ecmdata.polyGaux_size * sizeof (gwnum));
 	memcpy (Ftree + ecmdata.poly_size + ecmdata.polyGaux_size, ecmdata.polyF, (gwnums_needed - (ecmdata.poly_size + ecmdata.polyGaux_size)) * sizeof (gwnum));
@@ -7395,7 +7437,7 @@ start_timer_from_zero (timers, 0);
 	for (int pass = 1; pass <= 2; pass++) {
 	    int num_levels_this_pass, log2_num_slices;
 	    if (pass == 1) num_levels_this_pass = 3, log2_num_slices = 0;
-	    else num_levels_this_pass = num_levels - 3, log2_num_slices = 3;
+	    else num_levels_this_pass = num_tree_levels - 3, log2_num_slices = 3;
 
 	    // Operate on each slice of H(X)
 	    int	slice_base = 0;			// H(X) array index
@@ -7408,12 +7450,14 @@ start_timer_from_zero (timers, 0);
 
 		// Re-build this slice of Ftree working up the tree combining polys
 		for (int level = 0; level < num_levels_this_pass; level++) {
+			int	tree_level = level + (pass == 1 ? num_tree_levels - 3 : 0);
 			gwarray polyF = Ftree + level * slice_size;
 
-			// Read in the base level polyF from a saved location
-			if (level == 0) {
+			// Read in polyF from a saved location
+			if (level == 0 || (ecmdata.Ftree_polys_in_mem >= 3 && tree_level >= num_tree_levels - ecmdata.Ftree_polys_in_mem + 2) ||
+					  (ecmdata.Ftree_polys_in_mem >= 5 && tree_level >= num_tree_levels - ecmdata.Ftree_polys_in_mem + 1)) {
 				// Read base level polyF from disk
-				if (IniGetInt (INI_FILE, "EcmSaveFtreeToDisk", 1)) {
+				if (ecmdata.Ftree_polys_in_mem == 0 || (ecmdata.Ftree_polys_in_mem == 1 && tree_level == 0)) {
 					int	array_size;
 					uint32_t *array;
 					int64_t	offset;
@@ -7432,9 +7476,9 @@ start_timer_from_zero (timers, 0);
 //   must deal with i/o errors
 //gw:   unlink on exit/error
 				}
-				// Copy base level polyF from memory
+				// Copy polyF from memory
 				else {
-					memcpy (polyF, &ecmdata.polyFtree[pass==1?1:0][slice_base], slice_size * sizeof (gwnum));
+					memcpy (polyF, &ecmdata.polyFtree[tree_level][slice_base], slice_size * sizeof (gwnum));
 				}
 				continue;
 			}
@@ -7542,7 +7586,7 @@ start_timer_from_zero (timers, 0);
 	}
 
 //GW: Make sure error paths close fd, free Ftree
-	if (IniGetInt (INI_FILE, "EcmSaveFtreeToDisk", 1)) {
+	if (ecmdata.Ftree_polys_in_mem < 2) {
 		_close (fd);
 		_unlink (ftree_filename);
 	}
@@ -8811,6 +8855,7 @@ double pm1_stage2_impl_given_numvals (
 
 	best_cost = 1.0e99;
 	cost_data.c.numvals = numvals;
+	cost_data.c.extra_credit = TRUE;
 	cost_data.c.gwdata = &pm1data->gwdata;
 	cost_data.c.fftlen = gwfftlen (&pm1data->gwdata);
 	cost_data.c.threads = get_worker_num_threads (pm1data->thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
@@ -12395,6 +12440,7 @@ void pp1_choose_B2 (
 	max_B2mult = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", 1000);
 	cost_data.c.numvals = numvals;
 	cost_data.c.only_cost_max_numvals = FALSE;
+	cost_data.c.extra_credit = TRUE;
 	cost_data.c.use_poly_D_data = FALSE;
 	cost_data.c.centers_on_Dmultiple = TRUE;
 	cost_data.c.gwdata = &pp1data->gwdata;
