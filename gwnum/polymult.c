@@ -68,7 +68,6 @@
 // 65) An fmavec of NULL could mean all zeros.  Combined with FNMADD would turn into negate outputs.  Code handles this, ASSERTS do not.
 // 66) Offer polymult option where caller guarantees that invec1 and/or invec2 have all been FFTed??  Too minor an optimization?
 // 67) Offer polymult option where plan is saved??  Too minor an optimization?
-// 68) Move atomic_ints out of polymult.h so that we don't drag in windows.h.  They can be in polymult.c defined structures.  
 // 69) When compressing with POLYMULT_PRE_COMPRESS, figure out a way to malloc a smaller buffer and grow if necessary rather than malloc a large one and
 //	shrink at end.
 
@@ -3422,8 +3421,8 @@ void polymult_launch_helpers (
 {
 	if (pmdata->num_threads == 1) return;
 	// Set counters necessary for coordinating helper threads
-	pmdata->helpers_active = pmdata->max_num_threads - 1;	// When this count reaches 0, it is safe to signal helpers_done
-	pmdata->helpers_waiting_work = 0;			// When this reaches max_num_threads-1, it is safe for main thread to wake up
+	atomic_set (pmdata->helpers_active, pmdata->max_num_threads - 1);	// When this count reaches 0, it is safe to signal helpers_done
+	atomic_set (pmdata->helpers_waiting_work, 0);				// When this reaches max_num_threads-1, it is safe for main thread to wake up
 	// "Neuter" gwnum to single-threaded for user-definied callback
 	if (!pmdata->helpers_doing_polymult && !pmdata->helpers_sync_clone_stats) {
 		pmdata->saved_gwdata_num_threads = gwget_num_threads (pmdata->gwdata);
@@ -4337,16 +4336,16 @@ void polymult_several (		// Multiply one poly with several polys
 |	Easy multithreading using polymult threads.   Example code!!
 +------------------------------------------------------------------------------------------------*/
 
-const	HELPER_OPCODE_COPY = 1;
-const	HELPER_OPCODE_FFT = 2;
-const	HELPER_OPCODE_UNFFT = 3;
-const	HELPER_OPCODE_UNFFT_FFT = 4;
+const int HELPER_OPCODE_COPY = 1;
+const int HELPER_OPCODE_FFT = 2;
+const int HELPER_OPCODE_UNFFT = 3;
+const int HELPER_OPCODE_UNFFT_FFT = 4;
 
 // Define a structure to pass all needed data to polymult_helper_example
 struct poly_helper_example_data {
 	pmhandle *pmdata;		// Polymult handle -- mainly to access pmdata->poly_mutex if needed
 	int	opcode;			// Work type for poly_helper_example
-	atomic_int counter;		// Counter that lets each thread work on independent data
+	gwatomic counter;		// Counter that lets each thread work on independent data
 	union {
 		struct {		// Arguments to a poly_copy call
 			gwnum	*invec;
@@ -4365,7 +4364,7 @@ void poly_copy (pmhandle *pmdata, gwnum *invec, gwnum *outvec, int poly_size) {
 	struct poly_helper_example_data helper_data;
 	// Copy arguments to helper_data so that every thread can access them
 	helper_data.opcode = HELPER_OPCODE_COPY;			// Work type for polymult_helper_example to execute
-	helper_data.counter = 0;					// Reset counter to no-work-done-yet state
+	atomic_set (helper_data.counter, 0);				// Reset counter to no-work-done-yet state
 	helper_data.pmdata = pmdata;					// Polymult structure (not needed for this simple example)
 	helper_data.copy_args.invec = invec;				// Poly to copy
 	helper_data.copy_args.outvec = outvec;				// Destination
@@ -4389,7 +4388,7 @@ void poly_fft_coefficients (pmhandle *pmdata, gwnum *vec, int poly_size) {
 	struct poly_helper_example_data helper_data;
 	// Copy arguments to helper_data so that every thread can access them
 	helper_data.opcode = HELPER_OPCODE_FFT;				// Work type for polymult_helper_example to execute
-	helper_data.counter = 0;					// Reset counter to no-work-done-yet state
+	atomic_set (helper_data.counter, 0);				// Reset counter to no-work-done-yet state
 	helper_data.pmdata = pmdata;					// Polymult structure (not needed for this simple example)
 	helper_data.fft_args.vec = vec;					// Poly to fft coefficients
 	helper_data.fft_args.poly_size = poly_size;			// Size of the poly
@@ -4404,7 +4403,7 @@ void poly_unfft_coefficients (pmhandle *pmdata, gwnum *vec, int poly_size) {
 	struct poly_helper_example_data helper_data;
 	// Copy arguments to helper_data so that every thread can access them
 	helper_data.opcode = HELPER_OPCODE_UNFFT;			// Work type for polymult_helper_example to execute
-	helper_data.counter = 0;					// Reset counter to no-work-done-yet state
+	atomic_set (helper_data.counter, 0);				// Reset counter to no-work-done-yet state
 	helper_data.pmdata = pmdata;					// Polymult structure (not needed for this simple example)
 	helper_data.fft_args.vec = vec;					// Poly to unfft coefficients
 	helper_data.fft_args.poly_size = poly_size;			// Size of the poly
@@ -4419,7 +4418,7 @@ void poly_unfft_fft_coefficients (pmhandle *pmdata, gwnum *vec, int poly_size) {
 	struct poly_helper_example_data helper_data;
 	// Copy arguments to helper_data so that every thread can access them
 	helper_data.opcode = HELPER_OPCODE_UNFFT_FFT;			// Work type for polymult_helper_example to execute
-	helper_data.counter = 0;					// Reset counter to no-work-done-yet state
+	atomic_set (helper_data.counter, 0);				// Reset counter to no-work-done-yet state
 	helper_data.pmdata = pmdata;					// Polymult structure (not needed for this simple example)
 	helper_data.fft_args.vec = vec;					// Poly to unfft/fft coefficients
 	helper_data.fft_args.poly_size = poly_size;			// Size of the poly

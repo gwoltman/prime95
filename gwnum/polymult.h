@@ -10,26 +10,12 @@
 #ifndef _POLYMULT_H
 #define _POLYMULT_H
 
+#include "gwthread.h"		// Needed for atomics
+
 /* This is a C library.  If used in a C++ program, don't let the C++ compiler mangle names. */
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-
-// Hack to workaround MSVC's appalling lack of support for atomics
-#ifdef _MSC_VER
-#include "windows.h"
-#define	atomic_int	long
-#define atomic_fetch_incr(x) (InterlockedIncrement(&x)-1)					// Equivalent to x++
-#define atomic_incr_fetch(x) (InterlockedIncrement(&x))						// Equivalent to ++x
-#define atomic_fetch_decr(x) (InterlockedDecrement(&x)+1)					// Equivalent to x--
-#define atomic_decr_fetch(x) (InterlockedDecrement(&x))						// Equivalent to --x
-#else
-#include <stdatomic.h>
-#define atomic_fetch_incr(x) (atomic_fetch_add_explicit(&x, 1, memory_order_relaxed))		// Equivalent to x++
-#define atomic_incr_fetch(x) (atomic_fetch_add_explicit(&x, 1, memory_order_relaxed)+1)		// Equivalent to ++x
-#define atomic_fetch_decr(x) (atomic_fetch_add_explicit(&x, -1, memory_order_relaxed))		// Equivalent to x--
-#define atomic_decr_fetch(x) (atomic_fetch_add_explicit(&x, -1, memory_order_relaxed)-1)	// Equivalent to --x
 #endif
 
 // Forward declarations
@@ -243,10 +229,10 @@ struct pmhandle_struct {
 	gwevent helpers_done;		// Event to signal polymult helper threads are done
 	gwevent main_can_wakeup;	// Event to signal polymult helper threads are waiting for work, thus the main thread can resume
 	gwmutex	poly_mutex;		// Mutex to make polymult thread safe when multi-threading
-	atomic_int next_thread_num;	// Lets us generate a unique id for each helper thread
-	atomic_int next_line;		// Next line for a helper thread to process
-	atomic_int helpers_active;	// Count of helper threads that are still active
-	atomic_int helpers_waiting_work;// Count of helper threads that have reached waiting for work_to_do
+	gwatomic next_thread_num;	// Lets us generate a unique id for each helper thread
+	gwatomic next_line;		// Next line for a helper thread to process
+	gwatomic helpers_active;	// Count of helper threads that are still active
+	gwatomic helpers_waiting_work;	// Count of helper threads that have reached waiting for work_to_do
 	bool	termination_in_progress; // Flag for helper threads to exit
 	gwthread *thread_ids;		// Thread ids for the spawned threads
 	int	twiddles_initialized;	// Size of the twiddle tables
