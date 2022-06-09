@@ -2722,17 +2722,17 @@ int gwclone (
 /* Merge various stats (MAXERR, fft_count, etc.) back into the parent gwdata.  This routine does not do any locking to make sure the */
 /* parent gwdata is not busy nor are any other cloned gwdatas simultaneously merging stats.  Locking is the caller's responsibility. */
 void gwclone_merge_stats (
-	gwhandle *cloned_gwdata)	/* Handle for a cloned gwdata */
+	gwhandle *dest_gwdata,		/* Handle to a (possibly cloned) gwdata to merge stats into */
+	gwhandle *cloned_gwdata)	/* Handle to a cloned gwdata to merge stats from */
 {
-	gwhandle *parent_gwdata = cloned_gwdata->clone_of;
 	struct gwasm_data *cloned_asm_data = (struct gwasm_data *) cloned_gwdata->asm_data;
-	struct gwasm_data *parent_asm_data = (struct gwasm_data *) parent_gwdata->asm_data;
+	struct gwasm_data *dest_asm_data = (struct gwasm_data *) dest_gwdata->asm_data;
 
-	parent_gwdata->GWERROR = intmax (parent_gwdata->GWERROR, cloned_gwdata->GWERROR), cloned_gwdata->GWERROR = 0;
-	parent_gwdata->fft_count += cloned_gwdata->fft_count, cloned_gwdata->fft_count = 0;
-	parent_gwdata->read_count += cloned_gwdata->read_count, cloned_gwdata->read_count = 0;
-	parent_gwdata->write_count += cloned_gwdata->write_count, cloned_gwdata->write_count = 0;
-	parent_asm_data->MAXERR = fltmax (parent_asm_data->MAXERR, cloned_asm_data->MAXERR), cloned_asm_data->MAXERR = 0.0;
+	dest_gwdata->GWERROR = intmax (dest_gwdata->GWERROR, cloned_gwdata->GWERROR), cloned_gwdata->GWERROR = 0;
+	dest_gwdata->fft_count += cloned_gwdata->fft_count, cloned_gwdata->fft_count = 0;
+	dest_gwdata->read_count += cloned_gwdata->read_count, cloned_gwdata->read_count = 0;
+	dest_gwdata->write_count += cloned_gwdata->write_count, cloned_gwdata->write_count = 0;
+	dest_asm_data->MAXERR = fltmax (dest_asm_data->MAXERR, cloned_asm_data->MAXERR), cloned_asm_data->MAXERR = 0.0;
 }
 
 /* Examine a giant to see if it a (k*2^n+c)/d value. */

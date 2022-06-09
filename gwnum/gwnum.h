@@ -687,7 +687,8 @@ int gwclone (
 /* Merge various stats (MAXERR, fft_count, etc.) back into the parent gwdata.  This routine does not do any locking to make sure the */
 /* parent gwdata is not busy nor are any other cloned gwdatas simultaneously merging stats.  Locking is the caller's responsibility. */
 void gwclone_merge_stats (
-	gwhandle *cloned_gwdata);	/* Handle for a cloned gwdata */
+	gwhandle *dest_gwdata,		/* Handle to a (possibly cloned) gwdata to merge stats into */
+	gwhandle *cloned_gwdata);	/* Handle to a cloned gwdata to merge stats from */
 
 /*---------------------------------------------------------------------+
 |                 ALTERNATIVE INTERFACES USING GIANTS                  |
