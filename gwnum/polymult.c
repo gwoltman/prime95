@@ -392,7 +392,7 @@ void polymult_done (
 		gwmutex_destroy (&pmdata->poly_mutex);
 		gwevent_destroy (&pmdata->work_to_do[0]);
 		gwevent_destroy (&pmdata->work_to_do[1]);
-		gwevent_destroy (&pmdata->main_can_wakeup);
+		gwevent_destroy (&pmdata->all_helpers_done);
 	}
 	if (pmdata->cached_twiddles_enabled) {
 		for (int i = 0; i < pmdata->cached_twiddles_count; i++) {
@@ -3402,7 +3402,7 @@ void polymult_thread (void *arg)
 		// When all helpers are finished, reset work_to_do and signal main thread to wake up
 		if (atomic_decr_fetch (pmdata->helpers_active) == 0) {
 			gwevent_reset (&pmdata->work_to_do[which_work_to_do]);
-			gwevent_signal (&pmdata->main_can_wakeup);
+			gwevent_signal (&pmdata->all_helpers_done);
 		}
 	}
 
@@ -3431,7 +3431,7 @@ void polymult_launch_helpers (
 	if (pmdata->thread_ids == NULL) {
 		atomic_set (pmdata->next_thread_num, 0);
 		gwmutex_init (&pmdata->poly_mutex);
-		gwevent_init (&pmdata->main_can_wakeup);
+		gwevent_init (&pmdata->all_helpers_done);
 		gwevent_init (&pmdata->work_to_do[0]);
 		gwevent_init (&pmdata->work_to_do[1]);
 		pmdata->which_work_to_do = 0;
@@ -3441,7 +3441,7 @@ void polymult_launch_helpers (
 	// Activate helpers.  They're waiting for work to do signal.
 	pmdata->stats_gwdata = NULL;
 	atomic_set (pmdata->helpers_active, pmdata->max_num_threads - 1);	// When this count reaches 0, it is safe to signal main thread
-	gwevent_reset (&pmdata->main_can_wakeup);
+	gwevent_reset (&pmdata->all_helpers_done);
 	gwevent_signal (&pmdata->work_to_do[pmdata->which_work_to_do]);		// Start all helper threads
 	pmdata->which_work_to_do = !pmdata->which_work_to_do;
 }
@@ -3452,7 +3452,7 @@ void polymult_wait_on_helpers (
 {
 	if (pmdata->num_threads == 1) return;
 	// Wait for helpers to end
-	gwevent_wait (&pmdata->main_can_wakeup, 0);
+	gwevent_wait (&pmdata->all_helpers_done, 0);
 	// User-defined helpers require syncing up cloned gwdata stats and restoring main thread's gwnum's multithreading capabilities
 	if (!pmdata->helpers_doing_polymult) {
 		gwclone_merge_stats (pmdata->gwdata, pmdata->stats_gwdata);		// Add our stats to pmdata->stats_gwdata

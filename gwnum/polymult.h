@@ -227,7 +227,7 @@ struct pmhandle_struct {
 	int	num_threads;		// Number of threads to use computing polymults (must not exceed max_num_threads)
 	gwevent work_to_do[2];		// Alternating event to signal polymult helper threads there is work to do
 	int	which_work_to_do;	// Which of the alternating events to signal next to wake up the helper threads
-	gwevent main_can_wakeup;	// Event to signal polymult helper threads are waiting for work, thus the main thread can resume
+	gwevent all_helpers_done;	// Event to signal polymult helper threads are waiting for work, thus the main thread can resume
 	gwmutex	poly_mutex;		// Mutex to make polymult thread safe when multi-threading
 	gwatomic next_thread_num;	// Lets us generate a unique id for each helper thread
 	gwatomic next_line;		// Next line for a helper thread to process
