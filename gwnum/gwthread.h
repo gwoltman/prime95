@@ -34,18 +34,20 @@ extern "C" {
 
 typedef void *gwatomic;			/* Definition of an atomic int */
 
-#define atomic_set(x,v)		gwatomic_set(&x, v)				// Equivalent to x = v
-#define atomic_get(x)		gwatomic_get(&x)				// Equivalent to x
-#define atomic_fetch_incr(x)	(gwatomic_fetch_and_increment(&x))		// Equivalent to x++
-#define atomic_incr_fetch(x)	(gwatomic_fetch_and_increment(&x) + 1)		// Equivalent to ++x
-#define atomic_fetch_decr(x)	(gwatomic_fetch_and_decrement(&x))		// Equivalent to x--
-#define atomic_decr_fetch(x)	(gwatomic_fetch_and_decrement(&x) - 1)		// Equivalent to --x
-#define atomic_spinwait(x,v)	gwatomic_spinwait(&x, v)			// Equivalent to while (x != v)
+#define atomic_set(x,v)		gwatomic_set(&(x), v)				// Equivalent to x = v
+#define atomic_get(x)		gwatomic_get(&(x))				// Equivalent to x
+#define atomic_fetch_incr(x)	(gwatomic_fetch_increment(&(x)))		// Equivalent to x++
+#define atomic_incr_fetch(x)	(gwatomic_fetch_increment(&(x)) + 1)		// Equivalent to ++x
+#define atomic_fetch_decr(x)	(gwatomic_fetch_decrement(&(x)))		// Equivalent to x--
+#define atomic_decr_fetch(x)	(gwatomic_fetch_decrement(&(x)) - 1)		// Equivalent to --x
+#define atomic_fetch_addin(x,v)	(gwatomic_fetch_add(&(x), v))			// Equivalent to { tmp = x; x += v; return (x); }
+#define atomic_spinwait(x,v)	gwatomic_spinwait(&(x), v)			// Equivalent to while (x != v)
 
 void gwatomic_set (gwatomic *x, int val);
 int gwatomic_get (gwatomic *x);
-int gwatomic_fetch_and_increment (gwatomic *x);
-int gwatomic_fetch_and_decrement (gwatomic *x);
+int gwatomic_fetch_increment (gwatomic *x);
+int gwatomic_fetch_decrement (gwatomic *x);
+int gwatomic_fetch_add (gwatomic *x, int val);
 void gwatomic_spinwait (gwatomic *x, int val);
 
 /******************************************************************************
