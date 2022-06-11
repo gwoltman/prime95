@@ -5475,7 +5475,7 @@ void auxiliary_thread (void *arg)
 
 	for ( ; ; ) {
 
-		// Wait on the alternating work-to-do event for more work (or termination)
+		// Wait on the work-to-do event for more work (or termination)
 		gwevent_wait (&gwdata->work_to_do, 0);
 
 /* If threads are to exit, break out of this work loop */
@@ -5587,10 +5587,12 @@ goto aux_out_of_work_unlocked;
 aux_out_of_work_locked:
 		gwmutex_unlock (&gwdata->thread_lock);
 aux_out_of_work_unlocked:
+
+		// No more work to assign to helper threads
 		gwdata->all_work_assigned = TRUE;
 		gwevent_reset (&gwdata->work_to_do);
 
-		// When all helpers are finished, main thread can wake up (we do this without events/signals so main thread does not lose its timeslice)
+		// When num active helpers reaches zero, main thread can wake up (we do this without events/signals so main thread does not lose its timeslice)
 		atomic_decr_fetch (gwdata->num_active_helpers);
 	}
 

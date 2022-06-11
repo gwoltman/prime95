@@ -225,14 +225,13 @@ struct pmhandle_struct {
 	gwhandle *gwdata;		// Handle for gwnum FFT library
 	int	max_num_threads;	// Maximum number of threads that can be used to compute polymults
 	int	num_threads;		// Number of threads to use computing polymults (must not exceed max_num_threads)
-	gwevent work_to_do[2];		// Alternating event to signal polymult helper threads there is work to do
-	int	which_work_to_do;	// Which of the alternating events to signal next to wake up the helper threads
-	gwevent all_helpers_done;	// Event to signal polymult helper threads are waiting for work, thus the main thread can resume
+	gwevent work_to_do;		// Event to signal polymult helper threads there is work to do
 	gwmutex	poly_mutex;		// Mutex to make polymult thread safe when multi-threading
 	gwatomic next_thread_num;	// Lets us generate a unique id for each helper thread
 	gwatomic next_line;		// Next line for a helper thread to process
-	gwatomic helpers_active;	// Count of helper threads that are still active
-	bool	termination_in_progress; // Flag for helper threads to exit
+	gwatomic num_active_helpers;	// Number of active helper threads (they've awakened from the work_to_do event)
+	bool volatile threads_must_exit; // Flag set to force all auxiliary threads to terminate
+	bool volatile all_work_assigned; // Flag indicating all helper thread work has been assigned (some helpers ma still be active)
 	gwthread *thread_ids;		// Thread ids for the spawned threads
 	int	twiddles_initialized;	// Size of the twiddle tables
 	bool	twiddles_are_from_cache; // TRUE if the current twiddles came from the twiddle cache
@@ -265,7 +264,7 @@ struct pmhandle_struct {
 	// These items allow users of the polymult library to also use the polymult helper threads for whatever they see fit.
 	void	(*helper_callback)(int, gwhandle *, void *); // User-defined helper callback routine
 	void	*helper_callback_data;	// User-defined data to pass to the user-defined helper callback routine
-	bool	helpers_doing_polymult;	// TRUE if helpers are doing polymult work, not user work
+	bool volatile helpers_doing_polymult; // TRUE if helpers are doing polymult work, not user work
 	int	saved_gwdata_num_threads; // Used internally to restore gwdata's multithreading after a user defined callback
 	gwhandle *stats_gwdata;		// The cloned gwdata that is accumulating stats as each user-defined helper finshes up
 };

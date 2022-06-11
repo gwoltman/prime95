@@ -384,15 +384,13 @@ void polymult_done (
 	pmhandle *pmdata)		// Handle for polymult library
 {
 	if (pmdata->thread_ids != NULL) {
-		pmdata->termination_in_progress = TRUE;
-		gwevent_signal (&pmdata->work_to_do[pmdata->which_work_to_do]);
+		pmdata->threads_must_exit = TRUE;
+		gwevent_signal (&pmdata->work_to_do);
 		for (int i = 1; i < pmdata->max_num_threads; i++) gwthread_wait_for_exit (&pmdata->thread_ids[i]);
 		free (pmdata->thread_ids);
 		pmdata->thread_ids = NULL;
 		gwmutex_destroy (&pmdata->poly_mutex);
-		gwevent_destroy (&pmdata->work_to_do[0]);
-		gwevent_destroy (&pmdata->work_to_do[1]);
-		gwevent_destroy (&pmdata->all_helpers_done);
+		gwevent_destroy (&pmdata->work_to_do);
 	}
 	if (pmdata->cached_twiddles_enabled) {
 		for (int i = 0; i < pmdata->cached_twiddles_count; i++) {
@@ -3357,19 +3355,28 @@ void polymult_thread (void *arg)
 
 /* Loop doing polymult or user-defined work */
 
-	for (int which_work_to_do = 0; ; which_work_to_do = !which_work_to_do) {
+	for ( ; ; ) {
 
-		// Wait on the alternating work-to-do event for more work (or termination)
-		gwevent_wait (&pmdata->work_to_do[which_work_to_do], 0);
+		// Wait on the work-to-do event for more work (or termination)
+		gwevent_wait (&pmdata->work_to_do, 0);
 
 		// Terminate helper when polymult_done is called
-		if (pmdata->termination_in_progress) break;
+		if (pmdata->threads_must_exit) break;
 
-                // If caller requests using fewer than the maximum number of helper threads, then some of the helpers need to do nothing
-		if (thread_num >= pmdata->num_threads);
+		// If caller requests using fewer than the maximum number of helper threads, then some of the helpers need to do nothing
+		//GW: WARNING: I fear there may be race conditions here, perhaps we should test num_active_threads (after incr) >= num_threads
+		if (thread_num >= pmdata->num_threads) { gwevent_reset (&pmdata->work_to_do); continue; }
+
+		/* IMPORTANT:  Helpers are considered done as soon as all_work_assigned is set and num_active_helpers reaches zero.  When this happens the main */
+		/* thread is allowed to resume.  However, there may be some helpers that have not yet been given a time slice after the work_to_do event was */
+		/* signalled!  We  must catch these workers right here.  If they were to get past this section, they could read some inconsistent state that */
+		/* the main thread has changed in preparation for the next batch of work for the helper threads. */
+		if (pmdata->all_work_assigned) continue;
+		atomic_fetch_incr (pmdata->num_active_helpers);
+		if (pmdata->all_work_assigned) { atomic_fetch_decr (pmdata->num_active_helpers); continue; }
 
 		// Call user-defined routine with a cloned gwdata so the user can do multi-threaded gwnum work
-		else if (!pmdata->helpers_doing_polymult) {
+		if (!pmdata->helpers_doing_polymult) {
 			// Clone gwdata for user-defined callbacks to use
 			if (!cloned_gwdata_initialized) {
 				gwclone (&cloned_gwdata, pmdata->gwdata);
@@ -3399,11 +3406,12 @@ void polymult_thread (void *arg)
 		else polymult_line_dbl (pmdata);
 #endif
 
-		// When all helpers are finished, reset work_to_do and signal main thread to wake up
-		if (atomic_decr_fetch (pmdata->helpers_active) == 0) {
-			gwevent_reset (&pmdata->work_to_do[which_work_to_do]);
-			gwevent_signal (&pmdata->all_helpers_done);
-		}
+		// No more work to assign to helper threads
+		pmdata->all_work_assigned = TRUE;
+		gwevent_reset (&pmdata->work_to_do);
+
+		// When num active helpers reaches zero, main thread can wake up (we do this without events/signals so main thread does not lose its timeslice)
+		atomic_decr_fetch (pmdata->num_active_helpers);
 	}
 
 /* Call gwnum's optional user provided callback routine so that the caller can do any necessary cleanup */
@@ -3423,7 +3431,7 @@ void polymult_launch_helpers (
 	// If there are no helper threads we're done
 	if (pmdata->num_threads == 1) return;
 	// "Neuter" gwnum to single-threaded for user-definied callback
-	if (!pmdata->helpers_doing_polymult && !pmdata->termination_in_progress) {
+	if (!pmdata->helpers_doing_polymult && !pmdata->threads_must_exit) {
 		pmdata->saved_gwdata_num_threads = gwget_num_threads (pmdata->gwdata);
 		gwset_num_threads (pmdata->gwdata, 1);
 	}
@@ -3431,28 +3439,27 @@ void polymult_launch_helpers (
 	if (pmdata->thread_ids == NULL) {
 		atomic_set (pmdata->next_thread_num, 0);
 		gwmutex_init (&pmdata->poly_mutex);
-		gwevent_init (&pmdata->all_helpers_done);
-		gwevent_init (&pmdata->work_to_do[0]);
-		gwevent_init (&pmdata->work_to_do[1]);
-		pmdata->which_work_to_do = 0;
+		gwevent_init (&pmdata->work_to_do);
 		pmdata->thread_ids = (gwthread *) malloc (pmdata->max_num_threads * sizeof (gwthread));
 		for (int i = 1; i < pmdata->max_num_threads; i++) gwthread_create_waitable (&pmdata->thread_ids[i], &polymult_thread, (void *) pmdata);
 	}
 	// Activate helpers.  They're waiting for work to do signal.
 	pmdata->stats_gwdata = NULL;
-	atomic_set (pmdata->helpers_active, pmdata->max_num_threads - 1);	// When this count reaches 0, it is safe to signal main thread
-	gwevent_reset (&pmdata->all_helpers_done);
-	gwevent_signal (&pmdata->work_to_do[pmdata->which_work_to_do]);		// Start all helper threads
-	pmdata->which_work_to_do = !pmdata->which_work_to_do;
+	pmdata->all_work_assigned = FALSE;			// When this is set and num_active_helpers reaches 0, it is safe to signal main thread
+	gwevent_signal (&pmdata->work_to_do);			// Start all helper threads
 }
 
 /* This routine waits for the launched polymult helper threads to finish.  This is called by the main thread when it has run out of work to do. */
 void polymult_wait_on_helpers (
 	pmhandle *pmdata)		// Handle for polymult library
 {
+	// If there are no helper threads we're done
 	if (pmdata->num_threads == 1) return;
+	// No more work to assign to helper threads
+	pmdata->all_work_assigned = TRUE;
+	gwevent_reset (&pmdata->work_to_do);
 	// Wait for helpers to end
-	gwevent_wait (&pmdata->all_helpers_done, 0);
+	atomic_spinwait (pmdata->num_active_helpers, 0);
 	// User-defined helpers require syncing up cloned gwdata stats and restoring main thread's gwnum's multithreading capabilities
 	if (!pmdata->helpers_doing_polymult) {
 		gwclone_merge_stats (pmdata->gwdata, pmdata->stats_gwdata);		// Add our stats to pmdata->stats_gwdata
