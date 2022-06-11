@@ -3423,7 +3423,7 @@ void polymult_launch_helpers (
 	// If there are no helper threads we're done
 	if (pmdata->num_threads == 1) return;
 	// "Neuter" gwnum to single-threaded for user-definied callback
-	if (!pmdata->helpers_doing_polymult) {
+	if (!pmdata->helpers_doing_polymult && !pmdata->termination_in_progress) {
 		pmdata->saved_gwdata_num_threads = gwget_num_threads (pmdata->gwdata);
 		gwset_num_threads (pmdata->gwdata, 1);
 	}
