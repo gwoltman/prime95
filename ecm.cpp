@@ -4912,7 +4912,7 @@ int ecm (
 {
 	ecmhandle ecmdata;
 	uint64_t sieve_start, next_prime;
-	unsigned long SQRT_B;
+	unsigned long stage1_fftlen, SQRT_B;
 	double	last_output, last_output_t, one_over_B;
 	double	output_frequency, output_title_frequency;
 	double	base_pct_complete, one_relp_pct;
@@ -5286,6 +5286,7 @@ if (w->n == 604) {
 		OutputBoth (thread_num, buf);
 		return (STOP_FATAL_ERROR);
 	}
+	stage1_fftlen = gwfftlen (&ecmdata.gwdata);
 
 /* A kludge so that the error checking code is not as strict. */
 
@@ -6630,6 +6631,11 @@ ecm_polymult:
 //GW: We don't need gg, we possibly need the full H(X) from a save file.  Wow, thats a lot of disk.  Might have to invest the CPU time reducing H(X) to
 // to create a save file.
 
+// Polymult stage 2 does not need a prime sieve
+
+//GW: should we end the sieve - it might be re-usable in next curve
+	end_sieve (ecmdata.sieve_info), ecmdata.sieve_info = NULL;
+
 /* Output a useful message regarding memory usage */
 
 	sprintf (buf, "Using %uMB of memory.  D: %d, degree-%d polynomials.  Ftree polys in memory: %d\n",
@@ -6940,7 +6946,8 @@ ecm_polymult:
 
 	// Work our way up the poly F tree combining size 1 polys, then size 2, then size 4, until there is only one big poly
 	// To handle non-power-of-2 poly sizes, we need to uniformly space "odd-sized" polys over 2^log2_num_polys
-	int num_tree_levels = (int) ceil(log2((double)ecmdata.poly_size));	// Number of Ftree levels with two or more polys
+	int num_tree_levels;
+	num_tree_levels = (int) ceil(log2((double)ecmdata.poly_size));	// Number of Ftree levels with two or more polys
 	ASSERTG (num_tree_levels >= 4);
 	for (int tree_level = 0; tree_level < num_tree_levels; tree_level++) {
 		int log2_num_polys = num_tree_levels - tree_level;
@@ -7127,8 +7134,9 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 //GW: if num_polyGs == 1, dont need polyH (or polyH == polyG)
 	ecmdata.polyGH = gwalloc_array (&ecmdata.gwdata, 2*ecmdata.poly_size);
 	if (ecmdata.polyGH == NULL) goto lowmem;
-	gwnum *polyG = &ecmdata.polyGH[0];
-	gwnum *polyH = &ecmdata.polyGH[ecmdata.poly_size];
+	gwnum *polyG, *polyH;
+	polyG = &ecmdata.polyGH[0];
+	polyH = &ecmdata.polyGH[ecmdata.poly_size];
 
 /* Initialization of stage 2 complete */
 
@@ -7175,7 +7183,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 
 		// To handle non-power-of-2 poly sizes, we need to uniformly space "odd-sized" polys over 2^log2_num_polys
 		{
-		int	num_in_polyG = ecmdata.poly_size - ecmdata.polyGaux_size;  // Number of G(X) values in polyG vs. polyGaux
+		int num_in_polyG = ecmdata.poly_size - ecmdata.polyGaux_size;  // Number of G(X) values in polyG vs. polyGaux
 		for (int log2_num_polys = num_tree_levels; log2_num_polys >= 1; log2_num_polys--) {
 			uint64_t poly_base_calculator = 0;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
 			int	poly_base = 0;			// PolyG array index
@@ -7687,7 +7695,40 @@ more_curves:
 	ecmdata.xz.z = NULL;
 	ecmdata.gg = NULL;
 	mallocFreeForOS ();
-	if (++ecmdata.curve <= w->curves_to_do) goto restart0;
+	if (++ecmdata.curve <= w->curves_to_do) {
+		// If necessary, switch back to the stage 1 FFT length
+		if (gwfftlen (&ecmdata.gwdata) != stage1_fftlen) {
+			char	fft_desc[200];
+			gwdone (&ecmdata.gwdata);
+			gwinit (&ecmdata.gwdata);
+			gwset_sum_inputs_checking (&ecmdata.gwdata, SUM_INPUTS_ERRCHK);
+			if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
+			if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&ecmdata.gwdata);
+			if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&ecmdata.gwdata, 2);
+			gwset_bench_cores (&ecmdata.gwdata, HW_NUM_CORES);
+			gwset_bench_workers (&ecmdata.gwdata, NUM_WORKER_THREADS);
+			if (ERRCHK) gwset_will_error_check (&ecmdata.gwdata);
+			gwset_num_threads (&ecmdata.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
+			gwset_thread_callback (&ecmdata.gwdata, SetAuxThreadPriority);
+			gwset_thread_callback_data (&ecmdata.gwdata, sp_info);
+			gwset_safety_margin (&ecmdata.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
+			gwset_minimum_fftlen (&ecmdata.gwdata, stage1_fftlen);
+			gwset_using_polymult (&ecmdata.gwdata);
+			res = gwsetup (&ecmdata.gwdata, w->k, w->b, w->n, w->c);
+			if (res) {
+				sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
+				OutputBoth (thread_num, buf);
+				stop_reason = STOP_FATAL_ERROR;
+				goto exit;
+			}
+			ecmdata.gwdata.MAXDIFF *= IniGetInt (INI_FILE, "MaxDiffMultiplier", 1);
+			gwerror_checking (&ecmdata.gwdata, ERRCHK || near_fft_limit);
+			gwfft_description (&ecmdata.gwdata, fft_desc);
+			sprintf (msgbuf, "Switching back to %s\n", fft_desc);
+			OutputStr (thread_num, msgbuf);
+		}
+		goto restart0;
+	}
 
 /* Output line to results file indicating the number of curves run */
 
