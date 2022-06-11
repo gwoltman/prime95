@@ -5471,45 +5471,30 @@ void auxiliary_thread (void *arg)
 
 	create_auxiliary_hyperthread (asm_data);
 
-/* This describes the various valid states for synchronizing the main and auxiliary threads.  We use four variables/mutexes. */
-/* work_to_do	all_threads_done    catch_stragglers	num_active_threads */
-/* FALSE	FALSE			FALSE		0			inital state */
-/* TRUE		FALSE			FALSE		0			start aux workers */
-/* TRUE		FALSE			FALSE		> 0			one or more aux workers active */
-/* FALSE	FALSE			FALSE		> 0			some aux workers active, some finished */
-/* FALSE	TRUE			TRUE		0			aux workers finished (but some could still wake up) */
-
-/* Loop waiting for work to do.  The main thread signals the thread_work_to_do event whenever there is work */
-/* for the auxiliary thread(s) to do. */
+/* Loop waiting for work to do.  The main thread signals work_to_do event whenever there is work for the auxiliary thread(s) to do. */
 
 	for ( ; ; ) {
-		gwevent_wait (&gwdata->thread_work_to_do, 0);
+
+		// Wait on the alternating work-to-do event for more work (or termination)
+		gwevent_wait (&gwdata->work_to_do, 0);
 
 /* If threads are to exit, break out of this work loop */
 
 		if (gwdata->threads_must_exit) break;
 
-/* WARNING: We can get here with no work to do (and with the main thread moved on thinking all auxiliary threads are done). */
-/* For example, consider an 8-thread example.  The main thread signals the 7 auxiliary threads to start.  Six of the threads */
-/* can wake up, complete the work, and signal gwdata->all_threads_done when gwdata->num_active_threads returns to zero. */
-/* The main thread catches the signal and continues on.  The seventh auxiliary thread can now get scheduled by the OS */
-/* and end up here.  The catch_straggler_threads flag handles was created to handle this situation. */
+/* IMPORTANT:  Helpers are considered done as soon as all_work_assigned is set and num_active_helpers reaches zero.  When this happens the main thread is */
+/* allowed to resume.  However, there may be some helpers that have not yet been given a time slice after the work_to_do event was signalled!  We  must */
+/* catch these workers right here.  If they were to get past this section, they could read some inconsistent state that the main thread has changed in */
+/* preparation for the next batch of work for the helper threads. */
 
-		gwmutex_lock (&gwdata->thread_lock);
-		if (gwdata->catch_straggler_threads) {
-			gwmutex_unlock (&gwdata->thread_lock);
-			continue;
-		}
-
-/* Increment the number of active threads so that we can tell when all auxiliary routines have finished. */
-
-		gwdata->num_active_threads++;
+		if (gwdata->all_work_assigned) continue;
+		atomic_fetch_incr (gwdata->num_active_helpers);
+		if (gwdata->all_work_assigned) { atomic_fetch_decr (gwdata->num_active_helpers); continue; }
 
 /* If we are to do add/sub/addsub/smallmul work, copy a little bit of state and go do the work */
 
 		if (gwdata->pass1_state == PASS1_STATE_MULTITHREAD_OP) {
 			asm_data->DBLARG = main_thread_asm_data->DBLARG;
-			gwmutex_unlock (&gwdata->thread_lock);
 			do_multithread_op_work (gwdata, asm_data);
 			goto aux_out_of_work_unlocked;
 		}
@@ -5517,6 +5502,7 @@ void auxiliary_thread (void *arg)
 /* Copy the main thread's asm_data's DESTARG for proper next_block */
 /* address calculations.  We'll copy more asm_data later. */
 
+		gwmutex_lock (&gwdata->thread_lock);
 		asm_data->DESTARG = main_thread_asm_data->DESTARG;
 
 /* Get an available block for this thread to process (store it in the */
@@ -5593,27 +5579,22 @@ void auxiliary_thread (void *arg)
 			pass1_aux_entry_point (asm_data);
 		else
 			pass2_aux_entry_point (asm_data);
+goto aux_out_of_work_unlocked;
 
 /* The auxiliary thread has run out of work.  Decrement the count of number of active auxiliary threads. */
 /* Signal all threads done when last auxiliary thread is done. */
 
-aux_out_of_work_unlocked:
-		gwmutex_lock (&gwdata->thread_lock);
 aux_out_of_work_locked:
-		gwdata->num_active_threads--;
-		if (gwdata->num_active_threads == 0) {
-			gwdata->catch_straggler_threads = TRUE;
-			gwevent_signal (&gwdata->all_threads_done);
-		}
-
-/* Reset thread_work_to_do event before looping to wait for more work. */
-
-		gwevent_reset (&gwdata->thread_work_to_do);
 		gwmutex_unlock (&gwdata->thread_lock);
+aux_out_of_work_unlocked:
+		gwdata->all_work_assigned = TRUE;
+		gwevent_reset (&gwdata->work_to_do);
+
+		// When all helpers are finished, main thread can wake up (we do this without events/signals so main thread does not lose its timeslice)
+		atomic_decr_fetch (gwdata->num_active_helpers);
 	}
 
-/* Call optional user provided callback routine so that the caller can */
-/* do any necessary cleanup. */
+/* Call optional user provided callback routine so that the caller can do any necessary cleanup. */
 
 	if (gwdata->thread_callback != NULL)
 		(*gwdata->thread_callback) (info->thread_num, 1, gwdata->thread_callback_data);
@@ -5752,10 +5733,9 @@ void pass1_wake_up_threads (
 /* Signal the auxiliary threads to resume working */
 
 	if (gwdata->num_threads > 1) {
-		gwdata->catch_straggler_threads = FALSE;
-		gwevent_reset (&gwdata->all_threads_done);
-		gwevent_signal (&gwdata->thread_work_to_do);
-		gwmutex_unlock (&gwdata->thread_lock);
+gwmutex_unlock (&gwdata->thread_lock);
+		gwdata->all_work_assigned = FALSE;			// When this is set and num_active_helpers reaches 0, it is safe to signal main thread
+		gwevent_signal (&gwdata->work_to_do);			// Start all helper threads
 	}
 }
 
@@ -5985,7 +5965,9 @@ int pass1_get_next_block_mt (
 				return (PASS1_EXIT_THREAD);
 			}
 			gwmutex_unlock (&gwdata->thread_lock);
-			gwevent_wait (&gwdata->all_threads_done, 0);
+			gwdata->all_work_assigned = TRUE;
+			gwevent_reset (&gwdata->work_to_do);
+			atomic_spinwait (gwdata->num_active_helpers, 0);
 			asm_data->DIST_TO_FFTSRCARG = 0;
 			return (PASS1_START_PASS2);
 		}
@@ -6153,11 +6135,12 @@ int pass1_get_next_block_mt (
 		return (PASS1_EXIT_THREAD);
 	}
 
-/* There are no more blocks to process.  This is the main thread, */
-/* wait for auxiliary threads to complete. */
+/* There are no more blocks to process.  This is the main thread, wait for auxiliary threads to complete. */
 
 	gwmutex_unlock (&gwdata->thread_lock);
-	gwevent_wait (&gwdata->all_threads_done, 0);
+	gwdata->all_work_assigned = TRUE;
+	gwevent_reset (&gwdata->work_to_do);
+	atomic_spinwait (gwdata->num_active_helpers, 0);
 
 /* We're finished, do final cleanup */
 
@@ -6193,10 +6176,9 @@ void pass2_wake_up_threads (
 /* Signal the auxiliary threads to resume working */
 
 	if (gwdata->num_threads > 1 && gwdata->PASS1_SIZE) {
-		gwdata->catch_straggler_threads = FALSE;
-		gwevent_reset (&gwdata->all_threads_done);
-		gwevent_signal (&gwdata->thread_work_to_do);
-		gwmutex_unlock (&gwdata->thread_lock);
+gwmutex_unlock (&gwdata->thread_lock);
+		gwdata->all_work_assigned = FALSE;			// When this is set and num_active_helpers reaches 0, it is safe to signal main thread
+		gwevent_signal (&gwdata->work_to_do);			// Start all helper threads
 	}
 }
 
@@ -6237,7 +6219,9 @@ int pass2_get_next_block_mt (
 
 	if (asm_data->this_block == asm_data->next_block) {
 		if (asm_data->thread_num) return (TRUE);
-		gwevent_wait (&gwdata->all_threads_done, 0);
+		gwdata->all_work_assigned = TRUE;
+		gwevent_reset (&gwdata->work_to_do);
+		atomic_spinwait (gwdata->num_active_helpers, 0);
 		asm_data->DIST_TO_FFTSRCARG = 0;
 		return (TRUE);
 	}
@@ -6388,11 +6372,8 @@ int multithread_init (
 /* Init mutexes and events used to control auxiliary threads */
 
 	gwmutex_init (&gwdata->thread_lock);
-	gwevent_init (&gwdata->thread_work_to_do);
-	gwevent_init (&gwdata->all_threads_done);
+	gwevent_init (&gwdata->work_to_do);
 	gwevent_init (&gwdata->can_carry_into);
-	gwdata->num_active_threads = 0;
-	gwevent_signal (&gwdata->all_threads_done);
 
 /* Set ptrs to call back routines in structure used by assembly code */
 
@@ -6593,10 +6574,8 @@ void multithread_term (
 /* Set variable that tells all auxiliary threads and hyperthreads to terminate. */
 /* Fire up auxiliary compute threads so they can exit. */
 
-		gwmutex_lock (&gwdata->thread_lock);
 		gwdata->threads_must_exit = TRUE;
-		gwevent_signal (&gwdata->thread_work_to_do);
-		gwmutex_unlock (&gwdata->thread_lock);
+		gwevent_signal (&gwdata->work_to_do);
 
 /* Wait for all compute threads to exit.  We must do this so */
 /* that this thread can safely delete the gwdata structure */
@@ -6612,8 +6591,7 @@ void multithread_term (
 /* Free up the multithread resources */
 
 		gwmutex_destroy (&gwdata->thread_lock);
-		gwevent_destroy (&gwdata->thread_work_to_do);
-		gwevent_destroy (&gwdata->all_threads_done);
+		gwevent_destroy (&gwdata->work_to_do);
 		gwevent_destroy (&gwdata->can_carry_into);
 		gwdata->thread_lock = NULL;
 	}
@@ -10833,11 +10811,8 @@ void multithread_op (
 	gwdata->multithread_op_data = &data;
 	gwdata->next_block = 0;
 	if (gwdata->num_threads > 1) {
-		gwmutex_lock (&gwdata->thread_lock);
-		gwdata->catch_straggler_threads = FALSE;
-		gwevent_reset (&gwdata->all_threads_done);
-		gwevent_signal (&gwdata->thread_work_to_do);
-		gwmutex_unlock (&gwdata->thread_lock);
+		gwdata->all_work_assigned = FALSE;			// When this is set and num_active_helpers reaches 0, it is safe to signal main thread
+		gwevent_signal (&gwdata->work_to_do);			// Start all helper threads
 	}
 
 /* Call subroutine to work on blocks just like the auxiliary threads */
@@ -10846,8 +10821,11 @@ void multithread_op (
 
 /* Wait for auxiliary threads to finish */
 
-	if (gwdata->num_threads > 1)
-		gwevent_wait (&gwdata->all_threads_done, 0);
+	if (gwdata->num_threads > 1) {
+		gwdata->all_work_assigned = TRUE;
+		gwevent_reset (&gwdata->work_to_do);
+		atomic_spinwait (gwdata->num_active_helpers, 0);
+	}
 
 /* If no carry propagation is required then we're done */
 

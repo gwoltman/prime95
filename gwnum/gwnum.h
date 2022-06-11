@@ -1111,15 +1111,12 @@ struct gwhandle_struct {
 	void	(*thread_callback)(int, int, void *); /* Auxiliary thread callback routine letting */
 					/* the gwnum library user set auxiliary thread priority and affinity */
 	void	*thread_callback_data;	/* User-supplied data to pass to the auxiliary thread callback routine */
-	unsigned int num_active_threads; /* Count of the number of active auxiliary threads */
 	gwmutex	thread_lock;		/* This mutex limits one thread at a time in critical sections. */
-	gwevent	thread_work_to_do;	/* This event is set whenever the auxiliary threads have work to do. */
-	gwevent	all_threads_done;	/* This event is set whenever the auxiliary threads are done and the */
-					/* main thread can resume.  That is, it is set if and only if num_active_threads==0 */
-	gwevent can_carry_into;		/* This event signals pass 1 sections that the block they are waiting on to carry */
-					/* into may now be ready. */
-	short	threads_must_exit;	/* Flag set to force all auxiliary threads to terminate */
-	short	catch_straggler_threads;/* Flag set when auxiliary threads have finished their work */
+	gwevent	work_to_do;		/* Alternating event is signal auxiliary threads there is work to do */
+	short volatile threads_must_exit; /* Flag set to force all auxiliary threads to terminate */
+	short volatile all_work_assigned; /* Flag indicating all helper thread work has been assigned (some helpers ma still be active) */
+	gwatomic num_active_helpers;	/* Number of active helper threads (they've awakened from the work_to_do event) */
+	gwevent can_carry_into;		/* This event signals pass 1 sections that the block they are waiting on to carry into may now be ready. */
 	int	pass1_state;		/* Mainly used to keep track of what we are doing in pass 1 of an FFT.  See */
 					/* pass1_get_next_block for details.  Also, 999 means we are in pass 2 of the FFT. */
 	void	*pass1_var_data;	/* pass1 variable sin/cos/premultiplier/fudge/biglit data */
