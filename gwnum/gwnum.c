@@ -5148,29 +5148,26 @@ static __inline void * pass2_premult_addr (
 	return ((char *) gwdata->adjusted_pass2_premults + block * gwdata->pass2_premult_block_size);
 }
 
-/* Assign a thread's first block to process in pass 1 state 0.  These are assigned in */
-/* sequential order. */
+/* Assign a thread's first block to process in pass 1 state 0.  These are assigned in sequential order. */
 
 static __inline void pass1_state0_assign_first_block (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
-	asm_data->this_block = gwdata->next_block;
+	asm_data->this_block = atomic_fetch_addin (gwdata->next_block, asm_data->cache_line_multiplier);
 	asm_data->data_addr = pass1_data_addr (gwdata, asm_data, asm_data->this_block);
 	asm_data->premult_addr = pass1_premult_addr (gwdata, asm_data->this_block);
-	gwdata->next_block += asm_data->cache_line_multiplier;
 }
 
-/* Assign next available block in pass 1 state 0.  These are assigned in */
-/* sequential order. */
+/* Assign next available block in pass 1 state 0.  These are assigned in sequential order. */
 
 static __inline void pass1_state0_assign_next_block (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
-	if (gwdata->next_block < gwdata->num_pass1_blocks) {
-		asm_data->next_block = gwdata->next_block;
-		gwdata->next_block += asm_data->cache_line_multiplier;
+	int next_block = atomic_fetch_addin (gwdata->next_block, asm_data->cache_line_multiplier);
+	if (next_block < (int) gwdata->num_pass1_blocks) {
+		asm_data->next_block = next_block;
 		/* Init prefetching for the next block */
 		if (gwdata->hyperthread_prefetching) {
 			asm_data->data_prefetch = asm_data->data_addr;
@@ -5358,14 +5355,13 @@ void pass1_state1_assign_next_block (
 	}
 }
 
-/* Assign a thread's first pass 2 block.  These are assigned in */
-/* sequential order. */
+/* Assign a thread's first pass 2 block.  These are assigned in sequential order. */
 
 static __inline void pass2_assign_first_block (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
-	asm_data->this_block = gwdata->next_block++;
+	asm_data->this_block = atomic_fetch_incr (gwdata->next_block);
 	asm_data->data_addr = pass2_data_addr (gwdata, asm_data, asm_data->this_block);
 	asm_data->premult_addr = pass2_premult_addr (gwdata, asm_data->this_block);
 }
@@ -5376,8 +5372,9 @@ static __inline void pass2_assign_next_block (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
-	if (gwdata->next_block < gwdata->num_pass2_blocks) {
-		asm_data->next_block = gwdata->next_block++;
+	int next_block = atomic_fetch_incr (gwdata->next_block);
+	if (next_block < (int) gwdata->num_pass2_blocks) {
+		asm_data->next_block = next_block;
 		/* Init prefetching for the next block */
 		if (gwdata->hyperthread_prefetching) {
 			asm_data->data_prefetch = asm_data->data_addr;
@@ -5499,33 +5496,29 @@ void auxiliary_thread (void *arg)
 			goto aux_out_of_work_unlocked;
 		}
 
-/* Copy the main thread's asm_data's DESTARG for proper next_block */
-/* address calculations.  We'll copy more asm_data later. */
+/* Copy the main thread's asm_data's DESTARG for proper next_block address calculations.  We'll copy more asm_data later. */
 
-		gwmutex_lock (&gwdata->thread_lock);
 		asm_data->DESTARG = main_thread_asm_data->DESTARG;
 
-/* Get an available block for this thread to process (store it in the */
-/* next_block field).  Note we set this_block to a dummy value so that */
-/* get_next_block knows there is more work to do.  NOTE: There is no */
-/* guarantee that there is an available block to process. */
+/* Get an available block for this thread to process (store it in the this_block field). */
+/* NOTE: There is no guarantee that there is an available block to process. */
 
-		asm_data->this_block = 0;
 		if (gwdata->pass1_state == 0) {
-			if (gwdata->next_block >= gwdata->num_pass1_blocks) goto aux_out_of_work_locked;
 			pass1_state0_assign_first_block (gwdata, asm_data);
+			if (asm_data->this_block >= gwdata->num_pass1_blocks) goto aux_out_of_work_unlocked;
 			pass1_state0_assign_next_block (gwdata, asm_data);
 		} else if (gwdata->pass1_state == 1) {
+			gwmutex_lock (&gwdata->thread_lock);
 			if (! pass1_state1_assign_first_block (gwdata, asm_data)) goto aux_out_of_work_locked;
 			pass1_state1_assign_next_block (gwdata, asm_data);
+			gwmutex_unlock (&gwdata->thread_lock);
 		} else {
-			if (gwdata->next_block >= gwdata->num_pass2_blocks) goto aux_out_of_work_locked;
 			pass2_assign_first_block (gwdata, asm_data);
+			if (asm_data->this_block >= gwdata->num_pass2_blocks) goto aux_out_of_work_unlocked;
 			pass2_assign_next_block (gwdata, asm_data);
 		}
 
-/* Copy some data from the main thread's asm_data to this thread.  We only */
-/* need to copy data that can change for each multiply call */
+/* Copy some data from the main thread's asm_data to this thread.  We only need to copy data that can change for each multiply call. */
 
 		asm_data->DIST_TO_FFTSRCARG = main_thread_asm_data->DIST_TO_FFTSRCARG;
 		asm_data->DIST_TO_MULSRCARG = main_thread_asm_data->DIST_TO_MULSRCARG;
@@ -5574,7 +5567,6 @@ void auxiliary_thread (void *arg)
 
 /* Now call the assembly code to do some work! */
 
-		gwmutex_unlock (&gwdata->thread_lock);
 		if (gwdata->pass1_state < PASS1_STATE_PASS2)
 			pass1_aux_entry_point (asm_data);
 		else
@@ -5626,14 +5618,6 @@ void pass1_wake_up_threads (
 {
 	gwhandle *gwdata = asm_data->gwdata;
 
-/* Obtain the lock if multithreading. */
-/* Why?  The other threads should be off right now, but we've seen in the debugger that it */
-/* is possible to get here with the lock held by an auxiliary thread that is finishing up. */
-
-	if (gwdata->num_threads > 1) {
-		gwmutex_lock (&gwdata->thread_lock);
-	}
-
 /* Init pass1_state (kludge: passed in next_block parameter) */
 /* State is either 0 (forward FFT only) or 1 (inverse FFT and */
 /* optional next forward FFT) */
@@ -5650,7 +5634,7 @@ void pass1_wake_up_threads (
 
 /* Set up the this_block and next_block values for the main thread */
 
-		gwdata->next_block = 0;
+		atomic_set (gwdata->next_block, 0);
 		pass1_state0_assign_first_block (gwdata, asm_data);
 		pass1_state0_assign_next_block (gwdata, asm_data);
 	}
@@ -5735,7 +5719,6 @@ void pass1_wake_up_threads (
 /* Signal the auxiliary threads to resume working */
 
 	if (gwdata->num_threads > 1) {
-gwmutex_unlock (&gwdata->thread_lock);
 		gwdata->all_work_assigned = FALSE;			// When this is set and num_active_helpers reaches 0, it is safe to signal main thread
 		gwevent_signal (&gwdata->work_to_do);			// Start all helper threads
 	}
@@ -5947,10 +5930,6 @@ int pass1_get_next_block_mt (
 	gwhandle *gwdata = asm_data->gwdata;
 	int	i;
 
-/* Grab lock before reading or writing any gwdata values. */
-
-	gwmutex_lock (&gwdata->thread_lock);
-
 /* If state is zero, then we are doing the forward FFT.  In this case we */
 /* can process the blocks in any order (much like we do in pass 2). */
 
@@ -5962,11 +5941,7 @@ int pass1_get_next_block_mt (
 /* then return code telling the assembly code to exit. */
 
 		if (asm_data->this_block == asm_data->next_block) {
-			if (asm_data->thread_num) {
-				gwmutex_unlock (&gwdata->thread_lock);
-				return (PASS1_EXIT_THREAD);
-			}
-			gwmutex_unlock (&gwdata->thread_lock);
+			if (asm_data->thread_num) return (PASS1_EXIT_THREAD);
 			gwdata->all_work_assigned = TRUE;
 			gwevent_reset (&gwdata->work_to_do);
 			atomic_spinwait (gwdata->num_active_helpers, 0);
@@ -5980,7 +5955,6 @@ int pass1_get_next_block_mt (
 		asm_data->data_addr = asm_data->data_prefetch;
 		asm_data->premult_addr = asm_data->premult_prefetch;
 		pass1_state0_assign_next_block (gwdata, asm_data);
-		gwmutex_unlock (&gwdata->thread_lock);
 		return (PASS1_DO_MORE_FORWARD_FFT);
 	}
 
@@ -5993,6 +5967,10 @@ int pass1_get_next_block_mt (
 /* 2 = section is adding carries into the next section */
 /* 3 = section is doing postfft processing of next section */
 /* 4 = section complete */
+
+/* Grab lock before reading or writing any gwdata values. */
+
+	gwmutex_lock (&gwdata->thread_lock);
 
 /* Handle the common case, we're in the middle of processing a section */
 
@@ -6152,40 +6130,29 @@ int pass1_get_next_block_mt (
 	return (PASS1_COMPLETE);
 }
 
-/* This callback routine is called by the main thread assembly code to */
-/* fire up all the auxiliary worker threads in pass 2. */
+/* This callback routine is called by the main thread assembly code to fire up the auxiliary worker threads in pass 2. */
 
 void pass2_wake_up_threads (
 	struct gwasm_data *asm_data)
 {
 	gwhandle *gwdata = asm_data->gwdata;
 
-/* Obtain the lock if multithreading. */
-/* Why?  The other threads should be off right now, but we've seen in the debugger that it */
-/* is possible to get here with the lock held by an auxiliary thread that is finishing up. */
-
-	if (gwdata->num_threads > 1 && gwdata->PASS1_SIZE) {
-		gwmutex_lock (&gwdata->thread_lock);
-	}
-
 /* Call assign_block twice to set up the main thread's this_block and next_block values. */
 
 	gwdata->pass1_state = PASS1_STATE_PASS2;
-	gwdata->next_block = 0;
+	atomic_set (gwdata->next_block, 0);
 	pass2_assign_first_block (gwdata, asm_data);
 	pass2_assign_next_block (gwdata, asm_data);
 
 /* Signal the auxiliary threads to resume working */
 
 	if (gwdata->num_threads > 1 && gwdata->PASS1_SIZE) {
-gwmutex_unlock (&gwdata->thread_lock);
 		gwdata->all_work_assigned = FALSE;			// When this is set and num_active_helpers reaches 0, it is safe to signal main thread
 		gwevent_signal (&gwdata->work_to_do);			// Start all helper threads
 	}
 }
 
-/* This routine is called by assembly code threads to get the next */
-/* pass 2 block to process. */
+/* This routine is called by assembly code threads to get the next pass 2 block to process. */
 
 int pass2_get_next_block (
 	struct gwasm_data *asm_data)
@@ -6228,18 +6195,12 @@ int pass2_get_next_block_mt (
 		return (TRUE);
 	}
 
-/* Grab lock before reading or writing any gwdata values. */
-
-	gwmutex_lock (&gwdata->thread_lock);
-
-/* Copy prefetched block and addresses to this block.  Get next available */
-/* block to prefetch. */
+/* Copy prefetched block and addresses to this block.  Get next available block to prefetch. */
 
 	asm_data->this_block = asm_data->next_block;
 	asm_data->data_addr = asm_data->data_prefetch;
 	asm_data->premult_addr = asm_data->premult_prefetch;
 	pass2_assign_next_block (gwdata, asm_data);
-	gwmutex_unlock (&gwdata->thread_lock);
 
 /* Return code indicating more work to do */
 
@@ -10811,7 +10772,7 @@ void multithread_op (
 
 	gwdata->pass1_state = PASS1_STATE_MULTITHREAD_OP;
 	gwdata->multithread_op_data = &data;
-	gwdata->next_block = 0;
+	atomic_set (gwdata->next_block, 0);
 	if (gwdata->num_threads > 1) {
 		gwdata->all_work_assigned = FALSE;			// When this is set and num_active_helpers reaches 0, it is safe to signal main thread
 		gwevent_signal (&gwdata->work_to_do);			// Start all helper threads
@@ -10916,10 +10877,7 @@ void do_multithread_op_work (
 
 /* Get next block to process */
 
-			if (gwdata->num_threads > 1) gwmutex_lock (&gwdata->thread_lock);
-			i = gwdata->next_block;
-			gwdata->next_block++;
-			if (gwdata->num_threads > 1) gwmutex_unlock (&gwdata->thread_lock);
+			i = atomic_fetch_incr (gwdata->next_block);
 
 /* Break out of loop when there are no more blocks to process */
 
@@ -10939,10 +10897,7 @@ void do_multithread_op_work (
 
 /* Get next block to process */
 
-			if (gwdata->num_threads > 1) gwmutex_lock (&gwdata->thread_lock);
-			i = gwdata->next_block;
-			gwdata->next_block += (data->is_quick ? 1 : 4);
-			if (gwdata->num_threads > 1) gwmutex_unlock (&gwdata->thread_lock);
+			i = atomic_fetch_addin (gwdata->next_block, (data->is_quick ? 1 : 4));
 
 /* Break out of loop when there are no more blocks to process */
 
@@ -10970,10 +10925,7 @@ void do_multithread_op_work (
 
 /* Get next block to process */
 
-			if (gwdata->num_threads > 1) gwmutex_lock (&gwdata->thread_lock);
-			i = gwdata->next_block;
-			gwdata->next_block += (data->is_quick ? 1 : 2);
-			if (gwdata->num_threads > 1) gwmutex_unlock (&gwdata->thread_lock);
+			i = atomic_fetch_addin (gwdata->next_block, (data->is_quick ? 1 : 2));
 
 /* Break out of loop when there are no more blocks to process */
 

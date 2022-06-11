@@ -1125,7 +1125,7 @@ struct gwhandle_struct {
 	unsigned long biglit_data_offset; /* Offset of the big/lit data in the pass 1 variable data */
 	unsigned long pass1_var_data_size; /* Used to calculate address of pass 1 premultiplier data */
 	unsigned long pass2_premult_block_size; /* Used to calculate address of pass 2 premultiplier data */
-	unsigned long next_block;	/* Next block for threads to process */
+	gwatomic next_block;		/* Next block for threads to process */
 	unsigned long num_pass1_blocks; /* Number of data blocks in pass 1 for threads to process */
 	unsigned long num_pass2_blocks; /* Number of data blocks in pass 2 for threads to process */
 	unsigned long num_postfft_blocks; /* Number of data blocks that must delay forward fft because POSTFFT is set. */
