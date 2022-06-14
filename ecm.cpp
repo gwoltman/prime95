@@ -5280,6 +5280,7 @@ if (w->n == 604) {
 	gwset_safety_margin (&ecmdata.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
 	gwset_larger_fftlen_count (&ecmdata.gwdata, maxerr_restart_count < 3 ? maxerr_restart_count : 3);
 	gwset_minimum_fftlen (&ecmdata.gwdata, w->minimum_fftlen);
+	gwset_use_spin_wait (&ecmdata.gwdata, IniGetInt (INI_FILE, "SpinWait", 0));
 	res = gwsetup (&ecmdata.gwdata, w->k, w->b, w->n, w->c);
 	if (res) {
 		sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
@@ -5801,6 +5802,7 @@ OutputStr (thread_num, buf); }
 			gwset_safety_margin (&ecmdata.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
 			gwset_minimum_fftlen (&ecmdata.gwdata, next_fftlen);
 			gwset_using_polymult (&ecmdata.gwdata);
+			gwset_use_spin_wait (&ecmdata.gwdata, IniGetInt (INI_FILE, "SpinWait", 0));
 			res = gwsetup (&ecmdata.gwdata, w->k, w->b, w->n, w->c);
 			if (res == GWERROR_TOO_LARGE && best_fftlen) {
 				found_best = TRUE;
@@ -7714,6 +7716,7 @@ more_curves:
 			gwset_safety_margin (&ecmdata.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
 			gwset_minimum_fftlen (&ecmdata.gwdata, stage1_fftlen);
 			gwset_using_polymult (&ecmdata.gwdata);
+			gwset_use_spin_wait (&ecmdata.gwdata, IniGetInt (INI_FILE, "SpinWait", 0));
 			res = gwsetup (&ecmdata.gwdata, w->k, w->b, w->n, w->c);
 			if (res) {
 				sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
@@ -9466,6 +9469,7 @@ restart:
 	gwset_larger_fftlen_count (&pm1data.gwdata, maxerr_restart_count < 3 ? maxerr_restart_count : 3);
 	gwset_minimum_fftlen (&pm1data.gwdata, w->minimum_fftlen);
 	gwset_using_polymult (&pm1data.gwdata);
+	gwset_use_spin_wait (&pm1data.gwdata, IniGetInt (INI_FILE, "SpinWait", 0));
 	res = gwsetup (&pm1data.gwdata, w->k, w->b, w->n, w->c);
 	if (res) {
 		sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);
@@ -10165,6 +10169,7 @@ OutputStr (thread_num, buf); }
 			gwset_thread_callback_data (&pm1data.gwdata, sp_info);
 			gwset_minimum_fftlen (&pm1data.gwdata, next_fftlen);
 			gwset_using_polymult (&pm1data.gwdata);
+			gwset_use_spin_wait (&pm1data.gwdata, IniGetInt (INI_FILE, "SpinWait", 0));
 			res = gwsetup (&pm1data.gwdata, w->k, w->b, w->n, w->c);
 			if (res == GWERROR_TOO_LARGE && best_fftlen) {
 				found_best = TRUE;
@@ -13158,6 +13163,7 @@ restart:
 	gwset_safety_margin (&pp1data.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
 	gwset_larger_fftlen_count (&pp1data.gwdata, maxerr_restart_count < 3 ? maxerr_restart_count : 3);
 	gwset_minimum_fftlen (&pp1data.gwdata, w->minimum_fftlen);
+	gwset_use_spin_wait (&pp1data.gwdata, IniGetInt (INI_FILE, "SpinWait", 0));
 	res = gwsetup (&pp1data.gwdata, w->k, w->b, w->n, w->c);
 	if (res) {
 		sprintf (buf, "Cannot initialize FFT code, errcode=%d\n", res);

@@ -215,7 +215,6 @@ void polymult_wait_on_helpers (
 	pmhandle *pmdata);		// Handle for polymult library
 
 
-
 /*-----------------------------------------------------------------------------
 |	Internal polymult library data structures
 +----------------------------------------------------------------------------*/
@@ -226,11 +225,12 @@ struct pmhandle_struct {
 	int	max_num_threads;	// Maximum number of threads that can be used to compute polymults
 	int	num_threads;		// Number of threads to use computing polymults (must not exceed max_num_threads)
 	gwevent work_to_do;		// Event to signal polymult helper threads there is work to do
+	gwevent	all_helpers_done;	// Event (if not spin waiting) to signal main thread that the auxiliary threads are done
 	gwmutex	poly_mutex;		// Mutex to make polymult thread safe when multi-threading
 	gwatomic next_thread_num;	// Lets us generate a unique id for each helper thread
 	gwatomic next_line;		// Next line for a helper thread to process
 	gwatomic num_active_helpers;	// Number of active helper threads (they've awakened from the work_to_do event)
-	bool volatile threads_must_exit; // Flag set to force all auxiliary threads to terminate
+	bool volatile helpers_must_exit; // Flag set to force all auxiliary threads to terminate
 	bool volatile all_work_assigned; // Flag indicating all helper thread work has been assigned (some helpers ma still be active)
 	gwthread *thread_ids;		// Thread ids for the spawned threads
 	int	twiddles_initialized;	// Size of the twiddle tables

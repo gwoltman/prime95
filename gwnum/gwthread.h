@@ -36,6 +36,8 @@ typedef void *gwatomic;			/* Definition of an atomic int */
 
 #define atomic_set(x,v)		gwatomic_set(&(x), v)				// Equivalent to x = v
 #define atomic_get(x)		gwatomic_get(&(x))				// Equivalent to x
+#define atomic_incr(x)		((void) gwatomic_fetch_increment(&(x)))		// Increment x, do not return a value
+#define atomic_decr(x)		((void) gwatomic_fetch_decrement(&(x)))		// Decrement x, do not return a value
 #define atomic_fetch_incr(x)	(gwatomic_fetch_increment(&(x)))		// Equivalent to x++
 #define atomic_incr_fetch(x)	(gwatomic_fetch_increment(&(x)) + 1)		// Equivalent to ++x
 #define atomic_fetch_decr(x)	(gwatomic_fetch_decrement(&(x)))		// Equivalent to x--

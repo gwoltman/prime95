@@ -210,7 +210,10 @@ void gwdone (
 /* to FFT implementations that support the SUM(INPUTS) != SUM(OUTPUTS) error check. */
 /* NOTE:  This error check is not available for k*b^n+c IBDWT FFTs when c is positive.  Setting this option will have no effect. */
 /* NOTE: sum_inputs checking is only available in SSE2 FFTs and earlier.  Thus, using this option is not recommended. */
-#define gwset_sum_inputs_checking(h,b) ((h)->sum_inputs_checking = (char) (b))
+#define gwset_sum_inputs_checking(h,b)	((h)->sum_inputs_checking = (char) (b))
+
+/* By default gwnum uses mutexes rather than spin waits to implement multithreading.  This macro lets you try spin waits to see if they are faster. */
+#define gwset_use_spin_wait(h,b)	((h)->use_spin_wait = (char) (b))
 
 /* Prior to calling one of the gwsetup routines, you can tell the gwnum library that the polymult library will also be used. */
 #define gwset_using_polymult(h)		((h)->polymult = TRUE)
@@ -1027,7 +1030,10 @@ struct gwhandle_struct {
 	char	will_hyperthread;	/* Set if FFTs will use hyperthreading (affects select of fastest FFT implementation from gwnum.txt) */
 	char	will_error_check;	/* Set if FFTs will error check (affects select of fastest FFT implementation from gwnum.txt) */
 	char	information_only;	/* Set if doing a faster partial setup */
-	char	unused_setup_flags[2];
+	char	use_spin_wait;		/* FALSE = use mutex, TRUE = spin wait.  Linus Torvalds hates spinning, see https://www.realworldtech.com/forum/?threadid=189711&curpostid=189723 */
+					/* GWNUM does use a spin lock, rather it can spin waiting for an atomic counter of active threads to reach zero. */
+					/* There is likely negligible difference between mutex wait and spin wait. */
+	char	unused_setup_flags[1];
 	int	bench_num_cores;	/* Set to expected number of cores that will FFT (affects select fastest FFT implementation) */
 	int	bench_num_workers;	/* Set to expected number of workers that will FFT (affects select fastest FFT implementation) */
 	/* End of variables affecting gwsetup */
@@ -1112,8 +1118,9 @@ struct gwhandle_struct {
 					/* the gwnum library user set auxiliary thread priority and affinity */
 	void	*thread_callback_data;	/* User-supplied data to pass to the auxiliary thread callback routine */
 	gwmutex	thread_lock;		/* This mutex limits one thread at a time in critical sections. */
-	gwevent	work_to_do;		/* Alternating event is signal auxiliary threads there is work to do */
-	short volatile threads_must_exit; /* Flag set to force all auxiliary threads to terminate */
+	gwevent	work_to_do;		/* Event to signal auxiliary threads there is work to do */
+	gwevent	all_helpers_done;	/* Event (if not spin waiting) to signal main thread that the auxiliary threads are done */
+	short volatile helpers_must_exit; /* Flag set to force all auxiliary threads to terminate */
 	short volatile all_work_assigned; /* Flag indicating all helper thread work has been assigned (some helpers ma still be active) */
 	gwatomic num_active_helpers;	/* Number of active helper threads (they've awakened from the work_to_do event) */
 	gwevent can_carry_into;		/* This event signals pass 1 sections that the block they are waiting on to carry into may now be ready. */

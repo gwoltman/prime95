@@ -6724,6 +6724,7 @@ begin:	gwinit (&lldata.gwdata);
 	gwset_num_threads (&lldata.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
 	gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&lldata.gwdata, sp_info);
+	gwset_use_spin_wait (&lldata.gwdata, IniGetInt (INI_FILE, "SpinWait", 0));
 	stop_reason = lucasSetup (thread_num, p, w->minimum_fftlen, &lldata);
 	if (stop_reason) return (stop_reason);
 
@@ -8963,6 +8964,7 @@ static	int	time_all_complex = 0;	/* TRUE if we should time all-complex FFTs */
 			gwset_num_threads (&lldata.gwdata, get_ranked_num_threads (0, num_cores, num_hyperthreads > 1));
 			gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 			gwset_thread_callback_data (&lldata.gwdata, &sp_info);
+			gwset_use_spin_wait (&lldata.gwdata, IniGetInt (INI_FILE, "SpinWait", 0));
 			stop_reason = lucasSetup (thread_num, p, time_all_complex, &lldata);
 			if (stop_reason) return (stop_reason);
 			ASM_TIMERS = get_asm_timers (&lldata.gwdata);
@@ -10155,6 +10157,7 @@ int primeBench (
 		  gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 		  gwset_thread_callback_data (&lldata.gwdata, &sp_info);
 		  if (all_bench) lldata.gwdata.bench_pick_nth_fft = impl;
+		  gwset_use_spin_wait (&lldata.gwdata, IniGetInt (INI_FILE, "SpinWait", 0));
 		  stop_reason = lucasSetup (thread_num, fftlen * 17 + 1, fftlen + plus1, &lldata);
 		  if (stop_reason) {
 			/* An error during all_bench is expected.  Continue on to next FFT length. */
@@ -11866,6 +11869,7 @@ begin:	N = exp = NULL;
 	gwset_thread_callback_data (&gwdata, sp_info);
 	gwset_minimum_fftlen (&gwdata, w->minimum_fftlen);
 	gwset_safety_margin (&gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
+	gwset_use_spin_wait (&gwdata, IniGetInt (INI_FILE, "SpinWait", 0));
 	res = gwsetup (&gwdata, w->k, w->b, w->n, w->c);
 
 /* If we were unable to init the FFT code, then print an error message */

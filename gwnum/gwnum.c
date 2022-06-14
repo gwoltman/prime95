@@ -5472,21 +5472,21 @@ void auxiliary_thread (void *arg)
 
 	for ( ; ; ) {
 
-		// Wait on the work-to-do event for more work (or termination)
-		gwevent_wait (&gwdata->work_to_do, 0);
+	    // Wait on the work-to-do event for more work (or termination)
+	    gwevent_wait (&gwdata->work_to_do, 0);
 
 /* If threads are to exit, break out of this work loop */
 
-		if (gwdata->threads_must_exit) break;
+	    if (gwdata->helpers_must_exit) break;
 
 /* IMPORTANT:  Helpers are considered done as soon as all_work_assigned is set and num_active_helpers reaches zero.  When this happens the main thread is */
 /* allowed to resume.  However, there may be some helpers that have not yet been given a time slice after the work_to_do event was signalled!  We  must */
 /* catch these workers right here.  If they were to get past this section, they could read some inconsistent state that the main thread has changed in */
 /* preparation for the next batch of work for the helper threads. */
 
-		if (gwdata->all_work_assigned) continue;
-		atomic_fetch_incr (gwdata->num_active_helpers);
-		if (gwdata->all_work_assigned) { atomic_fetch_decr (gwdata->num_active_helpers); continue; }
+	    if (gwdata->all_work_assigned) continue;
+	    atomic_incr (gwdata->num_active_helpers);
+	    if (!gwdata->all_work_assigned) {			// all_work_assigned set should be exceedingly rare
 
 /* If we are to do add/sub/addsub/smallmul work, copy a little bit of state and go do the work */
 
@@ -5583,9 +5583,10 @@ aux_out_of_work_unlocked:
 		// No more work to assign to helper threads
 		gwdata->all_work_assigned = TRUE;
 		gwevent_reset (&gwdata->work_to_do);
+	    }
 
-		// When num active helpers reaches zero, main thread can wake up (we do this without events/signals so main thread does not lose its timeslice)
-		atomic_decr_fetch (gwdata->num_active_helpers);
+	    // When num active helpers reaches zero, main thread can wake up (either by waiting on all_helpers_done or via a spin wait)
+	    if (atomic_decr_fetch (gwdata->num_active_helpers) == 0) gwevent_signal (&gwdata->all_helpers_done);
 	}
 
 /* Call optional user provided callback routine so that the caller can do any necessary cleanup. */
@@ -5944,7 +5945,13 @@ int pass1_get_next_block_mt (
 			if (asm_data->thread_num) return (PASS1_EXIT_THREAD);
 			gwdata->all_work_assigned = TRUE;
 			gwevent_reset (&gwdata->work_to_do);
-			atomic_spinwait (gwdata->num_active_helpers, 0);
+			if (atomic_get (gwdata->num_active_helpers)) {
+				if (gwdata->use_spin_wait) atomic_spinwait (gwdata->num_active_helpers, 0);
+				else {
+					gwevent_reset (&gwdata->all_helpers_done);
+					if (atomic_get (gwdata->num_active_helpers)) gwevent_wait (&gwdata->all_helpers_done, 0);
+				}
+			}
 			asm_data->DIST_TO_FFTSRCARG = 0;
 			return (PASS1_START_PASS2);
 		}
@@ -6120,7 +6127,13 @@ int pass1_get_next_block_mt (
 	gwmutex_unlock (&gwdata->thread_lock);
 	gwdata->all_work_assigned = TRUE;
 	gwevent_reset (&gwdata->work_to_do);
-	atomic_spinwait (gwdata->num_active_helpers, 0);
+	if (atomic_get (gwdata->num_active_helpers)) {
+		if (gwdata->use_spin_wait) atomic_spinwait (gwdata->num_active_helpers, 0);
+		else {
+			gwevent_reset (&gwdata->all_helpers_done);
+			if (atomic_get (gwdata->num_active_helpers)) gwevent_wait (&gwdata->all_helpers_done, 0);
+		}
+	}
 
 /* We're finished, do final cleanup */
 
@@ -6190,7 +6203,13 @@ int pass2_get_next_block_mt (
 		if (asm_data->thread_num) return (TRUE);
 		gwdata->all_work_assigned = TRUE;
 		gwevent_reset (&gwdata->work_to_do);
-		atomic_spinwait (gwdata->num_active_helpers, 0);
+		if (atomic_get (gwdata->num_active_helpers)) {
+			if (gwdata->use_spin_wait) atomic_spinwait (gwdata->num_active_helpers, 0);
+			else {
+				gwevent_reset (&gwdata->all_helpers_done);
+				if (atomic_get (gwdata->num_active_helpers)) gwevent_wait (&gwdata->all_helpers_done, 0);
+			}
+		}
 		asm_data->DIST_TO_FFTSRCARG = 0;
 		return (TRUE);
 	}
@@ -6336,7 +6355,9 @@ int multithread_init (
 
 	gwmutex_init (&gwdata->thread_lock);
 	gwevent_init (&gwdata->work_to_do);
+	gwevent_init (&gwdata->all_helpers_done);
 	gwevent_init (&gwdata->can_carry_into);
+	gwevent_signal (&gwdata->all_helpers_done);		// Set helpers done event to the correct state
 
 /* Set ptrs to call back routines in structure used by assembly code */
 
@@ -6350,7 +6371,7 @@ int multithread_init (
 /* Pre-create each auxiliary thread used in multiplication code. */
 /* We allocate the memory here so that error recovery is easier. */
 
-	gwdata->threads_must_exit = FALSE;
+	gwdata->helpers_must_exit = FALSE;
 	for (i = 0; i < gwdata->num_threads - 1; i++) {
 		struct thread_data *info;
 
@@ -6440,7 +6461,7 @@ static int prefetches2 = 0;
 
 /* If threads are to exit, break out of this work loop */
 
-		if (gwdata->threads_must_exit) break;
+		if (gwdata->helpers_must_exit) break;
 
 /* Reset hyperthread_work_to_do event so we can wait for more work when we loop */
 
@@ -6537,7 +6558,7 @@ void multithread_term (
 /* Set variable that tells all auxiliary threads and hyperthreads to terminate. */
 /* Fire up auxiliary compute threads so they can exit. */
 
-		gwdata->threads_must_exit = TRUE;
+		gwdata->helpers_must_exit = TRUE;
 		gwevent_signal (&gwdata->work_to_do);
 
 /* Wait for all compute threads to exit.  We must do this so */
@@ -6555,6 +6576,7 @@ void multithread_term (
 
 		gwmutex_destroy (&gwdata->thread_lock);
 		gwevent_destroy (&gwdata->work_to_do);
+		gwevent_destroy (&gwdata->all_helpers_done);
 		gwevent_destroy (&gwdata->can_carry_into);
 		gwdata->thread_lock = NULL;
 	}
@@ -10787,7 +10809,13 @@ void multithread_op (
 	if (gwdata->num_threads > 1) {
 		gwdata->all_work_assigned = TRUE;
 		gwevent_reset (&gwdata->work_to_do);
-		atomic_spinwait (gwdata->num_active_helpers, 0);
+		if (atomic_get (gwdata->num_active_helpers)) {
+			if (gwdata->use_spin_wait) atomic_spinwait (gwdata->num_active_helpers, 0);
+			else {
+				gwevent_reset (&gwdata->all_helpers_done);
+				if (atomic_get (gwdata->num_active_helpers)) gwevent_wait (&gwdata->all_helpers_done, 0);
+			}
+		}
 	}
 
 /* If no carry propagation is required then we're done */
