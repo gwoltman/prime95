@@ -224,12 +224,13 @@ struct pmhandle_struct {
 	gwhandle *gwdata;		// Handle for gwnum FFT library
 	int	max_num_threads;	// Maximum number of threads that can be used to compute polymults
 	int	num_threads;		// Number of threads to use computing polymults (must not exceed max_num_threads)
-	gwevent work_to_do;		// Event to signal polymult helper threads there is work to do
+	gwevent work_to_do;		// Event (if not spin waiting) to signal polymult helper threads there is work to do
+	gwatomic alt_work_to_do;	// Atomic alternative to work to do mutex when spin waiting
 	gwevent	all_helpers_done;	// Event (if not spin waiting) to signal main thread that the auxiliary threads are done
+	gwatomic num_active_helpers;	// Number of active helpers (awakened from the work_to_do event).  Is also the alternative to all_helpers_done mutex.
 	gwmutex	poly_mutex;		// Mutex to make polymult thread safe when multi-threading
 	gwatomic next_thread_num;	// Lets us generate a unique id for each helper thread
 	gwatomic next_line;		// Next line for a helper thread to process
-	gwatomic num_active_helpers;	// Number of active helper threads (they've awakened from the work_to_do event)
 	bool volatile helpers_must_exit; // Flag set to force all auxiliary threads to terminate
 	bool volatile all_work_assigned; // Flag indicating all helper thread work has been assigned (some helpers ma still be active)
 	gwthread *thread_ids;		// Thread ids for the spawned threads

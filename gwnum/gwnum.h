@@ -213,7 +213,11 @@ void gwdone (
 #define gwset_sum_inputs_checking(h,b)	((h)->sum_inputs_checking = (char) (b))
 
 /* By default gwnum uses mutexes rather than spin waits to implement multithreading.  This macro lets you try spin waits to see if they are faster. */
-#define gwset_use_spin_wait(h,b)	((h)->use_spin_wait = (char) (b))
+/* A setting of one tells the main thread to spin wait on helper threads to finish up.  A setting above one tells the main thread to spin wait plus */
+/* n-1 helper threads to spin wait on work to do.  NOTE:  Many, including Linus Torvalds, believe spin waits in user space is evil.  Read up on the */
+/* hazards of spin waits at https://www.realworldtech.com/forum/?threadid=189711&curpostid=189723 and elsewhere.  That said, a system dedicated to */
+/* running a program doing multithreaded gwnum work could see a benefit. */
+#define gwset_use_spin_wait(h,n)	((h)->use_spin_wait = (char) (n))
 
 /* Prior to calling one of the gwsetup routines, you can tell the gwnum library that the polymult library will also be used. */
 #define gwset_using_polymult(h)		((h)->polymult = TRUE)
@@ -1118,11 +1122,12 @@ struct gwhandle_struct {
 					/* the gwnum library user set auxiliary thread priority and affinity */
 	void	*thread_callback_data;	/* User-supplied data to pass to the auxiliary thread callback routine */
 	gwmutex	thread_lock;		/* This mutex limits one thread at a time in critical sections. */
-	gwevent	work_to_do;		/* Event to signal auxiliary threads there is work to do */
+	gwevent	work_to_do;		/* Event (if not spin waiting) to signal auxiliary threads there is work to do */
+	gwatomic alt_work_to_do;	/* Atomic alternative to work to do mutex when spin waiting */
 	gwevent	all_helpers_done;	/* Event (if not spin waiting) to signal main thread that the auxiliary threads are done */
+	gwatomic num_active_helpers;	/* Number of active helpers (awakened from the work_to_do event).  Is also the alternative to all_helpers_done mutex. */
 	short volatile helpers_must_exit; /* Flag set to force all auxiliary threads to terminate */
 	short volatile all_work_assigned; /* Flag indicating all helper thread work has been assigned (some helpers ma still be active) */
-	gwatomic num_active_helpers;	/* Number of active helper threads (they've awakened from the work_to_do event) */
 	gwevent can_carry_into;		/* This event signals pass 1 sections that the block they are waiting on to carry into may now be ready. */
 	int	pass1_state;		/* Mainly used to keep track of what we are doing in pass 1 of an FFT.  See */
 					/* pass1_get_next_block for details.  Also, 999 means we are in pass 2 of the FFT. */

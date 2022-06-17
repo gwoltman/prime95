@@ -5472,8 +5472,9 @@ void auxiliary_thread (void *arg)
 
 	for ( ; ; ) {
 
-	    // Wait on the work-to-do event for more work (or termination)
-	    gwevent_wait (&gwdata->work_to_do, 0);
+	    // Wait on the work-to-do event for more work (or termination).  There are two different ways to wait for work.
+	    if (gwdata->use_spin_wait > info->thread_num) atomic_spinwait (gwdata->alt_work_to_do, 1);
+	    else gwevent_wait (&gwdata->work_to_do, 0);
 
 /* If threads are to exit, break out of this work loop */
 
@@ -5486,7 +5487,7 @@ void auxiliary_thread (void *arg)
 
 	    if (gwdata->all_work_assigned) continue;
 	    atomic_incr (gwdata->num_active_helpers);
-	    if (!gwdata->all_work_assigned) {			// all_work_assigned set should be exceedingly rare
+	    if (!gwdata->all_work_assigned) {			// all_work_assigned set should be rare
 
 /* If we are to do add/sub/addsub/smallmul work, copy a little bit of state and go do the work */
 
@@ -5581,11 +5582,15 @@ aux_out_of_work_locked:
 aux_out_of_work_unlocked:
 
 		// No more work to assign to helper threads
-		gwdata->all_work_assigned = TRUE;
-		gwevent_reset (&gwdata->work_to_do);
+		gwdata->all_work_assigned = TRUE;		// Set flag so any helper threads that have not yet started don't try to do any work
+		gwevent_reset (&gwdata->work_to_do);		// Reset event saying there is work for helper threads to do
+		if (gwdata->use_spin_wait >= 2) atomic_set (gwdata->alt_work_to_do, 0);
 	    }
 
 	    // When num active helpers reaches zero, main thread can wake up (either by waiting on all_helpers_done or via a spin wait)
+	    // WARNING: It is possible for a straggler thread from the previous work_to_do event to lose its time slice just before the all_helpers_done signal call.
+	    // This can cause spurious all_helpers_done signals for the current work_to_do event.  The main thread must be very careful resuming from the
+	    // all_helpers_done wait by checking that num_active_helpers is in fact zero.
 	    if (atomic_decr_fetch (gwdata->num_active_helpers) == 0) gwevent_signal (&gwdata->all_helpers_done);
 	}
 
@@ -5722,6 +5727,7 @@ void pass1_wake_up_threads (
 	if (gwdata->num_threads > 1) {
 		gwdata->all_work_assigned = FALSE;			// When this is set and num_active_helpers reaches 0, it is safe to signal main thread
 		gwevent_signal (&gwdata->work_to_do);			// Start all helper threads
+		if (gwdata->use_spin_wait >= 2) atomic_set (gwdata->alt_work_to_do, 1);
 	}
 }
 
@@ -5943,14 +5949,15 @@ int pass1_get_next_block_mt (
 
 		if (asm_data->this_block == asm_data->next_block) {
 			if (asm_data->thread_num) return (PASS1_EXIT_THREAD);
+			// Set no more work to do state
 			gwdata->all_work_assigned = TRUE;
 			gwevent_reset (&gwdata->work_to_do);
-			if (atomic_get (gwdata->num_active_helpers)) {
-				if (gwdata->use_spin_wait) atomic_spinwait (gwdata->num_active_helpers, 0);
-				else {
-					gwevent_reset (&gwdata->all_helpers_done);
-					if (atomic_get (gwdata->num_active_helpers)) gwevent_wait (&gwdata->all_helpers_done, 0);
-				}
+			if (gwdata->use_spin_wait >= 2) atomic_set (gwdata->alt_work_to_do, 0);
+			// Wait for helpers to finish work in progress
+			if (gwdata->use_spin_wait) atomic_spinwait (gwdata->num_active_helpers, 0);
+			else while (atomic_get (gwdata->num_active_helpers)) {
+				gwevent_reset (&gwdata->all_helpers_done);
+				if (atomic_get (gwdata->num_active_helpers)) gwevent_wait (&gwdata->all_helpers_done, 0);
 			}
 			asm_data->DIST_TO_FFTSRCARG = 0;
 			return (PASS1_START_PASS2);
@@ -6125,14 +6132,15 @@ int pass1_get_next_block_mt (
 /* There are no more blocks to process.  This is the main thread, wait for auxiliary threads to complete. */
 
 	gwmutex_unlock (&gwdata->thread_lock);
+	// Set no more work to do state
 	gwdata->all_work_assigned = TRUE;
 	gwevent_reset (&gwdata->work_to_do);
-	if (atomic_get (gwdata->num_active_helpers)) {
-		if (gwdata->use_spin_wait) atomic_spinwait (gwdata->num_active_helpers, 0);
-		else {
-			gwevent_reset (&gwdata->all_helpers_done);
-			if (atomic_get (gwdata->num_active_helpers)) gwevent_wait (&gwdata->all_helpers_done, 0);
-		}
+	if (gwdata->use_spin_wait >= 2) atomic_set (gwdata->alt_work_to_do, 0);
+	// Wait for helpers to finish work in progress
+	if (gwdata->use_spin_wait) atomic_spinwait (gwdata->num_active_helpers, 0);
+	else while (atomic_get (gwdata->num_active_helpers)) {
+		gwevent_reset (&gwdata->all_helpers_done);
+		if (atomic_get (gwdata->num_active_helpers)) gwevent_wait (&gwdata->all_helpers_done, 0);
 	}
 
 /* We're finished, do final cleanup */
@@ -6162,6 +6170,7 @@ void pass2_wake_up_threads (
 	if (gwdata->num_threads > 1 && gwdata->PASS1_SIZE) {
 		gwdata->all_work_assigned = FALSE;			// When this is set and num_active_helpers reaches 0, it is safe to signal main thread
 		gwevent_signal (&gwdata->work_to_do);			// Start all helper threads
+		if (gwdata->use_spin_wait >= 2) atomic_set (gwdata->alt_work_to_do, 1);
 	}
 }
 
@@ -6201,14 +6210,15 @@ int pass2_get_next_block_mt (
 
 	if (asm_data->this_block == asm_data->next_block) {
 		if (asm_data->thread_num) return (TRUE);
+		// Set no more work to do state
 		gwdata->all_work_assigned = TRUE;
 		gwevent_reset (&gwdata->work_to_do);
-		if (atomic_get (gwdata->num_active_helpers)) {
-			if (gwdata->use_spin_wait) atomic_spinwait (gwdata->num_active_helpers, 0);
-			else {
-				gwevent_reset (&gwdata->all_helpers_done);
-				if (atomic_get (gwdata->num_active_helpers)) gwevent_wait (&gwdata->all_helpers_done, 0);
-			}
+		if (gwdata->use_spin_wait >= 2) atomic_set (gwdata->alt_work_to_do, 0);
+		// Wait for helpers to finish work in progress
+		if (gwdata->use_spin_wait) atomic_spinwait (gwdata->num_active_helpers, 0);
+		else while (atomic_get (gwdata->num_active_helpers)) {
+			gwevent_reset (&gwdata->all_helpers_done);
+			if (atomic_get (gwdata->num_active_helpers)) gwevent_wait (&gwdata->all_helpers_done, 0);
 		}
 		asm_data->DIST_TO_FFTSRCARG = 0;
 		return (TRUE);
@@ -6351,13 +6361,13 @@ int multithread_init (
 	if (gwdata->thread_ids == NULL) return (GWERROR_MALLOC);
 	memset (gwdata->thread_ids, 0, gwdata->num_threads * sizeof (gwthread));
 
-/* Init mutexes and events used to control auxiliary threads */
+/* Init mutexes, events, and atomics used to control auxiliary threads */
 
 	gwmutex_init (&gwdata->thread_lock);
 	gwevent_init (&gwdata->work_to_do);
 	gwevent_init (&gwdata->all_helpers_done);
 	gwevent_init (&gwdata->can_carry_into);
-	gwevent_signal (&gwdata->all_helpers_done);		// Set helpers done event to the correct state
+	atomic_set (gwdata->alt_work_to_do, 0);			// No work for helpers to do yet
 
 /* Set ptrs to call back routines in structure used by assembly code */
 
@@ -6560,6 +6570,7 @@ void multithread_term (
 
 		gwdata->helpers_must_exit = TRUE;
 		gwevent_signal (&gwdata->work_to_do);
+		atomic_set (gwdata->alt_work_to_do, 1);
 
 /* Wait for all compute threads to exit.  We must do this so */
 /* that this thread can safely delete the gwdata structure */
@@ -10798,6 +10809,7 @@ void multithread_op (
 	if (gwdata->num_threads > 1) {
 		gwdata->all_work_assigned = FALSE;			// When this is set and num_active_helpers reaches 0, it is safe to signal main thread
 		gwevent_signal (&gwdata->work_to_do);			// Start all helper threads
+		if (gwdata->use_spin_wait >= 2) atomic_set (gwdata->alt_work_to_do, 1);
 	}
 
 /* Call subroutine to work on blocks just like the auxiliary threads */
@@ -10807,14 +10819,15 @@ void multithread_op (
 /* Wait for auxiliary threads to finish */
 
 	if (gwdata->num_threads > 1) {
+		// Set no more work to do state
 		gwdata->all_work_assigned = TRUE;
 		gwevent_reset (&gwdata->work_to_do);
-		if (atomic_get (gwdata->num_active_helpers)) {
-			if (gwdata->use_spin_wait) atomic_spinwait (gwdata->num_active_helpers, 0);
-			else {
-				gwevent_reset (&gwdata->all_helpers_done);
-				if (atomic_get (gwdata->num_active_helpers)) gwevent_wait (&gwdata->all_helpers_done, 0);
-			}
+		if (gwdata->use_spin_wait >= 2) atomic_set (gwdata->alt_work_to_do, 0);
+		// Wait for helpers to finish work in progress
+		if (gwdata->use_spin_wait) atomic_spinwait (gwdata->num_active_helpers, 0);
+		else while (atomic_get (gwdata->num_active_helpers)) {
+			gwevent_reset (&gwdata->all_helpers_done);
+			if (atomic_get (gwdata->num_active_helpers)) gwevent_wait (&gwdata->all_helpers_done, 0);
 		}
 	}
 

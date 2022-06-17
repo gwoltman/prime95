@@ -386,6 +386,7 @@ void polymult_done (
 	if (pmdata->thread_ids != NULL) {
 		pmdata->helpers_must_exit = TRUE;
 		gwevent_signal (&pmdata->work_to_do);
+		atomic_set (pmdata->alt_work_to_do, 1);
 		for (int i = 1; i < pmdata->max_num_threads; i++) gwthread_wait_for_exit (&pmdata->thread_ids[i]);
 		free (pmdata->thread_ids);
 		pmdata->thread_ids = NULL;
@@ -3359,8 +3360,9 @@ void polymult_thread (void *arg)
 	for ( ; ; ) {
 	    int	num_active_helpers;
 
-	    // Wait on the work-to-do event for more work (or termination)
-	    gwevent_wait (&pmdata->work_to_do, 0);
+	    // Wait on the work-to-do event for more work (or termination).  There are two different ways to wait for work.
+	    if (pmdata->gwdata->use_spin_wait > thread_num) atomic_spinwait (pmdata->alt_work_to_do, 1);
+	    else gwevent_wait (&pmdata->work_to_do, 0);
 
 	    // Terminate helper when polymult_done is called
 	    if (pmdata->helpers_must_exit) break;
@@ -3371,7 +3373,7 @@ void polymult_thread (void *arg)
 	    /* the main thread has changed in preparation for the next batch of work for the helper threads. */
 	    if (pmdata->all_work_assigned) continue;
 	    num_active_helpers = atomic_incr_fetch (pmdata->num_active_helpers);
-	    if (!pmdata->all_work_assigned) {			// all_work_assigned set should be exceedingly rare
+	    if (!pmdata->all_work_assigned) {			// all_work_assigned set should be rare
 
 		// If caller requests using fewer than the maximum number of helper threads, then some of the helpers need to do nothing
 		if (num_active_helpers > pmdata->num_threads);
@@ -3408,11 +3410,15 @@ void polymult_thread (void *arg)
 #endif
 
 		// No more work to assign to helper threads
-		pmdata->all_work_assigned = TRUE;
-		gwevent_reset (&pmdata->work_to_do);
+		pmdata->all_work_assigned = TRUE;		// Set flag so any helper threads that have not yet started don't try to do any work
+		gwevent_reset (&pmdata->work_to_do);		// Reset event saying there is work for helper threads to do
+		if (pmdata->gwdata->use_spin_wait >= 2) atomic_set (pmdata->alt_work_to_do, 0);
 	    }
 
 	    // When num active helpers reaches zero, main thread can wake up (either by waiting on all_helpers_done or via a spin wait)
+	    // WARNING: It is possible for a straggler thread from the previous work_to_do event to lose its time slice just before the all_helpers_done signal call.
+	    // This can cause spurious all_helpers_done signals for the current work_to_do event.  The main thread must be very careful resuming from the
+	    // all_helpers_done wait by checking that num_active_helpers is in fact zero.
 	    if (atomic_decr_fetch (pmdata->num_active_helpers) == 0) gwevent_signal (&pmdata->all_helpers_done);
 	}
 
@@ -3443,6 +3449,7 @@ void polymult_launch_helpers (
 		gwmutex_init (&pmdata->poly_mutex);
 		gwevent_init (&pmdata->work_to_do);
 		gwevent_init (&pmdata->all_helpers_done);
+		atomic_set (pmdata->alt_work_to_do, 0);			// No work for helpers to do yet
 		pmdata->thread_ids = (gwthread *) malloc (pmdata->max_num_threads * sizeof (gwthread));
 		for (int i = 1; i < pmdata->max_num_threads; i++) gwthread_create_waitable (&pmdata->thread_ids[i], &polymult_thread, (void *) pmdata);
 	}
@@ -3450,6 +3457,7 @@ void polymult_launch_helpers (
 	pmdata->stats_gwdata = NULL;
 	pmdata->all_work_assigned = FALSE;			// When this is set and num_active_helpers reaches 0, it is safe to signal main thread
 	gwevent_signal (&pmdata->work_to_do);			// Start all helper threads
+	if (pmdata->gwdata->use_spin_wait >= 2) atomic_set (pmdata->alt_work_to_do, 1);
 }
 
 /* This routine waits for the launched polymult helper threads to finish.  This is called by the main thread when it has run out of work to do. */
@@ -3461,13 +3469,12 @@ void polymult_wait_on_helpers (
 	// No more work to assign to helper threads
 	pmdata->all_work_assigned = TRUE;
 	gwevent_reset (&pmdata->work_to_do);
+	if (pmdata->gwdata->use_spin_wait >= 2) atomic_set (pmdata->alt_work_to_do, 0);
 	// Wait for helpers to end
-	if (atomic_get (pmdata->num_active_helpers)) {
-		if (pmdata->gwdata->use_spin_wait) atomic_spinwait (pmdata->num_active_helpers, 0);
-		else {
-			gwevent_reset (&pmdata->all_helpers_done);
-			if (atomic_get (pmdata->num_active_helpers)) gwevent_wait (&pmdata->all_helpers_done, 0);
-		}
+	if (pmdata->gwdata->use_spin_wait) atomic_spinwait (pmdata->num_active_helpers, 0);
+	else while (atomic_get (pmdata->num_active_helpers)) {
+		gwevent_reset (&pmdata->all_helpers_done);
+		if (atomic_get (pmdata->num_active_helpers)) gwevent_wait (&pmdata->all_helpers_done, 0);
 	}
 	// User-defined helpers require syncing up cloned gwdata stats and restoring main thread's gwnum's multithreading capabilities
 	if (!pmdata->helpers_doing_polymult) {
