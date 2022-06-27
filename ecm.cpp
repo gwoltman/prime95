@@ -9922,9 +9922,9 @@ more_B:		pm1data.interim_B = pm1data.B;
 		strcpy (buf, "Stage 1 GCD complete. Time: ");
 		print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
 		OutputStr (thread_num, buf);
-		pm1data.state = PM1_STATE_DONE;
 		if (factor != NULL) goto bingo;
 		// No factor found and no second stage
+		pm1data.state = PM1_STATE_DONE;
 		goto msg_and_exit;
 	}
 
