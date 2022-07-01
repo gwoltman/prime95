@@ -219,7 +219,8 @@ void gwdone (
 /* running a program doing multithreaded gwnum work could see a benefit. */
 #define gwset_use_spin_wait(h,n)	((h)->use_spin_wait = (char) (n))
 
-/* Prior to calling one of the gwsetup routines, you can tell the gwnum library that the polymult library will also be used. */
+/* Prior to calling one of the gwsetup routines, you must tell the gwnum library if the polymult library will also be used.  Using polymult can affect */
+/* how much memory is allocated by each gwalloc call. */
 #define gwset_using_polymult(h)		((h)->polymult = TRUE)
 
 /* Prior to calling one of the gwsetup routines, you can tell the gwnum library to do a faster partial setup.  You won't be able to do any math */
@@ -265,13 +266,9 @@ void gwfree_array (
 void gwfreeall (
 	gwhandle *gwdata);	/* Handle initialized by gwsetup */
 
-/* Free internal memory that can be safely freed.  Call this prior to using a lot of gwnum memory. */
-/* There may be some internal gwnum memory that can be safely freed. */
-#define gwfree_internal_memory(h) { \
-		gwfree((h), (h)->GW_RANDOM), (h)->GW_RANDOM = NULL; \
-		if ((h)->FFT1_state == 1 && !(h)->FFT1_user_allocated) { gwfree((h), (h)->GW_FFT1), (h)->GW_FFT1 = NULL; (h)->FFT1_state = 0; } \
-		if ((h)->to_radix_gwdata != NULL) gwdone ((h)->to_radix_gwdata), free ((h)->to_radix_gwdata), (h)->to_radix_gwdata = NULL; \
-		if ((h)->from_radix_gwdata != NULL) gwdone ((h)->from_radix_gwdata), free ((h)->from_radix_gwdata), (h)->from_radix_gwdata = NULL; }
+/* Free internal memory that can be safely freed.  Call this prior to using a lot of gwnum memory (this also calls gwfree_cached to further reduce mem used). */
+void gwfree_internal_memory (
+	gwhandle *gwdata);	/* Handle initialized by gwsetup */
 
 /* Empty cache of freed gwnums.  Call this to minimize gwnum library's memory footprint when no more gwallocs are anticipated anytime soon. */
 void gwfree_cached (
@@ -1083,13 +1080,15 @@ struct gwhandle_struct {
 					/* At the FFT limit this will be set to EB_GWMUL_SAVINGS.  That is, this measures extra bits */
 					/* available for multiplications, not squarings. */
 	gwnum	GW_RANDOM;		/* A random number used in gwmul3_carefully. */
+	gwnum	GW_RANDOM_SQUARED;	/* Cached square of the random number used in gwmul3_carefully. */
+	gwnum	GW_RANDOM_FFT;		/* Cached FFT of the random number used in gwmul3_carefully. */
 	gwnum	GW_ADDIN;		/* The gwsetaddin value when we need to emulate GWMUL3_ADDINCONST. */
 	gwnum	GW_FFT1;		/* The number 1 FFTed.  Sometimes need by gwmuladd4 and gwmulsub4. */
 	char	FFT1_state;		/* 0 = FFT(1) needed for FMA but not yet allocated, 1 = FFT(1) needed for FMA and allocated, */
 					/* 2 = FFT(1) is not needed for FMA. */
 	char	FFT1_user_allocated;	/* TRUE if FFT(1) was allocated at user's request */
 	char	polymult;		/* Set this to true if gwnums might be used by polymult library */
-	char	UNUSED_CHAR;
+	char	paranoid_mul_careful;	/* Set this to TRUE if gwmul3_carefully can be called with two different source args AND the two values could be the same */
 	char	GWSTRING_REP[60];	/* The gwsetup modulo number as a string. */
 	unsigned long saved_copyz_n;	/* Used to reduce COPYZERO calculations */
 	unsigned int NORMNUM;		/* The post-multiply normalize routine index */

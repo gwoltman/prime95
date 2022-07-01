@@ -4814,6 +4814,8 @@ int internal_gwsetup (
 	gwdata->saved_copyz_n = 0;
 	gwdata->GWERROR = 0;
 	gwdata->GW_RANDOM = NULL;
+	gwdata->GW_RANDOM_SQUARED = NULL;
+	gwdata->GW_RANDOM_FFT = NULL;
 	gwdata->GW_ADDIN = NULL;
 
 /* Init FFT1 state for possible future gwmuladd4 and gwmulsub4 calls */
@@ -6857,6 +6859,20 @@ void gwfree_cached (
 	}
 }
 
+/* Free internal memory that can be safely freed.  Call this prior to using a lot of gwnum memory (this also calls gwfree_cached to further reduce mem used). */
+
+void gwfree_internal_memory (
+	gwhandle *gwdata)	/* Handle initialized by gwsetup */
+{
+	gwfree (gwdata, gwdata->GW_RANDOM), gwdata->GW_RANDOM = NULL;
+	gwfree (gwdata, gwdata->GW_RANDOM_SQUARED), gwdata->GW_RANDOM_SQUARED = NULL;
+	gwfree (gwdata, gwdata->GW_RANDOM_FFT), gwdata->GW_RANDOM_FFT = NULL;
+	if (gwdata->FFT1_state == 1 && !gwdata->FFT1_user_allocated) gwfree (gwdata, gwdata->GW_FFT1), gwdata->GW_FFT1 = NULL, gwdata->FFT1_state = 0;
+	if (gwdata->to_radix_gwdata != NULL) gwdone (gwdata->to_radix_gwdata), free (gwdata->to_radix_gwdata), gwdata->to_radix_gwdata = NULL;
+	if (gwdata->from_radix_gwdata != NULL) gwdone (gwdata->from_radix_gwdata), free (gwdata->from_radix_gwdata), gwdata->from_radix_gwdata = NULL;
+	gwfree_cached (gwdata);
+}
+
 /* Allocate an array and fill it with gwnums.  Uses a little less memory than allocating an array and calling gwalloc many times. */
 gwarray gwalloc_array (		/* Pointer to an array of gwnums */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -7019,6 +7035,8 @@ void gwfreeall (
 		if (q == gwdata->GW_MODULUS_FFT) continue;
 		if (q == gwdata->GW_RECIP_FFT) continue;
 		if (q == gwdata->GW_RANDOM) continue;
+		if (q == gwdata->GW_RANDOM_SQUARED) continue;
+		if (q == gwdata->GW_RANDOM_FFT) continue;
 		if (q == gwdata->GW_FFT1) continue;
 		if (* (int32_t *) ((char *) q - 32) & GWFREEABLE) {
 			// Really free the gwnum
@@ -9543,7 +9561,7 @@ void gwunfft2 (
 	save_count = gwdata->careful_count;
 	gwdata->careful_count = 0;
 
-/* Turn off sum(inputs) checking.  Polymult produces results where the sum(inputs) value is not valid.  Polymult then unffts this these results. */
+/* Turn off sum(inputs) checking.  Polymult produces results where the sum(inputs) value is not valid.  Polymult then unffts these results. */
 
 	save_sum_inputs_checking = gwdata->sum_inputs_checking;
 	gwdata->sum_inputs_checking = 0;
@@ -10395,15 +10413,14 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 	ASSERTG ((s1 == s2 && square_safe (gwdata, unnorms (s1))) ||
 		 (s1 != s2 && mul_safe (gwdata, unnorms (s1), unnorms (s2))));
 
-/* Clear flags that are impossible when a source is the same as the destination.  Start next FFT cannot be supported. */
+/* Clear flags that are impossible when a source is the same as the destination */
 
 	if (s1 == d) options &= ~(GWMUL_FFT_S1 | GWMUL_PRESERVE_S1);
 	if (s2 == d) options &= ~(GWMUL_FFT_S2 | GWMUL_PRESERVE_S2);
-	options &= ~GWMUL_STARTNEXTFFT;
 
 /* It is dangerous to FFT non-random data.  This routine was called because the source data may be non-random. */
 
-	options &= ~(GWMUL_FFT_S1 |GWMUL_FFT_S2);
+	options &= ~(GWMUL_FFT_S1 | GWMUL_FFT_S2);
 
 /* Generate a random number, if we have't already done so */
 
@@ -10427,48 +10444,61 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 		if (FFT_state (s1) == NOT_FFTed);							/* Make sure input data is not FFTed */
 		else if (options & (GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2)) gwunfft (gwdata, s1, tmp), s1 = tmp;
 		else gwunfft (gwdata, s1, s1);
+
 		gwaddsub4o (gwdata, s1, gwdata->GW_RANDOM, tmp, d, GWADD_FORCE_NORMALIZE);		/* Compute s1+random and s1-random */
-		gwmul3 (gwdata, tmp, d, d, options & (GWMUL_MULBYCONST | GWMUL_ADDINCONST));		/* ((s1+random)(s1-random)+addin)*mulbyconst */
-		gwsquare2 (gwdata, gwdata->GW_RANDOM, tmp, GWMUL_PRESERVE_S1 | (options & GWMUL_MULBYCONST)); /* Compute random^2*mulbyconst */
-		gwadd3o (gwdata, d, tmp, d, GWADD_FORCE_NORMALIZE);					/* Calc (s1^2+addin)*mulbyconst from 2 results */
+
+		/* If not already cached, square the random number */
+		if (gwdata->GW_RANDOM_SQUARED == NULL) {
+			gwdata->GW_RANDOM_SQUARED = gwalloc (gwdata);
+			gwmul3 (gwdata, gwdata->GW_RANDOM, gwdata->GW_RANDOM, gwdata->GW_RANDOM_SQUARED, GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2 | GWMUL_STARTNEXTFFT);
+		}
+
+		/* Generate desired result, d = ((s1+r)*(s1-r) + r^2 + addin) * mulbyconst */
+		gwmuladd4 (gwdata, tmp, d, gwdata->GW_RANDOM_SQUARED, d, options & (GWMUL_ADDINCONST | GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT));
+
 		gwfree (gwdata, tmp);
 	}
 
-/* Handle a multiply operation.  A more complex method is required using three multiplies and several adds. */
+/* Handle a multiply operation.  A more complex method is required using two multiplies and several adds. */
+/* ((s1+r)*(s2-r)+addin)*mulbyconst = (s1s2 + addin) * mulbyconst - (r * (s1 + r - s2)) * mulbyconst */
 
 	else {
 		gwnum	tmp1, tmp2, tmp3;
 
 		tmp1 = gwalloc (gwdata);
-		tmp2 = gwalloc (gwdata);
-		tmp3 = gwalloc (gwdata);
-
 		if (FFT_state (s1) == NOT_FFTed);					/* Make sure s1 input data is not FFTed */
 		else if (options & GWMUL_PRESERVE_S1) gwunfft (gwdata, s1, tmp1), s1 = tmp1;
 		else gwunfft (gwdata, s1, s1);
-		if (FFT_state (s2) == NOT_FFTed);					/* Make sure s2 input data is not FFTed */
-		else if (options & GWMUL_PRESERVE_S2) gwunfft (gwdata, s2, tmp2), s2 = tmp2;
-		else gwunfft (gwdata, s2, s2);
 
 		gwadd3o (gwdata, s1, gwdata->GW_RANDOM, tmp1, GWADD_FORCE_NORMALIZE);	/* Compute s1+random */
-		gwadd3o (gwdata, s2, gwdata->GW_RANDOM, d, GWADD_FORCE_NORMALIZE);	/* Compute s2+random */
-		gwadd3o (gwdata, tmp1, gwdata->GW_RANDOM, tmp2, GWADD_FORCE_NORMALIZE);	/* Compute s1+2*random */
-		gwadd3o (gwdata, d, gwdata->GW_RANDOM, tmp3, GWADD_FORCE_NORMALIZE);	/* Compute s2+2*random */
 
-		/* Compute ((s1+r)*(s2+r)+addin)*mulbyconst = (s1s2 + rs1 + rs2 + rr + addin) * mulbyconst */
-		gwmul3 (gwdata, tmp1, d, d, options & (GWMUL_MULBYCONST | GWMUL_ADDINCONST));
-		/* Compute ((s1+2r)*(s2+2r)+addin)*mulbyconst = (s1s2 + 2rs1 + 2rs2 + 4rr + addin) * mulbyconst */
-		gwmul3 (gwdata, tmp2, tmp3, tmp3, options & (GWMUL_MULBYCONST | GWMUL_ADDINCONST));
-		/* Compute random^2 * mulbyconst */
-		gwsquare2 (gwdata, gwdata->GW_RANDOM, tmp1, GWMUL_PRESERVE_S1 | (options & GWMUL_MULBYCONST)); 
+		tmp2 = NULL;
+		if (FFT_state (s2) == NOT_FFTed);					/* Make sure s2 input data is not FFTed */
+		else if (options & GWMUL_PRESERVE_S2) tmp2 = gwalloc (gwdata), gwunfft (gwdata, s2, tmp2), s2 = tmp2;
+		else gwunfft (gwdata, s2, s2);
 
-		gwaddquick (gwdata, d, d);						/* Compute (2s1s2 + 2rs1 + 2rs2 + 2rr + 2addin) * mulbyconst */
-		gwsubquick (gwdata, tmp3, d);						/* Compute (s1s2 - 2rr + addin) * mulbyconst */
-		gwaddquick (gwdata, tmp1, d);						/* Compute (s1s2 - rr + addin) * mulbyconst */
-		gwadd3o (gwdata, tmp1, d, d, GWADD_FORCE_NORMALIZE);			/* Compute (s1s2 + addin) * mulbyconst */
+		tmp3 = gwalloc (gwdata);
+		gwsub3o (gwdata, s2, gwdata->GW_RANDOM, tmp3, GWADD_FORCE_NORMALIZE);	/* Compute s2-random */
+		gwsub3o (gwdata, tmp1, s2, d, GWADD_FORCE_NORMALIZE);			/* Compute s1+random-s2 */
+		gwfree (gwdata, tmp2);
+
+		/* If not already cached, FFT the random number */
+		if (gwdata->GW_RANDOM_FFT == NULL) {
+			gwdata->GW_RANDOM_FFT = gwalloc (gwdata);
+			gwfft (gwdata, gwdata->GW_RANDOM, gwdata->GW_RANDOM_FFT);
+		}
+		
+		/* Generate desired result, d = ((s1+r)*(s2-r) + r*(s1+r-s2) + addin) * mulbyconst */
+		if (!gwdata->paranoid_mul_careful || mulsquareadd_safe (gwdata, 0, 0, 0, 0)) {
+			gwmulmuladd5 (gwdata, tmp1, tmp3, gwdata->GW_RANDOM_FFT, d, d, options & (GWMUL_ADDINCONST | GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT));
+		} else {
+			// Paranoid code does not use gwmulmuladd5 in case the value in s1 and s2 are identical which means we are computing r^2 which
+			// may generate a larger roundoff error.
+			gwmul3 (gwdata, gwdata->GW_RANDOM_FFT, d, d, GWMUL_STARTNEXTFFT);
+			gwmuladd4 (gwdata, tmp1, tmp3, d, d, options & (GWMUL_ADDINCONST | GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT));
+		}
 
 		gwfree (gwdata, tmp1);
-		gwfree (gwdata, tmp2);
 		gwfree (gwdata, tmp3);
 	}
 
