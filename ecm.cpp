@@ -7127,7 +7127,6 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 
 /* We're nearing peak memory usage, free any cached gwnums */
 
-	gwfree_cached (&ecmdata.gwdata);
 	gwfree_internal_memory (&ecmdata.gwdata);
 	mallocFreeForOS ();
 
@@ -7653,7 +7652,6 @@ stage2_done:
 /* Stage 2 is complete */
 
 	gwfree_internal_memory (&ecmdata.gwdata);
-	gwfree_cached (&ecmdata.gwdata);
 	mallocFreeForOS ();
 	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&ecmdata.gwdata, 1));	// Let other high memory workers resume
 	end_timer (timers, 1);
@@ -11310,7 +11308,6 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);}
 
 stage2_done:
 	gwfree_internal_memory (&pm1data.gwdata);
-	gwfree_cached (&pm1data.gwdata);
 	mallocFreeForOS ();
 	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pm1data.gwdata, 1));	// Let other high memory workers resume
 	end_timer (timers, 1);
@@ -14047,7 +14044,6 @@ replan:	{
 /* Set memory usage so other high memory workers can resume */
 
 	gwfree_internal_memory (&pp1data.gwdata);
-	gwfree_cached (&pp1data.gwdata);
 	mallocFreeForOS ();
 	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pp1data.gwdata, 1));	// Let other high memory workers resume
 
