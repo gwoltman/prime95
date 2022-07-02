@@ -206,34 +206,34 @@ amd64\release\radix.obj: radix.c radix.h gwnum.h
 amd64\debug\radix.obj: radix.c radix.h gwnum.h
     $(cl64d) /Foamd64\debug\radix.obj radix.c
 
-amd64\release\polymult\polymult.obj: polymult.c polymult.h
+amd64\release\polymult\polymult.obj: polymult.c polymult.h gwnum.h
     $(cl64) /Foamd64\release\polymult\polymult.obj polymult.c
 
-amd64\debug\polymult\polymult.obj: polymult.c polymult.h
+amd64\debug\polymult\polymult.obj: polymult.c polymult.h gwnum.h
     $(cl64d) /Foamd64\debug\polymult\polymult.obj polymult.c
 
-amd64\release\polymult\polymult_sse2.obj: polymult.c polymult.h
+amd64\release\polymult\polymult_sse2.obj: polymult.c polymult.h gwnum.h
     $(cl64) /DSSE2 /Foamd64\release\polymult\polymult_sse2.obj polymult.c
 
-amd64\debug\polymult\polymult_sse2.obj: polymult.c polymult.h
+amd64\debug\polymult\polymult_sse2.obj: polymult.c polymult.h gwnum.h
     $(cl64d) /DSSE2 /Foamd64\debug\polymult\polymult_sse2.obj polymult.c
 
-amd64\release\polymult\polymult_avx.obj: polymult.c polymult.h
+amd64\release\polymult\polymult_avx.obj: polymult.c polymult.h gwnum.h
     $(cl64) /arch:AVX /DAVX /Foamd64\release\polymult\polymult_avx.obj polymult.c
 
-amd64\debug\polymult\polymult_avx.obj: polymult.c polymult.h
+amd64\debug\polymult\polymult_avx.obj: polymult.c polymult.h gwnum.h
     $(cl64d) /arch:AVX /DAVX /Foamd64\debug\polymult\polymult_avx.obj polymult.c
 
-amd64\release\polymult\polymult_fma.obj: polymult.c polymult.h
+amd64\release\polymult\polymult_fma.obj: polymult.c polymult.h gwnum.h
     $(cl64) /arch:AVX2 /DFMA /Foamd64\release\polymult\polymult_fma.obj polymult.c
 
-amd64\debug\polymult\polymult_fma.obj: polymult.c polymult.h
+amd64\debug\polymult\polymult_fma.obj: polymult.c polymult.h gwnum.h
     $(cl64d) /arch:AVX2 /DFMA /Foamd64\debug\polymult\polymult_fma.obj polymult.c
 
-amd64\release\polymult\polymult_avx512.obj: polymult.c polymult.h
+amd64\release\polymult\polymult_avx512.obj: polymult.c polymult.h gwnum.h
     $(cl64) /arch:AVX512 /DAVX512 /Foamd64\release\polymult\polymult_avx512.obj polymult.c
 
-amd64\debug\polymult\polymult_avx512.obj: polymult.c polymult.h
+amd64\debug\polymult\polymult_avx512.obj: polymult.c polymult.h gwnum.h
     $(cl64d) /arch:AVX512 /DAVX512 /Foamd64\debug\polymult\polymult_avx512.obj polymult.c
 
 amd64\release\ecmstag1.obj: ecmstag1.c gwnum.h

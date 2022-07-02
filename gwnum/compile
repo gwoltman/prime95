@@ -192,28 +192,28 @@ release\radix.obj: radix.c radix.h gwnum.h
 debug\radix.obj: radix.c radix.h gwnum.h
     $(cld) /Fodebug\radix.obj radix.c
 
-release\polymult\polymult.obj: polymult.c polymult.h
+release\polymult\polymult.obj: polymult.c polymult.h gwnum.h
     $(cl) /arch:IA32 /Forelease\polymult\polymult.obj polymult.c
 
-debug\polymult\polymult.obj: polymult.c polymult.h
+debug\polymult\polymult.obj: polymult.c polymult.h gwnum.h
     $(cld) /arch:IA32 /Fodebug\polymult\polymult.obj polymult.c
 
-release\polymult\polymult_sse2.obj: polymult.c polymult.h
+release\polymult\polymult_sse2.obj: polymult.c polymult.h gwnum.h
     $(cl) /arch:SSE2 /DSSE2 /Forelease\polymult\polymult_sse2.obj polymult.c
 
-debug\polymult\polymult_sse2.obj: polymult.c polymult.h
+debug\polymult\polymult_sse2.obj: polymult.c polymult.h gwnum.h
     $(cld) /arch:SSE2 /DSSE2 /Fodebug\polymult\polymult_sse2.obj polymult.c
 
-release\polymult\polymult_avx.obj: polymult.c polymult.h
+release\polymult\polymult_avx.obj: polymult.c polymult.h gwnum.h
     $(cl) /arch:AVX /DAVX /Forelease\polymult\polymult_avx.obj polymult.c
 
-debug\polymult\polymult_avx.obj: polymult.c polymult.h
+debug\polymult\polymult_avx.obj: polymult.c polymult.h gwnum.h
     $(cld) /arch:AVX /DAVX /Fodebug\polymult\polymult_avx.obj polymult.c
 
-release\polymult\polymult_fma.obj: polymult.c polymult.h
+release\polymult\polymult_fma.obj: polymult.c polymult.h gwnum.h
     $(cl) /arch:AVX2 /DFMA /Forelease\polymult\polymult_fma.obj polymult.c
 
-debug\polymult\polymult_fma.obj: polymult.c polymult.h
+debug\polymult\polymult_fma.obj: polymult.c polymult.h gwnum.h
     $(cld) /arch:AVX2 /DFMA /Fodebug\polymult\polymult_fma.obj polymult.c
 
 release\ecmstag1.obj: ecmstag1.c gwnum.h
