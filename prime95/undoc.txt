@@ -748,6 +748,17 @@ of other applications.  Also, wasted space at the end of each page (1MB on avera
 the number of temporaries that can be allocated in stage 2 of P-1/P+1/ECM, negating any benefits.
 In Windows you'll need to have the "Lock Pages in Memory" privilege to use this option.
 
+Multithreaded FFTs by default use mutexes/signals/events to coordinate threads.  When a thread
+runs out of work it relinquishes control of the thread to the OS.  Alternatively, prime95/mprime
+can use "spin loops" where the thread busy waits for other threads to finish up.  Many, including
+Linus Torvalds, believe spin waits in user space is evil.  Read up on the hazards of spin waits
+at https://www.realworldtech.com/forum/?threadid=189711&curpostid=189723 and elsewhere.
+That said, a system primarily dedicated to running prime95/mprime could see a minor benefit.
+In prime.txt, set
+	SpinWait=n		(default is 0)
+Setting n to one tells the worker's main thread to spin wait on helper threads to finish up.
+A setting above one also tells n-1 helper threads to spin wait on work to do (not recommended).
+
 JSON messages for all work types is new in version 29.6.  You can turn off JSON
 messages with this prime.txt option:
 	OutputJSON=0 or 1		(default is 1)
