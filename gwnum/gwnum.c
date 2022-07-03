@@ -567,7 +567,7 @@ int is_pathological_distribution (
 	return (FALSE);
 }
 
-/* Determine the "bif" value we will look for.  Often this is a straight-forward mapping from */
+/* Determine the "bif" (best-mplementation-for) value we will look for.  Often this is a straight-forward mapping from */
 /* the CPU_ARCHITECTURE.  However, for some CPU architectures, like Pentium M and Core Solo, we */
 /* don't have jmptable entries detailing the fastest FFT implementations for those architectures. */
 
@@ -677,16 +677,13 @@ int calculate_bif (
 			retval = BIF_K10;	/* Look for FFTs optimized for K10 */
 		break;
 	case CPU_ARCHITECTURE_AMD_ZEN:		/* Look for FFTs optimized for Ryzen */
-		if (! (gwdata->cpu_flags & CPU_FMA3))
-			retval = BIF_I7;	/* Shouldn't happen */
-		else
-			retval = BIF_RYZEN;
-		break;
 	case CPU_ARCHITECTURE_AMD_OTHER:	/* For no particularly good reason, assume future AMD processors do well with Intel FFTs */
-		if (! (gwdata->cpu_flags & CPU_FMA3))
-			retval = BIF_I7;	/* Look for FFTs optimized for Core i3/i5/i7 */
+		if (gwdata->cpu_flags & CPU_AVX512F)
+			retval = BIF_SKX;	/* Use Intel optimized AVX-512 FFTs until we get benchmarks on future Ryzen chip */
+		else if (gwdata->cpu_flags & CPU_FMA3)
+			retval = BIF_RYZEN;
 		else
-			retval = BIF_FMA3;	/* Look for FFTs optimized for Intel FMA3 CPUs */
+			retval = BIF_I7;	/* Shouldn't happen */
 		break;
 	case CPU_ARCHITECTURE_OTHER:		/* Probably a VIA processor */
 		if (gwdata->cpu_flags & CPU_AVX512F)

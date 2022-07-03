@@ -8276,15 +8276,15 @@ loop:	run_indefinitely = TRUE;
 	num_large_lengths = 0;
 	disabled_cpu_flags = IniGetInt (INI_FILE, "TortureWeak", 0);
 	fftlen = gwmap_with_cpu_flags_to_fftlen (CPU_FLAGS & ~disabled_cpu_flags, 1.0, 2, 15 * min_fft, -1);
-	while (fftlen <= max_fft) {
+	while (fftlen && fftlen <= max_fft) {
 		unsigned long max_exponent = gwmap_with_cpu_flags_fftlen_to_max_exponent (CPU_FLAGS & ~disabled_cpu_flags, fftlen);
+		if (max_exponent == 0) break;			// Somethng went wrong, likely a CPU_ARCHITECTURE / BIF / jmptable inconsistency
 		if (fftlen >= min_fft && max_exponent > test_data[test_data_count-1].p) {
 			lengths[num_lengths] = fftlen;
 			data_index[num_lengths++] = 0;
 			if (fftlen > max_small_fftlen * 2) num_large_lengths++;
 		}
 		fftlen = gwmap_with_cpu_flags_to_fftlen (CPU_FLAGS & ~disabled_cpu_flags, 1.0, 2, max_exponent + 100, -1);
-		if (fftlen == 0) break;
 	}
 
 /* Raise error if no FFT lengths to test */
