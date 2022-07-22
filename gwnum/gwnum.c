@@ -2688,6 +2688,14 @@ int gwclone (
 		memcpy (cloned_asm_data->carries, asm_data->carries, carry_table_size);
 	}
 
+/* Each clone must have their own dd_data structure (there are cached values in there not accessed in a thread safe manor) */
+
+	cloned_gwdata->dd_data = gwdbldbl_data_clone (gwdata->dd_data);
+	if (cloned_gwdata->dd_data == NULL) {
+		gwdone (cloned_gwdata);
+		return (GWERROR_MALLOC);
+	}
+
 /* Can't share radix FFTs */
 
 	cloned_gwdata->to_radix_gwdata = NULL;
@@ -6633,9 +6641,11 @@ void gwdone (
 	if (gwdata->large_pages_ptr != NULL) large_pages_free (gwdata->large_pages_ptr), gwdata->large_pages_ptr = NULL;
 	else aligned_free (gwdata->gwnum_memory), gwdata->gwnum_memory = NULL;
 
+	// Free structures that allocated for original and cloned gwdatas
+	free (gwdata->dd_data); gwdata->dd_data = NULL;
+
 	// Free items that are shared with cloned gwdatas
 	if (gwdata->clone_of == NULL) {
-		free (gwdata->dd_data); gwdata->dd_data = NULL;
 		free (gwdata->GW_MODULUS); gwdata->GW_MODULUS = NULL;
 	}
 

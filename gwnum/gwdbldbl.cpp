@@ -9,13 +9,14 @@
  *  This is the only C++ routine in the gwnum library.  Since gwnum is
  *  a C based library, we declare all routines here as extern "C".
  *
- *  Copyright 2005-2021 Mersenne Research, Inc.  All rights reserved.
+ *  Copyright 2005-2022 Mersenne Research, Inc.  All rights reserved.
  *
  **************************************************************/
 
 /* Include files */
 
 #include "gwdbldbl.h"
+#include <memory>
 
 /* Pick which doubledouble package we will use. */
 
@@ -793,6 +794,14 @@ extern "C"
 void *gwdbldbl_data_alloc (void)
 {
 	return (malloc (sizeof (struct gwdbldbl_constants)));
+}
+
+extern "C"
+void *gwdbldbl_data_clone (void *orig)
+{
+	void *clone = malloc (sizeof (struct gwdbldbl_constants));
+	if (clone != NULL) memcpy (clone, orig, sizeof (struct gwdbldbl_constants));
+	return (clone);
 }
 
 extern "C"
