@@ -3260,8 +3260,10 @@ void polymult_line (
 		}
 
 		// Now execute a Karatsuba implementation
-		else if (plan->impl == POLYMULT_IMPL_KARATSUBA) {
+ 		else if (plan->impl == POLYMULT_IMPL_KARATSUBA) {
 			karatsuba_line (pmdata, invec1, invec1_size, invec2, invec2_size, tmpvec, outvec);
+			// Clear poly FFT size for next invec2 since we changed tmpvec
+			prev_fft_size = 0;
 		}
 
 		// Now execute a poly FFT implementation
