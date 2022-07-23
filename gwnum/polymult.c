@@ -3283,6 +3283,8 @@ void polymult_line (
 			}
 			// Now do the necessary forward FFTs, pointwise multiply, and inverse FFT.
 			fft_line (pmdata, tmpvec, outvec, outvec, scratch, fft_size, fft_options);
+			// Remember poly FFT size for next invec2
+			prev_fft_size = fft_size;
 		}
 
 		// Emulate circular_size when necessary.  We only do this for coefficients that might actual be returned to the caller.
@@ -3318,9 +3320,6 @@ void polymult_line (
 
 		// Copy outvec to the output gwnums.  Also apply optional FMA operations.
 		write_line (pmdata->gwdata, gw_outvec, gw_outvec_size, line, true_outvec + LSWs_skipped, gw_fmavec, options);
-
-		// Remember poly FFT size for next invec2
-		prev_fft_size = fft_size;
 	    }
 	}
 
