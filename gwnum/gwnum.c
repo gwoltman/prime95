@@ -10790,15 +10790,15 @@ void multithread_op (
 	data.is_quick = is_quick;
 
 /* Handle gwcopy for all architectures */
-//BUG - is there a better alternative to memcpy esp. built with our MSVC 2005 environment?  Like using SSE/AVX/AVX-512 loads and stores.
+//BUG - is there a better alternative to memcpy?  Like using SSE/AVX/AVX-512 loads and stores.
 //BUG - is there any particular advantage to aligning moves on 128, 256, or 4096 byte boundary?
 
 	if (asm_proc == NULL) {
 		int	size, movesize;
 
-		size = gwnum_datasize (gwdata) + GW_HEADER_SIZE (gwdata);
-		data.s1 = (gwnum) ((char *) data.s1 - GW_HEADER_SIZE (gwdata));
-		data.d1 = (gwnum) ((char *) data.d1 - GW_HEADER_SIZE (gwdata));
+		size = 7 * sizeof (uint32_t) + gwnum_datasize (gwdata);
+		data.s1 = (gwnum) ((char *) &(((uint32_t *) data.s1)[-7]));
+		data.d1 = (gwnum) ((char *) &(((uint32_t *) data.d1)[-7]));
 
 		// Move any bytes before a 128-byte boundary
 		if ((intptr_t) data.s1 & 127) {
@@ -11030,22 +11030,21 @@ void gwcopy (			/* Copy a gwnum */
 	gwnum	s,		/* Source */
 	gwnum	d)		/* Dest */
 {
-	uint32_t free_offset;
 
-/* Load the one piece of information that should not be copied over */
+/* There is one piece of information that must not be copied over.  The allocation flags/index at ((uint32_t *) d)[-8] used to free gwnum memory. */
+/* NOTE: we used to load this value, overwrite it with memmove, then restore it.  This did not work in a multi-threaded environment when gwfree_freeable */
+/* changed the value after we loaded it and before we restored it. */
 
-	free_offset = ((uint32_t *) d)[-8];
+/* Copy the header before the data we are preserving */
 
-/* Copy the data and 96-byte header */
+	memmove ((char *) d - GW_HEADER_SIZE (gwdata), (char *) s - GW_HEADER_SIZE (gwdata), GW_HEADER_SIZE (gwdata) - 8 * sizeof (uint32_t));
+
+/* Copy the header after the data we are preserving along with all the gwnum data */
 
 	if (gwdata->num_threads > 1)
 		multithread_op (gwdata, s, NULL, d, NULL, NULL, TRUE);
 	else
-		memmove ((char *) d - GW_HEADER_SIZE (gwdata), (char *) s - GW_HEADER_SIZE (gwdata), gwnum_datasize (gwdata) + GW_HEADER_SIZE (gwdata));
-
-/* Restore the one piece of information that should not be copied over */
-
-	((uint32_t *) d)[-8] = free_offset;
+		memmove ((char *) &(((uint32_t *) d)[-7]), (char *) &(((uint32_t *) s)[-7]), 7 * sizeof (uint32_t) + gwnum_datasize (gwdata));
 
 /* Update counts */
 
