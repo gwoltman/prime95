@@ -3479,7 +3479,7 @@ void polymult_wait_on_helpers (
 	}
 	// User-defined helpers require syncing up cloned gwdata stats and restoring main thread's gwnum's multithreading capabilities
 	if (!pmdata->helpers_doing_polymult) {
-		gwclone_merge_stats (pmdata->gwdata, pmdata->stats_gwdata);		// Add our stats to pmdata->stats_gwdata
+		if (pmdata->stats_gwdata != NULL) gwclone_merge_stats (pmdata->gwdata, pmdata->stats_gwdata);	// Add our stats to pmdata->stats_gwdata
 		gwset_num_threads (pmdata->gwdata, pmdata->saved_gwdata_num_threads);
 	}
 }
