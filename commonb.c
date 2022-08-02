@@ -11106,9 +11106,9 @@ pfail_wont_get_better:
 		if (proofgen_waits > 2) proofgen_waits = 2;
 pfail:		if (fd >= 0) _close (fd);
 		if (fdout >= 0) {
+			_chsize_s (fdout, proof_file_start_offset);
 			_close (fdout);
 			if (proof_file_start_offset == 0) _unlink (tmp_proof_filename);
-			else _chsize_s (fd, proof_file_start_offset);
 		}
 		if (M != NULL) gwfree (gwdata, M);
 
