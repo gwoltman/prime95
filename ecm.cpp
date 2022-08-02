@@ -7596,6 +7596,7 @@ start_timer_from_zero (timers, 0);
 
 //GW: Make sure error paths close fd, free Ftree
 	if (ecmdata.Ftree_polys_in_mem < 2) {
+		_chsize_s (fd, 0);		// On a google drive, deleting a big file does not free disk space.  So truncate it before deleting.
 		_close (fd);
 		_unlink (ftree_filename);
 	}
