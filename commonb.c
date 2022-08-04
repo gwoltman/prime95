@@ -387,7 +387,8 @@ uint32_t map_aux_to_core (
 {
 	ASSERTG (base_core_num < (int) HW_NUM_CORES);
 	// Without hyperthreading.  Aux-thread-num is same as core # since we are running one thread per core.  Map to hwloc core numbering.
-	if (!hyperthreading) return (get_ranked_core (base_core_num + aux_thread_num));
+	// With P-1 having an extra threads option to perhaps usefully take advantage of hyperthreads, we do a modulo so the extra threads return valid core numbers.
+	if (!hyperthreading) return (get_ranked_core ((base_core_num + aux_thread_num) % HW_NUM_CORES));
 	// With hyperthreading.  Use every thread on each core.  Map to hwloc core numbering.
 	uint32_t total_threads = 0;
 	uint32_t hwloc_core = 0;
@@ -515,9 +516,7 @@ void SetPriority (
 		if (worker_core_count < HW_NUM_COMPUTE_CORES && HW_NUM_COMPUTE_CORES == HW_NUM_CORES && IniGetInt (INI_FILE, "ReserveCore0", 0)) {
 			bind_type = 0;			// Set affinity to a specific physical CPU core
 			// Map prime95 core number and auxiliary thread number to hwloc core number.
-			// Normally this works great, but now P-1 can request extra threads (in case hyperthreading helps in polymult) which lets
-			// aux_thread_num exceed the number of cores.  Thus, we do a modulo to make the core numbering work out OK.
-			core = map_aux_to_core (cores_used_by_lower_workers + 1, info->aux_thread_num % HW_NUM_CORES, info->normal_work_hyperthreading);
+			core = map_aux_to_core (cores_used_by_lower_workers + 1, info->aux_thread_num, info->normal_work_hyperthreading);
 			break;
 		}
 
@@ -526,9 +525,7 @@ void SetPriority (
 		if (worker_core_count <= HW_NUM_CORES) {
 			bind_type = 0;			// Set affinity to a specific physical CPU core
 			// Map prime95 core number and auxiliary thread number to hwloc core number.
-			// Normally this works great, but now P-1 can request extra threads (in case hyperthreading helps in polymult) which lets
-			// aux_thread_num exceed the number of cores.  Thus, we do a modulo to make the core numbering work out OK.
-			core = map_aux_to_core (cores_used_by_lower_workers, info->aux_thread_num % HW_NUM_CORES, info->normal_work_hyperthreading);
+			core = map_aux_to_core (cores_used_by_lower_workers, info->aux_thread_num, info->normal_work_hyperthreading);
 			break;
 		}
 
