@@ -16,6 +16,7 @@
 /* Include files */
 
 #include "gwdbldbl.h"
+#include <cstring>
 #include <memory>
 
 /* Pick which doubledouble package we will use. */
