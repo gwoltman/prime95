@@ -5191,73 +5191,112 @@ static __inline void pass1_state0_assign_next_block (
 	}
 }
 
-/* Assign a thread's first block in pass 1 state 1. */
-/* Returns TRUE if successful, FALSE if no free sections were found */
+/* Acquire lock to allow changing carry section's critical data.  Lock contention should be exceedingly rare. */
+
+void __inline lock_carry_section (gwhandle *gwdata, int i) {
+	while (atomic_fetch_incr (gwdata->pass1_carry_sections[i].change_in_progress) != 0) {
+		atomic_decr (gwdata->pass1_carry_sections[i].change_in_progress);
+		atomic_spinwait (gwdata->pass1_carry_sections[i].change_in_progress, 0);
+	}
+}
+
+/* Free lock allowing changing of carry section's critical data */
+
+void __inline unlock_carry_section (gwhandle *gwdata, int i) {
+	atomic_decr (gwdata->pass1_carry_sections[i].change_in_progress);
+}
+
+/* Assign a thread's first block in pass 1 state 1.  Returns TRUE if successful, FALSE if no free sections were found. */
 
 int pass1_state1_assign_first_block (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
-	int	i;
-
 	/* Get thread number / section number */
-	i = asm_data->thread_num;
+	int i = asm_data->thread_num;
 
 	/* If there are zero blocks in the section, see if we can find (part of) another section we can work on */
 	if (gwdata->pass1_carry_sections[i].next_block == gwdata->pass1_carry_sections[i].last_block) {
-		unsigned int j, largest_unfinished, largest_unfinished_size, min_split_size;
+		unsigned int min_split_size;
 
 		/* Calculate minimum split size.  It must be at least num_postfft_blocks. */
 		/* It must also be a multiple of 8 if AVX zero-padded (because of using YMM_SRC_INCR[0-7] in */
 		/* ynorm012 macros) or if SSE2 because of using BIGLIT_INCR4 in xnorm012 macros. */
 		/* AVX-512 will already be a multiple of 8. */
 		min_split_size = gwdata->num_postfft_blocks;
-		if (((gwdata->cpu_flags & CPU_AVX) && gwdata->ZERO_PADDED_FFT) ||
-		    !(gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX)))
+		if (((gwdata->cpu_flags & CPU_AVX) && gwdata->ZERO_PADDED_FFT) || !(gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX)))
 			min_split_size = round_up_to_multiple_of (min_split_size, 8);
+		/* Since an active section is prefetching the next block, increase the minimum split size so that the active section can processes */
+		/* the next block that it is prefetching. */
+		min_split_size += asm_data->cache_line_multiplier;
+		/* Now splitting a section is not without cost.  Carrying is more efficient without a split.  So, I did some throughput benchmarks on a quad */
+		/* core FMA3 machine examining if increasing the minimum split size makes sense.  It did, but conclusions were difficult because noticed */
+		/* differences may not have been within the margin of error.  Anyway, it seems increasing the minimum split size one notch is indicated. */
+		min_split_size += asm_data->cache_line_multiplier;
 
-		/* Find largest unfinished section for splitting */
-		largest_unfinished = i;
-		largest_unfinished_size = 0;
-		for (j = 0; j < gwdata->num_threads; j++) {
-			unsigned int size;
+		/* Loop until we find a splittable section.  This loop is necessary because we look for the largest splittable section without obtaining */
+		/* any locks.  When we finally acquire a lock, the section might no longer be splittable. */
+		for ( ; ; ) {
+			unsigned int j, size, target, target_size, new_size;
 
-			if (gwdata->pass1_carry_sections[j].section_state >= 2) continue;
-			/* Since new section must be at least num_postfft_blocks in size and the existing */
-			/* section is prefetching the next block, make sure we are splitting at least */
-			/* num_postfft_blocks + asm_data->cache_line_multiplier in size. */
-			/* Note: deadlocks can occur if we don't take over sections that haven't started. */
-			size = gwdata->pass1_carry_sections[j].last_block - gwdata->pass1_carry_sections[j].next_block;
-			if (gwdata->pass1_carry_sections[j].section_state != 0 &&
-			    size < gwdata->num_postfft_blocks + asm_data->cache_line_multiplier) continue;
-			/* See if this section is big enough and the largest one thusfar. */
-			if (size > largest_unfinished_size && size >= min_split_size) {
-				largest_unfinished = j;
-				largest_unfinished_size = size;
+			/* Find largest unfinished section for splitting */
+			target_size = 0;
+			for (j = 0; j < gwdata->num_threads; j++) {
+				/* Only sections in state 1 can be split */
+				if (gwdata->pass1_carry_sections[j].section_state != 1) continue;
+				/* Calculate number of block not yet processed */
+				size = gwdata->pass1_carry_sections[j].last_block - gwdata->pass1_carry_sections[j].next_block;
+				/* See if this section is big enough and the largest one thusfar. */
+				if (size > target_size && size >= min_split_size) {
+					target = j;
+					target_size = size;
+					// During auxiliary threads startup we divide up the all-encompassing first section.  Skip looking at other sections.
+					if (gwdata->pass1_carry_sections_unallocated > 1 && j == 0) break;
+				}
 			}
-		}
 
-		/* If we found no sections that we can split, then return FALSE */
-		if (largest_unfinished_size == 0) return (FALSE);
+			/* If we found no sections that we can split, then return FALSE */
+			if (target_size == 0) return (FALSE);
 
-		/* If the target section hasn't even started, then take the entire section under */
-		/* the theory that the thread must be busy servicing some other process. */
-		if (gwdata->pass1_carry_sections[largest_unfinished].section_state == 0) {
-			memcpy (&gwdata->pass1_carry_sections[i],
-				&gwdata->pass1_carry_sections[largest_unfinished],
-				sizeof (struct pass1_carry_sections));
-			gwdata->pass1_carry_sections[largest_unfinished].start_block =
-			gwdata->pass1_carry_sections[largest_unfinished].next_block =
-				gwdata->pass1_carry_sections[largest_unfinished].last_block;
-			gwdata->pass1_carry_sections[largest_unfinished].dependent_section = -1;
-		}
+			/* Acquire a lock on the section we are trying to split */
+			lock_carry_section (gwdata, target);
 
-		/* Split the target section */
-		else {
-			unsigned int new_size;
+			/* Now that we have the target lock, check again that the target section is splittable */
+			if (gwdata->pass1_carry_sections[target].section_state == 1)
+				target_size = gwdata->pass1_carry_sections[target].last_block - gwdata->pass1_carry_sections[target].next_block;
+			else
+				target_size = 0;
+			if (target_size < min_split_size) {
+				unlock_carry_section (gwdata, target);
+				continue;
+			}
 
-			new_size = largest_unfinished_size / 2;
-			new_size = round_down_to_multiple_of (new_size, asm_data->cache_line_multiplier);
+			/* As auxiliary threads start up, limit the number of blocks each takes from the main thread's initial big section. */
+			/* Make an extra effort to have each section be about the same size, e.g. 7 blocks among 4 threads as 4,1,1,1 is worse than 1,2,2,2. */
+			if (gwdata->pass1_carry_sections_unallocated > 1) {
+				/* If all auxiliary threads were to instantly start up, the most even split would be: */
+				/* (target_size (blocks not yet processed) + cache_line_multiplier (the block currently being processed)) divided by */
+				/* (pass1_carry_sections_unallocated (number of auxiliary threads yet to start) + 1 (the main thread that is being split). */
+				/* Round this value up to a multiple of cache_line_multiplier to avoid the 4,1,1,1 vs. 1,2,2,2 situation */
+				new_size = divide_rounding_up (target_size + asm_data->cache_line_multiplier, gwdata->pass1_carry_sections_unallocated + 1);
+				new_size = round_up_to_multiple_of (new_size, asm_data->cache_line_multiplier);
+				gwdata->pass1_carry_sections_unallocated--;
+			}
+
+			/* Split the target section in half.  Our goal being to have these two sections finish as close as possible to the same time. */
+			/* Since the target section is at least a little bit processed, favor making the amount we're spliting off larger than the amount were */
+			/* leaving in the target section.  However, if we're near the end of the target section favor making the amount we're splitting off */
+			/* smaller than the amount were leaving in the target section because the target cannot finish its section until the split off section */
+			/* has completed its first blocks. */
+			else {
+				new_size = (target_size + asm_data->cache_line_multiplier) / 2;
+				if (new_size > (unsigned int) (4 * asm_data->cache_line_multiplier))
+					new_size = round_up_to_multiple_of (new_size, asm_data->cache_line_multiplier);
+				else
+					new_size = round_down_to_multiple_of (new_size, asm_data->cache_line_multiplier);
+			}
+
+			/* Enforce further restrictions on the size of the split off section */
 			if (((gwdata->cpu_flags & CPU_AVX512F) && gwdata->ZERO_PADDED_FFT) ||
 			    (!(gwdata->cpu_flags & CPU_AVX512F) && (gwdata->cpu_flags & CPU_AVX) && gwdata->ZERO_PADDED_FFT) ||
 			    (!(gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX))))
@@ -5265,51 +5304,38 @@ int pass1_state1_assign_first_block (
 			if (new_size < gwdata->num_postfft_blocks) new_size = gwdata->num_postfft_blocks;
 
 			// Make sure the new size is a multiple of num_postfft_blocks.  This is necessary because
-			// a multihreaded PRP test of 66666*5^1560000-1 will fail if we don't.  It fails because the
+			// a multihreaded PRP test of 66666*5^1560000-1 will fail if we don't.  It fails because
 			// we need more than 4 carry words and the FFT has a clm of 1 (which is 4 words).  If the
 			// start_block in a section is not a multiple of num_postfft_blocks, then normval2
 			// used in ynorm012_wpn will not properly correct the big/lit flags pointer.
 			new_size = round_up_to_multiple_of (new_size, gwdata->num_postfft_blocks);
 
-			// Peel off the ending blocks of largest_unfinished section
+			// Peel off the ending blocks of the target section for this thread to start processing
 			gwdata->pass1_carry_sections[i].start_block =
-			gwdata->pass1_carry_sections[i].next_block =
-				gwdata->pass1_carry_sections[largest_unfinished].last_block - new_size;
-			gwdata->pass1_carry_sections[i].last_block =
-				gwdata->pass1_carry_sections[largest_unfinished].last_block;
-			gwdata->pass1_carry_sections[i].can_carry_into_next =
-				gwdata->pass1_carry_sections[largest_unfinished].can_carry_into_next;
+			gwdata->pass1_carry_sections[i].next_block = gwdata->pass1_carry_sections[target].last_block - new_size;
+			gwdata->pass1_carry_sections[i].last_block = gwdata->pass1_carry_sections[target].last_block;
+			gwdata->pass1_carry_sections[i].carry_out_section = gwdata->pass1_carry_sections[target].carry_out_section;
+			gwdata->pass1_carry_sections[i].carry_in_blocks_finished = FALSE;	// Must be done AFTER changing start_block!
 
-			// Shrink largest_unfinished section
-			gwdata->pass1_carry_sections[largest_unfinished].last_block -= new_size;
-			gwdata->pass1_carry_sections[largest_unfinished].can_carry_into_next = FALSE;
-			gwdata->pass1_carry_sections[i].dependent_section = largest_unfinished;
-		}
+			// Shrink target section
+			gwdata->pass1_carry_sections[target].last_block -= new_size;
+			gwdata->pass1_carry_sections[target].carry_out_section = i;
 
-		/* Finally, patch dependent_section if necessary */
-		if (! gwdata->pass1_carry_sections[i].can_carry_into_next) {
-			for (j = 0; j < gwdata->num_threads; j++) {
-				if (gwdata->pass1_carry_sections[j].start_block == gwdata->pass1_carry_sections[j].last_block) continue;
-				if (gwdata->pass1_carry_sections[j].start_block == gwdata->pass1_carry_sections[i].last_block ||
-				    (gwdata->pass1_carry_sections[j].start_block == 0 &&
-				     gwdata->pass1_carry_sections[i].last_block == gwdata->num_pass1_blocks)) {
-					gwdata->pass1_carry_sections[j].dependent_section = i;
-					break;
-				}
-			}
-			ASSERTG (j != gwdata->num_threads);
+			// Unlock target
+			unlock_carry_section (gwdata, target);
+			break;
 		}
 	}
 
-	/* Return the first block in this section */
+	/* Set initial this_block, bump section's next block pointer, update section state.  Free lock. */
 	asm_data->this_block = gwdata->pass1_carry_sections[i].next_block;
+	gwdata->pass1_carry_sections[i].next_block += asm_data->cache_line_multiplier;
+	gwdata->pass1_carry_sections[i].section_state = 1;
+
+	/* Return the first block in this section */
 	asm_data->data_addr = pass1_data_addr (gwdata, asm_data, asm_data->this_block);
 	asm_data->premult_addr = pass1_premult_addr (gwdata, asm_data->this_block);
 	pass1_state1_norm_addrs (gwdata, asm_data);
-
-	/* Bump section's next available block pointer, update section state */
-	gwdata->pass1_carry_sections[i].next_block += asm_data->cache_line_multiplier;
-	gwdata->pass1_carry_sections[i].section_state = 1;
 
 	/* In SSE2 zero-padded FFT, set the upper half of the carries to zero instead */
 	/* of XMM_BIGVAL.  This saves us a couple of clocks per FFT data element in xnorm_2d_zpad. */
@@ -5338,13 +5364,10 @@ void pass1_state1_assign_next_block (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
-	int	i;
-
 	/* Get thread number / section number */
-	i = asm_data->thread_num;
+	int i = asm_data->thread_num;
 
-	/* Return the next block in this section (or first block in next section */
-	/* for carry propagation and possible postfft processing) */
+	/* Return the next block in this section (or first block in next section for carry propagation and possible postfft processing) */
 	asm_data->next_block = gwdata->pass1_carry_sections[i].next_block;
 	if (asm_data->next_block == gwdata->pass1_carry_sections[i].last_block && gwdata->pass1_carry_sections[i].section_state == 3)
 		asm_data->next_block = asm_data->this_block;
@@ -5501,7 +5524,7 @@ void auxiliary_thread (void *arg)
 		if (gwdata->pass1_state == PASS1_STATE_MULTITHREAD_OP) {
 			asm_data->DBLARG = main_thread_asm_data->DBLARG;
 			do_multithread_op_work (gwdata, asm_data);
-			goto aux_out_of_work_unlocked;
+			goto aux_out_of_work;
 		}
 
 /* Copy the main thread's asm_data's DESTARG for proper next_block address calculations.  We'll copy more asm_data later. */
@@ -5513,16 +5536,14 @@ void auxiliary_thread (void *arg)
 
 		if (gwdata->pass1_state == 0) {
 			pass1_state0_assign_first_block (gwdata, asm_data);
-			if (asm_data->this_block >= gwdata->num_pass1_blocks) goto aux_out_of_work_unlocked;
+			if (asm_data->this_block >= gwdata->num_pass1_blocks) goto aux_out_of_work;
 			pass1_state0_assign_next_block (gwdata, asm_data);
 		} else if (gwdata->pass1_state == 1) {
-			gwmutex_lock (&gwdata->thread_lock);
-			if (! pass1_state1_assign_first_block (gwdata, asm_data)) goto aux_out_of_work_locked;
+			if (! pass1_state1_assign_first_block (gwdata, asm_data)) goto aux_out_of_work;
 			pass1_state1_assign_next_block (gwdata, asm_data);
-			gwmutex_unlock (&gwdata->thread_lock);
 		} else {
 			pass2_assign_first_block (gwdata, asm_data);
-			if (asm_data->this_block >= gwdata->num_pass2_blocks) goto aux_out_of_work_unlocked;
+			if (asm_data->this_block >= gwdata->num_pass2_blocks) goto aux_out_of_work;
 			pass2_assign_next_block (gwdata, asm_data);
 		}
 
@@ -5579,15 +5600,11 @@ void auxiliary_thread (void *arg)
 			pass1_aux_entry_point (asm_data);
 		else
 			pass2_aux_entry_point (asm_data);
-goto aux_out_of_work_unlocked;
 
 /* The auxiliary thread has run out of work.  Decrement the count of number of active auxiliary threads. */
 /* Signal all threads done when last auxiliary thread is done. */
 
-aux_out_of_work_locked:
-		gwmutex_unlock (&gwdata->thread_lock);
-aux_out_of_work_unlocked:
-
+aux_out_of_work:
 		// No more work to assign to helper threads
 		gwdata->all_work_assigned = TRUE;		// Set flag so any helper threads that have not yet started don't try to do any work
 		gwevent_reset (&gwdata->work_to_do);		// Reset event saying there is work for helper threads to do
@@ -5655,7 +5672,6 @@ void pass1_wake_up_threads (
 /* Initialization for the inverse FFT (and optional next forward FFT) case */
 
 	if (gwdata->pass1_state == 1) {
-		int	i, num_blocks_allocated, num_blocks_remaining, num_threads_remaining;
 
 /* For the two destination case, switch from writing the FFT data to writing the multiplication data. */
 
@@ -5678,50 +5694,11 @@ void pass1_wake_up_threads (
 			asm_data->u.xmm.XMM_MAXERR[1] = asm_data->MAXERR;
 		}
 
-/* Split the available pass 1 blocks into contiguous sections for each thread to process. */
+/* Create one big section containing all the pass 1 blocks.  Auxiliary threads will split this big section as each thread activates. */
 
-		num_blocks_allocated = 0;
-		num_blocks_remaining = gwdata->num_pass1_blocks;
-		num_threads_remaining = gwdata->num_threads;
-		for (i = 0; i < (int) gwdata->num_threads; i++) {
-			int	num_blocks;
-
-			/* Calculate number of blocks in this section.  It must be a multiple of cache_line_multiplier. */
-			/* It must also be a multiple of 8 if AVX-512 zero-padded (because of using ZMM_SRC_INCR[0-7] in */
-			/* znorm012 macros) or if AVX zero-padded (because of using YMM_SRC_INCR[0-7] in ynorm012 macros) */
-			/* or if SSE2 because of using BIGLIT_INCR4 in xnorm012 macros. */
-			num_blocks = divide_rounding_up (num_blocks_remaining, num_threads_remaining);
-			num_blocks = round_up_to_multiple_of (num_blocks, asm_data->cache_line_multiplier);
-			if (((gwdata->cpu_flags & CPU_AVX512F) && gwdata->ZERO_PADDED_FFT) ||
-			    (!(gwdata->cpu_flags & CPU_AVX512F) && (gwdata->cpu_flags & CPU_AVX) && gwdata->ZERO_PADDED_FFT) ||
-			    (!(gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX))))
-				num_blocks = round_up_to_multiple_of (num_blocks, 8);
-			if (num_blocks < (int) gwdata->num_postfft_blocks) num_blocks = gwdata->num_postfft_blocks;
-
-			// Make sure the new size is a multiple of num_postfft_blocks.  This is necessary because
-			// a 5 or 7 threaded PRP test of 66666*5^1560000-1 will fail if we don't.  It fails because the
-			// we need more than 4 carry words and the FFT has a clm of 1 (which is 4 words).  If the
-			// start_block in a section is not a multiple of num_postfft_blocks, then normval2
-			// used in ynorm012_wpn will not properly correct the big/lit flags pointer.
-			num_blocks = round_up_to_multiple_of (num_blocks, gwdata->num_postfft_blocks);
-
-			/* Init section info */
-			gwdata->pass1_carry_sections[i].start_block = num_blocks_allocated;
-			gwdata->pass1_carry_sections[i].last_block = num_blocks_allocated + num_blocks;
-			gwdata->pass1_carry_sections[i].next_block = num_blocks_allocated;
-			gwdata->pass1_carry_sections[i].section_state = 0;
-			gwdata->pass1_carry_sections[i].can_carry_into_next = FALSE;
-			gwdata->pass1_carry_sections[i].dependent_section = i - 1;
-
-			/* Adjust counters */
-			num_blocks_allocated += num_blocks;
-			num_blocks_remaining -= num_blocks;
-			num_threads_remaining--;
-
-			/* The last section that allocates blocks propagates its carries into the first section */
-			if (num_blocks && num_blocks_remaining == 0)
-				gwdata->pass1_carry_sections[0].dependent_section = i;
-		}
+		memset (gwdata->pass1_carry_sections, 0, gwdata->num_threads * sizeof (struct pass1_carry_sections));
+		gwdata->pass1_carry_sections[0].last_block = gwdata->num_pass1_blocks;
+		gwdata->pass1_carry_sections_unallocated = gwdata->num_threads - 1;
 
 /* Set up the this_block and next_block values for the main thread */
 
@@ -5879,8 +5856,7 @@ int pass1_get_next_block (
 			return (PASS1_DO_MORE_INVERSE_FFT);
 		}
 
-/* Handle the case where we just did the last block.  We now need to apply the */
-/* carries back to the first blocks. */
+/* Handle the case where we just did the last block.  We now need to apply the carries back to the first blocks. */
 
 		gwdata->pass1_carry_sections[0].section_state = 2;
 		asm_data->this_block = 0;
@@ -5989,60 +5965,80 @@ int pass1_get_next_block_mt (
 /* 3 = section is doing postfft processing of next section */
 /* 4 = section complete */
 
-/* Grab lock before reading or writing any gwdata values. */
-
-	gwmutex_lock (&gwdata->thread_lock);
-
 /* Handle the common case, we're in the middle of processing a section */
 
 	i = asm_data->thread_num;
 	ASSERTG (gwdata->pass1_carry_sections[i].section_state >= 1 && gwdata->pass1_carry_sections[i].section_state <= 3);
 	if (gwdata->pass1_carry_sections[i].section_state == 1) {
 
-/* If we just finished off the first blocks in the section, then set dependent section's OK to carry into flag */
-/* Signal an event in case the dependent section is waiting on us to process our first blocks. */
+/* If we just finished off the first blocks in the section, then set carry_in_blocks_finished. */
+/* Signal an event in case the dependent section is waiting on us to finish processing our first blocks. */
 
-		if (asm_data->this_block + asm_data->cache_line_multiplier ==
-				gwdata->pass1_carry_sections[i].start_block + gwdata->num_postfft_blocks) {
-			int	dep = gwdata->pass1_carry_sections[i].dependent_section;
-			ASSERTG (gwdata->pass1_carry_sections[dep].last_block == gwdata->pass1_carry_sections[i].start_block ||
-				 (gwdata->pass1_carry_sections[dep].last_block == gwdata->num_pass1_blocks &&
-				  gwdata->pass1_carry_sections[i].start_block == 0));
-			gwdata->pass1_carry_sections[dep].can_carry_into_next = TRUE;
-			gwdata->pass1_carry_sections[i].dependent_section = -1;
+		if (asm_data->this_block + asm_data->cache_line_multiplier == gwdata->pass1_carry_sections[i].start_block + gwdata->num_postfft_blocks) {
+			gwdata->pass1_carry_sections[i].carry_in_blocks_finished = TRUE;
 			gwevent_signal (&gwdata->can_carry_into);
 		}
+
+/* Temporarily prevent another section from splitting this section while we are examining and changing next block, etc.  Acquire a lock. */
+
+		lock_carry_section (gwdata, i);
 
 /* If there is another block to process in the section, let's process it */
 
 		if (gwdata->pass1_carry_sections[i].next_block != gwdata->pass1_carry_sections[i].last_block) {
+			// Set this_block to the block we've been prefetching.  Bump next block pointer.
 			asm_data->this_block = gwdata->pass1_carry_sections[i].next_block;
 			gwdata->pass1_carry_sections[i].next_block += asm_data->cache_line_multiplier;
+			// We're done changing block numbers.  Unlock, set pointers and return to asm code.
+			unlock_carry_section (gwdata, i);
 			asm_data->data_addr = pass1_data_addr (gwdata, asm_data, asm_data->this_block);
 			asm_data->premult_addr = pass1_premult_addr (gwdata, asm_data->this_block);
 			pass1_state1_norm_addrs (gwdata, asm_data);
 			pass1_state1_assign_next_block (gwdata, asm_data);
-			gwmutex_unlock (&gwdata->thread_lock);
 			return (PASS1_DO_MORE_INVERSE_FFT);
 		}
 
-/* Handle the case where we just did the last block in the section.  We now need to apply this */
-/* section's carries to the next section.  Unfortunately, the next section may not have processed */
-/* it's first blocks yet forcing us to wait.  Technically, each section should have its own event */
-/* as there is no guarantee that the signal will wake up the thread waiting here.  However, */
-/* waiting here should be rare as it only happens when one thread completes an entire section */
+/* We just processed the last block in the section.  We now need to apply this section's carries to the next section.  Unfortunately, the next section */
+/* may not have processed it's first blocks yet forcing us to wait.  Technically, each section should have its own event as there is no guarantee that */
+/* the signal will wake up the thread waiting here.  However, waiting here should be rare as it only happens when one thread completes an entire section */
 /* before the dependent thread has processed its first blocks. */
+/* NOTE: The carry out section may have completed and is now processing a split-off section.  Thus, we must check both the carry_in_blocks_finished flag or */
+/* mismatching last_block/first_block values.  ALSO, SECTION SPLITTING CODE MUST CHANGE THESE VALUES IN A PARTICULAR ORDER SUCH THAT THIS CHECK ALWAYS WORKS. */
 
-		while (! gwdata->pass1_carry_sections[i].can_carry_into_next) {
-			gwevent_reset (&gwdata->can_carry_into);
-			gwmutex_unlock (&gwdata->thread_lock);
-			gwevent_wait (&gwdata->can_carry_into, 0);
+// DANGER: This reset, recheck, and wait is fraught with danger!  The initial implementation hung in this scenario:
+//	thread 1		thread 1a		thread 2		thread 2a
+//	carry check fails
+//	reset
+//	carry check fails
+//				sets carry finished
+//				signals
+//							carry check fails
+//										sets carry finished
+//										signals
+//							reset
+//							carry check succeeds
+//	waits and hangs
+// To work around this issue (no resets is equivalent to a spin loop, multiple resets leads to missed signals), I added code to atomicly increment a counter
+// and do only one reset.
+
+		gwdata->pass1_carry_sections[i].section_state = 2;
+		unlock_carry_section (gwdata, i);
+
+		int carry_out_section = gwdata->pass1_carry_sections[i].carry_out_section;
+		int last_block = gwdata->pass1_carry_sections[i].last_block != gwdata->num_pass1_blocks ? gwdata->pass1_carry_sections[i].last_block : 0;
+		while (last_block == gwdata->pass1_carry_sections[carry_out_section].start_block &&
+		       !gwdata->pass1_carry_sections[carry_out_section].carry_in_blocks_finished) {
 			gwmutex_lock (&gwdata->thread_lock);
+			if (atomic_fetch_incr (gwdata->can_carry_into_counter) == 0) gwevent_reset (&gwdata->can_carry_into);
+			gwmutex_unlock (&gwdata->thread_lock);
+			if (last_block != gwdata->pass1_carry_sections[carry_out_section].start_block ||
+			    gwdata->pass1_carry_sections[carry_out_section].carry_in_blocks_finished) { atomic_decr (gwdata->can_carry_into_counter); break; }
+			gwevent_wait (&gwdata->can_carry_into, 0);
+			atomic_decr (gwdata->can_carry_into_counter);
 		}
 
 /* Now apply this section's carries to the next section. */
 
-		gwdata->pass1_carry_sections[i].section_state = 2;
 		asm_data->this_block = gwdata->pass1_carry_sections[i].last_block;
 		if (asm_data->this_block == gwdata->num_pass1_blocks) asm_data->this_block = 0;
 		/* Copy the 7 ZPAD values that were computed in the main thread */
@@ -6052,7 +6048,6 @@ int pass1_get_next_block_mt (
 		}
 		asm_data->data_addr = pass1_data_addr (gwdata, asm_data, asm_data->this_block);
 		pass1_state1_carry_addrs (gwdata, asm_data);
-		gwmutex_unlock (&gwdata->thread_lock);
 		return (PASS1_DO_GWCARRIES);
 	}
 
@@ -6093,7 +6088,6 @@ int pass1_get_next_block_mt (
 		asm_data->data_addr = pass1_data_addr (gwdata, asm_data, asm_data->this_block);
 		asm_data->premult_addr = pass1_premult_addr (gwdata, asm_data->this_block);
 		pass1_state1_assign_next_block (gwdata, asm_data);
-		gwmutex_unlock (&gwdata->thread_lock);
 		return (PASS1_DO_MORE_FORWARD_FFT);
 	}
 
@@ -6105,10 +6099,9 @@ int pass1_get_next_block_mt (
 
 	if (pass1_state1_assign_first_block (gwdata, asm_data)) {
 		pass1_state1_assign_next_block (gwdata, asm_data);
-		gwmutex_unlock (&gwdata->thread_lock);
 		return (PASS1_DO_MORE_INVERSE_FFT);
 	}
-   
+
 /* We've finished this thread, merge this thread's maxerr and sumout with the main thread */
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
@@ -6128,17 +6121,12 @@ int pass1_get_next_block_mt (
 		((double *) asm_data->DESTARG)[-3] += asm_data->u.xmm.XMM_SUMOUT[0] + asm_data->u.xmm.XMM_SUMOUT[1];
 	}
 
-/* There are no more blocks to process.  If this is an auxiliary thread */
-/* then return code telling the assembly code to exit. */
+/* There are no more blocks to process.  If this is an auxiliary thread then return code telling the assembly code to exit. */
 
-	if (asm_data->thread_num) {
-		gwmutex_unlock (&gwdata->thread_lock);
-		return (PASS1_EXIT_THREAD);
-	}
+	if (asm_data->thread_num) return (PASS1_EXIT_THREAD);
 
 /* There are no more blocks to process.  This is the main thread, wait for auxiliary threads to complete. */
 
-	gwmutex_unlock (&gwdata->thread_lock);
 	// Set no more work to do state
 	gwdata->all_work_assigned = TRUE;
 	gwevent_reset (&gwdata->work_to_do);
@@ -6375,6 +6363,7 @@ int multithread_init (
 	gwevent_init (&gwdata->all_helpers_done);
 	gwevent_init (&gwdata->can_carry_into);
 	atomic_set (gwdata->alt_work_to_do, 0);			// No work for helpers to do yet
+	atomic_set (gwdata->can_carry_into_counter, 0);		// No one waiting on a can_carry_into signal
 
 /* Set ptrs to call back routines in structure used by assembly code */
 
@@ -6567,20 +6556,17 @@ void multithread_term (
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 	int	i;
 
-/* If we are multithreading AND multithreading was initialized properly, then wait for compute threads to exit */
-/* before we free memory. */
+/* If we are multithreading AND multithreading was initialized properly, then wait for compute threads to exit before we free memory. */
 
 	if (gwdata->num_threads > 1 && gwdata->thread_lock != NULL) {
 
-/* Set variable that tells all auxiliary threads and hyperthreads to terminate. */
-/* Fire up auxiliary compute threads so they can exit. */
+/* Set variable that tells all auxiliary threads and hyperthreads to terminate.  Fire up auxiliary compute threads so they can exit. */
 
 		gwdata->helpers_must_exit = TRUE;
 		gwevent_signal (&gwdata->work_to_do);
 		atomic_set (gwdata->alt_work_to_do, 1);
 
-/* Wait for all compute threads to exit.  We must do this so */
-/* that this thread can safely delete the gwdata structure */
+/* Wait for all compute threads to exit.  We must do this so that this thread can safely delete the gwdata structure */
 
 		for (i = 0; i < (int) gwdata->num_threads - 1; i++)
 			if (gwdata->thread_ids[i]) gwthread_wait_for_exit (&gwdata->thread_ids[i]);
