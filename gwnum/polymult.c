@@ -657,9 +657,9 @@ void generate_sincos (
 	if (pmdata->cached_twiddles_enabled) {
 		for (int i = 0; i < pmdata->cached_twiddles_count; i++) {
 			if (fft_size == pmdata->cached_twiddles[i].size) {
-				pmdata->twiddles_initialized = fft_size;
 				pmdata->twiddles1 = pmdata->cached_twiddles[i].twiddles1;
 				pmdata->twiddles2 = pmdata->cached_twiddles[i].twiddles2;
+				pmdata->twiddles_initialized = fft_size;
 				pmdata->twiddles_are_from_cache = TRUE;
 				if (pmdata->num_threads > 1) gwmutex_unlock (&pmdata->poly_mutex);
 				return;
