@@ -5707,7 +5707,7 @@ begin:	factor_found = 0;
 			writeResults (buf);
 
 /* Format a JSON version of the result.  An example follows: */
-/* {"status":"F", "exponent":45581713, "worktype":"TF", "factors":["430639100587696027847"], */
+/* {"status":"F", "exponent":45581713, "worktype":"TF", "factors":["430639100587696027847"], "bitlo":73, "bithi":74, "rangecomplete":false, */
 /* "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "user":"gw_2", "cpu":"office_computer", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
@@ -5715,6 +5715,8 @@ begin:	factor_found = 0;
 			JSONaddExponent (JSONbuf, w);
 			strcat (JSONbuf, ", \"worktype\":\"TF\"");
 			sprintf (JSONbuf+strlen(JSONbuf), ", \"factors\":[\"%s\"]", str);
+			sprintf (JSONbuf+strlen(JSONbuf), ", \"bitlo\":%d", (bits < report_bits) ? (unsigned int) w->sieve_depth : bits);
+			sprintf (JSONbuf+strlen(JSONbuf), ", \"bithi\":%d, \"rangecomplete\":false", end_bits);
 			JSONaddProgramTimestamp (JSONbuf);
 			JSONaddUserComputerAID (JSONbuf, w);
 			strcat (JSONbuf, "}\n");
@@ -5788,7 +5790,7 @@ nextpass:	;
 		writeResults (buf);
 
 /* Format a JSON version of the result.  An example follows: */
-/* {"status":"NF", "exponent":25000000, "worktype":"TF", "bitlo":73, "bithi":74, */
+/* {"status":"NF", "exponent":25000000, "worktype":"TF", "bitlo":73, "bithi":74, "rangecomplete":true, */
 /* "security-code":"C6B0B26C", "program":{"name":"prime95", "version":"29.5", "build":"8"}, "timestamp":"2019-01-15 23:28:16", */
 /* "user":"gw_2", "cpu":"laptop1", "aid":"FF00AA00FF00AA00FF00AA00FF00AA00"} */
 
@@ -5796,7 +5798,7 @@ nextpass:	;
 		JSONaddExponent (JSONbuf, w);
 		strcat (JSONbuf, ", \"worktype\":\"TF\"");
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"bitlo\":%d", start_bits);
-		sprintf (JSONbuf+strlen(JSONbuf), ", \"bithi\":%d", end_bits);
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"bithi\":%d, \"rangecomplete\":true", end_bits);
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC3 (p));
 		JSONaddProgramTimestamp (JSONbuf);
 		JSONaddUserComputerAID (JSONbuf, w);
