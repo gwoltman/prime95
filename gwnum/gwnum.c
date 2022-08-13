@@ -163,6 +163,7 @@ void *avx_aux_prctab[] = {
 	&gwyaddnrzp3, &gwysubnrzp3, &gwyaddsubnrzp3, &gwyaddsnr3, &gwymulsnrzp3};
 
 aux_decl3y(ygw_carries_wpn)
+void gwy3_apply_carries (void *);
 
 void *avx_carries_prctab[] = {
 	&ygw_carries_wpn3, &ygw_carries_wpnr3, &ygw_carries_wpnzp3, &ygw_carries_wpnrzp3,
@@ -4336,7 +4337,7 @@ int internal_gwsetup (
 				asm_data->normval1 = gwdata->PASS2_SIZE * 16 / 128;
 			}
 			/* When adjusting big/lit ptr in add/sub/addsub/smallmul routines, we instead need to know */
-			/* "number of "clms in a 4KB page".  We also need to calculate the amount to bump the big/lit pointer. */
+			/* "number of clms in a 4KB page".  We also need to calculate the amount to bump the big/lit pointer. */
 			asm_data->normval2 = asm_data->normval1 / (asm_data->cache_line_multiplier / 8);
 			if (gwdata->ZERO_PADDED_FFT) asm_data->normval3 = gwdata->pass1_var_data_size -  asm_data->cache_line_multiplier / 2;
 			else asm_data->normval3 = gwdata->pass1_var_data_size - asm_data->cache_line_multiplier;
@@ -10818,10 +10819,9 @@ void multithread_op (
 
 	else {
 		data.num_blks = asm_data->addcount1;
-//		data.d1_carries = asm_data->carries;
-		// BUG/OPT - use scratch area rather than aligned_malloc?  one-pass FFTs are an issue.  We'd need to make
-		// sure scratch area is big enough and pre-allocate area for one-pass FFTs
-//		if (d2 != NULL && !is_quick) data.d2_carries = aligned_malloc (data.num_blks * 16 * sizeof (double), 128);
+		data.d1_carries = asm_data->carries;
+		// BUG/OPT - use scratch area rather than aligned_malloc?  We'd need to make sure scratch area is big enough
+		if (d2 != NULL && !is_quick) data.d2_carries = aligned_malloc (data.num_blks * 8 * sizeof (double), 128);
 	}
 
 /* Wake up the auxiliary threads */
@@ -10858,15 +10858,15 @@ void multithread_op (
 
 	if (is_quick) return;
 
+/* Set flags used in processing carries */
+
+	asm_data->zero_fft = 0;
+	asm_data->const_fft = 0;
+	asm_data->add_sub_smallmul_op = 1;
+
 /* Do the AVX-512 carry propagation */
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
-
-/* Set flags used in processing carries */
-
-		asm_data->zero_fft = 0;
-		asm_data->const_fft = 0;
-		asm_data->add_sub_smallmul_op = 1;
 
 /* Do the final carry propagations for the dest #1 */
 
@@ -10892,20 +10892,13 @@ void multithread_op (
 
 /* Do the AVX carry propagation */
 
-#ifdef AVX_ONLY_DOES_QUICK_RIGHT_NOW
 	else {
-
-/* Set flags used in processing carries */
-
-		asm_data->zero_fft = 0;
-		asm_data->const_fft = 0;
-		asm_data->add_sub_smallmul_op = 1;
 
 /* Do the final carry propagations for the dest #1 */
 
 		asm_data->DESTARG = d1;		// Start of the FFT data
-		asm_data->data_addr = d1;	// FFT addr to apply carries
-		asm_data->norm_ptr1 = biglit_data_ptr (gwdata, 0);
+ 		asm_data->data_addr = d1;	// FFT addr to apply carries
+		asm_data->norm_ptr1 = asm_data->norm_biglit_array;
 		asm_data->this_block = 0;
 		gwy3_apply_carries (asm_data);
 
@@ -10915,14 +10908,13 @@ void multithread_op (
 			asm_data->carries = data.d2_carries;
 			asm_data->DESTARG = d2;		// Start of the FFT data
 			asm_data->data_addr = d2;	// FFT addr to apply carries
-			asm_data->norm_ptr1 = biglit_data_ptr (gwdata, 0);
+			asm_data->norm_ptr1 = asm_data->norm_biglit_array;
 			asm_data->this_block = 0;
 			gwy3_apply_carries (asm_data);
 			asm_data->carries = data.d1_carries;
 			aligned_free (data.d2_carries);
 		}
 	}
-#endif
 }
 
 /* Routine for the main thread and auxiliary threads to do add/sub/addsub/smallmul work */
@@ -10989,7 +10981,7 @@ void do_multithread_op_work (
 
 /* Get next block to process */
 
-			i = atomic_fetch_addin (gwdata->next_block, (data->is_quick ? 1 : 2));
+			i = atomic_fetch_addin (gwdata->next_block, 1);
 
 /* Break out of loop when there are no more blocks to process */
 
@@ -11001,9 +10993,11 @@ void do_multithread_op_work (
 			asm_data->SRC2ARG = (char *) data->s2 + i * asm_data->pass1blkdst;
 			asm_data->DESTARG = (char *) data->d1 + i * asm_data->pass1blkdst;
 			asm_data->DEST2ARG = (char *) data->d2 + i * asm_data->pass1blkdst;
-//			asm_data->data_addr = (char *) data->d1_carries + i * 128;	// Addr to store dest #1 carries
-//			asm_data->premult_addr = (char *) data->d2_carries + i * 128;	// Addr to store dest #2 carries
-//			asm_data->norm_ptr1 = biglit_data_ptr (gwdata, i);
+			asm_data->data_addr = (char *) data->d1_carries + i * 64;	// Addr to store dest #1 carries
+			asm_data->premult_addr = (char *) data->d2_carries + i * 64;	// Addr to store dest #2 carries
+			asm_data->premult_prefetch = (char *) asm_data->norm_grp_mults +
+				(i / asm_data->count2) * (gwdata->ZERO_PADDED_FFT ? 320 : 640);			// Addr of group multipliers
+			asm_data->norm_ptr1 = (char *) asm_data->norm_biglit_array + i * asm_data->normval3;	// Addr of big/lit flags
 			call_op (data->asm_proc, asm_data);
 		}
 	}
@@ -11154,9 +11148,9 @@ void gwadd3o (			/* Add two numbers normalizing if needed */
 
 	else {
 
-/* Do an AVX-512 add */
+/* Do an AVX-512 or two-pass AVX add */
 
-		if (gwdata->cpu_flags & CPU_AVX512F) {
+		if ((gwdata->cpu_flags & CPU_AVX512F) || (gwdata->cpu_flags & CPU_AVX && gwdata->PASS2_SIZE)) {
 			multithread_op (gwdata, s1, s2, d, NULL, addr_gw_add (gwdata), FALSE);
 		}
 
@@ -11293,9 +11287,9 @@ void gwsub3o (			/* Compute s1 - s2 normalizing if needed */
 
 	else {
 
-/* Do an AVX-512 subtract */
+/* Do an AVX-512 or two-pass AVX subtract */
 
-		if (gwdata->cpu_flags & CPU_AVX512F) {
+		if ((gwdata->cpu_flags & CPU_AVX512F) || (gwdata->cpu_flags & CPU_AVX && gwdata->PASS2_SIZE)) {
 			multithread_op (gwdata, s2, s1, d, NULL, addr_gw_sub (gwdata), FALSE);
 		}
 
@@ -11440,9 +11434,9 @@ void gwaddsub4o (		/* Add & sub two nums normalizing if needed */
 
 	else {
 
-/* Do an AVX-512 add/sub */
+/* Do an AVX-512 or two-pass AVX add/sub */
 
-		if (gwdata->cpu_flags & CPU_AVX512F) {
+		if ((gwdata->cpu_flags & CPU_AVX512F) || (gwdata->cpu_flags & CPU_AVX && gwdata->PASS2_SIZE)) {
 			multithread_op (gwdata, s1, s2, d1, d2, addr_gw_addsub (gwdata), FALSE);
 		}
 
@@ -11587,14 +11581,11 @@ void gwsmallmul (
 		gwfree (gwdata, tmp);
 	}
 
-/* Do an AVX-512 small mul */
+/* Do an AVX-512 or two-pass AVX small mul */
 
-	else if (gwdata->cpu_flags & CPU_AVX512F) {
+	else if ((gwdata->cpu_flags & CPU_AVX512F) || (gwdata->cpu_flags & CPU_AVX && gwdata->PASS2_SIZE)) {
 		asm_data->DBLARG = mult;
 		multithread_op (gwdata, g, NULL, g, NULL, addr_gw_muls (gwdata), FALSE);
-		unnorms (g) = 0.0f;
-		gwdata->read_count += 1;
-		gwdata->write_count += 1;
 	}
 
 /* Do the small mul the old way -- single-threaded in assembly code */
@@ -11603,10 +11594,13 @@ void gwsmallmul (
 		asm_data->DESTARG = g;
 		asm_data->DBLARG = mult;
 		gw_muls (gwdata, asm_data);
-		unnorms (g) = 0.0f;
-		gwdata->read_count += 1;
-		gwdata->write_count += 1;
 	}
+
+/* Update counts */
+
+	unnorms (g) = 0.0f;
+	gwdata->read_count += 1;
+	gwdata->write_count += 1;
 
 /* If the number has gotten too large (high words should all be weighted -1 or 0) then emulate general mod with 2 multiplies */
 
