@@ -6072,7 +6072,7 @@ retry:
 /* See if we can request certification work.  Certification work must be done ASAP to reduce disk space used by PrimeNet server. */
 /* Thus, it is priority work.  Some options turn off priority work which precludes getting certification work.  Part-time computers */
 /* are spared certifications.  We are only allowed one certification assignment at a time (part of our spread the load amongst many */
-/* users philosophy).  Also, by default do not get PRP cofactor certs (it annoys some people to interrupt there first time or */
+/* users philosophy).  Also, by default do not get PRP cofactor certs (it annoys some people to interrupt their first time or */
 /* double-checks to process quick work that they believe is not part of GIMPS main purpose).  If the user is doing cofactor work, */
 /* then by all means default to getting cert work on PRP cofactor proofs. */
 
@@ -6156,8 +6156,7 @@ retry:
 		if (pass == 0 && w->work_type != WORK_CERT) continue;
 		if (pass == 1 && w->work_type == WORK_CERT) continue;
 
-/* If we are quitting GIMPS or we have too much work queued up, */
-/* then return the assignment. */
+/* If we are quitting GIMPS or we have too much work queued up, then return the assignment. */
 
 		if (header_words[1] & HEADER_FLAG_QUIT_GIMPS ||
 		    (est >= work_to_get + unreserve_threshold &&
