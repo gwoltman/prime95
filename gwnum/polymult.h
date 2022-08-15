@@ -287,7 +287,7 @@ typedef struct {
 } preprocessed_poly_header;
 
 // Internal description of the plan to multiply two polys
-typedef struct polyplan {
+struct polyplan {
 	bool	emulate_circular;	// Emulating circular_size is required
 	bool	strip_monic_from_invec1;// True if ones are stripped from monic invec1 requiring (99% of the time) invec2 to be added in during post processing
 	bool	strip_monic_from_invec2;// True if ones are stripped from monic invec2 requiring (99% of the time) invec1 to be added in during post processing
@@ -308,7 +308,7 @@ typedef struct polyplan {
 	int	subout;			// Outvec location where 1*1 value may need to be subtracted at the very end of the polymult process
 	int	adjusted_shift;		// Number of coefficients to shift left the initial partial poly multiplication to reach true_outvec_size
 	int	adjusted_pad;		// Number of coefficients to pad on the left of the initial partial poly multiplication to reach true_outvec_size
-} polymult_plan;
+};
 
 #ifdef __cplusplus
 }

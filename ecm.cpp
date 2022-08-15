@@ -5653,7 +5653,7 @@ restart3:
 	unsigned long min_memory;
 	min_memory = cvt_gwnums_to_mem (&ecmdata.gwdata, 13.0);
 	if ((int) max_mem (thread_num) < min_memory) {
-		sprintf (buf, "Skipping stage 2 due to insufficient memory -- %dMB needed.\n", min_memory);
+		sprintf (buf, "Skipping stage 2 due to insufficient memory -- %luMB needed.\n", min_memory);
 		OutputStr (thread_num, buf);
 		goto skip_stage_2;
 	}
@@ -7191,7 +7191,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 
 //GW: keep poly_sizes within one (P-1 too?)  write special polymult that can multiply 3 or 4 monics in one go (if enough extra_bits)???
 
-			// Work on pairs of polynomials.  We will combine them in-place using polymult.
+			// Work on pairs of polynomials.  We combine them in-place using polymult.
 			while (poly_base < ecmdata.poly_size) {
 				int	poly1_base, poly1_size, poly2_base, poly2_size;
 
@@ -7253,7 +7253,7 @@ start_timer_from_zero (timers, 0);
 
 // First loop iteration do nothing.  On subsequent loop iterations, H(X) = G(X) * H(X) mod F(X).  The first time we do this H(X) is monic.
 // It might appear that doing just one loop could be advantageous -- we wouldn't need memory for an H(X) poly.  However, increasing the D
-// value has both extra costs (polyF, polyR, scaled remainder costs all go up) and savings (G(X) and H(X) costs go down do to fewer D values).
+// value has both extra costs (polyF, polyR, scaled remainder costs all go up) and savings (G(X) and H(X) costs go down due to fewer D values).
 // The happy balance seems to be around four iterations of this loop.
 
 		if (outer_loop_counter > 1) {

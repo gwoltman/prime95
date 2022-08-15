@@ -1,11 +1,13 @@
-# Makefile for FreeBSD 12.0 64-bit gwnum library
+# Makefile for FreeBSD 13.0 64-bit gwnum library
 #
 
-CC ?= cc
+#CC ?= cc
+CC = gcc
 CFLAGS += -I.. -I../sqlite-amalgamation-3180000 -I$(LOCALBASE)/include -std=gnu99 -DX86_64 -O2
 #CFLAGS += -g -I.. -I../sqlite-amalgamation-3180000 -I$(LOCALBASE)/include -std=gnu99 -DX86_64 -DGDEBUG -O2
 
-CXX ?= cc
+#CXX ?= cc
+CXX = g++
 CXXFLAGS += -I.. -I../qd -std=c++11 -DX86_64 -O2
 #CXXFLAGS += -g -I.. -I../qd -std=c++11 -DX86_64 -DGDEBUG -O2
 

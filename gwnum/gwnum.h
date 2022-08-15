@@ -657,7 +657,7 @@ unsigned long gwmemused (gwhandle *);
 #define squaremuladd_safe(h,adds1,adds2,adds3,adds4)	((h)->EXTRA_BITS >= mma5_sqr_penalty+numadds_to_eb(mma5_sqr_pair(adds1)+mma5_mul_pair(adds3,adds4)+2))
 #define mulsquareadd_safe(h,adds1,adds2,adds3,adds4)	squaremuladd_safe(h,adds3,adds4,adds1,adds2)
 #define squaresquareadd_safe(h,adds1,adds2,adds3,adds4)	((h)->EXTRA_BITS >= mma5_sqr_penalty+numadds_to_eb(mma5_sqr_pair(adds1)+mma5_sqr_pair(adds3)+3))
-#define mma5_mul_pair(adds1,adds2)			((adds1) + (adds2) + ((adds1) != 0 && (adds2) != 0) ? 1 : 0)	/* helper macro */
+#define mma5_mul_pair(adds1,adds2)			(((adds1) + (adds2) + ((adds1) != 0 && (adds2) != 0)) ? 1 : 0)	/* helper macro */
 #define mma5_sqr_pair(adds1)				((adds1) * 4)							/* helper macro */
 #define mma5_sqr_penalty				(EB_GWMUL_SAVINGS - EB_FIRST_ADD)
 

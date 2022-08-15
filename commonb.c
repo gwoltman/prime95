@@ -5715,7 +5715,7 @@ begin:	factor_found = 0;
 			JSONaddExponent (JSONbuf, w);
 			strcat (JSONbuf, ", \"worktype\":\"TF\"");
 			sprintf (JSONbuf+strlen(JSONbuf), ", \"factors\":[\"%s\"]", str);
-			sprintf (JSONbuf+strlen(JSONbuf), ", \"bitlo\":%d", (bits < report_bits) ? (unsigned int) w->sieve_depth : bits);
+			sprintf (JSONbuf+strlen(JSONbuf), ", \"bitlo\":%d", (int) ((bits < report_bits) ? w->sieve_depth : bits));
 			sprintf (JSONbuf+strlen(JSONbuf), ", \"bithi\":%d, \"rangecomplete\":false", end_bits);
 			JSONaddProgramTimestamp (JSONbuf);
 			JSONaddUserComputerAID (JSONbuf, w);
