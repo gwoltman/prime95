@@ -647,6 +647,9 @@ void test_it (
 			if (i & 1) gwmul3 (gwdata, x, x3, x4, 0);
 			else gwmul3 (gwdata, x3, x, x4, 0);
 			gwcopy (gwdata, x4, x);
+		} else if (i % 50 == 34) {				// Test postfft with unfft (zero padding had issues in past)
+			gwmul3 (gwdata, x, x, x4, GWMUL_STARTNEXTFFT);
+			gwunfft (gwdata, x4, x);
 		} else
 			gwsquare (gwdata, x);
 
