@@ -9458,6 +9458,10 @@ void raw_gwmul3 (
 		}
 	}
 
+/* Work around zero-padding bug.  If s1 is partially FFTed and s1 != d, then xmult7/ymult7/zmult7 all read d's 7 saved values rather than s1's. */
+
+	if (gwdata->ZERO_PADDED_FFT && FFT_state (s1) == PARTIALLY_FFTed && s1 != d) memcpy (&d[-11], &s1[-11], 7 * sizeof (double));
+
 /* Pre-adjust counts for input that is not partially or fully FFTed */
 
 	if (FFT_state (s1) == NOT_FFTed) gwdata->read_count += 1, gwdata->write_count += 1;
@@ -10445,6 +10449,7 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 		if (gwdata->GW_RANDOM_SQUARED == NULL) {
 			gwdata->GW_RANDOM_SQUARED = gwalloc (gwdata);
 			gwmul3 (gwdata, gwdata->GW_RANDOM, gwdata->GW_RANDOM, gwdata->GW_RANDOM_SQUARED, GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2 | GWMUL_STARTNEXTFFT);
+			gwfft_for_fma (gwdata, gwdata->GW_RANDOM_SQUARED, gwdata->GW_RANDOM_SQUARED);
 		}
 
 		/* Generate desired result, d = ((s1+r)*(s1-r) + r^2 + addin) * mulbyconst */
