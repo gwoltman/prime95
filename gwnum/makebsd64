@@ -1,4 +1,4 @@
-# Makefile for FreeBSD 13.0 64-bit gwnum library
+# Makefile for FreeBSD 12.3 64-bit gwnum library
 #
 
 #CC ?= cc
