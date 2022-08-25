@@ -2620,6 +2620,39 @@ int gwsetup_without_mod (
 	return (0);
 }
 
+/* The carries area needs to be initialized by several different routines */
+
+int asm_info_carries_size (		/* Return size (in doubles) of the carry table in an asm_info */
+	gwhandle *gwdata)
+{
+	if (gwdata->cpu_flags & CPU_AVX512F) return (gwdata->PASS1_SIZE == 0 ? gwdata->FFTLEN / 8 : gwdata->PASS1_SIZE);
+	if (gwdata->cpu_flags & CPU_AVX) return (gwdata->PASS1_SIZE);
+	if (gwdata->cpu_flags & CPU_SSE2) return (gwdata->PASS1_SIZE * 2);
+	return (gwdata->PASS1_SIZE);
+}
+
+void init_asm_info_carries (
+	gwhandle *gwdata,
+	struct gwasm_data *asm_data)	/* Initialize carries of this asm_data */
+{
+	int	carry_table_size = asm_info_carries_size (gwdata);
+	double	*table = asm_data->carries;
+	if (gwdata->cpu_flags & CPU_AVX512F) {
+		for (int i = 0; i < carry_table_size; i++) table[i] = asm_data->u.zmm.ZMM_RNDVAL;
+	}
+	else if (gwdata->cpu_flags & CPU_AVX) {
+		double	carryval = (gwdata->b == 2) ? 3.0 * 131072.0 * 131072.0 * 131072.0 : 0.0;
+		for (int i = 0; i < carry_table_size; i++) table[i] = (gwdata->ZERO_PADDED_FFT && (i & 4)) ? 0.0 : carryval;
+	}
+	else if (gwdata->cpu_flags & CPU_SSE2) {
+		double	xmm_bigval = 3.0 * 131072.0 * 131072.0 * 131072.0;
+		for (int i = 0; i < carry_table_size; i++) table[i] = xmm_bigval;
+	}
+	else {
+		for (int i = 0; i < carry_table_size; i++) table[i] = 0.0;
+	}
+}
+
 /* Clone a gwhandle.  The cloned handle can be used in a limited way in another thread.  Valid operations in the cloned handle are single threaded */
 /* multiplication, addition, subtraction.  Operations to avoid are memory allocation and freeing including any routines that may allocate gwnums internally */
 
@@ -2679,14 +2712,12 @@ int gwclone (
 		}
 	}
 	if (gwdata->PASS2_SIZE) {
-		intptr_t carry_table_size = (char *) asm_data->norm_grp_mults - (char *) asm_data->carries;
-		if (!(gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX | CPU_SSE2))) carry_table_size = (char *) asm_data->scratch_area - (char *) asm_data->carries;
-		cloned_asm_data->carries = (double *) aligned_malloc (carry_table_size, 64);
+		cloned_asm_data->carries = (double *) aligned_malloc (asm_info_carries_size (gwdata) * sizeof (double), 64);
 		if (cloned_asm_data->carries == NULL) {
 			gwdone (cloned_gwdata);
 			return (GWERROR_MALLOC);
 		}
-		memcpy (cloned_asm_data->carries, asm_data->carries, carry_table_size);
+		init_asm_info_carries (gwdata, cloned_asm_data);
 	}
 
 /* Each clone must have their own dd_data structure (there are cached values in there not accessed in a thread safe manor) */
@@ -3087,14 +3118,11 @@ int internal_gwsetup (
 /* other data used in the first pass (scratch area, normalization tables, etc.)  Note that we put the tables that */
 /* are only partly loaded (column multipliers and big/lit table) after the tables that are loaded throughout the first pass. */
 
-		{
-			int	i, carry_table_size;
-			ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
-			asm_data->carries = tables;
-			if (gwdata->PASS1_SIZE == 0) carry_table_size = gwdata->FFTLEN / 8; // Every 8th one-pass FFT element needs a carry
-			else carry_table_size = gwdata->PASS1_SIZE;	// Pass 1 size - each needs a carry
-			for (i = 0; i < carry_table_size; i++) *tables++ = asm_data->u.zmm.ZMM_RNDVAL;
-		}
+		ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
+		asm_data->carries = tables;
+		if (gwdata->PASS1_SIZE == 0) tables += gwdata->FFTLEN / 8;	// Every 8th one-pass FFT element needs a carry
+		else tables += gwdata->PASS1_SIZE;				// Pass 1 size - each needs a carry
+		tables = round_to_cache_line (tables);
 
 /* Build the group muliplier normalization table.  Keep this table contiguous with other data used in pass 1. */
 
@@ -3198,21 +3226,13 @@ int internal_gwsetup (
 /* (column multipliers and big/lit table) after the tables that are loaded throughout the first pass. */
 
 			if (gwdata->PASS2_SIZE) {
-				int	i, carry_table_size;
-				double	carryval;
 				ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 				asm_data->carries = tables;
-				carry_table_size = gwdata->PASS1_SIZE;
-				if (b == 2) carryval = 3.0 * 131072.0 * 131072.0 * 131072.0;
-				else carryval = 0.0;
-				for (i = 0; i < carry_table_size; i++)
-					if (gwdata->ZERO_PADDED_FFT && (i & 4)) *tables++ = 0.0;
-					else *tables++ = carryval;
+				tables += gwdata->PASS1_SIZE;
 				tables += (8 - (tables - gwdata->gwnum_memory)) & 7;
 			}
 
-/* Build the group muliplier normalization table.  Keep this table */
-/* contiguous with other data used in pass 1. */
+/* Build the group muliplier normalization table.  Keep this table contiguous with other data used in pass 1. */
 
 			ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 			asm_data->norm_grp_mults = tables;
@@ -3288,21 +3308,14 @@ int internal_gwsetup (
 			asm_data->sincos3 = tables;
 			tables = r4_build_pass2_real_table (gwdata, tables);
 
-/* Allocate a table for carries.  Init with XMM_BIGVAL.  For best */
-/* distribution of data in the L2 cache, make this table contiguous */
-/* with all other data used in the first pass (scratch area, normalization */
-/* tables, etc.)  Note that we put the tables that are only partly loaded */
-/* (column multipliers and big/lit table) after the tables that are */
-/* loaded throughout the first pass. */
+/* Allocate a table for carries.  Init with XMM_BIGVAL.  For best distribution of data in the L2 cache, make this table contiguous */
+/* with all other data used in the first pass (scratch area, normalization tables, etc.)  Note that we put the tables that are only partly loaded */
+/* (column multipliers and big/lit table) after the tables that are loaded throughout the first pass. */
 
 			if (gwdata->PASS2_SIZE) {
-				int	i, carry_table_size;
-				double	xmm_bigval;
 				ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 				asm_data->carries = tables;
-				carry_table_size = gwdata->PASS1_SIZE * 2;
-				xmm_bigval = 3.0 * 131072.0 * 131072.0 * 131072.0;
-				for (i = 0; i < carry_table_size; i++) *tables++ = xmm_bigval;
+				tables += gwdata->PASS1_SIZE * 2;
 				tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 			}
 
@@ -3364,21 +3377,14 @@ int internal_gwsetup (
 			asm_data->sincos3 = tables;
 			tables = r4_build_pass2_real_table (gwdata, tables);
 
-/* Allocate a table for carries.  Init with XMM_BIGVAL.  For best */
-/* distribution of data in the L2 cache, make this table contiguous */
-/* with all other data used in the first pass (scratch area, normalization */
-/* tables, etc.)  Note that we put the tables that are only partly loaded */
-/* (column multipliers and big/lit table after the tables that are */
-/* loaded throughout the first pass. */
+/* Allocate a table for carries.  Init with XMM_BIGVAL.  For best distribution of data in the L2 cache, make this table contiguous */
+/* with all other data used in the first pass (scratch area, normalization tables, etc.)  Note that we put the tables that are only partly loaded */
+/* (column multipliers and big/lit table after the tables that are loaded throughout the first pass. */
 
 			if (gwdata->PASS2_SIZE) {
-				int	i, carry_table_size;
-				double	xmm_bigval;
 				ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 				asm_data->carries = tables;
-				carry_table_size = gwdata->PASS1_SIZE * 2;
-				xmm_bigval = 3.0 * 131072.0 * 131072.0 * 131072.0;
-				for (i = 0; i < carry_table_size; i++) *tables++ = xmm_bigval;
+				tables += gwdata->PASS1_SIZE * 2;
 				tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 			}
 
@@ -3442,21 +3448,14 @@ int internal_gwsetup (
 			tables = r4_build_pass2_real_table (gwdata, tables);
 			asm_data->sincos3 = share_sincos_data (gwdata, PASS2_REAL_SINCOS_DATA, asm_data->sincos3, (char *) tables - (char *) asm_data->sincos3);
 
-/* Allocate a table for carries.  Init with XMM_BIGVAL.  For best */
-/* distribution of data in the L2 cache, make this table contiguous */
-/* with all other data used in the first pass (scratch area, normalization */
-/* tables, etc.)  Note that we put the tables that are only partly loaded */
-/* (column multipliers and big/lit table after the tables that are */
-/* loaded throughout the first pass. */
+/* Allocate a table for carries.  Init with XMM_BIGVAL.  For best distribution of data in the L2 cache, make this table contiguous */
+/* with all other data used in the first pass (scratch area, normalization tables, etc.)  Note that we put the tables that are only partly loaded */
+/* (column multipliers and big/lit table after the tables that are loaded throughout the first pass. */
 
 			if (gwdata->PASS2_SIZE) {
-				int	i, carry_table_size;
-				double	xmm_bigval;
 				ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 				asm_data->carries = tables;
-				carry_table_size = gwdata->PASS1_SIZE * 2;
-				xmm_bigval = 3.0 * 131072.0 * 131072.0 * 131072.0;
-				for (i = 0; i < carry_table_size; i++) *tables++ = xmm_bigval;
+				tables += gwdata->PASS1_SIZE * 2;
 				tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 			}
 
@@ -3526,22 +3525,14 @@ int internal_gwsetup (
 				asm_data->u.xmm.sincos11 = asm_data->u.xmm.sincos7;
 			}
 
-/* Allocate a table for carries.  Init with XMM_BIGVAL.  For best */
-/* distribution of data in the L2 cache, make this table contiguous */
-/* with all other data used in the first pass (scratch area, normalization */
-/* tables, etc.)  Note that we put the tables that are only partly loaded */
-/* (column multipliers and big/lit table after the tables that are */
-/* loaded throughout the first pass. */
+/* Allocate a table for carries.  Init with XMM_BIGVAL.  For best distribution of data in the L2 cache, make this table contiguous */
+/* with all other data used in the first pass (scratch area, normalization tables, etc.)  Note that we put the tables that are only partly loaded */
+/* (column multipliers and big/lit table after the tables that are loaded throughout the first pass. */
 
 			if (gwdata->PASS2_SIZE) {
-				int	i, carry_table_size;
-				double	xmm_bigval;
 				ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 				asm_data->carries = tables;
-				carry_table_size = gwdata->PASS1_SIZE * 2;
-				xmm_bigval = 3.0 * 131072.0 * 131072.0 * 131072.0;
-				for (i = 0; i < carry_table_size; i++)
-					*tables++ = xmm_bigval;
+				tables += gwdata->PASS1_SIZE * 2;
 				tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 			}
 
@@ -3625,10 +3616,8 @@ int internal_gwsetup (
 /* with the scratch area which is also used in the first pass. */
 
 		if (gwdata->PASS2_SIZE) {
-			int	i, carry_table_size;
 			asm_data->carries = tables;
-			carry_table_size = gwdata->PASS1_SIZE;
-			for (i = 0; i < carry_table_size; i++) *tables++ = 0.0;
+			tables += gwdata->PASS1_SIZE;
 		}
 
 /* Reserve room for the pass 1 scratch area. */
@@ -3735,6 +3724,10 @@ int internal_gwsetup (
 	    }
 #endif
 	}
+
+/* Init the asm_data carries table */
+
+	init_asm_info_carries (gwdata, asm_data);
 
 /* Copy the count of cache lines grouped in pass 1.  This affects how we build the normalization tables. */
 /* Note that cache line sizes are different in the x87 (16 bytes) and AVX-512/AVX/SSE2 code (64 bytes). */
@@ -5341,7 +5334,7 @@ int pass1_state1_assign_first_block (
 	/* In SSE2 zero-padded FFT, set the upper half of the carries to zero instead */
 	/* of XMM_BIGVAL.  This saves us a couple of clocks per FFT data element in xnorm_2d_zpad. */
 	/* Ideally, we'd eliminate this code by fixing the add/sub and carry propagation code to also */
-	/* expect zero in the upper half of each carry cache line  (like we did in the AVX code). */
+	/* expect zero in the upper half of each carry cache line (like we did in the AVX code). */
 	if (gwdata->ZERO_PADDED_FFT && ! (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX))) {
 		int	i, carry_table_size;
 		double	*table;
@@ -5445,14 +5438,12 @@ void auxiliary_thread (void *arg)
 	gwdata = info->gwdata;
 	main_thread_asm_data = (struct gwasm_data *) gwdata->asm_data;
 
-/* Each thread needs its own copy of the asm_data.  Each thread needs */
-/* its own stack too. */
+/* Each thread needs its own copy of the asm_data.  Each thread needs its own stack too. */
 
 	asm_data = (struct gwasm_data *) ((char *) info->asm_data_alloc + NEW_STACK_SIZE);
 	memcpy (asm_data, main_thread_asm_data, sizeof (struct gwasm_data));
 
-/* Set the thread number so that the assembly code can differentiate between */
-/* the main thread and an auxiliary thread. */
+/* Set the thread number so that the assembly code can differentiate between the main thread and an auxiliary thread. */
 
 	asm_data->thread_num = info->thread_num;
 
@@ -5461,33 +5452,9 @@ void auxiliary_thread (void *arg)
 	asm_data->scratch_area = info->scratch_area;
 
 /* Init each auxiliary thread's carries area */
-	
+
 	asm_data->carries = info->carries;
-	if (gwdata->cpu_flags & CPU_AVX512F) {
-		int	i, carry_table_size;
-		double	*table;
-		carry_table_size = gwdata->PASS1_SIZE;
-		table = asm_data->carries;
-		for (i = 0; i < carry_table_size; i++) *table++ = asm_data->u.zmm.ZMM_RNDVAL;
-	}
-	else if (gwdata->cpu_flags & CPU_AVX) {
-		int	i, carry_table_size;
-		double	carryval, *table;
-		carry_table_size = gwdata->PASS1_SIZE;
-		if (gwdata->b == 2) carryval = 3.0 * 131072.0 * 131072.0 * 131072.0;
-		else carryval = 0.0;
-		table = asm_data->carries;
-		for (i = 0; i < carry_table_size; i++)
-			if (gwdata->ZERO_PADDED_FFT && (i & 4)) *table++ = 0.0;
-			else *table++ = carryval;
-	} else {
-		int	i, carry_table_size;
-		double	xmm_bigval, *table;
-		carry_table_size = gwdata->PASS1_SIZE * 2;
-		xmm_bigval = 3.0 * 131072.0 * 131072.0 * 131072.0;
-		table = asm_data->carries;
-		for (i = 0; i < carry_table_size; i++) *table++ = xmm_bigval;
-	}
+	init_asm_info_carries (gwdata, asm_data);
 
 /* Call optional user provided callback routine so that the caller can set */
 /* the thread's priority and affinity */
@@ -6105,21 +6072,25 @@ int pass1_get_next_block_mt (
 
 /* We've finished this thread, merge this thread's maxerr and sumout with the main thread */
 
+#define replace_with_larger(a,b)	if ((a)<(b)) (a)=(b)
+#define locked_replace_with_larger(a,b) if ((a)<(b)) { gwmutex_lock(&gwdata->thread_lock); replace_with_larger(a,b); gwmutex_unlock(&gwdata->thread_lock);}
 	if (gwdata->cpu_flags & CPU_AVX512F) {
 		struct gwasm_data *main_thread_asm_data = (struct gwasm_data *) gwdata->asm_data;
-		if (asm_data->MAXERR > main_thread_asm_data->MAXERR) main_thread_asm_data->MAXERR = asm_data->MAXERR;
+		locked_replace_with_larger (main_thread_asm_data->MAXERR, asm_data->MAXERR);
 	} else if (gwdata->cpu_flags & CPU_AVX) {
 		struct gwasm_data *main_thread_asm_data = (struct gwasm_data *) gwdata->asm_data;
-		if (asm_data->u.ymm.YMM_MAXERR[0] > main_thread_asm_data->MAXERR) main_thread_asm_data->MAXERR = asm_data->u.ymm.YMM_MAXERR[0];
-		if (asm_data->u.ymm.YMM_MAXERR[1] > main_thread_asm_data->MAXERR) main_thread_asm_data->MAXERR = asm_data->u.ymm.YMM_MAXERR[1];
-		if (asm_data->u.ymm.YMM_MAXERR[2] > main_thread_asm_data->MAXERR) main_thread_asm_data->MAXERR = asm_data->u.ymm.YMM_MAXERR[2];
-		if (asm_data->u.ymm.YMM_MAXERR[3] > main_thread_asm_data->MAXERR) main_thread_asm_data->MAXERR = asm_data->u.ymm.YMM_MAXERR[3];
+		replace_with_larger (asm_data->u.ymm.YMM_MAXERR[0], asm_data->u.ymm.YMM_MAXERR[1]);
+		replace_with_larger (asm_data->u.ymm.YMM_MAXERR[0], asm_data->u.ymm.YMM_MAXERR[2]);
+		replace_with_larger (asm_data->u.ymm.YMM_MAXERR[0], asm_data->u.ymm.YMM_MAXERR[3]);
+		locked_replace_with_larger (main_thread_asm_data->MAXERR, asm_data->u.ymm.YMM_MAXERR[0]);
 	} else if (gwdata->cpu_flags & CPU_SSE2) {
 		struct gwasm_data *main_thread_asm_data = (struct gwasm_data *) gwdata->asm_data;
-		if (asm_data->u.xmm.XMM_MAXERR[0] > main_thread_asm_data->MAXERR) main_thread_asm_data->MAXERR = asm_data->u.xmm.XMM_MAXERR[0];
-		if (asm_data->u.xmm.XMM_MAXERR[1] > main_thread_asm_data->MAXERR) main_thread_asm_data->MAXERR = asm_data->u.xmm.XMM_MAXERR[1];
+		replace_with_larger (asm_data->u.xmm.XMM_MAXERR[0], asm_data->u.xmm.XMM_MAXERR[1]);
+		locked_replace_with_larger (main_thread_asm_data->MAXERR, asm_data->u.xmm.XMM_MAXERR[0]);
 		/* Accumulate SUMOUT */
+		gwmutex_lock (&gwdata->thread_lock);
 		((double *) asm_data->DESTARG)[-3] += asm_data->u.xmm.XMM_SUMOUT[0] + asm_data->u.xmm.XMM_SUMOUT[1];
+		gwmutex_unlock (&gwdata->thread_lock);
 	}
 
 /* There are no more blocks to process.  If this is an auxiliary thread then return code telling the assembly code to exit. */
@@ -6400,16 +6371,7 @@ int multithread_init (
 			return (GWERROR_MALLOC);
 		}
 		/* Allocate the carries area */
-		if (gwdata->cpu_flags & CPU_AVX512F) {
-			int	carry_table_size = gwdata->PASS1_SIZE;
-			info->carries = aligned_malloc (carry_table_size * sizeof (double), 128);
-		} else if (gwdata->cpu_flags & CPU_AVX) {
-			int	carry_table_size = gwdata->PASS1_SIZE;
-			info->carries = aligned_malloc (carry_table_size * sizeof (double), 128);
-		} else {
-			int	carry_table_size = gwdata->PASS1_SIZE * 2;
-			info->carries = aligned_malloc (carry_table_size * sizeof (double), 128);
-		}
+		info->carries = aligned_malloc (asm_info_carries_size (gwdata) * sizeof (double), 128);
 		if (info->carries == NULL) {
 			aligned_free (info->asm_data_alloc);
 			aligned_free (info->scratch_area);
