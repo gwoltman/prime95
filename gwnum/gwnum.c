@@ -3723,11 +3723,11 @@ int internal_gwsetup (
 		}
 	    }
 #endif
-	}
 
 /* Init the asm_data carries table */
 
-	init_asm_info_carries (gwdata, asm_data);
+	    init_asm_info_carries (gwdata, asm_data);
+	}
 
 /* Copy the count of cache lines grouped in pass 1.  This affects how we build the normalization tables. */
 /* Note that cache line sizes are different in the x87 (16 bytes) and AVX-512/AVX/SSE2 code (64 bytes). */
