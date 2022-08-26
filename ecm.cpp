@@ -7036,8 +7036,6 @@ ecm_polymult:
 //		pm1data.helper_count = 1;
 	}
 //	ecmdata.helper_count = ecmdata.polydata.num_threads;
-	ecmdata.polydata.helper_callback = &ecm_helper;
-	ecmdata.polydata.helper_callback_data = &ecmdata;
 
 // Open file for saving up to two Ftree rows
 
@@ -7110,6 +7108,8 @@ ecm_polymult:
 		if (tree_level == 0) {
 
 			// Set up ecm_helper arguments
+			ecmdata.polydata.helper_callback = &ecm_helper;
+			ecmdata.polydata.helper_callback_data = &ecmdata;
 			ecmdata.helper_work = ECM_POLYF_LEVEL_ZERO;
 			atomic_set (ecmdata.helper_counter, 0);
 			ecmdata.poly1 = source_poly;			// Input poly
@@ -7144,16 +7144,12 @@ ecm_polymult:
 					  &source_poly[poly1_base], poly1_size,
 					  &source_poly[poly2_base], poly2_size,
 					  &ecmdata.polyF[poly1_base], poly1_size + poly2_size,
-					  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/);
+					  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_STARTNEXTFFT | POLYMULT_NO_UNFFT);
 			}
 
-		// Multithreaded unfft poly coefficients
-//		pm1data.helper_work = PM1_COMPUTE_POLY1;		// Work type for helper to do
-//		pm1data.points = poly1;					// Array of poly1 coefficients
-//		atomic_set (pm1data.current_point, 0);			// Next coefficient to unfft
-//		if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);	// Launch helper threads
-//		pm1_helper (0, &pm1data.gwdata, &pm1data);		// Have main thread help too
-//		if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);	// Wait for helper threads to finish
+			// Multithreaded unfft poly coefficients
+//GW: BUG - if saving this polyF to disk, only unfft result.  Later do a multithreaded FFT (or let polymult do it (it doesn't presently)
+			poly_unfft_fft_coefficients (&ecmdata.polydata, ecmdata.polyF, ecmdata.poly_size);
 		}
 
 if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
@@ -7180,7 +7176,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 	ecmdata.polyR = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
 	if (ecmdata.polyR == NULL) goto lowmem;
 
-	// F_recip always has coefficients that need negating!  First term or polyR is copied from polyF.
+	// F_recip always has coefficients that need negating!  First term for polyR is copied from polyF.
 	gwcopy (&ecmdata.gwdata, ecmdata.polyF[ecmdata.poly_size-1], ecmdata.polyR[ecmdata.poly_size-1]);
 
 	// We don't repeat recip-like calculations, so temporarily disable caching new polymult sin/cos data.
@@ -7198,12 +7194,14 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 			   &ecmdata.polyR[ecmdata.poly_size-(terms-1)], terms-1,
 			   ecmdata.polyR, terms_to_compute,		// Only return terms_to_compute
 			   NULL, 0, terms-1,				// No FMA, no circular, don't return least significant terms-1 coefficients
-			   POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_NEGATE | POLYMULT_MULMID | POLYMULT_NEXTFFT /*| POLYMULT_NO_UNFFT*/);
+			   POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_NEGATE | POLYMULT_MULMID | POLYMULT_NEXTFFT | POLYMULT_NO_UNFFT);
+		poly_unfft_fft_coefficients (&ecmdata.polydata, ecmdata.polyR, terms_to_compute);
 		// Compute new_recip = g0 - g0*e
 		polymult (&ecmdata.polydata, &ecmdata.polyR[ecmdata.poly_size-(terms-1)], terms-1,
 			  ecmdata.polyR, terms_to_compute,
 			  &ecmdata.polyR[ecmdata.poly_size-(terms-1)-terms_to_compute], terms_to_compute,	// Only return hi-order terms_to_compute
-			  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_NEGATE | POLYMULT_MULHI | POLYMULT_NEXTFFT /*| POLYMULT_NO_UNFFT*/);
+			  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_NEGATE | POLYMULT_MULHI | POLYMULT_NEXTFFT | POLYMULT_NO_UNFFT);
+		poly_unfft_fft_coefficients (&ecmdata.polydata, &ecmdata.polyR[ecmdata.poly_size-(terms-1)-terms_to_compute], terms_to_compute);
 		// Update count of terms computed
 		terms = terms + terms_to_compute;
 	}
@@ -7305,6 +7303,8 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 		// Special case tree level 0.  Combine two, three, or four length-1 polynomials using special (faster) len1 polymult routines.
 
 		// Set up ecm_helper arguments
+		ecmdata.polydata.helper_callback = &ecm_helper;
+		ecmdata.polydata.helper_callback_data = &ecmdata;
 		ecmdata.helper_work = ECM_POLYG_LEVEL_ZERO;
 		atomic_set (ecmdata.helper_counter, 0);
 
@@ -7314,7 +7314,6 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 		polymult_wait_on_helpers (&ecmdata.polydata);	// Wait for helper threads to finish
 
 		// Do remaining tree levels (we've done two) until there is just one big poly
-
 		for (int log2_num_polys = num_tree_levels - 2; log2_num_polys >= 1; log2_num_polys--) {
 			uint64_t poly_base_calculator = 0;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
 			int	poly_base = 0;			// PolyG array index
@@ -7335,7 +7334,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 				poly2_size = poly_base - poly2_base;
 
 				// Options for the upcoming polymult
-				int options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/;
+				int options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_STARTNEXTFFT | POLYMULT_NO_UNFFT;
 
 				// The first outer loop iteration we write the final result to H(X) rather than G(X)
 				if (outer_loop_counter > 1 || log2_num_polys > 1)
@@ -7343,14 +7342,11 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 				else
 					polymult (&ecmdata.polydata, &polyG[poly1_base], poly1_size, &polyG[poly2_base], poly2_size, polyH, poly1_size + poly2_size, options);
 			}
+
 			// Multithreaded unfft poly coefficients
-//			pm1data.helper_work = PM1_COMPUTE_POLY1;		// Work type for helper to do
-//			pm1data.points = poly1;					// Array of poly1 coefficients
-//			atomic_set (pm1data.current_point, 0);				// Next coefficient to unfft
-//			if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);	// Launch helper threads
-//			pm1_helper (0, &pm1data.gwdata, &pm1data);		// Have main thread help too
-//			if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);	// Wait for helper threads to finish
-			// Poly sizes have doubled
+			poly_unfft_fft_coefficients (&ecmdata.polydata, outer_loop_counter > 1 || log2_num_polys > 1 ? polyG : polyH, ecmdata.poly_size);
+
+			// Periodic checks for user stop request
 			stop_reason = stopCheck (thread_num);
 			if (stop_reason) goto possible_lowmem;
 		}
@@ -7368,15 +7364,18 @@ start_timer_from_zero (timers, 0);
 		if (outer_loop_counter > 1) {
 			// Compute tmp = G(X) * H(X).  We can store tmp in polyGH.
  			polymult (&ecmdata.polydata, polyG, ecmdata.poly_size, polyH, ecmdata.poly_size, ecmdata.polyGH, 2*ecmdata.poly_size,
-				  POLYMULT_INVEC1_MONIC | (outer_loop_counter == 2 ? POLYMULT_INVEC2_MONIC : 0)  /* | POLYMULT_NO_UNFFT */);
+				  POLYMULT_INVEC1_MONIC | (outer_loop_counter == 2 ? POLYMULT_INVEC2_MONIC : 0) | POLYMULT_NO_UNFFT);
+			poly_unfft_fft_coefficients (&ecmdata.polydata, ecmdata.polyGH, 2*ecmdata.poly_size);
 
 			// Compute quot = tmp * 1/F(X).  The upper half of GH happens to be polyH.  Store the quotient in upper half of GH.
 			polymult (&ecmdata.polydata, polyH, ecmdata.poly_size, ecmdata.polyR, ecmdata.poly_size, polyH, ecmdata.poly_size,
-				  (outer_loop_counter == 2 ? POLYMULT_INVEC1_MONIC : 0) | POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_NEGATE | POLYMULT_MULHI /* | POLYMULT_NO_UNFFT */);
+				  (outer_loop_counter == 2 ? POLYMULT_INVEC1_MONIC : 0) | POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_NEGATE | POLYMULT_MULHI | POLYMULT_NO_UNFFT);
+			poly_unfft_fft_coefficients (&ecmdata.polydata, polyH, ecmdata.poly_size);
 
 			// Compute H(X) = tmp - quot * F(X).  Tmp is in polyG, quotient is in polyH.
 			polymult_fma (&ecmdata.polydata, polyH, ecmdata.poly_size, ecmdata.polyF, ecmdata.poly_size, polyH, ecmdata.poly_size, polyG,
-				      POLYMULT_INVEC2_MONIC | POLYMULT_FNMADD | POLYMULT_MULLO /* | POLYMULT_NO_UNFFT */);
+				      POLYMULT_INVEC2_MONIC | POLYMULT_FNMADD | POLYMULT_MULLO | POLYMULT_NO_UNFFT);
+			poly_unfft_fft_coefficients (&ecmdata.polydata, polyH, ecmdata.poly_size);
 strcpy (buf, "PolyH built.  Time: ");
 end_timer (timers, 0);
 print_timer (timers, 0, buf, TIMER_NL);
@@ -7596,6 +7595,7 @@ start_timer_from_zero (timers, 0);
 				}
 				// Copy polyF from memory
 				else {
+//GW: Why copy?  Can't we use the poly where it sits?
 					memcpy (polyF, &ecmdata.polyFtree[tree_level][slice_base], slice_size * sizeof (gwnum));
 				}
 				continue;
@@ -7628,6 +7628,8 @@ start_timer_from_zero (timers, 0);
 					  (poly1_size == 1 ? POLYMULT_INVEC1_NEGATE : 0) +
 					  (poly2_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) +
 					  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/);
+//GW: Address the length 0 poly problem vis-a-vis using poly_unfft_fft_coefficients
+//GW: poly_unfft_fft_coefficients (&ecmdata.polydata, polyH, ecmdata.poly_size);
 			}
 		}
 if (slice == 0) {
