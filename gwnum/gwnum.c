@@ -6853,7 +6853,7 @@ void gwfree_internal_memory (
 	gwhandle *gwdata)	/* Handle initialized by gwsetup */
 {
 	// If the gwdata has been cloned, we cannot safely free shared gwnums as the cloned gwdatas may also be using these gwnums
-	if (gwdata->clone_count == 0) {
+	if (gwdata->clone_count == 0 && gwdata->clone_of == NULL) {
 		gwmutex_lock (&clone_lock);		// Protect against a clone initializing right now.  The clone would copy pointers we are about to free.
 		gwfree (gwdata, gwdata->GW_RANDOM), gwdata->GW_RANDOM = NULL;
 		gwfree (gwdata, gwdata->GW_RANDOM_SQUARED), gwdata->GW_RANDOM_SQUARED = NULL;
@@ -9239,11 +9239,21 @@ int gwequal (
 void init_FFT1 (		/* Calculate GW_FFT1 if necessary */
 	gwhandle *gwdata)	/* Handle initialized by gwsetup */
 {
-	ASSERTG (gwdata->FFT1_state == 0);
+
+/* If this is a cloned gwdata, see if we can save some memory by using the parent GW_FFT1 */
+
+	if (gwdata->clone_of != NULL && gwdata->GW_FFT1 != gwdata->clone_of->GW_FFT1 && gwdata->clone_of->GW_FFT1 != NULL) {
+		gwfree (gwdata, gwdata->GW_FFT1);
+		gwdata->GW_FFT1 = gwdata->clone_of->GW_FFT1;
+	}
+
+/* Check if GW_FFT1 has already been initialized (FFT1_state = 1) or GW_FFT1 is not needed becasue it is all ones (FFT_state = 2) */
+
+	else if (gwdata->FFT1_state != 0) return;
 
 /* Allocate and calculate FFT(1) */
 
-	if (gwdata->GW_FFT1 == NULL) {			// FFT(1) may already be allocated at user's request
+	else if (gwdata->GW_FFT1 == NULL) {		// FFT(1) may already be allocated at user's request
 		gwnum fft1 = gwalloc (gwdata);
 		dbltogw (gwdata, 1.0, fft1);
 		gwfft (gwdata, fft1, fft1);
@@ -9567,7 +9577,7 @@ void gwunfft2 (
 
 		// In modern 64-bit architectures, if FFT(1) is not all ones then use a cached FFT(1) to do the unfft.
 		// In older 64-bit architectures, use a cached FFT(1) to do the unfft even if FFT(1) is all ones.
-		if (gwdata->FFT1_state == 0) init_FFT1 (gwdata);
+		init_FFT1 (gwdata);
 		if (gwdata->GW_FFT1 != NULL) {
 			gwmul3 (gwdata, s, gwdata->GW_FFT1, d, options);
 		}
@@ -9643,15 +9653,6 @@ void gwunfft2 (
 
 			gwfree (gwdata, tmp);
 		}
-//		if (s != d) {
-//			dbltogw (gwdata, 0.0, d);
-//			gwmuladd4 (gwdata, d, d, s, d, options);
-//		} else {
-//			gwnum	tmp = gwalloc (gwdata);
-//			dbltogw (gwdata, 0.0, tmp);
-//			gwmuladd4 (gwdata, tmp, tmp, s, d, options);
-//			gwfree (gwdata, tmp);
-//		}
 	}
 
 /* Restore state */
@@ -9853,7 +9854,7 @@ void cmn_gwmulop4 (		/* Calculate (s1 * s2) op s3 */
 
 /* Create and cache FFT(1) */
 
-		if (gwdata->FFT1_state == 0 && FFT_state (s3) != FFTed_FOR_FMA) init_FFT1 (gwdata);
+		if (FFT_state (s3) != FFTed_FOR_FMA) init_FFT1 (gwdata);
 
 /* Assume we will not be asking the assembly code to use two destinations */
 
@@ -10244,7 +10245,7 @@ void gwfft_for_fma (		/* Forward FFT with post-processing for use in FMA */
 
 /* If the FMA routines are not passing FFT(1) to the assembly code, there is no need to do anything else */
 
-	if (gwdata->FFT1_state == 0) init_FFT1 (gwdata);
+	init_FFT1 (gwdata);
 	if (gwdata->FFT1_state == 2) return;
 
 /* Multiply the FFTed source by FFT(1) */
@@ -10423,7 +10424,14 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 
 /* Generate a random number, if we have't already done so */
 
-	if (gwdata->GW_RANDOM == NULL) {
+	// If this is a cloned gwdata, see if we can save some memory by using the parent GW_RANDOM
+	if (gwdata->clone_of != NULL && gwdata->GW_RANDOM != gwdata->clone_of->GW_RANDOM && gwdata->clone_of->GW_RANDOM != NULL) {
+		gwfree (gwdata, gwdata->GW_RANDOM); gwdata->GW_RANDOM = gwdata->clone_of->GW_RANDOM;
+		gwfree (gwdata, gwdata->GW_RANDOM_SQUARED); gwdata->GW_RANDOM_SQUARED = gwdata->clone_of->GW_RANDOM_SQUARED;
+		gwfree (gwdata, gwdata->GW_RANDOM_FFT); gwdata->GW_RANDOM_FFT = gwdata->clone_of->GW_RANDOM_FFT;
+	}
+	// Otherwise, allocate locally
+	else if (gwdata->GW_RANDOM == NULL) {
 		gwnum random = gwalloc (gwdata);
 		gw_fixed_random_number (gwdata, random);
 		gwdata->GW_RANDOM = random;				// For gwclone's sake, do not set GW_RANDOM until random number is fully initialized
@@ -10450,10 +10458,17 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 
 		/* If not already cached, square the random number */
 		if (gwdata->GW_RANDOM_SQUARED == NULL) {
-			gwnum random_squared = gwalloc (gwdata);
-			gwmul3 (gwdata, gwdata->GW_RANDOM, gwdata->GW_RANDOM, random_squared, GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2 | GWMUL_STARTNEXTFFT);
-			gwfft_for_fma (gwdata, random_squared, random_squared);
-			gwdata->GW_RANDOM_SQUARED = random_squared;	// For gwclone's sake, do not set GW_RANDOM_SQUARED until it is fully initialized
+			// If this is a cloned gwdata, see if we can save some memory by using the parent GW_RANDOM_SQUARED
+			if (gwdata->clone_of != NULL && gwdata->GW_RANDOM == gwdata->clone_of->GW_RANDOM && gwdata->clone_of->GW_RANDOM_SQUARED != NULL) {
+				gwdata->GW_RANDOM_SQUARED = gwdata->clone_of->GW_RANDOM_SQUARED;
+			}
+			// Otherwise, allocate locally
+			else {
+				gwnum random_squared = gwalloc (gwdata);
+				gwmul3 (gwdata, gwdata->GW_RANDOM, gwdata->GW_RANDOM, random_squared, GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2 | GWMUL_STARTNEXTFFT);
+				gwfft_for_fma (gwdata, random_squared, random_squared);
+				gwdata->GW_RANDOM_SQUARED = random_squared;	// For gwclone's sake, do not set GW_RANDOM_SQUARED until it is fully initialized
+			}
 		}
 
 		/* Generate desired result, d = ((s1+r)*(s1-r) + r^2 + addin) * mulbyconst */
@@ -10487,9 +10502,16 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 
 		/* If not already cached, FFT the random number */
 		if (gwdata->GW_RANDOM_FFT == NULL) {
-			gwnum random_fft = gwalloc (gwdata);
-			gwfft (gwdata, gwdata->GW_RANDOM, random_fft);
-			gwdata->GW_RANDOM_FFT = random_fft;		// For gwclone's sake, do not set GW_RANDOM_FFT until it is fully initialized
+			// If this is a cloned gwdata, see if we can save some memory by using the parent GW_RANDOM_FFT
+			if (gwdata->clone_of != NULL && gwdata->GW_RANDOM == gwdata->clone_of->GW_RANDOM && gwdata->clone_of->GW_RANDOM_FFT != NULL) {
+				gwdata->GW_RANDOM_FFT = gwdata->clone_of->GW_RANDOM_FFT;
+			}
+			// Otherwise, allocate locally
+			else {
+				gwnum random_fft = gwalloc (gwdata);
+				gwfft (gwdata, gwdata->GW_RANDOM, random_fft);
+				gwdata->GW_RANDOM_FFT = random_fft;		// For gwclone's sake, do not set GW_RANDOM_FFT until it is fully initialized
+			}
 		}
 		
 		/* Generate desired result, d = ((s1+r)*(s2-r) + r*(s1+r-s2) + addin) * mulbyconst */
