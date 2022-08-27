@@ -683,7 +683,7 @@ int gwequal (gwhandle *, gwnum, gwnum);
 
 /* Experimental routine to clone a gwhandle.  The cloned handle uses less resources than a full gwsetup by sharing many data structures with */
 /* the original handle.  The cloned handle can be used in a limited way in another thread.  Valid operations in the cloned handle are single */
-/* threaded multiplication, addition, subtraction.  Other operations may work as well. */
+/* threaded multiplication, addition, subtraction.  Many other operations will work as well. */
 int gwclone (
 	gwhandle *cloned_gwdata,	/* Empty handle to be populated */
 	gwhandle *gwdata);		/* Handle to clone */
@@ -1081,8 +1081,10 @@ struct gwhandle_struct {
 	gwnum	GW_RANDOM;		/* A random number used in gwmul3_carefully. */
 	gwnum	GW_RANDOM_SQUARED;	/* Cached square of the random number used in gwmul3_carefully. */
 	gwnum	GW_RANDOM_FFT;		/* Cached FFT of the random number used in gwmul3_carefully. */
-	gwnum	GW_ADDIN;		/* The gwsetaddin value when we need to emulate GWMUL3_ADDINCONST. */
-	gwnum	GW_FFT1;		/* The number 1 FFTed.  Sometimes need by gwmuladd4 and gwmulsub4. */
+	gwnum	GW_FFT1;		/* The number 1 FFTed.  Sometimes need by gwmuladd4, gwmulsub4, and gwunfft. */
+	gwnum	GW_ADDIN;		/* Cached gwsetaddin value when we need to emulate GWMUL_ADDINCONST. */
+	long	emulate_addin_value;	/* When emulating GWMUL_ADDINCONST, this is a copy of the last value sent to gwsetaddin. */
+	double	asm_addin_value;	/* Value to copy to asm_data->ADDIN_VALUE when GWMUL_ADDINCONST is set. */
 	char	FFT1_state;		/* 0 = FFT(1) needed for FMA but not yet allocated, 1 = FFT(1) needed for FMA and allocated, */
 					/* 2 = FFT(1) is not needed for FMA. */
 	char	FFT1_user_allocated;	/* TRUE if FFT(1) was allocated at user's request */
@@ -1157,6 +1159,7 @@ struct gwhandle_struct {
 	double	ZPAD_COPY7_ADJUST[7];	/* Adjustments for copying the 7 words around the halfway point of a zero pad FFT. */
 	double	ZPAD_0_6_ADJUST[7];	/* Adjustments for ZPAD0_6 in a r4dwpn FFT */
 	unsigned long wpn_count;	/* Count of r4dwpn pass 1 blocks that use the same ttp/ttmp grp multipliers */
+	gwatomic clone_count;		/* How many times this gwhandle has been cloned */
 	gwhandle *clone_of;		/* If this is a cloned gwhandle, this points to the gwhandle that was cloned */
 	gwhandle *to_radix_gwdata;	/* FFTs used in converting to base b from binary in nonbase2_gianttogw */
 	gwhandle *from_radix_gwdata;	/* FFTs used in converting from base b to binary in nonbase2_gwtogiant */

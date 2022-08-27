@@ -42,7 +42,10 @@
 
 #include "mt19937ar.c"
 
-/* global variables */
+/* Global variables */
+
+gwmutex	clone_lock;				/* This mutex lets parent and cloned gwdatas atomicly change a set of values */
+int	clone_lock_initialized = FALSE;		/* Whether clone mutex is initialized */
 
 /* When debugging gwnum and giants, I sometimes write code that "cheats" */
 /* by calling a routine that is part of prime95 rather than the gwnum and */
@@ -446,6 +449,7 @@ void pass1_aux_entry_point (void*);
 void pass2_aux_entry_point (void*);
 void create_auxiliary_hyperthread (struct gwasm_data *);
 void auxiliary_hyperthread (void *);
+void gw_fixed_random_number (gwhandle *gwdata, gwnum x);
 
 /* Routine to split a r4dwpn FFT word into column and group multiplier indexes */
 /* We remove bit(s) associated with the upper SSE2/AVX/AVX-512 words because those are */
@@ -2654,7 +2658,7 @@ void init_asm_info_carries (
 }
 
 /* Clone a gwhandle.  The cloned handle can be used in a limited way in another thread.  Valid operations in the cloned handle are single threaded */
-/* multiplication, addition, subtraction.  Operations to avoid are memory allocation and freeing including any routines that may allocate gwnums internally */
+/* multiplication, addition, subtraction. */
 
 int gwclone (
 	gwhandle *cloned_gwdata,	/* Empty handle to be populated */
@@ -2663,9 +2667,15 @@ int gwclone (
 	void	*cloned_asm_data_alloc;
 	struct gwasm_data *asm_data, *cloned_asm_data;
 
+/* Increment cloning count.  We disable gwfree_internal_memory once a cloning occurs (the clones may be pointing to the same internal memory). */
+
+	atomic_incr (gwdata->clone_count);
+
 /* Start by copying the handle, set flag indicating this is a cloned handle */
 
+	gwmutex_lock (&clone_lock);		// Protect against cloning while parent is atomicly changing a set of values
 	memcpy (cloned_gwdata, gwdata, sizeof (struct gwhandle_struct));
+	gwmutex_unlock (&clone_lock);
 	cloned_gwdata->clone_of = gwdata;
 
 // Init giants/gwdata sharing
@@ -2687,6 +2697,20 @@ int gwclone (
 	cloned_gwdata->large_pages_ptr = NULL;
 	cloned_gwdata->large_pages_gwnum = NULL;
 	cloned_gwdata->gwnum_memory = NULL;
+
+/* Can't share radix FFTs */
+
+	cloned_gwdata->to_radix_gwdata = NULL;
+	cloned_gwdata->from_radix_gwdata = NULL;
+
+/* Can't share cached GW_ADDIN.  We could if GW_ADDIN was read-only, but future calls to gwsetaddin would erroneously change/delete the shared GW_ADDIN. */
+
+	cloned_gwdata->GW_ADDIN = NULL;
+
+/* Clear pointers we're about to overwrite in case an error occurs and gwdone is called */
+
+	cloned_gwdata->asm_data = NULL;
+	cloned_gwdata->dd_data = NULL;
 
 /* Each cloned handle must have their own asm_data structure */
 
@@ -2728,18 +2752,14 @@ int gwclone (
 		return (GWERROR_MALLOC);
 	}
 
-/* Can't share radix FFTs */
-
-	cloned_gwdata->to_radix_gwdata = NULL;
-	cloned_gwdata->from_radix_gwdata = NULL;
-
-/* Clear counters.  Each handle will keep there own counts to later be merged back into the parent gwdata. */
+/* Clear counters and caches.  Each handle will keep there own counts to later be merged back into the parent gwdata. */
 
 	cloned_gwdata->GWERROR = 0;
 	cloned_gwdata->fft_count = 0;
 	cloned_gwdata->read_count = 0;
 	cloned_gwdata->write_count = 0;
 	cloned_asm_data->MAXERR = 0.0;
+	cloned_gwdata->saved_copyz_n = 0;
 
 /* For now turn off multi-threading and thread callback.  We could re-visit this at a later date.  Our first use of cloned handles is in P-1 stage 2 */
 /* where we are piggybacking off of polymult's thread locks and affinity setting callbacks. */
@@ -2905,6 +2925,13 @@ int internal_gwsetup (
 /* Init the FPU to assure we are in 64-bit precision mode */
 
 	fpu_init ();
+
+/* Initialize the clone mutex if necessary */
+
+	if (!clone_lock_initialized) {
+		gwmutex_init (&clone_lock);
+		clone_lock_initialized = TRUE;
+	}
 
 /* Allocate space for the assembly code global data.  This area is preceded */
 /* by a temporary stack.  This allows the assembly code to access the global */
@@ -4817,7 +4844,7 @@ int internal_gwsetup (
 	gwdata->GW_RANDOM_FFT = NULL;
 	gwdata->GW_ADDIN = NULL;
 
-/* Init FFT1 state for possible future gwmuladd4 and gwmulsub4 calls */
+/* Init FFT1 state for possible future gwmuladd4, gwmulsub4, and gwunfft2 calls */
 /* For AVX-512, FMA3 and AVX FFTs, k == 1 FFTs can skip FFT(1) */
 /* For 32-bit gwnum, we'll never need FFT(1) we emulate everywhere it might be needed */
 
@@ -4861,6 +4888,7 @@ int internal_gwsetup (
 
 /* Clear counters, init internal timers */
 
+	atomic_set (gwdata->clone_count, 0);
 	gwdata->fft_count = 0.0;
 	gwdata->read_count = gwdata->write_count = 0;
 	asm_data->ASM_TIMERS = (uint32_t *) &gwdata->ASM_TIMERS;
@@ -6608,6 +6636,8 @@ void gwdone (
 			unshare_sincos_data (asm_data->sincos3);			// SSE2 & AVX & AVX512
 			aligned_free ((char *) gwdata->asm_data - NEW_STACK_SIZE), gwdata->asm_data = NULL;
 		}
+		// Check that all clones have been terminated
+		ASSERTG (gwdata->clone_count == 0);
 	}
 	else {
 		if (gwdata->asm_data != NULL) {
@@ -6617,6 +6647,8 @@ void gwdone (
 			aligned_free (asm_data->carries), asm_data->carries = NULL;
 			aligned_free ((char *) gwdata->asm_data - NEW_STACK_SIZE), gwdata->asm_data = NULL;
 		}
+		// Decrement the clone_count
+		atomic_decr (gwdata->clone_of->clone_count);
 	}
 
 	// Free cached radix conversion data
@@ -6820,10 +6852,15 @@ void gwfree_cached (
 void gwfree_internal_memory (
 	gwhandle *gwdata)	/* Handle initialized by gwsetup */
 {
-	gwfree (gwdata, gwdata->GW_RANDOM), gwdata->GW_RANDOM = NULL;
-	gwfree (gwdata, gwdata->GW_RANDOM_SQUARED), gwdata->GW_RANDOM_SQUARED = NULL;
-	gwfree (gwdata, gwdata->GW_RANDOM_FFT), gwdata->GW_RANDOM_FFT = NULL;
-	if (gwdata->FFT1_state == 1 && !gwdata->FFT1_user_allocated) gwfree (gwdata, gwdata->GW_FFT1), gwdata->GW_FFT1 = NULL, gwdata->FFT1_state = 0;
+	// If the gwdata has been cloned, we cannot safely free shared gwnums as the cloned gwdatas may also be using these gwnums
+	if (gwdata->clone_count == 0) {
+		gwmutex_lock (&clone_lock);		// Protect against a clone initializing right now.  The clone would copy pointers we are about to free.
+		gwfree (gwdata, gwdata->GW_RANDOM), gwdata->GW_RANDOM = NULL;
+		gwfree (gwdata, gwdata->GW_RANDOM_SQUARED), gwdata->GW_RANDOM_SQUARED = NULL;
+		gwfree (gwdata, gwdata->GW_RANDOM_FFT), gwdata->GW_RANDOM_FFT = NULL;
+		if (gwdata->FFT1_state == 1 && !gwdata->FFT1_user_allocated) gwfree (gwdata, gwdata->GW_FFT1), gwdata->GW_FFT1 = NULL, gwdata->FFT1_state = 0;
+		gwmutex_unlock (&clone_lock);
+	}
 	if (gwdata->to_radix_gwdata != NULL) gwdone (gwdata->to_radix_gwdata), free (gwdata->to_radix_gwdata), gwdata->to_radix_gwdata = NULL;
 	if (gwdata->from_radix_gwdata != NULL) gwdone (gwdata->from_radix_gwdata), free (gwdata->from_radix_gwdata), gwdata->from_radix_gwdata = NULL;
 	gwfree_cached (gwdata);
@@ -7969,7 +8006,7 @@ void gwcopyzero (
 		return;
 	}
 
-/* Calculate pointers for ASM routines to do there zero-copy */
+/* Calculate pointers for ASM routines to do their zero-copy */
 
 	if (n != gwdata->saved_copyz_n) {
 		if (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX | CPU_SSE2))
@@ -8169,30 +8206,27 @@ void gwsetaddin (
 
 	ASSERTG (labs(value) <= 2147483647);		// Limit add-in to 32 bits, though I don't see why 45 or even more bits would not work
 
-/* If this is a case we must emulate, allocate and initialize GW_ADDIN */
+/* If this is a case we must emulate, deallocate cached GW_ADDIN, remember addin value */
 
 	if (gwdata->k != 1.0 && labs (gwdata->c) != 1) {
-		if (value == 0) {
-			gwfree (gwdata, gwdata->GW_ADDIN);
-			gwdata->GW_ADDIN = NULL;
-			return;
-		}
-		if (gwdata->GW_ADDIN == NULL) gwdata->GW_ADDIN = gwalloc (gwdata);
-		dbltogw (gwdata, (double) value, gwdata->GW_ADDIN);
+		if (value == gwdata->emulate_addin_value) return;
+		gwdata->emulate_addin_value = value;
+		gwfree (gwdata, gwdata->GW_ADDIN);
+		gwdata->GW_ADDIN = NULL;
 		return;
 	}
 
 /* Handle value of zero */
 
 	if (value == 0) {
-		((struct gwasm_data *) gwdata->asm_data)->ADDIN_VALUE = 0.0;
+		gwdata->asm_addin_value = 0.0;
 		return;
 	}
 
 /* In a zero-padded FFT, the value is added into ZPAD0 */
 
 	if (gwdata->ZERO_PADDED_FFT) {
-		((struct gwasm_data *) gwdata->asm_data)->ADDIN_VALUE = (double) value;
+		gwdata->asm_addin_value = (double) value;
 		return;
 	}
 
@@ -8234,6 +8268,12 @@ void raw_gwsetaddin (
 {
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 	unsigned long row;
+
+/* Protect against cloning until ADDIN_ROW, ADDIN_OFFSET, and asm_addin_value have all been changed. */
+/* One could argue that protecting against this inconsistency is useless.  If you clone while the parent is in the middle of this routine, then the */
+/* caller has a race condition where he has no idea whether he's cloned the old or new addin value. */
+
+	if (gwdata->clone_of == NULL) gwmutex_lock (&clone_lock);
 
 /* Handle calculations for AVX-512 FFTs.  All two-pass FFTs use a scratch area. */
 
@@ -8304,19 +8344,15 @@ void raw_gwsetaddin (
 			if (row == 16) asm_data->ADDIN_OFFSET -= 8;
 		}
 
-/* Factor in the blkdst value in xfft3.mac to compute the two pass */
-/* SSE2 addin_offset. */
+/* Factor in the blkdst value in xfft3.mac to compute the two pass SSE2 addin_offset. */
 
 		else {
 			unsigned long num_rows;
 
 			num_rows = gwdata->PASS2_SIZE >> 1;
 			row = word % num_rows;
-			asm_data->ADDIN_ROW =
-					row & ~(gwdata->PASS1_CACHE_LINES - 1);
-			asm_data->ADDIN_OFFSET -= (row >> 7) * 128 +
-					(row / gwdata->PASS1_CACHE_LINES) *
-					gwdata->PASS1_CACHE_LINES * 64;
+			asm_data->ADDIN_ROW = row & ~(gwdata->PASS1_CACHE_LINES - 1);
+			asm_data->ADDIN_OFFSET -= (row >> 7) * 128 + (row / gwdata->PASS1_CACHE_LINES) * gwdata->PASS1_CACHE_LINES * 64;
 
 /* This case is particularly nasty as we have to convert the FFT data offset */
 /* into a scratch area offset.  In assembly language terms, this means */
@@ -8388,7 +8424,7 @@ void raw_gwsetaddin (
 /* Exceptions are two-pass all-complex FFTs which have a sine component as part of the inverse group multiplier. */
 
 		if (gwdata->RATIONAL_FFT && !(gwdata->PASS1_SIZE && gwdata->ALL_COMPLEX_FFT)) {
-			asm_data->ADDIN_VALUE = val;
+			gwdata->asm_addin_value = val;
 		}
 
 /* AVX-512 FFT's ADDIN_VALUE is partially normalized (since we moved the weighting from the last_unfft macro to the normalize */
@@ -8407,22 +8443,35 @@ void raw_gwsetaddin (
 				gwfft_weights_times_sine (gwdata->dd_data, grp, sine_word, gwdata->FFTLEN * 2, NULL, &ttmp);
 			} else
 				ttmp = gwfft_weight_inverse (gwdata->dd_data, grp);
-			asm_data->ADDIN_VALUE = val / ttmp;
+			gwdata->asm_addin_value = val / ttmp;
 		}
 	}
 
 /* Handle r4dwpn FFTs which are only partially normalized */
 
 	else if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-		asm_data->ADDIN_VALUE = val * gwfft_partial_weight_sloppy (gwdata->dd_data, word, dwpn_col (gwdata, word));
+		gwdata->asm_addin_value = val * gwfft_partial_weight_sloppy (gwdata->dd_data, word, dwpn_col (gwdata, word));
 	}
 
 /* Set the addin value - multiply it by two-to-phi and FFTLEN/2/k. */
 
 	else
-		asm_data->ADDIN_VALUE = val * gwfft_weight_sloppy (gwdata->dd_data, word) * gwdata->FFTLEN * 0.5 / gwdata->k;
+		gwdata->asm_addin_value = val * gwfft_weight_sloppy (gwdata->dd_data, word) * gwdata->FFTLEN * 0.5 / gwdata->k;
+
+/* Release clone lock now that ADDIN_ROW, ADDIN_OFFSET, and asm_addin_value have all been changed */
+
+	if (gwdata->clone_of == NULL) gwmutex_unlock (&clone_lock);
 }
 
+/* Initialize the cached GW_ADDIN value */
+
+void init_GW_ADDIN (
+	gwhandle *gwdata)	/* Handle initialized by gwsetup */
+{
+	ASSERTG (gwdata->GW_ADDIN == NULL);
+	gwdata->GW_ADDIN = gwalloc (gwdata);
+	dbltogw (gwdata, (double) gwdata->emulate_addin_value, gwdata->GW_ADDIN);
+}
 
 /********************************************************/
 /* Routines to convert between gwnums and other formats */
@@ -9194,10 +9243,11 @@ void init_FFT1 (		/* Calculate GW_FFT1 if necessary */
 
 /* Allocate and calculate FFT(1) */
 
-	if (gwdata->GW_FFT1 == NULL) {	// FFT(1) may already be allocated at user's request
-		gwdata->GW_FFT1 = gwalloc (gwdata);
-		dbltogw (gwdata, 1.0, gwdata->GW_FFT1);
-		gwfft (gwdata, gwdata->GW_FFT1, gwdata->GW_FFT1);
+	if (gwdata->GW_FFT1 == NULL) {			// FFT(1) may already be allocated at user's request
+		gwnum fft1 = gwalloc (gwdata);
+		dbltogw (gwdata, 1.0, fft1);
+		gwfft (gwdata, fft1, fft1);
+		gwdata->GW_FFT1 = fft1;			// For gwclone's sake, only set GW_FFT1 once it is fully initialized
 	}
 	gwdata->FFT1_state = 1;
 }
@@ -9207,14 +9257,7 @@ void init_FFT1 (		/* Calculate GW_FFT1 if necessary */
 void gwuser_init_FFT1 (		/* Calculate GW_FFT1 at user's request */
 	gwhandle *gwdata)	/* Handle initialized by gwsetup */
 {
-
-/* Allocate and calculate FFT(1) */
-
-	if (gwdata->GW_FFT1 == NULL) {	// FFT(1) may already be allocated for FMA operations
-		gwdata->GW_FFT1 = gwalloc (gwdata);
-		dbltogw (gwdata, 1.0, gwdata->GW_FFT1);
-		gwfft (gwdata, gwdata->GW_FFT1, gwdata->GW_FFT1);
-	}
+	init_FFT1 (gwdata);
 	gwdata->FFT1_user_allocated = 1;
 }
 
@@ -9229,7 +9272,6 @@ void asm_mul (
 	int	options)	/* See gwnum.h */
 {
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
-	double	saved_addin;
 
 /* Set the flag which controls whether the multiply code should begin the forward FFT of the results of a multiply. */
 /* This is a little faster than than doing a full forward FFT later on.  The downside is the caller cannot convert the */
@@ -9244,12 +9286,9 @@ void asm_mul (
 	if (! (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX | CPU_SSE2))) asm_data->u.x87.POSTFFT = gwdata->POSTFFT;
 #endif	
 
-/* Save and clear the addin value if the GWMUL_ADDINCONST option is not set */
+/* Set/clear the addin value depending on GWMUL_ADDINCONST option */
 
-	if (! (options & GWMUL_ADDINCONST)) {
-		saved_addin = asm_data->ADDIN_VALUE;
-		asm_data->ADDIN_VALUE = 0.0;
-	}
+	asm_data->ADDIN_VALUE = (options & GWMUL_ADDINCONST) ? gwdata->asm_addin_value : 0.0;
 
 /* Call the assembly code */
 
@@ -9267,10 +9306,6 @@ void asm_mul (
 //if (rand() % 1000 < 2) *d += 1.0E200 * 1.0E200;
 	if (! is_valid_double (gwsumout (gwdata, d))) gwdata->GWERROR |= 1;
 	gwdata->fft_count += (asm_data->ffttype <= 3) ? 2.0 : 1.0;
-
-/* Restore the addin value if the GWMUL_ADDINCONST option is not set */
-
-	if (! (options & GWMUL_ADDINCONST)) asm_data->ADDIN_VALUE = saved_addin;
 
 /* For the two destination case, mark the source fully FFTed and calculate the address for the multiplication destination */
 
@@ -9682,10 +9717,11 @@ void cmn_gwopmul4 (		/* Calculate (s1 op s2) * s3 */
 		gwmul3 (gwdata, tmp1, s3, d, (options & ~0x3F) + ((options & 0x30) >> 2));	// Shift s3 options down to s2
 	}
 
-/* See if GWMUL3_ADDINCONST must be emulated */
+/* See if GWMUL_ADDINCONST must be emulated */
 
-	else if ((options & GWMUL_ADDINCONST) && gwdata->GW_ADDIN != NULL) {
+	else if ((options & GWMUL_ADDINCONST) && gwdata->emulate_addin_value != 0) {
 		cmn_gwopmul4 (gwdata, s1, s2, s3, d, options & ~(GWMUL_MULBYCONST | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT), opcode);
+		if (gwdata->GW_ADDIN == NULL) init_GW_ADDIN (gwdata);
 		gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
 		if (options & GWMUL_MULBYCONST) gwsmallmul (gwdata, gwdata->mulbyconst, d);
 	}
@@ -9801,10 +9837,11 @@ void cmn_gwmulop4 (		/* Calculate (s1 * s2) op s3 */
 		}
 	}
 
-/* See if GWMUL3_ADDINCONST must be emulated */
+/* See if GWMUL_ADDINCONST must be emulated */
 
-	else if ((options & GWMUL_ADDINCONST) && gwdata->GW_ADDIN != NULL) {
+	else if ((options & GWMUL_ADDINCONST) && gwdata->emulate_addin_value != 0) {
 		cmn_gwmulop4 (gwdata, s1, s2, s3, d, options & ~(GWMUL_MULBYCONST | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT), opcode);
+		if (gwdata->GW_ADDIN == NULL) init_GW_ADDIN (gwdata);
 		gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
 		if (options & GWMUL_MULBYCONST) gwsmallmul (gwdata, gwdata->mulbyconst, d);
 	}
@@ -9985,10 +10022,11 @@ void cmn_gwmulmulop5 (		/* Calculate (s1 * s2) op (s3 * s4) */
 		}
 	}
 
-/* See if GWMUL3_ADDINCONST must be emulated */
+/* See if GWMUL_ADDINCONST must be emulated */
 
-	else if ((options & GWMUL_ADDINCONST) && gwdata->GW_ADDIN != NULL) {
+	else if ((options & GWMUL_ADDINCONST) && gwdata->emulate_addin_value != 0) {
 		cmn_gwmulmulop5 (gwdata, s1, s2, s3, s4, d, options & ~(GWMUL_MULBYCONST | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT), opcode);
+		if (gwdata->GW_ADDIN == NULL) init_GW_ADDIN (gwdata);
 		gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
 		if (options & GWMUL_MULBYCONST) gwsmallmul (gwdata, gwdata->mulbyconst, d);
 	}
@@ -10333,10 +10371,11 @@ void gwmul3 (			/* Multiply two gwnums */
 		return;
 	}
 
-/* See if GWMUL3_ADDINCONST must be emulated */
+/* See if GWMUL_ADDINCONST must be emulated */
 
-	if ((options & GWMUL_ADDINCONST) && gwdata->GW_ADDIN != NULL) {
+	if ((options & GWMUL_ADDINCONST) && gwdata->emulate_addin_value != 0) {
 		gwmul3 (gwdata, s1, s2, d, options & ~(GWMUL_MULBYCONST | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT));
+		if (gwdata->GW_ADDIN == NULL) init_GW_ADDIN (gwdata);
 		gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
 		if (options & GWMUL_MULBYCONST) gwsmallmul (gwdata, gwdata->mulbyconst, d);
 		return;
@@ -10385,8 +10424,10 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 /* Generate a random number, if we have't already done so */
 
 	if (gwdata->GW_RANDOM == NULL) {
-		gwdata->GW_RANDOM = gwalloc (gwdata);
-		gw_random_number (gwdata, gwdata->GW_RANDOM);
+		gwnum random = gwalloc (gwdata);
+		gw_fixed_random_number (gwdata, random);
+		gwdata->GW_RANDOM = random;				// For gwclone's sake, do not set GW_RANDOM until random number is fully initialized
+		ASSERTG (gwdata->GW_RANDOM_SQUARED == NULL && gwdata->GW_RANDOM_FFT == NULL);
 	}
 
 /* Save and clear the carefully count (so that we don't recursively call this routine) */
@@ -10409,9 +10450,10 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 
 		/* If not already cached, square the random number */
 		if (gwdata->GW_RANDOM_SQUARED == NULL) {
-			gwdata->GW_RANDOM_SQUARED = gwalloc (gwdata);
-			gwmul3 (gwdata, gwdata->GW_RANDOM, gwdata->GW_RANDOM, gwdata->GW_RANDOM_SQUARED, GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2 | GWMUL_STARTNEXTFFT);
-			gwfft_for_fma (gwdata, gwdata->GW_RANDOM_SQUARED, gwdata->GW_RANDOM_SQUARED);
+			gwnum random_squared = gwalloc (gwdata);
+			gwmul3 (gwdata, gwdata->GW_RANDOM, gwdata->GW_RANDOM, random_squared, GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2 | GWMUL_STARTNEXTFFT);
+			gwfft_for_fma (gwdata, random_squared, random_squared);
+			gwdata->GW_RANDOM_SQUARED = random_squared;	// For gwclone's sake, do not set GW_RANDOM_SQUARED until it is fully initialized
 		}
 
 		/* Generate desired result, d = ((s1+r)*(s1-r) + r^2 + addin) * mulbyconst */
@@ -10445,8 +10487,9 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 
 		/* If not already cached, FFT the random number */
 		if (gwdata->GW_RANDOM_FFT == NULL) {
-			gwdata->GW_RANDOM_FFT = gwalloc (gwdata);
-			gwfft (gwdata, gwdata->GW_RANDOM, gwdata->GW_RANDOM_FFT);
+			gwnum random_fft = gwalloc (gwdata);
+			gwfft (gwdata, gwdata->GW_RANDOM, random_fft);
+			gwdata->GW_RANDOM_FFT = random_fft;		// For gwclone's sake, do not set GW_RANDOM_FFT until it is fully initialized
 		}
 		
 		/* Generate desired result, d = ((s1+r)*(s2-r) + r*(s1+r-s2) + addin) * mulbyconst */
@@ -10616,32 +10659,20 @@ void gwmulmulsub5 (		/* Calculate (s1*s2)-(s3*s4) */
 /* but it is bad form for a library to do this.  Thus, we found a */
 /* public domain random number generator to use. */
 
-void gw_random_number (
+void gw_random_number_internal (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	x)
+	gwnum	x,
+	struct mt_state *rand_info)
 {
-static	int	genrand_initialized = FALSE;
-static	struct mt_state rand_info;
 	stackgiant(g,4);
-
-/* Init the random generator to a reproducible state for gwsquare_carefully. */
-/* For other users of this routine, initialize to a more random state. */
-
-	if (x == gwdata->GW_RANDOM) {
-		init_genrand (&rand_info, 5489);
-		genrand_initialized = FALSE;
-	} else if (!genrand_initialized) {
-		init_genrand (&rand_info, (unsigned long) time (NULL));
-		genrand_initialized = TRUE;
-	}
 
 /* Generate a random number.  Start with a 128-bit random odd number and square it several times. */
 
 	g->sign = 4;
-	g->n[0] = (uint32_t) genrand_int32 (&rand_info) | 1;
-	g->n[1] = (uint32_t) genrand_int32 (&rand_info);
-	g->n[2] = (uint32_t) genrand_int32 (&rand_info);
-	g->n[3] = (uint32_t) genrand_int32 (&rand_info) | 0x80000000;
+	g->n[0] = (uint32_t) genrand_int32 (rand_info) | 1;
+	g->n[1] = (uint32_t) genrand_int32 (rand_info);
+	g->n[2] = (uint32_t) genrand_int32 (rand_info);
+	g->n[3] = (uint32_t) genrand_int32 (rand_info) | 0x80000000;
 	if (gwdata->GW_MODULUS != NULL && gcompg (g, gwdata->GW_MODULUS) >= 0) {
 		modg (gwdata->GW_MODULUS, g);
 		if (isZero (g) || isone (g)) itog (3, g);
@@ -10657,6 +10688,44 @@ static	struct mt_state rand_info;
 		gwdata->NORMNUM = saved_normnum;
 		gwdata->careful_count = saved_careful_count;
 	}
+}
+
+/* Generate random numbers using a random seed */
+
+void gw_random_number (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	x)
+{
+static	int	genrand_initialized = FALSE;
+static	struct mt_state rand_info;
+
+/* Init the random generator to a random starting point */
+
+	if (!genrand_initialized) {
+		init_genrand (&rand_info, (unsigned long) time (NULL));
+		genrand_initialized = TRUE;
+	}
+
+/* Generate a random number */
+
+	gw_random_number_internal (gwdata, x, &rand_info);
+}
+
+/* Generate a "fixed" random number using a fixed seed */
+
+void gw_fixed_random_number (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	x)
+{
+	struct mt_state rand_info;
+
+/* Init the random generator to a reproducible state for gwsquare_carefully and gwmul_carefully */
+
+	init_genrand (&rand_info, 5489);
+
+/* Generate a random number */
+
+	gw_random_number_internal (gwdata, x, &rand_info);
 }
 
 /* The FFT selection code assumes FFT data will essentially be random data2 yielding pretty well understood maximum */

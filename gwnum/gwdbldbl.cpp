@@ -800,9 +800,19 @@ void *gwdbldbl_data_alloc (void)
 extern "C"
 void *gwdbldbl_data_clone (void *orig)
 {
-	void *clone = malloc (sizeof (struct gwdbldbl_constants));
-	if (clone != NULL) memcpy (clone, orig, sizeof (struct gwdbldbl_constants));
-	return (clone);
+	void *dd_data_arg = malloc (sizeof (struct gwdbldbl_constants));
+	if (dd_data_arg != NULL) {
+		memcpy (dd_data_arg, orig, sizeof (struct gwdbldbl_constants));
+		// Clear some values in case orig was in an inconsistent state (mid-update)
+		dd_data->last_fft_base_j = 0;
+		dd_data->last_fft_base_result = 0;
+		dd_data->last_inv_sloppy_j = 0;
+		dd_data->last_inv_sloppy_result = 1.0;
+		dd_data->fast_inv_sloppy_multiplier = gwfft_weight_inverse (dd_data, 1);
+		dd_data->last_partial_sloppy_power[0] = dd_data->last_partial_sloppy_power[1] = 999.0;
+		dd_data->last_partial_inv_sloppy_power[0] = dd_data->last_partial_inv_sloppy_power[1] = 999.0;
+	}
+	return (dd_data_arg);
 }
 
 extern "C"
