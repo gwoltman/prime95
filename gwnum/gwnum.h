@@ -1234,8 +1234,10 @@ void specialmodg (gwhandle *, giant);
 void init_FFT1 (gwhandle *);
 
 /* Specialized routines that let the internal giants code share the free memory pool used by gwnums. */
-void gwfree_temporarily (gwhandle *, gwnum);
-void gwrealloc_temporarily (gwhandle *, gwnum);
+// void gwfree_temporarily (gwhandle *, gwnum);		DEPRECATED
+// void gwrealloc_temporarily (gwhandle *, gwnum);	DEPRECATED
+#define gwfree_temporarily(h,g)
+#define gwrealloc_temporarily(h,g)
 
 /* Routines to share the memory of cached free gwnums with giants code. */
 /* Used by prime95 to have the giants GCD code reuse the memory used during P-1 and ECM calculations. */

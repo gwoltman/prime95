@@ -423,7 +423,7 @@ void *x87_prctab[] = { x87_explode(array_entry) NULL };
 
 #define	GWINIT_WAS_CALLED_VALUE	0xAA12BB34	/* Special value checked by gwsetup to ensure gwinit was called */
 #define GWFREEABLE		0x80000000	/* Flag set in the gwnum freeable field indicating aligned_free will work */
-#define GWFREED_TEMPORARILY	0x40000000	/* Special flag value set in the gwnum freeable field */
+#define GWINTERNAL		0x40000000	/* Flag set in the gwnum freeable field indicating gwfreeall should not free this gwnum */
 #define GWFREE_LARGE_PAGES	0x20000000	/* Flag set if gwnum was allocated using large pages */
 #define GWFREEALLOC_INDEX	0x1FFFFFFF	/* Remainder of the freeable field -- index into the gwnum_alloc array */
 
@@ -450,6 +450,7 @@ void pass2_aux_entry_point (void*);
 void create_auxiliary_hyperthread (struct gwasm_data *);
 void auxiliary_hyperthread (void *);
 void gw_fixed_random_number (gwhandle *gwdata, gwnum x);
+gwnum gwalloc_internal (gwhandle *gwdata);
 
 /* Routine to split a r4dwpn FFT word into column and group multiplier indexes */
 /* We remove bit(s) associated with the upper SSE2/AVX/AVX-512 words because those are */
@@ -2475,7 +2476,7 @@ int gwsetup_general_mod_giant (
 /* Allocate memory for an FFTed copy of the modulus. */
 
 	if (!gwdata->information_only) {
-		gwdata->GW_MODULUS_FFT = gwalloc (gwdata);
+		gwdata->GW_MODULUS_FFT = gwalloc_internal (gwdata);
 		if (gwdata->GW_MODULUS_FFT == NULL) {
 			gwdone (gwdata);
 			return (GWERROR_MALLOC);
@@ -2509,7 +2510,7 @@ int gwsetup_general_mod_giant (
 
 /* Precompute the reciprocal of the modified modulus. */
 
-		gwdata->GW_RECIP_FFT = gwalloc (gwdata);
+		gwdata->GW_RECIP_FFT = gwalloc_internal (gwdata);
 		if (gwdata->GW_RECIP_FFT == NULL) {
 			gwdone (gwdata);
 			return (GWERROR_MALLOC);
@@ -6662,6 +6663,16 @@ void gwdone (
 	}
 }
 
+/* Allocate a gwnum used internally.  Such a gwnum will not be free by gwfreeall. */
+
+gwnum gwalloc_internal (
+	gwhandle *gwdata)
+{
+	gwnum g = gwalloc (gwdata);
+	if (g != NULL) * (int32_t *) ((char *) g - 32) |= GWINTERNAL;
+	return (g);
+}
+
 /* Routine to allocate aligned memory for our big numbers */
 /* Memory is allocated on 128-byte boundaries, with an additional */
 /* 32 bytes prior to the data for storing useful stuff */
@@ -6789,7 +6800,6 @@ void gwfree_freeable (
 
 	freeable = * (int32_t *) ((char *) q - 32);
 	ASSERTG (freeable & GWFREEABLE);
-	ASSERTG (! (freeable & GWFREED_TEMPORARILY));
 
 	// Move the last entry in the gwnum_alloc array to the slot we are about to free
 	alloc_index = freeable & GWFREEALLOC_INDEX;
@@ -6817,7 +6827,7 @@ void gwfree (
 
 	if (gwdata->gwnum_free_count >= gwdata->gwnum_max_free_count) {
 		int32_t	freeable = * (int32_t *) ((char *) q - 32);
-		if ((freeable & GWFREEABLE) && !(freeable & GWFREED_TEMPORARILY)) {
+		if (freeable & GWFREEABLE) {
 			gwfree_freeable (gwdata, q);
 			return;
 		}
@@ -6840,7 +6850,7 @@ void gwfree_cached (
 	for (i = 0; i < (int) gwdata->gwnum_free_count; i++) {
 		gwnum	q = gwdata->gwnum_free[i];
 		int32_t	freeable = * (int32_t *) ((char *) q - 32);
-		if ((freeable & GWFREEABLE) && !(freeable & GWFREED_TEMPORARILY)) {
+		if (freeable & GWFREEABLE) {
 			gwfree_freeable (gwdata, q);
 			gwdata->gwnum_free[i--] = gwdata->gwnum_free[--gwdata->gwnum_free_count];
 		}
@@ -6973,7 +6983,6 @@ void gwgiantdealloc (
 	for (i = 0; i < gwdata->gwnum_free_count; i++) {
 		gwnum	q = gwdata->gwnum_free[i];
 		int32_t	freeable = * (int32_t *) ((char *) q - 32);
-		if (freeable & GWFREED_TEMPORARILY) continue;
 		if (!(freeable & GWFREEABLE)) continue;
 
 		// Remove entry from gwnum_free array
@@ -6983,33 +6992,6 @@ void gwgiantdealloc (
 		gwfree_freeable (gwdata, q);
 		break;
 	}
-}
-
-
-/* Specialized routines that let the giants code share the free */
-/* memory pool used by gwnums. */
-
-void gwfree_temporarily (
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	q)
-{
-	* (int32_t *) ((char *) q - 32) |= GWFREED_TEMPORARILY;
-	gwfree (gwdata, q);
-}
-void gwrealloc_temporarily (
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	q)
-{
-	unsigned long i, j;
-
-	ASSERTG (* (int32_t *) ((char *) q - 32) & GWFREED_TEMPORARILY);
-
-	* (int32_t *) ((char *) q - 32) &= ~GWFREED_TEMPORARILY;
-
-	for (i = j = 0; i < gwdata->gwnum_free_count; i++)
-		if (gwdata->gwnum_free[i] != q)
-			gwdata->gwnum_free[j++] = gwdata->gwnum_free[i];
-	gwdata->gwnum_free_count = j;
 }
 
 /* Free all user allocated numbers */
@@ -7025,12 +7007,7 @@ void gwfreeall (
 	gwdata->gwnum_free_count = 0;
 	for (i = 0; i < gwdata->gwnum_alloc_count; i++) {
 		gwnum	q = gwdata->gwnum_alloc[i];
-		if (q == gwdata->GW_MODULUS_FFT) continue;
-		if (q == gwdata->GW_RECIP_FFT) continue;
-		if (q == gwdata->GW_RANDOM) continue;
-		if (q == gwdata->GW_RANDOM_SQUARED) continue;
-		if (q == gwdata->GW_RANDOM_FFT) continue;
-		if (q == gwdata->GW_FFT1) continue;
+		if (* (int32_t *) ((char *) q - 32) & GWINTERNAL) continue;
 		if (* (int32_t *) ((char *) q - 32) & GWFREEABLE) {
 			// Really free the gwnum
 			gwfree_freeable (gwdata, q);
@@ -8468,8 +8445,8 @@ void raw_gwsetaddin (
 void init_GW_ADDIN (
 	gwhandle *gwdata)	/* Handle initialized by gwsetup */
 {
-	ASSERTG (gwdata->GW_ADDIN == NULL);
-	gwdata->GW_ADDIN = gwalloc (gwdata);
+	if (gwdata->GW_ADDIN != NULL) return;
+	gwdata->GW_ADDIN = gwalloc_internal (gwdata);
 	dbltogw (gwdata, (double) gwdata->emulate_addin_value, gwdata->GW_ADDIN);
 }
 
@@ -9254,7 +9231,7 @@ void init_FFT1 (		/* Calculate GW_FFT1 if necessary */
 /* Allocate and calculate FFT(1) */
 
 	else if (gwdata->GW_FFT1 == NULL) {		// FFT(1) may already be allocated at user's request
-		gwnum fft1 = gwalloc (gwdata);
+		gwnum fft1 = gwalloc_internal (gwdata);
 		dbltogw (gwdata, 1.0, fft1);
 		gwfft (gwdata, fft1, fft1);
 		gwdata->GW_FFT1 = fft1;			// For gwclone's sake, only set GW_FFT1 once it is fully initialized
@@ -9722,7 +9699,7 @@ void cmn_gwopmul4 (		/* Calculate (s1 op s2) * s3 */
 
 	else if ((options & GWMUL_ADDINCONST) && gwdata->emulate_addin_value != 0) {
 		cmn_gwopmul4 (gwdata, s1, s2, s3, d, options & ~(GWMUL_MULBYCONST | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT), opcode);
-		if (gwdata->GW_ADDIN == NULL) init_GW_ADDIN (gwdata);
+		init_GW_ADDIN (gwdata);
 		gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
 		if (options & GWMUL_MULBYCONST) gwsmallmul (gwdata, gwdata->mulbyconst, d);
 	}
@@ -9842,7 +9819,7 @@ void cmn_gwmulop4 (		/* Calculate (s1 * s2) op s3 */
 
 	else if ((options & GWMUL_ADDINCONST) && gwdata->emulate_addin_value != 0) {
 		cmn_gwmulop4 (gwdata, s1, s2, s3, d, options & ~(GWMUL_MULBYCONST | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT), opcode);
-		if (gwdata->GW_ADDIN == NULL) init_GW_ADDIN (gwdata);
+		init_GW_ADDIN (gwdata);
 		gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
 		if (options & GWMUL_MULBYCONST) gwsmallmul (gwdata, gwdata->mulbyconst, d);
 	}
@@ -10027,7 +10004,7 @@ void cmn_gwmulmulop5 (		/* Calculate (s1 * s2) op (s3 * s4) */
 
 	else if ((options & GWMUL_ADDINCONST) && gwdata->emulate_addin_value != 0) {
 		cmn_gwmulmulop5 (gwdata, s1, s2, s3, s4, d, options & ~(GWMUL_MULBYCONST | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT), opcode);
-		if (gwdata->GW_ADDIN == NULL) init_GW_ADDIN (gwdata);
+		init_GW_ADDIN (gwdata);
 		gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
 		if (options & GWMUL_MULBYCONST) gwsmallmul (gwdata, gwdata->mulbyconst, d);
 	}
@@ -10376,7 +10353,7 @@ void gwmul3 (			/* Multiply two gwnums */
 
 	if ((options & GWMUL_ADDINCONST) && gwdata->emulate_addin_value != 0) {
 		gwmul3 (gwdata, s1, s2, d, options & ~(GWMUL_MULBYCONST | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT));
-		if (gwdata->GW_ADDIN == NULL) init_GW_ADDIN (gwdata);
+		init_GW_ADDIN (gwdata);
 		gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
 		if (options & GWMUL_MULBYCONST) gwsmallmul (gwdata, gwdata->mulbyconst, d);
 		return;
@@ -10432,7 +10409,7 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 	}
 	// Otherwise, allocate locally
 	else if (gwdata->GW_RANDOM == NULL) {
-		gwnum random = gwalloc (gwdata);
+		gwnum random = gwalloc_internal (gwdata);
 		gw_fixed_random_number (gwdata, random);
 		gwdata->GW_RANDOM = random;				// For gwclone's sake, do not set GW_RANDOM until random number is fully initialized
 		ASSERTG (gwdata->GW_RANDOM_SQUARED == NULL && gwdata->GW_RANDOM_FFT == NULL);
@@ -10464,7 +10441,7 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 			}
 			// Otherwise, allocate locally
 			else {
-				gwnum random_squared = gwalloc (gwdata);
+				gwnum random_squared = gwalloc_internal (gwdata);
 				gwmul3 (gwdata, gwdata->GW_RANDOM, gwdata->GW_RANDOM, random_squared, GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2 | GWMUL_STARTNEXTFFT);
 				gwfft_for_fma (gwdata, random_squared, random_squared);
 				gwdata->GW_RANDOM_SQUARED = random_squared;	// For gwclone's sake, do not set GW_RANDOM_SQUARED until it is fully initialized
@@ -10508,7 +10485,7 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 			}
 			// Otherwise, allocate locally
 			else {
-				gwnum random_fft = gwalloc (gwdata);
+				gwnum random_fft = gwalloc_internal (gwdata);
 				gwfft (gwdata, gwdata->GW_RANDOM, random_fft);
 				gwdata->GW_RANDOM_FFT = random_fft;		// For gwclone's sake, do not set GW_RANDOM_FFT until it is fully initialized
 			}
