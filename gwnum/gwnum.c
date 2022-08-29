@@ -423,7 +423,7 @@ void *x87_prctab[] = { x87_explode(array_entry) NULL };
 
 #define	GWINIT_WAS_CALLED_VALUE	0xAA12BB34	/* Special value checked by gwsetup to ensure gwinit was called */
 #define GWFREEABLE		0x80000000	/* Flag set in the gwnum freeable field indicating aligned_free will work */
-#define GWINTERNAL		0x40000000	/* Flag set in the gwnum freeable field indicating gwfreeall should not free this gwnum */
+#define GWFREE_INTERNAL		0x40000000	/* Flag set in the gwnum freeable field indicating gwfreeall should not free this gwnum */
 #define GWFREE_LARGE_PAGES	0x20000000	/* Flag set if gwnum was allocated using large pages */
 #define GWFREEALLOC_INDEX	0x1FFFFFFF	/* Remainder of the freeable field -- index into the gwnum_alloc array */
 
@@ -2667,6 +2667,11 @@ int gwclone (
 {
 	void	*cloned_asm_data_alloc;
 	struct gwasm_data *asm_data, *cloned_asm_data;
+	int	retcode;
+
+/* Clones of clones are allowed.  Work back to first gwdata. */
+
+	if (gwdata->clone_of != NULL) gwdata = gwdata->clone_of;
 
 /* Increment cloning count.  We disable gwfree_internal_memory once a cloning occurs (the clones may be pointing to the same internal memory). */
 
@@ -2686,18 +2691,7 @@ int gwclone (
 	cloned_gwdata->gdata.free = &gwgiantfree;
 	cloned_gwdata->gdata.deallocate = &gwgiantdealloc;
 	cloned_gwdata->gdata.handle = (void *) cloned_gwdata;
-
-/* Keep allocated memory separate between the two handles */
-
-	cloned_gwdata->gwnum_alloc = NULL;
-	cloned_gwdata->gwnum_alloc_count = 0;
-	cloned_gwdata->gwnum_alloc_array_size = 50;
-	cloned_gwdata->gwnum_free = NULL;
-	cloned_gwdata->gwnum_free_count = 0;
-	cloned_gwdata->array_list = NULL;
-	cloned_gwdata->large_pages_ptr = NULL;
-	cloned_gwdata->large_pages_gwnum = NULL;
-	cloned_gwdata->gwnum_memory = NULL;
+	cloned_gwdata->gdata.blksize = gwnum_datasize (gwdata);
 
 /* Can't share radix FFTs */
 
@@ -2770,7 +2764,11 @@ int gwclone (
 	cloned_gwdata->thread_callback = NULL;
 	cloned_gwdata->thread_callback_data = NULL;
 	cloned_gwdata->thread_ids = NULL;
-	multithread_init (cloned_gwdata);
+	retcode = multithread_init (cloned_gwdata);
+	if (retcode) {
+		gwdone (cloned_gwdata);
+		return (retcode);
+	}
 
 /* Return success */
 
@@ -3014,8 +3012,7 @@ int internal_gwsetup (
 
 /* Calculate the average number of base b's stored in each FFT word.  The total */
 /* number of base b's the underlying FFT works with (i.e. the point at which data */
-/* wraps around to the low FFT word) is 2*n for a zero pad FFT and logb(k) + n */
-/* otherwise. */	
+/* wraps around to the low FFT word) is 2*n for a zero pad FFT and logb(k) + n otherwise. */
 
 	gwdata->avg_num_b_per_word = (gwdata->ZERO_PADDED_FFT ? n * 2.0 : (log (k) / log (b) + n)) / gwdata->FFTLEN;
 
@@ -4876,42 +4873,49 @@ int internal_gwsetup (
 	else {
 		double bits_per_double, total_bits, loglen;
 		bits_per_double = gwdata->avg_num_b_per_word * log2 (b) - 1.0;
-		if (!gwdata->RATIONAL_FFT)
-			bits_per_double += log2 (b);
-		if (!gwdata->ZERO_PADDED_FFT)
-			bits_per_double += log2 (-c);
+		if (!gwdata->RATIONAL_FFT) bits_per_double += log2 (b);
+		if (!gwdata->ZERO_PADDED_FFT) bits_per_double += log2 (-c);
 		loglen = log2 (gwdata->FFTLEN);
 		loglen *= 0.69;
 		total_bits = bits_per_double * 2.0 + loglen * 2.0;
-		gwdata->MAXDIFF = pow ((double) 2.0, total_bits -
-				((gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX | CPU_SSE2)) ? 49.08 : 49.65));
+		gwdata->MAXDIFF = pow ((double) 2.0, total_bits - ((gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX | CPU_SSE2)) ? 49.08 : 49.65));
 	}
 
 /* Clear counters, init internal timers */
 
-	atomic_set (gwdata->clone_count, 0);
-	gwdata->fft_count = 0.0;
-	gwdata->read_count = gwdata->write_count = 0;
-	asm_data->ASM_TIMERS = (uint32_t *) &gwdata->ASM_TIMERS;
+	if (!gwdata->information_only) {
+		atomic_set (gwdata->clone_count, 0);
+		gwdata->fft_count = 0.0;
+		gwdata->read_count = gwdata->write_count = 0;
+		asm_data->ASM_TIMERS = (uint32_t *) &gwdata->ASM_TIMERS;
 
-/* Default size of gwnum_alloc array is 50 */
+/* Default size of gwnum_alloc array is 50.  The caller might clone this gwdata.  If so, gwalloc and gwfree need a lock to operate in a thread-safe manner. */
 
-	gwdata->gwnum_alloc = NULL;
-	gwdata->gwnum_alloc_count = 0;
-	gwdata->gwnum_alloc_array_size = 50;
-	gwdata->gwnum_free = NULL;
-	gwdata->gwnum_free_count = 0;
+		gwdata->gwnum_alloc = (gwnum *) malloc (50 * sizeof (gwnum));
+		if (gwdata->gwnum_alloc == NULL) { gwdone (gwdata); return (GWERROR_MALLOC); }
+		gwdata->gwnum_free = (gwnum *) malloc (50 * sizeof (gwnum));
+		if (gwdata->gwnum_free == NULL) { gwdone (gwdata); return (GWERROR_MALLOC); }
+		gwdata->gwnum_alloc_count = 0;
+		gwdata->gwnum_alloc_array_size = 50;
+		gwdata->gwnum_free_count = 0;
+		gwmutex_init (&gwdata->alloc_lock);
 
-/* Activate giants / gwnum shared cached memory allocates */
+		// Allocate and free the special large pages gwnum before any clones can be made.  This will put the special gwnum in the free cache
+		// and simplify locking in gwalloc (it won't have to obtain a lock to test gwdata->large_pages_gwnum).
+		if (gwdata->large_pages_gwnum != NULL) gwfree (gwdata, gwalloc (gwdata));
 
-	gwdata->gdata.blksize = gwnum_datasize (gwdata);
+		// Activate giants / gwnum shared cached memory allocates
+		gwdata->gdata.blksize = gwnum_datasize (gwdata);
 
-/* If we are going to use multiple threads for multiplications, then do */
-/* the required multi-thread initializations.  Someday, we might allow */
-/* setting num_threads after gwsetup so we put all the multi-thread */
-/* initialization in its own routine. */
+/* If we are going to use multiple threads for multiplications, then do the required multi-thread initializations. */
+/* Someday, we might allow setting num_threads after gwsetup so we put all the multi-thread initialization in its own routine. */
 
-	if (!gwdata->information_only) return (multithread_init (gwdata));
+		int retcode = multithread_init (gwdata);
+		if (retcode) { gwdone (gwdata); return (retcode); }
+	}
+
+/* Success */
+
 	return (0);
 }
 
@@ -6326,11 +6330,10 @@ int multithread_init (
 		if (gwdata->ALL_COMPLEX_FFT)
 			gwdata->adjusted_pass2_premults = asm_data->u.xmm.pass2_premults;
 		else
-			gwdata->adjusted_pass2_premults =
-				(char *) asm_data->u.xmm.pass2_premults - gwdata->pass2_premult_block_size;
+			gwdata->adjusted_pass2_premults = (char *) asm_data->u.xmm.pass2_premults - gwdata->pass2_premult_block_size;
 	}
 
-/* Allocate and init carry section array */
+/* Allocate carry section array */
 
 	gwdata->pass1_carry_sections = (struct pass1_carry_sections *) malloc (gwdata->num_threads * sizeof (struct pass1_carry_sections));
 	if (gwdata->pass1_carry_sections == NULL) return (GWERROR_MALLOC);
@@ -6599,32 +6602,35 @@ void gwdone (
 	// Multithreading cleanup
 	multithread_term (gwdata);
 
-	// Free allocated gwnum
-	term_ghandle (&gwdata->gdata);
-	free (gwdata->gwnum_free); gwdata->gwnum_free = NULL;
-	if (gwdata->gwnum_alloc != NULL) {
-		for (unsigned int i = 0; i < gwdata->gwnum_alloc_count; i++) {
-			char	*p;
-			int32_t	freeable;
-			p = (char *) gwdata->gwnum_alloc[i];
-			freeable = * (int32_t *) (p - 32);
-			if (freeable & GWFREEABLE) {
-				if (freeable & GWFREE_LARGE_PAGES) aligned_large_pages_free ((char *) p - GW_HEADER_SIZE (gwdata));
-				else aligned_free ((char *) p - GW_HEADER_SIZE (gwdata));
+	// Free allocated gwnums
+	if (gwdata->clone_of == NULL) {
+		free (gwdata->gwnum_free); gwdata->gwnum_free = NULL;
+		if (gwdata->gwnum_alloc != NULL) {
+			for (unsigned int i = 0; i < gwdata->gwnum_alloc_count; i++) {
+				char	*p;
+				int32_t	freeable;
+				p = (char *) gwdata->gwnum_alloc[i];
+				freeable = * (int32_t *) (p - 32);
+				if (freeable & GWFREEABLE) {
+					if (freeable & GWFREE_LARGE_PAGES) aligned_large_pages_free ((char *) p - GW_HEADER_SIZE (gwdata));
+					else aligned_free ((char *) p - GW_HEADER_SIZE (gwdata));
+				}
 			}
+			free (gwdata->gwnum_alloc); gwdata->gwnum_alloc = NULL;
 		}
-		free (gwdata->gwnum_alloc); gwdata->gwnum_alloc = NULL;
+		while (gwdata->array_list != NULL) gwfree_array (gwdata, (gwnum *) gwdata->array_list);
+		if (gwdata->large_pages_ptr != NULL) large_pages_free (gwdata->large_pages_ptr), gwdata->large_pages_ptr = NULL;
+		else aligned_free (gwdata->gwnum_memory), gwdata->gwnum_memory = NULL;
 	}
-	while (gwdata->array_list != NULL) gwfree_array (gwdata, (gwnum *) gwdata->array_list);
-	if (gwdata->large_pages_ptr != NULL) large_pages_free (gwdata->large_pages_ptr), gwdata->large_pages_ptr = NULL;
-	else aligned_free (gwdata->gwnum_memory), gwdata->gwnum_memory = NULL;
 
-	// Free structures that allocated for original and cloned gwdatas
+	// Free structures that are allocated for both original and cloned gwdatas
+	term_ghandle (&gwdata->gdata);
 	free (gwdata->dd_data); gwdata->dd_data = NULL;
 
-	// Free items that are shared with cloned gwdatas
+	// Free items that are shared with cloned gwdatas (only free when parent is freed)
 	if (gwdata->clone_of == NULL) {
 		free (gwdata->GW_MODULUS); gwdata->GW_MODULUS = NULL;
+		gwmutex_destroy (&gwdata->alloc_lock);
 	}
 
 	// Free items that are handled differently for original and cloned gwdatas
@@ -6663,45 +6669,31 @@ void gwdone (
 	}
 }
 
-/* Allocate a gwnum used internally.  Such a gwnum will not be free by gwfreeall. */
+/* Routine to allocate aligned memory for our big numbers.  Memory is allocated on 128-byte boundaries, */
+/* with an additional 32 bytes prior to the data for storing useful stuff. */
 
-gwnum gwalloc_internal (
-	gwhandle *gwdata)
-{
-	gwnum g = gwalloc (gwdata);
-	if (g != NULL) * (int32_t *) ((char *) g - 32) |= GWINTERNAL;
-	return (g);
-}
-
-/* Routine to allocate aligned memory for our big numbers */
-/* Memory is allocated on 128-byte boundaries, with an additional */
-/* 32 bytes prior to the data for storing useful stuff */
-
-gwnum gwalloc (
-	gwhandle *gwdata)
+gwnum real_gwalloc (
+	gwhandle *gwdata,
+	int32_t	additional_freeable_flags)
 {
 	unsigned long header_size, size, aligned_size;
 	char	*p, *q;
 	int32_t	freeable;
 
+/* Feed all allocations through the parent gwdata */
+
+	if (gwdata->clone_of) gwdata = gwdata->clone_of;
+
 /* Return cached gwnum if possible */
 
-	if (gwdata->gwnum_free_count)
-		return (gwdata->gwnum_free[--gwdata->gwnum_free_count]);
-
-/* Allocate arrays if necessary */
-
-	if (gwdata->gwnum_alloc == NULL) {
-		gwdata->gwnum_free = (gwnum *) malloc (gwdata->gwnum_alloc_array_size * sizeof (gwnum));
-		if (gwdata->gwnum_free == NULL) return (NULL);
-		gwdata->gwnum_alloc = (gwnum *) malloc (gwdata->gwnum_alloc_array_size * sizeof (gwnum));
-		if (gwdata->gwnum_alloc == NULL) return (NULL);
-	} else if (gwdata->gwnum_alloc_count == gwdata->gwnum_alloc_array_size) {
-		gwdata->gwnum_alloc_array_size += gwdata->gwnum_alloc_array_size >> 1;
-		gwdata->gwnum_free = (gwnum *) realloc (gwdata->gwnum_free, gwdata->gwnum_alloc_array_size * sizeof (gwnum));
-		if (gwdata->gwnum_free == NULL) return (NULL);
-		gwdata->gwnum_alloc = (gwnum *) realloc (gwdata->gwnum_alloc, gwdata->gwnum_alloc_array_size * sizeof (gwnum));
-		if (gwdata->gwnum_alloc == NULL) return (NULL);
+	if (gwdata->gwnum_free_count) {
+		gwmutex_lock (&gwdata->alloc_lock);			// Obtain lock necessary for thread-safe operation
+		if (gwdata->gwnum_free_count) {
+			gwnum r = gwdata->gwnum_free[--gwdata->gwnum_free_count];
+			gwmutex_unlock (&gwdata->alloc_lock);
+			return (r);
+		}
+		gwmutex_unlock (&gwdata->alloc_lock);
 	}
 
 /* Compute the amount of memory to allocate.  Allocate 96 extra bytes for header information and align the data appropriately. */
@@ -6712,7 +6704,8 @@ gwnum gwalloc (
 	aligned_size = round_up_to_multiple_of (header_size, 128) + round_up_to_multiple_of (size, 128);
 	p = NULL;
 
-/* First option is the one gwnum that was allocated along with the sin/cos tables */
+/* First option is the one gwnum that was allocated along with the sin/cos tables.  This special gwnum is allocated before any */
+/* cloning can happen, thus the multithreading lock is not necessary. */
 
 	if (gwdata->large_pages_gwnum != NULL) {
 		p = (char *) gwdata->large_pages_gwnum;
@@ -6721,7 +6714,8 @@ gwnum gwalloc (
 		freeable = 0;
 	}
 
-/* Second option is allocating from the kludgy big buffer (torture testing) */
+/* Second option is allocating from the kludgy big buffer (torture testing).  This feature is used by prime95 torture testing (and should be */
+/* replaced by gwalloc_array).  Torture testing does not use gwclone, thus the multithreading lock is not necessary. */
 
 	else if (gwdata->GW_BIGBUF_SIZE >= aligned_size) {
 		p = gwdata->GW_BIGBUF;
@@ -6760,33 +6754,65 @@ gwnum gwalloc (
 		freeable = GWFREEABLE;
 	}
 
-/* Do a seemingly pointless memset!  This actually is very important. */
-/* The memset will walk through the allocated memory sequentially, which */
-/* increases the likelihood that contiguous virtual memory will map to */
-/* contiguous physical memory.  The FFTs, especially the larger ones, */
-/* optimizes L2 cache line collisions on the assumption that the FFT data */
-/* is in contiguous physical memory.  Failure to do this results in as */
-/* much as a 30% performance hit in an SSE2 2M FFT. */
+/* Initialize the gwnum header */
 
 	q = p + header_size;
+	* (uint32_t *) (q - 8) = size;					/* Size in bytes */
+	* (uint32_t *) (q - 28) = 0;					/* Has-been-pre-ffted flag */
+	* (double *) (q - 16) = 0.0;					/* SUM(INPUTS) */
+	* (double *) (q - 24) = 0.0;					/* SUM(OUTPUTS) */
+	unnorms (q) = 0.0f;						/* Unnormalized adds count */
+
+/* Do a seemingly pointless memset!  This actually is very important.  The memset will walk through the allocated memory sequentially, which */
+/* increases the likelihood that contiguous virtual memory will map to contiguous physical memory.  The FFTs, especially the larger ones, */
+/* optimizes L2 cache line collisions on the assumption that the FFT data is in contiguous physical memory.  Failure to do this results in as */
+/* much as a 30% performance hit in an SSE2 2M FFT.  I've no idea if this is of any benefit in Linux or more modern Windows or more modern CPUs. */
+
 	memset (q, 0, size);
 
-/* Initialize the header */
+/* Grow arrays if necessary */
 
-	* (uint32_t *) (q - 8) = size;					/* Size in bytes */
-	unnorms (q) = 0.0f;						/* Unnormalized adds count */
-	* (uint32_t *) (q - 28) = 0;					/* Has-been-pre-ffted flag */
-	* (int32_t *) (q - 32) = freeable + gwdata->gwnum_alloc_count;	/* Mem should be freed flag / gwnum_alloc index */
-	* (double *) (q - 16) = 0.0;
-	* (double *) (q - 24) = 0.0;
+	gwmutex_lock (&gwdata->alloc_lock);			// Obtain lock necessary for thread-safe operation
+	if (gwdata->gwnum_alloc_count == gwdata->gwnum_alloc_array_size) {
+		int new_gwnum_alloc_array_size = gwdata->gwnum_alloc_array_size + (gwdata->gwnum_alloc_array_size >> 1);
+		gwnum *new_gwnum_alloc = (gwnum *) realloc (gwdata->gwnum_alloc, new_gwnum_alloc_array_size * sizeof (gwnum));
+		gwnum *new_gwnum_free = (gwnum *) realloc (gwdata->gwnum_free, new_gwnum_alloc_array_size * sizeof (gwnum));
+		if (new_gwnum_alloc == NULL || new_gwnum_free == NULL) {
+			gwmutex_unlock (&gwdata->alloc_lock);
+			if (freeable & GWFREE_LARGE_PAGES) aligned_large_pages_free (p);
+			else if (freeable & GWFREEABLE) aligned_free (p);
+			return (NULL);
+		}
+		gwdata->gwnum_alloc = new_gwnum_alloc;
+		gwdata->gwnum_free = new_gwnum_free;
+		gwdata->gwnum_alloc_array_size = new_gwnum_alloc_array_size;
+	}
 
 /* Save pointer for easier cleanup */
 
+	* (int32_t *) (q - 32) = freeable + additional_freeable_flags + gwdata->gwnum_alloc_count;	/* Mem should be freed flag / gwnum_alloc index */
 	gwdata->gwnum_alloc[gwdata->gwnum_alloc_count++] = (gwnum) q;
+	gwmutex_unlock (&gwdata->alloc_lock);
 
 /* Return the gwnum */
 
 	return ((gwnum) q);
+}
+
+/* Allocate memory for a gwnum */
+
+gwnum gwalloc (
+	gwhandle *gwdata)
+{
+	return (real_gwalloc (gwdata, 0));
+}
+
+/* Allocate a gwnum used internally (GW_RANDOM, GW_FFT1, etc.).  Such a gwnum will not be freed by gwfreeall. */
+
+gwnum gwalloc_internal (
+	gwhandle *gwdata)
+{
+	return (real_gwalloc (gwdata, GWFREE_INTERNAL));
 }
 
 /* Internal routine to really free a gwnum */
@@ -6797,6 +6823,9 @@ void gwfree_freeable (
 {
 	gwnum	moved_gwnum;
 	int32_t	freeable, moved_freeable, alloc_index;
+
+	// Caller should have also obtained the gwalloc_lock
+	ASSERTG (gwdata->clone_of == NULL);
 
 	freeable = * (int32_t *) ((char *) q - 32);
 	ASSERTG (freeable & GWFREEABLE);
@@ -6823,19 +6852,25 @@ void gwfree (
 {
 	if (q == NULL) return;
 
+/* Feed all frees through the parent gwdata.  Obtain lock necessary for thread-safe operation. */
+
+	if (gwdata->clone_of) gwdata = gwdata->clone_of;
+	gwmutex_lock (&gwdata->alloc_lock);
+
+/* When freeing internal memory, remove the GWFREE_INTERNAL flag so the gwnum can be properly added to the free cache */
+
+	* (int32_t *) ((char *) q - 32) &= ~GWFREE_INTERNAL;
+
 /* Free the gwnum if it is freeable and we've cached enough free gwnums */
 
-	if (gwdata->gwnum_free_count >= gwdata->gwnum_max_free_count) {
-		int32_t	freeable = * (int32_t *) ((char *) q - 32);
-		if (freeable & GWFREEABLE) {
-			gwfree_freeable (gwdata, q);
-			return;
-		}
-	}
+	if (gwdata->gwnum_free_count >= gwdata->gwnum_max_free_count && * (int32_t *) ((char *) q - 32) & GWFREEABLE)
+		gwfree_freeable (gwdata, q);
 
-/* Cache the gwnum for quicker gwallocs in the future */
+/* Otherwise, cache the gwnum for quicker gwallocs in the future */
 
-	gwdata->gwnum_free[gwdata->gwnum_free_count++] = q;
+	else
+		gwdata->gwnum_free[gwdata->gwnum_free_count++] = q;
+	gwmutex_unlock (&gwdata->alloc_lock);
 }
 
 /* Free cached gwnums */
@@ -6844,6 +6879,11 @@ void gwfree_cached (
 	gwhandle *gwdata)	/* Handle initialized by gwsetup */
 {
 	int	i;
+
+/* Feed all frees through the parent gwdata.  Obtain lock necessary for thread-safe operation. */
+
+	if (gwdata->clone_of) gwdata = gwdata->clone_of;
+	gwmutex_lock (&gwdata->alloc_lock);
 
 /* Free the cached gwnums that are freeable */
 
@@ -6855,6 +6895,7 @@ void gwfree_cached (
 			gwdata->gwnum_free[i--] = gwdata->gwnum_free[--gwdata->gwnum_free_count];
 		}
 	}
+	gwmutex_unlock (&gwdata->alloc_lock);
 }
 
 /* Free internal memory that can be safely freed.  Call this prior to using a lot of gwnum memory (this also calls gwfree_cached to further reduce mem used). */
@@ -6877,6 +6918,7 @@ void gwfree_internal_memory (
 }
 
 /* Allocate an array and fill it with gwnums.  Uses a little less memory than allocating an array and calling gwalloc many times. */
+
 gwarray gwalloc_array (		/* Pointer to an array of gwnums */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	int	n)		/* Size of the array of gwnums */
@@ -6884,6 +6926,9 @@ gwarray gwalloc_array (		/* Pointer to an array of gwnums */
 	size_t	array_header_size, gwnum_header_size, aligned_gwnum_size, array_size;
 	char	*p = NULL;			// Pointer to the allocated memory
 	int	freeable;			// Flags indicating how memory was allocated
+
+	// Feed all allocates through the parent gwdata
+	if (gwdata->clone_of) gwdata = gwdata->clone_of;
 
 	// Calc needed space for the array_header, array, 128 bytes to get gwnums aligned on an even cache line, and room for n aligned gwnums
 	array_header_size = sizeof (gwarray_header);
@@ -6919,6 +6964,9 @@ gwarray gwalloc_array (		/* Pointer to an array of gwnums */
 		next_gwnum = (gwnum) ((char *) next_gwnum + aligned_gwnum_size);
 	}
 
+	// Obtain lock necessary for thread-safe operation
+	gwmutex_lock (&gwdata->alloc_lock);
+
 	// Init array's double-linked list and flags field
 	array_header->flags = freeable;			// Flags
 	array_header->next = gwdata->array_list;	// Next in linked list of allocated arrays
@@ -6929,17 +6977,22 @@ gwarray gwalloc_array (		/* Pointer to an array of gwnums */
 	}
 	gwdata->array_list = array;			// New head of doubly linked list
 
-	// Return pointer to array
+	// Unlock and return pointer to array
+	gwmutex_unlock (&gwdata->alloc_lock);
 	return (array);
 }
 
 /* Free a previously allocated array of gwnums */
 void gwfree_array (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	*array)		/* Array of gwnums to free */
+	gwarray	array)		/* Array of gwnums to free */
 {
 	// Return if never allocated
 	if (array == NULL) return;
+
+	// Feed all frees through the parent gwdata. Obtain lock necessary for thread-safe operation.
+	if (gwdata->clone_of) gwdata = gwdata->clone_of;
+	gwmutex_lock (&gwdata->alloc_lock);
 
 	// Remove array from doubly-linked list
 	gwarray_header *array_header = (gwarray_header *) ((char *) array - sizeof (gwarray_header));
@@ -6948,6 +7001,7 @@ void gwfree_array (
 		gwarray_header *next_header = (gwarray_header *) ((char *) array_header->next - sizeof (gwarray_header));
 		next_header->prev = array_header->prev;
 	}
+	gwmutex_unlock (&gwdata->alloc_lock);
 
 	// Free array
 	int freeable = (int) (intptr_t) array[-3];		// Flags
@@ -6970,18 +7024,20 @@ void gwgiantfree (
 	gwfree ((gwhandle *) gwdata, (gwnum) q);
 }
 
-/* Specialized routine that allows giants code to deallocate one */
-/* cached gwnum to free up space for allocating FFT giant's sincos data. */
+/* Specialized routine that allows giants code to deallocate one cached gwnum to free up space for allocating FFT giant's sincos data. */
 
 void gwgiantdealloc (
 	void	*gwdata_arg)
 {
-	gwhandle *gwdata;
-	unsigned long i;
+	gwhandle *gwdata = (gwhandle *) gwdata_arg;
 
-	gwdata = (gwhandle *) gwdata_arg;
-	for (i = 0; i < gwdata->gwnum_free_count; i++) {
-		gwnum	q = gwdata->gwnum_free[i];
+	// Feed all frees through the parent gwdata. Obtain lock necessary for thread-safe operation.
+	if (gwdata->clone_of) gwdata = gwdata->clone_of;
+	gwmutex_lock (&gwdata->alloc_lock);
+
+	// Look for one gwnum to free
+	for (unsigned int i = 0; i < gwdata->gwnum_free_count; i++) {
+		gwnum q = gwdata->gwnum_free[i];
 		int32_t	freeable = * (int32_t *) ((char *) q - 32);
 		if (!(freeable & GWFREEABLE)) continue;
 
@@ -6992,6 +7048,7 @@ void gwgiantdealloc (
 		gwfree_freeable (gwdata, q);
 		break;
 	}
+	gwmutex_unlock (&gwdata->alloc_lock);
 }
 
 /* Free all user allocated numbers */
@@ -6999,15 +7056,19 @@ void gwgiantdealloc (
 void gwfreeall (
 	gwhandle *gwdata)	/* Handle initialized by gwsetup */
 {
-	unsigned int i;
+
+/* Feed all frees through the parent gwdata. Obtain lock necessary for thread-safe operation. */
+
+	if (gwdata->clone_of) gwdata = gwdata->clone_of;
+	gwmutex_lock (&gwdata->alloc_lock);
 
 /* Go through the allocated list and free any user allocated gwnums that are freeable. */
 /* In other words, unless the user is using the BIGBUF kludge, free all possible memory. */
 
 	gwdata->gwnum_free_count = 0;
-	for (i = 0; i < gwdata->gwnum_alloc_count; i++) {
+	for (unsigned int i = 0; i < gwdata->gwnum_alloc_count; i++) {
 		gwnum	q = gwdata->gwnum_alloc[i];
-		if (* (int32_t *) ((char *) q - 32) & GWINTERNAL) continue;
+		if (* (int32_t *) ((char *) q - 32) & GWFREE_INTERNAL) continue;
 		if (* (int32_t *) ((char *) q - 32) & GWFREEABLE) {
 			// Really free the gwnum
 			gwfree_freeable (gwdata, q);
@@ -7017,7 +7078,30 @@ void gwfreeall (
 		else
 			gwdata->gwnum_free[gwdata->gwnum_free_count++] = q;
 	}
-	while (gwdata->array_list != NULL) gwfree_array (gwdata, (gwnum *) gwdata->array_list);
+
+/* Free all allocated arrays too.  Replicate code in gwfree_array.  We cannot call that routine because it would re-obtain the lock. */
+
+	while (gwdata->array_list != NULL) {
+		gwarray array = (gwarray) gwdata->array_list;
+
+		// Remove array from doubly-linked list
+		gwarray_header *array_header = (gwarray_header *) ((char *) array - sizeof (gwarray_header));
+		*array_header->prev = array_header->next;	// Change prev to point to next
+		if (array_header->next != NULL) {		// Change next to point to prev
+			gwarray_header *next_header = (gwarray_header *) ((char *) array_header->next - sizeof (gwarray_header));
+			next_header->prev = array_header->prev;
+		}
+
+		// Free array
+		int freeable = (int) (intptr_t) array[-3];		// Flags
+		size_t array_header_size = 3 * sizeof (void *);
+		if (freeable & GWFREE_LARGE_PAGES) large_pages_free ((char *) array - array_header_size);
+		else free ((char *) array - array_header_size);
+	}
+
+/* Unlock and return */
+
+	gwmutex_unlock (&gwdata->alloc_lock);
 }
 
 /* To optimize use of the L1 cache we scramble the FFT data. */

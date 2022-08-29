@@ -682,8 +682,10 @@ int gwequal (gwhandle *, gwnum, gwnum);
 +---------------------------------------------------------------------*/
 
 /* Experimental routine to clone a gwhandle.  The cloned handle uses less resources than a full gwsetup by sharing many data structures with */
-/* the original handle.  The cloned handle can be used in a limited way in another thread.  Valid operations in the cloned handle are single */
+/* the original handle.  The cloned handle can be used in a fairly unlimited way in another thread.  Valid operations in the cloned handle are single */
 /* threaded multiplication, addition, subtraction.  Many other operations will work as well. */
+/* NOTE: All memory allocated by gwalloc will be "owned" by the parent gwdata.  These allocated gwnums can be used or freed by the parent gwdata or */
+/* any of the cloned gwdatas. */
 int gwclone (
 	gwhandle *cloned_gwdata,	/* Empty handle to be populated */
 	gwhandle *gwdata);		/* Handle to clone */
@@ -1121,9 +1123,10 @@ struct gwhandle_struct {
 	void	(*thread_callback)(int, int, void *); /* Auxiliary thread callback routine letting */
 					/* the gwnum library user set auxiliary thread priority and affinity */
 	void	*thread_callback_data;	/* User-supplied data to pass to the auxiliary thread callback routine */
+	gwmutex alloc_lock;		/* Mutex to allow parent and clones to allocate/free gwnums in a thread-safe manner */
 	gwmutex	thread_lock;		/* This mutex limits one thread at a time in critical sections. */
 	gwevent	work_to_do;		/* Event (if not spin waiting) to signal auxiliary threads there is work to do */
-	gwatomic alt_work_to_do;	/* Atomic alternative to work to do mutex when spin waiting */
+	gwatomic alt_work_to_do;	/* Atomic alternative to work_to_do event when spin waiting */
 	gwevent	all_helpers_done;	/* Event (if not spin waiting) to signal main thread that the auxiliary threads are done */
 	gwatomic num_active_helpers;	/* Number of active helpers (awakened from the work_to_do event).  Is also the alternative to all_helpers_done mutex. */
 	short volatile helpers_must_exit; /* Flag set to force all auxiliary threads to terminate */
