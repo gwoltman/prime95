@@ -6757,7 +6757,7 @@ gwnum real_gwalloc (
 /* Initialize the gwnum header */
 
 	q = p + header_size;
-	* (uint32_t *) (q - 8) = size;					/* Size in bytes */
+	//* (uint32_t *) (q - 8) = size;				/* Size in bytes -- DEPRECATED (if not, gwarray_alloc is broken!) */
 	* (uint32_t *) (q - 28) = 0;					/* Has-been-pre-ffted flag */
 	* (double *) (q - 16) = 0.0;					/* SUM(INPUTS) */
 	* (double *) (q - 24) = 0.0;					/* SUM(OUTPUTS) */
@@ -6863,6 +6863,7 @@ void gwfree (
 
 /* Free the gwnum if it is freeable and we've cached enough free gwnums */
 
+	ASSERTG (gwdata->gwnum_alloc[* (int32_t *) ((char *) q - 32) & GWFREEALLOC_INDEX] == q);	// Catch attempts to free gwnum within a gwalloc_array
 	if (gwdata->gwnum_free_count >= gwdata->gwnum_max_free_count && * (int32_t *) ((char *) q - 32) & GWFREEABLE)
 		gwfree_freeable (gwdata, q);
 
