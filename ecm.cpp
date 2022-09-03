@@ -1433,7 +1433,7 @@ void ecm_cleanup (
 	ecmhandle *ecmdata)
 {
 	normalize_pool_term (ecmdata);
-	mQ_term (ecmdata);
+	free (ecmdata->mQx), ecmdata->mQx = NULL;
 	free (ecmdata->Ad4_binary), ecmdata->Ad4_binary = NULL;
 	free (ecmdata->QDx_binary), ecmdata->QDx_binary = NULL;
 	free (ecmdata->QDz_binary), ecmdata->QDz_binary = NULL;
@@ -4934,20 +4934,14 @@ void ecm_helper (
 			// Combine the two, three, or four polys
 			ASSERTG (num_polys >= 2 && num_polys <= 4);
 			if (num_polys == 2)
-				polymult2len1 (gwdata,
-					       source_poly[poly_base], source_poly[poly_base+1],
-					       dest_poly[poly_base], dest_poly[poly_base+1],
-					       POLYMULT_INVEC1_NEGATE | POLYMULT_NEXTFFT);
+				polymult2len1 (gwdata, source_poly[poly_base], source_poly[poly_base+1],
+					       &dest_poly[poly_base], POLYMULT_INVEC1_NEGATE | POLYMULT_NEXTFFT);
 			else if (num_polys == 3)
-				polymult3len1 (gwdata,
-					       source_poly[poly_base], source_poly[poly_base+1], source_poly[poly_base+2],
-					       dest_poly[poly_base], dest_poly[poly_base+1], dest_poly[poly_base+2],
-					       POLYMULT_INVEC1_NEGATE | POLYMULT_NEXTFFT);
+				polymult3len1 (gwdata, source_poly[poly_base], source_poly[poly_base+1], source_poly[poly_base+2],
+					       &dest_poly[poly_base], POLYMULT_INVEC1_NEGATE | POLYMULT_NEXTFFT);
 			else
-				polymult4len1 (gwdata,
-					       source_poly[poly_base], source_poly[poly_base+1], source_poly[poly_base+2], source_poly[poly_base+3],
-					       dest_poly[poly_base], dest_poly[poly_base+1], dest_poly[poly_base+2], dest_poly[poly_base+3],
-					       POLYMULT_INVEC1_NEGATE | POLYMULT_NEXTFFT);
+				polymult4len1 (gwdata, source_poly[poly_base], source_poly[poly_base+1], source_poly[poly_base+2], source_poly[poly_base+3],
+					       &dest_poly[poly_base], POLYMULT_INVEC1_NEGATE | POLYMULT_NEXTFFT);
 		}
 	}
 
@@ -4986,17 +4980,11 @@ void ecm_helper (
 			// Combine the two, three, or four polys
 			ASSERTG (num_polys >= 2 && num_polys <= 4);
 			if (num_polys == 2)
-				polymult2len1 (gwdata, poly1, poly2,
-					       polyG[poly_base], polyG[poly_base+1],
-					       POLYMULT_INVEC1_NEGATE | POLYMULT_NEXTFFT);
+				polymult2len1 (gwdata, poly1, poly2, &polyG[poly_base], POLYMULT_INVEC1_NEGATE | POLYMULT_NEXTFFT);
 			else if (num_polys == 3)
-				polymult3len1 (gwdata, poly1, poly2, poly3,
-					       polyG[poly_base], polyG[poly_base+1], polyG[poly_base+2],
-					       POLYMULT_INVEC1_NEGATE | POLYMULT_NEXTFFT);
+				polymult3len1 (gwdata, poly1, poly2, poly3, &polyG[poly_base], POLYMULT_INVEC1_NEGATE | POLYMULT_NEXTFFT);
 			else
-				polymult4len1 (gwdata, poly1, poly2, poly3, poly4,
-					       polyG[poly_base], polyG[poly_base+1], polyG[poly_base+2], polyG[poly_base+3],
-					       POLYMULT_INVEC1_NEGATE | POLYMULT_NEXTFFT);
+				polymult4len1 (gwdata, poly1, poly2, poly3, poly4, &polyG[poly_base], POLYMULT_INVEC1_NEGATE | POLYMULT_NEXTFFT);
 		}
 	}
 }
@@ -7244,6 +7232,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 
 /* We're nearing peak memory usage, free any cached gwnums */
 
+//GW: DANGER, DANGER - freeing internal memory can delete gwnums (GW_FFT1, GW_RANDOM, etc.) that clones are pointing to!  re-init clones?
 	gwfree_internal_memory (&ecmdata.gwdata);
 	mallocFreeForOS ();
 
@@ -7344,6 +7333,8 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 			}
 
 			// Multithreaded unfft poly coefficients
+//GW: Write a special ecm_helper that does not unfft the top-most coefficient.  The savings could add up to something noticeable.  Occasionally
+// do the unfft to keep roundoffs in check
 			poly_unfft_fft_coefficients (&ecmdata.polydata, outer_loop_counter > 1 || log2_num_polys > 1 ? polyG : polyH, ecmdata.poly_size);
 
 			// Periodic checks for user stop request
@@ -7460,7 +7451,9 @@ saving=0;//GW:		saving = testSaveFilesFlag (thread_num);
 
 	// Multiply H(X) by 1/F(X) to make scaled remainders
 	polymult (&ecmdata.polydata, polyH, ecmdata.poly_size, ecmdata.polyR, ecmdata.poly_size,
-		  polyH, ecmdata.poly_size, POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_NEGATE | POLYMULT_MULHI | POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/);
+		  polyH, ecmdata.poly_size, POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_NEGATE | POLYMULT_MULHI | POLYMULT_STARTNEXTFFT | POLYMULT_NO_UNFFT);
+	poly_unfft_fft_coefficients (&ecmdata.polydata, polyH, ecmdata.poly_size);		//GW: Should be a POLYMULT option for this...
+												//GW: if many single-threaded unffts is always faster than gwnum's multi-threading, then this should be the default polymult behavior
 strcpy (buf, "H(X) scaled.  Time: ");
 end_timer (timers, 0);
 print_timer (timers, 0, buf, TIMER_NL);
@@ -7571,6 +7564,7 @@ start_timer_from_zero (timers, 0);
 			gwarray polyF = Ftree + level * slice_size;
 
 			// Read in polyF from a saved location
+//GW: Problem? the len1-or-len2 Ftree level was not saved
 			if (level == 0 || (ecmdata.Ftree_polys_in_mem >= 3 && tree_level >= num_tree_levels - ecmdata.Ftree_polys_in_mem + 2) ||
 					  (ecmdata.Ftree_polys_in_mem >= 5 && tree_level >= num_tree_levels - ecmdata.Ftree_polys_in_mem + 1)) {
 				// Read base level polyF from disk
@@ -7628,6 +7622,10 @@ start_timer_from_zero (timers, 0);
 					  (poly1_size == 1 ? POLYMULT_INVEC1_NEGATE : 0) +
 					  (poly2_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) +
 					  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/);
+
+//GW: Write a ecm_helper that unffts only the relevant coefficients from length 2 and length 3 polys?  Vs. special length-2/3/4 * len-1 polymult routines.
+// Or a ecm_helper that uses polymult to breakdown len2/3/4 polys in a multi-thread friendly way.
+				
 //GW: Address the length 0 poly problem vis-a-vis using poly_unfft_fft_coefficients
 //GW: poly_unfft_fft_coefficients (&ecmdata.polydata, polyH, ecmdata.poly_size);
 			}

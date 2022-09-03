@@ -182,8 +182,7 @@ void polymult2len1 (
 	gwhandle *gwdata,		// Handle for gwnum FFT library - can be a clone.
 	gwnum	poly1,			// Input poly #1's lone coefficient
 	gwnum	poly2,			// Input poly #2's lone coefficient
-	gwnum	outcoeff1,		// Least significant result coefficient
-	gwnum	outcoeff2,		// Most significant result coefficient
+	gwnum	*outpoly,		// Length-2 output poly
 	int	options);		// Set POLYMULT_INVEC1_NEGATE if *ALL* input poly coefficients should be negated
 					// Set POLYMULT_NEXTFFT if output polys are to be FFTed
 // Special routine to multiply three monic length-1 polynomials more efficiently than general polymult calls.
@@ -192,9 +191,7 @@ void polymult3len1 (
 	gwnum	poly1,			// Input poly #1's lone coefficient
 	gwnum	poly2,			// Input poly #2's lone coefficient
 	gwnum	poly3,			// Input poly #3's lone coefficient
-	gwnum	outcoeff1,		// Least significant result coefficient
-	gwnum	outcoeff2,		// Middle result coefficient
-	gwnum	outcoeff3,		// Most significant result coefficient
+	gwnum	*outpoly,		// Length-3 output poly
 	int	options);		// Set POLYMULT_INVEC1_NEGATE if *ALL* input poly coefficients should be negated
 					// Set POLYMULT_NEXTFFT if output polys are to be FFTed
 // Special routine to multiply four monic length-1 polynomials more efficiently than general polymult calls.
@@ -204,10 +201,7 @@ void polymult4len1 (
 	gwnum	poly2,			// Input poly #2's lone coefficient
 	gwnum	poly3,			// Input poly #3's lone coefficient
 	gwnum	poly4,			// Input poly #4's lone coefficient
-	gwnum	outcoeff1,		// Least significant result coefficient
-	gwnum	outcoeff2,		// Middle result coefficient
-	gwnum	outcoeff3,		// Middle result coefficient
-	gwnum	outcoeff4,		// Most significant result coefficient
+	gwnum	*outpoly,		// Length-4 output poly
 	int	options);		// Set POLYMULT_INVEC1_NEGATE if *ALL* input poly coefficients should be negated
 					// Set POLYMULT_NEXTFFT if output polys are to be FFTed
 

@@ -4454,8 +4454,7 @@ void polymult2len1 (
 	gwhandle *gwdata,		// Handle for gwnum FFT library - can be a clone.
 	gwnum	poly1,			// Input poly #1's lone coefficient
 	gwnum	poly2,			// Input poly #2's lone coefficient
-	gwnum	outcoeff1,		// Least significant result coefficient
-	gwnum	outcoeff2,		// Most significant result coefficient
+	gwnum	*outpoly,		// Length-2 output poly
 	int	options)		// Set POLYMULT_INVEC1_NEGATE if *ALL* input poly coefficients should be negated
 					// Set POLYMULT_NEXTFFT if output polys are to be FFTed
 {
@@ -4465,23 +4464,23 @@ void polymult2len1 (
 
 	// Select which optimized routines to use.
 #ifdef X86_64
-	if (gwdata->cpu_flags & CPU_AVX512F) polymult_len1_avx512 (gwdata, 2, poly1, poly2, outcoeff1, outcoeff2, options); else
+	if (gwdata->cpu_flags & CPU_AVX512F) polymult_len1_avx512 (gwdata, 2, poly1, poly2, outpoly[0], outpoly[1], options); else
 #endif
-	if (gwdata->cpu_flags & CPU_FMA3) polymult_len1_fma (gwdata, 2, poly1, poly2, outcoeff1, outcoeff2, options);
-	else if (gwdata->cpu_flags & CPU_AVX) polymult_len1_avx (gwdata, 2, poly1, poly2, outcoeff1, outcoeff2, options);
-	else if (gwdata->cpu_flags & CPU_SSE2) polymult_len1_sse2 (gwdata, 2, poly1, poly2, outcoeff1, outcoeff2, options);
+	if (gwdata->cpu_flags & CPU_FMA3) polymult_len1_fma (gwdata, 2, poly1, poly2, outpoly[0], outpoly[1], options);
+	else if (gwdata->cpu_flags & CPU_AVX) polymult_len1_avx (gwdata, 2, poly1, poly2, outpoly[0], outpoly[1], options);
+	else if (gwdata->cpu_flags & CPU_SSE2) polymult_len1_sse2 (gwdata, 2, poly1, poly2, outpoly[0], outpoly[1], options);
 #ifndef X86_64
-	else polymult_len1_dbl (gwdata, 2, poly1, poly2, outcoeff1, outcoeff2, options);
+	else polymult_len1_dbl (gwdata, 2, poly1, poly2, outpoly[0], outpoly[1], options);
 #endif
 
 	// UnFFT the output coefficient that had multiplications.  Optionally also do a forward FFT while data is in CPU cache.
-	FFT_state (outcoeff1) = (gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
-	FFT_state (outcoeff2) = FULLY_FFTed;
+	FFT_state (outpoly[0]) = (gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
+	FFT_state (outpoly[1]) = FULLY_FFTed;
 	if (options & POLYMULT_NEXTFFT) {
-		gwunfft2 (gwdata, outcoeff1, outcoeff1, GWMUL_STARTNEXTFFT);
-		gwfft (gwdata, outcoeff1, outcoeff1);
+		gwunfft2 (gwdata, outpoly[0], outpoly[0], GWMUL_STARTNEXTFFT);
+		gwfft (gwdata, outpoly[0], outpoly[0]);
 	} else
-		gwunfft2 (gwdata, outcoeff1, outcoeff1, 0);
+		gwunfft2 (gwdata, outpoly[0], outpoly[0], 0);
 }
 
 // Special routine to multiply three monic length-1 polynomials more efficiently than general polymult calls.
@@ -4490,44 +4489,42 @@ void polymult3len1 (
 	gwnum	poly1,			// Input poly #1's lone coefficient
 	gwnum	poly2,			// Input poly #2's lone coefficient
 	gwnum	poly3,			// Input poly #3's lone coefficient
-	gwnum	outcoeff1,		// Least significant result coefficient
-	gwnum	outcoeff2,		// Middle result coefficient
-	gwnum	outcoeff3,		// Most significant result coefficient
+	gwnum	*outpoly,		// Length-3 output poly
 	int	options)		// Set POLYMULT_INVEC1_NEGATE if *ALL* input poly coefficients should be negated
 					// Set POLYMULT_NEXTFFT if output polys are to be FFTed
 {
 	// Since we cannot multiply 3 coefficients together without an intermediate unFFT, first multiply two of the length-1 polys.
-	if (poly3 == outcoeff1) gwswap (poly3, poly1);
-	if (poly3 == outcoeff2) gwswap (poly3, poly2);
-	ASSERTG (poly3 != outcoeff1 && poly3 != outcoeff2);
-	polymult2len1 (gwdata, poly1, poly2, outcoeff1, outcoeff2, (options & POLYMULT_INVEC1_NEGATE) | POLYMULT_NEXTFFT);
+	if (poly3 == outpoly[0]) gwswap (poly3, poly1);
+	if (poly3 == outpoly[1]) gwswap (poly3, poly2);
+	ASSERTG (poly3 != outpoly[0] && poly3 != outpoly[1]);
+	polymult2len1 (gwdata, poly1, poly2, outpoly, (options & POLYMULT_INVEC1_NEGATE) | POLYMULT_NEXTFFT);
 
 	// Make sure input coefficients are FFTed
 	gwfft (gwdata, poly3, poly3);
 
 	// Select which optimized routines to use.
 #ifdef X86_64
-	if (gwdata->cpu_flags & CPU_AVX512F) polymult_len1_avx512 (gwdata, 3, poly3, outcoeff1, outcoeff2, outcoeff3, options); else
+	if (gwdata->cpu_flags & CPU_AVX512F) polymult_len1_avx512 (gwdata, 3, poly3, outpoly[0], outpoly[1], outpoly[2], options); else
 #endif
-	if (gwdata->cpu_flags & CPU_FMA3) polymult_len1_fma (gwdata, 3, poly3, outcoeff1, outcoeff2, outcoeff3, options);
-	else if (gwdata->cpu_flags & CPU_AVX) polymult_len1_avx (gwdata, 3, poly3, outcoeff1, outcoeff2, outcoeff3, options);
-	else if (gwdata->cpu_flags & CPU_SSE2) polymult_len1_sse2 (gwdata, 3, poly3, outcoeff1, outcoeff2, outcoeff3, options);
+	if (gwdata->cpu_flags & CPU_FMA3) polymult_len1_fma (gwdata, 3, poly3, outpoly[0], outpoly[1], outpoly[2], options);
+	else if (gwdata->cpu_flags & CPU_AVX) polymult_len1_avx (gwdata, 3, poly3, outpoly[0], outpoly[1], outpoly[2], options);
+	else if (gwdata->cpu_flags & CPU_SSE2) polymult_len1_sse2 (gwdata, 3, poly3, outpoly[0], outpoly[1], outpoly[2], options);
 #ifndef X86_64
-	else polymult_len1_dbl (gwdata, 3, poly3, outcoeff1, outcoeff2, outcoeff3, options);
+	else polymult_len1_dbl (gwdata, 3, poly3, outpoly[0], outpoly[1], outpoly[2], options);
 #endif
 
 	// UnFFT the output coefficient that had multiplications.  Optionally also do a forward FFT while data is in CPU cache.
-	FFT_state (outcoeff1) =
-	FFT_state (outcoeff2) = (gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
-	FFT_state (outcoeff3) = FULLY_FFTed;
+	FFT_state (outpoly[0]) =
+	FFT_state (outpoly[1]) = (gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
+	FFT_state (outpoly[2]) = FULLY_FFTed;
 	if (options & POLYMULT_NEXTFFT) {
-		gwunfft2 (gwdata, outcoeff1, outcoeff1, GWMUL_STARTNEXTFFT);
-		gwfft (gwdata, outcoeff1, outcoeff1);
-		gwunfft2 (gwdata, outcoeff2, outcoeff2, GWMUL_STARTNEXTFFT);
-		gwfft (gwdata, outcoeff2, outcoeff2);
+		gwunfft2 (gwdata, outpoly[0], outpoly[0], GWMUL_STARTNEXTFFT);
+		gwfft (gwdata, outpoly[0], outpoly[0]);
+		gwunfft2 (gwdata, outpoly[1], outpoly[1], GWMUL_STARTNEXTFFT);
+		gwfft (gwdata, outpoly[1], outpoly[1]);
 	} else {
-		gwunfft2 (gwdata, outcoeff1, outcoeff1, 0);
-		gwunfft2 (gwdata, outcoeff2, outcoeff2, 0);
+		gwunfft2 (gwdata, outpoly[0], outpoly[0], 0);
+		gwunfft2 (gwdata, outpoly[1], outpoly[1], 0);
 	}
 }
 
@@ -4538,49 +4535,46 @@ void polymult4len1 (
 	gwnum	poly2,			// Input poly #2's lone coefficient
 	gwnum	poly3,			// Input poly #3's lone coefficient
 	gwnum	poly4,			// Input poly #4's lone coefficient
-	gwnum	outcoeff1,		// Least significant result coefficient
-	gwnum	outcoeff2,		// Middle result coefficient
-	gwnum	outcoeff3,		// Middle result coefficient
-	gwnum	outcoeff4,		// Most significant result coefficient
+	gwnum	*outpoly,		// Length-4 output poly
 	int	options)		// Set POLYMULT_INVEC1_NEGATE if *ALL* input poly coefficients should be negated
 					// Set POLYMULT_NEXTFFT if output polys are to be FFTed
 {
 	// Since we cannot multiply 3 coefficients together without an intermediate unFFT, first multiply pairs of length-1 polys.
-	if (poly3 == outcoeff1) gwswap (poly3, poly1);
-	if (poly3 == outcoeff2) gwswap (poly3, poly2);
-	if (poly4 == outcoeff1) gwswap (poly4, poly1);
-	if (poly4 == outcoeff2) gwswap (poly4, poly2);
-	ASSERTG (poly3 != outcoeff1 && poly3 != outcoeff2 && poly4 != outcoeff1 && poly4 != outcoeff2);
-	polymult2len1 (gwdata, poly1, poly2, outcoeff1, outcoeff2, (options & POLYMULT_INVEC1_NEGATE) | POLYMULT_NEXTFFT);
-	polymult2len1 (gwdata, poly3, poly4, outcoeff3, outcoeff4, (options & POLYMULT_INVEC1_NEGATE) | POLYMULT_NEXTFFT);
+	if (poly3 == outpoly[0]) gwswap (poly3, poly1);
+	if (poly3 == outpoly[1]) gwswap (poly3, poly2);
+	if (poly4 == outpoly[0]) gwswap (poly4, poly1);
+	if (poly4 == outpoly[1]) gwswap (poly4, poly2);
+	ASSERTG (poly3 != outpoly[0] && poly3 != outpoly[1] && poly4 != outpoly[0] && poly4 != outpoly[1]);
+	polymult2len1 (gwdata, poly1, poly2, outpoly, (options & POLYMULT_INVEC1_NEGATE) | POLYMULT_NEXTFFT);
+	polymult2len1 (gwdata, poly3, poly4, &outpoly[2], (options & POLYMULT_INVEC1_NEGATE) | POLYMULT_NEXTFFT);
 
 	// Select which optimized routines to use
 #ifdef X86_64
-	if (gwdata->cpu_flags & CPU_AVX512F) polymult_len1_avx512 (gwdata, 4, outcoeff1, outcoeff2, outcoeff3, outcoeff4, options); else
+	if (gwdata->cpu_flags & CPU_AVX512F) polymult_len1_avx512 (gwdata, 4, outpoly[0], outpoly[1], outpoly[2], outpoly[3], 0); else
 #endif
-	if (gwdata->cpu_flags & CPU_FMA3) polymult_len1_fma (gwdata, 4, outcoeff1, outcoeff2, outcoeff3, outcoeff4, 0);
-	else if (gwdata->cpu_flags & CPU_AVX) polymult_len1_avx (gwdata, 4, outcoeff1, outcoeff2, outcoeff3, outcoeff4, 0);
-	else if (gwdata->cpu_flags & CPU_SSE2) polymult_len1_sse2 (gwdata, 4, outcoeff1, outcoeff2, outcoeff3, outcoeff4, 0);
+	if (gwdata->cpu_flags & CPU_FMA3) polymult_len1_fma (gwdata, 4, outpoly[0], outpoly[1], outpoly[2], outpoly[3], 0);
+	else if (gwdata->cpu_flags & CPU_AVX) polymult_len1_avx (gwdata, 4, outpoly[0], outpoly[1], outpoly[2], outpoly[3], 0);
+	else if (gwdata->cpu_flags & CPU_SSE2) polymult_len1_sse2 (gwdata, 4, outpoly[0], outpoly[1], outpoly[2], outpoly[3], 0);
 #ifndef X86_64
-	else polymult_len1_dbl (gwdata, 4, outcoeff1, outcoeff2, outcoeff3, outcoeff4, 0);
+	else polymult_len1_dbl (gwdata, 4, outpoly[0], outpoly[1], outpoly[2], outpoly[3], 0);
 #endif
 
 	// UnFFT the output coefficient that had multiplications.  Optionally also do a forward FFT while data is in CPU cache.
-	FFT_state (outcoeff1) =
-	FFT_state (outcoeff2) =
-	FFT_state (outcoeff3) = (gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
-	FFT_state (outcoeff4) = FULLY_FFTed;
+	FFT_state (outpoly[0]) =
+	FFT_state (outpoly[1]) =
+	FFT_state (outpoly[2]) = (gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
+	FFT_state (outpoly[3]) = FULLY_FFTed;
 	if (options & POLYMULT_NEXTFFT) {
-		gwunfft2 (gwdata, outcoeff1, outcoeff1, GWMUL_STARTNEXTFFT);
-		gwfft (gwdata, outcoeff1, outcoeff1);
-		gwunfft2 (gwdata, outcoeff2, outcoeff2, GWMUL_STARTNEXTFFT);
-		gwfft (gwdata, outcoeff2, outcoeff2);
-		gwunfft2 (gwdata, outcoeff3, outcoeff3, GWMUL_STARTNEXTFFT);
-		gwfft (gwdata, outcoeff3, outcoeff3);
+		gwunfft2 (gwdata, outpoly[0], outpoly[0], GWMUL_STARTNEXTFFT);
+		gwfft (gwdata, outpoly[0], outpoly[0]);
+		gwunfft2 (gwdata, outpoly[1], outpoly[1], GWMUL_STARTNEXTFFT);
+		gwfft (gwdata, outpoly[1], outpoly[1]);
+		gwunfft2 (gwdata, outpoly[2], outpoly[2], GWMUL_STARTNEXTFFT);
+		gwfft (gwdata, outpoly[2], outpoly[2]);
 	} else {
-		gwunfft2 (gwdata, outcoeff1, outcoeff1, 0);
-		gwunfft2 (gwdata, outcoeff2, outcoeff2, 0);
-		gwunfft2 (gwdata, outcoeff3, outcoeff3, 0);
+		gwunfft2 (gwdata, outpoly[0], outpoly[0], 0);
+		gwunfft2 (gwdata, outpoly[1], outpoly[1], 0);
+		gwunfft2 (gwdata, outpoly[2], outpoly[2], 0);
 	}
 }
 
