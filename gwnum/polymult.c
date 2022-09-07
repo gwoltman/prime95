@@ -71,6 +71,16 @@
 // 69) When compressing with POLYMULT_PRE_COMPRESS, figure out a way to malloc a smaller buffer and grow if necessary rather than malloc a large one and
 //	shrink at end.
 
+/* Opcodes for helper thread */
+
+#define HELPER_POLYMULT		1
+#define HELPER_EXIT		2
+
+// Macro to determine if coefficient is the result of a polymult and needs to be unffted
+
+//GW: Relax EB check (see gwadd3o) to  numadds_to_eb (c) + 1 or numadds_to_eb (c)????
+#define should_unfft(h,c)	(FFT_state(c)==FFTed_FOR_FMA || (FFT_state(c)==FULLY_FFTed && EB_GWMUL_SAVINGS + numadds_to_eb(unnorms(c))*2.0f > (h)->EXTRA_BITS))
+
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
 unsigned long cache_line_offset (gwhandle *gwdata, unsigned long i);
 void generate_sincos (pmhandle *pmdata, const unsigned int size);
@@ -85,10 +95,6 @@ void polymult_line_sse2 (pmhandle *pmdata);
 void polymult_line_avx (pmhandle *pmdata);
 void polymult_line_fma (pmhandle *pmdata);
 void polymult_line_avx512 (pmhandle *pmdata);
-void polymult_len1_sse2 (gwhandle *gwdata, int, gwnum, gwnum, gwnum, gwnum, int);
-void polymult_len1_avx (gwhandle *gwdata, int, gwnum, gwnum, gwnum, gwnum, int);
-void polymult_len1_fma (gwhandle *gwdata, int, gwnum, gwnum, gwnum, gwnum, int);
-void polymult_len1_avx512 (gwhandle *gwdata, int, gwnum, gwnum, gwnum, gwnum, int);
 
 #define POLYMULT_IMPL_BRUTE		0		// Brute force polymult
 #define POLYMULT_IMPL_KARATSUBA		1		// Karasuba polymult
@@ -113,7 +119,6 @@ void polymult_len1_avx512 (gwhandle *gwdata, int, gwnum, gwnum, gwnum, gwnum, in
 #define	monic_line_adjustments	monic_line_adjustments_avx512
 #define	polymult_line_preprocess polymult_line_preprocess_avx512
 #define	polymult_line		polymult_line_avx512
-#define	polymult_len1		polymult_len1_avx512
 #define broadcastsd		_mm512_set1_pd
 #define addpd			_mm512_add_pd
 #define subpd			_mm512_sub_pd
@@ -138,7 +143,6 @@ void polymult_len1_avx512 (gwhandle *gwdata, int, gwnum, gwnum, gwnum, gwnum, in
 #define	monic_line_adjustments	monic_line_adjustments_fma
 #define	polymult_line_preprocess polymult_line_preprocess_fma
 #define	polymult_line		polymult_line_fma
-#define	polymult_len1		polymult_len1_fma
 #define broadcastsd		_mm256_set1_pd
 #define addpd			_mm256_add_pd
 #define subpd			_mm256_sub_pd
@@ -163,7 +167,6 @@ void polymult_len1_avx512 (gwhandle *gwdata, int, gwnum, gwnum, gwnum, gwnum, in
 #define	monic_line_adjustments	monic_line_adjustments_avx
 #define	polymult_line_preprocess polymult_line_preprocess_avx
 #define	polymult_line		polymult_line_avx
-#define	polymult_len1		polymult_len1_avx
 #define broadcastsd		_mm256_set1_pd
 #define addpd			_mm256_add_pd
 #define subpd			_mm256_sub_pd
@@ -185,7 +188,6 @@ void polymult_len1_avx512 (gwhandle *gwdata, int, gwnum, gwnum, gwnum, gwnum, in
 #define	monic_line_adjustments	monic_line_adjustments_sse2
 #define	polymult_line_preprocess polymult_line_preprocess_sse2
 #define	polymult_line		polymult_line_sse2
-#define	polymult_len1		polymult_len1_sse2
 #define broadcastsd		_mm_set1_pd
 #define addpd			_mm_add_pd
 #define subpd			_mm_sub_pd
@@ -207,7 +209,6 @@ void polymult_len1_avx512 (gwhandle *gwdata, int, gwnum, gwnum, gwnum, gwnum, in
 #define	monic_line_adjustments	monic_line_adjustments_dbl
 #define	polymult_line_preprocess polymult_line_preprocess_dbl
 #define	polymult_line		polymult_line_dbl
-#define	polymult_len1		polymult_len1_dbl
 #define broadcastsd		_mm64_set1_pd
 #define addpd			_mm64_add_pd
 #define subpd			_mm64_sub_pd
@@ -393,7 +394,7 @@ void polymult_done (
 	pmhandle *pmdata)		// Handle for polymult library
 {
 	if (pmdata->thread_ids != NULL) {
-		pmdata->helpers_must_exit = TRUE;
+		pmdata->helper_opcode = HELPER_EXIT;
 		gwevent_signal (&pmdata->work_to_do);
 		atomic_set (pmdata->alt_work_to_do, 1);
 		for (int i = 1; i < pmdata->max_num_threads; i++) gwthread_wait_for_exit (&pmdata->thread_ids[i]);
@@ -3342,96 +3343,6 @@ void polymult_line (
 	aligned_free (scratch_buffer);
 }
 
-// Internal routine that multiplies two, three, or four monic length-1 polynomials.
-void polymult_len1 (
-	gwhandle *gwdata,		// Handle for gwnum FFT library - can be a clone.
-	int	num_len1,		// Number of len1 polys being multiplied
-	gwnum	arg1,			// input or output coefficients based on num_len1
-	gwnum	arg2,
-	gwnum	arg3,
-	gwnum	arg4,
-	int	options)		// Set POLYMULT_INVEC1_NEGATE if *ALL* input poly coefficients should be negated
-					// Set POLYMULT_NEXTFFT if output polys are to be FFTed
-{
-	int	line, num_lines;
-	CVDT	invec1, invec2, outvec1, outvec2, outvec3, outvec4;
-
-	// Grab a "line of complex values" from each gwnum coefficient.  Work that data set.  Then move onto remaining lines in the gwnums.
-	num_lines = gwfftlen (gwdata);
-	if (!gwdata->ALL_COMPLEX_FFT) num_lines += 2;
-	if (gwdata->ZERO_PADDED_FFT) num_lines += 14;
-	num_lines = divide_rounding_up (num_lines, sizeof (CVDT) / sizeof (double));
-
-	// Handle the two length-1 polys case
-	if (num_len1 == 2) {
-		for (line = 0; line < num_lines; line++) {
-
-			// Read invec1 and invec2
-			read_line (gwdata, &arg1, 1, line, &invec1, options, TRUE);
-			read_line (gwdata, &arg2, 1, line, &invec2, options, TRUE);
-
-			// Multiply two length 1 polys
-			cvadd (outvec2, invec1, invec2);
-			cvmul (outvec1, invec1, invec2);
-
-			// Output coefficients
-			write_line (gwdata, &arg3, 1, line, &outvec1, NULL, options);
-			write_line (gwdata, &arg4, 1, line, &outvec2, NULL, options);
-		}
-	}
-
-	// Handle the three length-1 polys case
-	else if (num_len1 == 3) {
-		for (line = 0; line < num_lines; line++) {
-
-			// Read length-1 poly into invec1 and length-2 poly into outvec2/outvec1
-			read_line (gwdata, &arg1, 1, line, &invec1, options, TRUE);
-			read_line (gwdata, &arg2, 1, line, &outvec1, 0, TRUE);		// LSW
-			read_line (gwdata, &arg3, 1, line, &outvec2, 0, TRUE);		// MSW
-
-			// Multiply the two polys
-			cvadd (outvec3, invec1, outvec2);
-			cvmul (outvec2, invec1, outvec2); cvadd (outvec2, outvec2, outvec1);
-			cvmul (outvec1, invec1, outvec1);
-
-			// Output coefficients
-			write_line (gwdata, &arg2, 1, line, &outvec1, NULL, options);
-			write_line (gwdata, &arg3, 1, line, &outvec2, NULL, options);
-			write_line (gwdata, &arg4, 1, line, &outvec3, NULL, options);
-		}
-	}
-
-	// Handle the four length-1 polys case (poly3 and poly4 have already been multiplied into a length-2 poly)
-	else {
-		for (line = 0; line < num_lines; line++) {
-
-			// Read length 2 polys into invec2/invec1 and outvec2/outvec1
-			read_line (gwdata, &arg1, 1, line, &invec1, 0, TRUE);		// LSW
-			read_line (gwdata, &arg2, 1, line, &invec2, 0, TRUE);		// MSW
-			read_line (gwdata, &arg3, 1, line, &outvec1, 0, TRUE);		// LSW
-			read_line (gwdata, &arg4, 1, line, &outvec2, 0, TRUE);		// MSW
-
-			// Multiply the two length 2 polys
-			//			  1 i2 i1
-			//			* 1 o2 o1
-			//			---------
-			//		o1	i2*o1	i1*o1
-			//	o2	i2*o2	i1*o2
-			//	i2	i1
-			cvadd (outvec4, invec2, outvec2);
-			cvmul (outvec3, invec2, outvec2); cvadd (outvec3, outvec3, outvec1); cvadd (outvec3, outvec3, invec1);
-			cvmul (outvec2, invec1, outvec2); cvmul (invec2, invec2, outvec1); cvadd (outvec2, outvec2, invec2);
-			cvmul (outvec1, invec1, outvec1);
-
-			// Output coefficients
-			write_line (gwdata, &arg1, 1, line, &outvec1, NULL, options);
-			write_line (gwdata, &arg2, 1, line, &outvec2, NULL, options);
-			write_line (gwdata, &arg3, 1, line, &outvec3, NULL, options);
-			write_line (gwdata, &arg4, 1, line, &outvec4, NULL, options);
-		}
-	}
-}
-
 #endif
 
 
@@ -3465,7 +3376,7 @@ void polymult_thread (void *arg)
 	    else gwevent_wait (&pmdata->work_to_do, 0);
 
 	    // Terminate helper when polymult_done is called
-	    if (pmdata->helpers_must_exit) break;
+	    if (pmdata->helper_opcode == HELPER_EXIT) break;
 
 	    /* IMPORTANT:  Helpers are considered done as soon as all_work_assigned is set and num_active_helpers reaches zero.  When this happens the main */
 	    /* thread is allowed to resume.  However, there may be some helpers that have not yet been given a time slice after the work_to_do event was */
@@ -3479,7 +3390,7 @@ void polymult_thread (void *arg)
 		if (num_active_helpers > pmdata->num_threads);
 
 		// Call user-defined routine with a cloned gwdata so the user can do multi-threaded gwnum work
-		else if (!pmdata->helpers_doing_polymult) {
+		else if (pmdata->helper_opcode == 0) {
 			// Clone gwdata for user-defined callbacks to use
 			if (!cloned_gwdata_initialized) {
 				gwclone (&cloned_gwdata, pmdata->gwdata);
@@ -3539,7 +3450,7 @@ void polymult_launch_helpers (
 	// If there are no helper threads we're done
 	if (pmdata->num_threads == 1) return;
 	// "Neuter" gwnum to single-threaded for user-definied callback
-	if (!pmdata->helpers_doing_polymult && !pmdata->helpers_must_exit) {
+	if (pmdata->helper_opcode == 0) {
 		pmdata->saved_gwdata_num_threads = gwget_num_threads (pmdata->gwdata);
 		gwset_num_threads (pmdata->gwdata, 1);
 	}
@@ -3577,7 +3488,7 @@ void polymult_wait_on_helpers (
 		if (atomic_get (pmdata->num_active_helpers)) gwevent_wait (&pmdata->all_helpers_done, 0);
 	}
 	// User-defined helpers require syncing up cloned gwdata stats and restoring main thread's gwnum's multithreading capabilities
-	if (!pmdata->helpers_doing_polymult) {
+	if (pmdata->helper_opcode == 0) {
 		if (pmdata->stats_gwdata != NULL) gwclone_merge_stats (pmdata->gwdata, pmdata->stats_gwdata);	// Add our stats to pmdata->stats_gwdata
 		gwset_num_threads (pmdata->gwdata, pmdata->saved_gwdata_num_threads);
 	}
@@ -4390,7 +4301,7 @@ void polymult_several (		// Multiply one poly with several polys
 	pmdata->next_line = 0;
 
 	// Fire up each helper thread
-	pmdata->helpers_doing_polymult = TRUE;			// The helpers are doing polymult work, not user defined work
+	pmdata->helper_opcode = HELPER_POLYMULT;		// The helpers are doing polymult work, not user defined work
 	polymult_launch_helpers (pmdata);
 
 	// This thread works on the polymult too.  Select which optimized routines to use.
@@ -4406,7 +4317,7 @@ void polymult_several (		// Multiply one poly with several polys
 
 	// Wait for all helper threads to complete
 	polymult_wait_on_helpers (pmdata);
-	pmdata->helpers_doing_polymult = FALSE;			// The helpers are not doing polymult work, user is free to have the threads do user work
+	pmdata->helper_opcode = 0;			// The helpers are not doing polymult work, user is free to have the threads do user work
 
 	// Process all of the output polys.  UnFFT results and add in the needed 1*1 values.
 	for (int i = 0; i < num_other_polys; i++) {
@@ -4426,11 +4337,40 @@ void polymult_several (		// Multiply one poly with several polys
 		for (int j = 0; j < outvec_size; j++) {
 			if (outvec[j] == NULL) continue;
 			if (pmdata->gwdata->ZERO_PADDED_FFT) zpad7_unfft (pmdata->gwdata, outvec[j]);
+
+			// Set the FFT state so that we know how to unfft the value.  Set the number of unnormalized adds very high so that we know this
+			// gwnum was the result of a polymult and unusable without first doing an unfft.  The top coefficient of a monic * monic polymult
+			// is a simple add -- use gwadd3o's algorithm for tracking unnormalized adds and determining when a normalization is required.
+			// Also, a monic * non-monic top coefficient is a simple 1 * top non-monic coefficient.
 			FFT_state (outvec[j]) = (pmdata->gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
+			if (j == outvec_size - 1 &&						// Top outvec coefficient
+			    options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC) &&	// At least one input is monic
+			    plan[i].true_outvec_size == plan[i].circular_size &&		// Not doing a circular multiply
+			    (plan[i].MSWs_skipped == 0 ||					// Top coefficient of monic * non-monic is output
+			     (plan[i].MSWs_skipped == 1 &&					// Top coefficient of monic * monic is output
+			      options & POLYMULT_INVEC1_MONIC && options & POLYMULT_INVEC2_MONIC)) &&
+			    ! (options & POLYMULT_UNFFT_TOP)) {					// Caller not forcing an unfft on top coefficient
+				gwarray invec2 = other_polys[i].invec2;
+				int invec2_size = other_polys[i].invec2_size;
+				if (! (options & POLYMULT_INVEC2_MONIC))			// Invec1 monic, returning 1 * invec2's top
+					unnorms (outvec[j]) = unnorms (invec2[invec2_size-1]);
+				else if (! (options & POLYMULT_INVEC1_MONIC))			// Invec2 monic, returning 1 * invec1's top
+					unnorms (outvec[j]) = unnorms (invec1[invec1_size-1]);			
+				else								// Both invecs monic, two tops added together
+					unnorms (outvec[j]) = unnorms (invec1[invec1_size-1]) + unnorms (invec2[invec2_size-1]) + 1.0f;
+			} else
+				unnorms (outvec[j]) = 999.0e9f;					// Huge value to force an unfft
+
+			// See if this value needs to be unffted now or if we are waiting until later
 			bool j_affected_by_addin = (j == plan[i].addin[0] || j == plan[i].addin[1] ||
 						    j == plan[i].addin[2] || j == plan[i].addin[3] || j == plan[i].subout);
-			if ((options & POLYMULT_NO_UNFFT) && !j_affected_by_addin) continue;
-//GW: use gwsetaddin rather than gwaddsmall?
+			if (!j_affected_by_addin) {
+				if (options & POLYMULT_NO_UNFFT) continue;
+				if (!should_unfft (pmdata->gwdata, outvec[j])) continue;
+			}
+
+			// Do the unfft as well as any addin adjustments
+//GW: use gwsetaddin rather than gwaddsmall?  We'd need to save/restore the existing addin.  Only affect RLP * RLP, don't bother?
 			gwunfft2 (pmdata->gwdata, outvec[j], outvec[j],
 				  ((options & (POLYMULT_STARTNEXTFFT | POLYMULT_NEXTFFT)) && !j_affected_by_addin) ? GWMUL_STARTNEXTFFT : 0);
 			if (j == plan[i].addin[0]) gwaddsmall (pmdata->gwdata, outvec[j], addin_value);
@@ -4438,144 +4378,14 @@ void polymult_several (		// Multiply one poly with several polys
 			if (j == plan[i].addin[2]) gwaddsmall (pmdata->gwdata, outvec[j], addin_value);
 			if (j == plan[i].addin[3]) gwaddsmall (pmdata->gwdata, outvec[j], addin_value);
 			if (j == plan[i].subout) gwaddsmall (pmdata->gwdata, outvec[j], -addin_value);
+
+			// Do an optional forward FFT while data is in the CPU caches
 			if (options & POLYMULT_NEXTFFT) gwfft (pmdata->gwdata, outvec[j], outvec[j]);
 		}
 	}
 
 	// Free array that planned each poly multiplication
 	free (plan);
-}
-
-
-/* For optimal multithreading, Prime95 has the main thread and each helper thread calling these routines to construct the first polys longer than length one. */
-
-// Special routine to multiply two monic length-1 polynomials more efficiently than a general polymult call.
-void polymult2len1 (
-	gwhandle *gwdata,		// Handle for gwnum FFT library - can be a clone.
-	gwnum	poly1,			// Input poly #1's lone coefficient
-	gwnum	poly2,			// Input poly #2's lone coefficient
-	gwnum	*outpoly,		// Length-2 output poly
-	int	options)		// Set POLYMULT_INVEC1_NEGATE if *ALL* input poly coefficients should be negated
-					// Set POLYMULT_NEXTFFT if output polys are to be FFTed
-{
-	// Make sure input coefficients are FFTed
-	gwfft (gwdata, poly1, poly1);
-	gwfft (gwdata, poly2, poly2);
-
-	// Select which optimized routines to use.
-#ifdef X86_64
-	if (gwdata->cpu_flags & CPU_AVX512F) polymult_len1_avx512 (gwdata, 2, poly1, poly2, outpoly[0], outpoly[1], options); else
-#endif
-	if (gwdata->cpu_flags & CPU_FMA3) polymult_len1_fma (gwdata, 2, poly1, poly2, outpoly[0], outpoly[1], options);
-	else if (gwdata->cpu_flags & CPU_AVX) polymult_len1_avx (gwdata, 2, poly1, poly2, outpoly[0], outpoly[1], options);
-	else if (gwdata->cpu_flags & CPU_SSE2) polymult_len1_sse2 (gwdata, 2, poly1, poly2, outpoly[0], outpoly[1], options);
-#ifndef X86_64
-	else polymult_len1_dbl (gwdata, 2, poly1, poly2, outpoly[0], outpoly[1], options);
-#endif
-
-	// UnFFT the output coefficient that had multiplications.  Optionally also do a forward FFT while data is in CPU cache.
-	FFT_state (outpoly[0]) = (gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
-	FFT_state (outpoly[1]) = FULLY_FFTed;
-	if (options & POLYMULT_NEXTFFT) {
-		gwunfft2 (gwdata, outpoly[0], outpoly[0], GWMUL_STARTNEXTFFT);
-		gwfft (gwdata, outpoly[0], outpoly[0]);
-	} else
-		gwunfft2 (gwdata, outpoly[0], outpoly[0], 0);
-}
-
-// Special routine to multiply three monic length-1 polynomials more efficiently than general polymult calls.
-void polymult3len1 (
-	gwhandle *gwdata,		// Handle for gwnum FFT library - can be a clone.
-	gwnum	poly1,			// Input poly #1's lone coefficient
-	gwnum	poly2,			// Input poly #2's lone coefficient
-	gwnum	poly3,			// Input poly #3's lone coefficient
-	gwnum	*outpoly,		// Length-3 output poly
-	int	options)		// Set POLYMULT_INVEC1_NEGATE if *ALL* input poly coefficients should be negated
-					// Set POLYMULT_NEXTFFT if output polys are to be FFTed
-{
-	// Since we cannot multiply 3 coefficients together without an intermediate unFFT, first multiply two of the length-1 polys.
-	if (poly3 == outpoly[0]) gwswap (poly3, poly1);
-	if (poly3 == outpoly[1]) gwswap (poly3, poly2);
-	ASSERTG (poly3 != outpoly[0] && poly3 != outpoly[1]);
-	polymult2len1 (gwdata, poly1, poly2, outpoly, (options & POLYMULT_INVEC1_NEGATE) | POLYMULT_NEXTFFT);
-
-	// Make sure input coefficients are FFTed
-	gwfft (gwdata, poly3, poly3);
-
-	// Select which optimized routines to use.
-#ifdef X86_64
-	if (gwdata->cpu_flags & CPU_AVX512F) polymult_len1_avx512 (gwdata, 3, poly3, outpoly[0], outpoly[1], outpoly[2], options); else
-#endif
-	if (gwdata->cpu_flags & CPU_FMA3) polymult_len1_fma (gwdata, 3, poly3, outpoly[0], outpoly[1], outpoly[2], options);
-	else if (gwdata->cpu_flags & CPU_AVX) polymult_len1_avx (gwdata, 3, poly3, outpoly[0], outpoly[1], outpoly[2], options);
-	else if (gwdata->cpu_flags & CPU_SSE2) polymult_len1_sse2 (gwdata, 3, poly3, outpoly[0], outpoly[1], outpoly[2], options);
-#ifndef X86_64
-	else polymult_len1_dbl (gwdata, 3, poly3, outpoly[0], outpoly[1], outpoly[2], options);
-#endif
-
-	// UnFFT the output coefficient that had multiplications.  Optionally also do a forward FFT while data is in CPU cache.
-	FFT_state (outpoly[0]) =
-	FFT_state (outpoly[1]) = (gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
-	FFT_state (outpoly[2]) = FULLY_FFTed;
-	if (options & POLYMULT_NEXTFFT) {
-		gwunfft2 (gwdata, outpoly[0], outpoly[0], GWMUL_STARTNEXTFFT);
-		gwfft (gwdata, outpoly[0], outpoly[0]);
-		gwunfft2 (gwdata, outpoly[1], outpoly[1], GWMUL_STARTNEXTFFT);
-		gwfft (gwdata, outpoly[1], outpoly[1]);
-	} else {
-		gwunfft2 (gwdata, outpoly[0], outpoly[0], 0);
-		gwunfft2 (gwdata, outpoly[1], outpoly[1], 0);
-	}
-}
-
-// Special routine to multiply four monic length-1 polynomials more efficiently than general polymult calls.
-void polymult4len1 (
-	gwhandle *gwdata,		// Handle for gwnum FFT library - can be a clone.
-	gwnum	poly1,			// Input poly #1's lone coefficient
-	gwnum	poly2,			// Input poly #2's lone coefficient
-	gwnum	poly3,			// Input poly #3's lone coefficient
-	gwnum	poly4,			// Input poly #4's lone coefficient
-	gwnum	*outpoly,		// Length-4 output poly
-	int	options)		// Set POLYMULT_INVEC1_NEGATE if *ALL* input poly coefficients should be negated
-					// Set POLYMULT_NEXTFFT if output polys are to be FFTed
-{
-	// Since we cannot multiply 3 coefficients together without an intermediate unFFT, first multiply pairs of length-1 polys.
-	if (poly3 == outpoly[0]) gwswap (poly3, poly1);
-	if (poly3 == outpoly[1]) gwswap (poly3, poly2);
-	if (poly4 == outpoly[0]) gwswap (poly4, poly1);
-	if (poly4 == outpoly[1]) gwswap (poly4, poly2);
-	ASSERTG (poly3 != outpoly[0] && poly3 != outpoly[1] && poly4 != outpoly[0] && poly4 != outpoly[1]);
-	polymult2len1 (gwdata, poly1, poly2, outpoly, (options & POLYMULT_INVEC1_NEGATE) | POLYMULT_NEXTFFT);
-	polymult2len1 (gwdata, poly3, poly4, &outpoly[2], (options & POLYMULT_INVEC1_NEGATE) | POLYMULT_NEXTFFT);
-
-	// Select which optimized routines to use
-#ifdef X86_64
-	if (gwdata->cpu_flags & CPU_AVX512F) polymult_len1_avx512 (gwdata, 4, outpoly[0], outpoly[1], outpoly[2], outpoly[3], 0); else
-#endif
-	if (gwdata->cpu_flags & CPU_FMA3) polymult_len1_fma (gwdata, 4, outpoly[0], outpoly[1], outpoly[2], outpoly[3], 0);
-	else if (gwdata->cpu_flags & CPU_AVX) polymult_len1_avx (gwdata, 4, outpoly[0], outpoly[1], outpoly[2], outpoly[3], 0);
-	else if (gwdata->cpu_flags & CPU_SSE2) polymult_len1_sse2 (gwdata, 4, outpoly[0], outpoly[1], outpoly[2], outpoly[3], 0);
-#ifndef X86_64
-	else polymult_len1_dbl (gwdata, 4, outpoly[0], outpoly[1], outpoly[2], outpoly[3], 0);
-#endif
-
-	// UnFFT the output coefficient that had multiplications.  Optionally also do a forward FFT while data is in CPU cache.
-	FFT_state (outpoly[0]) =
-	FFT_state (outpoly[1]) =
-	FFT_state (outpoly[2]) = (gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
-	FFT_state (outpoly[3]) = FULLY_FFTed;
-	if (options & POLYMULT_NEXTFFT) {
-		gwunfft2 (gwdata, outpoly[0], outpoly[0], GWMUL_STARTNEXTFFT);
-		gwfft (gwdata, outpoly[0], outpoly[0]);
-		gwunfft2 (gwdata, outpoly[1], outpoly[1], GWMUL_STARTNEXTFFT);
-		gwfft (gwdata, outpoly[1], outpoly[1]);
-		gwunfft2 (gwdata, outpoly[2], outpoly[2], GWMUL_STARTNEXTFFT);
-		gwfft (gwdata, outpoly[2], outpoly[2]);
-	} else {
-		gwunfft2 (gwdata, outpoly[0], outpoly[0], 0);
-		gwunfft2 (gwdata, outpoly[1], outpoly[1], 0);
-		gwunfft2 (gwdata, outpoly[2], outpoly[2], 0);
-	}
 }
 
 
@@ -4734,7 +4544,8 @@ void poly_helper_example (
 			// If the other helper threads have completed UNFFTing vec, then we're done
 			if (coeff >= helper_data->fft_args.poly_size) break;
 
-			// UNFFT the gwnum
+			// UNFFT the gwnum if it is the output of a polymult
+			if (!should_unfft (gwdata, vec[coeff])) continue;
 			gwunfft (gwdata, vec[coeff], vec[coeff]);
 		}
 	}
@@ -4751,7 +4562,8 @@ void poly_helper_example (
 			// If the other helper threads have completed UNFFT/FFTing vec, then we're done
 			if (coeff >= helper_data->fft_args.poly_size) break;
 
-			// UNFFT/FFT the gwnum
+			// UNFFT/FFT the gwnum if it is the output of a polymult
+			if (!should_unfft (gwdata, vec[coeff])) continue;
 			gwunfft2 (gwdata, vec[coeff], vec[coeff], GWMUL_STARTNEXTFFT);
 			gwfft (gwdata, vec[coeff], vec[coeff]);
 		}
