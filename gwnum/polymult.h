@@ -231,7 +231,6 @@ struct pmhandle_struct {
 	gwatomic num_active_helpers;	// Number of active helpers (awakened from the work_to_do event).  Is also the alternative to all_helpers_done mutex.
 	gwmutex	poly_mutex;		// Mutex to make polymult thread safe when multi-threading
 	gwatomic next_thread_num;	// Lets us generate a unique id for each helper thread
-	gwatomic next_line;		// Next line for a helper thread to process
 	bool volatile all_work_assigned; // Flag indicating all helper thread work has been assigned (some helpers ma still be active)
 	gwthread *thread_ids;		// Thread ids for the spawned threads
 	int	twiddles_initialized;	// Size of the twiddle tables
@@ -266,6 +265,7 @@ struct pmhandle_struct {
 	void	(*helper_callback)(int, gwhandle *, void *); // User-defined helper callback routine
 	void	*helper_callback_data;	// User-defined data to pass to the user-defined helper callback routine
 	int volatile helper_opcode;	// Opcode if helpers are doing polymult work, zero if doing user work
+	gwatomic helper_counter;	// Used internally to increment through helper work
 	int	saved_gwdata_num_threads; // Used internally to restore gwdata's multithreading after a user defined callback
 	gwhandle *stats_gwdata;		// The cloned gwdata that is accumulating stats as each user-defined helper finshes up
 };
