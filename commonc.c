@@ -6654,7 +6654,7 @@ error_exit:
 	if (rc == PRIMENET_ERROR_OBSOLETE_CLIENT) {
 //bug - delete spool file?NO  write a messsage to screen/log/etc???
 //bug - log a useful message describing error and our remedial action?
-		OutputStr (MAIN_THREAD_NUM, "Client is obsolete.  Please upgrage.\n");
+		OutputStr (MAIN_THREAD_NUM, "Client is obsolete.  Please upgrade.\n");
 		obsolete_client = TRUE;
 	}
 
