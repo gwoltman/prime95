@@ -90,7 +90,7 @@ void zpad7_fft (gwhandle *gwdata, gwnum g);
 int compress_vec (char *buf, int size);
 void decompress_vec (char *inbuf, char *outbuf, int size);
 void polymult_pre_fft (pmhandle *pmdata, gwhandle *);
-void polymult_post_unfft (pmhandle *pmdata);
+void polymult_post_unfft (pmhandle *pmdata, gwhandle *);
 gwarray polymult_line_preprocess_sse2 (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, int invec2_size, int outvec_size, int options);
 gwarray polymult_line_preprocess_avx (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, int invec2_size, int outvec_size, int options);
 gwarray polymult_line_preprocess_fma (pmhandle *pmdata, gwnum *gw_invec1, int invec1_size, int invec2_size, int outvec_size, int options);
@@ -3429,7 +3429,7 @@ void polymult_thread (void *arg)
 
 		// Post-unFFT polymult outputs
 		else if (pmdata->helper_opcode == HELPER_POST_UNFFT)
-;//			polymult_post_unfft (pmdata, &cloned_gwdata);
+			polymult_post_unfft (pmdata, &cloned_gwdata);
 
 		// Helpers that used a cloned gwdata require gwdata stats to be merged
 		if (pmdata->helper_opcode != HELPER_POLYMULT_LINE) {
@@ -4297,79 +4297,14 @@ void polymult_several (		// Multiply one poly with several polys
 	else polymult_line_dbl (pmdata);
 #endif
 	polymult_wait_on_helpers (pmdata);		// Wait for all helper threads to complete
+
+	// unFFT all the outputs (unless requested not to)
+	atomic_set (pmdata->helper_counter, 0);		// Reset counter to no-work-done-yet state
+	pmdata->helper_opcode = HELPER_POST_UNFFT;	// The helpers are doing post-unFFT polymult work, not user defined work
+	polymult_launch_helpers (pmdata);
+	polymult_post_unfft (pmdata, pmdata->gwdata);
+	polymult_wait_on_helpers (pmdata);		// Wait for all helper threads to complete
 	pmdata->helper_opcode = 0;			// The helpers are not doing polymult work, user is free to have the threads do user work
-
-	// Process all of the output polys.  UnFFT results and add in the needed 1*1 values.
-	for (int i = 0; i < num_other_polys; i++) {
-		gwnum	*outvec = other_polys[i].outvec;
-		int	outvec_size = other_polys[i].outvec_size;
-		int	options = other_polys[i].options + invec1_options;
-		int	addin_value = 1;
-
-		// If POLYMULT_FNMADD is set we will be subtracting the 1*1 value
-		if (options & POLYMULT_FNMADD) addin_value = -1;
-
-		// Pre-planning figured out which output entries (if any) need to get 1.0 added to the result because a monic poly is multiplied by a monic poly.
-		// We used to add FFT(1) in monic_adjustments but this led to excessive round off error as FFT(1) is NOT a random signal.  It only
-		// affects the least significant bits and is apt to get drowned out by the addition of many multiplied large signals.
-
-		// Unfft all output coefficients
-		for (int j = 0; j < outvec_size; j++) {
-			if (outvec[j] == NULL) continue;
-			if (pmdata->gwdata->ZERO_PADDED_FFT) zpad7_unfft (pmdata->gwdata, outvec[j]);
-
-			// Set the FFT state so that we know how to unfft the value.  Set the number of unnormalized adds very high so that we know this
-			// gwnum was the result of a polymult and unusable without first doing an unfft.  The top coefficient of a monic * monic polymult
-			// is a simple add -- use gwadd3o's algorithm for tracking unnormalized adds and determining when a normalization is required.
-			// Also, a monic * non-monic top coefficient is a simple 1 * top non-monic coefficient.
-			// NOTE: We only support this feature for brute force and Karatsuba polymult.  For FFT polymults the least significant bits of the
-			// top coefficient have been degraded by the rounding done in the forward and inverse FFT.  We could fix this by special casing the
-			// top coefficient during the polymult FFT, however the savings will be small.
-			FFT_state (outvec[j]) = (pmdata->gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
-			if (j == outvec_size - 1 &&						// Top outvec coefficient
-			    plan[i].impl != POLYMULT_IMPL_FFT &&				// Not doing a polymult FFT (see comments above)
-			    ! (options & POLYMULT_UNFFT_TOP) &&					// Caller not forcing the unfft on top coefficient
-			    ((options & POLYMULT_INVEC1_MONIC && options & POLYMULT_INVEC2_MONIC &&  // Monic * monic
-			      ((plan[i].circular_size == plan[i].true_outvec_size &&		// Not doing a circular multiply
-			        plan[i].MSWs_skipped == 1) ||					// Only the 1*1 coefficient is skipped
-			       (plan[i].circular_size == plan[i].true_outvec_size - 1 &&		// Doing a circular multiply
-			        plan[i].MSWs_skipped == 0))) ||					// where only the 1*1 coefficient is skipped
-			     (!(options & POLYMULT_INVEC1_MONIC) != !(options & POLYMULT_INVEC2_MONIC) && // Monic * non-monic (or vice-versa)
-			      plan[i].circular_size == plan[i].true_outvec_size &&		// Not doing a circular multiply
-			      plan[i].MSWs_skipped == 0))) {					// Top coefficient of monic * non-monic is output
-				gwarray invec2 = other_polys[i].invec2;
-				int invec2_size = other_polys[i].invec2_size;
-				if (! (options & POLYMULT_INVEC2_MONIC))			// Invec1 monic, returning 1 * invec2's top
-					unnorms (outvec[j]) = unnorms (invec2[invec2_size-1]);
-				else if (! (options & POLYMULT_INVEC1_MONIC))			// Invec2 monic, returning 1 * invec1's top
-					unnorms (outvec[j]) = unnorms (invec1[invec1_size-1]);			
-				else								// Both invecs monic, two tops added together
-					unnorms (outvec[j]) = unnorms (invec1[invec1_size-1]) + unnorms (invec2[invec2_size-1]) + 1.0f;
-			} else
-				unnorms (outvec[j]) = 999.0e9f;					// Huge value to force an unfft
-
-			// See if this value needs to be unffted now or if we are waiting until later
-			bool j_affected_by_addin = (j == plan[i].addin[0] || j == plan[i].addin[1] ||
-						    j == plan[i].addin[2] || j == plan[i].addin[3] || j == plan[i].subout);
-			if (!j_affected_by_addin) {
-				if (options & POLYMULT_NO_UNFFT) continue;
-				if (!should_unfft (pmdata->gwdata, outvec[j])) continue;
-			}
-
-			// Do the unfft as well as any addin adjustments
-//GW: use gwsetaddin rather than gwaddsmall?  We'd need to save/restore the existing addin.  Only affect RLP * RLP, don't bother?
-			gwunfft2 (pmdata->gwdata, outvec[j], outvec[j],
-				  ((options & (POLYMULT_STARTNEXTFFT | POLYMULT_NEXTFFT)) && !j_affected_by_addin) ? GWMUL_STARTNEXTFFT : 0);
-			if (j == plan[i].addin[0]) gwaddsmall (pmdata->gwdata, outvec[j], addin_value);
-			if (j == plan[i].addin[1]) gwaddsmall (pmdata->gwdata, outvec[j], addin_value);
-			if (j == plan[i].addin[2]) gwaddsmall (pmdata->gwdata, outvec[j], addin_value);
-			if (j == plan[i].addin[3]) gwaddsmall (pmdata->gwdata, outvec[j], addin_value);
-			if (j == plan[i].subout) gwaddsmall (pmdata->gwdata, outvec[j], -addin_value);
-
-			// Do an optional forward FFT while data is in the CPU caches
-			if (options & POLYMULT_NEXTFFT) gwfft (pmdata->gwdata, outvec[j], outvec[j]);
-		}
-	}
 
 	// Free array that planned each poly multiplication
 	free (plan);
@@ -4425,6 +4360,95 @@ void polymult_pre_fft (
 			}
 			atomics_processed += outvec_size;
 		}
+	}
+}
+
+/* Multithreaded unFFT of all the output vectors in a polymult */
+
+void polymult_post_unfft (
+	pmhandle *pmdata,		// Handle for polymult library
+	gwhandle *gwdata)		// Potentially cloned gwdata
+{
+	int	j, atomic_val;		// Index of gwnum to work on
+	int	atomics_processed = 0;	// Total atomic_vals processed in earlier sections
+	polymult_plan *plan = pmdata->plan; // Plan for implementing the multiplication of invec1 and several invec2s
+
+	// Get the next index to work on
+	atomic_val = atomic_fetch_incr (pmdata->helper_counter);
+
+	// Process all of the output polys.  UnFFT results and add in the needed 1*1 values.
+	for (int i = 0; i < pmdata->num_other_polys; i++) {
+		gwnum	*outvec = pmdata->other_polys[i].outvec;
+		int	outvec_size = pmdata->other_polys[i].outvec_size;
+		int	options = pmdata->other_polys[i].options + pmdata->options;
+		int	addin_value = 1;
+
+		// If POLYMULT_FNMADD is set we will be subtracting the 1*1 value
+		if (options & POLYMULT_FNMADD) addin_value = -1;
+
+		// Pre-planning figured out which output entries (if any) need to get 1.0 added to the result because a monic poly is multiplied by a monic poly.
+		// We used to add FFT(1) in monic_adjustments but this led to excessive round off error as FFT(1) is NOT a random signal.  It only
+		// affects the least significant bits and is apt to get drowned out by the addition of many multiplied large signals.
+
+		// Unfft all output coefficients
+		for  ( ; (j = atomic_val - atomics_processed) < outvec_size; atomic_val = atomic_fetch_incr (pmdata->helper_counter)) {
+			if (outvec[j] == NULL) continue;
+			if (gwdata->ZERO_PADDED_FFT) zpad7_unfft (gwdata, outvec[j]);
+
+			// Set the FFT state so that we know how to unfft the value.  Set the number of unnormalized adds very high so that we know this
+			// gwnum was the result of a polymult and unusable without first doing an unfft.  The top coefficient of a monic * monic polymult
+			// is a simple add -- use gwadd3o's algorithm for tracking unnormalized adds and determining when a normalization is required.
+			// Also, a monic * non-monic top coefficient is a simple 1 * top non-monic coefficient.
+			// NOTE: We only support this feature for brute force and Karatsuba polymult.  For FFT polymults the least significant bits of the
+			// top coefficient have been degraded by the rounding done in the forward and inverse FFT.  We could fix this by special casing the
+			// top coefficient during the polymult FFT, however the savings will be small.
+			FFT_state (outvec[j]) = (gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
+			if (j == outvec_size - 1 &&						// Top outvec coefficient
+			    plan[i].impl != POLYMULT_IMPL_FFT &&				// Not doing a polymult FFT (see comments above)
+			    ! (options & POLYMULT_UNFFT_TOP) &&					// Caller not forcing the unfft on top coefficient
+			    ((options & POLYMULT_INVEC1_MONIC && options & POLYMULT_INVEC2_MONIC &&  // Monic * monic
+			      ((plan[i].circular_size == plan[i].true_outvec_size &&		// Not doing a circular multiply
+			        plan[i].MSWs_skipped == 1) ||					// Only the 1*1 coefficient is skipped
+			       (plan[i].circular_size == plan[i].true_outvec_size - 1 &&		// Doing a circular multiply
+			        plan[i].MSWs_skipped == 0))) ||					// where only the 1*1 coefficient is skipped
+			     (!(options & POLYMULT_INVEC1_MONIC) != !(options & POLYMULT_INVEC2_MONIC) && // Monic * non-monic (or vice-versa)
+			      plan[i].circular_size == plan[i].true_outvec_size &&		// Not doing a circular multiply
+			      plan[i].MSWs_skipped == 0))) {					// Top coefficient of monic * non-monic is output
+				gwnum *invec1 = pmdata->invec1;
+				gwnum *invec2 = pmdata->other_polys[i].invec2;
+				int invec1_size = pmdata->invec1_size;
+				int invec2_size = pmdata->other_polys[i].invec2_size;
+				if (! (options & POLYMULT_INVEC2_MONIC))			// Invec1 monic, returning 1 * invec2's top
+					unnorms (outvec[j]) = unnorms (invec2[invec2_size-1]);
+				else if (! (options & POLYMULT_INVEC1_MONIC))			// Invec2 monic, returning 1 * invec1's top
+					unnorms (outvec[j]) = unnorms (invec1[invec1_size-1]);			
+				else								// Both invecs monic, two tops added together
+					unnorms (outvec[j]) = unnorms (invec1[invec1_size-1]) + unnorms (invec2[invec2_size-1]) + 1.0f;
+			} else
+				unnorms (outvec[j]) = 999.0e9f;					// Huge value to force an unfft
+
+			// See if this value needs to be unffted now or if we are waiting until later
+			bool j_affected_by_addin = (j == plan[i].addin[0] || j == plan[i].addin[1] ||
+						    j == plan[i].addin[2] || j == plan[i].addin[3] || j == plan[i].subout);
+			if (!j_affected_by_addin) {
+				if (options & POLYMULT_NO_UNFFT) continue;
+				if (!should_unfft (gwdata, outvec[j])) continue;
+			}
+
+			// Do the unfft as well as any addin adjustments
+//GW: use gwsetaddin rather than gwaddsmall?  We'd need to save/restore the existing addin.  Only affect RLP * RLP, don't bother?
+			gwunfft2 (gwdata, outvec[j], outvec[j],
+				  ((options & (POLYMULT_STARTNEXTFFT | POLYMULT_NEXTFFT)) && !j_affected_by_addin) ? GWMUL_STARTNEXTFFT : 0);
+			if (j == plan[i].addin[0]) gwaddsmall (gwdata, outvec[j], addin_value);
+			if (j == plan[i].addin[1]) gwaddsmall (gwdata, outvec[j], addin_value);
+			if (j == plan[i].addin[2]) gwaddsmall (gwdata, outvec[j], addin_value);
+			if (j == plan[i].addin[3]) gwaddsmall (gwdata, outvec[j], addin_value);
+			if (j == plan[i].subout) gwaddsmall (gwdata, outvec[j], -addin_value);
+
+			// Do an optional forward FFT while data is in the CPU caches
+			if (options & POLYMULT_NEXTFFT) gwfft (gwdata, outvec[j], outvec[j]);
+		}
+		atomics_processed += outvec_size;
 	}
 }
 

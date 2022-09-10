@@ -7168,7 +7168,7 @@ ecm_polymult:
 			}
 
 			// Multithreaded unfft poly coefficients
-//GW: BUG - if saving this polyF to disk, only unfft result.  Later do a multithreaded FFT (or let polymult do it (it doesn't presently)
+//GW: BUG - if saving this polyF to disk, only unfft result.
 			poly_unfft_fft_coefficients (&ecmdata.polydata, ecmdata.polyF, ecmdata.poly_size);
 		}
 
@@ -7214,14 +7214,12 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 			   &ecmdata.polyR[ecmdata.poly_size-(terms-1)], terms-1,
 			   ecmdata.polyR, terms_to_compute,		// Only return terms_to_compute
 			   NULL, 0, terms-1,				// No FMA, no circular, don't return least significant terms-1 coefficients
-			   POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_MULMID | POLYMULT_NEXTFFT | POLYMULT_NO_UNFFT);
-		poly_unfft_fft_coefficients (&ecmdata.polydata, ecmdata.polyR, terms_to_compute);
+			   POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_MULMID | POLYMULT_NEXTFFT);
 		// Compute new_recip = g0 - g0*e
 		polymult (&ecmdata.polydata, &ecmdata.polyR[ecmdata.poly_size-(terms-1)], terms-1,
 			  ecmdata.polyR, terms_to_compute,
 			  &ecmdata.polyR[ecmdata.poly_size-(terms-1)-terms_to_compute], terms_to_compute,	// Only return hi-order terms_to_compute
-			  POLYMULT_INVEC1_MONIC_NEGATE | POLYMULT_MULHI | POLYMULT_NEXTFFT | POLYMULT_NO_UNFFT);
-		poly_unfft_fft_coefficients (&ecmdata.polydata, &ecmdata.polyR[ecmdata.poly_size-(terms-1)-terms_to_compute], terms_to_compute);
+			  POLYMULT_INVEC1_MONIC_NEGATE | POLYMULT_MULHI | POLYMULT_NEXTFFT);
 		// Update count of terms computed
 		terms = terms + terms_to_compute;
 	}
@@ -7365,8 +7363,6 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 			}
 
 			// Multithreaded unfft poly coefficients
-//GW: Write a special ecm_helper that does not unfft the top-most coefficient.  The savings could add up to something noticeable.  Occasionally
-// do the unfft to keep roundoffs in check
 			poly_unfft_fft_coefficients (&ecmdata.polydata, outer_loop_counter > 1 || log2_num_polys > 1 ? polyG : polyH, ecmdata.poly_size);
 
 			// Periodic checks for user stop request
@@ -7387,18 +7383,15 @@ start_timer_from_zero (timers, 0);
 		if (outer_loop_counter > 1) {
 			// Compute tmp = G(X) * H(X).  We can store tmp in polyGH.
  			polymult (&ecmdata.polydata, polyG, ecmdata.poly_size, polyH, ecmdata.poly_size, ecmdata.polyGH, 2*ecmdata.poly_size,
-				  POLYMULT_INVEC1_MONIC | (outer_loop_counter == 2 ? POLYMULT_INVEC2_MONIC : 0) | POLYMULT_NO_UNFFT);
-			poly_unfft_fft_coefficients (&ecmdata.polydata, ecmdata.polyGH, 2*ecmdata.poly_size);
+				  POLYMULT_INVEC1_MONIC | (outer_loop_counter == 2 ? POLYMULT_INVEC2_MONIC : 0) | POLYMULT_NEXTFFT);
 
 			// Compute quot = tmp * 1/F(X).  The upper half of GH happens to be polyH.  Store the quotient in upper half of GH.
 			polymult (&ecmdata.polydata, polyH, ecmdata.poly_size, ecmdata.polyR, ecmdata.poly_size, polyH, ecmdata.poly_size,
-				  (outer_loop_counter == 2 ? POLYMULT_INVEC1_MONIC : 0) | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_MULHI | POLYMULT_NO_UNFFT);
-			poly_unfft_fft_coefficients (&ecmdata.polydata, polyH, ecmdata.poly_size);
+				  (outer_loop_counter == 2 ? POLYMULT_INVEC1_MONIC : 0) | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_MULHI | POLYMULT_NEXTFFT);
 
 			// Compute H(X) = tmp - quot * F(X).  Tmp is in polyG, quotient is in polyH.
 			polymult_fma (&ecmdata.polydata, polyH, ecmdata.poly_size, ecmdata.polyF, ecmdata.poly_size, polyH, ecmdata.poly_size, polyG,
-				      POLYMULT_INVEC2_MONIC | POLYMULT_FNMADD | POLYMULT_MULLO | POLYMULT_NO_UNFFT);
-			poly_unfft_fft_coefficients (&ecmdata.polydata, polyH, ecmdata.poly_size);
+				      POLYMULT_INVEC2_MONIC | POLYMULT_FNMADD | POLYMULT_MULLO | POLYMULT_NEXTFFT);
 strcpy (buf, "PolyH built.  Time: ");
 end_timer (timers, 0);
 print_timer (timers, 0, buf, TIMER_NL);
@@ -7483,9 +7476,7 @@ saving=0;//GW:		saving = testSaveFilesFlag (thread_num);
 
 	// Multiply H(X) by 1/F(X) to make scaled remainders
 	polymult (&ecmdata.polydata, polyH, ecmdata.poly_size, ecmdata.polyR, ecmdata.poly_size,
-		  polyH, ecmdata.poly_size, POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_MULHI | POLYMULT_STARTNEXTFFT | POLYMULT_NO_UNFFT);
-	poly_unfft_fft_coefficients (&ecmdata.polydata, polyH, ecmdata.poly_size);		//GW: Should be a POLYMULT option for this...
-												//GW: if many single-threaded unffts is always faster than gwnum's multi-threading, then this should be the default polymult behavior
+		  polyH, ecmdata.poly_size, POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_MULHI | POLYMULT_NEXTFFT);
 strcpy (buf, "H(X) scaled.  Time: ");
 end_timer (timers, 0);
 print_timer (timers, 0, buf, TIMER_NL);
@@ -7653,14 +7644,9 @@ start_timer_from_zero (timers, 0);
 					  &polyF[poly1_base], poly1_size + poly2_size,
 					  (poly1_size == 1 ? POLYMULT_INVEC1_NEGATE : 0) +
 					  (poly2_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) +
-					  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/);
-
-//GW: Write a ecm_helper that unffts only the relevant coefficients from length 2 and length 3 polys?  Vs. special length-2/3/4 * len-1 polymult routines.
-// Or a ecm_helper that uses polymult to breakdown len2/3/4 polys in a multi-thread friendly way.
-				
-//GW: Address the length 0 poly problem vis-a-vis using poly_unfft_fft_coefficients
-//GW: poly_unfft_fft_coefficients (&ecmdata.polydata, polyH, ecmdata.poly_size);
+					  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_NO_UNFFT);
 			}
+			poly_unfft_fft_coefficients (&ecmdata.polydata, polyF, slice_size);
 		}
 if (slice == 0) {
 strcpy (buf, "PolyF up.  Time: ");
@@ -7712,17 +7698,10 @@ start_timer_from_zero (timers, 0);
 				a[1].circular_size = poly1_size + poly2_size;	// Poly result modulo (X^circular_size - 1)
 				a[1].first_mulmid = 0;
 				a[1].options = (poly1_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) + POLYMULT_INVEC2_MONIC | POLYMULT_CIRCULAR | POLYMULT_MULHI;
-				polymult_several (&ecmdata.polydata, &polyH[slice_base+poly1_base], poly1_size + poly2_size, a, 2, POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/);
+				polymult_several (&ecmdata.polydata, &polyH[slice_base+poly1_base], poly1_size + poly2_size, a, 2, POLYMULT_NO_UNFFT);
 			}
-// Multithreaded unfft poly coefficients
-//		pm1data.helper_work = PM1_COMPUTE_POLY1;		// Work type for helper to do
-//		pm1data.points = poly1;					// Array of poly1 coefficients
-//		atomic_set (pm1data.current_point, 0);				// Next coefficient to unfft
-//		if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);	// Launch helper threads
-//		pm1_helper (0, &pm1data.gwdata, &pm1data);		// Have main thread help too
-//		if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);	// Wait for helper threads to finish
-		//stop_reason = stopCheck (thread_num);
-		//if (stop_reason) goto possible_lowmem;
+//GW: don't unfft/fft last polyH row -- do that within helper that builds gg
+			poly_unfft_fft_coefficients (&ecmdata.polydata, &polyH[slice_base], slice_size);
 		}
 if (slice == 0) {
 strcpy (buf, "PolyF down.  Time: ");
@@ -7748,6 +7727,15 @@ start_timer_from_zero (timers, 0);
 //GW: It could have come from a save file if it started off doing prime pairing and switched to poly (or we allow save files in stage 2)
 
 	if (ecmdata.gg == NULL) {
+//GW: Multithreaded mul gg of poly coefficients -- especially if gwnum is not multithreading!
+//		pm1data.helper_work = PM1_COMPUTE_POLY1;		// Work type for helper to do
+//		pm1data.points = poly1;					// Array of poly1 coefficients
+//		atomic_set (pm1data.current_point, 0);				// Next coefficient to unfft
+//		if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);	// Launch helper threads
+//		pm1_helper (0, &pm1data.gwdata, &pm1data);		// Have main thread help too
+//		if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);	// Wait for helper threads to finish
+		//stop_reason = stopCheck (thread_num);
+		//if (stop_reason) goto possible_lowmem;
 //GW: there are plenty of free gwnums around to choose from
 		ecmdata.gg = gwalloc (&ecmdata.gwdata);
 		if (ecmdata.gg == NULL) goto lowmem;
