@@ -4906,6 +4906,7 @@ err:
 
 #define ECM_POLYF_LEVEL_ZERO	1
 #define ECM_POLYG_LEVEL_ZERO	2
+#define ECM_BUILD_GCDVAL	3
 
 void ecm_helper (
 	int	helper_num,	// 0 = main thread, 1+ = helper thread num
@@ -4914,7 +4915,7 @@ void ecm_helper (
 {
 	ecmhandle *ecmdata = (ecmhandle *) info;
 
-/* Combine 2, 3, or 4 length-1 polys */
+/* Combine 2, 3, or 4 length-1 polys in polyF */
 
 	if (ecmdata->helper_work == ECM_POLYF_LEVEL_ZERO) {
 		pmhandle pmdata;
@@ -4960,6 +4961,8 @@ void ecm_helper (
 		}
 	}
 
+/* Combine 2, 3, or 4 length-1 polys in polyG */
+
 	if (ecmdata->helper_work == ECM_POLYG_LEVEL_ZERO) {
 		pmhandle pmdata;
 
@@ -4982,6 +4985,7 @@ void ecm_helper (
 			num_polys = next_poly_base - poly_base;
 
 //GW: For the very first polyG, which is written to polyH. we could preserve the entire polyG array for an even faster MQ_next
+//GW: can we figure out how to multi-thread MQ_next?
 
 			// Sometimes preserve the input from polyG in polyGaux
 			gwnum	poly1, poly2, poly3, poly4;
@@ -5018,6 +5022,33 @@ void ecm_helper (
 					  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_NEXTFFT);
 			}
 		}
+	}
+
+/* Use multithreading to build gg (the final value to be GCDed).  This is important in the cases where gwnum is using a single-pass FFT and no multi-threading. */
+
+	if (ecmdata->helper_work == ECM_BUILD_GCDVAL) {
+		gwnum	accumulator = NULL;
+		gwnum	*polyH = &ecmdata->polyGH[ecmdata->poly_size];
+
+		// Loop multiplying points from the output poly
+		for ( ; ; ) {
+			// Get one of the output polyH gwnums.  We accumulate here and later multiply with gg.
+			int j = atomic_fetch_incr (ecmdata->helper_counter);
+
+			// If the other helper threads have completed processing of the output poly, then we're done
+			if (j >= ecmdata->poly_size) break;
+
+			// Unfft the gwnum
+			if (polymult_must_unfft (gwdata, polyH[j])) gwunfft2 (gwdata, polyH[j], polyH[j], GWMUL_STARTNEXTFFT);
+
+			// Either set the accumulator or multiply with the accumulator
+			if (accumulator == NULL) accumulator = polyH[j];
+			else gwmul3 (gwdata, polyH[j], accumulator, accumulator, GWMUL_STARTNEXTFFT);
+		}
+
+		// Return the FFTed accumulator in polyG
+		if (accumulator != NULL) gwfft (gwdata, accumulator, accumulator);
+		ecmdata->polyGH[helper_num] = accumulator;
 	}
 }
 
@@ -6752,6 +6783,7 @@ OutputStr (thread_num, buf); }
 +---------------------------------------------------------------------*/
 
 ecm_polymult:
+int foobar = ecmdata.gwdata.num_threads;
 
 //GW: We don't need gg, we possibly need the full H(X) from a save file.  Wow, thats a lot of disk.  Might have to invest the CPU time reducing H(X) to
 // to create a save file.
@@ -7700,8 +7732,8 @@ start_timer_from_zero (timers, 0);
 				a[1].options = (poly1_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) + POLYMULT_INVEC2_MONIC | POLYMULT_CIRCULAR | POLYMULT_MULHI;
 				polymult_several (&ecmdata.polydata, &polyH[slice_base+poly1_base], poly1_size + poly2_size, a, 2, POLYMULT_NO_UNFFT);
 			}
-//GW: don't unfft/fft last polyH row -- do that within helper that builds gg
-			poly_unfft_fft_coefficients (&ecmdata.polydata, &polyH[slice_base], slice_size);
+			// Don't unfft the last polyH row.  Do that in ecm_helper when multiplying the polyH coefficients together.
+			if (pass == 1 || level > 0) poly_unfft_fft_coefficients (&ecmdata.polydata, &polyH[slice_base], slice_size);
 		}
 if (slice == 0) {
 strcpy (buf, "PolyF down.  Time: ");
@@ -7723,29 +7755,35 @@ start_timer_from_zero (timers, 0);
 	free (Ftree);
 #endif
 
-/* Now init the accumulator unless this value was read from a continuation file */
-//GW: It could have come from a save file if it started off doing prime pairing and switched to poly (or we allow save files in stage 2)
+// Multiply the coefficients in polyH together for a later GCD.  We launch single-threaded helpers to do this because the gwnum FFT size may not be
+// large enough to support multi-threading.  The results are stored in the first coefficients of polyF.
 
-	if (ecmdata.gg == NULL) {
-//GW: Multithreaded mul gg of poly coefficients -- especially if gwnum is not multithreading!
-//		pm1data.helper_work = PM1_COMPUTE_POLY1;		// Work type for helper to do
-//		pm1data.points = poly1;					// Array of poly1 coefficients
-//		atomic_set (pm1data.current_point, 0);				// Next coefficient to unfft
-//		if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);	// Launch helper threads
-//		pm1_helper (0, &pm1data.gwdata, &pm1data);		// Have main thread help too
-//		if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);	// Wait for helper threads to finish
-		//stop_reason = stopCheck (thread_num);
-		//if (stop_reason) goto possible_lowmem;
-//GW: there are plenty of free gwnums around to choose from
-		ecmdata.gg = gwalloc (&ecmdata.gwdata);
-		if (ecmdata.gg == NULL) goto lowmem;
-		dbltogw (&ecmdata.gwdata, 1.0, ecmdata.gg);
+start_timer_from_zero (timers, 0);
+	ecmdata.polydata.helper_callback = &ecm_helper;
+	ecmdata.polydata.helper_callback_data = &ecmdata;
+	ecmdata.helper_work = ECM_BUILD_GCDVAL;
+	atomic_set (ecmdata.helper_counter, 0);
+	polymult_launch_helpers (&ecmdata.polydata);	// Launch helper threads
+	ecm_helper (0, &ecmdata.gwdata, &ecmdata);	// Have main thread help too
+	polymult_wait_on_helpers (&ecmdata.polydata);	// Wait for helper threads to finish
+
+// Multiply together the output of each ecm_helper thread above.  Hopefully using gwnum's multi-threading.
+
+	for (int i = 1; i < ecmdata.polydata.num_threads; i++) {
+		if (ecmdata.polyGH[i] == NULL) continue;
+		if (ecmdata.polyGH[0] == NULL) ecmdata.polyGH[0] = ecmdata.polyGH[i];
+		else gwmul3 (&ecmdata.gwdata, ecmdata.polyGH[0], ecmdata.polyGH[i], ecmdata.polyGH[0],
+			     (i != ecmdata.polydata.num_threads - 1 || ecmdata.gg != NULL) ? GWMUL_STARTNEXTFFT : 0);
 	}
 
-//			gg = mul together leaves
-start_timer_from_zero (timers, 0);
-//GW: Last mul should not startnextfft
-	for (int i = 0; i < ecmdata.poly_size; i++) gwmul3 (&ecmdata.gwdata, ecmdata.gg, polyH[i], ecmdata.gg, GWMUL_STARTNEXTFFT);
+/* Now multiply in the accumulator read from a continuation file */
+//GW: It could have come from a save file if it started off doing prime pairing and switched to poly (or we allow save files in stage 2)
+//GW: Is gg ever not null here???
+
+ASSERTG (foobar == ecmdata.gwdata.num_threads);
+	if (ecmdata.gg != NULL) gwmul3 (&ecmdata.gwdata, ecmdata.polyGH[0], ecmdata.gg, ecmdata.polyGH[0], 0);
+
+	ecmdata.gg = ecmdata.polyGH[0];
 strcpy (buf, "gg = mul H(X).  Time: ");
 end_timer (timers, 0);
 print_timer (timers, 0, buf, TIMER_NL);
@@ -7761,12 +7799,12 @@ start_timer_from_zero (timers, 0);
 	polymult_done (&ecmdata.polydata);
 	gwfree_array (&ecmdata.gwdata, ecmdata.polyF), ecmdata.polyF = NULL;
 	gwfree_array (&ecmdata.gwdata, ecmdata.polyR), ecmdata.polyR = NULL;
-	gwfree_array (&ecmdata.gwdata, ecmdata.polyGH), ecmdata.polyGH = NULL;
-	gwfree_array (&ecmdata.gwdata, ecmdata.polyGaux), ecmdata.polyGaux = NULL;
+//GW: BUG!!!!  can't free until after the GCD
+//	gwfree_array (&ecmdata.gwdata, ecmdata.polyGH), ecmdata.polyGH = NULL;
+//	gwfree_array (&ecmdata.gwdata, ecmdata.polyGaux), ecmdata.polyGaux = NULL;
 
 	mQ_term_array (&ecmdata);
 	normalize_pool_term (&ecmdata);
-
 
 /* Compute the new Kruppa-adjusted B2 work completed.  This is needed when curves are run with different optimal B2 values due to */
 /* changing available memory.  The Primenet server expects just one B2 value representing the work done. */

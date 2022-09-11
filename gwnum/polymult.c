@@ -78,11 +78,6 @@
 #define HELPER_POST_UNFFT	3
 #define HELPER_EXIT		4
 
-// Macro to determine if coefficient is the result of a polymult and needs to be unffted
-
-//GW: Relax EB check (see gwadd3o) to  numadds_to_eb (c) + 1 or numadds_to_eb (c)????
-#define should_unfft(h,c)	(FFT_state(c)==FFTed_FOR_FMA || (FFT_state(c)==FULLY_FFTed && EB_GWMUL_SAVINGS + numadds_to_eb(unnorms(c))*2.0f > (h)->EXTRA_BITS))
-
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
 unsigned long cache_line_offset (gwhandle *gwdata, unsigned long i);
 void generate_sincos (pmhandle *pmdata, const unsigned int size);
@@ -4432,7 +4427,7 @@ void polymult_post_unfft (
 						    j == plan[i].addin[2] || j == plan[i].addin[3] || j == plan[i].subout);
 			if (!j_affected_by_addin) {
 				if (options & POLYMULT_NO_UNFFT) continue;
-				if (!should_unfft (gwdata, outvec[j])) continue;
+				if (!polymult_must_unfft (gwdata, outvec[j])) continue;
 			}
 
 			// Do the unfft as well as any addin adjustments
@@ -4608,7 +4603,7 @@ void poly_helper_example (
 			if (coeff >= helper_data->fft_args.poly_size) break;
 
 			// UNFFT the gwnum if it is the output of a polymult
-			if (should_unfft (gwdata, vec[coeff])) gwunfft (gwdata, vec[coeff], vec[coeff]);
+			if (polymult_must_unfft (gwdata, vec[coeff])) gwunfft (gwdata, vec[coeff], vec[coeff]);
 		}
 	}
 
@@ -4625,7 +4620,7 @@ void poly_helper_example (
 			if (coeff >= helper_data->fft_args.poly_size) break;
 
 			// UNFFT the gwnum if it is the output of a polymult
-			if (should_unfft (gwdata, vec[coeff])) gwunfft2 (gwdata, vec[coeff], vec[coeff], GWMUL_STARTNEXTFFT);
+			if (polymult_must_unfft (gwdata, vec[coeff])) gwunfft2 (gwdata, vec[coeff], vec[coeff], GWMUL_STARTNEXTFFT);
 			gwfft (gwdata, vec[coeff], vec[coeff]);
 		}
 	}

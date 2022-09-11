@@ -178,6 +178,12 @@ void polymult_several (		// Multiply one poly with several polys
 	int	num_other_polys,// Number of other polys to multiply with first input poly
 	int	options);	// Poly #1 options.  Options not associated with poly #1 are applied to all other polys.
 
+// Obscure macro to test if a polymult output coefficient must be unffted.  When using POLYMULT_NO_UNFFT this macro detects output coefficients that do not
+// require an unfft because of the optimization regarding top coefficients in monic polymults.
+
+//GW: Relax EB check (see gwadd3o) to numadds_to_eb(c) + 1 or numadds_to_eb(c)????
+#define polymult_must_unfft(h,c) (FFT_state(c)==FFTed_FOR_FMA || (FFT_state(c)==FULLY_FFTed && EB_GWMUL_SAVINGS + numadds_to_eb(unnorms(c))*2.0f > (h)->EXTRA_BITS))
+
 /*------------------------------------------------------------------------------------------------
 |	Easy multithreading using polymult threads.   Complete with example code!!
 |	Study poly_helper_example in polymult.c so you can write your own helper function.
