@@ -189,18 +189,14 @@ void polymult_several (		// Multiply one poly with several polys
 |	Study poly_helper_example in polymult.c so you can write your own helper function.
 +------------------------------------------------------------------------------------------------*/
 
-/* Underlying routines that allow the users of this library to use the polymult helper threads and locking mechanisms to craft their own multithreaded */
+/* Underlying routine that allows users of this library to use the polymult helper threads and locking mechanisms to craft their own multithreaded */
 /* helper routines.  The helper_callback and helper_callback_data fields must be set prior to launching the helpers.  Each helper is given its own clone */
 /* of gwdata to safely call gwnum operations -- cloning is necessary as independent threads cannot use use same gwdata structure. */
 
-/* This routine launches the polymult helper threads.  The polymult library uses this routine to do multithreading, you can too! */
+/* This routine launches the polymult helper threads.  Has the calling thread also help, then waits for the calling thread and all helper threads to finish. */
+/* The polymult library uses this routine to do multithreading, you can too! */
 void polymult_launch_helpers (
 	pmhandle *pmdata);		// Handle for polymult library
-
-/* This routine waits for the launched polymult helper threads to finish */
-void polymult_wait_on_helpers (
-	pmhandle *pmdata);		// Handle for polymult library
-
 
 // Example using polymult threads for faster execution of some simple poly utilities.  Study the code in polymult.c.
 void poly_helper_example (int helper_num, gwhandle *gwdata, void *info);

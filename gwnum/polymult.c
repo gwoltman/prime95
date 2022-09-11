@@ -3351,6 +3351,45 @@ void polymult_line (
 
 #if !defined (SSE2) && !defined (AVX) && !defined (FMA) && !defined (AVX512)
 
+/* Have the helper thread call the appropriate task */
+void polymult_dispatch (
+	int	helper_num,			// Helper number (main thread is 0, launched threads are 1+)
+	pmhandle *pmdata,
+	gwhandle *gwdata)
+{
+	// Call user-defined routine with a cloned gwdata so the user can do multi-threaded gwnum work
+	if (pmdata->helper_opcode == 0) {
+		// Call the user-defined helper routine
+		(*pmdata->helper_callback) (helper_num, gwdata, pmdata->helper_callback_data);
+	}
+
+	// Pre-FFT polymult inputs
+	else if (pmdata->helper_opcode == HELPER_PRE_FFT)
+		polymult_pre_fft (pmdata, gwdata);
+
+	// Polymult_line optimized for several instruction sets
+	else if (pmdata->helper_opcode == HELPER_POLYMULT_LINE) {
+#ifdef X86_64
+		// Polymult_line optimized routines for AVX512 instructions
+		if (gwdata->cpu_flags & CPU_AVX512F) polymult_line_avx512 (pmdata); else
+#endif
+		// Polymult optimized routines for FMA3 instructions
+		if (gwdata->cpu_flags & CPU_FMA3) polymult_line_fma (pmdata);
+		// Polymult optimized routines for AVX instructions
+		else if (gwdata->cpu_flags & CPU_AVX) polymult_line_avx (pmdata);
+		// Polymult optimized routines for SSE2 instructions
+		else if (gwdata->cpu_flags & CPU_SSE2) polymult_line_sse2 (pmdata);
+		// Polymult default routines using no vector instructions
+#ifndef X86_64
+		else polymult_line_dbl (pmdata);
+#endif
+	}
+
+	// Post-unFFT polymult outputs
+	else if (pmdata->helper_opcode == HELPER_POST_UNFFT)
+		polymult_post_unfft (pmdata, gwdata);
+}
+
 /* Entry point for helper thread to do part of the polymult */
 void polymult_thread (void *arg)
 {
@@ -3394,37 +3433,8 @@ void polymult_thread (void *arg)
 			cloned_gwdata_initialized = TRUE;
 		}
 
-		// Call user-defined routine with a cloned gwdata so the user can do multi-threaded gwnum work
-		if (pmdata->helper_opcode == 0) {
-			// Call the user-defined helper routine
-			(*pmdata->helper_callback) (thread_num, &cloned_gwdata, pmdata->helper_callback_data);
-		}
-
-		// Pre-FFT polymult inputs
-		else if (pmdata->helper_opcode == HELPER_PRE_FFT)
-			polymult_pre_fft (pmdata, &cloned_gwdata);
-
-		// Polymult_line optimized for several instruction sets
-		else if (pmdata->helper_opcode == HELPER_POLYMULT_LINE) {
-#ifdef X86_64
-			// Polymult_line optimized routines for AVX512 instructions
-			if (pmdata->gwdata->cpu_flags & CPU_AVX512F) polymult_line_avx512 (pmdata); else
-#endif
-			// Polymult optimized routines for FMA3 instructions
-			if (pmdata->gwdata->cpu_flags & CPU_FMA3) polymult_line_fma (pmdata);
-			// Polymult optimized routines for AVX instructions
-			else if (pmdata->gwdata->cpu_flags & CPU_AVX) polymult_line_avx (pmdata);
-			// Polymult optimized routines for SSE2 instructions
-			else if (pmdata->gwdata->cpu_flags & CPU_SSE2) polymult_line_sse2 (pmdata);
-			// Polymult default routines using no vector instructions
-#ifndef X86_64
-			else polymult_line_dbl (pmdata);
-#endif
-		}
-
-		// Post-unFFT polymult outputs
-		else if (pmdata->helper_opcode == HELPER_POST_UNFFT)
-			polymult_post_unfft (pmdata, &cloned_gwdata);
+		// Dispatch to perform the correct work
+		polymult_dispatch (thread_num, pmdata, &cloned_gwdata);
 
 		// Helpers that used a cloned gwdata require gwdata stats to be merged
 		if (pmdata->helper_opcode != HELPER_POLYMULT_LINE) {
@@ -3457,51 +3467,50 @@ void polymult_thread (void *arg)
 	if (cloned_gwdata_initialized) gwdone (&cloned_gwdata);
 }
 
-/* This routine launches the polymult helper threads.  The polymult library uses this routine to do multithreading, users can too! */
+/* This routine launches the polymult helper threads.  Has the calling thread also help, then waits for the calling thread and all helper threads to finish. */
+/* The polymult library uses this routine to do multithreading, you can too! */
 void polymult_launch_helpers (
 	pmhandle *pmdata)		// Handle for polymult library
 {
-	// If there are no helper threads we're done
-	if (pmdata->num_threads == 1) return;
-	// "Neuter" gwnum to single-threaded for helpers
-	pmdata->saved_gwdata_num_threads = gwget_num_threads (pmdata->gwdata);
-	gwset_num_threads (pmdata->gwdata, 1);
-	// Launch helpers for the first time
-	if (pmdata->thread_ids == NULL) {
-		atomic_set (pmdata->next_thread_num, 0);
-		gwmutex_init (&pmdata->poly_mutex);
-		gwevent_init (&pmdata->work_to_do);
-		gwevent_init (&pmdata->all_helpers_done);
-		atomic_set (pmdata->alt_work_to_do, 0);			// No work for helpers to do yet
-		pmdata->thread_ids = (gwthread *) malloc (pmdata->max_num_threads * sizeof (gwthread));
-		for (int i = 1; i < pmdata->max_num_threads; i++) gwthread_create_waitable (&pmdata->thread_ids[i], &polymult_thread, (void *) pmdata);
+	// Launch helpers
+	if (pmdata->num_threads > 1) {
+		// "Neuter" gwnum to single-threaded when helpers are involved
+		pmdata->saved_gwdata_num_threads = gwget_num_threads (pmdata->gwdata);
+		gwset_num_threads (pmdata->gwdata, 1);
+		// Launch helpers for the first time
+		if (pmdata->thread_ids == NULL) {
+			atomic_set (pmdata->next_thread_num, 0);
+			gwmutex_init (&pmdata->poly_mutex);
+			gwevent_init (&pmdata->work_to_do);
+			gwevent_init (&pmdata->all_helpers_done);
+			atomic_set (pmdata->alt_work_to_do, 0);			// No work for helpers to do yet
+			pmdata->thread_ids = (gwthread *) malloc (pmdata->max_num_threads * sizeof (gwthread));
+			for (int i = 1; i < pmdata->max_num_threads; i++) gwthread_create_waitable (&pmdata->thread_ids[i], &polymult_thread, (void *) pmdata);
+		}
+		// Activate helpers.  They're waiting for work to do signal.
+		pmdata->stats_gwdata = NULL;
+		pmdata->all_work_assigned = FALSE;			// When this is set and num_active_helpers reaches 0, it is safe to signal main thread
+		gwevent_signal (&pmdata->work_to_do);			// Start all helper threads
+		if (pmdata->gwdata->use_spin_wait >= 2) atomic_set (pmdata->alt_work_to_do, 1);
 	}
-	// Activate helpers.  They're waiting for work to do signal.
-	pmdata->stats_gwdata = NULL;
-	pmdata->all_work_assigned = FALSE;			// When this is set and num_active_helpers reaches 0, it is safe to signal main thread
-	gwevent_signal (&pmdata->work_to_do);			// Start all helper threads
-	if (pmdata->gwdata->use_spin_wait >= 2) atomic_set (pmdata->alt_work_to_do, 1);
-}
-
-/* This routine waits for the launched polymult helper threads to finish.  This is called by the main thread when it has run out of work to do. */
-void polymult_wait_on_helpers (
-	pmhandle *pmdata)		// Handle for polymult library
-{
-	// If there are no helper threads we're done
-	if (pmdata->num_threads == 1) return;
-	// No more work to assign to helper threads
-	pmdata->all_work_assigned = TRUE;
-	gwevent_reset (&pmdata->work_to_do);
-	if (pmdata->gwdata->use_spin_wait >= 2) atomic_set (pmdata->alt_work_to_do, 0);
-	// Wait for helpers to end
-	if (pmdata->gwdata->use_spin_wait) atomic_spinwait (pmdata->num_active_helpers, 0);
-	else while (atomic_get (pmdata->num_active_helpers)) {
-		gwevent_reset (&pmdata->all_helpers_done);
-		if (atomic_get (pmdata->num_active_helpers)) gwevent_wait (&pmdata->all_helpers_done, 0);
+	// Have this thread help too.  Dispatch to perform the correct work.
+	polymult_dispatch (0, pmdata, pmdata->gwdata);
+	// Sync up with helper threads
+	if (pmdata->num_threads > 1) {
+		// This thread is done, set no more work to assign to helper threads
+		pmdata->all_work_assigned = TRUE;
+		gwevent_reset (&pmdata->work_to_do);
+		if (pmdata->gwdata->use_spin_wait >= 2) atomic_set (pmdata->alt_work_to_do, 0);
+		// Wait for helpers to end
+		if (pmdata->gwdata->use_spin_wait) atomic_spinwait (pmdata->num_active_helpers, 0);
+		else while (atomic_get (pmdata->num_active_helpers)) {
+			gwevent_reset (&pmdata->all_helpers_done);
+			if (atomic_get (pmdata->num_active_helpers)) gwevent_wait (&pmdata->all_helpers_done, 0);
+		}
+		// Helpers require syncing up cloned gwdata stats and restoring main thread's gwnum's multithreading capabilities
+		if (pmdata->stats_gwdata != NULL) gwclone_merge_stats (pmdata->gwdata, pmdata->stats_gwdata);	// Add pmdata->stats_gwdata to main thread stats
+		gwset_num_threads (pmdata->gwdata, pmdata->saved_gwdata_num_threads);
 	}
-	// Helpers require syncing up cloned gwdata stats and restoring main thread's gwnum's multithreading capabilities
-	if (pmdata->stats_gwdata != NULL) gwclone_merge_stats (pmdata->gwdata, pmdata->stats_gwdata);	// Add pmdata->stats_gwdata to main thread stats
-	gwset_num_threads (pmdata->gwdata, pmdata->saved_gwdata_num_threads);
 }
 
 /*--------------------------------------------------------------------------
@@ -4274,31 +4283,16 @@ void polymult_several (		// Multiply one poly with several polys
 	atomic_set (pmdata->helper_counter, 0);		// Reset counter to no-work-done-yet state
 	pmdata->helper_opcode = HELPER_PRE_FFT;		// The helpers are doing pre-FFT polymult work, not user defined work
 	polymult_launch_helpers (pmdata);
-	polymult_pre_fft (pmdata, pmdata->gwdata);
-	polymult_wait_on_helpers (pmdata);		// Wait for all helper threads to complete
 
 	// Fire up each helper thread to do the real polymult work
 	atomic_set (pmdata->helper_counter, 0);		// Reset counter to no-work-done-yet state
 	pmdata->helper_opcode = HELPER_POLYMULT_LINE;	// The helpers are doing polymult work, not user defined work
 	polymult_launch_helpers (pmdata);
-	// This thread works on the polymult too.  Select which optimized routines to use.
-#ifdef X86_64
-	if (pmdata->gwdata->cpu_flags & CPU_AVX512F) polymult_line_avx512 (pmdata); else
-#endif
-	if (pmdata->gwdata->cpu_flags & CPU_FMA3) polymult_line_fma (pmdata);
-	else if (pmdata->gwdata->cpu_flags & CPU_AVX) polymult_line_avx (pmdata);
-	else if (pmdata->gwdata->cpu_flags & CPU_SSE2) polymult_line_sse2 (pmdata);
-#ifndef X86_64
-	else polymult_line_dbl (pmdata);
-#endif
-	polymult_wait_on_helpers (pmdata);		// Wait for all helper threads to complete
 
 	// unFFT all the outputs (unless requested not to)
 	atomic_set (pmdata->helper_counter, 0);		// Reset counter to no-work-done-yet state
 	pmdata->helper_opcode = HELPER_POST_UNFFT;	// The helpers are doing post-unFFT polymult work, not user defined work
 	polymult_launch_helpers (pmdata);
-	polymult_post_unfft (pmdata, pmdata->gwdata);
-	polymult_wait_on_helpers (pmdata);		// Wait for all helper threads to complete
 	pmdata->helper_opcode = 0;			// The helpers are not doing polymult work, user is free to have the threads do user work
 
 	// Free array that planned each poly multiplication
@@ -4488,8 +4482,6 @@ void poly_copy (pmhandle *pmdata, gwnum *invec, gwnum *outvec, int poly_size) {
 	pmdata->helper_callback = &poly_helper_example;
 	pmdata->helper_callback_data = &helper_data;
 	polymult_launch_helpers (pmdata);				// Launch helper threads
-	poly_helper_example (0, pmdata->gwdata, &helper_data);		// Have this thread help too
-	polymult_wait_on_helpers (pmdata);				// Wait for helper threads to finish
 }
 
 // UNFFT and/or FFT all the coefficients in a poly.  Why might one want to do this?  In P-1/ECM Stage 2, we start with a large number of size 1 polys.  We multiply
@@ -4511,8 +4503,6 @@ void poly_fft_coefficients (pmhandle *pmdata, gwnum *vec, int poly_size) {
 	pmdata->helper_callback = &poly_helper_example;
 	pmdata->helper_callback_data = &helper_data;
 	polymult_launch_helpers (pmdata);				// Launch helper threads
-	poly_helper_example (0, pmdata->gwdata, &helper_data);		// Have this thread help too
-	polymult_wait_on_helpers (pmdata);				// Wait for helper threads to finish
 }
 void poly_unfft_coefficients (pmhandle *pmdata, gwnum *vec, int poly_size) {
 	struct poly_helper_example_data helper_data;
@@ -4526,8 +4516,6 @@ void poly_unfft_coefficients (pmhandle *pmdata, gwnum *vec, int poly_size) {
 	pmdata->helper_callback = &poly_helper_example;
 	pmdata->helper_callback_data = &helper_data;
 	polymult_launch_helpers (pmdata);				// Launch helper threads
-	poly_helper_example (0, pmdata->gwdata, &helper_data);		// Have this thread help too
-	polymult_wait_on_helpers (pmdata);				// Wait for helper threads to finish
 }
 void poly_unfft_fft_coefficients (pmhandle *pmdata, gwnum *vec, int poly_size) {
 	struct poly_helper_example_data helper_data;
@@ -4541,8 +4529,6 @@ void poly_unfft_fft_coefficients (pmhandle *pmdata, gwnum *vec, int poly_size) {
 	pmdata->helper_callback = &poly_helper_example;
 	pmdata->helper_callback_data = &helper_data;
 	polymult_launch_helpers (pmdata);				// Launch helper threads
-	poly_helper_example (0, pmdata->gwdata, &helper_data);		// Have this thread help too
-	polymult_wait_on_helpers (pmdata);				// Wait for helper threads to finish
 }
 
 

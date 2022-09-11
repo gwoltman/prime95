@@ -7168,8 +7168,8 @@ int foobar = ecmdata.gwdata.num_threads;
 
 			// Multithreaded combining of up to four length-1 polys
 			polymult_launch_helpers (&ecmdata.polydata);	// Launch helper threads
-			ecm_helper (0, &ecmdata.gwdata, &ecmdata);	// Have main thread help too
-			polymult_wait_on_helpers (&ecmdata.polydata);	// Wait for helper threads to finish
+//			ecm_helper (0, &ecmdata.gwdata, &ecmdata);	// Have main thread help too
+//			polymult_wait_on_helpers (&ecmdata.polydata);	// Wait for helper threads to finish
 
 			// Skip a tree level!
 			tree_level++;
@@ -7361,8 +7361,8 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 
 		// Multithreaded combining of up to four length-1 polys
 		polymult_launch_helpers (&ecmdata.polydata);	// Launch helper threads
-		ecm_helper (0, &ecmdata.gwdata, &ecmdata);	// Have main thread help too
-		polymult_wait_on_helpers (&ecmdata.polydata);	// Wait for helper threads to finish
+//		ecm_helper (0, &ecmdata.gwdata, &ecmdata);	// Have main thread help too
+//		polymult_wait_on_helpers (&ecmdata.polydata);	// Wait for helper threads to finish
 
 		// Do remaining tree levels (we've done two) until there is just one big poly
 		for (int log2_num_polys = num_tree_levels - 2; log2_num_polys >= 1; log2_num_polys--) {
@@ -7514,66 +7514,6 @@ end_timer (timers, 0);
 print_timer (timers, 0, buf, TIMER_NL);
 OutputStr (thread_num, buf);
 start_timer_from_zero (timers, 0);
-
-#ifdef SIMPLE_WAY
-	// Work down the F(X) tree
-	for (int log2_num_polys = 1; log2_num_polys <= num_tree_levels; log2_num_polys++) {
-		uint64_t poly_base_calculator = 0;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
-		int	poly_base = 0;			// PolyH array index
-
-		// Use saved F(X)
-		FtreeCount--;
-
-		// Work on pairs of polynomials.  We combine them in-place using polymult.
-		while (poly_base < ecmdata.poly_size) {
-			int	poly1_base, poly1_size, poly2_base, poly2_size;
-
-			// Compute location and size of the two polys
-			poly1_base = poly_base;
-			poly_base_calculator += ecmdata.poly_size;
-			poly2_base = (int) (poly_base_calculator >> log2_num_polys);
-			poly_base_calculator += ecmdata.poly_size;
-			poly_base = (int) (poly_base_calculator >> log2_num_polys);
-			poly1_size = poly2_base - poly1_base;
-			poly2_size = poly_base - poly2_base;
-
-			// A length 0 poly and length 1 poly is real easy - do nothing
-			if (poly1_size == 0 || poly2_size == 0) continue;
-
-			// Left half of pair times saved right F(X)
-			polymult_arg a[2];		// Description of 2 polymult_several arguments
-			a[0].invec2 = &polyFtree[FtreeCount][poly2_base];	// Second input poly
-			a[0].invec2_size = poly2_size;				// Size of the second input polynomial
-			a[0].outvec = &polyH[poly1_base];			// Output poly
-			a[0].outvec_size = poly1_size;				// Size of the output polynomial
-			a[0].fmavec = NULL;
-			a[0].circular_size = poly1_size + poly2_size;		// Poly result modulo (X^circular_size - 1)
-			a[0].first_mulmid = 0;
-			a[0].options = (poly2_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) + POLYMULT_INVEC2_MONIC | POLYMULT_CIRCULAR | POLYMULT_MULHI;
-
-			// Right half of pair times saved left F(X)
-			a[1].invec2 = &polyFtree[FtreeCount][poly1_base];	// Second input poly
-			a[1].invec2_size = poly1_size;				// Size of the second input polynomial
-			a[1].outvec = &polyH[poly2_base];			// Output poly
-			a[1].outvec_size = poly2_size;				// Size of the output polynomial
-			a[1].fmavec = NULL;
-			a[1].circular_size = poly1_size + poly2_size;		// Poly result modulo (X^circular_size - 1)
-			a[1].first_mulmid = 0;
-			a[1].options = (poly1_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) + POLYMULT_INVEC2_MONIC | POLYMULT_CIRCULAR | POLYMULT_MULHI;
-// is circular working efficiently here?  what if we don't do power-of-two?
-			polymult_several (&ecmdata.polydata, &polyH[poly1_base], poly1_size + poly2_size, a, 2, POLYMULT_STARTNEXTFFT /*| POLYMULT_NO_UNFFT*/);
-		}
-// Multithreaded unfft poly coefficients
-//		pm1data.helper_work = PM1_COMPUTE_POLY1;		// Work type for helper to do
-//		pm1data.points = poly1;					// Array of poly1 coefficients
-//		atomic_set (pm1data.current_point, 0);				// Next coefficient to unfft
-//		if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);	// Launch helper threads
-//		pm1_helper (0, &pm1data.gwdata, &pm1data);		// Have main thread help too
-//		if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);	// Wait for helper threads to finish
-		//stop_reason = stopCheck (thread_num);
-		//if (stop_reason) goto possible_lowmem;
-	}
-#else
 
 	// Work down the F(X) tree in a memory efficient way.  This involves recomputing the Ftree.
 	gwarray	Ftree;
@@ -7753,10 +7693,9 @@ start_timer_from_zero (timers, 0);
 		_unlink (ftree_filename);
 	}
 	free (Ftree);
-#endif
 
 // Multiply the coefficients in polyH together for a later GCD.  We launch single-threaded helpers to do this because the gwnum FFT size may not be
-// large enough to support multi-threading.  The results are stored in the first coefficients of polyF.
+// large enough to support multi-threading.  The results are stored in the first coefficients of polyG.
 
 start_timer_from_zero (timers, 0);
 	ecmdata.polydata.helper_callback = &ecm_helper;
@@ -7764,8 +7703,8 @@ start_timer_from_zero (timers, 0);
 	ecmdata.helper_work = ECM_BUILD_GCDVAL;
 	atomic_set (ecmdata.helper_counter, 0);
 	polymult_launch_helpers (&ecmdata.polydata);	// Launch helper threads
-	ecm_helper (0, &ecmdata.gwdata, &ecmdata);	// Have main thread help too
-	polymult_wait_on_helpers (&ecmdata.polydata);	// Wait for helper threads to finish
+//	ecm_helper (0, &ecmdata.gwdata, &ecmdata);	// Have main thread help too
+//	polymult_wait_on_helpers (&ecmdata.polydata);	// Wait for helper threads to finish
 
 // Multiply together the output of each ecm_helper thread above.  Hopefully using gwnum's multi-threading.
 
@@ -11088,8 +11027,8 @@ pm1_polymult:
 			pm1data.points = poly1;					// Array of poly1 coefficients
 			atomic_set (pm1data.current_point, 0);			// Next coefficient to unfft
 			if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);	// Launch helper threads
-			pm1_helper (0, &pm1data.gwdata, &pm1data);		// Have main thread help too
-			if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);	// Wait for helper threads to finish
+			else pm1_helper (0, &pm1data.gwdata, &pm1data);		// Have main thread help too
+//			if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);	// Wait for helper threads to finish
 			// Poly sizes have doubled
 			if ((num_polys & 1) == 0) last_poly_size += poly_size;
 			poly_size *= 2;
@@ -11339,10 +11278,10 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 		if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);
 
 		// Call the helper routine so the main thread can also accumulate the evaluated points for GCD
-		pm1_helper (0, &pm1data.gwdata, &pm1data);
+		else pm1_helper (0, &pm1data.gwdata, &pm1data);
 
 		// If using polymult helper threads to accumulate the evaluated points, wait for the helpers and restore gwnum's num threads
-		if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);
+//		if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);
 
 // Check for ESC before doing expensive polymult
 
@@ -11382,10 +11321,10 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);}
 		if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);
 
 		// Call the helper routine so the main thread can also accumulate the evaluated points for GCD
-		pm1_helper (0, &pm1data.gwdata, &pm1data);
+		else pm1_helper (0, &pm1data.gwdata, &pm1data);
 
 		// If using polymult helper threads to accumulate the evaluated points, wait for the helpers and restore gwnum's num threads
-		if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);
+//		if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);
 
 // Keep track of the sections processed thusfar
 
