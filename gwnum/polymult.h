@@ -144,9 +144,9 @@ void polymult2 (
 #define preprocessed_poly_size(p)	(preprocessed_num_elements(p) * preprocessed_element_size(p))
 #define preprocessed_monics_included(p)	(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->monic_ones_included)
 
-/* Preprocess a poly that will be used in multiple polymult calls.  Preprocessing can reduce memory consumption or reduce CPU time.  Returns a massaged poly. */
-/* Caller should then free the unmassaged poly.  The massaged poly cannot be used in any gwnum calls, it can only be used in future polymult calls with */
-/* poly sizes and options that match those passed to this routine. */
+/* Preprocess a poly that will be used in multiple future polymult calls.  Preprocessing can reduce memory consumption or reduce CPU time. */
+/* Returns a massaged poly.  Caller should then free the unmassaged poly.  The massaged poly cannot be used in any gwnum calls, it can only be used */
+/* in future polymult calls with poly sizes and options that match those passed to this routine. */
 /* The POLYMULT_PRE_FFT preprocessing option allows the forward FFT of invec1 to be used over and over again.  The downside to the POLYMULT_PRE_FFT option */
 /* is the preprocessed poly consumes more memory. */
 gwarray polymult_preprocess (		// Returns a plug-in replacement for the input poly
@@ -227,6 +227,7 @@ struct pmhandle_struct {
 	gwhandle *gwdata;		// Handle for gwnum FFT library
 	int	max_num_threads;	// Maximum number of threads that can be used to compute polymults
 	int	num_threads;		// Number of threads to use computing polymults (must not exceed max_num_threads)
+	int	num_lines;		// During polymult each gwnum is split into "lines".  Each thread works on one line at at a time.
 	gwevent work_to_do;		// Event (if not spin waiting) to signal polymult helper threads there is work to do
 	gwatomic alt_work_to_do;	// Atomic alternative to work to do mutex when spin waiting
 	gwevent	all_helpers_done;	// Event (if not spin waiting) to signal main thread that the auxiliary threads are done
@@ -267,7 +268,7 @@ struct pmhandle_struct {
 	void	(*helper_callback)(int, gwhandle *, void *); // User-defined helper callback routine
 	void	*helper_callback_data;	// User-defined data to pass to the user-defined helper callback routine
 	int volatile helper_opcode;	// Opcode if helpers are doing polymult work, zero if doing user work
-	gwatomic helper_counter;	// Used internally to increment through helper work
+	gwatomic helper_counter;	// Used internally to increment through helper work.  User-defined helpers can use this too.
 	int	saved_gwdata_num_threads; // Used internally to restore gwdata's multithreading after a user defined callback
 	gwhandle *stats_gwdata;		// The cloned gwdata that is accumulating stats as each user-defined helper finshes up
 };
@@ -280,7 +281,6 @@ struct pmhandle_struct {
 typedef struct {
 	gwarray_header linkage;		// Used to put preprocessed polys on gwarray linked list.  Allows gwdone to free all preprocessed polys.
 	gwnum	*self_ptr;		// Ptr to itself.  A unique indicator that this is a preprocessed poly.
-	int	num_lines;		// Number of lines returned by read_line
 	int	element_size;		// Size of each invec in the array
 	int	padded_element_size;	// Size of each invec in the array rounded up to a multiple of 64 (not rounded when compressing)
 	int	options;		// Copy of options passed to polymult_line_preprocess

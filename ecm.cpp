@@ -1418,7 +1418,6 @@ typedef struct {
 //	int	remaining_poly2_size; /* Number of poly2 coefficients to compute */
 //	gwnum	*points;	/* Array of evaluated points for helper routine to accumulate into gg for later GCD */
 	int	helper_work;	/* Type of work ecm_helper should perform */
-	gwatomic helper_counter; /* Atomic counter for ecm_helper to use */
 	gwarray poly1;		/* Poly passed to ecm_helper */
 } ecmhandle;
 
@@ -1440,6 +1439,7 @@ void ecm_cleanup (
 	free (ecmdata->gg_binary), ecmdata->gg_binary = NULL;
 	free (ecmdata->nQx), ecmdata->nQx = NULL;
 	free (ecmdata->pairmap), ecmdata->pairmap = NULL;
+	polymult_done (&ecmdata->polydata);
 	gwdone (&ecmdata->gwdata);
 	end_sieve (ecmdata->sieve_info), ecmdata->sieve_info = NULL;
 	free (ecmdata->N), ecmdata->N = NULL;
@@ -4350,8 +4350,8 @@ double ecm_stage2_impl_given_numvals (
 /* and thus more compression.  If poly compression option is set we'll get another 12.5%. */
 
 	cost_data.poly_compression = (double) gwfftlen (&ecmdata->gwdata) * (double) sizeof (double) / (double) array_gwnum_size (&ecmdata->gwdata);
-	if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 2) cost_data.poly_compression *= 0.875;
-	if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 0) cost_data.poly_compression = 1.0;
+	if (IniGetInt (INI_FILE, "ECMPolyCompress", 1) == 2) cost_data.poly_compression *= 0.875;
+	if (IniGetInt (INI_FILE, "ECMPolyCompress", 1) == 0) cost_data.poly_compression = 1.0;
 
 /* Whether Ftree rows are stored in memory or on disk may make a significant difference */
 
@@ -4934,7 +4934,7 @@ void ecm_helper (
 			int	counter, poly_base, next_poly_base, num_polys;
 
 			// Compute location (floor(i*poly_size/num_polys)) and number of polys
-			counter = atomic_fetch_incr (ecmdata->helper_counter);
+			counter = atomic_fetch_incr (ecmdata->polydata.helper_counter);
 			poly_base = (int) ((counter * 4 * (uint64_t) ecmdata->poly_size) >> log2_num_polys);
 			if (poly_base >= ecmdata->poly_size) break;
 			next_poly_base = (int) (((counter + 1) * 4 * (uint64_t) ecmdata->poly_size) >> log2_num_polys);
@@ -4978,7 +4978,7 @@ void ecm_helper (
 			int	counter, poly_base, next_poly_base, num_polys;
 
 			// Compute location (floor(i*poly_size/num_polys)) and number of polys
-			counter = atomic_fetch_incr (ecmdata->helper_counter);
+			counter = atomic_fetch_incr (ecmdata->polydata.helper_counter);
 			poly_base = (int) ((counter * 4 * (uint64_t) ecmdata->poly_size) >> log2_num_polys);
 			if (poly_base >= ecmdata->poly_size) break;
 			next_poly_base = (int) (((counter + 1) * 4 * (uint64_t) ecmdata->poly_size) >> log2_num_polys);
@@ -5033,7 +5033,7 @@ void ecm_helper (
 		// Loop multiplying points from the output poly
 		for ( ; ; ) {
 			// Get one of the output polyH gwnums.  We accumulate here and later multiply with gg.
-			int j = atomic_fetch_incr (ecmdata->helper_counter);
+			int j = atomic_fetch_incr (ecmdata->polydata.helper_counter);
 
 			// If the other helper threads have completed processing of the output poly, then we're done
 			if (j >= ecmdata->poly_size) break;
@@ -6783,7 +6783,8 @@ OutputStr (thread_num, buf); }
 +---------------------------------------------------------------------*/
 
 ecm_polymult:
-int foobar = ecmdata.gwdata.num_threads;
+	start_timer_from_zero (timers, 1);
+int foobar; foobar = ecmdata.gwdata.num_threads;
 
 //GW: We don't need gg, we possibly need the full H(X) from a save file.  Wow, thats a lot of disk.  Might have to invest the CPU time reducing H(X) to
 // to create a save file.
@@ -6818,6 +6819,7 @@ int foobar = ecmdata.gwdata.num_threads;
 
 /* This is a fast 1,5 mod 6 nQx initialization */
 
+start_timer_from_zero (timers, 0);
 	ASSERTG (ecmdata.D % 3 == 0);
 	{
 	struct xz t1, t2, t3, t4, t5, t6;
@@ -7041,6 +7043,11 @@ int foobar = ecmdata.gwdata.num_threads;
 //GW: Can't/shouldn't free Ad4 if we rebuild F(X) from scratch at end
 	gwfree (&ecmdata.gwdata, ecmdata.Ad4);
 	ecmdata.Ad4 = NULL;
+end_timer (timers, 0);
+sprintf (buf, "nQx complete.  Time: ");
+print_timer (timers, 0, buf, TIMER_NL);
+OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
+start_timer_from_zero (timers, 0);
 
 /* We're about to reach peak memory usage, free any gwnum internal memory */
 
@@ -7156,6 +7163,7 @@ int foobar = ecmdata.gwdata.num_threads;
 			}
 		}
 
+start_timer_from_zero (timers, 0);
 		// Special case tree level 0.  Combine two, three, or four length-1 polynomials using special (faster) len1 polymult routines.
 		if (tree_level == 0) {
 
@@ -7163,13 +7171,10 @@ int foobar = ecmdata.gwdata.num_threads;
 			ecmdata.polydata.helper_callback = &ecm_helper;
 			ecmdata.polydata.helper_callback_data = &ecmdata;
 			ecmdata.helper_work = ECM_POLYF_LEVEL_ZERO;
-			atomic_set (ecmdata.helper_counter, 0);
 			ecmdata.poly1 = source_poly;			// Input poly
 
 			// Multithreaded combining of up to four length-1 polys
 			polymult_launch_helpers (&ecmdata.polydata);	// Launch helper threads
-//			ecm_helper (0, &ecmdata.gwdata, &ecmdata);	// Have main thread help too
-//			polymult_wait_on_helpers (&ecmdata.polydata);	// Wait for helper threads to finish
 
 			// Skip a tree level!
 			tree_level++;
@@ -7203,12 +7208,14 @@ int foobar = ecmdata.gwdata.num_threads;
 //GW: BUG - if saving this polyF to disk, only unfft result.
 			poly_unfft_fft_coefficients (&ecmdata.polydata, ecmdata.polyF, ecmdata.poly_size);
 		}
-
+end_timer (timers, 0);
 if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
 double poly_size = ecmdata.poly_size / pow (2.0, log2_num_polys);
-if (poly_size < 2.0) sprintf (buf, "Round off: %.10g, avg poly_size: %g, EB: %g, SM: %g\n", gw_get_maxerr (&ecmdata.gwdata), poly_size, ecmdata.gwdata.EXTRA_BITS, ecmdata.gwdata.safety_margin);
-else sprintf (buf, "Round off: %.10g, avg poly_size: %g\n", gw_get_maxerr (&ecmdata.gwdata), poly_size);
+if (poly_size < 2.0) sprintf (buf, "Round off: %.10g, avg poly_size: %g, EB: %g, SM: %g, Time:", gw_get_maxerr (&ecmdata.gwdata), poly_size, ecmdata.gwdata.EXTRA_BITS, ecmdata.gwdata.safety_margin);
+else sprintf (buf, "Round off: %.10g, avg poly_size: %g, Time: ", gw_get_maxerr (&ecmdata.gwdata), poly_size);
+print_timer (timers, 0, buf, TIMER_NL);
 OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
+start_timer_from_zero (timers, 0);
 }
 		stop_reason = stopCheck (thread_num);
 		if (stop_reason) goto possible_lowmem;
@@ -7255,6 +7262,11 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 		// Update count of terms computed
 		terms = terms + terms_to_compute;
 	}
+end_timer (timers, 0);
+sprintf (buf, "PolyR built.  Time: ");
+print_timer (timers, 0, buf, TIMER_NL);
+OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
+start_timer_from_zero (timers, 0);
 
 	// Resume caching new polymult sin/cos data
 	ecmdata.polydata.twiddle_cache_additions_disabled = FALSE;
@@ -7265,11 +7277,11 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 //GW: or we could pass in a flag INVEC1_PREPROCESSED
 
 //GW: if num_polyGs == 1, dont preprocess
-	if (IniGetInt (INI_FILE, "Poly1Compress", 2)) {
-		int options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC;
-		if (IniGetInt (INI_FILE, "Poly1Compress", 2) == -1) options |= POLYMULT_PRE_FFT;			// Hidden option (uses more memory)
-		if (IniGetInt (INI_FILE, "Poly1Compress", 2) == -2) options |= POLYMULT_PRE_FFT | POLYMULT_PRE_COMPRESS;// Hidden option (uses more memory)
-		if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 2) options |= POLYMULT_PRE_COMPRESS;
+	if (IniGetInt (INI_FILE, "ECMPolyCompress", 1)) {
+		int options = POLYMULT_INVEC1_MONIC;
+		if (IniGetInt (INI_FILE, "ECMPolyCompress", 1) == -1) options |= POLYMULT_PRE_FFT;			// Hidden option (uses more memory)
+		if (IniGetInt (INI_FILE, "ECMPolyCompress", 1) == -2) options |= POLYMULT_PRE_FFT | POLYMULT_PRE_COMPRESS;// Hidden option (uses more memory)
+		if (IniGetInt (INI_FILE, "ECMPolyCompress", 1) == 2) options |= POLYMULT_PRE_COMPRESS;
 		gwarray tmp = polymult_preprocess (&ecmdata.polydata, ecmdata.polyF, ecmdata.poly_size, ecmdata.poly_size, ecmdata.poly_size*2, options);
 		gwfree_array (&ecmdata.gwdata, ecmdata.polyF);
 		ecmdata.polyF = tmp;
@@ -7278,15 +7290,22 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 // Compress and pre-transpose reciprocal of F(X) -- will reduce mem usage by maybe 1.6% without compression plus another 12.5% with compression.
 
 //GW: if num_polyGs == 1, dont preprocess
-	if (IniGetInt (INI_FILE, "Poly1Compress", 2)) {
+	if (IniGetInt (INI_FILE, "ECMPolyCompress", 1)) {
+		//GW:  On first outer_loop polyR is multiplied with a MONIC polyH -- is that a problem??  It turns out no.  We should document this in polmult.h
+		//GW:  It is better to NOT include the monic designation on poly2 as that includes the invec1's monic one in the FFT data.
 		int options = POLYMULT_INVEC1_MONIC_NEGATE;
-		if (IniGetInt (INI_FILE, "Poly1Compress", 2) == -1) options |= POLYMULT_PRE_FFT;			// Hidden option (uses more memory)
-		if (IniGetInt (INI_FILE, "Poly1Compress", 2) == -2) options |= POLYMULT_PRE_FFT | POLYMULT_PRE_COMPRESS;// Hidden option (uses more memory)
-		if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 2) options |= POLYMULT_PRE_COMPRESS;
+		if (IniGetInt (INI_FILE, "ECMPolyCompress", 1) == -1) options |= POLYMULT_PRE_FFT;			// Hidden option (uses more memory)
+		if (IniGetInt (INI_FILE, "ECMPolyCompress", 1) == -2) options |= POLYMULT_PRE_FFT | POLYMULT_PRE_COMPRESS;// Hidden option (uses more memory)
+		if (IniGetInt (INI_FILE, "ECMPolyCompress", 1) == 2) options |= POLYMULT_PRE_COMPRESS;
 		gwarray tmp = polymult_preprocess (&ecmdata.polydata, ecmdata.polyR, ecmdata.poly_size, ecmdata.poly_size, ecmdata.poly_size*2, options);
 		gwfree_array (&ecmdata.gwdata, ecmdata.polyR);
 		ecmdata.polyR = tmp;
 	}
+end_timer (timers, 0);
+sprintf (buf, "Poly compress.  Time: ");
+print_timer (timers, 0, buf, TIMER_NL);
+OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
+start_timer_from_zero (timers, 0);
 
 //GW:test code: F(X) * 1/F(X)
 //polymult (&ecmdata.polydata, ecmdata.polyF, ecmdata.poly_size, ecmdata.polyR, ecmdata.poly_size, polyG, 2*ecmdata.poly_size,
@@ -7313,9 +7332,9 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 		 (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&ecmdata.gwdata), ecmdata.curve, memused);
 	title (thread_num, buf);
 
-	end_timer (timers, 0);
+	end_timer (timers, 1);
 	sprintf (buf, "Stage 2 init complete. %.0f transforms, %lu modular inverses. Time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
-	print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	gw_clear_fft_count (&ecmdata.gwdata);
 	ecmdata.modinv_count = 0;
@@ -7357,12 +7376,9 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 		ecmdata.polydata.helper_callback = &ecm_helper;
 		ecmdata.polydata.helper_callback_data = &ecmdata;
 		ecmdata.helper_work = ECM_POLYG_LEVEL_ZERO;
-		atomic_set (ecmdata.helper_counter, 0);
 
 		// Multithreaded combining of up to four length-1 polys
 		polymult_launch_helpers (&ecmdata.polydata);	// Launch helper threads
-//		ecm_helper (0, &ecmdata.gwdata, &ecmdata);	// Have main thread help too
-//		polymult_wait_on_helpers (&ecmdata.polydata);	// Wait for helper threads to finish
 
 		// Do remaining tree levels (we've done two) until there is just one big poly
 		for (int log2_num_polys = num_tree_levels - 2; log2_num_polys >= 1; log2_num_polys--) {
@@ -7701,10 +7717,7 @@ start_timer_from_zero (timers, 0);
 	ecmdata.polydata.helper_callback = &ecm_helper;
 	ecmdata.polydata.helper_callback_data = &ecmdata;
 	ecmdata.helper_work = ECM_BUILD_GCDVAL;
-	atomic_set (ecmdata.helper_counter, 0);
 	polymult_launch_helpers (&ecmdata.polydata);	// Launch helper threads
-//	ecm_helper (0, &ecmdata.gwdata, &ecmdata);	// Have main thread help too
-//	polymult_wait_on_helpers (&ecmdata.polydata);	// Wait for helper threads to finish
 
 // Multiply together the output of each ecm_helper thread above.  Hopefully using gwnum's multi-threading.
 
@@ -8250,7 +8263,6 @@ typedef struct {
 	gwnum	*poly2;		/* Array of poly2 coefficients for helper routine to compute */
 	int	remaining_poly2_size; /* Number of poly2 coefficients to compute */
 	gwnum	*points;	/* Array of evaluated points for helper routine to accumulate into gg for later GCD */
-	gwatomic current_point;	/* Next point for helper routine to accumulate */
 } pm1handle;
 
 /* Perform cleanup functions. */
@@ -9388,7 +9400,7 @@ void pm1_helper (
 		gwarray poly1 = pm1data->points;
 		for ( ; ; ) {
 			// Get one of poly1's gwnums
-			int coeff = atomic_fetch_incr (pm1data->current_point);
+			int coeff = atomic_fetch_incr (pm1data->polydata.helper_counter);
 
 			// If the other helper threads have completed processing poly1, then we're done
 			if (coeff >= pm1data->numrels) break;
@@ -9423,7 +9435,7 @@ void pm1_helper (
 		// Loop multiplying points from the output poly
 		for ( ; ; ) {
 			// Get one of the output poly's gwnums.  We will accumulate here and later multiply with gg.
-			int point = atomic_fetch_incr (pm1data->current_point);
+			int point = atomic_fetch_incr (pm1data->polydata.helper_counter);
 
 			// If the other helper threads have completed processing of the output poly, then we're done
 			if (point >= pm1data->num_points) break;
@@ -11025,10 +11037,8 @@ pm1_polymult:
 			// Multithreaded unfft poly coefficients
 			pm1data.helper_work = PM1_COMPUTE_POLY1;		// Work type for helper to do
 			pm1data.points = poly1;					// Array of poly1 coefficients
-			atomic_set (pm1data.current_point, 0);			// Next coefficient to unfft
 			if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);	// Launch helper threads
-			else pm1_helper (0, &pm1data.gwdata, &pm1data);		// Have main thread help too
-//			if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);	// Wait for helper threads to finish
+			else pm1_helper (0, &pm1data.gwdata, &pm1data);		// Or just have main thread do the work
 			// Poly sizes have doubled
 			if ((num_polys & 1) == 0) last_poly_size += poly_size;
 			poly_size *= 2;
@@ -11276,12 +11286,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 		// If using polymult helper threads to accumulate the evaluated points, set gwnum to use only one thread and launch the helpers
 		if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);
-
-		// Call the helper routine so the main thread can also accumulate the evaluated points for GCD
-		else pm1_helper (0, &pm1data.gwdata, &pm1data);
-
-		// If using polymult helper threads to accumulate the evaluated points, wait for the helpers and restore gwnum's num threads
-//		if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);
+		else pm1_helper (0, &pm1data.gwdata, &pm1data);				// Or just have main thread do the work
 
 // Check for ESC before doing expensive polymult
 
@@ -11314,17 +11319,11 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);}
 		// Initialize data needed for helper routine to access each coefficient
 		pm1data.helper_work = PM1_ACCUMULATING_GG;		// Work type for helper to do
 		pm1data.points = poly2 + 2*pm1data.numrels;		// Points to accumulate were written over higher coefficients of poly2
-		atomic_set (pm1data.current_point, 0);			// Next point to accumulate
 //GW:	stop reason/saving?
 
 		// If using polymult helper threads to accumulate the evaluated points, set gwnum to use only one thread and launch the helpers
 		if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);
-
-		// Call the helper routine so the main thread can also accumulate the evaluated points for GCD
-		else pm1_helper (0, &pm1data.gwdata, &pm1data);
-
-		// If using polymult helper threads to accumulate the evaluated points, wait for the helpers and restore gwnum's num threads
-//		if (use_polymult_multithreading) polymult_wait_on_helpers (&pm1data.polydata);
+		else pm1_helper (0, &pm1data.gwdata, &pm1data);		// Or just have main thread do the work
 
 // Keep track of the sections processed thusfar
 
