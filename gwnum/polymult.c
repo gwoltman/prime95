@@ -752,19 +752,20 @@ void generate_sincos (
 }
 
 // Compress a vector of doubles
-// The compression algorithm is pretty simple.  It relies on the observation that exponents in the double are clustered around a peak, dropping rapidly
-// in frequency as you move away from the peak.
-// The three exponents that constitute the peak are output with 2-bit values.
+// The compression algorithm is pretty simple.  It relies on the observation that exponents in the doubles are clustered around a peak, dropping rapidly
+// in frequency as you move away from the peak.  The three exponents that constitute the peak are output with 2-bit values.
 // Three more exponents are output with 4-bit values (either 1 above the peak and 2 below the peak or 3 below the peak).
-// The next exponent below the peak is output with a 5-bit value.
-// The remaining exponents are output with a 5-bit escape code followed by the 11-bit exponent (many 11-bit exponents are "impossible" and we can
-// likely reduce this to a 5-bit escape code followed by a 6-bit exponent).
+// The next exponent below the peak is output with a 5-bit value.  The remaining exponents are output with a 5-bit escape code followed by the 11-bit
+// exponent (many 11-bit exponents are "impossible" and we reduce this to a 5-bit escape code followed by a 6-bit exponent).
 int compress_vec (		// Returns size of the compressed buffer
 	char	*buf,		// Array of doubles to compress
 	int	size)		// Size of buffer in bytes
 {
-	short	counts[2048];
-	int	peak;			// The highest exponent in the set of three most common exponents
+#define COUNT_BASE_EXPO		960		// Minimum exponent we are prepared to see as most common
+#define COUNT_MAX_EXPO		1080		// Maximum exponent we are prepared to see
+	short	counts[COUNT_MAX_EXPO-COUNT_BASE_EXPO+1];
+	int	max_expo;		// Maximum count-base-adjusted exponent encountered during sampling
+	int	peak;			// The highest exponent in the set of three most common exponents (sometimes count-base-adjusted)
 	bool	above_peak_flag;	// TRUE if exponent above the peak is compressed
 
 //char *orig_buf = malloc (size);
@@ -786,29 +787,32 @@ int compress_vec (		// Returns size of the compressed buffer
 			  last_m48len = 0; }
 
 	// Sample 1000 doubles to find the most common exponents in the doubles
-//GW: count only expos between 960 an 1080  (a smaller array)
 	memset (&counts, 0, sizeof (counts));
+	max_expo = 0;
 	for (int i = 0; i < size && i < 8000; i += 8) {
-		uint64_t expo;
-		expo = * (uint64_t *) (buf + i);
-		expo = (expo << 1) >> 53;	// strip off sign bit and mantissa
+		uint64_t expo = * (uint64_t *) (buf + i);
+		expo = (expo << 1) >> 53;		// strip off sign bit and mantissa
+		if (expo < COUNT_BASE_EXPO) continue;	// don't look for peak in really small exponents, we'll likely treat these numbers as zero later on
+		ASSERTG (expo <= COUNT_MAX_EXPO);	// we should never see an exponent this large
+		expo -= COUNT_BASE_EXPO;		// apply count-base-adjustment
 		counts[expo]++;
+		if ((int) expo > max_expo) max_expo = (int) expo;
 	}
 
 	// Find the set of three exponents that are most common
-	peak = 960;
-	for (int i = 961; i < 1080; i++)
-		if (counts[i-2] + counts[i-1]  + counts[i] > counts[peak-2] + counts[peak-1] + counts[peak]) peak = i;
-	ASSERTG (peak != 960);
+	peak = 0;
+	for (int i = (max_expo > 18 ? max_expo - 18 : 0); i < max_expo; i++)
+		if (peak == 0 || counts[i-2] + counts[i-1] + counts[i] > counts[peak-2] + counts[peak-1] + counts[peak]) peak = i;
 
 	// Determine expo just above the peak will be compressed (or output raw)
-	above_peak_flag = (counts[peak+1] > counts[peak-5]);
+	above_peak_flag = (peak < 5 || counts[peak+1] > counts[peak-5]);
 
 	// Output header bits
-	put_bits (peak - 960, 7);
+	put_bits (peak, 7);
 	put_bits (above_peak_flag, 1);
 
 	// Loop compressing doubles
+	peak += COUNT_BASE_EXPO;		// undo count-base-adjustment
 	for (int i = 0; i < size; i += 8) {
 		uint64_t expo, sign, nibble, mantissa48;
 
@@ -822,7 +826,7 @@ int compress_vec (		// Returns size of the compressed buffer
 		// Empty the output queues (as much as possible)
 		emptyQ ();
 
-		// Rare case of compressing FFTed data that contained lots of zeros.  The FFTed data may contain lots of really small exponent values (noise)
+		// Rare case of compressing FFTed data that contains lots of zeros.  The FFTed data may contain lots of really small exponent values (noise)
 		// that would greatly dimish our compression.  Turn the noise into zeros.
 		if (expo < peak - 50) expo = 0;
 
