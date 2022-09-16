@@ -3560,6 +3560,7 @@ gwarray polymult_preprocess (		// Returns a plug-in replacement for the input po
 	plan.hdr->padded_element_size = padded_element_size;
 	plan.hdr->options = options;
 	plan.hdr->monic_ones_included = !plan.strip_monic_from_invec1;
+	plan.hdr->top_unnorms = unnorms (invec1[invec1_size-1]);
 	if (options & POLYMULT_PRE_FFT) plan.hdr->fft_size = plan.fft_size;
 
 	// Prepare for polymult_preprocess in parallel
@@ -4451,12 +4452,14 @@ void polymult_post_unfft (
 				gwnum *invec2 = pmdata->other_polys[i].invec2;
 				int invec1_size = pmdata->invec1_size;
 				int invec2_size = pmdata->other_polys[i].invec2_size;
+				float unnorms1 = is_preprocessed_poly(invec1) ? preprocessed_top_unnorms (invec1) : unnorms (invec1[invec1_size-1]);
+				float unnorms2 = is_preprocessed_poly(invec2) ? preprocessed_top_unnorms (invec2) : unnorms (invec2[invec2_size-1]);
 				if (! (options & POLYMULT_INVEC2_MONIC))			// Invec1 monic, returning 1 * invec2's top
-					unnorms (outvec[j]) = unnorms (invec2[invec2_size-1]);
+					unnorms (outvec[j]) = unnorms2;
 				else if (! (options & POLYMULT_INVEC1_MONIC))			// Invec2 monic, returning 1 * invec1's top
-					unnorms (outvec[j]) = unnorms (invec1[invec1_size-1]);			
+					unnorms (outvec[j]) = unnorms1;
 				else								// Both invecs monic, two tops added together
-					unnorms (outvec[j]) = unnorms (invec1[invec1_size-1]) + unnorms (invec2[invec2_size-1]) + 1.0f;
+					unnorms (outvec[j]) = unnorms1 + unnorms2 + 1.0f;
 			} else
 				unnorms (outvec[j]) = 999.0e9f;					// Huge value to force an unfft
 

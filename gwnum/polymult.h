@@ -143,6 +143,7 @@ void polymult2 (
 #define preprocessed_fft_size(p)	(intptr_t) (((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->fft_size)
 #define preprocessed_poly_size(p)	(preprocessed_num_elements(p) * preprocessed_element_size(p))
 #define preprocessed_monics_included(p)	(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->monic_ones_included)
+#define preprocessed_top_unnorms(p)	(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->top_unnorms)
 
 /* Preprocess a poly that will be used in multiple future polymult calls.  Preprocessing can reduce memory consumption or reduce CPU time. */
 /* Returns a massaged poly.  Caller should then free the unmassaged poly.  The massaged poly cannot be used in any gwnum calls, it can only be used */
@@ -285,6 +286,7 @@ typedef struct {
 	int	padded_element_size;	// Size of each invec in the array rounded up to a multiple of 64 (not rounded when compressing)
 	int	options;		// Copy of options passed to polymult_line_preprocess
 	int	fft_size;		// If POLYMULT_PRE_FFT is set, this is the poly FFT size selected during preprocessing
+	float	top_unnorms;		// Number of unnormalized adds for the topmost poly coefficient
 	bool	monic_ones_included;	// TRUE if monic ones are included in pre-FFTed data
 } preprocessed_poly_header;
 
