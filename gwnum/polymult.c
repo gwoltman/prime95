@@ -24,21 +24,11 @@
 // 9) Is a fast convert-gwnum-to-larger-FFT feasible? necessary?
 // 10) Tune for Brute / Karatsuba / FFT crossovers.
 // 12) Tune routine that returns needed safety margin needed for given poly sizes
-// 15) Add polymult to gwtest or as a standalone program
 // 16) Handle out-of-memory gracefully
 // 17) Right collection of PFA FFT sizes?
-// 19) For large ffts, use Pavel's idea of copying the complex values to a gwnum and use an unweighted FFT with a special no-carry-propagation norm routine.
-//     Perhaps only do this for most common architectures, such as AVX-512 and FMA 64-bit.
 // 22) Can we add asserts that polymult isn't violating EXTRA_BITS?
 // 25) Optimize.  Read/write several cache lines at a time (fill up L2 cache?).  Prefetch future cache lines.
 // 28) Optimize brute_force to do less compute when one or both invec entries are RLPs.
-// 32) If monic input and polymult is doing an FFT and there is zero padding going on, then pad with one (or GW_FFT1) rather than use monic_add.  Be careful
-//	that this does not cause any unwanted wrapping of data!
-// 33) Are there cases with brute/Karatsuba would benefit from using a bigger poly rather than using monic_add?
-// 34) Support GWMUL_BY_CONST, GWMUL_ADD_CONST option in gwunfft2.  No, use the no_UNFFT2 option (requires user to know where 1*1 took place)??
-// 35) A monic 1024 times monic 1024 using length 2048 FFT could apply the two ones in the FFT vectors and patch outvec[0] (possibly with gwsetaddin(-1))??how?
-//	A monic 1023 times monic 1023 using length 2048 FFT could apply the two ones in the FFT vectors with no patching rather than monic  post-processing.
-//	That should be a little faster.  Other monic combinations have similar optimizations.
 // 38)  For poly #2, is there a quick block compression we can do where the extra read/write cost will be more than compensated by the few more extra
 //	gwnums we can add to poly #2?
 // 39)  Think more on unbalanced poly mults.  Is a 100 x 200 mult better done as two 100 x 100 multiplies?  Answer: Never for brute force, maybe for FFT.
@@ -46,20 +36,13 @@
 // 41) Add callback routine to check for ^C/ESC
 // 42) Transparent / or easy way to store gwnums on disk as part of input and/or output vectors.  Picture using 12GB memory and 50GB disk for really huge polys.
 // 43) Read_line/write_line that reads/writes data with stride=1?
-// 44) Cache several sincos tables for different FFT sizes.
 // 45) If twiddle_stride gets large, build a smaller twiddle table for smaller strides.
-// 46) Look for more FMA opportunities.
 // 48) Test if hyperthreading is beneficial
-// 51) Scratch area (like prime95) to avoid large strides,  Read_partial_line could populate the scratch area (makes monic_adjustment difficult)?
 // 52) Half-sized DCT for RLPs?  The DJB FFTs may make reordering DCT outputs for an inverse FFT tricky.
 // 53) Can P-1's circular monic-poly times monic-RLP be safely done without monic_adjustments allowing us to save the FFT'ed RLP that is half-sized due to DCT?
 // 54) Does monolithic two-forward-FFTs-pointmul-and-one-inverse-FFT routine suggest different preferred pass sizes (use half the L2 cache)?
 // 56) Option to not mul by 1/FFTLEN?
 // 57) Option to save memory by processing AVX-512 data using FMA3.  (reduces sizeof(CVDT)).
-// 58) Should we multi-thread FFTing the polymult input arguments?  Should we multithread polymult_preprocess?
-// 60) In polymult_line_preprocess, most cases do not need an invec1 allocation.  We can write directly into the output buffer.  I think only RLPs without
-//	POLYMULT_FFT are an issue.  Perhaps fix readline not to duplicate RLP data for when preprocessing without POLYMULT_FFT, or allocate a little more
-//	space in the output buffer.
 // 61) Can loop unrolling help in radix-3/4/5 sections?  Seems unlikely.
 // 62) Linux stage 2 timings vary widely from 6.7 to 7.0 sec.  What explains the 5% slower runs?  4KB/64KB alignments?
 // 63) Multithread large poly FFTs to reduce memory usage
@@ -2076,7 +2059,6 @@ void fft_line (
 	unsigned int powers_of_two;
 	VDT	inv_fft_size = broadcastsd (1.0 / (double) fft_size);
 	VDT	inv_fft_size_707 = broadcastsd (0.70710678118654752440084436210485 / (double) fft_size);
-	bool	inv_fft_applied;		// Set to TRUE when all inverse FFT data has been multiplied by inv_fft_size
 
 	generate_sincos (pmdata, fft_size);
 
@@ -2118,7 +2100,7 @@ void fft_line (
 		num_exterior_blks = pass1_size;
 	    }
 
-	    // Do pass an exterior a block at a time, then do pass an interior a block at a time (we're prepared for future three-pass FFTs)
+	    // Do pass an exterior block at a time, then do pass an interior block at a time (we're prepared for future three-pass FFTs)
 	    for (unsigned int blke = 0; blke < num_exterior_blks; blke++) {
 	    for (unsigned int blki = 0; blki < num_interior_blks; blki++) {
 		CVDT *src;				// FFT source data
@@ -2456,11 +2438,7 @@ void fft_line (
 			CVDT x = invec1[blke * pass2_size + j];
 			CVDT y = invec2[blke * pass2_size + j];
 			cvmul (outvec[blke * pass2_size + j], x, y);
-		    }
-		    inv_fft_applied = FALSE;
-		    if (powers_of_two == 0) {
-			    for (unsigned int j = 0; j < pass_size; j++) cvrmul (outvec[blke * pass2_size + j], inv_fft_size, outvec[blke * pass2_size + j]);
-			    inv_fft_applied = TRUE;
+			if (powers_of_two == 0) cvrmul (outvec[blke * pass2_size + j], inv_fft_size, outvec[blke * pass2_size + j]);
 		    }
 		}
 
@@ -2492,7 +2470,7 @@ void fft_line (
 
 		// Radix-8 FFT (if needed it is the last radix block done in pass 2)
 		if (pass == 2 && powers_of_two & 1) {		// If odd number of powers of two do a radix-8 step
-			twiddle45_stride /= 8;		// Next twiddle stride amount
+			twiddle45_stride /= 8;			// Next twiddle stride amount
 			for (unsigned int group = 0; group < pass_size; group += stride * 8) {
 				for (unsigned int group_member = 0; group_member < stride; group_member++) {
 					CVDT a = src[group + group_member];
@@ -2585,7 +2563,6 @@ void fft_line (
 				}
 			}
 			stride *= 8;			// Next stride amount
-			inv_fft_applied = TRUE;
 		}
 
 		// Radix-4 FFT, one fewer complex multiply than radix-2, does more work while data is in registers
@@ -2603,7 +2580,7 @@ void fft_line (
 					// Special case first group member, no twiddles necessary
 					CVDT	new_a, new_b, new_c, new_d;
 					if (twiddle_idx == 0) {
-						if (inv_fft_applied) {
+						if (powers_of_two & 1) {		// Radix-8 has applied the inv_fft_size multiplier
 							cvadd (new_a, a, c);		// a + c
 							cvsub (new_c, a, c);		// a - c
 							cvadd (new_b, b, d);		// b + d
@@ -2613,7 +2590,7 @@ void fft_line (
 							cvsub  (b, new_a, new_b);	// a - b
 							cvisub (c, new_c, new_d);	// c - id
 							cviadd (d, new_c, new_d);	// c + id
-						} else {
+						} else {				// Radix-8 has not applied the inv_fft_size multiplier
 							cvrmul (a, inv_fft_size, a);
 #if !VFMA
 							cvrmul (b, inv_fft_size, b);
@@ -2683,7 +2660,6 @@ void fft_line (
 					dest[outstride1*(group + group_member + 3*stride)] = d;
 				}
 			}
-			inv_fft_applied = TRUE;
 		}
 
 		// Radix-5 FFT
@@ -3036,7 +3012,7 @@ void polymult_line_preprocess (
 		lines_combined = plan->combine_two_lines && line > 0;
 
 		// Set invec1 so that we read the line directly into the output buffer
-		invec1 = (CVDT *) (first_element + (line - lines_combined) * hdr->padded_element_size);
+		invec1 = (CVDT *) (first_element + (intptr_t) (line - lines_combined) * (intptr_t) hdr->padded_element_size);
 
 		// Read a line.  If we're saving memory by delaying splitting the two reals, then combine the first two lines into one.
 		if (line <= 1 && plan->combine_two_lines) {
