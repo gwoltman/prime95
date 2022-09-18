@@ -2580,7 +2580,7 @@ void fft_line (
 					// Special case first group member, no twiddles necessary
 					CVDT	new_a, new_b, new_c, new_d;
 					if (twiddle_idx == 0) {
-						if (powers_of_two & 1) {		// Radix-8 has applied the inv_fft_size multiplier
+						if (pass != 2 || stride != 1) {		// Radix-8 has applied the inv_fft_size multiplier
 							cvadd (new_a, a, c);		// a + c
 							cvsub (new_c, a, c);		// a - c
 							cvadd (new_b, b, d);		// b + d
