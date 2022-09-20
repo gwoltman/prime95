@@ -20,7 +20,6 @@ extern "C" {
 
 // Forward declarations
 typedef struct pmhandle_struct pmhandle;
-typedef struct polyplan polymult_plan;
 
 // These routines can be used before polymult_init.  Use the information to select a gwnum FFT size with sufficient safety_margin
 // to do polymults of the desired size.
@@ -245,6 +244,7 @@ struct pmhandle_struct {
 	int	KARAT_BREAK;		// Output vector size where we switch from brute force to Karatsuba
 	int	FFT_BREAK;		// Output vector size where we switch from Karatsuba to FFTs
 	int	L2_CACHE_SIZE;		// Optimize FFTs to fit in this size cache (number is in KB).  Default is 256KB.
+	int	L3_CACHE_SIZE;		// Optimize FFTs to fit in this size cache (number is in MB).  Default is 6MB.
 	// Cached twiddles
 	bool	cached_twiddles_enabled;// TRUE if caching twiddles is enabled
 	bool	twiddle_cache_additions_disabled; // TRUE if adding new entries to the twiddle cache is temporarily disabled
@@ -264,7 +264,9 @@ struct pmhandle_struct {
 	int	alloc_invec2_size;	// Pre-calculated allocation size for invec2
 	int	alloc_outvec_size;	// Pre-calculated allocation size for outvec
 	int	alloc_tmpvec_size;	// Pre-calculated allocation size for tmpvec
-	polymult_plan *plan;		// Plan for implementing the multiplication of invec1 and several invec2s
+	bool	mt_polymult_line;	// TRUE if polymult_line is multi-threaded and fft_line_pass is single-threaded
+	void	*plan;			// Plan for implementing the multiplication of invec1 and several invec2s
+	void	*fft_line_pass_data;	// Data needed to multithread fft_line
 	// These items allow users of the polymult library to also use the polymult helper threads for whatever they see fit.
 	void	(*helper_callback)(int, gwhandle *, void *); // User-defined helper callback routine
 	void	*helper_callback_data;	// User-defined data to pass to the user-defined helper callback routine
@@ -276,7 +278,7 @@ struct pmhandle_struct {
 
 // Header for a preprocessed poly.  Conceptually a preprocessed poly is an array of invec1 or invec2 as returned by read_line called from polymult_line.
 // Rather than pulling one cache line out of each gwnum, the cache lines are in contiguous memory (this reduces mem consumption by ~1.5% as it eliminates
-// 64 pad bytes every 4KB in most gwnums.  Contiguous memory ought to be quicker to access too.  Each invec1 or invec2 can optionally be FFTed (probably
+// 64 pad bytes every 4KB in most gwnums.  Contiguous memory ought to be quicker to access too.  Each invec1 or invec2 can optionally be FFTed (likely
 // increases memory consumption due to zero padding) to reduce CPU time in each future polymult call.  Each invec can also be compressed reducing memory
 // consumption by ~12.5% -- we can compress ~8 bits out of each 11-bit exponent in a double.
 typedef struct {
@@ -289,30 +291,6 @@ typedef struct {
 	float	top_unnorms;		// Number of unnormalized adds for the topmost poly coefficient
 	bool	monic_ones_included;	// TRUE if monic ones are included in pre-FFTed data
 } preprocessed_poly_header;
-
-// Internal description of the plan to multiply two polys
-struct polyplan {
-	bool	emulate_circular;	// Emulating circular_size is required
-	bool	strip_monic_from_invec1;// True if ones are stripped from monic invec1 requiring (99% of the time) invec2 to be added in during post processing
-	bool	strip_monic_from_invec2;// True if ones are stripped from monic invec2 requiring (99% of the time) invec1 to be added in during post processing
-	bool	post_monic_addin_invec1;// True if ones are stripped from monic invec2 requiring invec1 to be added in during post processing
-	bool	post_monic_addin_invec2;// True if ones are stripped from monic invec1 requiring invec2 to be added in during post processing
-	int	impl;			// 0 = brute force, 1 = Karatsuba, 2 = poly FFT
-	int	fft_size;		// FFT size for impl type 2
-	int	adjusted_invec1_size;	// Sizes of the possibly smaller partial polymult result prior to post-monic-adjustment creating the full result
-	int	adjusted_invec2_size;
-	int	adjusted_outvec_size;
-	int	true_invec1_size;	// Sizes of the full polymult inputs and outputs
-	int	true_invec2_size;
-	int	true_outvec_size;
-	int	circular_size;		// Return result modulo (X^circular_size - 1)
-	int	LSWs_skipped;		// Least significant coefficients that do not need to be returned
-	int	MSWs_skipped;		// Most significant coefficients (of true_outvec_size) that do not need to be returned
-	int	addin[4];		// Outvec locations where four 1*1 values may need to be added at the very end of the polymult process
-	int	subout;			// Outvec location where 1*1 value may need to be subtracted at the very end of the polymult process
-	int	adjusted_shift;		// Number of coefficients to shift left the initial partial poly multiplication to reach true_outvec_size
-	int	adjusted_pad;		// Number of coefficients to pad on the left of the initial partial poly multiplication to reach true_outvec_size
-};
 
 #ifdef __cplusplus
 }
