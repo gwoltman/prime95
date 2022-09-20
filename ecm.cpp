@@ -7085,6 +7085,7 @@ start_timer_from_zero (timers, 0);
 	polymult_set_max_num_threads (&ecmdata.polydata, get_worker_num_threads (thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0));
 	polymult_set_cache_size (&ecmdata.polydata, IniGetInt (INI_FILE, "PolymultCacheSize", 256));
 	bool use_polymult_multithreading;		// TRUE if we should use polymult multithreading instead of gwnum multithreading
+//GW: unused
 	use_polymult_multithreading = ecmdata.polydata.num_threads > 1 && ecmdata.poly_size > ecmdata.polydata.num_threads &&
 				      (int) gwfftlen (&ecmdata.gwdata) <= IniGetInt (INI_FILE, "PolyThreadingFFTlength", 256) * 1024;
 	if (use_polymult_multithreading) {
@@ -7201,7 +7202,7 @@ start_timer_from_zero (timers, 0);
 					  &source_poly[poly1_base], poly1_size,
 					  &source_poly[poly2_base], poly2_size,
 					  &ecmdata.polyF[poly1_base], poly1_size + poly2_size,
-					  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_STARTNEXTFFT | POLYMULT_NO_UNFFT);
+					  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_NO_UNFFT);
 			}
 
 			// Multithreaded unfft poly coefficients
@@ -7401,7 +7402,7 @@ start_timer_from_zero (timers, 0);
 				poly2_size = poly_base - poly2_base;
 
 				// Options for the upcoming polymult
-				int options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_STARTNEXTFFT | POLYMULT_NO_UNFFT;
+				int options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_NO_UNFFT;
 
 				// The first outer loop iteration we write the final result to H(X) rather than G(X)
 				if (outer_loop_counter > 1 || log2_num_polys > 1)
@@ -8863,6 +8864,7 @@ double pm1_stage2_cost (
 
 		// Binary search for largest poly2_size that does not use too much memory
 		min_poly2_size = 2*poly1_size;
+		if (max_poly2_size < min_poly2_size) return (1.0e99);
 		cpu_flags = (cost_data->c.gwdata != NULL ? cost_data->c.gwdata->cpu_flags : CPU_FLAGS);
 		while (max_poly2_size - min_poly2_size >= 2) {
 			int midpoint = (min_poly2_size + max_poly2_size) / 2;
@@ -9212,6 +9214,7 @@ double pm1_stage2_impl (
 /* Find the least costly stage 2 plan.  It is possible no plan will be found (user wants polymult only and there are no safe polys for this FFT length). */
 /* Try various values of D until we find the best one.  Pairing requires V,Vn,Vn1,gg gwnums, polymult requires diff1,r^2,gg gwnums. */
 
+	cost_data.total_cost = 0.0;						// Special value indicating no workable plan found
 	pm1_stage2_impl_given_numvals (pm1data, numvals, forced_stage2_type, &cost_data);
 
 /* If we are continuing from a save file that was in stage 2 and the new plan doesn't look significant better than the old plan, then */
@@ -9382,9 +9385,8 @@ void calc_exp2 (
 
 /* Helper routine for multithreading P-1 stage 2 */
 
-#define PM1_COMPUTE_POLY1	1
-#define PM1_COMPUTE_POLY2	2
-#define PM1_ACCUMULATING_GG	3
+#define PM1_COMPUTE_POLY2	1
+#define PM1_ACCUMULATING_GG	2
 
 void pm1_helper (
 	int	helper_num,	// 0 = main thread, 1+ = helper thread num
@@ -9393,27 +9395,16 @@ void pm1_helper (
 {
 	pm1handle *pm1data = (pm1handle *) info;
 
-/* Accumulate output poly results into gg for later GCD */
-
-	if (pm1data->helper_work == PM1_COMPUTE_POLY1) {
-		// Loop unffting coefficients from poly1
-		gwarray poly1 = pm1data->points;
-		for ( ; ; ) {
-			// Get one of poly1's gwnums
-			int coeff = atomic_fetch_incr (pm1data->polydata.helper_counter);
-
-			// If the other helper threads have completed processing poly1, then we're done
-			if (coeff >= pm1data->numrels) break;
-
-			// Unfft the gwnum, then fft for next round of poly1 polymults
-			gwunfft2 (gwdata, poly1[coeff], poly1[coeff], GWMUL_STARTNEXTFFT);
-			gwfft (gwdata, poly1[coeff], poly1[coeff]);
-		}
-	}
-
 // Generate the next poly #2 coefficients using differences.  The highest coefficient and next diff1 is already computed.
 
-	else if (pm1data->helper_work == PM1_COMPUTE_POLY2) {
+	if (pm1data->helper_work == PM1_COMPUTE_POLY2) {
+	    // The following code was originally written assuming each helper thread would do a chunk of work.  However, we
+	    // cannot rely on the OS starting every helper thread.  Use atomic helper_counter to make sure all the work gets done.
+	    for ( ; ; ) {
+		helper_num = atomic_fetch_incr (pm1data->polydata.helper_counter);
+		if (helper_num >= pm1data->helper_count) break;
+//GW:  Rename helper_count to numpoly2blks.  rename helper_num to blknum.
+//GW: Would we thread better with more numerous smaller work chunks?  Can we avoid the single-threaded computation of diff1 values prior to calling PM1_COMPUTE_POLY2?
 		gwnum diff1 = pm1data->poly2[(pm1data->remaining_poly2_size - 1 - helper_num) % pm1data->helper_count];	// The pre-computed dist1 is stored here
 		gwnum diff2 = pm1data->r_2helper2;		// r^(2*helper_count^2)
 //GW: handle no work to do case (more helpers than work to do)?
@@ -9425,6 +9416,7 @@ void pm1_helper (
 			if (j == pm1data->helper_count) gwmul3 (gwdata, diff1, diff2, pm1data->diff1, GWMUL_STARTNEXTFFT), diff1 = pm1data->diff1;
 			else gwmul3 (gwdata, diff1, diff2, diff1, GWMUL_STARTNEXTFFT);
 		}
+	    }
 	}
 
 /* Accumulate output poly results into gg for later GCD */
@@ -9441,7 +9433,8 @@ void pm1_helper (
 			if (point >= pm1data->num_points) break;
 
 			// Unfft the gwnum
-			gwunfft2 (gwdata, pm1data->points[point], pm1data->points[point], GWMUL_STARTNEXTFFT);
+			if (polymult_must_unfft (gwdata, pm1data->points[point]))
+				gwunfft2 (gwdata, pm1data->points[point], pm1data->points[point], GWMUL_STARTNEXTFFT);
 
 			// Either set the accumulator or multiply with the accumulator
 			if (accumulator == NULL) accumulator = pm1data->points[point];
@@ -11010,14 +11003,13 @@ pm1_polymult:
 	polymult_set_max_num_threads (&pm1data.polydata, get_worker_num_threads (thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0));
 	polymult_set_cache_size (&pm1data.polydata, IniGetInt (INI_FILE, "PolymultCacheSize", 256));
 	bool use_polymult_multithreading;		// TRUE if we should use polymult multithreading instead of gwnum multithreading
+//GW: UNUSED.  Change to always use polymult_multithreading?
 	use_polymult_multithreading = pm1data.polydata.num_threads > 1 && pm1data.poly2_size > 2*pm1data.polydata.num_threads &&
 				      (int) gwfftlen (&pm1data.gwdata) <= IniGetInt (INI_FILE, "PolyThreadingFFTlength", 256) * 1024;
-	if (use_polymult_multithreading) {
+//	if (use_polymult_multithreading) {
 		pm1data.helper_count = pm1data.polydata.num_threads;
-		pm1data.polydata.helper_callback = &pm1_helper;
-		pm1data.polydata.helper_callback_data = &pm1data;
-	} else
-		pm1data.helper_count = 1;
+//	} else
+//		pm1data.helper_count = 1;
 
 // Multiply monic RLPs into one big monic RLP.  This is done in-place.
 
@@ -11032,13 +11024,10 @@ pm1_polymult:
 					  &poly1[i*poly_size], poly_size + poly2_size,
 					  (poly_size == 1 ? POLYMULT_INVEC1_NEGATE : 0) +
 					  (poly2_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) +
-					  POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC_RLP | POLYMULT_STARTNEXTFFT | POLYMULT_NO_UNFFT);
+					  POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC_RLP | POLYMULT_NO_UNFFT);
 			}
 			// Multithreaded unfft poly coefficients
-			pm1data.helper_work = PM1_COMPUTE_POLY1;		// Work type for helper to do
-			pm1data.points = poly1;					// Array of poly1 coefficients
-			if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);	// Launch helper threads
-			else pm1_helper (0, &pm1data.gwdata, &pm1data);		// Or just have main thread do the work
+			poly_unfft_fft_coefficients (&pm1data.polydata, poly1, pm1data.poly1_size);
 			// Poly sizes have doubled
 			if ((num_polys & 1) == 0) last_poly_size += poly_size;
 			poly_size *= 2;
@@ -11281,12 +11270,14 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 // Multithreaded computation of remaining poly2 coefficients
 
 		// Initialize data needed for helper routine to access each coefficient
+		pm1data.polydata.helper_callback = &pm1_helper;
+		pm1data.polydata.helper_callback_data = &pm1data;
 		pm1data.helper_work = PM1_COMPUTE_POLY2;				// Work type for helper to do
 		pm1data.poly2 = poly2;							// Array of poly2 coefficients
 
 		// If using polymult helper threads to accumulate the evaluated points, set gwnum to use only one thread and launch the helpers
-		if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);
-		else pm1_helper (0, &pm1data.gwdata, &pm1data);				// Or just have main thread do the work
+		polymult_launch_helpers (&pm1data.polydata);
+//GW: would need to set atomic		// else pm1_helper (0, &pm1data.gwdata, &pm1data);				// Or just have main thread do the work
 
 // Check for ESC before doing expensive polymult
 
@@ -11317,13 +11308,16 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);}
 // Multithreaded accumulation of the evaluated points from outpoly into gg for a later GCD
 
 		// Initialize data needed for helper routine to access each coefficient
+		pm1data.polydata.helper_callback = &pm1_helper;
+		pm1data.polydata.helper_callback_data = &pm1data;
 		pm1data.helper_work = PM1_ACCUMULATING_GG;		// Work type for helper to do
 		pm1data.points = poly2 + 2*pm1data.numrels;		// Points to accumulate were written over higher coefficients of poly2
 //GW:	stop reason/saving?
 
 		// If using polymult helper threads to accumulate the evaluated points, set gwnum to use only one thread and launch the helpers
-		if (use_polymult_multithreading) polymult_launch_helpers (&pm1data.polydata);
-		else pm1_helper (0, &pm1data.gwdata, &pm1data);		// Or just have main thread do the work
+//GW		if (use_polymult_multithreading)
+			polymult_launch_helpers (&pm1data.polydata);
+//GW: would need set_atomic		else pm1_helper (0, &pm1data.gwdata, &pm1data);		// Or just have main thread do the work
 
 // Keep track of the sections processed thusfar
 
