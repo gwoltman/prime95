@@ -7084,6 +7084,7 @@ start_timer_from_zero (timers, 0);
 	polymult_init (&ecmdata.polydata, &ecmdata.gwdata);
 	polymult_set_max_num_threads (&ecmdata.polydata, get_worker_num_threads (thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0));
 	polymult_set_cache_size (&ecmdata.polydata, IniGetInt (INI_FILE, "PolymultCacheSize", 256));
+	ecmdata.polydata.L3_CACHE_SIZE = IniGetInt (INI_FILE, "PolymultCacheSize2", 6);
 	bool use_polymult_multithreading;		// TRUE if we should use polymult multithreading instead of gwnum multithreading
 //GW: unused
 	use_polymult_multithreading = ecmdata.polydata.num_threads > 1 && ecmdata.poly_size > ecmdata.polydata.num_threads &&
@@ -11002,6 +11003,7 @@ pm1_polymult:
 	polymult_init (&pm1data.polydata, &pm1data.gwdata);
 	polymult_set_max_num_threads (&pm1data.polydata, get_worker_num_threads (thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0));
 	polymult_set_cache_size (&pm1data.polydata, IniGetInt (INI_FILE, "PolymultCacheSize", 256));
+	pm1data.polydata.L3_CACHE_SIZE = IniGetInt (INI_FILE, "PolymultCacheSize2", 6);
 	bool use_polymult_multithreading;		// TRUE if we should use polymult multithreading instead of gwnum multithreading
 //GW: UNUSED.  Change to always use polymult_multithreading?
 	use_polymult_multithreading = pm1data.polydata.num_threads > 1 && pm1data.poly2_size > 2*pm1data.polydata.num_threads &&
