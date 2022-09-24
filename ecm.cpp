@@ -3305,9 +3305,9 @@ int choose12 (
 	gwsmallmul (&ecmdata->gwdata, 4.0, zs);		/* v = 4*s */
 	if (xz != NULL) {
 		gwsquare2 (&ecmdata->gwdata, xs, xz->x, GWMUL_STARTNEXTFFT);
-		gwsafemul (&ecmdata->gwdata, xs, xz->x);	/* x = u^3 */
+		gwmul3 (&ecmdata->gwdata, xs, xz->x, xz->x, 0);	/* x = u^3 */
 		gwsquare2 (&ecmdata->gwdata, zs, xz->z, GWMUL_STARTNEXTFFT);
-		gwsafemul (&ecmdata->gwdata, zs, xz->z);	/* z = v^3 */
+		gwmul3 (&ecmdata->gwdata, zs, xz->z, xz->z, 0);	/* z = v^3 */
 	}
 
 	/* Now for A. */
@@ -5245,6 +5245,53 @@ return 0;
 #endif
 
 /* Include timing code when building the debug version of prime95 */
+
+if (w->n == 599) {
+OS_CAN_SET_AFFINITY = FALSE;
+
+gwhandle gwdata;
+pmhandle pmdata;
+gwarray a;
+for (int EXP = 1000; ; EXP *= 4) {
+int iters=150000/EXP;
+if (iters == 0) iters = 1;
+for (int CNT=50000; ; CNT*=2, iters=iters/2) {
+if (iters == 0) iters = 1;
+clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
+gwinit (&gwdata); 
+gwset_num_threads (&gwdata, 4);
+gwset_use_spin_wait (&gwdata, 1);
+gwsetup (&gwdata, 1.0, 2, EXP, -1);
+if ((double) CNT * (gwnum_datasize (&gwdata) + GW_HEADER_SIZE (&gwdata)) > 6.2 * 1024.0 * 1024.0 * 1024.0) { gwdone (&gwdata); break; };	// Machine limited to 6.2GB
+printf ("Doing CNT=%d\n", CNT);
+polymult_init (&pmdata, &gwdata);
+polymult_set_max_num_threads (&pmdata, 4);
+a = gwalloc_array (&gwdata, CNT);
+for (int i = 0; i < CNT; i++) dbltogw (&gwdata, (double) (i+10001),  a[i]);
+
+pmdata.L3_CACHE_SIZE = 1000000;
+start_timer (timers, 0);
+for (int i = 0; i < iters; i++) polymult (&pmdata, a, CNT/2, a, CNT/2, a, CNT, POLYMULT_NEXTFFT);
+end_timer (timers, 0);
+timers[0] /= iters;
+sprintf (buf, "Polymult old-way.  Poly-size %d, gwnum FFT size %ld, time: ", CNT, gwdata.FFTLEN);
+print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+OutputBoth (thread_num, buf);
+
+pmdata.L3_CACHE_SIZE = 1;
+start_timer (timers, 0);
+for (int i = 0; i < iters; i++) polymult (&pmdata, a, CNT/2, a, CNT/2, a, CNT, POLYMULT_NEXTFFT);
+end_timer (timers, 0);
+timers[0] /= iters;
+sprintf (buf, "Polymult new-way.  Poly-size %d, gwnum FFT size %ld, time: ", CNT, gwdata.FFTLEN);
+print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+OutputBoth (thread_num, buf);
+polymult_done (&pmdata);
+gwdone (&gwdata);
+}
+}
+return 1;
+}
 
 #ifdef GDEBUG
 if (w->n == 600) {
@@ -7719,6 +7766,7 @@ start_timer_from_zero (timers, 0);
 	ecmdata.polydata.helper_callback = &ecm_helper;
 	ecmdata.polydata.helper_callback_data = &ecmdata;
 	ecmdata.helper_work = ECM_BUILD_GCDVAL;
+	memset (&ecmdata.polyGH[0], 0, ecmdata.polydata.num_threads * sizeof (gwnum));	// Needed only for ensuring a reproducible stage 2 result
 	polymult_launch_helpers (&ecmdata.polydata);	// Launch helper threads
 
 // Multiply together the output of each ecm_helper thread above.  Hopefully using gwnum's multi-threading.
@@ -9797,21 +9845,23 @@ restart0:
 		stop_reason = stopCheck (thread_num);
 		saving = testSaveFilesFlag (thread_num);
 		echk = stop_reason || saving || ERRCHK || near_fft_limit || ((pm1data.stage0_bitnum & 127) == 64);
+		gwerror_checking (&pm1data.gwdata, echk);
 
 /* Either square x or square x and multiply it by three. */
 
 #ifndef SERVER_TESTING
-		gwstartnextfft (&pm1data.gwdata, !stop_reason && !saving && pm1data.stage0_bitnum+1 != len);
 // Work around bug in mpz_tstbit accessing bits above 2^32
+		int options = (!stop_reason && !saving && pm1data.stage0_bitnum+1 != len) ? GWMUL_STARTNEXTFFT : 0;
 		{
 			uint64_t bitnum = len - pm1data.stage0_bitnum - 1;
 			uint64_t limb = mpz_getlimbn (exp, (mp_size_t) (bitnum / GMP_LIMB_BITS));
 			uint64_t bit_in_limb = (1ULL << (bitnum % GMP_LIMB_BITS));
-			gwsetnormroutine (&pm1data.gwdata, 0, echk, !!(limb & bit_in_limb));
+			if (limb & bit_in_limb) options |= GWMUL_MULBYCONST;
 		}
 //		gwsetnormroutine (&pm1data.gwdata, 0, echk, mpz_tstbit (exp, len - pm1data.stage0_bitnum - 1));
-		if (pm1data.stage0_bitnum < 30) gwsquare_carefully (&pm1data.gwdata, pm1data.x);
-		else gwsquare (&pm1data.gwdata, pm1data.x);
+		int option = (!stop_reason && !saving && pm1data.stage0_bitnum+1 != len) ? GWMUL_STARTNEXTFFT : 0;
+		if (pm1data.stage0_bitnum < 30) gwmul3_carefully (&pm1data.gwdata, pm1data.x, pm1data.x, pm1data.x, options);
+		else gwsquare2 (&pm1data.gwdata, pm1data.x, pm1data.x, options);
 #endif
 
 /* Test for an error */
