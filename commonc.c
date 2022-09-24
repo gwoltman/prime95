@@ -4552,7 +4552,7 @@ int read_header (
 	unsigned long b, n;
 	long	c;
 	char	pad;
-	char	stage[11];
+	char	stage[10];
 	double	pct_complete;
 	unsigned long trash_sum;
 
@@ -4567,7 +4567,8 @@ int read_header (
 	if (!read_long (fd, &b, NULL)) return (FALSE);
 	if (!read_long (fd, &n, NULL)) return (FALSE);
 	if (!read_slong (fd, &c, NULL)) return (FALSE);
-	if (!read_array (fd, stage, 11, NULL)) return (FALSE);
+	if (!read_array (fd, stage, 10, NULL)) return (FALSE);
+	if (!read_array (fd, &pad, 1, NULL)) return (FALSE);
 	if (!read_array (fd, &pad, 1, NULL)) return (FALSE);
 	if (!read_double (fd, &pct_complete, NULL)) return (FALSE);
 	if (sum == NULL) sum = &trash_sum;
@@ -4579,7 +4580,7 @@ int read_header (
 
 /* Set the work unit's stage and pct_complete fields */
 
-	stage[10] = 0;
+	stage[9] = 0;
 	strcpy (w->stage, stage);
 	if (pct_complete < 0.0) pct_complete = 0.0;
 	if (pct_complete > 1.0) pct_complete = 1.0;
@@ -4605,7 +4606,8 @@ int write_header (
 	if (!write_long (fd, w->b, NULL)) return (FALSE);
 	if (!write_long (fd, w->n, NULL)) return (FALSE);
 	if (!write_slong (fd, w->c, NULL)) return (FALSE);
-	if (!write_array (fd, w->stage, 11, NULL)) return (FALSE);
+	if (!write_array (fd, w->stage, 10, NULL)) return (FALSE);
+	if (!write_array (fd, &pad, 1, NULL)) return (FALSE);
 	if (!write_array (fd, &pad, 1, NULL)) return (FALSE);
 	if (!write_double (fd, w->pct_complete, NULL)) return (FALSE);
 	if (!write_long (fd, sum, NULL)) return (FALSE);
