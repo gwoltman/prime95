@@ -9461,7 +9461,7 @@ int primeBenchMultipleWorkersInternal (
 
 			    if (! is_number_in_list (workers, bench_workers)) continue;
 			    if (cpus % workers != 0 && !bench_oddballs) continue;
-			    /* Only SSE2 code supports multi-threaded FFTs */
+			    /* Only SSE2 and later code supports multi-threaded FFTs */
 			    if ((cpus > workers || hypercpus > 1) && ! (CPU_FLAGS & CPU_SSE2)) continue;
 
 /* Output start message for this benchmark */
@@ -9826,9 +9826,11 @@ void autoBench (void)
 	if (BENCH_NUM_CORES)
 		num_cores = BENCH_NUM_CORES;		/* Use gwnum.txt override or default to all cores in use */
 	else {
-		num_cores = 0;
-		for (i = 0; i < (int) NUM_WORKER_THREADS; i++) num_cores += CORES_PER_TEST[i];
-		if (num_cores > (int) HW_NUM_CORES) num_cores = HW_NUM_CORES;
+		//num_cores = 0;
+		//for (i = 0; i < (int) NUM_WORKER_THREADS; i++) num_cores += CORES_PER_TEST[i];
+		//if (num_cores > (int) HW_NUM_CORES)
+		// Always auto-bench using all the cores.  Prime95 always calls gwset_bench_cores with HW_NUM_CORES.
+		num_cores = HW_NUM_CORES;
 	}
 	num_workers = BENCH_NUM_WORKERS ? BENCH_NUM_WORKERS : NUM_WORKER_THREADS; /* Use gwnum.txt override or default to all workers */
 
@@ -10125,7 +10127,7 @@ int primeBench (
 	    if (!OS_CAN_SET_AFFINITY && hypercpu > 1 && cores != HW_NUM_CORES) continue;
 	    /* Output a message if using multi-threaded FFT */
 	    if (cores > 1 || hypercpu > 1) {
-	      if (! (CPU_FLAGS & CPU_SSE2)) continue;  // Only SSE2 code supports multi-threaded FFTs
+	      if (! (CPU_FLAGS & CPU_SSE2)) continue;  // Only SSE2 and later code supports multi-threaded FFTs
 	      sprintf (buf, "Timing%s FFTs using %d core%s.\n", hypercpu > 1 ? " hyperthreaded" : "", cores, cores > 1 ? "s" : "");
 	      OutputBothBench (thread_num, buf);
 	    }
