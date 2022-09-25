@@ -875,8 +875,8 @@ int is_fft_implemented (
 				}
 				gwbench_get_max_throughput (next_jmptab->fftlen, arch, num_cores, num_workers, num_hyperthreads,
 							    all_complex, error_check, no_r4dwpn, &next_impl, &next_throughput);
-				if (next_throughput <= 0.0) break;		/* We don't have enough bench data to know if slightly larger FFT length will be faster */
-				if (next_throughput > throughput) return (FALSE); /* Larger FFT length is faster */
+				if (next_throughput <= 0.0) continue;			/* No bench data, assume larger FFT will be slower */
+				if (next_throughput > throughput) return (FALSE);	/* Larger FFT length is faster */
 			}
 		}
 	}
