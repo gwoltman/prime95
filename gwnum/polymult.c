@@ -60,26 +60,29 @@
 #define HELPER_PREPROCESS_LINE		1
 #define HELPER_PRE_FFT			2
 #define HELPER_POLYMULT_LINE		3
-#define HELPER_POLYMULT_LINE_PASS	4
-#define HELPER_POST_UNFFT		5
-#define HELPER_EXIT			6
+#define HELPER_POST_UNFFT		4
+#define HELPER_EXIT			5
 
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
 unsigned long cache_line_offset (gwhandle *gwdata, unsigned long i);
 void generate_sincos (pmhandle *pmdata, const unsigned int size);
+void pick_pass_sizes (pmhandle *pmdata, unsigned int fftsize, unsigned int *p1size, unsigned int *p2size);
 void zpad7_fft (gwhandle *gwdata, gwnum g);
 int compress_vec (char *buf, int size);
 void decompress_vec (char *inbuf, char *outbuf, int size);
 void polymult_pre_fft (pmhandle *pmdata, gwhandle *);
 void polymult_post_unfft (pmhandle *pmdata, gwhandle *);
+void polymult_line_preprocess_dbl (pmhandle *pmdata);
 void polymult_line_preprocess_sse2 (pmhandle *pmdata);
 void polymult_line_preprocess_avx (pmhandle *pmdata);
 void polymult_line_preprocess_fma (pmhandle *pmdata);
 void polymult_line_preprocess_avx512 (pmhandle *pmdata);
+void polymult_line_dbl (pmhandle *pmdata);
 void polymult_line_sse2 (pmhandle *pmdata);
 void polymult_line_avx (pmhandle *pmdata);
 void polymult_line_fma (pmhandle *pmdata);
 void polymult_line_avx512 (pmhandle *pmdata);
+void fft_line_pass_dbl (int helper_num, pmhandle *pmdata, void *pdarg);
 void fft_line_pass_sse2 (int helper_num, pmhandle *pmdata, void *pdarg);
 void fft_line_pass_avx (int helper_num, pmhandle *pmdata, void *pdarg);
 void fft_line_pass_fma (int helper_num, pmhandle *pmdata, void *pdarg);
@@ -132,18 +135,27 @@ typedef struct {
 #define INVEC1_OPTIONS	(POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_RLP | POLYMULT_INVEC1_NEGATE)
 #define INVEC2_OPTIONS	(POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_RLP | POLYMULT_INVEC2_NEGATE)
 
+// Handy vector size macros
+#define vector_size_in_doubles(f)		(((f) & CPU_AVX512F) ? 8 : ((f) & CPU_AVX) ? 4 :((f) & CPU_SSE2) ? 2 : 1)
+#define vector_size_in_bytes(f)			(((f) & CPU_AVX512F) ? 8*8 : ((f) & CPU_AVX) ? 4*8 :((f) & CPU_SSE2) ? 2*8 : 1*8)
+#define complex_vector_size_in_doubles(f)	(((f) & CPU_AVX512F) ? 8*2 : ((f) & CPU_AVX) ? 4*2 :((f) & CPU_SSE2) ? 2*2 : 1*2)
+#define complex_vector_size_in_bytes(f)		(((f) & CPU_AVX512F) ? 8*2*8 : ((f) & CPU_AVX) ? 4*2*8 :((f) & CPU_SSE2) ? 2*2*8 : 1*2*8)
+
+// SIMD-specific code
+
 #if defined (AVX512)
 #define VLEN			512			// Vector is 256 bits wide
 #define VDT			__m512d			// Vector data type
 #define VFMA			1			// FMA is supported
 #define	read_line		read_line_avx512	// Naming extension for this option
+#define	read_line_slice		read_line_slice_avx512
 #define	read_preprocess_line	read_preprocess_line_avx512
 #define	write_line		write_line_avx512
+#define	write_line_slice	write_line_slice_avx512
 #define	brute_line		brute_line_avx512
 #define	karatsuba_line		karatsuba_line_avx512
 #define	fft_line		fft_line_avx512
 #define	fft_line_pass		fft_line_pass_avx512
-#define pick_pass_sizes		pick_pass_sizes_avx512
 #define	monic_line_add_hi	monic_line_add_hi_avx512
 #define	monic_line_add_lo	monic_line_add_lo_avx512
 #define	monic_line_adjustments	monic_line_adjustments_avx512
@@ -162,13 +174,14 @@ typedef struct {
 #define VDT			__m256d			// Vector data type
 #define VFMA			1			// FMA is supported
 #define	read_line		read_line_fma		// Naming extension for this option
+#define	read_line_slice		read_line_slice_fma
 #define	read_preprocess_line	read_preprocess_line_fma
 #define	write_line		write_line_fma
+#define	write_line_slice	write_line_slice_fma
 #define	brute_line		brute_line_fma
 #define	karatsuba_line		karatsuba_line_fma
 #define	fft_line		fft_line_fma
 #define	fft_line_pass		fft_line_pass_fma
-#define pick_pass_sizes		pick_pass_sizes_fma
 #define	monic_line_add_hi	monic_line_add_hi_fma
 #define	monic_line_add_lo	monic_line_add_lo_fma
 #define	monic_line_adjustments	monic_line_adjustments_fma
@@ -187,13 +200,14 @@ typedef struct {
 #define VDT			__m256d			// Vector data type
 #define VFMA			0			// FMA not supported
 #define	read_line		read_line_avx		// Naming extension for this option
+#define	read_line_slice		read_line_slice_avx
 #define	read_preprocess_line	read_preprocess_line_avx
 #define	write_line		write_line_avx
+#define	write_line_slice	write_line_slice_avx
 #define	brute_line		brute_line_avx
 #define	karatsuba_line		karatsuba_line_avx
 #define	fft_line		fft_line_avx
 #define	fft_line_pass		fft_line_pass_avx
-#define pick_pass_sizes		pick_pass_sizes_avx
 #define	monic_line_add_hi	monic_line_add_hi_avx
 #define	monic_line_add_lo	monic_line_add_lo_avx
 #define	monic_line_adjustments	monic_line_adjustments_avx
@@ -209,13 +223,14 @@ typedef struct {
 #define VDT			__m128d			// Vector data type
 #define VFMA			0			// FMA not supported
 #define	read_line		read_line_sse2		// Naming extension for this option
+#define	read_line_slice		read_line_slice_sse2
 #define	read_preprocess_line	read_preprocess_line_sse2
 #define	write_line		write_line_sse2
+#define	write_line_slice	write_line_slice_sse2
 #define	brute_line		brute_line_sse2
 #define	karatsuba_line		karatsuba_line_sse2
 #define	fft_line		fft_line_sse2
 #define	fft_line_pass		fft_line_pass_sse2
-#define pick_pass_sizes		pick_pass_sizes_sse2
 #define	monic_line_add_hi	monic_line_add_hi_sse2
 #define	monic_line_add_lo	monic_line_add_lo_sse2
 #define	monic_line_adjustments	monic_line_adjustments_sse2
@@ -231,13 +246,14 @@ typedef struct {
 #define VDT			double			// Vector data type
 #define VFMA			0			// FMA not supported
 #define	read_line		read_line_dbl		// Naming extension for this option
+#define	read_line_slice		read_line_slice_dbl
 #define	read_preprocess_line	read_preprocess_line_dbl
 #define	write_line		write_line_dbl
+#define	write_line_slice	write_line_slice_dbl
 #define	brute_line		brute_line_dbl
 #define	karatsuba_line		karatsuba_line_dbl
 #define	fft_line		fft_line_dbl
 #define	fft_line_pass		fft_line_pass_dbl
-#define pick_pass_sizes		pick_pass_sizes_dbl
 #define	monic_line_add_hi	monic_line_add_hi_dbl
 #define	monic_line_add_lo	monic_line_add_lo_dbl
 #define	monic_line_adjustments	monic_line_adjustments_dbl
@@ -343,6 +359,39 @@ int polymult_fft_size (int n)
 	}
 }
 
+// Pick FFT pass sizes
+void pick_pass_sizes (
+	pmhandle *pmdata,		// Handle for polymult library
+	unsigned int fftsize,		// FFT size
+	unsigned int *p1size,		// Returned pass 1 size
+	unsigned int *p2size)		// Returned pass 2 size
+{
+	unsigned int powers_of_two;
+	double	max_p2size, log_fftsize;
+
+	// Figure out what power-of-two FFT size will fit in the L2 cache
+	max_p2size = log2 ((double) pmdata->L2_CACHE_SIZE * 1024.0 / (double) complex_vector_size_in_bytes (pmdata->gwdata->cpu_flags));
+
+	// If the FFT can be done in one pass, choose that option
+	log_fftsize = log2 ((double) fftsize);
+	if (log_fftsize <= max_p2size) { *p1size = 1; *p2size = fftsize; return; }
+
+	// Make pass sizes roughly equal
+	*p2size = (unsigned int) log_fftsize / 2;
+	if (*p2size > (unsigned int) max_p2size) *p2size = (unsigned int) max_p2size;
+
+	// Make sure any odd power of two is done in pass 2
+	for (powers_of_two = 0; (fftsize & (1 << powers_of_two)) == 0; powers_of_two++);
+	if (*p2size > powers_of_two) *p2size = powers_of_two;
+	if ((powers_of_two & 1) == 0) {		// no radix-8 step
+		if ((*p2size & 1) == 1) *p2size -= 1;
+	} else {
+		if ((*p2size & 1) == 0) *p2size -= 1;
+	}
+	*p1size = fftsize >> *p2size;
+	*p2size = 1 << *p2size;
+}
+
 // Get the memory (in bytes) required for an FFT based polymult.  Use the information to ensure over-allocating memory does not occur.
 uint64_t polymult_mem_required (
 	int	invec1_size,		// Size of poly #1
@@ -358,7 +407,7 @@ uint64_t polymult_mem_required (
 	ASSERTG (num_threads >= 1);
 
 	// Determine the complex vector size in bytes
-	int complex_vector_size = (cpu_flags & CPU_AVX512F) ? 2*64 : (cpu_flags & CPU_AVX) ? 2*32 : (cpu_flags & CPU_SSE2) ? 2*16 : 2*8;
+	int complex_vector_size = complex_vector_size_in_bytes (cpu_flags);
 
 	// Adjust sizes due to RLPs.  Calculate the output size assuming no monic inputs.
 	adjusted_invec1_size = (options & POLYMULT_INVEC1_RLP) ? 2 * invec1_size - 1 : invec1_size;
@@ -402,7 +451,7 @@ void polymult_init (
 	pmdata->num_threads = pmdata->max_num_threads;
 
 	// Calculate doubles in a complex vector
-	int complex_vector_size = (gwdata->cpu_flags & CPU_AVX512F) ? 2*8 : (gwdata->cpu_flags & CPU_AVX) ? 2*4 : (gwdata->cpu_flags & CPU_SSE2) ? 2*2 : 2*1;
+	int complex_vector_size = complex_vector_size_in_doubles(gwdata->cpu_flags);
 
 	// Calculate how many "lines" or "work units" polymult threads will work on
 	int num_doubles = gwfftlen (pmdata->gwdata);					// Number of doubles in a gwnum
@@ -998,25 +1047,54 @@ void decompress_vec (
 //    Requires intimate knowledge of layout of gwnums in memory
 //--------------------------------------------------------------------
 
+#if defined (AVX512) || defined (AVX) || defined (SSE2) || !defined (X86_64)
+
+// Structure used to pass data from read_line to read_line_slice
+typedef struct {
+	gwnum	*data;				// Argument passed to read_line
+	int	size;				// Argument passed to read_line
+	int	index;				// Argument passed to read_line
+	CVDT	*vec;				// Argument passed to read_line
+	int	options;			// Argument passed to read_line
+	bool	post_process_monics;		// Argument passed to read_line
+	gwatomic blknum;			// Block number to work on in multithreaded read_line_slice
+	int	slice_size;			// Size to read for each block
+} read_line_slice_data;
+
+void read_line_dbl (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics);
+void read_line_sse2 (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics);
+void read_line_avx (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics);
+void read_line_avx512 (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics);
+
+// Structure used to pass data from write_line to write_line_slice
+typedef struct {
+	gwnum	*data;				// Argument passed to write_line
+	int	size;				// Argument passed to write_line
+	int	index;				// Argument passed to write_line
+	CVDT	*vec;				// Argument passed to write_line
+	gwnum	*fma_data;			// Argument passed to write_line
+	int	options;			// Argument passed to write_line
+	bool	post_process_monics;		// Argument passed to write_line
+	gwatomic blknum;			// Block number to work on in multithreaded write_line_slice
+	int	slice_size;			// Size to write for each block
+} write_line_slice_data;
+
+#endif
+
 #if defined (AVX512)
 
-void read_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
+void read_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rlsd)
 {
-	int	orig_index = index;			// Save for a possible recursive call to read_line
+	gwhandle *gwdata = pmdata->gwdata;
+	gwnum	*data = ((read_line_slice_data *) rlsd)->data;
+	int	size = ((read_line_slice_data *) rlsd)->size;
+	int	index = ((read_line_slice_data *) rlsd)->index;
+	int	options = ((read_line_slice_data *) rlsd)->options;
+	bool	post_process_monics = ((read_line_slice_data *) rlsd)->post_process_monics;
+	int	slice_size = ((read_line_slice_data *) rlsd)->slice_size;
+	unsigned long offset;
 
-	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
-	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
-		if (gwdata->k == 1.0) {
-			vec[0].real = broadcastsd (1.0);
-			vec[0].imag = broadcastsd (0.0);
-		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, orig_index, vec, 0, FALSE);
-		}
-		vec++;
-	}
-
-	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += (size-1);
+	// Assume we will find a slice to work on.  Calculate cache line offset only once.
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
@@ -1025,168 +1103,224 @@ void read_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT 
 	// Check if we've read all the gwnum data
 	ASSERTG (index * 16 < (int) gwdata->FFTLEN);
 
-	// AVX512 implementation
-	if (index == -1) {			// First real-only value and optionally seven zero-pad values
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
-			// Return the first real-only value
-			if (!gwdata->ZERO_PADDED_FFT) {
-				vec[j].real = _mm512_set_pd (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, data[j][0]);
-				vec[j].imag = broadcastsd (0.0);
+	// Get cache line offset
+	if (index >= 1 || (index == 0 && gwdata->ALL_COMPLEX_FFT)) offset = cache_line_offset (gwdata, index * 2) / sizeof (VDT);
+
+	// Read one slice at a time
+	for ( ; ; ) {
+		// Get slice to work on
+		int atomic_val = atomic_fetch_incr (((read_line_slice_data *) rlsd)->blknum);
+		int slice_start = atomic_val * slice_size;
+		if (slice_start >= size) break;
+		int slice_end = slice_start + slice_size;
+		if (slice_end > size) slice_end = size;
+
+		// Reload vector pointer
+		CVDT *vec = ((read_line_slice_data *) rlsd)->vec;
+
+		// If not post-processing monics and the input is a monic RLP, then output a 1+0i
+		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
+			if (slice_start == 0) {
+				if (gwdata->k == 1.0) {
+					vec[0].real = broadcastsd (1.0);
+					vec[0].imag = broadcastsd (0.0);
+				} else {
+					read_line (pmdata, &gwdata->GW_FFT1, 1, ((read_line_slice_data *) rlsd)->index, vec, 0, FALSE);
+				}
 			}
-			// Zero padded FFTs also return the 7 FFTed values for the 7 real values stored in the header
-			else {
-				vec[j].real = _mm512_set_pd (data[j][-18], data[j][-17], data[j][-16], data[j][-15],
-							     data[j][-14], data[j][-13], data[j][-12], data[j][0]);
-				vec[j].imag = _mm512_set_pd (data[j][-24], data[j][-23], data[j][-22], data[j][-21],
-							     data[j][-20], data[j][-19], 0.0, 0.0);
+			vec++;
+		}
+
+		// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
+		if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += (size-1);
+
+		// AVX512 implementation
+		if (index == -1) {			// First real-only value and optionally seven zero-pad values
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+				// Return the first real-only value
+				if (!gwdata->ZERO_PADDED_FFT) {
+					vec[j].real = _mm512_set_pd (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, data[j][0]);
+					vec[j].imag = broadcastsd (0.0);
+				}
+				// Zero padded FFTs also return the 7 FFTed values for the 7 real values stored in the header
+				else {
+					vec[j].real = _mm512_set_pd (data[j][-18], data[j][-17], data[j][-16], data[j][-15],
+								     data[j][-14], data[j][-13], data[j][-12], data[j][0]);
+					vec[j].imag = _mm512_set_pd (data[j][-24], data[j][-23], data[j][-22], data[j][-21],
+								     data[j][-20], data[j][-19], 0.0, 0.0);
+				}
 			}
 		}
-	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {	// Second real-only value and 7 complex values
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
-			vec[j].real = _mm512_set_pd (data[j][7], data[j][6], data[j][5], data[j][4], data[j][3], data[j][2], data[j][1], data[j][8]);
-			vec[j].imag = _mm512_set_pd (data[j][15], data[j][14], data[j][13], data[j][12], data[j][11], data[j][10], data[j][9], 0.0);
+		else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {	// Second real-only value and 7 complex values
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+				vec[j].real = _mm512_set_pd (data[j][7], data[j][6], data[j][5], data[j][4], data[j][3], data[j][2], data[j][1], data[j][8]);
+				vec[j].imag = _mm512_set_pd (data[j][15], data[j][14], data[j][13], data[j][12], data[j][11], data[j][10], data[j][9], 0.0);
+			}
 		}
-	}
-	else {				// Process complex values where imaginary part is in the high half of the cache line
-		unsigned long offset = cache_line_offset (gwdata, index * 2) / sizeof (VDT);
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[j], 0, sizeof(CVDT)); continue; }
-			ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
-			vec[j].real = ((VDT *) data[j])[offset];
-			vec[j].imag = ((VDT *) data[j])[offset+1];
+		else {				// Process complex values where imaginary part is in the high half of the cache line
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) { memset (&vec[j], 0, sizeof(CVDT)); continue; }
+				ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
+				vec[j].real = ((VDT *) data[j])[offset];
+				vec[j].imag = ((VDT *) data[j])[offset+1];
+			}
 		}
-	}
 
-	// Negate coefficients if requested
-	if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
-		VDT zero = broadcastsd (0.0);
-		for (int j = 0; j < size; j++) {
-			vec[j].real = subpd (zero, vec[j].real);
-			vec[j].imag = subpd (zero, vec[j].imag);
+		// Negate coefficients if requested
+		if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
+			VDT zero = broadcastsd (0.0);
+			for (int j = slice_start; j < slice_end; j++) {
+				vec[j].real = subpd (zero, vec[j].real);
+				vec[j].imag = subpd (zero, vec[j].imag);
+			}
 		}
-	}
 
-	// Duplicate RLP data in reverse order
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
-		for (int j = 1; j < size; j++) vec[-j] = vec[j];
-	}
+		// Duplicate RLP data in reverse order
+		if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
+			for (int j = slice_start; j < slice_end; j++) vec[-j] = vec[j];
+		}
 
-	// If not post-processing monics and the input is monic, then output a 1+0i
-	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
-		if (gwdata->k == 1.0) {
-			vec[size].real = broadcastsd (1.0);
-			vec[size].imag = broadcastsd (0.0);
-		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, orig_index, &vec[size], 0, FALSE);
+		// If not post-processing monics and the input is monic, then output a 1+0i
+		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
+			if (slice_start == 0) {
+				if (gwdata->k == 1.0) {
+					vec[size].real = broadcastsd (1.0);
+					vec[size].imag = broadcastsd (0.0);
+				} else {
+					read_line (pmdata, &gwdata->GW_FFT1, 1, ((read_line_slice_data *) rlsd)->index, &vec[size], 0, FALSE);
+				}
+			}
 		}
 	}
 }
 
-void write_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, gwnum *fma_data, int options)
+void write_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *wlsd)
 {
+	gwhandle *gwdata = pmdata->gwdata;
+	gwnum	*data = ((write_line_slice_data *) wlsd)->data;
+	int	size = ((write_line_slice_data *) wlsd)->size;
+	int	index = ((write_line_slice_data *) wlsd)->index;
+	CVDT	*vec = ((write_line_slice_data *) wlsd)->vec;
+	gwnum	*fma_data = ((write_line_slice_data *) wlsd)->fma_data;
+	int	options = ((write_line_slice_data *) wlsd)->options;
+	int	slice_size = ((write_line_slice_data *) wlsd)->slice_size;
+	unsigned long offset;
 	CVDT	fmaval, oneval;
+
+	// Assume we will find a slice to work on.  Calculate cache line offset only once.
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
 	if (!gwdata->ALL_COMPLEX_FFT) index--;
 
-	// AVX512 implementation
-	union {
-		VDT	a;
-		double	b[8];
-	} x;
-	if (index == -1) {			// First real-only value and optionally seven zero-pad values
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
-				if (fma_data == NULL || fma_data[j] == NULL)
-					fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
-				else
-					fmaval.real = _mm512_set_pd (fma_data[j][-18], fma_data[j][-17], fma_data[j][-16], fma_data[j][-15],
-								     fma_data[j][-14], fma_data[j][-13], fma_data[j][-12], fma_data[j][0]),
-					fmaval.imag = _mm512_set_pd (fma_data[j][-24], fma_data[j][-23], fma_data[j][-22], fma_data[j][-21],
-								     fma_data[j][-20], fma_data[j][-19], 0.0, 0.0);
-				if (gwdata->k != 1.0) {
-					oneval.real = _mm512_set_pd (gwdata->GW_FFT1[-18], gwdata->GW_FFT1[-17], gwdata->GW_FFT1[-16], gwdata->GW_FFT1[-15],
-								     gwdata->GW_FFT1[-14], gwdata->GW_FFT1[-13], gwdata->GW_FFT1[-12], gwdata->GW_FFT1[0]);
-					oneval.imag = _mm512_set_pd (gwdata->GW_FFT1[-24], gwdata->GW_FFT1[-23], gwdata->GW_FFT1[-22], gwdata->GW_FFT1[-21],
-								     gwdata->GW_FFT1[-20], gwdata->GW_FFT1[-19], 0.0, 0.0);
-					cvmulsafe (fmaval, fmaval, oneval);
+	// Get cache line offset
+	if (index >= 1 || (index == 0 && gwdata->ALL_COMPLEX_FFT)) offset = cache_line_offset (gwdata, index * 2) / sizeof (VDT);
+
+	// Write one slice at a time
+	for ( ; ; ) {
+		// Get slice to work on
+		int atomic_val = atomic_fetch_incr (((write_line_slice_data *) wlsd)->blknum);
+		int slice_start = atomic_val * slice_size;
+		if (slice_start >= size) break;
+		int slice_end = slice_start + slice_size;
+		if (slice_end > size) slice_end = size;
+
+		// AVX512 implementation
+		union {
+			VDT	a;
+			double	b[8];
+		} x;
+		if (index == -1) {			// First real-only value and optionally seven zero-pad values
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) continue;
+				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
+					if (fma_data == NULL || fma_data[j] == NULL)
+						fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
+					else
+						fmaval.real = _mm512_set_pd (fma_data[j][-18], fma_data[j][-17], fma_data[j][-16], fma_data[j][-15],
+									     fma_data[j][-14], fma_data[j][-13], fma_data[j][-12], fma_data[j][0]),
+						fmaval.imag = _mm512_set_pd (fma_data[j][-24], fma_data[j][-23], fma_data[j][-22], fma_data[j][-21],
+									     fma_data[j][-20], fma_data[j][-19], 0.0, 0.0);
+					if (gwdata->k != 1.0) {
+						oneval.real = _mm512_set_pd (gwdata->GW_FFT1[-18], gwdata->GW_FFT1[-17], gwdata->GW_FFT1[-16], gwdata->GW_FFT1[-15],
+									     gwdata->GW_FFT1[-14], gwdata->GW_FFT1[-13], gwdata->GW_FFT1[-12], gwdata->GW_FFT1[0]);
+						oneval.imag = _mm512_set_pd (gwdata->GW_FFT1[-24], gwdata->GW_FFT1[-23], gwdata->GW_FFT1[-22], gwdata->GW_FFT1[-21],
+									     gwdata->GW_FFT1[-20], gwdata->GW_FFT1[-19], 0.0, 0.0);
+						cvmulsafe (fmaval, fmaval, oneval);
+					}
+					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
+					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
+					else cvsub (vec[j], fmaval, vec[j]);
 				}
-				if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
-				else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
-				else cvsub (vec[j], fmaval, vec[j]);
-			}
-			// Return the first real-only value
-			x.a = vec[j].real;
-			data[j][0] = x.b[0];
-			// Zero padded FFTs also return the 7 real values stored in the header
-			if (gwdata->ZERO_PADDED_FFT) {
-				data[j][-18] = x.b[7];
-				data[j][-17] = x.b[6];
-				data[j][-16] = x.b[5];
-				data[j][-15] = x.b[4];
-				data[j][-14] = x.b[3];
-				data[j][-13] = x.b[2];
-				data[j][-12] = x.b[1];
-				x.a = vec[j].imag;
-				data[j][-24] = x.b[7];
-				data[j][-23] = x.b[6];
-				data[j][-22] = x.b[5];
-				data[j][-21] = x.b[4];
-				data[j][-20] = x.b[3];
-				data[j][-19] = x.b[2];
+				// Return the first real-only value
+				x.a = vec[j].real;
+				data[j][0] = x.b[0];
+				// Zero padded FFTs also return the 7 real values stored in the header
+				if (gwdata->ZERO_PADDED_FFT) {
+					data[j][-18] = x.b[7];
+					data[j][-17] = x.b[6];
+					data[j][-16] = x.b[5];
+					data[j][-15] = x.b[4];
+					data[j][-14] = x.b[3];
+					data[j][-13] = x.b[2];
+					data[j][-12] = x.b[1];
+					x.a = vec[j].imag;
+					data[j][-24] = x.b[7];
+					data[j][-23] = x.b[6];
+					data[j][-22] = x.b[5];
+					data[j][-21] = x.b[4];
+					data[j][-20] = x.b[3];
+					data[j][-19] = x.b[2];
+				}
 			}
 		}
-	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {	// Second real-only value and 7 complex values
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
-				if (fma_data == NULL || fma_data[j] == NULL)
-					fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
-				else
-					fmaval.real = _mm512_set_pd (fma_data[j][7], fma_data[j][6], fma_data[j][5], fma_data[j][4],
-								     fma_data[j][3], fma_data[j][2], fma_data[j][1], fma_data[j][8]),
-					fmaval.imag = _mm512_set_pd (fma_data[j][15], fma_data[j][14], fma_data[j][13], fma_data[j][12],
-								     fma_data[j][11], fma_data[j][10], fma_data[j][9], 0.0);
-				if (gwdata->k != 1.0) {
-					oneval.real = _mm512_set_pd (gwdata->GW_FFT1[7], gwdata->GW_FFT1[6], gwdata->GW_FFT1[5], gwdata->GW_FFT1[4],
-								     gwdata->GW_FFT1[3], gwdata->GW_FFT1[2], gwdata->GW_FFT1[1], gwdata->GW_FFT1[8]);
-					oneval.imag = _mm512_set_pd (gwdata->GW_FFT1[15], gwdata->GW_FFT1[14], gwdata->GW_FFT1[13], gwdata->GW_FFT1[12],
-								     gwdata->GW_FFT1[11], gwdata->GW_FFT1[10], gwdata->GW_FFT1[9], 0.0);
-					cvmulsafe (fmaval, fmaval, oneval);
+		else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {	// Second real-only value and 7 complex values
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) continue;
+				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
+					if (fma_data == NULL || fma_data[j] == NULL)
+						fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
+					else
+						fmaval.real = _mm512_set_pd (fma_data[j][7], fma_data[j][6], fma_data[j][5], fma_data[j][4],
+									     fma_data[j][3], fma_data[j][2], fma_data[j][1], fma_data[j][8]),
+						fmaval.imag = _mm512_set_pd (fma_data[j][15], fma_data[j][14], fma_data[j][13], fma_data[j][12],
+									     fma_data[j][11], fma_data[j][10], fma_data[j][9], 0.0);
+					if (gwdata->k != 1.0) {
+						oneval.real = _mm512_set_pd (gwdata->GW_FFT1[7], gwdata->GW_FFT1[6], gwdata->GW_FFT1[5], gwdata->GW_FFT1[4],
+									     gwdata->GW_FFT1[3], gwdata->GW_FFT1[2], gwdata->GW_FFT1[1], gwdata->GW_FFT1[8]);
+						oneval.imag = _mm512_set_pd (gwdata->GW_FFT1[15], gwdata->GW_FFT1[14], gwdata->GW_FFT1[13], gwdata->GW_FFT1[12],
+									     gwdata->GW_FFT1[11], gwdata->GW_FFT1[10], gwdata->GW_FFT1[9], 0.0);
+						cvmulsafe (fmaval, fmaval, oneval);
+					}
+					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
+					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
+					else cvsub (vec[j], fmaval, vec[j]);
 				}
-				if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
-				else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
-				else cvsub (vec[j], fmaval, vec[j]);
+				x.a = vec[j].real, data[j][7] = x.b[7], data[j][6] = x.b[6], data[j][5] = x.b[5], data[j][4] = x.b[4],
+						   data[j][3] = x.b[3], data[j][2] = x.b[2], data[j][1] = x.b[1], data[j][8] = x.b[0];
+				x.a = vec[j].imag, data[j][15] = x.b[7], data[j][14] = x.b[6], data[j][13] = x.b[5], data[j][12] = x.b[4],
+						   data[j][11] = x.b[3], data[j][10] = x.b[2], data[j][9] = x.b[1];
 			}
-			x.a = vec[j].real, data[j][7] = x.b[7], data[j][6] = x.b[6], data[j][5] = x.b[5], data[j][4] = x.b[4],
-					   data[j][3] = x.b[3], data[j][2] = x.b[2], data[j][1] = x.b[1], data[j][8] = x.b[0];
-			x.a = vec[j].imag, data[j][15] = x.b[7], data[j][14] = x.b[6], data[j][13] = x.b[5], data[j][12] = x.b[4],
-					   data[j][11] = x.b[3], data[j][10] = x.b[2], data[j][9] = x.b[1];
 		}
-	}
-	else {				// Process complex values where imaginary part is in the high half of the cache line
-		unsigned long offset = cache_line_offset (gwdata, index * 2) / sizeof (VDT);
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
-				if (fma_data == NULL || fma_data[j] == NULL) fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
-				else fmaval.real = ((VDT *) fma_data[j])[offset], fmaval.imag = ((VDT *) fma_data[j])[offset+1];
-				if (gwdata->k != 1.0) {
-					oneval.real = ((VDT *) gwdata->GW_FFT1)[offset], oneval.imag = ((VDT *) gwdata->GW_FFT1)[offset+1];
-					cvmulsafe (fmaval, fmaval, oneval);
+		else {				// Process complex values where imaginary part is in the high half of the cache line
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) continue;
+				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
+					if (fma_data == NULL || fma_data[j] == NULL) fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
+					else fmaval.real = ((VDT *) fma_data[j])[offset], fmaval.imag = ((VDT *) fma_data[j])[offset+1];
+					if (gwdata->k != 1.0) {
+						oneval.real = ((VDT *) gwdata->GW_FFT1)[offset], oneval.imag = ((VDT *) gwdata->GW_FFT1)[offset+1];
+						cvmulsafe (fmaval, fmaval, oneval);
+					}
+					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
+					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
+					else cvsub (vec[j], fmaval, vec[j]);
 				}
-				if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
-				else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
-				else cvsub (vec[j], fmaval, vec[j]);
+				((VDT *) data[j])[offset] = vec[j].real;
+				((VDT *) data[j])[offset+1] = vec[j].imag;
 			}
-			((VDT *) data[j])[offset] = vec[j].real;
-			((VDT *) data[j])[offset+1] = vec[j].imag;
 		}
 	}
 }
@@ -1194,33 +1328,30 @@ void write_line_avx512 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT
 #elif defined (FMA)				// FMA and AVX FFTs use the same memory layout
 
 #define read_line_fma		read_line_avx
+#define read_line_slice_fma	read_line_slice_avx
 #define read_preprocess_line_fma read_preprocess_line_avx
 #define write_line_fma		write_line_avx
-#define pick_pass_sizes_fma	pick_pass_sizes_avx
-void read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics);
-void read_preprocess_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics);
-void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, gwnum *fma_data, int options);
-void pick_pass_sizes_avx (pmhandle *pmdata, unsigned int fftsize, unsigned int *p1size, unsigned int *p2size);
+#define write_line_slice_fma	write_line_slice_avx
+void read_line_avx (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics);
+void read_line_slice_avx (int helper_num, pmhandle *pmdata, void *rlsd);
+void read_preprocess_line_avx (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics);
+void write_line_avx (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, gwnum *fma_data, int options);
+void write_line_slice_avx (int helper_num, pmhandle *pmdata, void *wlsd);
 
 #elif defined (AVX)
 
-void read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
+void read_line_slice_avx (int helper_num, pmhandle *pmdata, void *rlsd)
 {
-	int	orig_index = index;			// Save for a possible recursive call to read_line
+	gwhandle *gwdata = pmdata->gwdata;
+	gwnum	*data = ((read_line_slice_data *) rlsd)->data;
+	int	size = ((read_line_slice_data *) rlsd)->size;
+	int	index = ((read_line_slice_data *) rlsd)->index;
+	int	options = ((read_line_slice_data *) rlsd)->options;
+	bool	post_process_monics = ((read_line_slice_data *) rlsd)->post_process_monics;
+	int	slice_size = ((read_line_slice_data *) rlsd)->slice_size;
+	unsigned long offset;
 
-	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
-	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
-		if (gwdata->k == 1.0) {
-			vec[0].real = broadcastsd (1.0);
-			vec[0].imag = broadcastsd (0.0);
-		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, orig_index, vec, 0, FALSE);
-		}
-		vec++;
-	}
-
-	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += (size-1);
+	// Assume we will find a slice to work on.  Calculate cache line offset only once.
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
@@ -1232,75 +1363,119 @@ void read_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *ve
 	// Check if we've read all the gwnum data
 	ASSERTG (index * 8 < (int) gwdata->FFTLEN);
 
-	// AVX implementation
-	if (index == -2) {			// Four of the seven FFTed zero pad header values
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
-			// Zero padded FFTs, return 4 of the FFTed values for the 7 real values stored in the header
-			vec[j].real = _mm256_set_pd (data[j][-18], data[j][-17], data[j][-16], data[j][-15]);
-			vec[j].imag = _mm256_set_pd (data[j][-24], data[j][-23], data[j][-22], data[j][-21]);
-		}
-	}
-	else if (index == -1) {			// First real-only value and optionally three of the seven FFTed zero-pad values
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
-			// Return the first real-only value
-			if (!gwdata->ZERO_PADDED_FFT) {
-				vec[j].real = _mm256_set_pd (0.0, 0.0, 0.0, data[j][0]);
-				vec[j].imag = broadcastsd (0.0);
+	// Get cache line offset
+	if (index >= 1 || (index == 0 && gwdata->ALL_COMPLEX_FFT)) offset = cache_line_offset (gwdata, index) / sizeof (VDT);
+
+	// Read one slice at a time
+	for ( ; ; ) {
+		// Get slice to work on
+		int atomic_val = atomic_fetch_incr (((read_line_slice_data *) rlsd)->blknum);
+		int slice_start = atomic_val * slice_size;
+		if (slice_start >= size) break;
+		int slice_end = slice_start + slice_size;
+		if (slice_end > size) slice_end = size;
+
+		// Reload vector pointer
+		CVDT *vec = ((read_line_slice_data *) rlsd)->vec;
+
+		// If not post-processing monics and the input is a monic RLP, then output a 1+0i
+		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
+			if (slice_start == 0) {
+				if (gwdata->k == 1.0) {
+					vec[0].real = broadcastsd (1.0);
+					vec[0].imag = broadcastsd (0.0);
+				} else {
+					read_line (pmdata, &gwdata->GW_FFT1, 1, ((read_line_slice_data *) rlsd)->index, vec, 0, FALSE);
+				}
 			}
-			// Zero padded FFTs also return 3 of the FFTed values for the 7 real values stored in the header
-			else {
-				vec[j].real = _mm256_set_pd (data[j][-14], data[j][-13], data[j][-12], data[j][0]);
-				vec[j].imag = _mm256_set_pd (data[j][-20], data[j][-19], 0.0, 0.0);
+			vec++;
+		}
+
+		// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
+		if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += (size-1);
+
+		// AVX implementation
+		if (index == -2) {			// Four of the seven FFTed zero pad header values
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+				// Zero padded FFTs, return 4 of the FFTed values for the 7 real values stored in the header
+				vec[j].real = _mm256_set_pd (data[j][-18], data[j][-17], data[j][-16], data[j][-15]);
+				vec[j].imag = _mm256_set_pd (data[j][-24], data[j][-23], data[j][-22], data[j][-21]);
 			}
 		}
-	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {	// Second real-only value and 3 complex values
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
-			vec[j].real = _mm256_set_pd (data[j][3], data[j][2], data[j][1], data[j][4]);
-			vec[j].imag = _mm256_set_pd (data[j][7], data[j][6], data[j][5], 0.0);
+		else if (index == -1) {			// First real-only value and optionally three of the seven FFTed zero-pad values
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+				// Return the first real-only value
+				if (!gwdata->ZERO_PADDED_FFT) {
+					vec[j].real = _mm256_set_pd (0.0, 0.0, 0.0, data[j][0]);
+					vec[j].imag = broadcastsd (0.0);
+				}
+				// Zero padded FFTs also return 3 of the FFTed values for the 7 real values stored in the header
+				else {
+					vec[j].real = _mm256_set_pd (data[j][-14], data[j][-13], data[j][-12], data[j][0]);
+					vec[j].imag = _mm256_set_pd (data[j][-20], data[j][-19], 0.0, 0.0);
+				}
+			}
 		}
-	}
-	else {				// Process complex values where imaginary part is in the high half of the cache line
-		unsigned long offset = cache_line_offset (gwdata, index) / sizeof (VDT);
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
-			ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
-			vec[j].real = ((VDT *) data[j])[offset];
-			vec[j].imag = ((VDT *) data[j])[offset+1];
+		else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {	// Second real-only value and 3 complex values
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+				vec[j].real = _mm256_set_pd (data[j][3], data[j][2], data[j][1], data[j][4]);
+				vec[j].imag = _mm256_set_pd (data[j][7], data[j][6], data[j][5], 0.0);
+			}
 		}
-	}
-
-	// Negate coefficients if requested
-	if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
-		VDT zero = broadcastsd (0.0);
-		for (int j = 0; j < size; j++) {
-			vec[j].real = subpd (zero, vec[j].real);
-			vec[j].imag = subpd (zero, vec[j].imag);
+		else {				// Process complex values where imaginary part is in the high half of the cache line
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+				ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
+				vec[j].real = ((VDT *) data[j])[offset];
+				vec[j].imag = ((VDT *) data[j])[offset+1];
+			}
 		}
-	}
 
-	// Duplicate RLP data in reverse order
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
-		for (int j = 1; j < size; j++) vec[-j] = vec[j];
-	}
+		// Negate coefficients if requested
+		if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
+			VDT zero = broadcastsd (0.0);
+			for (int j = slice_start; j < slice_end; j++) {
+				vec[j].real = subpd (zero, vec[j].real);
+				vec[j].imag = subpd (zero, vec[j].imag);
+			}
+		}
 
-	// If not post-processing monics and the input is monic, then output a 1+0i
-	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
-		if (gwdata->k == 1.0) {
-			vec[size].real = broadcastsd (1.0);
-			vec[size].imag = broadcastsd (0.0);
-		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, orig_index, &vec[size], 0, FALSE);
+		// Duplicate RLP data in reverse order
+		if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
+			for (int j = slice_start; j < slice_end; j++) vec[-j] = vec[j];
+		}
+
+		// If not post-processing monics and the input is monic, then output a 1+0i
+		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
+			if (slice_start == 0) {
+				if (gwdata->k == 1.0) {
+					vec[size].real = broadcastsd (1.0);
+					vec[size].imag = broadcastsd (0.0);
+				} else {
+					read_line (pmdata, &gwdata->GW_FFT1, 1, ((read_line_slice_data *) rlsd)->index, &vec[size], 0, FALSE);
+				}
+			}
 		}
 	}
 }
 
-void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, gwnum *fma_data, int options)
+void write_line_slice_avx (int helper_num, pmhandle *pmdata, void *wlsd)
 {
+	gwhandle *gwdata = pmdata->gwdata;
+	gwnum	*data = ((write_line_slice_data *) wlsd)->data;
+	int	size = ((write_line_slice_data *) wlsd)->size;
+	int	index = ((write_line_slice_data *) wlsd)->index;
+	CVDT	*vec = ((write_line_slice_data *) wlsd)->vec;
+	gwnum	*fma_data = ((write_line_slice_data *) wlsd)->fma_data;
+	int	options = ((write_line_slice_data *) wlsd)->options;
+	int	slice_size = ((write_line_slice_data *) wlsd)->slice_size;
+	unsigned long offset;
 	CVDT	fmaval, oneval;
+
+	// Assume we will find a slice to work on.  Calculate cache line offset only once.
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
@@ -1309,135 +1484,142 @@ void write_line_avx (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *v
 	// Zero padded FFTs return another cache line for processing the 7 real values stored in the header
 	if (gwdata->ZERO_PADDED_FFT) index--;
 
-	// AVX implementation
-	union {
-		VDT	a;
-		double	b[4];
-	} x;
-	if (index == -2) {			// Four of the seven zero pad value in the header
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
-				if (fma_data == NULL || fma_data[j] == NULL)
-					fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
-				else
-					fmaval.real = _mm256_set_pd (fma_data[j][-18], fma_data[j][-17], fma_data[j][-16], fma_data[j][-15]),
-					fmaval.imag = _mm256_set_pd (fma_data[j][-24], fma_data[j][-23], fma_data[j][-22], fma_data[j][-21]);
-				if (gwdata->k != 1.0) {
-					oneval.real = _mm256_set_pd (gwdata->GW_FFT1[-18], gwdata->GW_FFT1[-17], gwdata->GW_FFT1[-16], gwdata->GW_FFT1[-15]),
-					oneval.imag = _mm256_set_pd (gwdata->GW_FFT1[-24], gwdata->GW_FFT1[-23], gwdata->GW_FFT1[-22], gwdata->GW_FFT1[-21]);
-					cvmulsafe (fmaval, fmaval, oneval);
+	// Get cache line offset
+	if (index >= 1 || (index == 0 && gwdata->ALL_COMPLEX_FFT)) offset = cache_line_offset (gwdata, index) / sizeof (VDT);
+
+	// Write one slice at a time
+	for ( ; ; ) {
+		// Get slice to work on
+		int atomic_val = atomic_fetch_incr (((write_line_slice_data *) wlsd)->blknum);
+		int slice_start = atomic_val * slice_size;
+		if (slice_start >= size) break;
+		int slice_end = slice_start + slice_size;
+		if (slice_end > size) slice_end = size;
+
+		// AVX implementation
+		union {
+			VDT	a;
+			double	b[4];
+		} x;
+		if (index == -2) {			// Four of the seven zero pad value in the header
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) continue;
+				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
+					if (fma_data == NULL || fma_data[j] == NULL)
+						fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
+					else
+						fmaval.real = _mm256_set_pd (fma_data[j][-18], fma_data[j][-17], fma_data[j][-16], fma_data[j][-15]),
+						fmaval.imag = _mm256_set_pd (fma_data[j][-24], fma_data[j][-23], fma_data[j][-22], fma_data[j][-21]);
+					if (gwdata->k != 1.0) {
+						oneval.real = _mm256_set_pd (gwdata->GW_FFT1[-18], gwdata->GW_FFT1[-17], gwdata->GW_FFT1[-16], gwdata->GW_FFT1[-15]),
+						oneval.imag = _mm256_set_pd (gwdata->GW_FFT1[-24], gwdata->GW_FFT1[-23], gwdata->GW_FFT1[-22], gwdata->GW_FFT1[-21]);
+						cvmulsafe (fmaval, fmaval, oneval);
+					}
+					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
+					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
+					else cvsub (vec[j], fmaval, vec[j]);
 				}
-				if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
-				else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
-				else cvsub (vec[j], fmaval, vec[j]);
-			}
-			x.a = vec[j].real;
-			data[j][-18] = x.b[3];
-			data[j][-17] = x.b[2];
-			data[j][-16] = x.b[1];
-			data[j][-15] = x.b[0];
-			x.a = vec[j].imag;
-			data[j][-24] = x.b[3];
-			data[j][-23] = x.b[2];
-			data[j][-22] = x.b[1];
-			data[j][-21] = x.b[0];
-		}
-	}
-	else if (index == -1) {			// First real-only value and optionally three of the seven zero-pad values
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
-				if (fma_data == NULL || fma_data[j] == NULL)
-					fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
-				else
-					fmaval.real = _mm256_set_pd (fma_data[j][-14], fma_data[j][-13], fma_data[j][-12], fma_data[j][0]),
-					fmaval.imag = _mm256_set_pd (fma_data[j][-20], fma_data[j][-19], 0.0, 0.0);
-				if (gwdata->k != 1.0) {
-					oneval.real = _mm256_set_pd (gwdata->GW_FFT1[-14], gwdata->GW_FFT1[-13], gwdata->GW_FFT1[-12], gwdata->GW_FFT1[0]),
-					oneval.imag = _mm256_set_pd (gwdata->GW_FFT1[-20], gwdata->GW_FFT1[-19], 0.0, 0.0);
-					cvmulsafe (fmaval, fmaval, oneval);
-				}
-				if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
-				else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
-				else cvsub (vec[j], fmaval, vec[j]);
-			}
-			// Return the first real-only value
-			x.a = vec[j].real;
-			data[j][0] = x.b[0];
-			// Return 3 of the 7 real values stored in the header
-			if (gwdata->ZERO_PADDED_FFT) {
-				data[j][-14] = x.b[3];
-				data[j][-13] = x.b[2];
-				data[j][-12] = x.b[1];
+				x.a = vec[j].real;
+				data[j][-18] = x.b[3];
+				data[j][-17] = x.b[2];
+				data[j][-16] = x.b[1];
+				data[j][-15] = x.b[0];
 				x.a = vec[j].imag;
-				data[j][-20] = x.b[3];
-				data[j][-19] = x.b[2];
+				data[j][-24] = x.b[3];
+				data[j][-23] = x.b[2];
+				data[j][-22] = x.b[1];
+				data[j][-21] = x.b[0];
 			}
 		}
-	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
-				if (fma_data == NULL || fma_data[j] == NULL)
-					fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
-				else
-					fmaval.real = _mm256_set_pd (fma_data[j][3], fma_data[j][2], fma_data[j][1], fma_data[j][4]),
-					fmaval.imag = _mm256_set_pd (fma_data[j][7], fma_data[j][6], fma_data[j][5], 0.0);
-				if (gwdata->k != 1.0) {
-					oneval.real = _mm256_set_pd (gwdata->GW_FFT1[3], gwdata->GW_FFT1[2], gwdata->GW_FFT1[1], gwdata->GW_FFT1[4]),
-					oneval.imag = _mm256_set_pd (gwdata->GW_FFT1[7], gwdata->GW_FFT1[6], gwdata->GW_FFT1[5], 0.0);
-					cvmulsafe (fmaval, fmaval, oneval);
+		else if (index == -1) {			// First real-only value and optionally three of the seven zero-pad values
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) continue;
+				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
+					if (fma_data == NULL || fma_data[j] == NULL)
+						fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
+					else
+						fmaval.real = _mm256_set_pd (fma_data[j][-14], fma_data[j][-13], fma_data[j][-12], fma_data[j][0]),
+						fmaval.imag = _mm256_set_pd (fma_data[j][-20], fma_data[j][-19], 0.0, 0.0);
+					if (gwdata->k != 1.0) {
+						oneval.real = _mm256_set_pd (gwdata->GW_FFT1[-14], gwdata->GW_FFT1[-13], gwdata->GW_FFT1[-12], gwdata->GW_FFT1[0]),
+						oneval.imag = _mm256_set_pd (gwdata->GW_FFT1[-20], gwdata->GW_FFT1[-19], 0.0, 0.0);
+						cvmulsafe (fmaval, fmaval, oneval);
+					}
+					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
+					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
+					else cvsub (vec[j], fmaval, vec[j]);
 				}
-				if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
-				else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
-				else cvsub (vec[j], fmaval, vec[j]);
+				// Return the first real-only value
+				x.a = vec[j].real;
+				data[j][0] = x.b[0];
+				// Return 3 of the 7 real values stored in the header
+				if (gwdata->ZERO_PADDED_FFT) {
+					data[j][-14] = x.b[3];
+					data[j][-13] = x.b[2];
+					data[j][-12] = x.b[1];
+					x.a = vec[j].imag;
+					data[j][-20] = x.b[3];
+					data[j][-19] = x.b[2];
+				}
 			}
-			x.a = vec[j].real, data[j][3] = x.b[3], data[j][2] = x.b[2], data[j][1] = x.b[1], data[j][4] = x.b[0];
-			x.a = vec[j].imag, data[j][7] = x.b[3], data[j][6] = x.b[2], data[j][5] = x.b[1];
 		}
-	}
-	else {				// Process complex values where imaginary part is in the high half of the cache line
-		unsigned long offset = cache_line_offset (gwdata, index) / sizeof (VDT);
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
-				if (fma_data == NULL || fma_data[j] == NULL) fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
-				else fmaval.real = ((VDT *) fma_data[j])[offset], fmaval.imag = ((VDT *) fma_data[j])[offset+1];
-				if (gwdata->k != 1.0) {
-					oneval.real = ((VDT *) gwdata->GW_FFT1)[offset], oneval.imag = ((VDT *) gwdata->GW_FFT1)[offset+1];
-					cvmulsafe (fmaval, fmaval, oneval);
+		else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) continue;
+				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
+					if (fma_data == NULL || fma_data[j] == NULL)
+						fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
+					else
+						fmaval.real = _mm256_set_pd (fma_data[j][3], fma_data[j][2], fma_data[j][1], fma_data[j][4]),
+						fmaval.imag = _mm256_set_pd (fma_data[j][7], fma_data[j][6], fma_data[j][5], 0.0);
+					if (gwdata->k != 1.0) {
+						oneval.real = _mm256_set_pd (gwdata->GW_FFT1[3], gwdata->GW_FFT1[2], gwdata->GW_FFT1[1], gwdata->GW_FFT1[4]),
+						oneval.imag = _mm256_set_pd (gwdata->GW_FFT1[7], gwdata->GW_FFT1[6], gwdata->GW_FFT1[5], 0.0);
+						cvmulsafe (fmaval, fmaval, oneval);
+					}
+					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
+					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
+					else cvsub (vec[j], fmaval, vec[j]);
 				}
-				if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
-				else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
-				else cvsub (vec[j], fmaval, vec[j]);
+				x.a = vec[j].real, data[j][3] = x.b[3], data[j][2] = x.b[2], data[j][1] = x.b[1], data[j][4] = x.b[0];
+				x.a = vec[j].imag, data[j][7] = x.b[3], data[j][6] = x.b[2], data[j][5] = x.b[1];
 			}
-			((VDT *) data[j])[offset] = vec[j].real;
-			((VDT *) data[j])[offset+1] = vec[j].imag;
+		}
+		else {				// Process complex values where imaginary part is in the high half of the cache line
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) continue;
+				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
+					if (fma_data == NULL || fma_data[j] == NULL) fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
+					else fmaval.real = ((VDT *) fma_data[j])[offset], fmaval.imag = ((VDT *) fma_data[j])[offset+1];
+					if (gwdata->k != 1.0) {
+						oneval.real = ((VDT *) gwdata->GW_FFT1)[offset], oneval.imag = ((VDT *) gwdata->GW_FFT1)[offset+1];
+						cvmulsafe (fmaval, fmaval, oneval);
+					}
+					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
+					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
+					else cvsub (vec[j], fmaval, vec[j]);
+				}
+				((VDT *) data[j])[offset] = vec[j].real;
+				((VDT *) data[j])[offset+1] = vec[j].imag;
+			}
 		}
 	}
 }
 
 #elif defined (SSE2)
 
-void read_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
+void read_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rlsd)
 {
-	int	orig_index = index;			// Save for a possible recursive call to read_line
+	gwhandle *gwdata = pmdata->gwdata;
+	gwnum	*data = ((read_line_slice_data *) rlsd)->data;
+	int	size = ((read_line_slice_data *) rlsd)->size;
+	int	index = ((read_line_slice_data *) rlsd)->index;
+	int	options = ((read_line_slice_data *) rlsd)->options;
+	bool	post_process_monics = ((read_line_slice_data *) rlsd)->post_process_monics;
+	int	slice_size = ((read_line_slice_data *) rlsd)->slice_size;
+	unsigned long offset;
 
-	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
-	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
-		if (gwdata->k == 1.0) {
-			vec[0].real = broadcastsd (1.0);
-			vec[0].imag = broadcastsd (0.0);
-		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, orig_index, vec, 0, FALSE);
-		}
-		vec++;
-	}
-
-	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += (size-1);
+	// Assume we will find a slice to work on.  Calculate cache line offset only once.
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
@@ -1460,91 +1642,135 @@ void read_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *v
 	else if (gwdata->PASS2_SIZE != 0 && gwdata->FFT_TYPE == 0 && (index <= 1 || index == 4 || index == 5)) imag_dist = 8;	// hg ffts
 	else imag_dist = 16;
 
-	// SSE2 implementation
-	if (index <= -2) {			// Six of the seven zero pad header values
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
-			// Zero padded FFTs, return 1 of the FFTed values for the 7 real values stored in the header
-			vec[j].real = _mm_set_pd (data[j][index*2-10], data[j][index*2-9]);
-			vec[j].imag = _mm_set_pd (data[j][index*2-16], data[j][index*2-15]);
-		}
-	}
-	else if (index == -1) {			// First real-only valueand optionally one of the seven zero-pad values
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
-			// Return the first real-only value
-			if (!gwdata->ZERO_PADDED_FFT) {
-				vec[j].real = _mm_set_pd (0.0, data[j][0]);
-				vec[j].imag = broadcastsd (0.0);
-			}
-			// Zero padded FFTs also return 1 of the FFTed values for the 7 real values stored in the header
-			else {
-				vec[j].real = _mm_set_pd (data[j][-12], data[j][0]);
-				vec[j].imag = broadcastsd (0.0);
-			}
-		}
-	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {	// Second real-only value and one complex value
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
-			if (imag_dist == 8) {
-				vec[j].real = _mm_set_pd (data[j][2], data[j][1]);
-				vec[j].imag = _mm_set_pd (data[j][3], 0.0);
-			} else if (imag_dist == 16) {
-				vec[j].real = _mm_set_pd (data[j][1], data[j][2]);
-				vec[j].imag = _mm_set_pd (data[j][3], 0.0);
-			} else {
-				vec[j].real = _mm_set_pd (data[j][1], data[j][4]);
-				vec[j].imag = _mm_set_pd (data[j][5], 0.0);
-			}
-		}
-	}
-	else {				// Process complex values where imaginary part is 8, 16, or 32 bytes above the real part
-		unsigned long offset = cache_line_offset (gwdata, index / 2) / sizeof (VDT);
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
-			ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
-			if (imag_dist == 8) {
-				vec[j].real = _mm_set_pd (data[j][index*4+2], data[j][index*4]);
-				vec[j].imag = _mm_set_pd (data[j][index*4+3], data[j][index*4+1]);
-			} else if (imag_dist == 16) {
-				vec[j].real = ((VDT *) data[j])[offset+(index&1)*2];
-				vec[j].imag = ((VDT *) data[j])[offset+(index&1)*2+1];
-			} else {
-				vec[j].real = ((VDT *) data[j])[offset+(index&1)];
-				vec[j].imag = ((VDT *) data[j])[offset+(index&1)+2];
-			}
-		}
-	}
+	// Get cache line offset
+	if (index >= 1 || (index == 0 && gwdata->ALL_COMPLEX_FFT)) offset = cache_line_offset (gwdata, index / 2) / sizeof (VDT);
 
-	// Negate coefficients if requested
-	if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
-		VDT zero = broadcastsd (0.0);
-		for (int j = 0; j < size; j++) {
-			vec[j].real = subpd (zero, vec[j].real);
-			vec[j].imag = subpd (zero, vec[j].imag);
+	// Read one slice at a time
+	for ( ; ; ) {
+		// Get slice to work on
+		int atomic_val = atomic_fetch_incr (((read_line_slice_data *) rlsd)->blknum);
+		int slice_start = atomic_val * slice_size;
+		if (slice_start >= size) break;
+		int slice_end = slice_start + slice_size;
+		if (slice_end > size) slice_end = size;
+
+		// Reload vector pointer
+		CVDT *vec = ((read_line_slice_data *) rlsd)->vec;
+
+		// If not post-processing monics and the input is a monic RLP, then output a 1+0i
+		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
+			if (slice_start == 0) {
+				if (gwdata->k == 1.0) {
+					vec[0].real = broadcastsd (1.0);
+					vec[0].imag = broadcastsd (0.0);
+				} else {
+					read_line (pmdata, &gwdata->GW_FFT1, 1, ((read_line_slice_data *) rlsd)->index, vec, 0, FALSE);
+				}
+			}
+			vec++;
 		}
-	}
 
-	// Duplicate RLP data in reverse order
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
-		for (int j = 1; j < size; j++) vec[-j] = vec[j];
-	}
+		// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
+		if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += (size-1);
 
-	// If not post-processing monics and the input is monic, then output a 1+0i
-	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
-		if (gwdata->k == 1.0) {
-			vec[size].real = broadcastsd (1.0);
-			vec[size].imag = broadcastsd (0.0);
-		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, orig_index, &vec[size], 0, FALSE);
+		// SSE2 implementation
+		if (index <= -2) {			// Six of the seven zero pad header values
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+				// Zero padded FFTs, return 1 of the FFTed values for the 7 real values stored in the header
+				vec[j].real = _mm_set_pd (data[j][index*2-10], data[j][index*2-9]);
+				vec[j].imag = _mm_set_pd (data[j][index*2-16], data[j][index*2-15]);
+			}
+		}
+		else if (index == -1) {			// First real-only valueand optionally one of the seven zero-pad values
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+				// Return the first real-only value
+				if (!gwdata->ZERO_PADDED_FFT) {
+					vec[j].real = _mm_set_pd (0.0, data[j][0]);
+					vec[j].imag = broadcastsd (0.0);
+				}
+				// Zero padded FFTs also return 1 of the FFTed values for the 7 real values stored in the header
+				else {
+					vec[j].real = _mm_set_pd (data[j][-12], data[j][0]);
+					vec[j].imag = broadcastsd (0.0);
+				}
+			}
+		}
+		else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {	// Second real-only value and one complex value
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+				if (imag_dist == 8) {
+					vec[j].real = _mm_set_pd (data[j][2], data[j][1]);
+					vec[j].imag = _mm_set_pd (data[j][3], 0.0);
+				} else if (imag_dist == 16) {
+					vec[j].real = _mm_set_pd (data[j][1], data[j][2]);
+					vec[j].imag = _mm_set_pd (data[j][3], 0.0);
+				} else {
+					vec[j].real = _mm_set_pd (data[j][1], data[j][4]);
+					vec[j].imag = _mm_set_pd (data[j][5], 0.0);
+				}
+			}
+		}
+		else {				// Process complex values where imaginary part is 8, 16, or 32 bytes above the real part
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+				ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
+				if (imag_dist == 8) {
+					vec[j].real = _mm_set_pd (data[j][index*4+2], data[j][index*4]);
+					vec[j].imag = _mm_set_pd (data[j][index*4+3], data[j][index*4+1]);
+				} else if (imag_dist == 16) {
+					vec[j].real = ((VDT *) data[j])[offset+(index&1)*2];
+					vec[j].imag = ((VDT *) data[j])[offset+(index&1)*2+1];
+				} else {
+					vec[j].real = ((VDT *) data[j])[offset+(index&1)];
+					vec[j].imag = ((VDT *) data[j])[offset+(index&1)+2];
+				}
+			}
+		}
+
+		// Negate coefficients if requested
+		if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
+			VDT zero = broadcastsd (0.0);
+			for (int j = slice_start; j < slice_end; j++) {
+				vec[j].real = subpd (zero, vec[j].real);
+				vec[j].imag = subpd (zero, vec[j].imag);
+			}
+		}
+
+		// Duplicate RLP data in reverse order
+		if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
+			for (int j = slice_start; j < slice_end; j++) vec[-j] = vec[j];
+		}
+
+		// If not post-processing monics and the input is monic, then output a 1+0i
+		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
+			if (slice_start == 0) {
+				if (gwdata->k == 1.0) {
+					vec[size].real = broadcastsd (1.0);
+					vec[size].imag = broadcastsd (0.0);
+				} else {
+					read_line (pmdata, &gwdata->GW_FFT1, 1, ((read_line_slice_data *) rlsd)->index, &vec[size], 0, FALSE);
+				}
+			}
 		}
 	}
 }
 
-void write_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, gwnum *fma_data, int options)
+void write_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *wlsd)
 {
+	gwhandle *gwdata = pmdata->gwdata;
+	gwnum	*data = ((write_line_slice_data *) wlsd)->data;
+	int	size = ((write_line_slice_data *) wlsd)->size;
+	int	index = ((write_line_slice_data *) wlsd)->index;
+	CVDT	*vec = ((write_line_slice_data *) wlsd)->vec;
+	gwnum	*fma_data = ((write_line_slice_data *) wlsd)->fma_data;
+	int	options = ((write_line_slice_data *) wlsd)->options;
+	int	slice_size = ((write_line_slice_data *) wlsd)->slice_size;
+	unsigned long offset;
 	CVDT	fmaval, oneval;
+
+	// Assume we will find a slice to work on.  Calculate cache line offset only once.
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
@@ -1564,136 +1790,151 @@ void write_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *
 	else if (gwdata->PASS2_SIZE != 0 && gwdata->FFT_TYPE == 0 && (index <= 1 || index == 4 || index == 5)) imag_dist = 8;	// hg ffts
 	else imag_dist = 16;
 
-	// SSE2 instructions implementation
-	union {
-		VDT	a;
-		double	b[2];
-	} x;
-	if (index <= -2) {		// Six of the seven real values in the header
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
-				if (fma_data == NULL || fma_data[j] == NULL)
-					fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
-				else
-					fmaval.real = _mm_set_pd (fma_data[j][index*2-10], fma_data[j][index*2-9]),
-					fmaval.imag = _mm_set_pd (fma_data[j][index*2-16], fma_data[j][index*2-15]);
-				if (gwdata->k != 1.0) {
-					oneval.real = _mm_set_pd (gwdata->GW_FFT1[index*2-10], gwdata->GW_FFT1[index*2-9]),
-					oneval.imag = _mm_set_pd (gwdata->GW_FFT1[index*2-16], gwdata->GW_FFT1[index*2-15]);
-					cvmulsafe (fmaval, fmaval, oneval);
-				}
-				if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
-				else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
-				else cvsub (vec[j], fmaval, vec[j]);
-			}
-			x.a = vec[j].real;
-			data[j][index*2-10] = x.b[1];
-			data[j][index*2-9] = x.b[0];
-			x.a = vec[j].imag;
-			data[j][index*2-16] = x.b[1];
-			data[j][index*2-15] = x.b[0];
-		}
-	}
-	else if (index == -1) {		// First real-only value and optionally one of the seven zero-pad values
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
-				if (fma_data == NULL || fma_data[j] == NULL) fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
-				else fmaval.real = _mm_set_pd (fma_data[j][-12], fma_data[j][0]);
-				if (gwdata->k != 1.0) {
-					oneval.real = _mm_set_pd (gwdata->GW_FFT1[-12], gwdata->GW_FFT1[0]);
-					fmaval.real = mulpd (fmaval.real, oneval.real);
-				}
-				if (options & POLYMULT_FMADD) vec[j].real = addpd (vec[j].real, fmaval.real);
-				else if (options & POLYMULT_FMSUB) vec[j].real = subpd (vec[j].real, fmaval.real);
-				else vec[j].real = subpd (fmaval.real, vec[j].real);
-			}
-			// Return the first real-only value
-			x.a = vec[j].real;
-			data[j][0] = x.b[0];
-			// Return 1 of the 7 real values stored in the header
-			if (gwdata->ZERO_PADDED_FFT) data[j][-12] = x.b[1];
-		}
-	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {		// Second real-only value
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
-				if (fma_data == NULL || fma_data[j] == NULL)
-					fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
-				else if (imag_dist == 8)
-					fmaval.real = _mm_set_pd (fma_data[j][2], fma_data[j][1]), fmaval.imag = _mm_set_pd (fma_data[j][3], 0.0);
-				else if (imag_dist == 16)
-					fmaval.real = _mm_set_pd (fma_data[j][1], fma_data[j][2]), fmaval.imag = _mm_set_pd (fma_data[j][3], 0.0);
-				else
-					fmaval.real = _mm_set_pd (fma_data[j][1], fma_data[j][4]), fmaval.imag = _mm_set_pd (fma_data[j][5], 0.0);
-				if (gwdata->k != 1.0) {
-					if (imag_dist == 8)
-						oneval.real = _mm_set_pd (gwdata->GW_FFT1[2], gwdata->GW_FFT1[1]), oneval.imag = _mm_set_pd (gwdata->GW_FFT1[3], 0.0);
-					else if (imag_dist == 16)
-						oneval.real = _mm_set_pd (gwdata->GW_FFT1[1], gwdata->GW_FFT1[2]), oneval.imag = _mm_set_pd (gwdata->GW_FFT1[3], 0.0);
+	// Get cache line offset
+	if (index >= 1 || (index == 0 && gwdata->ALL_COMPLEX_FFT)) offset = cache_line_offset (gwdata, index / 2) / sizeof (VDT);
+
+	// Write one slice at a time
+	for ( ; ; ) {
+		// Get slice to work on
+		int atomic_val = atomic_fetch_incr (((write_line_slice_data *) wlsd)->blknum);
+		int slice_start = atomic_val * slice_size;
+		if (slice_start >= size) break;
+		int slice_end = slice_start + slice_size;
+		if (slice_end > size) slice_end = size;
+
+		// SSE2 instructions implementation
+		union {
+			VDT	a;
+			double	b[2];
+		} x;
+		if (index <= -2) {		// Six of the seven real values in the header
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) continue;
+				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
+					if (fma_data == NULL || fma_data[j] == NULL)
+						fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
 					else
-						oneval.real = _mm_set_pd (gwdata->GW_FFT1[1], gwdata->GW_FFT1[4]), oneval.imag = _mm_set_pd (gwdata->GW_FFT1[5], 0.0);
-					cvmulsafe (fmaval, fmaval, oneval);
+						fmaval.real = _mm_set_pd (fma_data[j][index*2-10], fma_data[j][index*2-9]),
+						fmaval.imag = _mm_set_pd (fma_data[j][index*2-16], fma_data[j][index*2-15]);
+					if (gwdata->k != 1.0) {
+						oneval.real = _mm_set_pd (gwdata->GW_FFT1[index*2-10], gwdata->GW_FFT1[index*2-9]),
+						oneval.imag = _mm_set_pd (gwdata->GW_FFT1[index*2-16], gwdata->GW_FFT1[index*2-15]);
+						cvmulsafe (fmaval, fmaval, oneval);
+					}
+					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
+					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
+					else cvsub (vec[j], fmaval, vec[j]);
 				}
-				if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
-				else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
-				else cvsub (vec[j], fmaval, vec[j]);
-			}
-			if (imag_dist == 8) {
-				x.a = vec[j].real, data[j][2] = x.b[1], data[j][1] = x.b[0];
-				x.a = vec[j].imag, data[j][3] = x.b[1];
-			} else if (imag_dist == 16) {
-				x.a = vec[j].real, data[j][1] = x.b[1], data[j][2] = x.b[0];
-				x.a = vec[j].imag, data[j][3] = x.b[1];
-			} else {
-				x.a = vec[j].real, data[j][1] = x.b[1], data[j][4] = x.b[0];
-				x.a = vec[j].imag, data[j][5] = x.b[1];
+				x.a = vec[j].real;
+				data[j][index*2-10] = x.b[1];
+				data[j][index*2-9] = x.b[0];
+				x.a = vec[j].imag;
+				data[j][index*2-16] = x.b[1];
+				data[j][index*2-15] = x.b[0];
 			}
 		}
-	}
-	else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
-		unsigned long offset = cache_line_offset (gwdata, index / 2) / sizeof (VDT);
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
-				if (fma_data == NULL || fma_data[j] == NULL)
-					fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
-				else if (imag_dist == 8)
-					fmaval.real = _mm_set_pd (fma_data[j][index*4+2], fma_data[j][index*4]),
-					fmaval.imag = _mm_set_pd (fma_data[j][index*4+3], fma_data[j][index*4+1]);
-				else if (imag_dist == 16)
-					fmaval.real = ((VDT *) fma_data[j])[offset+(index&1)*2],
-					fmaval.imag = ((VDT *) fma_data[j])[offset+(index&1)*2+1];
-				else 
-					fmaval.real = ((VDT *) fma_data[j])[offset+(index&1)],
-					fmaval.imag = ((VDT *) fma_data[j])[offset+(index&1)+2];
-				if (gwdata->k != 1.0) {
-					if (imag_dist == 8)
-						oneval.real = _mm_set_pd (gwdata->GW_FFT1[index*4+2], gwdata->GW_FFT1[index*4]),
-						oneval.imag = _mm_set_pd (gwdata->GW_FFT1[index*4+3], gwdata->GW_FFT1[index*4+1]);
-					else if (imag_dist == 16)
-						oneval.real = ((VDT *) gwdata->GW_FFT1)[offset+(index&1)*2],
-						oneval.imag = ((VDT *) gwdata->GW_FFT1)[offset+(index&1)*2+1];
-					else 
-						oneval.real = ((VDT *) gwdata->GW_FFT1)[offset+(index&1)],
-						oneval.imag = ((VDT *) gwdata->GW_FFT1)[offset+(index&1)+2];
-					cvmulsafe (fmaval, fmaval, oneval);
+		else if (index == -1) {		// First real-only value and optionally one of the seven zero-pad values
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) continue;
+				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
+					if (fma_data == NULL || fma_data[j] == NULL) fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
+					else fmaval.real = _mm_set_pd (fma_data[j][-12], fma_data[j][0]);
+					if (gwdata->k != 1.0) {
+						oneval.real = _mm_set_pd (gwdata->GW_FFT1[-12], gwdata->GW_FFT1[0]);
+						fmaval.real = mulpd (fmaval.real, oneval.real);
+					}
+					if (options & POLYMULT_FMADD) vec[j].real = addpd (vec[j].real, fmaval.real);
+					else if (options & POLYMULT_FMSUB) vec[j].real = subpd (vec[j].real, fmaval.real);
+					else vec[j].real = subpd (fmaval.real, vec[j].real);
 				}
-				if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
-				else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
-				else cvsub (vec[j], fmaval, vec[j]);
+				// Return the first real-only value
+				x.a = vec[j].real;
+				data[j][0] = x.b[0];
+				// Return 1 of the 7 real values stored in the header
+				if (gwdata->ZERO_PADDED_FFT) data[j][-12] = x.b[1];
 			}
-			if (imag_dist == 8) {
-				x.a = vec[j].real, data[j][index*4+2] = x.b[1], data[j][index*4] = x.b[0];
-				x.a = vec[j].imag, data[j][index*4+3] = x.b[1], data[j][index*4+1] = x.b[0];
-			} else if (imag_dist == 16) {
-				((VDT *) data[j])[offset+(index&1)*2] = vec[j].real;
-				((VDT *) data[j])[offset+(index&1)*2+1] = vec[j].imag;
-			} else {
-				((VDT *) data[j])[offset+(index&1)] = vec[j].real;
-				((VDT *) data[j])[offset+(index&1)+2] = vec[j].imag;
+		}
+		else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {		// Second real-only value
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) continue;
+				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
+					if (fma_data == NULL || fma_data[j] == NULL)
+						fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
+					else if (imag_dist == 8)
+						fmaval.real = _mm_set_pd (fma_data[j][2], fma_data[j][1]), fmaval.imag = _mm_set_pd (fma_data[j][3], 0.0);
+					else if (imag_dist == 16)
+						fmaval.real = _mm_set_pd (fma_data[j][1], fma_data[j][2]), fmaval.imag = _mm_set_pd (fma_data[j][3], 0.0);
+					else
+						fmaval.real = _mm_set_pd (fma_data[j][1], fma_data[j][4]), fmaval.imag = _mm_set_pd (fma_data[j][5], 0.0);
+					if (gwdata->k != 1.0) {
+						if (imag_dist == 8)
+							oneval.real = _mm_set_pd (gwdata->GW_FFT1[2], gwdata->GW_FFT1[1]),
+							oneval.imag = _mm_set_pd (gwdata->GW_FFT1[3], 0.0);
+						else if (imag_dist == 16)
+							oneval.real = _mm_set_pd (gwdata->GW_FFT1[1], gwdata->GW_FFT1[2]),
+							oneval.imag = _mm_set_pd (gwdata->GW_FFT1[3], 0.0);
+						else
+							oneval.real = _mm_set_pd (gwdata->GW_FFT1[1], gwdata->GW_FFT1[4]),
+							oneval.imag = _mm_set_pd (gwdata->GW_FFT1[5], 0.0);
+						cvmulsafe (fmaval, fmaval, oneval);
+					}
+					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
+					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
+					else cvsub (vec[j], fmaval, vec[j]);
+				}
+				if (imag_dist == 8) {
+					x.a = vec[j].real, data[j][2] = x.b[1], data[j][1] = x.b[0];
+					x.a = vec[j].imag, data[j][3] = x.b[1];
+				} else if (imag_dist == 16) {
+					x.a = vec[j].real, data[j][1] = x.b[1], data[j][2] = x.b[0];
+					x.a = vec[j].imag, data[j][3] = x.b[1];
+				} else {
+					x.a = vec[j].real, data[j][1] = x.b[1], data[j][4] = x.b[0];
+					x.a = vec[j].imag, data[j][5] = x.b[1];
+				}
+			}
+		}
+		else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) continue;
+				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
+					if (fma_data == NULL || fma_data[j] == NULL)
+						fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
+					else if (imag_dist == 8)
+						fmaval.real = _mm_set_pd (fma_data[j][index*4+2], fma_data[j][index*4]),
+						fmaval.imag = _mm_set_pd (fma_data[j][index*4+3], fma_data[j][index*4+1]);
+					else if (imag_dist == 16)
+						fmaval.real = ((VDT *) fma_data[j])[offset+(index&1)*2],
+						fmaval.imag = ((VDT *) fma_data[j])[offset+(index&1)*2+1];
+					else 
+						fmaval.real = ((VDT *) fma_data[j])[offset+(index&1)],
+						fmaval.imag = ((VDT *) fma_data[j])[offset+(index&1)+2];
+					if (gwdata->k != 1.0) {
+						if (imag_dist == 8)
+							oneval.real = _mm_set_pd (gwdata->GW_FFT1[index*4+2], gwdata->GW_FFT1[index*4]),
+							oneval.imag = _mm_set_pd (gwdata->GW_FFT1[index*4+3], gwdata->GW_FFT1[index*4+1]);
+						else if (imag_dist == 16)
+							oneval.real = ((VDT *) gwdata->GW_FFT1)[offset+(index&1)*2],
+							oneval.imag = ((VDT *) gwdata->GW_FFT1)[offset+(index&1)*2+1];
+						else 
+							oneval.real = ((VDT *) gwdata->GW_FFT1)[offset+(index&1)],
+							oneval.imag = ((VDT *) gwdata->GW_FFT1)[offset+(index&1)+2];
+						cvmulsafe (fmaval, fmaval, oneval);
+					}
+					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
+					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
+					else cvsub (vec[j], fmaval, vec[j]);
+				}
+				if (imag_dist == 8) {
+					x.a = vec[j].real, data[j][index*4+2] = x.b[1], data[j][index*4] = x.b[0];
+					x.a = vec[j].imag, data[j][index*4+3] = x.b[1], data[j][index*4+1] = x.b[0];
+				} else if (imag_dist == 16) {
+					((VDT *) data[j])[offset+(index&1)*2] = vec[j].real;
+					((VDT *) data[j])[offset+(index&1)*2+1] = vec[j].imag;
+				} else {
+					((VDT *) data[j])[offset+(index&1)] = vec[j].real;
+					((VDT *) data[j])[offset+(index&1)+2] = vec[j].imag;
+				}
 			}
 		}
 	}
@@ -1701,23 +1942,18 @@ void write_line_sse2 (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *
 
 #elif !defined (X86_64)				// x87 FFTs only supported in 32-bit mode
 
-void read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
+void read_line_slice_dbl (int helper_num, pmhandle *pmdata, void *rlsd)
 {
-	int	orig_index = index;			// Save for a possible recursive call to read_line
+	gwhandle *gwdata = pmdata->gwdata;
+	gwnum	*data = ((read_line_slice_data *) rlsd)->data;
+	int	size = ((read_line_slice_data *) rlsd)->size;
+	int	index = ((read_line_slice_data *) rlsd)->index;
+	int	options = ((read_line_slice_data *) rlsd)->options;
+	bool	post_process_monics = ((read_line_slice_data *) rlsd)->post_process_monics;
+	int	slice_size = ((read_line_slice_data *) rlsd)->slice_size;
+	unsigned long offset;
 
-	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
-	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
-		if (gwdata->k == 1.0) {
-			vec[0].real = broadcastsd (1.0);
-			vec[0].imag = broadcastsd (0.0);
-		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, orig_index, vec, 0, FALSE);
-		}
-		vec++;
-	}
-
-	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += (size-1);
+	// Assume we will find a slice to work on.  Calculate cache line offset only once.
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
@@ -1729,73 +1965,117 @@ void read_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *ve
 	// Check if we've read all the gwnum data
 	ASSERTG (index * 2 < (int) gwdata->FFTLEN);
 
-	// No special instructions implementation
-	if (index <= -2) {			// Seven zero pad header values
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
-			// Zero padded FFTs return 1 of the FFTed values for the 7 real values stored in the header
-			vec[j].real = data[j][index-10];
-			vec[j].imag = data[j][index-17];
+	// Get cache line offset
+	if (index >= 1 || (index == 0 && gwdata->ALL_COMPLEX_FFT)) offset = cache_line_offset (gwdata, index / 4) / sizeof (VDT);
+
+	// Read one slice at a time
+	for ( ; ; ) {
+		// Get slice to work on
+		int atomic_val = atomic_fetch_incr (((read_line_slice_data *) rlsd)->blknum);
+		int slice_start = atomic_val * slice_size;
+		if (slice_start >= size) break;
+		int slice_end = slice_start + slice_size;
+		if (slice_end > size) slice_end = size;
+
+		// Reload vector pointer
+		CVDT *vec = ((read_line_slice_data *) rlsd)->vec;
+
+		// If not post-processing monics and the input is a monic RLP, then output a 1+0i
+		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
+			if (slice_start == 0) {
+				if (gwdata->k == 1.0) {
+					vec[0].real = broadcastsd (1.0);
+					vec[0].imag = broadcastsd (0.0);
+				} else {
+					read_line (pmdata, &gwdata->GW_FFT1, 1, ((read_line_slice_data *) rlsd)->index, vec, 0, FALSE);
+				}
+			}
+			vec++;
 		}
-	}
-	else if (index == -1) {			// First real-only value
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
-			vec[j].real = data[j][0];
-			vec[j].imag = 0.0;
-		}
-	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
-			if (gwdata->PASS2_SIZE == 0) vec[j].real = data[j][1];
-			else vec[j].real = data[j][2];
-			vec[j].imag = 0.0;
-		}
-	}
-	else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
-		unsigned long offset = cache_line_offset (gwdata, index / 4) / sizeof (VDT);
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
-			ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
-// bug???  Index assuming what?  skip every other set of 4?  Examine ancient FFT sources!
-			if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT) {
-				vec[j].real = data[j][offset+(index&3)*2];
-				vec[j].imag = data[j][offset+(index&3)*2+1];
-			} else {
-				vec[j].real = data[j][offset+(index&2)*2+(index&1)];
-				vec[j].imag = data[j][offset+(index&2)*2+(index&1)+2];
+
+		// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
+		if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += (size-1);
+
+		// No special instructions implementation
+		if (index <= -2) {			// Seven zero pad header values
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+				// Zero padded FFTs return 1 of the FFTed values for the 7 real values stored in the header
+				vec[j].real = data[j][index-10];
+				vec[j].imag = data[j][index-17];
 			}
 		}
-	}
-
-	// Negate coefficients if requested
-	if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
-		for (int j = 0; j < size; j++) {
-			vec[j].real = -vec[j].real;
-			vec[j].imag = -vec[j].imag;
+		else if (index == -1) {			// First real-only value
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+				vec[j].real = data[j][0];
+				vec[j].imag = 0.0;
+			}
 		}
-	}
+		else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+				if (gwdata->PASS2_SIZE == 0) vec[j].real = data[j][1];
+				else vec[j].real = data[j][2];
+				vec[j].imag = 0.0;
+			}
+		}
+		else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
+				ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
+// bug???  Index assuming what?  skip every other set of 4?  Examine ancient FFT sources!
+				if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT) {
+					vec[j].real = data[j][offset+(index&3)*2];
+					vec[j].imag = data[j][offset+(index&3)*2+1];
+				} else {
+					vec[j].real = data[j][offset+(index&2)*2+(index&1)];
+					vec[j].imag = data[j][offset+(index&2)*2+(index&1)+2];
+				}
+			}
+		}
 
-	// Duplicate RLP data in reverse order
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
-		for (int j = 1; j < size; j++) vec[-j] = vec[j];
-	}
+		// Negate coefficients if requested
+		if (options & (POLYMULT_INVEC1_NEGATE | POLYMULT_INVEC2_NEGATE)) {
+			for (int j = slice_start; j < slice_end; j++) {
+				vec[j].real = -vec[j].real;
+				vec[j].imag = -vec[j].imag;
+			}
+		}
 
-	// If not post-processing monics and the input is monic, then output a 1+0i
-	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
-		if (gwdata->k == 1.0) {
-			vec[size].real = broadcastsd (1.0);
-			vec[size].imag = broadcastsd (0.0);
-		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, orig_index, &vec[size], 0, FALSE);
+		// Duplicate RLP data in reverse order
+		if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
+			for (int j = slice_start; j < slice_end; j++) vec[-j] = vec[j];
+		}
+
+		// If not post-processing monics and the input is monic, then output a 1+0i
+		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
+			if (slice_start == 0) {
+				if (gwdata->k == 1.0) {
+					vec[size].real = broadcastsd (1.0);
+					vec[size].imag = broadcastsd (0.0);
+				} else {
+					read_line (pmdata, &gwdata->GW_FFT1, 1, ((read_line_slice_data *) rlsd)->index, &vec[size], 0, FALSE);
+				}
+			}
 		}
 	}
 }
 
-void write_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, gwnum *fma_data, int options)
+void write_line_slice_dbl (int helper_num, pmhandle *pmdata, void *wlsd)
 {
+	gwhandle *gwdata = pmdata->gwdata;
+	gwnum	*data = ((write_line_slice_data *) wlsd)->data;
+	int	size = ((write_line_slice_data *) wlsd)->size;
+	int	index = ((write_line_slice_data *) wlsd)->index;
+	CVDT	*vec = ((write_line_slice_data *) wlsd)->vec;
+	gwnum	*fma_data = ((write_line_slice_data *) wlsd)->fma_data;
+	int	options = ((write_line_slice_data *) wlsd)->options;
+	int	slice_size = ((write_line_slice_data *) wlsd)->slice_size;
+	unsigned long offset;
 	CVDT	fmaval, oneval;
+
+	// Assume we will find a slice to work on.  Calculate cache line offset only once.
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
@@ -1804,88 +2084,100 @@ void write_line_dbl (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *v
 	// Zero padded FFTs must also return for processing the 7 real values stored in the header
 	if (gwdata->ZERO_PADDED_FFT) index -= 7;
 
-	// No special instructions implementation
-	if (index <= -2) {			// Seven zero pad header values
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
-				if (fma_data == NULL || fma_data[j] == NULL) fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
-				else fmaval.real = fma_data[j][index-10], fmaval.imag = fma_data[j][index-17];
-				if (gwdata->k != 1.0) {
-					oneval.real = gwdata->GW_FFT1[index-10], oneval.imag = gwdata->GW_FFT1[index-17];
-					cvmulsafe (fmaval, fmaval, oneval);
+	// Get cache line offset
+	if (index >= 1 || (index == 0 && gwdata->ALL_COMPLEX_FFT)) offset = cache_line_offset (gwdata, index / 4) / sizeof (VDT);
+
+	// Write one slice at a time
+	for ( ; ; ) {
+		// Get slice to work on
+		int atomic_val = atomic_fetch_incr (((write_line_slice_data *) wlsd)->blknum);
+		int slice_start = atomic_val * slice_size;
+		if (slice_start >= size) break;
+		int slice_end = slice_start + slice_size;
+		if (slice_end > size) slice_end = size;
+
+		// No special instructions implementation
+		if (index <= -2) {			// Seven zero pad header values
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) continue;
+				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
+					if (fma_data == NULL || fma_data[j] == NULL) fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
+					else fmaval.real = fma_data[j][index-10], fmaval.imag = fma_data[j][index-17];
+					if (gwdata->k != 1.0) {
+						oneval.real = gwdata->GW_FFT1[index-10], oneval.imag = gwdata->GW_FFT1[index-17];
+						cvmulsafe (fmaval, fmaval, oneval);
+					}
+					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
+					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
+					else cvsub (vec[j], fmaval, vec[j]);
 				}
-				if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
-				else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
-				else cvsub (vec[j], fmaval, vec[j]);
+				data[j][index-10] = vec[j].real;
+				data[j][index-17] = vec[j].imag;
 			}
-			data[j][index-10] = vec[j].real;
-			data[j][index-17] = vec[j].imag;
 		}
-	}
-	else if (index == -1) {			// First real-only value
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
-				if (fma_data == NULL || fma_data[j] == NULL) fmaval.real = broadcastsd (0.0);
-				else fmaval.real = fma_data[j][0];
-				if (gwdata->k != 1.0) {
-					oneval.real = gwdata->GW_FFT1[0];
-					fmaval.real = mulpd (fmaval.real, oneval.real);
+		else if (index == -1) {			// First real-only value
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) continue;
+				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
+					if (fma_data == NULL || fma_data[j] == NULL) fmaval.real = broadcastsd (0.0);
+					else fmaval.real = fma_data[j][0];
+					if (gwdata->k != 1.0) {
+						oneval.real = gwdata->GW_FFT1[0];
+						fmaval.real = mulpd (fmaval.real, oneval.real);
+					}
+					if (options & POLYMULT_FMADD) vec[j].real = vec[j].real + fmaval.real;
+					else if (options & POLYMULT_FMSUB) vec[j].real = vec[j].real - fmaval.real;
+					else vec[j].real = fmaval.real - vec[j].real;
 				}
-				if (options & POLYMULT_FMADD) vec[j].real = vec[j].real + fmaval.real;
-				else if (options & POLYMULT_FMSUB) vec[j].real = vec[j].real - fmaval.real;
-				else vec[j].real = fmaval.real - vec[j].real;
+				data[j][0] = vec[j].real;
 			}
-			data[j][0] = vec[j].real;
 		}
-	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {		// Second real-only value
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
-				if (fma_data == NULL || fma_data[j] == NULL) fmaval.real = broadcastsd (0.0);
-				else if (gwdata->PASS2_SIZE == 0) fmaval.real = fma_data[j][1];
-				else fmaval.real = fma_data[j][2];
-				if (gwdata->k != 1.0) {
-					oneval.real = gwdata->GW_FFT1[2];
-					fmaval.real = mulpd (fmaval.real, oneval.real);
+		else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {		// Second real-only value
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) continue;
+				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
+					if (fma_data == NULL || fma_data[j] == NULL) fmaval.real = broadcastsd (0.0);
+					else if (gwdata->PASS2_SIZE == 0) fmaval.real = fma_data[j][1];
+					else fmaval.real = fma_data[j][2];
+					if (gwdata->k != 1.0) {
+						oneval.real = gwdata->GW_FFT1[2];
+						fmaval.real = mulpd (fmaval.real, oneval.real);
+					}
+					if (options & POLYMULT_FMADD) vec[j].real = vec[j].real + fmaval.real;
+					else if (options & POLYMULT_FMSUB) vec[j].real = vec[j].real - fmaval.real;
+					else vec[j].real = fmaval.real - vec[j].real;
 				}
-				if (options & POLYMULT_FMADD) vec[j].real = vec[j].real + fmaval.real;
-				else if (options & POLYMULT_FMSUB) vec[j].real = vec[j].real - fmaval.real;
-				else vec[j].real = fmaval.real - vec[j].real;
+				if (gwdata->PASS2_SIZE == 0) data[j][1] = vec[j].real;
+				else data[j][2] = vec[j].real;
 			}
-			if (gwdata->PASS2_SIZE == 0) data[j][1] = vec[j].real;
-			else data[j][2] = vec[j].real;
 		}
-	}
-	else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
-		unsigned long offset = cache_line_offset (gwdata, index / 4) / sizeof (VDT);
-		for (int j = 0; j < size; j++) {
-			if (data[j] == NULL) continue;
-			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
-				if (fma_data == NULL || fma_data[j] == NULL) fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
-				else if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT)
-					fmaval.real = fma_data[j][offset+(index&3)*2], fmaval.imag = fma_data[j][offset+(index&3)*2+1];
-				else
-					fmaval.real = fma_data[j][offset+(index&2)*2+(index&1)], fmaval.imag = fma_data[j][offset+(index&2)*2+(index&1)+2];
-				if (gwdata->k != 1.0) {
-					if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT)
-						oneval.real = gwdata->GW_FFT1[offset+(index&3)*2], oneval.imag = gwdata->GW_FFT1[offset+(index&3)*2+1];
+		else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
+			for (int j = slice_start; j < slice_end; j++) {
+				if (data[j] == NULL) continue;
+				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
+					if (fma_data == NULL || fma_data[j] == NULL) fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
+					else if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT)
+						fmaval.real = fma_data[j][offset+(index&3)*2], fmaval.imag = fma_data[j][offset+(index&3)*2+1];
 					else
-						oneval.real = gwdata->GW_FFT1[offset+(index&2)*2+(index&1)], oneval.imag = gwdata->GW_FFT1[offset+(index&2)*2+(index&1)+2];
-					cvmulsafe (fmaval, fmaval, oneval);
+						fmaval.real = fma_data[j][offset+(index&2)*2+(index&1)], fmaval.imag = fma_data[j][offset+(index&2)*2+(index&1)+2];
+					if (gwdata->k != 1.0) {
+						if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT)
+							oneval.real = gwdata->GW_FFT1[offset+(index&3)*2], oneval.imag = gwdata->GW_FFT1[offset+(index&3)*2+1];
+						else
+							oneval.real = gwdata->GW_FFT1[offset+(index&2)*2+(index&1)], oneval.imag = gwdata->GW_FFT1[offset+(index&2)*2+(index&1)+2];
+						cvmulsafe (fmaval, fmaval, oneval);
+					}
+					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
+					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
+					else cvsub (vec[j], fmaval, vec[j]);
 				}
-				if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
-				else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
-				else cvsub (vec[j], fmaval, vec[j]);
-			}
-			if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT) {
-				data[j][offset+(index&3)*2] = vec[j].real;
-				data[j][offset+(index&3)*2+1] = vec[j].imag;
-			} else {
-				data[j][offset+(index&2)*2+(index&1)] = vec[j].real;
-				data[j][offset+(index&2)*2+(index&1)+2] = vec[j].imag;
+				if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT) {
+					data[j][offset+(index&3)*2] = vec[j].real;
+					data[j][offset+(index&3)*2+1] = vec[j].imag;
+				} else {
+					data[j][offset+(index&2)*2+(index&1)] = vec[j].real;
+					data[j][offset+(index&2)*2+(index&1)+2] = vec[j].imag;
+				}
 			}
 		}
 	}
@@ -2037,39 +2329,72 @@ void karatsuba_line (
 	for (i = 0; i < a_plus_b_times_c_plus_d_size; i++) cvadd (outvec[i + b_size], outvec[i + b_size], a_plus_b_times_c_plus_d[i]);
 }
 
-// Pick FFT pass sizes
+// These routines will be compiled for every vector type except FMA (sometimes the FMA routines are the same as the AVX routines)
+
 #ifndef FMA
-void pick_pass_sizes (
-	pmhandle *pmdata,		// Handle for polymult library
-	unsigned int fftsize,		// FFT size
-	unsigned int *p1size,		// Returned pass 1 size
-	unsigned int *p2size)		// Returned pass 2 size
+
+void read_line (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
 {
-	unsigned int powers_of_two;
-	double	max_p2size, log_fftsize;
+	read_line_slice_data rlsd;			// Data to pass to read_line_slice
 
-	// Figure out what power-of-two FFT size will fit in the L2 cache.  One complex number fits in one CVDT.
-	max_p2size = log2 ((double) pmdata->L2_CACHE_SIZE * 1024.0 / (double) sizeof (CVDT));
+	// Copy arguments for passing to read_line_slice
+	rlsd.data = data;
+	rlsd.size = size;
+	rlsd.index = index;
+	rlsd.vec = vec;
+	rlsd.options = options;
+	rlsd.post_process_monics = post_process_monics;
 
-	// If the FFT can be done in one pass, choose that option
-	log_fftsize = log2 ((double) fftsize);
-	if (log_fftsize <= max_p2size) { *p1size = 1; *p2size = fftsize; return; }
-
-	// Make pass sizes roughly equal
-	*p2size = (unsigned int) log_fftsize / 2;
-	if (*p2size > (unsigned int) max_p2size) *p2size = (unsigned int) max_p2size;
-
-	// Make sure any odd power of two is done in pass 2
-	for (powers_of_two = 0; (fftsize & (1 << powers_of_two)) == 0; powers_of_two++);
-	if (*p2size > powers_of_two) *p2size = powers_of_two;
-	if ((powers_of_two & 1) == 0) {		// no radix-2/8 step
-		if ((*p2size & 1) == 1) *p2size -= 1;
+	// Launch helpers to do read a line in slices.  This is tricky.  There are two cases.  The most common case is polymult_line is multi-threaded
+	// and read_line_slice is single-threaded.  The less common case is polymult_line is single-threaded and read_line_slice is multi-threaded.
+	// If polymult_line is multi-threaded we cannot set pmdata->helper_opcode as all helper threads may not have dispatched based on the opcode,
+	// nor can we have each thread setting pmdata->internal_callback_data.  To handle this we call read_line_slice directly when read_line_slice is
+	// single-threaded.  When read_line_slice is multi-threaded we use all the polymult_launch machinery, but polymult_launch must not
+	// atomic_set helper_counter as polymult_line is using that variable.
+	atomic_set (rlsd.blknum, 0);
+	if (pmdata->mt_polymult_line || size < 512) {
+		rlsd.slice_size = size;
+		read_line_slice (0, pmdata, &rlsd);
 	} else {
-		if ((*p2size & 1) == 0) *p2size -= 1;
+		// Create a slice_size that will generate a goodly number of work units to multi-thread
+		rlsd.slice_size = divide_rounding_up (size, 512);
+		pmdata->internal_callback = &read_line_slice;
+		pmdata->internal_callback_data = &rlsd;
+		polymult_launch_helpers (pmdata);
 	}
-	*p1size = fftsize >> *p2size;
-	*p2size = 1 << *p2size;
 }
+
+void write_line (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, gwnum *fma_data, int options)
+{
+	write_line_slice_data wlsd;			// Data to pass to write_line_slice
+
+	// Copy arguments for passing to write_line_slice
+	wlsd.data = data;
+	wlsd.size = size;
+	wlsd.index = index;
+	wlsd.vec = vec;
+	wlsd.fma_data = fma_data;
+	wlsd.options = options;
+
+	// Launch helpers to do write a line in slices.  This is tricky.  There are two cases.  The most common case is polymult_line is multi-threaded
+	// and write_line_slice is single-threaded.  The less common case is polymult_line is single-threaded and write_line_slice is multi-threaded.
+	// If polymult_line is multi-threaded we cannot set pmdata->helper_opcode as all helper threads may not have dispatched based on the opcode,
+	// nor can we have each thread setting pmdata->internal_callback_data.  To handle this we call write_line_slice directly when write_line_slice is
+	// single-threaded.  When write_line_slice is multi-threaded we use all the polymult_launch machinery, but polymult_launch must not
+	// atomic_set helper_counter as polymult_line is using that variable.
+	atomic_set (wlsd.blknum, 0);
+	if (pmdata->mt_polymult_line) {
+		wlsd.slice_size = size;
+		write_line_slice (0, pmdata, &wlsd);
+	} else {
+		// Create a slice_size that will generate a goodly number of work units to multi-thread
+		wlsd.slice_size = divide_rounding_up (size, 512);
+		pmdata->internal_callback = &write_line_slice;
+		pmdata->internal_callback_data = &wlsd;
+		polymult_launch_helpers (pmdata);
+	}
+}
+
 #endif
 
 // The fft_line can be called several different options:
@@ -2916,15 +3241,15 @@ void fft_line (
 		// Launch helpers to do one pass of fft_line.  This is tricky.  There are two cases.  The most common case is polymult_line is multi-threaded
 		// and fft_line_pass is single-threaded.  The less common case is polymult_line is single-threaded and fft_line_pass is multi-threaded.
 		// If polymult_line is multi-threaded we cannot set pmdata->helper_opcode as all helper threads may not have dispatched based on the opcode,
-		// nor can we have each thread setting pmdata->fft_line_pass_data.  To handle this we call fft_line_pass directly when fft_line_pass is
+		// nor can we have each thread setting pmdata->internal_callback_data.  To handle this we call fft_line_pass directly when fft_line_pass is
 		// single-threaded.  When fft_line_pass is multi-threaded we use all the polymult_launch machinery, but polymult_launch must not
 		// atomic_set helper_counter as polymult_line is using that variable.
 		atomic_set (pd.blknum, 0);
 		if (pmdata->mt_polymult_line) {
 			fft_line_pass (0, pmdata, &pd);
 		} else {
-			pmdata->helper_opcode = HELPER_POLYMULT_LINE_PASS;
-			pmdata->fft_line_pass_data = &pd;
+			pmdata->internal_callback = &fft_line_pass;
+			pmdata->internal_callback_data = &pd;
 			polymult_launch_helpers (pmdata);
 		}
 	}
@@ -2969,7 +3294,7 @@ __inline void monic_line_add_lo (CVDT *fft1, CVDT *addinvec, int addinvec_size, 
 
 // Make adjustments to outvec for any monic input vectors
 void monic_line_adjustments (
-	gwhandle *gwdata,
+	pmhandle *pmdata,
 	CVDT	*addinvec,		// Polynomial to add to the output vector
 	int	addinvec_size,		// Size of the polynomial to add to the output vector
 	int	addinvec_options,	// Options associated with the addin vector
@@ -2981,6 +3306,7 @@ void monic_line_adjustments (
 	int	line,			// gwnum "line" number 
 	int	options)		// Options for the monic vector that had its ones stripped forcing the need to add in the addin_vector
 {
+	gwhandle *gwdata = pmdata->gwdata;
 	CVDT	fft1, *fft1p;
 
 	// Set flags that will be useful in adding in the addin vector
@@ -2993,7 +3319,7 @@ void monic_line_adjustments (
    
 	// If k != 1, we need to multiply the monic add-ins by FFT(1).
 	if (gwdata->k != 1.0) {
-		read_line (gwdata, &gwdata->GW_FFT1, 1, line, &fft1, 0, FALSE);
+		read_line (pmdata, &gwdata->GW_FFT1, 1, line, &fft1, 0, FALSE);
 		fft1p = &fft1;
 	} else {
 		fft1p = NULL;
@@ -3009,8 +3335,9 @@ void monic_line_adjustments (
 
 // Read a line that was preprocessed by polymult_preprocess
 #ifndef FMA
-void read_preprocess_line (gwhandle *gwdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
+void read_preprocess_line (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
 {
+	gwhandle *gwdata = pmdata->gwdata;
 	preprocessed_poly_header *hdr;  // Header of the preprocessed poly under construction
 	CVDT	*first_element;		// First element in the preprocessed poly array
 
@@ -3032,7 +3359,7 @@ void read_preprocess_line (gwhandle *gwdata, gwnum *data, int size, int index, C
 			vec[0].real = broadcastsd (1.0);
 			vec[0].imag = broadcastsd (0.0);
 		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, index, vec, 0, FALSE);
+			read_line (pmdata, &gwdata->GW_FFT1, 1, index, vec, 0, FALSE);
 		}
 		vec++;
 	}
@@ -3081,7 +3408,7 @@ void read_preprocess_line (gwhandle *gwdata, gwnum *data, int size, int index, C
 			vec[size].real = broadcastsd (1.0);
 			vec[size].imag = broadcastsd (0.0);
 		} else {
-			read_line (gwdata, &gwdata->GW_FFT1, 1, index, &vec[size], 0, FALSE);
+			read_line (pmdata, &gwdata->GW_FFT1, 1, index, &vec[size], 0, FALSE);
 		}
 	}
 }
@@ -3135,8 +3462,8 @@ void polymult_line_preprocess (
 		if (line <= 1 && plan->combine_two_lines) {
 			if (line == 1) continue;
 			CVDT *temp = (CVDT *) aligned_malloc (plan->adjusted_invec1_size * sizeof (CVDT), 64);
-			read_line (pmdata->gwdata, gw_invec1, invec1_size, 0, temp, options & INVEC1_OPTIONS, plan->strip_monic_from_invec1);
-			read_line (pmdata->gwdata, gw_invec1, invec1_size, 1, invec1, options & INVEC1_OPTIONS, plan->strip_monic_from_invec1);
+			read_line (pmdata, gw_invec1, invec1_size, 0, temp, options & INVEC1_OPTIONS, plan->strip_monic_from_invec1);
+			read_line (pmdata, gw_invec1, invec1_size, 1, invec1, options & INVEC1_OPTIONS, plan->strip_monic_from_invec1);
 			for (int j = 0; j < plan->adjusted_invec1_size; j++) {
 				double	line0_real;
 				union { VDT a; double b[VLEN / sizeof(double)]; } x;
@@ -3147,7 +3474,7 @@ void polymult_line_preprocess (
 			}
 			aligned_free (temp);
 		} else
-			read_line (pmdata->gwdata, gw_invec1, invec1_size, line, invec1, options & INVEC1_OPTIONS, plan->strip_monic_from_invec1);
+			read_line (pmdata, gw_invec1, invec1_size, line, invec1, options & INVEC1_OPTIONS, plan->strip_monic_from_invec1);
 
 		// Optionally forward FFT the line
 		if (options & POLYMULT_PRE_FFT) {
@@ -3269,16 +3596,16 @@ void polymult_line (
 		// with tmpvec (the buffer that will hold the FFT of invec1).
 		if (i == 0) {
 			invec1 = (invec1_buffer == NULL ? tmpvec : invec1_buffer);
-			if (!invec1_preprocessed) read_line (pmdata->gwdata, gw_invec1, gw_invec1_size, line, invec1, options & INVEC1_OPTIONS, strip_monic_from_invec1);
-			else read_preprocess_line (pmdata->gwdata, gw_invec1, gw_invec1_size, line, invec1, options & INVEC1_OPTIONS, strip_monic_from_invec1);
+			if (!invec1_preprocessed) read_line (pmdata, gw_invec1, gw_invec1_size, line, invec1, options & INVEC1_OPTIONS, strip_monic_from_invec1);
+			else read_preprocess_line (pmdata, gw_invec1, gw_invec1_size, line, invec1, options & INVEC1_OPTIONS, strip_monic_from_invec1);
 		}
 		// Plan should not change strip_monic_from_invec1 so that we can read invec1 just once (very important since outvecs can output to invec1)
 		ASSERTG (i == 0 || strip_monic_from_invec1 == ((polymult_plan *)pmdata->plan)[i-1].strip_monic_from_invec1);
 
 		// Read invec2.  For FFT implementation we can usually read invec2 into a buffer shared with outvec.
 		invec2 = (plan->impl == POLYMULT_IMPL_FFT && !post_monic_addin_invec2) ? outvec : invec2_buffer;
-		if (!invec2_preprocessed) read_line (pmdata->gwdata, gw_invec2, gw_invec2_size, line, invec2, options & INVEC2_OPTIONS, strip_monic_from_invec2);
-		else read_preprocess_line (pmdata->gwdata, gw_invec2, gw_invec2_size, line, invec2, options & INVEC2_OPTIONS, strip_monic_from_invec2);
+		if (!invec2_preprocessed) read_line (pmdata, gw_invec2, gw_invec2_size, line, invec2, options & INVEC2_OPTIONS, strip_monic_from_invec2);
+		else read_preprocess_line (pmdata, gw_invec2, gw_invec2_size, line, invec2, options & INVEC2_OPTIONS, strip_monic_from_invec2);
 
 		// Now execute a brute force implementation.  Brute_line does implement circular_size, that will not need to be emulated later.
 		// Because brute_line implements circular_size, it must get true_outvec buffer.
@@ -3334,10 +3661,10 @@ void polymult_line (
 		// Handle adjustments needed due to monic inputs
 //GW: circular monic adjust? mulhi/mid/lo can skip chunks of addin?
 		if (post_monic_addin_invec1)
-			monic_line_adjustments (pmdata->gwdata, invec1, invec1_size, options & POLYMULT_INVEC1_MONIC_RLP, strip_monic_from_invec1,
+			monic_line_adjustments (pmdata, invec1, invec1_size, options & POLYMULT_INVEC1_MONIC_RLP, strip_monic_from_invec1,
 						true_outvec, true_outvec_size, circular_size, line, options & POLYMULT_INVEC2_MONIC_RLP);
 		if (post_monic_addin_invec2)
-			monic_line_adjustments (pmdata->gwdata, invec2, invec2_size, options & POLYMULT_INVEC2_MONIC_RLP, strip_monic_from_invec2,
+			monic_line_adjustments (pmdata, invec2, invec2_size, options & POLYMULT_INVEC2_MONIC_RLP, strip_monic_from_invec2,
 						true_outvec, true_outvec_size, circular_size, line, options & POLYMULT_INVEC1_MONIC_RLP);
 
 //GWDo we emulate circular before or after monic_line_adjustments???  Do we avoid adjusting for values that are not returned??
@@ -3349,7 +3676,7 @@ void polymult_line (
 //GW	true_outvec_size = 5   circular_size = 5			MSWs_skipped + outvec_size + LSWs_skipped = 5
 
 		// Copy outvec to the output gwnums.  Also apply optional FMA operations.
-		write_line (pmdata->gwdata, gw_outvec, gw_outvec_size, line, true_outvec + LSWs_skipped, gw_fmavec, options);
+		write_line (pmdata, gw_outvec, gw_outvec_size, line, true_outvec + LSWs_skipped, gw_fmavec, options);
 	    }
 	}
 
@@ -3376,6 +3703,11 @@ void polymult_dispatch (
 	pmhandle *pmdata,
 	gwhandle *gwdata)			// Cloned gwdata (may not be initialized for internal polymult helpers!)
 {
+	// Call internal routine (read_line_slice, fft_line_pass, write_line_slice) that is nested within polymult_line and cannot overwrite helper_opcode
+	if (pmdata->internal_callback != NULL) {
+		(*pmdata->internal_callback) (helper_num, pmdata, pmdata->internal_callback_data);
+		return;
+	}
 	// Call user-defined routine with a cloned gwdata so the user can do multi-threaded gwnum work
 	switch (pmdata->helper_opcode) {
 	case 0:
@@ -3403,24 +3735,6 @@ void polymult_dispatch (
 		// Polymult default routines using no vector instructions
 #ifndef X86_64
 		else polymult_line_dbl (pmdata);
-#endif
-		break;
-
-	// Polymult fft line pass optimized for several instruction sets
-	case HELPER_POLYMULT_LINE_PASS:
-#ifdef X86_64
-		// Optimized routines for AVX512 instructions
-		if (pmdata->gwdata->cpu_flags & CPU_AVX512F) fft_line_pass_avx512 (helper_num, pmdata, pmdata->fft_line_pass_data); else
-#endif
-		// Optimized routines for FMA3 instructions
-		if (pmdata->gwdata->cpu_flags & CPU_FMA3) fft_line_pass_fma (helper_num, pmdata, pmdata->fft_line_pass_data);
-		// Optimized routines for AVX instructions
-		else if (pmdata->gwdata->cpu_flags & CPU_AVX) fft_line_pass_avx (helper_num, pmdata, pmdata->fft_line_pass_data);
-		// Optimized routines for SSE2 instructions
-		else if (pmdata->gwdata->cpu_flags & CPU_SSE2) fft_line_pass_sse2 (helper_num, pmdata, pmdata->fft_line_pass_data);
-		// Default routines using no vector instructions
-#ifndef X86_64
-		else fft_line_pass_dbl (helper_num, pmdata, pmdata->fft_line_pass_data);
 #endif
 		break;
 
@@ -3529,12 +3843,12 @@ void polymult_launch_helpers (
 {
 	int	num_threads;		// Total number of threads to use to complete this task
 
-	// Clear atomic counter for both polymult helpers and user helpers to use.  We cannot do this for HELPER_POLYMULT_LINE_PASS as this is
-	// launched from within HELPER_POLYMULT_LINE which is using pmdata->helper_counter.
-	if (pmdata->helper_opcode != HELPER_POLYMULT_LINE_PASS) atomic_set (pmdata->helper_counter, 0);	// Reset counter to no-work-done-yet state
+	// Clear atomic counter for both polymult helpers and user helpers to use.  We cannot do this for read_line_slice/fft_line_pass/write_line_slice
+	// as this is launched from within HELPER_POLYMULT_LINE which is using pmdata->helper_counter.
+	if (pmdata->internal_callback == NULL) atomic_set (pmdata->helper_counter, 0);	// Reset counter to no-work-done-yet state
 
-	// Compute how many threads we want to use.  Normally this is all available threads.  However, HELPER_POLYMULT_LINE and HELPER_POLYMULT_LINE_PASS
-	// are special in that only one or the other can multithread.
+	// Compute how many threads we want to use.  Normally this is all available threads.  However, HELPER_POLYMULT_LINE and
+	// read_line_slice/fft_line_pass/write_line_slice are special in that only one or the other can multithread.
 	num_threads = pmdata->num_threads;
 	if (pmdata->helper_opcode == HELPER_POLYMULT_LINE && !pmdata->mt_polymult_line) num_threads = 1;
 
@@ -3560,7 +3874,7 @@ void polymult_launch_helpers (
 		if (pmdata->gwdata->use_spin_wait >= 2) atomic_set (pmdata->alt_work_to_do, 1);
 	}
 
-	// Have this thread help too.  Dispatch to perform the correct work.
+	// Have this thread help too.  Dispatch to perform the correct work using the original gwnum rather than a cloned gwnum.
 	polymult_dispatch (0, pmdata, pmdata->gwdata);
 
 	// Sync up with helper threads
@@ -3582,6 +3896,7 @@ void polymult_launch_helpers (
 
 	// Reset opcode to user defined work
 	pmdata->helper_opcode = 0;
+	pmdata->internal_callback = NULL;
 }
 
 /*--------------------------------------------------------------------------
@@ -3668,8 +3983,7 @@ gwarray polymult_preprocess (		// Returns a plug-in replacement for the input po
 // Allocate space for the preprocessed poly under construction
 
 	// Calculate complex vector size in bytes
-	int complex_vector_size = (pmdata->gwdata->cpu_flags & CPU_AVX512F) ? 8*16 : (pmdata->gwdata->cpu_flags & CPU_AVX) ? 4*16 :
-				  (pmdata->gwdata->cpu_flags & CPU_SSE2) ? 2*16 : 1*16;
+	int complex_vector_size = complex_vector_size_in_bytes (pmdata->gwdata->cpu_flags);
 	// Compute size of each line to be written
 	element_size = complex_vector_size * ((options & POLYMULT_PRE_FFT) ? plan.fft_size : invec1_size);
 //GW:  shrink element-size if/when we support sparse non-ffted invec1
@@ -4367,10 +4681,8 @@ void polymult_several (		// Multiply one poly with several polys
 			// If fft_size is large we'll change to multi-threading fft_line_pass instead.  Large is defined as "polymult_line being unable
 			// to fit two lines in the L3 cache".
 //GW: fine tune this!!!  should also do this if num_lines < num_threads (or if not "a lot more than")?
-			int complex_vector_size = (pmdata->gwdata->cpu_flags & CPU_AVX512F) ? 8*16 : (pmdata->gwdata->cpu_flags & CPU_AVX) ? 4*16 :
-						  (pmdata->gwdata->cpu_flags & CPU_SSE2) ? 2*16 : 1*16;
-			if ((uint64_t) fft_size > (uint64_t) pmdata->L3_CACHE_SIZE * 1048576 / (2 * complex_vector_size))
-				pmdata->mt_polymult_line = FALSE;
+			int complex_vector_size = complex_vector_size_in_bytes (pmdata->gwdata->cpu_flags);
+			if ((uint64_t) fft_size > (uint64_t) pmdata->L3_CACHE_SIZE * 1048576 / (2 * complex_vector_size)) pmdata->mt_polymult_line = FALSE;
 		}						
 
 		// If we selected the circular fft size, then save some necessary plan variables

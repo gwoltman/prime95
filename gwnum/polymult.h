@@ -264,9 +264,10 @@ struct pmhandle_struct {
 	int	alloc_invec2_size;	// Pre-calculated allocation size for invec2
 	int	alloc_outvec_size;	// Pre-calculated allocation size for outvec
 	int	alloc_tmpvec_size;	// Pre-calculated allocation size for tmpvec
-	bool	mt_polymult_line;	// TRUE if polymult_line is multi-threaded and fft_line_pass is single-threaded
+	bool	mt_polymult_line;	// TRUE if polymult_line is multi-threaded and read_line, fft_line_pass, write_line is single-threaded
 	void	*plan;			// Plan for implementing the multiplication of invec1 and several invec2s
-	void	*fft_line_pass_data;	// Data needed to multithread fft_line
+	void	(*internal_callback)(int, pmhandle *, void *); // Internal routine to multithread read_line, fft_line, write_line 
+	void	*internal_callback_data; // Data needed to multithread read_line, fft_line, write_line
 	// These items allow users of the polymult library to also use the polymult helper threads for whatever they see fit.
 	void	(*helper_callback)(int, gwhandle *, void *); // User-defined helper callback routine
 	void	*helper_callback_data;	// User-defined data to pass to the user-defined helper callback routine
