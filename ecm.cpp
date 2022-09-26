@@ -5263,7 +5263,6 @@ gwset_num_threads (&gwdata, 4);
 gwset_use_spin_wait (&gwdata, 1);
 gwsetup (&gwdata, 1.0, 2, EXP, -1);
 if ((double) CNT * (gwnum_datasize (&gwdata) + GW_HEADER_SIZE (&gwdata)) > 6.2 * 1024.0 * 1024.0 * 1024.0) { gwdone (&gwdata); break; };	// Machine limited to 6.2GB
-printf ("Doing CNT=%d\n", CNT);
 polymult_init (&pmdata, &gwdata);
 polymult_set_max_num_threads (&pmdata, 4);
 a = gwalloc_array (&gwdata, CNT);
@@ -5271,7 +5270,7 @@ for (int i = 0; i < CNT; i++) dbltogw (&gwdata, (double) (i+10001),  a[i]);
 
 pmdata.L3_CACHE_SIZE = 1000000;
 start_timer (timers, 0);
-for (int i = 0; i < iters; i++) polymult (&pmdata, a, CNT/2, a, CNT/2, a, CNT, POLYMULT_NEXTFFT);
+for (int i = 0; i < iters; i++) polymult (&pmdata, a, CNT/2, a, CNT/2, a, CNT-1, POLYMULT_NEXTFFT);
 end_timer (timers, 0);
 timers[0] /= iters;
 sprintf (buf, "Polymult old-way.  Poly-size %d, gwnum FFT size %ld, time: ", CNT, gwdata.FFTLEN);
@@ -5280,7 +5279,7 @@ OutputBoth (thread_num, buf);
 
 pmdata.L3_CACHE_SIZE = 1;
 start_timer (timers, 0);
-for (int i = 0; i < iters; i++) polymult (&pmdata, a, CNT/2, a, CNT/2, a, CNT, POLYMULT_NEXTFFT);
+for (int i = 0; i < iters; i++) polymult (&pmdata, a, CNT/2, a, CNT/2, a, CNT-1, POLYMULT_NEXTFFT);
 end_timer (timers, 0);
 timers[0] /= iters;
 sprintf (buf, "Polymult new-way.  Poly-size %d, gwnum FFT size %ld, time: ", CNT, gwdata.FFTLEN);
@@ -7257,8 +7256,8 @@ start_timer_from_zero (timers, 0);
 //GW: BUG - if saving this polyF to disk, only unfft result.
 			poly_unfft_fft_coefficients (&ecmdata.polydata, ecmdata.polyF, ecmdata.poly_size);
 		}
-end_timer (timers, 0);
 if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
+end_timer (timers, 0);
 double poly_size = ecmdata.poly_size / pow (2.0, log2_num_polys);
 if (poly_size < 2.0) sprintf (buf, "Round off: %.10g, avg poly_size: %g, EB: %g, SM: %g, Time:", gw_get_maxerr (&ecmdata.gwdata), poly_size, ecmdata.gwdata.EXTRA_BITS, ecmdata.gwdata.safety_margin);
 else sprintf (buf, "Round off: %.10g, avg poly_size: %g, Time: ", gw_get_maxerr (&ecmdata.gwdata), poly_size);
