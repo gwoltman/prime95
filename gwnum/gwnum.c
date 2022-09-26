@@ -9629,9 +9629,11 @@ void gwunfft2 (
 	gwdata->careful_count = 0;
 
 /* Turn off sum(inputs) checking.  Polymult produces results where the sum(inputs) value is not valid.  Polymult then unffts these results. */
+/* Also clear unnorms so if we call gwmul3 it won't assert when polymult has set unnorms very high. */
 
 	save_sum_inputs_checking = gwdata->sum_inputs_checking;
 	gwdata->sum_inputs_checking = 0;
+	unnorms (s) = 0.0f;
 
 /* For partially or fully FFTed data, multiply source by 1.0 */
 
