@@ -7818,7 +7818,7 @@ int selfTestInternal (
 		gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 		gwset_thread_callback_data (&lldata.gwdata, sp_info);
 		lldata.gwdata.GW_BIGBUF = (char *) bigbuf;
-		lldata.gwdata.GW_BIGBUF_SIZE = (bigbuf != NULL) ? (size_t) memory * (size_t) 1048576 : 0;
+		lldata.gwdata.GW_BIGBUF_SIZE = (bigbuf != NULL) ? (intptr_t) memory * (intptr_t) 1048576 : 0;
 		stop_reason = lucasSetup (thread_num, p, fftlen, &lldata);
 		if (stop_reason) return (stop_reason);
 		lldata.gwdata.MAXDIFF *= 2.0;
@@ -8265,7 +8265,7 @@ loop:	run_indefinitely = TRUE;
 	memory = IniGetInt (INI_FILE, "TortureMem", 8);
 	memory = memory / num_torture_workers;
 	while (memory > 8 && bigbuf == NULL) {
-		bigbuf = aligned_malloc ((size_t) memory * (size_t) 1048576, 128);
+		bigbuf = aligned_malloc ((intptr_t) memory * (intptr_t) 1048576, 128);
 		if (bigbuf == NULL) memory--;
 	}
 
@@ -8347,7 +8347,7 @@ loop:	run_indefinitely = TRUE;
 				info[i].test_time = test_time;
 				info[i].torture_index = &data_index[index];
 				info[i].memory = memory / num_threads;
-				info[i].bigbuf = (bigbuf != NULL ? (char *) bigbuf + i * info[i].memory * 1048576 : NULL);
+				info[i].bigbuf = (bigbuf != NULL ? (char *) bigbuf + i * (intptr_t) info[i].memory * (intptr_t) 1048576 : NULL);
 				info[i].test_data = test_data;
 				info[i].test_data_count = test_data_count;
 				info[i].disabled_cpu_flags = disabled_cpu_flags;
