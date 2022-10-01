@@ -134,12 +134,12 @@ void polymult2 (
 |	Advanced polymult routines
 +----------------------------------------------------------------------------*/
 
-// Accessing the preprocessed header directly is frowned upon, several accessor macros follow
+// Accessing the preprocessed header directly is frowned upon, several accessor macros follow -- probably shouldn't use any but the first three
 #define is_preprocessed_poly(p)		((p) != NULL && (((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->self_ptr == (p)))
 #define is_preffted_poly(p)		(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->options & POLYMULT_PRE_FFT)
-#define preprocessed_num_elements(p)	(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->num_lines)
-#define preprocessed_element_size(p)	(intptr_t) (((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->padded_element_size)
-#define preprocessed_fft_size(p)	(intptr_t) (((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->fft_size)
+#define preprocessed_fft_size(p)	(intptr_t) (((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->line_size)
+#define preprocessed_num_elements(p)	(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->num_compressed_blks)
+#define preprocessed_element_size(p)	(intptr_t) (((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->element_size)
 #define preprocessed_poly_size(p)	(preprocessed_num_elements(p) * preprocessed_element_size(p))
 #define preprocessed_monics_included(p)	(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->monic_ones_included)
 #define preprocessed_top_unnorms(p)	(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->top_unnorms)
@@ -286,9 +286,9 @@ typedef struct {
 	gwarray_header linkage;		// Used to put preprocessed polys on gwarray linked list.  Allows gwdone to free all preprocessed polys.
 	gwnum	*self_ptr;		// Ptr to itself.  A unique indicator that this is a preprocessed poly.
 	uint64_t element_size;		// Size in bytes of each line in the preprocessed array
+	int	line_size;		// Size in CVDTs of each line in the preprocessed array.  If POLYMULT_PRE_FFT is set this is the poly FFT size.
 	int	num_compressed_blks;	// When compressing, each line is sub-divided into this many blocks (allows multi-threading decompression)
 	int	options;		// Copy of options passed to polymult_line_preprocess
-	int	fft_size;		// If POLYMULT_PRE_FFT is set, this is the poly FFT size selected during preprocessing
 	float	top_unnorms;		// Number of unnormalized adds for the topmost poly coefficient
 	bool	monic_ones_included;	// TRUE if monic ones are included in pre-FFTed data
 } preprocessed_poly_header;

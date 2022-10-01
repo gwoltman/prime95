@@ -61,6 +61,7 @@
 //	the fft_size and pass1_size.
 // 73) Have fft_line use swizzling to reduce memory requirements.  If that changes fft from read/writing memory to using L3 cache it could be faster (as well
 //     as using lots less scratch memory)
+// 74) Fix mem_required to access L3_CACHE_SIZE and use same algorithm for determining mt_polymult_line.
 
 /* Opcodes for helper thread */
 
@@ -877,9 +878,10 @@ uint64_t compress_line (		// Returns size of the compressed buffer
 	*buf = ((peak & 0x7F) << 1) + (above_peak_flag & 1);
 	peak += COUNT_BASE_EXPO;		// undo count-base-adjustment
 
-	// For larger line sizes (32K doubles or more), output the data in slices of 512 doubles so that the preprocessed data can be read multi-threaded
+	// For larger line sizes (32K doubles or more), output the data in slices of typically 512 doubles so that the preprocessed data can be read multi-threaded
 	uint64_t max_compressed_blk_size = 0;
 	uint64_t blk_size = size / num_compressed_blks;
+	ASSERTG (size % num_compressed_blks == 0);
 	for (int blk = 0; blk < num_compressed_blks; blk++) {
 
 		// Init the output queues
@@ -979,11 +981,12 @@ void decompress_line_slice (
 
 	// Handle reading compressed data in slices and blocks
 	int doubles_to_skip = slice_start * (cvdt_size / sizeof (double));
-	ASSERTG (doubles_to_skip == 0 || (hdr->num_compressed_blks > 1 && doubles_to_skip % 512 == 0));	// We don't support reading part of a compressed block
 
 	// Loop through compressed blocks until we reach slice)_end
 	uint64_t total_size = (uint64_t) (slice_end - slice_start) * cvdt_size;
 	uint64_t compressed_blk_size = (hdr->element_size - 1) / hdr->num_compressed_blks;
+	uint64_t uncompressed_blk_size = (uint64_t) hdr->line_size * cvdt_size / hdr->num_compressed_blks;
+	ASSERTG ((doubles_to_skip * sizeof (double)) % uncompressed_blk_size == 0);	// No support for reading part of a compressed block
 	for (int blk = doubles_to_skip / 512; total_size; blk++) {
 		uint64_t size;		// Number of bytes to write to output buffer for this compressed block
 
@@ -994,9 +997,8 @@ void decompress_line_slice (
 #define get_bits(v,len)	{ if (inbits<len) inval=(inval<<8)+(*inptr++),inbits+=8; inbits-=len; v=(inval>>inbits)&((1<<(len))-1); }
 #define get_m48(v)	{ union {uint64_t a; char b[8];} x; x.a = 0; memcpy (x.b, inptr, 6); inptr += 6; v = x.a; }
 
-		// Read either the entire amount or one compressed block 
-		if (hdr->num_compressed_blks > 1) size = 512 * sizeof (double);
-		else size = total_size;
+		// Read either one compressed block or the entire amount
+		size = uncompressed_blk_size;
 		total_size -= size;
 
 #ifdef STRAIGHTFORWARD_IMPL
@@ -3418,13 +3420,14 @@ void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rplsd)
 	element = (CVDT *) ((char *) first_element + index_to_read * hdr->element_size);
 
 	// If preprocessed data is FFTed, then ignore the passed in size, use the poly FFT size that was computed by polymult_line_preprocess
-	if (hdr->options & POLYMULT_PRE_FFT) size = hdr->fft_size;
+	if (hdr->options & POLYMULT_PRE_FFT) size = hdr->line_size;
+	else ASSERTG (size == hdr->line_size);
 
 	// If multithreading read_preprocess_line, create a slice_size that will generate a goodly number of work units to multi-thread.
 	// If compressed, we may be able to read the poly in slices of 512 doubles.
 	if (!(((read_preprocess_line_slice_data *) rplsd)->slice_it_up)) slice_size = size;
 	else if (!(hdr->options & POLYMULT_PRE_COMPRESS)) slice_size = divide_rounding_up (size, 512);
-	else slice_size = size / hdr->num_compressed_blks;
+	else slice_size = hdr->line_size / hdr->num_compressed_blks;
 
 	// Read one slice at a time
 	for ( ; ; ) {
@@ -4124,9 +4127,10 @@ gwarray polymult_preprocess (		// Returns a plug-in replacement for the input po
 	plan.hdr->options = options;
 	plan.hdr->monic_ones_included = !plan.strip_monic_from_invec1;
 	plan.hdr->top_unnorms = unnorms (invec1[invec1_size-1]);
-	if (options & POLYMULT_PRE_FFT) plan.hdr->fft_size = plan.fft_size;
-	// Compress large lines (more than 32K doubles) in blocks to allow multi-threaded read
-	plan.hdr->num_compressed_blks = (int) ((pmdata->num_threads > 1 && element_size > 32768 * sizeof (double)) ? element_size / (512 * sizeof (double)) : 1);
+	plan.hdr->line_size = (options & POLYMULT_PRE_FFT) ? plan.fft_size : invec1_size;
+	// Compress large lines (more than 32K doubles) in blocks to allow multi-threaded read.  Blocks are typically 512 doubles.
+	if (pmdata->num_threads == 1 || element_size < 32768 * sizeof (double)) plan.hdr->num_compressed_blks = 1;
+	else for (int i = 64; i <= 512 && element_size % (i * sizeof (double)) == 0; i *= 2) plan.hdr->num_compressed_blks = (int) (element_size / (i * sizeof (double)));
 
 	// Prepare for polymult_preprocess in parallel
 	pmdata->plan = &plan;
