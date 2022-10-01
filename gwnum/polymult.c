@@ -19,7 +19,7 @@
 #include <immintrin.h>
 #endif
 
-// TO DO:
+// TO DO OR CONSIDER:
 // 1) Support non-power-of-two FFTs below 32?  Support FFT size requiring a radix-2 step?
 // 9) Is a fast convert-gwnum-to-larger-FFT feasible? necessary?
 // 10) Tune for Brute / Karatsuba / FFT crossovers.
@@ -42,10 +42,9 @@
 // 53) Can P-1's circular monic-poly times monic-RLP be safely done without monic_adjustments allowing us to save the FFT'ed RLP that is half-sized due to DCT?
 // 54) Does monolithic two-forward-FFTs-pointmul-and-one-inverse-FFT routine suggest different preferred pass sizes (use half the L2 cache)?
 // 56) Option to not mul by 1/FFTLEN?
-// 57) Option to save memory by processing AVX-512 data using FMA3.  (reduces sizeof(CVDT)).
+// 57) Option to save memory by processing AVX-512 data using FMA3.  (reduces sizeof(CVDT)).  Not needed now that read_line is multi-threaded.
 // 61) Can loop unrolling help in radix-3/4/5 sections?  Seems unlikely.
 // 62) Linux stage 2 timings vary widely from 6.7 to 7.0 sec.  What explains the 5% slower runs?  4KB/64KB alignments?
-// 63) Multithread large poly FFTs to reduce memory usage
 // 64) Save memory in polymult_line.  For large FFTs with big buffer requirements, offer to re-read invec1 and/or invec2 for post-monic addin (much the same
 //	way FMAvec is read in without requiring a buffer).  This is awkward if the vector being re-read has been pre-processed.
 // 65) An fmavec of NULL could mean all zeros.  Combined with FNMADD would turn into negate outputs.  Code handles this, ASSERTS do not.
@@ -54,6 +53,14 @@
 // 69) When compressing with POLYMULT_PRE_COMPRESS, figure out a way to malloc a smaller buffer and grow if necessary rather than malloc a large one and
 //	shrink at end.
 // 70) All atomic_set to zero calls are safe (helpers not launched yet).  Can we offer a faster atomic_set_guaranteed_ok?  Too minor an optimization?
+// 71) We're not using AVX-512 code on really small gwnums because gwsetup clears the AVX-512 flag.
+// 72) Take a 3.2M AVX FFT.  8 doubles * 3.2M = 205MB.  Read_line into invec1 is a read-from-memory / write-to-memory operation.
+//     Instead make fft_line call read_line_slice in pass 1.  This reads directly into AVX registers then writes to scratch.   Saves a r/w.
+//     Similarly fft_line could call write_line_slice in pass 3 (perhaps doing monic adjustments along the way).
+//     Preprocess_line might could group pass 1 data together for better cache locality and hardware prefetching.  This implies preproces line knows
+//	the fft_size and pass1_size.
+// 73) Have fft_line use swizzling to reduce memory requirements.  If that changes fft from read/writing memory to using L3 cache it could be faster (as well
+//     as using lots less scratch memory)
 
 /* Opcodes for helper thread */
 
@@ -68,8 +75,8 @@ unsigned long cache_line_offset (gwhandle *gwdata, unsigned long i);
 void generate_sincos (pmhandle *pmdata, const unsigned int size);
 void pick_pass_sizes (pmhandle *pmdata, unsigned int fftsize, unsigned int *p1size, unsigned int *p2size);
 void zpad7_fft (gwhandle *gwdata, gwnum g);
-int compress_vec (char *buf, int size);
-void decompress_vec (char *inbuf, char *outbuf, int size);
+uint64_t compress_line (char *buf, uint64_t size, int num_compressed_blks);
+void decompress_line_slice (char *inbuf, char *outbuf, 	preprocessed_poly_header *hdr, int slice_start, int slice_end, int cvdt_size);
 void polymult_pre_fft (pmhandle *pmdata, gwhandle *);
 void polymult_post_unfft (pmhandle *pmdata, gwhandle *);
 void polymult_line_preprocess_dbl (pmhandle *pmdata);
@@ -99,7 +106,7 @@ typedef struct {
 	int	true_invec1_size;	// Sizes of the full polymult inputs and outputs
 	int	true_invec2_size;
 	int	true_outvec_size;
-	int	max_element_size;	// When compressing, helpers return the max_element_size
+	uint64_t max_element_size;	// When compressing, helpers return the max_element_size
 	bool	combine_two_lines;	// TRUE if we're saving memory by delaying splitting the two reals, the first two lines are combined into one
 	preprocessed_poly_header *hdr;  // Header of the preprocessed poly under construction
 } preprocess_plan;
@@ -150,6 +157,7 @@ typedef struct {
 #define	read_line		read_line_avx512	// Naming extension for this option
 #define	read_line_slice		read_line_slice_avx512
 #define	read_preprocess_line	read_preprocess_line_avx512
+#define	read_preprocess_line_slice read_preprocess_line_slice_avx512
 #define	write_line		write_line_avx512
 #define	write_line_slice	write_line_slice_avx512
 #define	brute_line		brute_line_avx512
@@ -176,6 +184,7 @@ typedef struct {
 #define	read_line		read_line_fma		// Naming extension for this option
 #define	read_line_slice		read_line_slice_fma
 #define	read_preprocess_line	read_preprocess_line_fma
+#define	read_preprocess_line_slice read_preprocess_line_slice_fma
 #define	write_line		write_line_fma
 #define	write_line_slice	write_line_slice_fma
 #define	brute_line		brute_line_fma
@@ -202,6 +211,7 @@ typedef struct {
 #define	read_line		read_line_avx		// Naming extension for this option
 #define	read_line_slice		read_line_slice_avx
 #define	read_preprocess_line	read_preprocess_line_avx
+#define	read_preprocess_slice_line read_preprocess_line_slice_avx
 #define	write_line		write_line_avx
 #define	write_line_slice	write_line_slice_avx
 #define	brute_line		brute_line_avx
@@ -225,6 +235,7 @@ typedef struct {
 #define	read_line		read_line_sse2		// Naming extension for this option
 #define	read_line_slice		read_line_slice_sse2
 #define	read_preprocess_line	read_preprocess_line_sse2
+#define	read_preprocess_line_slice read_preprocess_line_slice_sse2
 #define	write_line		write_line_sse2
 #define	write_line_slice	write_line_slice_sse2
 #define	brute_line		brute_line_sse2
@@ -247,7 +258,7 @@ typedef struct {
 #define VFMA			0			// FMA not supported
 #define	read_line		read_line_dbl		// Naming extension for this option
 #define	read_line_slice		read_line_slice_dbl
-#define	read_preprocess_line	read_preprocess_line_dbl
+#define	read_preprocess_line_slice read_preprocess_line_slice_dbl
 #define	write_line		write_line_dbl
 #define	write_line_slice	write_line_slice_dbl
 #define	brute_line		brute_line_dbl
@@ -819,15 +830,17 @@ void generate_sincos (
 	if (pmdata->num_threads > 1) gwmutex_unlock (&pmdata->poly_mutex);
 }
 
-// Compress a vector of doubles
+// Compress a line of doubles
 // The compression algorithm is pretty simple.  It relies on the observation that exponents in the doubles are clustered around a peak, dropping rapidly
 // in frequency as you move away from the peak.  The three exponents that constitute the peak are output with 2-bit values.
 // Three more exponents are output with 4-bit values (either 1 above the peak and 2 below the peak or 3 below the peak).
 // The next exponent below the peak is output with a 5-bit value.  The remaining exponents are output with a 5-bit escape code followed by the 11-bit
 // exponent (many 11-bit exponents are "impossible" and we reduce this to a 5-bit escape code followed by a 6-bit exponent).
-int compress_vec (		// Returns size of the compressed buffer
-	char	*buf,		// Array of doubles to compress
-	int	size)		// Size of buffer in bytes
+// To allow multi-threading in decompress_line_slice, if the vector size is large we compress in slices of 512 doubles.
+uint64_t compress_line (		// Returns size of the compressed buffer
+	char	*buf,			// A line - the array of doubles to compress
+	uint64_t size,			// Size of buffer in bytes
+	int	num_compressed_blks)	// Each line buffer is sub-divided into this many blocks
 {
 #define COUNT_BASE_EXPO		960		// Minimum exponent we are prepared to see as most common
 #define COUNT_MAX_EXPO		1080		// Maximum exponent we are prepared to see
@@ -838,21 +851,6 @@ int compress_vec (		// Returns size of the compressed buffer
 
 //char *orig_buf = malloc (size);
 //memcpy(orig_buf, buf, size);
-
-	// Init the output queues
-	unsigned char *outptr = (unsigned char *) buf;
-	int	outval = 0;		// Compressed exponent and sign bits output in multiples of 8 bits
-	int	outlen = 0;		// Number of bits in outval
-	unsigned char mbuf[48];		// Mantissa buffer
-	int	mlen = 0;		// Number of chars in mbuf
-	int	last_m48len = 0;	// Number of chars in the last mantissa48 (either 0 or 6)
-#define put_bits(v,len)	outval = (outval << (len)) + (int)(v), outlen += len
-#define put_m48(m)	{ union {uint64_t a; char b[8];} x; x.a = m; memcpy (mbuf + mlen, x.b, 6); mlen += 6; last_m48len = 6; }
-#define emptyQ()	{ if (outlen>=8) outlen-=8, *outptr++ = (unsigned char)(outval>>outlen); \
-			  if (mlen > last_m48len) mlen-=last_m48len, memcpy(outptr,mbuf,mlen), outptr+=mlen, memcpy(mbuf,mbuf+mlen,last_m48len), mlen=last_m48len; \
-			  while (outlen>=8) outlen-=8, *outptr++ = (unsigned char)(outval>>outlen); \
-			  if (outlen == 0 && mlen) memcpy(outptr,mbuf,mlen), outptr+=mlen, mlen=0; \
-			  last_m48len = 0; }
 
 	// Sample 1000 doubles to find the most common exponents in the doubles
 	memset (&counts, 0, sizeof (counts));
@@ -875,169 +873,211 @@ int compress_vec (		// Returns size of the compressed buffer
 	// Determine expo just above the peak will be compressed (or output raw)
 	above_peak_flag = (peak < 5 || counts[peak+1] > counts[peak-5]);
 
-	// Output header bits
-	put_bits (peak, 7);
-	put_bits (above_peak_flag, 1);
-
-	// Loop compressing doubles
+	// Output header bits for the line (one byte) -- peak and above_peak_flag
+	*buf = ((peak & 0x7F) << 1) + (above_peak_flag & 1);
 	peak += COUNT_BASE_EXPO;		// undo count-base-adjustment
-	for (int i = 0; i < size; i += 8) {
-		uint64_t expo, sign, nibble, mantissa48;
 
-		// Parse the double
-		expo = * (uint64_t *) (buf + i);
-		sign = expo >> 63;
-		nibble = (expo << 12) >> 60;
-		mantissa48 = expo & 0xFFFFFFFFFFFFULL;
-		expo = (expo << 1) >> 53;	// strip off sign bit and mantissa
+	// For larger line sizes (32K doubles or more), output the data in slices of 512 doubles so that the preprocessed data can be read multi-threaded
+	uint64_t max_compressed_blk_size = 0;
+	uint64_t blk_size = size / num_compressed_blks;
+	for (int blk = 0; blk < num_compressed_blks; blk++) {
 
-		// Empty the output queues (as much as possible)
-		emptyQ ();
+		// Init the output queues
+		int	outval = 0;		// Compressed exponent and sign bits output in multiples of 8 bits
+		int	outlen = 0;		// Number of bits in outval
+		unsigned char mbuf[48];		// Mantissa buffer
+		int	mlen = 0;		// Number of chars in mbuf
+		int	last_m48len = 0;	// Number of chars in the last mantissa48 (either 0 or 6)
+#define put_bits(v,len)	outval = (outval << (len)) + (int)(v), outlen += len
+#define put_m48(m)	{ union {uint64_t a; char b[8];} x; x.a = m; memcpy (mbuf + mlen, x.b, 6); mlen += 6; last_m48len = 6; }
+#define emptyQ()	{ if (outlen>=8) outlen-=8, *outptr++ = (unsigned char)(outval>>outlen); \
+			  if (mlen > last_m48len) mlen-=last_m48len, memcpy(outptr,mbuf,mlen), outptr+=mlen, memcpy(mbuf,mbuf+mlen,last_m48len), mlen=last_m48len; \
+			  while (outlen>=8) outlen-=8, *outptr++ = (unsigned char)(outval>>outlen); \
+			  if (outlen == 0 && mlen) memcpy(outptr,mbuf,mlen), outptr+=mlen, mlen=0; \
+			  last_m48len = 0; }
+		unsigned char *outptr = (unsigned char *) buf + 1 + blk * blk_size;
+		char *blk_start = outptr;
 
-		// Rare case of compressing FFTed data that contains lots of zeros.  The FFTed data may contain lots of really small exponent values (noise)
-		// that would greatly dimish our compression.  Turn the noise into zeros.
-		if (expo < peak - 50) expo = 0;
+		// Loop compressing doubles
+		for (uint64_t i = 0; i < blk_size; i += sizeof (double)) {
+			uint64_t expo, sign, nibble, mantissa48;
 
-		// Compress the exponent
-		if (expo == peak) put_bits (0, 2);
-		else if (expo == peak-1) put_bits (1, 2);
-		else if (expo == peak-2) put_bits (2, 2);
-		else if (expo == peak-3) put_bits (12, 4);
-		else if (expo == peak-4) put_bits (13, 4);
-		else if (above_peak_flag && expo == peak+1) put_bits (14, 4);
-		else if (above_peak_flag && expo == peak-5) put_bits (30, 5);
-		else if (!above_peak_flag && expo == peak-5) put_bits (14, 4);
-		else if (!above_peak_flag && expo == peak-6) put_bits (30, 5);
-		else {
-			put_bits (31, 5);
-			ASSERTG (expo == 0 || (expo >= peak-50 && expo <= peak-6) || (expo >= peak+1 && expo <= peak+18));
-			if (expo > peak) expo = expo - (peak+1) + 1;		// Handle up to 18 values above peak coded as 1 through 18
-			else if (expo > 0) expo = expo - (peak-50) + 19;	// Handle up to 45 values below peak coded as 19 through 63
-			ASSERTG (expo <= 63);
-			put_bits (expo, 6);
+			// Parse the double
+			expo = * (uint64_t *) (buf + blk * blk_size + i);
+			sign = expo >> 63;
+			nibble = (expo << 12) >> 60;
+			mantissa48 = expo & 0xFFFFFFFFFFFFULL;
+			expo = (expo << 1) >> 53;	// strip off sign bit and mantissa
+
+			// Empty the output queues (as much as possible)
+			emptyQ ();
+
+			// Rare case of compressing FFTed data that contains lots of zeros.  The FFTed data may contain lots of really small exponent values (noise)
+			// that would greatly dimish our compression.  Turn the noise into zeros.
+			if (expo < peak - 50) expo = 0;
+
+			// Compress the exponent
+			if (expo == peak) put_bits (0, 2);
+			else if (expo == peak-1) put_bits (1, 2);
+			else if (expo == peak-2) put_bits (2, 2);
+			else if (expo == peak-3) put_bits (12, 4);
+			else if (expo == peak-4) put_bits (13, 4);
+			else if (above_peak_flag && expo == peak+1) put_bits (14, 4);
+			else if (above_peak_flag && expo == peak-5) put_bits (30, 5);
+			else if (!above_peak_flag && expo == peak-5) put_bits (14, 4);
+			else if (!above_peak_flag && expo == peak-6) put_bits (30, 5);
+			else {
+				put_bits (31, 5);
+				ASSERTG (expo == 0 || (expo >= peak-50 && expo <= peak-6) || (expo >= peak+1 && expo <= peak+18));
+				if (expo > peak) expo = expo - (peak+1) + 1;		// Handle up to 18 values above peak coded as 1 through 18
+				else if (expo > 0) expo = expo - (peak-50) + 19;	// Handle up to 45 values below peak coded as 19 through 63
+				ASSERTG (expo <= 63);
+				put_bits (expo, 6);
+			}
+
+			// Output the sign bit, high nibble of mantissa, and rest of the mantissa
+			if (expo != 0) { put_bits (sign, 1); put_bits (nibble, 4); put_m48 (mantissa48); }
 		}
 
-		// Output the sign bit, high nibble of mantissa, and rest of the mantissa
-		if (expo != 0) { put_bits (sign, 1); put_bits (nibble, 4); put_m48 (mantissa48); }
+		// Empty the output queues
+		if (outlen & 7) put_bits (0, 8 - (outlen & 7));
+		emptyQ ();
+
+		// Keep track of the largest compressed blk size
+		if ((uint64_t) (outptr - blk_start) > max_compressed_blk_size) max_compressed_blk_size = outptr - blk_start;
 	}
-
-	// Empty the output queues
-	if (outlen & 7) put_bits (0, 8 - (outlen & 7));
-	emptyQ ();
-
-//char *xxx = malloc (size);
-//decompress_vec (buf, xxx, size);
-//int foo;
-//foo=memcmp(orig_buf, xxx, size);
-//free(xxx);
-//free(orig_buf);
-
-	// Return size of the compressed vector
-	return ((int) ((char *) outptr - buf));
-
 #undef put_bits
 #undef put_m48
 #undef emptyQ
+
+//char *xxx = malloc (size);
+//decompress_line_slice (buf, xxx, size);
+//ASSERTG(memcmp(orig_buf, xxx, size)==0);
+//free(xxx);
+//free(orig_buf);
+
+	// Return the size of the compressed line
+	return (1 + num_compressed_blks * max_compressed_blk_size);
 }
 
-// Decompress a vector of doubles
-void decompress_vec (
-	char	*inbuf,		// Compressed array of doubles
-	char	*outbuf,	// Decompressed array of doubles
-	int	size)		// Size of output buffer in bytes
+
+// Decompress all of a line or a slice of a line
+void decompress_line_slice (
+	char	*inbuf,			// Compressed array of doubles
+	char	*outbuf,		// Decompressed array of doubles
+	preprocessed_poly_header *hdr,  // Header of the preprocessed poly being decompressed
+	int	slice_start,		// Starting line slice number
+	int	slice_end,		// Ending line slice number
+	int	cvdt_size)		// Sizeof(CVDT) in bytes
 {
-	unsigned int inval, inbits;	// Queue to extract bits from inbuf
 	int	peak;			// The highest exponent in the set of three most common exponents
 	bool	above_peak_flag;	// TRUE if exponent above the peak is compressed
 
-	// Init input queue
-	unsigned char *inptr = (unsigned char *) inbuf;
-	inval = inbits = 0;
+	// Read the first byte in a compressed line -- peak exponent and above-peak-flag
+	peak = ((unsigned char) *inbuf) >> 1;  peak += 960;
+	above_peak_flag = *inbuf & 1;
+
+	// Handle reading compressed data in slices and blocks
+	int doubles_to_skip = slice_start * (cvdt_size / sizeof (double));
+	ASSERTG (doubles_to_skip == 0 || (hdr->num_compressed_blks > 1 && doubles_to_skip % 512 == 0));	// We don't support reading part of a compressed block
+
+	// Loop through compressed blocks until we reach slice)_end
+	uint64_t total_size = (uint64_t) (slice_end - slice_start) * cvdt_size;
+	uint64_t compressed_blk_size = (hdr->element_size - 1) / hdr->num_compressed_blks;
+	for (int blk = doubles_to_skip / 512; total_size; blk++) {
+		uint64_t size;		// Number of bytes to write to output buffer for this compressed block
+
+		// Init input queue
+		unsigned char *inptr = (unsigned char *) inbuf + 1 + blk * compressed_blk_size;
+		unsigned int inval, inbits;	// Queue to extract bits from inbuf
+		inval = inbits = 0;
 #define get_bits(v,len)	{ if (inbits<len) inval=(inval<<8)+(*inptr++),inbits+=8; inbits-=len; v=(inval>>inbits)&((1<<(len))-1); }
 #define get_m48(v)	{ union {uint64_t a; char b[8];} x; x.a = 0; memcpy (x.b, inptr, 6); inptr += 6; v = x.a; }
 
-	// Read peak exponent and above-peak-flag
-	get_bits (peak, 7);  peak += 960;
-	get_bits (above_peak_flag, 1);
+		// Read either the entire amount or one compressed block 
+		if (hdr->num_compressed_blks > 1) size = 512 * sizeof (double);
+		else size = total_size;
+		total_size -= size;
 
 #ifdef STRAIGHTFORWARD_IMPL
-	while (size) {
-		uint64_t expo, sign, nibble, mantissa48;
-		int	code;
+		while (size) {
+			uint64_t expo, sign, nibble, mantissa48;
+			int	code;
 
-		// Decompress the exponent
-		get_bits (code, 2);
-		if (code <= 2) expo = peak - code;
-		else {
+			// Decompress the exponent
 			get_bits (code, 2);
-			if (code <= 1) expo = peak - 3 - code;
-			else if (code == 2) expo = above_peak_flag ? peak + 1 : peak - 5;
+			if (code <= 2) expo = peak - code;
 			else {
-				get_bits (code, 1);
-				if (code == 0) expo = above_peak_flag ? peak - 5 : peak - 6;
+				get_bits (code, 2);
+				if (code <= 1) expo = peak - 3 - code;
+				else if (code == 2) expo = above_peak_flag ? peak + 1 : peak - 5;
 				else {
-					get_bits (code, 6);
-					if (code >= 19) expo = code - 19 + (peak-50);	// Handle up to 45 values below peak coded as 19 through 63
-					else if (code >= 1) expo = code - 1 + (peak+1);	// Handle up to 18 values above peak coded as 1 through 18
-					else expo = 0;
+					get_bits (code, 1);
+					if (code == 0) expo = above_peak_flag ? peak - 5 : peak - 6;
+					else {
+						get_bits (code, 6);
+						if (code >= 19) expo = code - 19 + (peak-50);	// Handle up to 45 values below peak coded as 19 through 63
+						else if (code >= 1) expo = code - 1 + (peak+1);	// Handle up to 18 values above peak coded as 1 through 18
+						else expo = 0;
+					}
 				}
 			}
+
+			// Get the sign bit and mantissa
+			if (expo != 0) { get_bits (sign, 1); get_bits (nibble, 4); get_m48 (mantissa48); }
+			else sign = nibble = mantissa48 = 0;
+
+			// Output the uncompressed double, move onto next double
+			* (uint64_t *) outbuf = (sign << 63) + (expo << 52) + (nibble << 48) + mantissa48;
+			outbuf += sizeof (double);
+			size -= sizeof (double);
 		}
-
-		// Get the sign bit and mantissa
-		if (expo != 0) { get_bits (sign, 1); get_bits (nibble, 4); get_m48 (mantissa48); }
-		else sign = nibble = mantissa48 = 0;
-
-		// Output the uncompressed double, move onto next double
-		* (uint64_t *) outbuf = (sign << 63) + (expo << 52) + (nibble << 48) + mantissa48;
-		outbuf += sizeof (double);
-		size -= sizeof (double);
-	}
 
 #else		// This version is less readable but a little faster
 
-	for ( ; size; outbuf += sizeof (double), size -= sizeof (double)) {
-		int	code, more_code, expo, sign, nibble;
+		for ( ; size; outbuf += sizeof (double), size -= sizeof (double)) {
+			int	code, more_code, expo, sign, nibble;
 
-		// We need to get at least 7 bits, cheaper to get them all at once.
-		// The goal is to decompress ~75% of the expos using just one get_bits call.
-		get_bits (code, 7);
-		
-		// Decompress the exponent
-		if (code < 0b1100000) expo = peak - (code >> 5);
-		else if (code < 0b1111000) {
-			if (code < 0b1110000) expo = peak - 3 - ((code & 0b0011000) >> 3);
-			else expo = above_peak_flag ? peak + 1 : peak - 5;
-			get_bits (more_code, 2);
-			code = (code << 2) + more_code;
-		} else if (code < 0b1111100) {
-			expo = above_peak_flag ? peak - 5 : peak - 6;
-			get_bits (more_code, 3);
-			code = (code << 3) + more_code;
-		} else {
-			get_bits (more_code, 4);
-			code = ((code & 0b0000011) << 4) + more_code;
-			if (code >= 19) expo = code - 19 + (peak-50);	// Handle up to 45 values below peak coded as 19 through 63
-			else if (code >= 1) expo = code - 1 + (peak+1);	// Handle up to 18 values above peak coded as 1 through 18
-			else { memset (outbuf, 0, sizeof (double)); continue; }
-			get_bits (code, 5);
+			// We need to get at least 7 bits, cheaper to get them all at once.
+			// The goal is to decompress ~75% of the expos using just one get_bits call.
+			get_bits (code, 7);
+
+			// Decompress the exponent
+			if (code < 0b1100000) expo = peak - (code >> 5);
+			else if (code < 0b1111000) {
+				if (code < 0b1110000) expo = peak - 3 - ((code & 0b0011000) >> 3);
+				else expo = above_peak_flag ? peak + 1 : peak - 5;
+				get_bits (more_code, 2);
+				code = (code << 2) + more_code;
+			} else if (code < 0b1111100) {
+				expo = above_peak_flag ? peak - 5 : peak - 6;
+				get_bits (more_code, 3);
+				code = (code << 3) + more_code;
+			} else {
+				get_bits (more_code, 4);
+				code = ((code & 0b0000011) << 4) + more_code;
+				if (code >= 19) expo = code - 19 + (peak-50);	// Handle up to 45 values below peak coded as 19 through 63
+				else if (code >= 1) expo = code - 1 + (peak+1);	// Handle up to 18 values above peak coded as 1 through 18
+				else { memset (outbuf, 0, sizeof (double)); continue; }
+				get_bits (code, 5);
+			}
+
+			// Get the sign bit and high nibble of mantissa
+			sign = code >> 4;
+			nibble = code & 0xF;
+
+			// Copy 6 mantissa bytes
+			memcpy (outbuf, inptr, 6), inptr += 6;
+
+			// Output the top two bytes of the double
+			uint16_t top2 = (uint16_t) ((sign << 15) + (expo << 4) + nibble);
+			memcpy (outbuf+6, &top2, 2);
 		}
-
-		// Get the sign bit and high nibble of mantissa
-		sign = code >> 4;
-		nibble = code & 0xF;
-
-		// Copy 6 mantissa bytes
-		memcpy (outbuf, inptr, 6), inptr += 6;
-
-		// Output the top two bytes of the double
-		uint16_t top2 = (uint16_t) ((sign << 15) + (expo << 4) + nibble);
-		memcpy (outbuf+6, &top2, 2);
-	}
 #endif
 
 #undef get_bits
 #undef get_m48
+	}
 }
 
 #endif
@@ -1330,11 +1370,13 @@ void write_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *wlsd)
 #define read_line_fma		read_line_avx
 #define read_line_slice_fma	read_line_slice_avx
 #define read_preprocess_line_fma read_preprocess_line_avx
+#define read_preprocess_line_slice_fma read_preprocess_line_slice_avx
 #define write_line_fma		write_line_avx
 #define write_line_slice_fma	write_line_slice_avx
 void read_line_avx (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics);
 void read_line_slice_avx (int helper_num, pmhandle *pmdata, void *rlsd);
 void read_preprocess_line_avx (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics);
+void read_preprocess_line_slice_avx (int helper_num, pmhandle *pmdata, void *rplsd);
 void write_line_avx (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, gwnum *fma_data, int options);
 void write_line_slice_avx (int helper_num, pmhandle *pmdata, void *wlsd);
 
@@ -3335,83 +3377,166 @@ void monic_line_adjustments (
 
 // Read a line that was preprocessed by polymult_preprocess
 #ifndef FMA
-void read_preprocess_line (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
+
+// Structure used to pass data from read_line to read_line_slice
+typedef struct {
+	gwnum	*data;				// Argument passed to read_line
+	int	size;				// Argument passed to read_line
+	int	index;				// Argument passed to read_line
+	CVDT	*vec;				// Argument passed to read_line
+	int	options;			// Argument passed to read_line
+	bool	post_process_monics;		// Argument passed to read_line
+	gwatomic blknum;			// Block number to work on in multithreaded read_line_slice
+	bool	slice_it_up;			// Read the line with multi-threaded slices
+} read_preprocess_line_slice_data;
+
+void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rplsd)
 {
 	gwhandle *gwdata = pmdata->gwdata;
-	preprocessed_poly_header *hdr;  // Header of the preprocessed poly under construction
+	gwnum	*data = ((read_preprocess_line_slice_data *) rplsd)->data;
+	int	size = ((read_preprocess_line_slice_data *) rplsd)->size;
+	int	index = ((read_preprocess_line_slice_data *) rplsd)->index;
+	int	options = ((read_preprocess_line_slice_data *) rplsd)->options;
+	bool	post_process_monics = ((read_preprocess_line_slice_data *) rplsd)->post_process_monics;
+
+	preprocessed_poly_header *hdr;  // Header of the preprocessed poly being read
 	CVDT	*first_element;		// First element in the preprocessed poly array
+	CVDT	*element;		// Element to read in the preprocessed poly array
+	int	slice_size;		// Size of a slice to read
 
 	// Typecast to access the preprocessed poly header
 	hdr = (preprocessed_poly_header *) ((char *) data - sizeof (gwarray_header));
 	first_element = (CVDT *) round_up_to_multiple_of ((intptr_t) hdr + sizeof (preprocessed_poly_header), 64);
 
-	// If preprocessed data is FFTed, then return the data "as is" optionally decompressing.  Ignore the passed in size, use the poly FFT size
-	// that was computed by polymult_line_preprocess.
-	if (hdr->options & POLYMULT_PRE_FFT) {
-		if (!(hdr->options & POLYMULT_PRE_COMPRESS)) memcpy (vec, (char *) first_element + (intptr_t) index * (intptr_t) hdr->padded_element_size, hdr->element_size);
-		else decompress_vec ((char *) first_element + (intptr_t) index * (intptr_t) hdr->padded_element_size, (char *) vec, hdr->fft_size * sizeof (CVDT));
-		return;
-	}
-
-	// If not post-processing monics and the input is a monic RLP, then output a 1+0i
-	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
-		if (gwdata->k == 1.0) {
-			vec[0].real = broadcastsd (1.0);
-			vec[0].imag = broadcastsd (0.0);
-		} else {
-			read_line (pmdata, &gwdata->GW_FFT1, 1, index, vec, 0, FALSE);
-		}
-		vec++;
-	}
-
-	// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += (size-1);
-
-	// If we've delayed splitting the two real values in !ALL_COMPLEX_FFT, then read the first array entry for the first two indexes
-	int	index_to_read = index;
-	if (!gwdata->ALL_COMPLEX_FFT && !gwdata->ZERO_PADDED_FFT) {
+	// Compute index into the preprocessed data.  If we've delayed splitting the two real values in !ALL_COMPLEX_FFT then read the first array entry
+	// for the first two indexes.  Finally, get pointer to the first byte to read.
+	int index_to_read = index;
+	if (!(hdr->options & POLYMULT_PRE_FFT) && !gwdata->ALL_COMPLEX_FFT && !gwdata->ZERO_PADDED_FFT) {
 		index_to_read--;
 		if (index_to_read < 0) index_to_read = 0;
 	}
+	element = (CVDT *) ((char *) first_element + index_to_read * hdr->element_size);
 
-	// Copy the preprocessed entry
-	ASSERTG ((hdr->options & POLYMULT_PRE_COMPRESS) || hdr->element_size == size * sizeof (CVDT));
-	if (!(hdr->options & POLYMULT_PRE_COMPRESS)) memcpy (vec, (char *) first_element + (intptr_t) index_to_read * (intptr_t) hdr->padded_element_size, hdr->element_size);
-	else decompress_vec ((char *) first_element + (intptr_t) index_to_read * (intptr_t) hdr->padded_element_size, (char *) vec, size * sizeof (CVDT));
+	// If preprocessed data is FFTed, then ignore the passed in size, use the poly FFT size that was computed by polymult_line_preprocess
+	if (hdr->options & POLYMULT_PRE_FFT) size = hdr->fft_size;
 
-	// If we've delayed splitting the two real values in !ALL_COMPLEX_FFT turn the two reals into two complex values here
-	if (!gwdata->ALL_COMPLEX_FFT && !gwdata->ZERO_PADDED_FFT && index_to_read == 0) {
-		for (int j = 0; j < size; j++) {
-			union { VDT a; double b[VLEN / sizeof(double)]; } r, i;
-			r.a = vec[j].real;
-			i.a = vec[j].imag;
-			if (index == 0) {
-				memset (&r, 0, sizeof (r));
-				r.b[0] = i.b[0];
-				memset (&i, 0, sizeof (i));
-			} else {
-				i.b[0] = 0.0;
-			}
-			vec[j].real = r.a;
-			vec[j].imag = i.a;
+	// If multithreading read_preprocess_line, create a slice_size that will generate a goodly number of work units to multi-thread.
+	// If compressed, we may be able to read the poly in slices of 512 doubles.
+	if (!(((read_preprocess_line_slice_data *) rplsd)->slice_it_up)) slice_size = size;
+	else if (!(hdr->options & POLYMULT_PRE_COMPRESS)) slice_size = divide_rounding_up (size, 512);
+	else slice_size = size / hdr->num_compressed_blks;
+
+	// Read one slice at a time
+	for ( ; ; ) {
+		// Get slice to work on
+		int atomic_val = atomic_fetch_incr (((read_line_slice_data *) rplsd)->blknum);
+		int slice_start = atomic_val * slice_size;
+		if (slice_start >= size) break;
+		int slice_end = slice_start + slice_size;
+		if (slice_end > size) slice_end = size;
+
+		// Reload vector pointer
+		CVDT *vec = ((read_preprocess_line_slice_data *) rplsd)->vec;
+
+		// If preprocessed data is FFTed, then return the data "as is" optionally decompressing.  Ignore the passed in size, use the poly FFT size
+		// that was computed by polymult_line_preprocess.
+		if (hdr->options & POLYMULT_PRE_FFT) {
+			if (!(hdr->options & POLYMULT_PRE_COMPRESS))
+				memcpy (&vec[slice_start], &element[slice_start], (uint64_t) (slice_end - slice_start) * sizeof (CVDT));
+			else
+				decompress_line_slice ((char *) element, (char *) &vec[slice_start], hdr, slice_start, slice_end, sizeof (CVDT));
+			continue;
 		}
-	}
 
-	// Duplicate RLP data in reverse order
-	if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
-		for (int j = 1; j < size; j++) vec[-j] = vec[j];
-	}
+		// If not post-processing monics and the input is a monic RLP, then output a 1+0i
+		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
+			if (slice_start == 0) {
+				if (gwdata->k == 1.0) {
+					vec[0].real = broadcastsd (1.0);
+					vec[0].imag = broadcastsd (0.0);
+				} else {
+					read_line (pmdata, &gwdata->GW_FFT1, 1, index, vec, 0, FALSE);
+				}
+			}
+			vec++;
+		}
 
-	// If not post-processing monics and the input is monic, then output a 1+0i
-	if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
-		if (gwdata->k == 1.0) {
-			vec[size].real = broadcastsd (1.0);
-			vec[size].imag = broadcastsd (0.0);
-		} else {
-			read_line (pmdata, &gwdata->GW_FFT1, 1, index, &vec[size], 0, FALSE);
+		// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
+		if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += (size-1);
+
+		// Copy the preprocessed entry
+		ASSERTG ((hdr->options & POLYMULT_PRE_COMPRESS) || hdr->element_size == size * sizeof (CVDT));
+		if (!(hdr->options & POLYMULT_PRE_COMPRESS)) memcpy (&vec[slice_start], &element[slice_start], (uint64_t) (slice_end - slice_start) * sizeof (CVDT));
+		else decompress_line_slice ((char *) element, (char *) &vec[slice_start], hdr, slice_start, slice_end, sizeof (CVDT));
+
+		// If we've delayed splitting the two real values in !ALL_COMPLEX_FFT turn the two reals into two complex values here
+		if (!gwdata->ALL_COMPLEX_FFT && !gwdata->ZERO_PADDED_FFT && index_to_read == 0) {
+			for (int j = slice_start; j < slice_end; j++) {
+				union { VDT a; double b[VLEN / sizeof(double)]; } r, i;
+				r.a = vec[j].real;
+				i.a = vec[j].imag;
+				if (index == 0) {
+					memset (&r, 0, sizeof (r));
+					r.b[0] = i.b[0];
+					memset (&i, 0, sizeof (i));
+				} else {
+					i.b[0] = 0.0;
+				}
+				vec[j].real = r.a;
+				vec[j].imag = i.a;
+			}
+		}
+
+		// Duplicate RLP data in reverse order
+		if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
+			for (int j = slice_start; j < slice_end; j++) vec[-j] = vec[j];
+		}
+
+		// If not post-processing monics and the input is monic, then output a 1+0i
+		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
+			if (slice_start == 0) {
+				if (gwdata->k == 1.0) {
+					vec[size].real = broadcastsd (1.0);
+					vec[size].imag = broadcastsd (0.0);
+				} else {
+					read_line (pmdata, &gwdata->GW_FFT1, 1, index, &vec[size], 0, FALSE);
+				}
+			}
 		}
 	}
 }
+
+void read_preprocess_line (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
+{
+	read_preprocess_line_slice_data rplsd;			// Data to pass to read_preprocess_line_slice
+
+	// Copy arguments for passing to read_line_slice
+	rplsd.data = data;
+	rplsd.size = size;
+	rplsd.index = index;
+	rplsd.vec = vec;
+	rplsd.options = options;
+	rplsd.post_process_monics = post_process_monics;
+
+	// Launch helpers to do read a line in slices.  This is tricky.  There are two cases.  The most common case is polymult_line is multi-threaded
+	// and read_line_slice is single-threaded.  The less common case is polymult_line is single-threaded and read_line_slice is multi-threaded.
+	// If polymult_line is multi-threaded we cannot set pmdata->helper_opcode as all helper threads may not have dispatched based on the opcode,
+	// nor can we have each thread setting pmdata->internal_callback_data.  To handle this we call read_line_slice directly when read_line_slice is
+	// single-threaded.  When read_line_slice is multi-threaded we use all the polymult_launch machinery, but polymult_launch must not
+	// atomic_set helper_counter as polymult_line is using that variable.
+	atomic_set (rplsd.blknum, 0);
+	if (pmdata->mt_polymult_line) {
+		rplsd.slice_it_up = FALSE;
+		read_preprocess_line_slice (0, pmdata, &rplsd);
+	} else {
+		// Create a slice_size that will generate a goodly number of work units to multi-thread
+		rplsd.slice_it_up = TRUE;
+		pmdata->internal_callback = &read_preprocess_line_slice;
+		pmdata->internal_callback_data = &rplsd;
+		polymult_launch_helpers (pmdata);
+	}
+}
+
 #endif
 
 /* Preprocess a poly that will be used in multiple future polymult calls.  Preprocessing can reduce memory consumption or reduce CPU time. */
@@ -3426,10 +3551,11 @@ void polymult_line_preprocess (
 	int	invec1_size = pmdata->invec1_size;	// Size of the input poly
 	int	options = pmdata->options;
 	int	fft_size = plan->fft_size;
-	int	line, max_element_size;
+	int	line;
 	int	lines_combined;				// Set when lines 0 and 1 are merged into one preprocessed output element
 	CVDT	*invec1, *scratch;
 	char	*first_element;				// First element in the preprocessed poly array
+	uint64_t max_element_size;
 
 	// Allocate memory for polymult preprocessing
 	scratch = NULL;
@@ -3456,7 +3582,7 @@ void polymult_line_preprocess (
 		lines_combined = plan->combine_two_lines && line > 0;
 
 		// Set invec1 so that we read the line directly into the output buffer
-		invec1 = (CVDT *) (first_element + (intptr_t) (line - lines_combined) * (intptr_t) hdr->padded_element_size);
+		invec1 = (CVDT *) (first_element + (line - lines_combined) * hdr->element_size);
 
 		// Read a line.  If we're saving memory by delaying splitting the two reals, then combine the first two lines into one.
 		if (line <= 1 && plan->combine_two_lines) {
@@ -3484,9 +3610,9 @@ void polymult_line_preprocess (
 
 		// If compressing each line, compress the vector of doubles.  Track the maximum compressed vector size.
 		if (options & POLYMULT_PRE_COMPRESS) {
-			int element_size = compress_vec ((char *) invec1, hdr->element_size);
-			ASSERTG (element_size <= hdr->element_size);
-			if (element_size > max_element_size) max_element_size = element_size;
+			uint64_t compressed_element_size = compress_line ((char *) invec1, hdr->element_size, hdr->num_compressed_blks);
+			ASSERTG (compressed_element_size <= hdr->element_size);
+			if (compressed_element_size > max_element_size) max_element_size = compressed_element_size;
 		}
 	}
 
@@ -3915,7 +4041,8 @@ gwarray polymult_preprocess (		// Returns a plug-in replacement for the input po
 	int	options)		// Future polymult options preprocessing options (FFT, compress -- see polymult.h)
 {
 	preprocess_plan plan;		// Plan for how to implement preprocessing invec1 
-	int	element_size, padded_element_size, num_elements;
+	int	num_elements;
+	uint64_t element_size;
 	bool	must_fft;
 
 	// Cannot preprocess an already preprocessed poly
@@ -3985,22 +4112,21 @@ gwarray polymult_preprocess (		// Returns a plug-in replacement for the input po
 	// Calculate complex vector size in bytes
 	int complex_vector_size = complex_vector_size_in_bytes (pmdata->gwdata->cpu_flags);
 	// Compute size of each line to be written
-	element_size = complex_vector_size * ((options & POLYMULT_PRE_FFT) ? plan.fft_size : invec1_size);
-//GW:  shrink element-size if/when we support sparse non-ffted invec1
-	padded_element_size = round_up_to_multiple_of (element_size, 64);
+	element_size = complex_vector_size * (uint64_t) ((options & POLYMULT_PRE_FFT) ? plan.fft_size : invec1_size);
 
 	// Allocate and init the preprocessed output
 	plan.combine_two_lines = !pmdata->gwdata->ALL_COMPLEX_FFT && !pmdata->gwdata->ZERO_PADDED_FFT && !(options & POLYMULT_PRE_FFT);
 	num_elements = plan.combine_two_lines ? pmdata->num_lines - 1 : pmdata->num_lines;
-	plan.hdr = (preprocessed_poly_header *) malloc (sizeof (preprocessed_poly_header) + 64 + (intptr_t) num_elements * (intptr_t) padded_element_size);
+	plan.hdr = (preprocessed_poly_header *) malloc ((size_t) (sizeof (preprocessed_poly_header) + 64 + num_elements * element_size));
 	if (plan.hdr == NULL) return (NULL);
 	memset (plan.hdr, 0, sizeof (preprocessed_poly_header));
 	plan.hdr->element_size = element_size;
-	plan.hdr->padded_element_size = padded_element_size;
 	plan.hdr->options = options;
 	plan.hdr->monic_ones_included = !plan.strip_monic_from_invec1;
 	plan.hdr->top_unnorms = unnorms (invec1[invec1_size-1]);
 	if (options & POLYMULT_PRE_FFT) plan.hdr->fft_size = plan.fft_size;
+	// Compress large lines (more than 32K doubles) in blocks to allow multi-threaded read
+	plan.hdr->num_compressed_blks = (int) ((pmdata->num_threads > 1 && element_size > 32768 * sizeof (double)) ? element_size / (512 * sizeof (double)) : 1);
 
 	// Prepare for polymult_preprocess in parallel
 	pmdata->plan = &plan;
@@ -4019,17 +4145,27 @@ gwarray polymult_preprocess (		// Returns a plug-in replacement for the input po
 	pmdata->helper_opcode = HELPER_PREPROCESS_LINE;	// The helpers are doing polymult_preprocess work
 	polymult_launch_helpers (pmdata);
 	
-	// Shrink a compressed poly to its minimum possible size using realloc.
+	// Move data to shrink compressed poly to its minimum possible size, then use realloc to free memory.
 	if (options & POLYMULT_PRE_COMPRESS) {
+		uint64_t uncompressed_blk_size = element_size / plan.hdr->num_compressed_blks;
+		uint64_t compressed_blk_size = (plan.max_element_size - 1) / plan.hdr->num_compressed_blks;
+
+//GW: This is hard to multithread!
 		char *first_element = (char *) round_up_to_multiple_of ((intptr_t) plan.hdr + sizeof (preprocessed_poly_header), 64);
-//GW: This will be hard to safely multithread!
-		for (int line = 1; line < num_elements; line++) {
-			memmove (first_element + (intptr_t) line * (intptr_t) plan.max_element_size,
-				 first_element + (intptr_t) line * (intptr_t) padded_element_size, plan.max_element_size);
+		for (int line = 0; line < num_elements; line++) {
+			char *src = first_element + line * element_size;
+			char *dest = first_element + line * plan.max_element_size;
+			// Copy one header byte for each line
+			*dest++ = *src++;
+			// Copy each slice of the line
+			for (int blk = 0; blk < plan.hdr->num_compressed_blks; blk++) {
+				memmove (dest, src, (size_t) compressed_blk_size);
+				dest += compressed_blk_size;
+				src += uncompressed_blk_size;
+			}
 		}
-		plan.hdr = (preprocessed_poly_header *) realloc (plan.hdr, sizeof (preprocessed_poly_header) + 64 + (intptr_t) num_elements * (intptr_t) plan.max_element_size);
+		plan.hdr = (preprocessed_poly_header *) realloc (plan.hdr, (size_t) (sizeof (preprocessed_poly_header) + 64 + num_elements * plan.max_element_size));
 		plan.hdr->element_size = plan.max_element_size;
-		plan.hdr->padded_element_size = plan.max_element_size;
 	}
 
 	// Link into gwnum's list of arrays to free when gwdone is called
@@ -4682,7 +4818,8 @@ void polymult_several (		// Multiply one poly with several polys
 			// to fit two lines in the L3 cache".
 //GW: fine tune this!!!  should also do this if num_lines < num_threads (or if not "a lot more than")?
 			int complex_vector_size = complex_vector_size_in_bytes (pmdata->gwdata->cpu_flags);
-			if ((uint64_t) fft_size > (uint64_t) pmdata->L3_CACHE_SIZE * 1048576 / (2 * complex_vector_size)) pmdata->mt_polymult_line = FALSE;
+			if (pmdata->num_threads > 1 && (uint64_t) fft_size > (uint64_t) pmdata->L3_CACHE_SIZE * 1048576 / (2 * complex_vector_size))
+				pmdata->mt_polymult_line = FALSE;
 		}						
 
 		// If we selected the circular fft size, then save some necessary plan variables

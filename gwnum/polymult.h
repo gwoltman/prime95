@@ -285,8 +285,8 @@ struct pmhandle_struct {
 typedef struct {
 	gwarray_header linkage;		// Used to put preprocessed polys on gwarray linked list.  Allows gwdone to free all preprocessed polys.
 	gwnum	*self_ptr;		// Ptr to itself.  A unique indicator that this is a preprocessed poly.
-	int	element_size;		// Size of each invec in the array
-	int	padded_element_size;	// Size of each invec in the array rounded up to a multiple of 64 (not rounded when compressing)
+	uint64_t element_size;		// Size in bytes of each line in the preprocessed array
+	int	num_compressed_blks;	// When compressing, each line is sub-divided into this many blocks (allows multi-threading decompression)
 	int	options;		// Copy of options passed to polymult_line_preprocess
 	int	fft_size;		// If POLYMULT_PRE_FFT is set, this is the poly FFT size selected during preprocessing
 	float	top_unnorms;		// Number of unnormalized adds for the topmost poly coefficient
