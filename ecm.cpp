@@ -1275,8 +1275,8 @@ int isProbablePrime (
 		dbltogw (gwdata, (double) i, t2);
 		gwfft (gwdata, t2, t2);
 		for (j = 1; j <= len; j++) {
-			gwsquare (gwdata, t1);
-			if (bitval (N, len-j)) gwfftmul (gwdata, t2, t1);
+			gwsquare2 (gwdata, t1, t1, 0);
+			if (bitval (N, len-j)) gwmul3 (gwdata, t2, t1, t1, 0);
 		}
 		gwfree (gwdata, t2);
 		x = popg (&gwdata->gdata, ((int) gwdata->bit_length >> 5) + 10);
@@ -2130,72 +2130,6 @@ int ecm_modinv (
 oom:	return (OutOfMemory (ecmdata->thread_num));
 }
 
-
-/* Computes the modular inverse of an array of numbers */
-/* Uses extra multiplications to make only one real modinv call */
-/* Uses the simple formula 1/a = b * 1/ab, 1/b = a * 1/ab */
-/* If we accidentally find a factor it is returned in factor. */
-/* Return stop_reason if there is a user interrupt. */
-
-int grouped_modinv (
-	ecmhandle *ecmdata,
-	gwnum	*b,
-	unsigned int size,
-	gwnum	*tmp)
-{
-	unsigned int i;
-	gwnum	*orig_tmp;
-	int	stop_reason;
-
-/* Handle group of 1 as a special case */
-
-	if (size == 1) return (ecm_modinv (ecmdata, *b));
-
-/* Handle an odd size */
-
-	orig_tmp = tmp;
-	if (size & 1) {
-		gwswap (b[0], *tmp);
-		tmp++;
-	}
-
-/* Multiply each pair of numbers */
-
-	for (i = (size & 1); i < size; i += 2) {
-		gwfft (&ecmdata->gwdata, b[i], b[i]);
-		gwfft (&ecmdata->gwdata, b[i+1], b[i+1]);
-		gwfftfftmul (&ecmdata->gwdata, b[i], b[i+1], *tmp);
-		tmp++;
-	}
-
-/* Recurse */
-
-	stop_reason = grouped_modinv (ecmdata, orig_tmp, (size+1) / 2, tmp);
-	if (stop_reason) return (stop_reason);
-	if (ecmdata->factor != NULL) return (0);
-
-/* Handle an odd size */
-
-	if (size & 1) {
-		gwswap (b[0], *orig_tmp);
-		orig_tmp++;
-	}
-
-/* Now perform multiplications on each pair to get the modular inverse */
-
-	for (i = (size & 1); i < size; i += 2) {
-		gwfft (&ecmdata->gwdata, *orig_tmp, *orig_tmp);
-		gwfftfftmul (&ecmdata->gwdata, *orig_tmp, b[i], b[i]);
-		gwfftfftmul (&ecmdata->gwdata, *orig_tmp, b[i+1], b[i+1]);
-		gwswap (b[i], b[i+1]);
-		orig_tmp++;
-	}
-
-/* All done, return */
-
-	return (0);
-}
-
 /* Takes a point (a,b) and multiplies it by a value such that b will be one */
 /* If we accidentally find a factor it is returned in factor.  Function */
 /* returns stop_reason if it was interrupted by an escape. */
@@ -2212,7 +2146,7 @@ int normalize (
 	stop_reason = ecm_modinv (ecmdata, b);
 	if (stop_reason) return (stop_reason);
 	if (ecmdata->factor != NULL) return (0);
-	gwmul (&ecmdata->gwdata, b, a);
+	gwmul3 (&ecmdata->gwdata, b, a, a, 0);
 	return (0);
 }
 
@@ -3313,7 +3247,7 @@ int choose12 (
 	/* Now for A. */
 	gwsub3o (&ecmdata->gwdata, zs, xs, t2, GWADD_GUARANTEED_OK | GWADD_SQUARE_INPUT);
 	gwsquare2 (&ecmdata->gwdata, t2, t3, GWMUL_STARTNEXTFFT);
-	gwmul (&ecmdata->gwdata, t3, t2);						/* (v-u)^3 */
+	gwmul3 (&ecmdata->gwdata, t3, t2, t2, GWMUL_STARTNEXTFFT);			/* (v-u)^3 */
 	gwadd3o (&ecmdata->gwdata, xs, xs, t3, GWADD_GUARANTEED_OK | GWADD_MUL_INPUT);
 	gwadd3o (&ecmdata->gwdata, xs, t3, t3, GWADD_GUARANTEED_OK | GWADD_MUL_INPUT);
 	gwadd3o (&ecmdata->gwdata, zs, t3, t3, GWADD_GUARANTEED_OK | GWADD_MUL_INPUT);	/* 3u+v */
@@ -5251,42 +5185,43 @@ OS_CAN_SET_AFFINITY = FALSE;
 
 gwhandle gwdata;
 pmhandle pmdata;
-gwarray a;
+gwarray a, b;
+int polymem = IniGetInt (LOCALINI_FILE, "PolyMem", 6400);
+if (polymem > (int) physical_memory ()) polymem = (int) (0.9 * physical_memory ());
 for (int EXP = 1000; ; EXP *= 4) {
+if (EXP > 500000000) break;
 int iters=150000/EXP;
 if (iters == 0) iters = 1;
+sprintf (buf, "Polymult timing using %d threads, %dMB\n", HW_NUM_CORES, polymem);
+OutputBoth (thread_num, buf);
 for (int CNT=50000; ; CNT*=2, iters=iters/2) {
+if ((double) CNT * gwmap_to_memused (1.0, 2, EXP, -1) > polymem * 1024.0 * 1024.0) break;
 if (iters == 0) iters = 1;
 clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
+for (int types = 0; types < 4; types++) {
+if ((types & 2) && (double) CNT * gwmap_to_memused (1.0, 2, EXP, -1) > polymem * 1024.0 * 1024.0 / 2.0) continue;
 gwinit (&gwdata); 
-gwset_num_threads (&gwdata, 4);
+gwset_num_threads (&gwdata, HW_NUM_CORES);
 gwset_use_spin_wait (&gwdata, 1);
 gwsetup (&gwdata, 1.0, 2, EXP, -1);
-if ((double) CNT * (gwnum_datasize (&gwdata) + GW_HEADER_SIZE (&gwdata)) > 6.2 * 1024.0 * 1024.0 * 1024.0) { gwdone (&gwdata); break; };	// Machine limited to 6.2GB
+if (stopCheck (thread_num)) { gwdone (&gwdata); return 1; }
 polymult_init (&pmdata, &gwdata);
-polymult_set_max_num_threads (&pmdata, 4);
-a = gwalloc_array (&gwdata, CNT);
-for (int i = 0; i < CNT; i++) dbltogw (&gwdata, (double) (i+10001),  a[i]);
-
-pmdata.L3_CACHE_SIZE = 1000000;
+polymult_set_max_num_threads (&pmdata, HW_NUM_CORES);
+a = b = gwalloc_array (&gwdata, CNT);
+dbltogw (&gwdata, 10001.0, a[0]);
+for (int i = 1; i < CNT/2; i++) gwcopy (&gwdata, a[0], a[i]);
+if (types & 2) { a = polymult_preprocess (&pmdata, a, CNT/2, CNT/2, CNT-1, 0); }
+pmdata.L3_CACHE_SIZE = (types & 1) ? 1 : 1000000;	// bit off = old-way, bit on = new-way
 start_timer (timers, 0);
-for (int i = 0; i < iters; i++) polymult (&pmdata, a, CNT/2, a, CNT/2, a, CNT-1, POLYMULT_NEXTFFT);
+for (int i = 0; i < iters; i++) polymult (&pmdata, a, CNT/2, a, CNT/2, b, CNT-1, POLYMULT_NEXTFFT);
 end_timer (timers, 0);
 timers[0] /= iters;
-sprintf (buf, "Polymult old-way.  Poly-size %d, gwnum FFT size %ld, time: ", CNT, gwdata.FFTLEN);
-print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
-OutputBoth (thread_num, buf);
-
-pmdata.L3_CACHE_SIZE = 1;
-start_timer (timers, 0);
-for (int i = 0; i < iters; i++) polymult (&pmdata, a, CNT/2, a, CNT/2, a, CNT-1, POLYMULT_NEXTFFT);
-end_timer (timers, 0);
-timers[0] /= iters;
-sprintf (buf, "Polymult new-way.  Poly-size %d, gwnum FFT size %ld, time: ", CNT, gwdata.FFTLEN);
+sprintf (buf, "Polymult %s-way%s.  Poly-size %d, gwnum FFT size %ld, time: ", (types & 1) ? "new" : "old", (types & 2) ? " preprocessed" : "", CNT, gwdata.FFTLEN);
 print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
 OutputBoth (thread_num, buf);
 polymult_done (&pmdata);
 gwdone (&gwdata);
+}
 }
 }
 return 1;
@@ -7896,7 +7831,8 @@ more_curves:
 			gwfft_description (&ecmdata.gwdata, fft_desc);
 			sprintf (msgbuf, "Switching back to %s\n", fft_desc);
 			OutputStr (thread_num, msgbuf);
-		}
+		} else
+			gwsetaddin (&ecmdata.gwdata, 0);		// This should not be necessary
 		goto restart0;
 	}
 
