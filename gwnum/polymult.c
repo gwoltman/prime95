@@ -63,6 +63,10 @@
 //     as using lots less scratch memory)
 // 74) Fix mem_required to access L3_CACHE_SIZE and use same algorithm for determining mt_polymult_line.
 // 75) If poly is pre-FFT'ed there is no need to read it into a line buffer, we can access it directly in fft_line_pass (or if compressed copy ir to a much smaller scratch buffer)
+// 76) Decrease planning/launching costs by having array_invec1 and array_invec2 and array_outvec listing all the length1/2/3/4 etc. tree build polys to multiply together?
+// 77) Create a read_line_whole and write_line_whole routine?  The overhead of sliced reads is significant for the very small poly lengths computing ECM polyG.
+// 78) How about a read_write_line_prep which pre-calc index and cache_line_offset for all future read_line and write_line calls on the line.  Helps with high
+//	overhead on length1/2/3/4 etc. tree build.
 
 /* Opcodes for helper thread */
 
@@ -596,7 +600,6 @@ unsigned long cache_line_offset (
 
 /* One pass x87 FFTs use a near flat memory model. */
 
-//BUG --- complex vals are 8 away from reals (at least in integer space) ---- not an issue if polymult is only for x64
 	else if (gwdata->PASS2_SIZE == 0) {
 		addr = i * 64;
 	}
@@ -1151,12 +1154,18 @@ void read_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rlsd)
 
 	// Read one slice at a time
 	for ( ; ; ) {
-		// Get slice to work on
-		int atomic_val = atomic_fetch_incr (((read_line_slice_data *) rlsd)->blknum);
-		int slice_start = atomic_val * slice_size;
-		if (slice_start >= size) break;
-		int slice_end = slice_start + slice_size;
-		if (slice_end > size) slice_end = size;
+		int	slice_start, slice_end;
+		// Get slice to work on.  Atomics aren't cheap, avoid them if reading the whole line.
+		if (slice_size == size) {
+			slice_start = 0;
+			slice_end = size;
+		} else {
+			int atomic_val = atomic_fetch_incr (((read_line_slice_data *) rlsd)->blknum);
+			slice_start = atomic_val * slice_size;
+			if (slice_start >= size) break;
+			slice_end = slice_start + slice_size;
+			if (slice_end > size) slice_end = size;
+		}
 
 		// Reload vector pointer
 		CVDT *vec = ((read_line_slice_data *) rlsd)->vec;
@@ -1236,6 +1245,9 @@ void read_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rlsd)
 				}
 			}
 		}
+
+		// Check for completion
+		if (slice_end == size) break;
 	}
 }
 
@@ -1263,12 +1275,18 @@ void write_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *wlsd)
 
 	// Write one slice at a time
 	for ( ; ; ) {
-		// Get slice to work on
-		int atomic_val = atomic_fetch_incr (((write_line_slice_data *) wlsd)->blknum);
-		int slice_start = atomic_val * slice_size;
-		if (slice_start >= size) break;
-		int slice_end = slice_start + slice_size;
-		if (slice_end > size) slice_end = size;
+		int	slice_start, slice_end;
+		// Get slice to work on.  Atomics aren't cheap, avoid them if writing the whole line.
+		if (slice_size == size) {
+			slice_start = 0;
+			slice_end = size;
+		} else {
+			int atomic_val = atomic_fetch_incr (((write_line_slice_data *) wlsd)->blknum);
+			slice_start = atomic_val * slice_size;
+			if (slice_start >= size) break;
+			slice_end = slice_start + slice_size;
+			if (slice_end > size) slice_end = size;
+		}
 
 		// AVX512 implementation
 		union {
@@ -1365,6 +1383,9 @@ void write_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *wlsd)
 				((VDT *) data[j])[offset+1] = vec[j].imag;
 			}
 		}
+
+		// Check for completion
+		if (slice_end == size) break;
 	}
 }
 
@@ -1413,12 +1434,18 @@ void read_line_slice_avx (int helper_num, pmhandle *pmdata, void *rlsd)
 
 	// Read one slice at a time
 	for ( ; ; ) {
-		// Get slice to work on
-		int atomic_val = atomic_fetch_incr (((read_line_slice_data *) rlsd)->blknum);
-		int slice_start = atomic_val * slice_size;
-		if (slice_start >= size) break;
-		int slice_end = slice_start + slice_size;
-		if (slice_end > size) slice_end = size;
+		int	slice_start, slice_end;
+		// Get slice to work on.  Atomics aren't cheap, avoid them if reading the whole line.
+		if (slice_size == size) {
+			slice_start = 0;
+			slice_end = size;
+		} else {
+			int atomic_val = atomic_fetch_incr (((read_line_slice_data *) rlsd)->blknum);
+			slice_start = atomic_val * slice_size;
+			if (slice_start >= size) break;
+			slice_end = slice_start + slice_size;
+			if (slice_end > size) slice_end = size;
+		}
 
 		// Reload vector pointer
 		CVDT *vec = ((read_line_slice_data *) rlsd)->vec;
@@ -1504,6 +1531,9 @@ void read_line_slice_avx (int helper_num, pmhandle *pmdata, void *rlsd)
 				}
 			}
 		}
+
+		// Check for completion
+		if (slice_end == size) break;
 	}
 }
 
@@ -1534,12 +1564,18 @@ void write_line_slice_avx (int helper_num, pmhandle *pmdata, void *wlsd)
 
 	// Write one slice at a time
 	for ( ; ; ) {
-		// Get slice to work on
-		int atomic_val = atomic_fetch_incr (((write_line_slice_data *) wlsd)->blknum);
-		int slice_start = atomic_val * slice_size;
-		if (slice_start >= size) break;
-		int slice_end = slice_start + slice_size;
-		if (slice_end > size) slice_end = size;
+		int	slice_start, slice_end;
+		// Get slice to work on.  Atomics aren't cheap, avoid them if writing the whole line.
+		if (slice_size == size) {
+			slice_start = 0;
+			slice_end = size;
+		} else {
+			int atomic_val = atomic_fetch_incr (((write_line_slice_data *) wlsd)->blknum);
+			slice_start = atomic_val * slice_size;
+			if (slice_start >= size) break;
+			slice_end = slice_start + slice_size;
+			if (slice_end > size) slice_end = size;
+		}
 
 		// AVX implementation
 		union {
@@ -1648,6 +1684,9 @@ void write_line_slice_avx (int helper_num, pmhandle *pmdata, void *wlsd)
 				((VDT *) data[j])[offset+1] = vec[j].imag;
 			}
 		}
+
+		// Check for completion
+		if (slice_end == size) break;
 	}
 }
 
@@ -1692,12 +1731,18 @@ void read_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rlsd)
 
 	// Read one slice at a time
 	for ( ; ; ) {
-		// Get slice to work on
-		int atomic_val = atomic_fetch_incr (((read_line_slice_data *) rlsd)->blknum);
-		int slice_start = atomic_val * slice_size;
-		if (slice_start >= size) break;
-		int slice_end = slice_start + slice_size;
-		if (slice_end > size) slice_end = size;
+		int	slice_start, slice_end;
+		// Get slice to work on.  Atomics aren't cheap, avoid them if reading the whole line.
+		if (slice_size == size) {
+			slice_start = 0;
+			slice_end = size;
+		} else {
+			int atomic_val = atomic_fetch_incr (((read_line_slice_data *) rlsd)->blknum);
+			slice_start = atomic_val * slice_size;
+			if (slice_start >= size) break;
+			slice_end = slice_start + slice_size;
+			if (slice_end > size) slice_end = size;
+		}
 
 		// Reload vector pointer
 		CVDT *vec = ((read_line_slice_data *) rlsd)->vec;
@@ -1799,6 +1844,9 @@ void read_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rlsd)
 				}
 			}
 		}
+
+		// Check for completion
+		if (slice_end == size) break;
 	}
 }
 
@@ -1840,12 +1888,18 @@ void write_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *wlsd)
 
 	// Write one slice at a time
 	for ( ; ; ) {
-		// Get slice to work on
-		int atomic_val = atomic_fetch_incr (((write_line_slice_data *) wlsd)->blknum);
-		int slice_start = atomic_val * slice_size;
-		if (slice_start >= size) break;
-		int slice_end = slice_start + slice_size;
-		if (slice_end > size) slice_end = size;
+		int	slice_start, slice_end;
+		// Get slice to work on.  Atomics aren't cheap, avoid them if writing the whole line.
+		if (slice_size == size) {
+			slice_start = 0;
+			slice_end = size;
+		} else {
+			int atomic_val = atomic_fetch_incr (((write_line_slice_data *) wlsd)->blknum);
+			slice_start = atomic_val * slice_size;
+			if (slice_start >= size) break;
+			slice_end = slice_start + slice_size;
+			if (slice_end > size) slice_end = size;
+		}
 
 		// SSE2 instructions implementation
 		union {
@@ -1982,6 +2036,9 @@ void write_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *wlsd)
 				}
 			}
 		}
+
+		// Check for completion
+		if (slice_end == size) break;
 	}
 }
 
@@ -2015,12 +2072,18 @@ void read_line_slice_dbl (int helper_num, pmhandle *pmdata, void *rlsd)
 
 	// Read one slice at a time
 	for ( ; ; ) {
-		// Get slice to work on
-		int atomic_val = atomic_fetch_incr (((read_line_slice_data *) rlsd)->blknum);
-		int slice_start = atomic_val * slice_size;
-		if (slice_start >= size) break;
-		int slice_end = slice_start + slice_size;
-		if (slice_end > size) slice_end = size;
+		int	slice_start, slice_end;
+		// Get slice to work on.  Atomics aren't cheap, avoid them if reading the whole line.
+		if (slice_size == size) {
+			slice_start = 0;
+			slice_end = size;
+		} else {
+			int atomic_val = atomic_fetch_incr (((read_line_slice_data *) rlsd)->blknum);
+			slice_start = atomic_val * slice_size;
+			if (slice_start >= size) break;
+			slice_end = slice_start + slice_size;
+			if (slice_end > size) slice_end = size;
+		}
 
 		// Reload vector pointer
 		CVDT *vec = ((read_line_slice_data *) rlsd)->vec;
@@ -2104,6 +2167,9 @@ void read_line_slice_dbl (int helper_num, pmhandle *pmdata, void *rlsd)
 				}
 			}
 		}
+
+		// Check for completion
+		if (slice_end == size) break;
 	}
 }
 
@@ -2134,12 +2200,18 @@ void write_line_slice_dbl (int helper_num, pmhandle *pmdata, void *wlsd)
 
 	// Write one slice at a time
 	for ( ; ; ) {
-		// Get slice to work on
-		int atomic_val = atomic_fetch_incr (((write_line_slice_data *) wlsd)->blknum);
-		int slice_start = atomic_val * slice_size;
-		if (slice_start >= size) break;
-		int slice_end = slice_start + slice_size;
-		if (slice_end > size) slice_end = size;
+		int	slice_start, slice_end;
+		// Get slice to work on.  Atomics aren't cheap, avoid them if writing the whole line.
+		if (slice_size == size) {
+			slice_start = 0;
+			slice_end = size;
+		} else {
+			int atomic_val = atomic_fetch_incr (((write_line_slice_data *) wlsd)->blknum);
+			slice_start = atomic_val * slice_size;
+			if (slice_start >= size) break;
+			slice_end = slice_start + slice_size;
+			if (slice_end > size) slice_end = size;
+		}
 
 		// No special instructions implementation
 		if (index <= -2) {			// Seven zero pad header values
@@ -2225,6 +2297,9 @@ void write_line_slice_dbl (int helper_num, pmhandle *pmdata, void *wlsd)
 				}
 			}
 		}
+
+		// Check for completion
+		if (slice_end == size) break;
 	}
 }
 
@@ -2396,13 +2471,13 @@ void read_line (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, i
 	// nor can we have each thread setting pmdata->internal_callback_data.  To handle this we call read_line_slice directly when read_line_slice is
 	// single-threaded.  When read_line_slice is multi-threaded we use all the polymult_launch machinery, but polymult_launch must not
 	// atomic_set helper_counter as polymult_line is using that variable.
-	atomic_set (rlsd.blknum, 0);
 	if (pmdata->mt_polymult_line || size < 512) {
 		rlsd.slice_size = size;
 		read_line_slice (0, pmdata, &rlsd);
 	} else {
 		// Create a slice_size that will generate a goodly number of work units to multi-thread
 		rlsd.slice_size = divide_rounding_up (size, 512);
+		atomic_set (rlsd.blknum, 0);
 		pmdata->internal_callback = &read_line_slice;
 		pmdata->internal_callback_data = &rlsd;
 		polymult_launch_helpers (pmdata);
@@ -2427,13 +2502,13 @@ void write_line (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, 
 	// nor can we have each thread setting pmdata->internal_callback_data.  To handle this we call write_line_slice directly when write_line_slice is
 	// single-threaded.  When write_line_slice is multi-threaded we use all the polymult_launch machinery, but polymult_launch must not
 	// atomic_set helper_counter as polymult_line is using that variable.
-	atomic_set (wlsd.blknum, 0);
 	if (pmdata->mt_polymult_line) {
 		wlsd.slice_size = size;
 		write_line_slice (0, pmdata, &wlsd);
 	} else {
 		// Create a slice_size that will generate a goodly number of work units to multi-thread
 		wlsd.slice_size = divide_rounding_up (size, 512);
+		atomic_set (wlsd.blknum, 0);
 		pmdata->internal_callback = &write_line_slice;
 		pmdata->internal_callback_data = &wlsd;
 		polymult_launch_helpers (pmdata);
@@ -3381,7 +3456,7 @@ void monic_line_adjustments (
 // Read a line that was preprocessed by polymult_preprocess
 #ifndef FMA
 
-// Structure used to pass data from read_line to read_line_slice
+// Structure used to pass data from read_preprocess_line to read_preprocess_line_slice
 typedef struct {
 	gwnum	*data;				// Argument passed to read_line
 	int	size;				// Argument passed to read_line
@@ -3389,7 +3464,7 @@ typedef struct {
 	CVDT	*vec;				// Argument passed to read_line
 	int	options;			// Argument passed to read_line
 	bool	post_process_monics;		// Argument passed to read_line
-	gwatomic blknum;			// Block number to work on in multithreaded read_line_slice
+	gwatomic blknum;			// Block number to work on in multithreaded read_preprocess_line_slice
 	bool	slice_it_up;			// Read the line with multi-threaded slices
 } read_preprocess_line_slice_data;
 
@@ -3432,12 +3507,18 @@ void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rplsd)
 
 	// Read one slice at a time
 	for ( ; ; ) {
-		// Get slice to work on
-		int atomic_val = atomic_fetch_incr (((read_line_slice_data *) rplsd)->blknum);
-		int slice_start = atomic_val * slice_size;
-		if (slice_start >= size) break;
-		int slice_end = slice_start + slice_size;
-		if (slice_end > size) slice_end = size;
+		int	slice_start, slice_end;
+		// Get slice to work on.  Atomics aren't cheap, avoid them if reading the whole line.
+		if (slice_size == size) {
+			slice_start = 0;
+			slice_end = size;
+		} else {
+			int atomic_val = atomic_fetch_incr (((read_preprocess_line_slice_data *) rplsd)->blknum);
+			slice_start = atomic_val * slice_size;
+			if (slice_start >= size) break;
+			slice_end = slice_start + slice_size;
+			if (slice_end > size) slice_end = size;
+		}
 
 		// Reload vector pointer
 		CVDT *vec = ((read_preprocess_line_slice_data *) rplsd)->vec;
@@ -3507,6 +3588,9 @@ void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rplsd)
 				}
 			}
 		}
+
+		// Check for completion
+		if (slice_end == size) break;
 	}
 }
 
@@ -3528,13 +3612,13 @@ void read_preprocess_line (pmhandle *pmdata, gwnum *data, int size, int index, C
 	// nor can we have each thread setting pmdata->internal_callback_data.  To handle this we call read_line_slice directly when read_line_slice is
 	// single-threaded.  When read_line_slice is multi-threaded we use all the polymult_launch machinery, but polymult_launch must not
 	// atomic_set helper_counter as polymult_line is using that variable.
-	atomic_set (rplsd.blknum, 0);
 	if (pmdata->mt_polymult_line) {
 		rplsd.slice_it_up = FALSE;
 		read_preprocess_line_slice (0, pmdata, &rplsd);
 	} else {
 		// Create a slice_size that will generate a goodly number of work units to multi-thread
 		rplsd.slice_it_up = TRUE;
+		atomic_set (rplsd.blknum, 0);
 		pmdata->internal_callback = &read_preprocess_line_slice;
 		pmdata->internal_callback_data = &rplsd;
 		polymult_launch_helpers (pmdata);
