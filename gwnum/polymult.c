@@ -62,6 +62,7 @@
 // 73) Have fft_line use swizzling to reduce memory requirements.  If that changes fft from read/writing memory to using L3 cache it could be faster (as well
 //     as using lots less scratch memory)
 // 74) Fix mem_required to access L3_CACHE_SIZE and use same algorithm for determining mt_polymult_line.
+// 75) If poly is pre-FFT'ed there is no need to read it into a line buffer, we can access it directly in fft_line_pass (or if compressed copy ir to a much smaller scratch buffer)
 
 /* Opcodes for helper thread */
 
@@ -898,7 +899,7 @@ uint64_t compress_line (		// Returns size of the compressed buffer
 			  if (outlen == 0 && mlen) memcpy(outptr,mbuf,mlen), outptr+=mlen, mlen=0; \
 			  last_m48len = 0; }
 		unsigned char *outptr = (unsigned char *) buf + 1 + blk * blk_size;
-		char *blk_start = outptr;
+		unsigned char *blk_start = outptr;
 
 		// Loop compressing doubles
 		for (uint64_t i = 0; i < blk_size; i += sizeof (double)) {
