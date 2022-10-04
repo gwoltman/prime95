@@ -5181,8 +5181,6 @@ return 0;
 /* Include timing code when building the debug version of prime95 */
 
 if (w->n == 599) {
-OS_CAN_SET_AFFINITY = FALSE;
-
 gwhandle gwdata;
 pmhandle pmdata;
 gwarray a, b;
@@ -5190,18 +5188,21 @@ int polymem = IniGetInt (LOCALINI_FILE, "PolyMem", 6400);
 if (polymem > (int) physical_memory ()) polymem = (int) (0.9 * physical_memory ());
 for (int EXP = 1000; ; EXP *= 4) {
 if (EXP > 500000000) break;
-int iters=150000/EXP;
+int iters=150000*8/EXP;
 if (iters == 0) iters = 1;
 sprintf (buf, "Polymult timing using %d threads, %dMB\n", HW_NUM_CORES, polymem);
 OutputBoth (thread_num, buf);
-for (int CNT=50000; ; CNT*=2, iters=iters/2) {
-if ((double) CNT * gwmap_to_memused (1.0, 2, EXP, -1) > polymem * 1024.0 * 1024.0) break;
+for (int CNT=50000/8; ; CNT*=2, iters=iters/2) {
+if ((double) CNT * (gwmap_to_estimated_size (1.0, 2, EXP, -1) + 64) + (double) polymult_mem_required (CNT/2, CNT/2, 0, CPU_FLAGS, HW_NUM_CORES) > polymem * 1024.0 * 1024.0) break;
 if (iters == 0) iters = 1;
 clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
 for (int types = 0; types < 4; types++) {
-if ((types & 2) && (double) CNT * gwmap_to_memused (1.0, 2, EXP, -1) > polymem * 1024.0 * 1024.0 / 2.0) continue;
+if ((types & 2) && (double) CNT * (gwmap_to_estimated_size (1.0, 2, EXP, -1) + 64) * 2.0 > polymem * 1024.0 * 1024.0) continue;
+if (!(types & 1) && (double) CNT * (gwmap_to_estimated_size (1.0, 2, EXP, -1) + 64) + (double) polymult_mem_required (CNT/2, CNT/2, 0, CPU_FLAGS, 1) * HW_NUM_CORES) > polymem * 1024.0 * 1024.0) continue;
 gwinit (&gwdata); 
 gwset_num_threads (&gwdata, HW_NUM_CORES);
+gwset_thread_callback (&gwdata, SetAuxThreadPriority);
+gwset_thread_callback_data (&gwdata, sp_info);
 gwset_use_spin_wait (&gwdata, 1);
 gwsetup (&gwdata, 1.0, 2, EXP, -1);
 if (stopCheck (thread_num)) { gwdone (&gwdata); return 1; }
@@ -5217,7 +5218,7 @@ for (int i = 0; i < iters; i++) polymult (&pmdata, a, CNT/2, a, CNT/2, b, CNT-1,
 end_timer (timers, 0);
 timers[0] /= iters;
 sprintf (buf, "Polymult %s-way%s.  Poly-size %d, gwnum FFT size %ld, time: ", (types & 1) ? "new" : "old", (types & 2) ? " preprocessed" : "", CNT, gwdata.FFTLEN);
-print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
+print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR | TIMER_MS);
 OutputBoth (thread_num, buf);
 polymult_done (&pmdata);
 gwdone (&gwdata);
