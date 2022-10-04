@@ -2509,6 +2509,7 @@ typedef struct {
 	CVDT	*outvec;			// Argument passed to fft_line
 	CVDT	*scratch;			// Scratch area for two-pass FFTs
 	int	options;			// Options passed to fft_line
+	bool	multithreading;			// TRUE if multi-threading each FFT pass
 	unsigned int powers_of_two;		// Count of powers of two in fft_size
 	unsigned int pass1_size;		// Size of pass 1 in a two-pass FFT
 	unsigned int pass2_size;		// Size of pass 2 in a two-pass FFT
@@ -2533,22 +2534,27 @@ void fft_line_pass (
 {
 	fft_line_pass_data *pd = (fft_line_pass_data *) pdarg;	// Data passed to us from fft_line
 	CVDT	*scratch;		// Each helper thread will need its own scratch buffer
+	int	non_atomic_val = 0;	// Counter if not using atomics dur to multithreading
 
 	// Calculate the scratch address
 	scratch = pd->scratch + helper_num * pd->pass1_size;
 
 	// Execute one FFT pass a block at a time
 	for ( ; ; ) {
-		unsigned int atomic_val = atomic_fetch_incr (pd->blknum);
-		if (atomic_val >= pd->num_exterior_blks * pd->num_interior_blks) break;
+		unsigned int blknum;
+
+		// Get blknum to work on either atomicly or non-atomicly
+		if (pd->multithreading) blknum = atomic_fetch_incr (pd->blknum);
+		else blknum = non_atomic_val++;
+		if (blknum >= pd->num_exterior_blks * pd->num_interior_blks) break;
 
 		// Convert atomic_val (blknum) into exterior block# and interior block#
 #ifdef THREE_PASS_FFTS_SUPPORTED_SOMEDAY
-		unsigned int blke = atomic_val / pd->num_exterior_blks;			// Exterior block number
-		unsigned int blki = atomic_val - blke * pd->num_exterior_blks;		// Interior block number
+		unsigned int blke = blknum / pd->num_exterior_blks;			// Exterior block number
+		unsigned int blki = blknum - blke * pd->num_exterior_blks;		// Interior block number
 #else
-		unsigned int blke = (pd->num_exterior_blks == 1 ? 0 : atomic_val);	// Exterior block number
-		unsigned int blki = (pd->num_exterior_blks == 1 ? atomic_val : 0);	// Interior block number
+		unsigned int blke = (pd->num_exterior_blks == 1 ? 0 : blknum);		// Exterior block number
+		unsigned int blki = (pd->num_exterior_blks == 1 ? blknum : 0);		// Interior block number
 #endif
 
 		CVDT *src;				// FFT source data
@@ -3344,10 +3350,12 @@ void fft_line (
 		// nor can we have each thread setting pmdata->internal_callback_data.  To handle this we call fft_line_pass directly when fft_line_pass is
 		// single-threaded.  When fft_line_pass is multi-threaded we use all the polymult_launch machinery, but polymult_launch must not
 		// atomic_set helper_counter as polymult_line is using that variable.
-		atomic_set (pd.blknum, 0);
 		if (pmdata->mt_polymult_line) {
+			pd.multithreading = FALSE;
 			fft_line_pass (0, pmdata, &pd);
 		} else {
+			atomic_set (pd.blknum, 0);
+			pd.multithreading = TRUE;
 			pmdata->internal_callback = &fft_line_pass;
 			pmdata->internal_callback_data = &pd;
 			polymult_launch_helpers (pmdata);
