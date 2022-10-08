@@ -67,6 +67,7 @@
 // 77) Create a read_line_whole and write_line_whole routine?  The overhead of sliced reads is significant for the very small poly lengths computing ECM polyG.
 // 78) Are there any cases where fused-multiply-add of polys makes sense?  That is, fft_line takes 3 args and computes a * b + c.  Presently FMA is done after the
 //     FFT so as to support brute/Karatsuba.  Perhaps monics complicate things too - and avoiding FFTing the FMA addin vector could well be faster.
+// 79) Planning is not cheap.  When polys are small, ECM needs to create 2 plans: n&n and n&n+1.  Then repeatedly plug in new addresses and execute plan.
 
 /* Opcodes for helper thread */
 
@@ -1098,38 +1099,43 @@ void decompress_line_slice (
 //    Requires intimate knowledge of layout of gwnums in memory
 //--------------------------------------------------------------------
 
-// Structure used to pass data from read_line to read_line_slice and write_line to write_line_slice
+// Structure used to pass data to read_line_slice, read_preprocess_line_slice, and write_line_slice
 typedef struct {
-	gwnum	*data;				// Argument passed to read_line and write_line
-	int	size;				// Argument passed to read_line and write_line
-	int	index;				// Argument passed to read_line and write_line
-	CVDT	*vec;				// Argument passed to read_line and write_line
-	int	options;			// Argument passed to read_line and write_line
-	bool	post_process_monics;		// Argument passed to read_line
+	gwnum	*data;				// Argument passed to read_line, read_preprocess_line, and write_line
+	int	size;				// Argument passed to read_line, read_preprocess_line, and write_line
+	CVDT	*vec;				// Argument passed to read_line, read_preprocess_line, and write_line
+	int	options;			// Argument passed to read_line, read_preprocess_line, and write_line
+	bool	post_process_monics;		// Argument passed to read_line, read_preprocess_line
 	gwnum	*fma_data;			// Argument passed to write_line
-	gwatomic blknum;			// Block number to work on in when multi-threading
-	int	slice_size;			// Size to read for each block
-	unsigned long offset;			// Cached cache_line_offset
+	gwatomic blknum;			// Block number to work on when multi-threading
+	int	slice_size;			// Size to read or write for each block
+	struct line_specific_data {
+		int	line;			// Argument passed to read_line, read_preprocess_line, and write_line
+		int	index;			// Adjusted line number, could be called cache_line_number
+		unsigned long offset;		// Cached cache_line_offset
 #ifdef SSE2
-	int	imag_dist;			// Distance from real to imaginary values
+		int	imag_dist;		// Distance from real to imaginary values
 #endif
+	} lsd;
 } read_write_line_slice_data;
 
-void prep_line (pmhandle *pmdata, int index, read_write_line_slice_data *rwlsd);
-void read_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd, gwnum *data, int size, CVDT *vec, int options, bool post_process_monics);
-void write_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd, gwnum *data, int size, CVDT *vec, gwnum *fma_data, int options);
+void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd);
+void read_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd);
+void read_preprocess_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd);
+void write_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd);
 
 #if defined (AVX512)
 
 // When multiplying small polys (a few gwnums), the overhead in prepping read_line and write_line is measurable.  This routine aims to reduce that overhead.
-void prep_line (pmhandle *pmdata, int index, read_write_line_slice_data *rwlsd)
+void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd)
 {
 	gwhandle *gwdata = pmdata->gwdata;
 
-	// Pre-massage the index and pre-calculate the cache line offset
+	// Pre-massage the line number and pre-calculate the cache line offset
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
-	// Adjust index to handle the extra data point that must be returned for transformed real data.
+	// Adjust line number to handle the extra data point that must be returned for transformed real data.
+	int index = line;
 	if (!gwdata->ALL_COMPLEX_FFT) index--;
 
 	// Check if we've read all the gwnum data
@@ -1140,8 +1146,9 @@ void prep_line (pmhandle *pmdata, int index, read_write_line_slice_data *rwlsd)
 	if (index >= 1 || (index == 0 && gwdata->ALL_COMPLEX_FFT)) offset = cache_line_offset (gwdata, index * 2) / sizeof (VDT);
 
 	// Save for later
-	rwlsd->index = index;
-	rwlsd->offset = offset;
+	rwlsd->lsd.line = line;
+	rwlsd->lsd.index = index;
+	rwlsd->lsd.offset = offset;
 }
 
 void read_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rwlsd)
@@ -1149,7 +1156,7 @@ void read_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rwlsd)
 	gwhandle *gwdata = pmdata->gwdata;
 	gwnum	*data = ((read_write_line_slice_data *) rwlsd)->data;
 	int	size = ((read_write_line_slice_data *) rwlsd)->size;
-	int	index = ((read_write_line_slice_data *) rwlsd)->index;
+	int	index = ((read_write_line_slice_data *) rwlsd)->lsd.index;
 	int	options = ((read_write_line_slice_data *) rwlsd)->options;
 	bool	post_process_monics = ((read_write_line_slice_data *) rwlsd)->post_process_monics;
 	int	slice_size = ((read_write_line_slice_data *) rwlsd)->slice_size;
@@ -1180,7 +1187,12 @@ void read_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rwlsd)
 					vec[0].imag = broadcastsd (0.0);
 				} else {
 					read_write_line_slice_data fft1_rwlsd = * (read_write_line_slice_data *) rwlsd;
-					read_line (pmdata, &fft1_rwlsd, &gwdata->GW_FFT1, 1, vec, 0, FALSE);
+					fft1_rwlsd.data = &gwdata->GW_FFT1;
+					fft1_rwlsd.size = 1;
+					fft1_rwlsd.vec = vec;
+					fft1_rwlsd.options = 0;
+					fft1_rwlsd.post_process_monics = FALSE;
+					read_line (pmdata, &fft1_rwlsd);
 				}
 			}
 			vec++;
@@ -1215,7 +1227,7 @@ void read_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rwlsd)
 			}
 		}
 		else {				// Process complex values where imaginary part is in the high half of the cache line
-			unsigned long offset = ((read_write_line_slice_data *) rwlsd)->offset;
+			unsigned long offset = ((read_write_line_slice_data *) rwlsd)->lsd.offset;
 			for (int j = slice_start; j < slice_end; j++) {
 				if (data[j] == NULL) { memset (&vec[j], 0, sizeof(CVDT)); continue; }
 				ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
@@ -1246,7 +1258,12 @@ void read_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rwlsd)
 					vec[size].imag = broadcastsd (0.0);
 				} else {
 					read_write_line_slice_data fft1_rwlsd = * (read_write_line_slice_data *) rwlsd;
-					read_line (pmdata, &fft1_rwlsd, &gwdata->GW_FFT1, 1, &vec[size], 0, FALSE);
+					fft1_rwlsd.data = &gwdata->GW_FFT1;
+					fft1_rwlsd.size = 1;
+					fft1_rwlsd.vec = &vec[size];
+					fft1_rwlsd.options = 0;
+					fft1_rwlsd.post_process_monics = FALSE;
+					read_line (pmdata, &fft1_rwlsd);
 				}
 			}
 		}
@@ -1261,7 +1278,7 @@ void write_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rwlsd)
 	gwhandle *gwdata = pmdata->gwdata;
 	gwnum	*data = ((read_write_line_slice_data *) rwlsd)->data;
 	int	size = ((read_write_line_slice_data *) rwlsd)->size;
-	int	index = ((read_write_line_slice_data *) rwlsd)->index;
+	int	index = ((read_write_line_slice_data *) rwlsd)->lsd.index;
 	CVDT	*vec = ((read_write_line_slice_data *) rwlsd)->vec;
 	gwnum	*fma_data = ((read_write_line_slice_data *) rwlsd)->fma_data;
 	int	options = ((read_write_line_slice_data *) rwlsd)->options;
@@ -1361,7 +1378,7 @@ void write_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rwlsd)
 			}
 		}
 		else {				// Process complex values where imaginary part is in the high half of the cache line
-			unsigned long offset = ((read_write_line_slice_data *) rwlsd)->offset;
+			unsigned long offset = ((read_write_line_slice_data *) rwlsd)->lsd.offset;
 			for (int j = slice_start; j < slice_end; j++) {
 				if (data[j] == NULL) continue;
 				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
@@ -1385,30 +1402,18 @@ void write_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rwlsd)
 	}
 }
 
-#elif defined (FMA)				// FMA and AVX FFTs use the same memory layout
-
-#define read_line_fma		read_line_avx
-#define read_line_slice_fma	read_line_slice_avx
-#define read_preprocess_line_fma read_preprocess_line_avx
-#define read_preprocess_line_slice_fma read_preprocess_line_slice_avx
-#define write_line_fma		write_line_avx
-#define write_line_slice_fma	write_line_slice_avx
-void read_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd);
-void read_preprocess_line_avx (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics);
-void read_preprocess_line_slice_avx (int helper_num, pmhandle *pmdata, void *rplsd);
-void write_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd);
-
 #elif defined (AVX)
 
 // When multiplying small polys (a few gwnums), the overhead in prepping read_line and write_line is measurable.  This routine aims to reduce that overhead.
-void prep_line (pmhandle *pmdata, int index, read_write_line_slice_data *rwlsd)
+void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd)
 {
 	gwhandle *gwdata = pmdata->gwdata;
 
-	// Pre-massage the index and pre-calculate the cache line offset
+	// Pre-massage the line number and pre-calculate the cache line offset
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
-	// Adjust index to handle the extra data point that must be returned for transformed real data.
+	// Adjust line number to handle the extra data point that must be returned for transformed real data.
+	int index = line;
 	if (!gwdata->ALL_COMPLEX_FFT) index--;
 
 	// Zero padded FFTs return another cache line for processing the 7 real values stored in the header
@@ -1422,8 +1427,9 @@ void prep_line (pmhandle *pmdata, int index, read_write_line_slice_data *rwlsd)
 	if (index >= 1 || (index == 0 && gwdata->ALL_COMPLEX_FFT)) offset = cache_line_offset (gwdata, index) / sizeof (VDT);
 
 	// Save for later
-	rwlsd->index = index;
-	rwlsd->offset = offset;
+	rwlsd->lsd.line = line;
+	rwlsd->lsd.index = index;
+	rwlsd->lsd.offset = offset;
 }
 
 void read_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd)
@@ -1431,7 +1437,7 @@ void read_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd)
 	gwhandle *gwdata = pmdata->gwdata;
 	gwnum	*data = ((read_write_line_slice_data *) rwlsd)->data;
 	int	size = ((read_write_line_slice_data *) rwlsd)->size;
-	int	index = ((read_write_line_slice_data *) rwlsd)->index;
+	int	index = ((read_write_line_slice_data *) rwlsd)->lsd.index;
 	int	options = ((read_write_line_slice_data *) rwlsd)->options;
 	bool	post_process_monics = ((read_write_line_slice_data *) rwlsd)->post_process_monics;
 	int	slice_size = ((read_write_line_slice_data *) rwlsd)->slice_size;
@@ -1462,7 +1468,12 @@ void read_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd)
 					vec[0].imag = broadcastsd (0.0);
 				} else {
 					read_write_line_slice_data fft1_rwlsd = * (read_write_line_slice_data *) rwlsd;
-					read_line (pmdata, &fft1_rwlsd, &gwdata->GW_FFT1, 1, vec, 0, FALSE);
+					fft1_rwlsd.data = &gwdata->GW_FFT1;
+					fft1_rwlsd.size = 1;
+					fft1_rwlsd.vec = vec;
+					fft1_rwlsd.options = 0;
+					fft1_rwlsd.post_process_monics = FALSE;
+					read_line (pmdata, &fft1_rwlsd);
 				}
 			}
 			vec++;
@@ -1503,7 +1514,7 @@ void read_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd)
 			}
 		}
 		else {				// Process complex values where imaginary part is in the high half of the cache line
-			unsigned long offset = ((read_write_line_slice_data *) rwlsd)->offset;
+			unsigned long offset = ((read_write_line_slice_data *) rwlsd)->lsd.offset;
 			for (int j = slice_start; j < slice_end; j++) {
 				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 				ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
@@ -1534,7 +1545,12 @@ void read_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd)
 					vec[size].imag = broadcastsd (0.0);
 				} else {
 					read_write_line_slice_data fft1_rwlsd = * (read_write_line_slice_data *) rwlsd;
-					read_line (pmdata, &fft1_rwlsd, &gwdata->GW_FFT1, 1, &vec[size], 0, FALSE);
+					fft1_rwlsd.data = &gwdata->GW_FFT1;
+					fft1_rwlsd.size = 1;
+					fft1_rwlsd.vec = &vec[size];
+					fft1_rwlsd.options = 0;
+					fft1_rwlsd.post_process_monics = FALSE;
+					read_line (pmdata, &fft1_rwlsd);
 				}
 			}
 		}
@@ -1549,7 +1565,7 @@ void write_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd)
 	gwhandle *gwdata = pmdata->gwdata;
 	gwnum	*data = ((read_write_line_slice_data *) rwlsd)->data;
 	int	size = ((read_write_line_slice_data *) rwlsd)->size;
-	int	index = ((read_write_line_slice_data *) rwlsd)->index;
+	int	index = ((read_write_line_slice_data *) rwlsd)->lsd.index;
 	CVDT	*vec = ((read_write_line_slice_data *) rwlsd)->vec;
 	gwnum	*fma_data = ((read_write_line_slice_data *) rwlsd)->fma_data;
 	int	options = ((read_write_line_slice_data *) rwlsd)->options;
@@ -1661,7 +1677,7 @@ void write_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd)
 			}
 		}
 		else {				// Process complex values where imaginary part is in the high half of the cache line
-			unsigned long offset = ((read_write_line_slice_data *) rwlsd)->offset;
+			unsigned long offset = ((read_write_line_slice_data *) rwlsd)->lsd.offset;
 			for (int j = slice_start; j < slice_end; j++) {
 				if (data[j] == NULL) continue;
 				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
@@ -1688,7 +1704,7 @@ void write_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd)
 #elif defined (SSE2)
 
 // When multiplying small polys (a few gwnums), the overhead in prepping read_line and write_line is measurable.  This routine aims to reduce that overhead.
-void prep_line (pmhandle *pmdata, int index, read_write_line_slice_data *rwlsd)
+void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd)
 {
 	gwhandle *gwdata = pmdata->gwdata;
 
@@ -1696,6 +1712,7 @@ void prep_line (pmhandle *pmdata, int index, read_write_line_slice_data *rwlsd)
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
+	int index = line;
 	if (!gwdata->ALL_COMPLEX_FFT) index--;
 
 	// Zero padded FFTs return another 3 cache lines for processing the 7 real values stored in the header
@@ -1720,9 +1737,10 @@ void prep_line (pmhandle *pmdata, int index, read_write_line_slice_data *rwlsd)
 	if (index >= 1 || (index == 0 && gwdata->ALL_COMPLEX_FFT)) offset = cache_line_offset (gwdata, index / 2) / sizeof (VDT);
 
 	// Save for later
-	rwlsd->index = index;
-	rwlsd->offset = offset;
-	rwlsd->imag_dist = imag_dist;
+	rwlsd->lsd.line = line;
+	rwlsd->lsd.index = index;
+	rwlsd->lsd.offset = offset;
+	rwlsd->lsd.imag_dist = imag_dist;
 }
 
 void read_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rwlsd)
@@ -1730,11 +1748,11 @@ void read_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rwlsd)
 	gwhandle *gwdata = pmdata->gwdata;
 	gwnum	*data = ((read_write_line_slice_data *) rwlsd)->data;
 	int	size = ((read_write_line_slice_data *) rwlsd)->size;
-	int	index = ((read_write_line_slice_data *) rwlsd)->index;
+	int	index = ((read_write_line_slice_data *) rwlsd)->lsd.index;
 	int	options = ((read_write_line_slice_data *) rwlsd)->options;
 	bool	post_process_monics = ((read_write_line_slice_data *) rwlsd)->post_process_monics;
 	int	slice_size = ((read_write_line_slice_data *) rwlsd)->slice_size;
-	int	imag_dist = ((read_write_line_slice_data *) rwlsd)->imag_dist;
+	int	imag_dist = ((read_write_line_slice_data *) rwlsd)->lsd.imag_dist;
 
 	// Read one slice at a time
 	for ( ; ; ) {
@@ -1762,7 +1780,12 @@ void read_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rwlsd)
 					vec[0].imag = broadcastsd (0.0);
 				} else {
 					read_write_line_slice_data fft1_rwlsd = * (read_write_line_slice_data *) rwlsd;
-					read_line (pmdata, &fft1_rwlsd, &gwdata->GW_FFT1, 1, vec, 0, FALSE);
+					fft1_rwlsd.data = &gwdata->GW_FFT1;
+					fft1_rwlsd.size = 1;
+					fft1_rwlsd.vec = vec;
+					fft1_rwlsd.options = 0;
+					fft1_rwlsd.post_process_monics = FALSE;
+					read_line (pmdata, &fft1_rwlsd);
 				}
 			}
 			vec++;
@@ -1811,7 +1834,7 @@ void read_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rwlsd)
 			}
 		}
 		else {				// Process complex values where imaginary part is 8, 16, or 32 bytes above the real part
-			unsigned long offset = ((read_write_line_slice_data *) rwlsd)->offset;
+			unsigned long offset = ((read_write_line_slice_data *) rwlsd)->lsd.offset;
 			for (int j = slice_start; j < slice_end; j++) {
 				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 				ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
@@ -1850,7 +1873,12 @@ void read_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rwlsd)
 					vec[size].imag = broadcastsd (0.0);
 				} else {
 					read_write_line_slice_data fft1_rwlsd = * (read_write_line_slice_data *) rwlsd;
-					read_line (pmdata, &fft1_rwlsd, &gwdata->GW_FFT1, 1, &vec[size], 0, FALSE);
+					fft1_rwlsd.data = &gwdata->GW_FFT1;
+					fft1_rwlsd.size = 1;
+					fft1_rwlsd.vec = &vec[size];
+					fft1_rwlsd.options = 0;
+					fft1_rwlsd.post_process_monics = FALSE;
+					read_line (pmdata, &fft1_rwlsd);
 				}
 			}
 		}
@@ -1865,12 +1893,12 @@ void write_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rwlsd)
 	gwhandle *gwdata = pmdata->gwdata;
 	gwnum	*data = ((read_write_line_slice_data *) rwlsd)->data;
 	int	size = ((read_write_line_slice_data *) rwlsd)->size;
-	int	index = ((read_write_line_slice_data *) rwlsd)->index;
+	int	index = ((read_write_line_slice_data *) rwlsd)->lsd.index;
 	CVDT	*vec = ((read_write_line_slice_data *) rwlsd)->vec;
 	gwnum	*fma_data = ((read_write_line_slice_data *) rwlsd)->fma_data;
 	int	options = ((read_write_line_slice_data *) rwlsd)->options;
 	int	slice_size = ((read_write_line_slice_data *) rwlsd)->slice_size;
-	int	imag_dist = ((read_write_line_slice_data *) rwlsd)->imag_dist;
+	int	imag_dist = ((read_write_line_slice_data *) rwlsd)->lsd.imag_dist;
 	CVDT	fmaval, oneval;
 
 	// Write one slice at a time
@@ -1981,7 +2009,7 @@ void write_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rwlsd)
 			}
 		}
 		else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
-			unsigned long offset = ((read_write_line_slice_data *) rwlsd)->offset;
+			unsigned long offset = ((read_write_line_slice_data *) rwlsd)->lsd.offset;
 			for (int j = slice_start; j < slice_end; j++) {
 				if (data[j] == NULL) continue;
 				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
@@ -2033,14 +2061,15 @@ void write_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rwlsd)
 #elif !defined (X86_64)				// x87 FFTs only supported in 32-bit mode
 
 // When multiplying small polys (a few gwnums), the overhead in prepping read_line and write_line is measurable.  This routine aims to reduce that overhead.
-void prep_line (pmhandle *pmdata, int index, read_write_line_slice_data *rwlsd)
+void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd)
 {
 	gwhandle *gwdata = pmdata->gwdata;
 
-	// Pre-massage the index and pre-calculate the cache line offset
+	// Pre-massage the line number and pre-calculate the cache line offset
 
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
-	// Adjust index to handle the extra data point that must be returned for transformed real data.
+	// Adjust line number to handle the extra data point that must be returned for transformed real data.
+	int index = line;
 	if (!gwdata->ALL_COMPLEX_FFT) index--;
 
 	// Zero padded FFTs must also return for processing the 7 real values stored in the header
@@ -2054,8 +2083,9 @@ void prep_line (pmhandle *pmdata, int index, read_write_line_slice_data *rwlsd)
 	if (index >= 1 || (index == 0 && gwdata->ALL_COMPLEX_FFT)) offset = cache_line_offset (gwdata, index / 4) / sizeof (VDT);
 
 	// Save for later
-	rwlsd->index = index;
-	rwlsd->offset = offset;
+	rwlsd->lsd.line = line;
+	rwlsd->lsd.index = index;
+	rwlsd->lsd.offset = offset;
 }
 
 void read_line_slice_dbl (int helper_num, pmhandle *pmdata, void *rwlsd)
@@ -2063,7 +2093,7 @@ void read_line_slice_dbl (int helper_num, pmhandle *pmdata, void *rwlsd)
 	gwhandle *gwdata = pmdata->gwdata;
 	gwnum	*data = ((read_write_line_slice_data *) rwlsd)->data;
 	int	size = ((read_write_line_slice_data *) rwlsd)->size;
-	int	index = ((read_write_line_slice_data *) rwlsd)->index;
+	int	index = ((read_write_line_slice_data *) rwlsd)->lsd.index;
 	int	options = ((read_write_line_slice_data *) rwlsd)->options;
 	bool	post_process_monics = ((read_write_line_slice_data *) rwlsd)->post_process_monics;
 	int	slice_size = ((read_write_line_slice_data *) rwlsd)->slice_size;
@@ -2094,7 +2124,12 @@ void read_line_slice_dbl (int helper_num, pmhandle *pmdata, void *rwlsd)
 					vec[0].imag = broadcastsd (0.0);
 				} else {
 					read_write_line_slice_data fft1_rwlsd = * (read_write_line_slice_data *) rwlsd;
-					read_line (pmdata, &fft1_rwlsd, &gwdata->GW_FFT1, 1, vec, 0, FALSE);
+					fft1_rwlsd.data = &gwdata->GW_FFT1;
+					fft1_rwlsd.size = 1;
+					fft1_rwlsd.vec = vec;
+					fft1_rwlsd.options = 0;
+					fft1_rwlsd.post_process_monics = FALSE;
+					read_line (pmdata, &fft1_rwlsd);
 				}
 			}
 			vec++;
@@ -2163,7 +2198,12 @@ void read_line_slice_dbl (int helper_num, pmhandle *pmdata, void *rwlsd)
 					vec[size].imag = broadcastsd (0.0);
 				} else {
 					read_write_line_slice_data fft1_rwlsd = * (read_write_line_slice_data *) rwlsd;
-					read_line (pmdata, &fft1_rwlsd, &gwdata->GW_FFT1, 1, &vec[size], 0, FALSE);
+					fft1_rwlsd.data = &gwdata->GW_FFT1;
+					fft1_rwlsd.size = 1;
+					fft1_rwlsd.vec = &vec[size];
+					fft1_rwlsd.options = 0;
+					fft1_rwlsd.post_process_monics = FALSE;
+					read_line (pmdata, &fft1_rwlsd);
 				}
 			}
 		}
@@ -2178,7 +2218,7 @@ void write_line_slice_dbl (int helper_num, pmhandle *pmdata, void *rwlsd)
 	gwhandle *gwdata = pmdata->gwdata;
 	gwnum	*data = ((read_write_line_slice_data *) rwlsd)->data;
 	int	size = ((read_write_line_slice_data *) rwlsd)->size;
-	int	index = ((read_write_line_slice_data *) rwlsd)->index;
+	int	index = ((read_write_line_slice_data *) rwlsd)->lsd.index;
 	CVDT	*vec = ((read_write_line_slice_data *) rwlsd)->vec;
 	gwnum	*fma_data = ((read_write_line_slice_data *) rwlsd)->fma_data;
 	int	options = ((read_write_line_slice_data *) rwlsd)->options;
@@ -2256,7 +2296,7 @@ void write_line_slice_dbl (int helper_num, pmhandle *pmdata, void *rwlsd)
 			}
 		}
 		else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
-			unsigned long offset = ((read_write_line_slice_data *) rwlsd)->offset;
+			unsigned long offset = ((read_write_line_slice_data *) rwlsd)->lsd.offset;
 			for (int j = slice_start; j < slice_end; j++) {
 				if (data[j] == NULL) continue;
 				if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
@@ -2441,27 +2481,20 @@ void karatsuba_line (
 
 #ifndef FMA
 
-void read_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd, gwnum *data, int size, CVDT *vec, int options, bool post_process_monics)
+void read_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd)
 {
-	// Copy arguments for passing to read_line_slice
-	rwlsd->data = data;
-	rwlsd->size = size;
-	rwlsd->vec = vec;
-	rwlsd->options = options;
-	rwlsd->post_process_monics = post_process_monics;
-
 	// Launch helpers to do read a line in slices.  This is tricky.  There are two cases.  The most common case is polymult_line is multi-threaded
 	// and read_line_slice is single-threaded.  The less common case is polymult_line is single-threaded and read_line_slice is multi-threaded.
 	// If polymult_line is multi-threaded we cannot set pmdata->helper_opcode as all helper threads may not have dispatched based on the opcode,
 	// nor can we have each thread setting pmdata->internal_callback_data.  To handle this we call read_line_slice directly when read_line_slice is
 	// single-threaded.  When read_line_slice is multi-threaded we use all the polymult_launch machinery, but polymult_launch must not
 	// atomic_set helper_counter as polymult_line is using that variable.
-	if (pmdata->mt_polymult_line || size < 512) {
-		rwlsd->slice_size = size;
+	if (pmdata->mt_polymult_line || rwlsd->size < 512) {
+		rwlsd->slice_size = rwlsd->size;
 		read_line_slice (0, pmdata, rwlsd);
 	} else {
 		// Create a slice_size that will generate a goodly number of work units to multi-thread
-		rwlsd->slice_size = divide_rounding_up (size, 512);
+		rwlsd->slice_size = divide_rounding_up (rwlsd->size, 512);
 		atomic_set (rwlsd->blknum, 0);
 		pmdata->internal_callback = &read_line_slice;
 		pmdata->internal_callback_data = rwlsd;
@@ -2469,15 +2502,8 @@ void read_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd, gwnum *data
 	}
 }
 
-void write_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd, gwnum *data, int size, CVDT *vec, gwnum *fma_data, int options)
+void write_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd)
 {
-	// Copy arguments to pass to write_line_slice
-	rwlsd->data = data;
-	rwlsd->size = size;
-	rwlsd->vec = vec;
-	rwlsd->fma_data = fma_data;
-	rwlsd->options = options;
-
 	// Launch helpers to do write a line in slices.  This is tricky.  There are two cases.  The most common case is polymult_line is multi-threaded
 	// and write_line_slice is single-threaded.  The less common case is polymult_line is single-threaded and write_line_slice is multi-threaded.
 	// If polymult_line is multi-threaded we cannot set pmdata->helper_opcode as all helper threads may not have dispatched based on the opcode,
@@ -2485,11 +2511,11 @@ void write_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd, gwnum *dat
 	// single-threaded.  When write_line_slice is multi-threaded we use all the polymult_launch machinery, but polymult_launch must not
 	// atomic_set helper_counter as polymult_line is using that variable.
 	if (pmdata->mt_polymult_line) {
-		rwlsd->slice_size = size;
+		rwlsd->slice_size = rwlsd->size;
 		write_line_slice (0, pmdata, rwlsd);
 	} else {
 		// Create a slice_size that will generate a goodly number of work units to multi-thread
-		rwlsd->slice_size = divide_rounding_up (size, 512);
+		rwlsd->slice_size = divide_rounding_up (rwlsd->size, 512);
 		atomic_set (rwlsd->blknum, 0);
 		pmdata->internal_callback = &write_line_slice;
 		pmdata->internal_callback_data = rwlsd;
@@ -3431,7 +3457,12 @@ void monic_line_adjustments (
 	if (gwdata->k != 1.0) {
 		read_write_line_slice_data rwlsd;
 		prep_line (pmdata, line, &rwlsd);
-		read_line (pmdata, &rwlsd, &gwdata->GW_FFT1, 1, &fft1, 0, FALSE);
+		rwlsd.data = &gwdata->GW_FFT1;
+		rwlsd.size = 1;
+		rwlsd.vec = &fft1;
+		rwlsd.options = 0;
+		rwlsd.post_process_monics = FALSE;
+		read_line (pmdata, &rwlsd);
 		fft1p = &fft1;
 	} else {
 		fft1p = NULL;
@@ -3448,26 +3479,14 @@ void monic_line_adjustments (
 // Read a line that was preprocessed by polymult_preprocess
 #ifndef FMA
 
-// Structure used to pass data from read_preprocess_line to read_preprocess_line_slice
-typedef struct {
-	gwnum	*data;				// Argument passed to read_preprocess_line
-	int	size;				// Argument passed to read_preprocess_line
-	int	index;				// Argument passed to read_preprocess_line
-	CVDT	*vec;				// Argument passed to read_preprocess_line
-	int	options;			// Argument passed to read_preprocess_line
-	bool	post_process_monics;		// Argument passed to read_preprocess_line
-	gwatomic blknum;			// Block number to work on in multi-threaded read_preprocess_line_slice
-	bool	slice_it_up;			// Read the line with multi-threaded slices
-} read_preprocess_line_slice_data;
-
-void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rplsd)
+void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rwlsd)
 {
 	gwhandle *gwdata = pmdata->gwdata;
-	gwnum	*data = ((read_preprocess_line_slice_data *) rplsd)->data;
-	int	size = ((read_preprocess_line_slice_data *) rplsd)->size;
-	int	index = ((read_preprocess_line_slice_data *) rplsd)->index;
-	int	options = ((read_preprocess_line_slice_data *) rplsd)->options;
-	bool	post_process_monics = ((read_preprocess_line_slice_data *) rplsd)->post_process_monics;
+	gwnum	*data = ((read_write_line_slice_data *) rwlsd)->data;
+	int	size = ((read_write_line_slice_data *) rwlsd)->size;
+	int	line = ((read_write_line_slice_data *) rwlsd)->lsd.line;
+	int	options = ((read_write_line_slice_data *) rwlsd)->options;
+	bool	post_process_monics = ((read_write_line_slice_data *) rwlsd)->post_process_monics;
 
 	preprocessed_poly_header *hdr;  // Header of the preprocessed poly being read
 	CVDT	*first_element;		// First element in the preprocessed poly array
@@ -3480,7 +3499,7 @@ void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rplsd)
 
 	// Compute index into the preprocessed data.  If we've delayed splitting the two real values in !ALL_COMPLEX_FFT then read the first array entry
 	// for the first two indexes.  Finally, get pointer to the first byte to read.
-	int index_to_read = index;
+	int index_to_read = line;
 	if (!(hdr->options & POLYMULT_PRE_FFT) && !gwdata->ALL_COMPLEX_FFT && !gwdata->ZERO_PADDED_FFT) {
 		index_to_read--;
 		if (index_to_read < 0) index_to_read = 0;
@@ -3491,9 +3510,9 @@ void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rplsd)
 	if (hdr->options & POLYMULT_PRE_FFT) size = hdr->line_size;
 	else ASSERTG (size == hdr->line_size);
 
-	// If multi-threading read_preprocess_line, create a slice_size that will generate a goodly number of work units to multi-thread.
+	// If multi-threading read_preprocess_line (slice_size set to zero), create a slice_size that will generate a goodly number of work units to multi-thread.
 	// If compressed, we may be able to read the poly in slices of 512 doubles.
-	if (!(((read_preprocess_line_slice_data *) rplsd)->slice_it_up)) slice_size = size;
+	if (((read_write_line_slice_data *) rwlsd)->slice_size == 0) slice_size = size;
 	else if (!(hdr->options & POLYMULT_PRE_COMPRESS)) slice_size = divide_rounding_up (size, 512);
 	else slice_size = hdr->line_size / hdr->num_compressed_blks;
 
@@ -3505,7 +3524,7 @@ void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rplsd)
 			slice_start = 0;
 			slice_end = size;
 		} else {
-			int atomic_val = atomic_fetch_incr (((read_preprocess_line_slice_data *) rplsd)->blknum);
+			int atomic_val = atomic_fetch_incr (((read_write_line_slice_data *) rwlsd)->blknum);
 			slice_start = atomic_val * slice_size;
 			if (slice_start >= size) break;
 			slice_end = slice_start + slice_size;
@@ -3513,7 +3532,7 @@ void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rplsd)
 		}
 
 		// Reload vector pointer
-		CVDT *vec = ((read_preprocess_line_slice_data *) rplsd)->vec;
+		CVDT *vec = ((read_write_line_slice_data *) rwlsd)->vec;
 
 		// If preprocessed data is FFTed, then return the data "as is" optionally decompressing.  Ignore the passed in size, use the poly FFT size
 		// that was computed by polymult_line_preprocess.
@@ -3522,7 +3541,8 @@ void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rplsd)
 				memcpy (&vec[slice_start], &element[slice_start], (uint64_t) (slice_end - slice_start) * sizeof (CVDT));
 			else
 				decompress_line_slice ((char *) element, (char *) &vec[slice_start], hdr, slice_start, slice_end, sizeof (CVDT));
-			continue;
+			if (slice_end == size) break;
+			else continue;
 		}
 
 		// If not post-processing monics and the input is a monic RLP, then output a 1+0i
@@ -3532,9 +3552,14 @@ void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rplsd)
 					vec[0].real = broadcastsd (1.0);
 					vec[0].imag = broadcastsd (0.0);
 				} else {
-					read_write_line_slice_data rwlsd;
-					prep_line (pmdata, index, &rwlsd);
-					read_line (pmdata, &rwlsd, &gwdata->GW_FFT1, 1, vec, 0, FALSE);
+					read_write_line_slice_data fft1_rwlsd;
+					prep_line (pmdata, line, &fft1_rwlsd);
+					fft1_rwlsd.data = &gwdata->GW_FFT1;
+					fft1_rwlsd.size = 1;
+					fft1_rwlsd.vec = vec;
+					fft1_rwlsd.options = 0;
+					fft1_rwlsd.post_process_monics = FALSE;
+					read_line (pmdata, &fft1_rwlsd);
 				}
 			}
 			vec++;
@@ -3554,7 +3579,7 @@ void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rplsd)
 				union { VDT a; double b[VLEN / sizeof(double)]; } r, i;
 				r.a = vec[j].real;
 				i.a = vec[j].imag;
-				if (index == 0) {
+				if (line == 0) {
 					memset (&r, 0, sizeof (r));
 					r.b[0] = i.b[0];
 					memset (&i, 0, sizeof (i));
@@ -3578,9 +3603,14 @@ void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rplsd)
 					vec[size].real = broadcastsd (1.0);
 					vec[size].imag = broadcastsd (0.0);
 				} else {
-					read_write_line_slice_data rwlsd;
-					prep_line (pmdata, index, &rwlsd);
-					read_line (pmdata, &rwlsd, &gwdata->GW_FFT1, 1, &vec[size], 0, FALSE);
+					read_write_line_slice_data fft1_rwlsd;
+					prep_line (pmdata, line, &fft1_rwlsd);
+					fft1_rwlsd.data = &gwdata->GW_FFT1;
+					fft1_rwlsd.size = 1;
+					fft1_rwlsd.vec = &vec[size];
+					fft1_rwlsd.options = 0;
+					fft1_rwlsd.post_process_monics = FALSE;
+					read_line (pmdata, &fft1_rwlsd);
 				}
 			}
 		}
@@ -3590,33 +3620,23 @@ void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rplsd)
 	}
 }
 
-void read_preprocess_line (pmhandle *pmdata, gwnum *data, int size, int index, CVDT *vec, int options, bool post_process_monics)
+void read_preprocess_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd)
 {
-	read_preprocess_line_slice_data rplsd;			// Data to pass to read_preprocess_line_slice
-
-	// Copy arguments for passing to read_preprocess_line_slice
-	rplsd.data = data;
-	rplsd.size = size;
-	rplsd.index = index;
-	rplsd.vec = vec;
-	rplsd.options = options;
-	rplsd.post_process_monics = post_process_monics;
-
-	// Launch helpers to do read a line in slices.  This is tricky.  There are two cases.  The most common case is polymult_line is multi-threaded
-	// and read_line_slice is single-threaded.  The less common case is polymult_line is single-threaded and read_line_slice is multi-threaded.
+	// Launch helpers to read the line in slices.  This is tricky.  There are two cases.  The most common case is polymult_line is multi-threaded and
+	// read_preprocess_line_slice is single-threaded.  The less common case is polymult_line is single-threaded and read_preprocess_line_slice is multi-threaded.
 	// If polymult_line is multi-threaded we cannot set pmdata->helper_opcode as all helper threads may not have dispatched based on the opcode,
-	// nor can we have each thread setting pmdata->internal_callback_data.  To handle this we call read_line_slice directly when read_line_slice is
-	// single-threaded.  When read_line_slice is multi-threaded we use all the polymult_launch machinery, but polymult_launch must not
-	// atomic_set helper_counter as polymult_line is using that variable.
+	// nor can we have each thread setting pmdata->internal_callback_data.  To handle this we call read_preprocess_line_slice directly when
+	// read_preprocess_line_slice is single-threaded.  When read_preprocess_line_slice is multi-threaded we use all the polymult_launch machinery, but
+	// polymult_launch must not atomic_set helper_counter as polymult_line is using that variable.
 	if (pmdata->mt_polymult_line) {
-		rplsd.slice_it_up = FALSE;
-		read_preprocess_line_slice (0, pmdata, &rplsd);
+		rwlsd->slice_size = 0;			// Indicates not multi-threading, read_preprocess_line_slice figures out slice_size
+		read_preprocess_line_slice (0, pmdata, rwlsd);
 	} else {
 		// Create a slice_size that will generate a goodly number of work units to multi-thread
-		rplsd.slice_it_up = TRUE;
-		atomic_set (rplsd.blknum, 0);
+		rwlsd->slice_size = -1;			// Indicates multi-threading, read_preprocess_line_slice figures out slice_size
+		atomic_set (rwlsd->blknum, 0);
 		pmdata->internal_callback = &read_preprocess_line_slice;
-		pmdata->internal_callback_data = &rplsd;
+		pmdata->internal_callback_data = rwlsd;
 		polymult_launch_helpers (pmdata);
 	}
 }
@@ -3660,6 +3680,11 @@ void polymult_line_preprocess (
 	first_element = (char *) round_up_to_multiple_of ((intptr_t) hdr + sizeof (preprocessed_poly_header), 64);
 
 	// Grab a "line" of complex values from each gwnum coefficient.  Work and copy that data set.  Then move onto remaining lines in the gwnums.
+	read_write_line_slice_data rwlsd;
+	rwlsd.data = gw_invec1;
+	rwlsd.size = invec1_size;
+	rwlsd.options = options & INVEC1_OPTIONS;
+	rwlsd.post_process_monics = plan->strip_monic_from_invec1;
 	while ((line = atomic_fetch_incr (pmdata->helper_counter)) < pmdata->num_lines) {
 
 		// See if we've already combined lines zero and one
@@ -3669,14 +3694,15 @@ void polymult_line_preprocess (
 		invec1 = (CVDT *) (first_element + (line - lines_combined) * hdr->element_size);
 
 		// Read a line.  If we're saving memory by delaying splitting the two reals, then combine the first two lines into one.
-		read_write_line_slice_data rwlsd;
 		if (line <= 1 && plan->combine_two_lines) {
 			if (line == 1) continue;
 			CVDT *temp = (CVDT *) aligned_malloc ((size_t) plan->adjusted_invec1_size * sizeof (CVDT), 64);
 			prep_line (pmdata, 0, &rwlsd);
-			read_line (pmdata, &rwlsd, gw_invec1, invec1_size, temp, options & INVEC1_OPTIONS, plan->strip_monic_from_invec1);
+			rwlsd.vec = temp;
+			read_line (pmdata, &rwlsd);
 			prep_line (pmdata, 1, &rwlsd);
-			read_line (pmdata, &rwlsd, gw_invec1, invec1_size, invec1, options & INVEC1_OPTIONS, plan->strip_monic_from_invec1);
+			rwlsd.vec = invec1;
+			read_line (pmdata, &rwlsd);
 			for (int j = 0; j < plan->adjusted_invec1_size; j++) {
 				double	line0_real;
 				union { VDT a; double b[VLEN / sizeof(double)]; } x;
@@ -3688,7 +3714,8 @@ void polymult_line_preprocess (
 			aligned_free (temp);
 		} else {
 			prep_line (pmdata, line, &rwlsd);
-			read_line (pmdata, &rwlsd, gw_invec1, invec1_size, invec1, options & INVEC1_OPTIONS, plan->strip_monic_from_invec1);
+			rwlsd.vec = invec1;
+			read_line (pmdata, &rwlsd);
 		}
 
 		// Optionally forward FFT the line
@@ -3722,6 +3749,10 @@ void polymult_line (
 	int	invec1_size, invec2_size, outvec_size, fft_size, fft_options, line;
 	bool	invec1_preprocessed, invec1_pre_ffted, invec2_preprocessed, invec2_pre_ffted;
 	CVDT	*invec1_buffer, *invec2_buffer, *outvec_buffer, *tmpvec_buffer, *scratch_buffer;
+	CVDT	*invec1;
+	read_write_line_slice_data rwlsd1, rwlsd2[4], rwlsd3[4];
+
+	ASSERTG (pmdata->num_other_polys <= 4);			// It would not be hard to eliminate this restriction, just alloc the rwlsd structs
 
 	// Grab polymult arguments out of the pmdata structure.  They were copied there so all threads have access to them.
 	gwnum	*gw_invec1 = pmdata->invec1;			// First input poly
@@ -3753,28 +3784,67 @@ void polymult_line (
 //GW:   alternative if poly FFT size is large, reread invec1/2 in order to post process addin to save memory! Would this help P-1??? NO.
 //GW:		code would be similar to fma processing
 
+	// Fill in rwlsd1 as much as we can
+	invec1 = (invec1_buffer == NULL ? tmpvec_buffer : invec1_buffer);
+	rwlsd1.data = gw_invec1;
+	rwlsd1.size = gw_invec1_size;
+	rwlsd1.vec = invec1;
+	rwlsd1.options = pmdata->options & INVEC1_OPTIONS;
+
+	// Fill in rwlsd2 and rwlsd3 structures as much as we can for each other_poly
+	for (int i = 0; i < pmdata->num_other_polys; i++) {
+		int	options = pmdata->options | pmdata->other_polys[i].options;
+		polymult_plan *plan = &((polymult_plan *)pmdata->plan)[i];
+
+		// Reload saved fftsize, post_monics, adjusted_sizes and anything else we need from the plan computed in polymult_several
+		bool	strip_monic_from_invec1;	// True if ones are stripped from monic invec1 requiring invec2 to be added in during post processing
+		bool	post_monic_addin_invec2;	// True if ones are stripped from monic invec1 requiring invec2 to be added in during post processing
+		bool	strip_monic_from_invec2;	// True if ones are stripped from monic invec2 requiring invec1 to be added in during post processing
+		bool	post_monic_addin_invec1;	// True if ones are stripped from monic invec2 requiring invec1 to be added in during post processing
+		strip_monic_from_invec1 = plan->strip_monic_from_invec1;
+		strip_monic_from_invec2 = plan->strip_monic_from_invec2;
+		post_monic_addin_invec1 = plan->post_monic_addin_invec1;
+		post_monic_addin_invec2 = plan->post_monic_addin_invec2;
+
+		// Finish setup of rwlsd1
+		rwlsd1.post_process_monics = strip_monic_from_invec1;		//GW: Technically this can be set outside of this loop
+
+		// Read invec2.  For FFT implementation we can usually read invec2 into a buffer shared with outvec.
+		CVDT *outvec = outvec_buffer + plan->adjusted_shift;
+		CVDT *invec2 = (plan->impl == POLYMULT_IMPL_FFT && !post_monic_addin_invec2) ? outvec : invec2_buffer;
+		rwlsd2[i].data = pmdata->other_polys[i].invec2;		// Second input poly
+		rwlsd2[i].size = pmdata->other_polys[i].invec2_size;	// Size of the second input polynomial
+		rwlsd2[i].vec = invec2;
+		rwlsd2[i].options = options & INVEC2_OPTIONS;
+		rwlsd2[i].post_process_monics = strip_monic_from_invec2;
+
+		// Copy outvec to the output gwnums.  Also apply optional FMA operations.
+		rwlsd3[i].data = pmdata->other_polys[i].outvec;		// Output poly of size invec1_size + invec2_size - 1
+		rwlsd3[i].size = pmdata->other_polys[i].outvec_size;	// Size of the output polynomial.  Should be invec1_size + invec2_size (less one if not monic).
+		rwlsd3[i].vec = outvec_buffer + plan->LSWs_skipped;
+		rwlsd3[i].fma_data = pmdata->other_polys[i].fmavec;		// Addin for FMA operations
+		rwlsd3[i].options = options;
+	}
+
 	// Grab a "line of complex values" from each gwnum coefficient.  Work that data set.  Then move onto remaining lines in the gwnums.
 	while ((line = atomic_fetch_incr (pmdata->helper_counter)) < pmdata->num_lines) {
-	    CVDT *invec1, *invec2, *outvec, *true_outvec, *tmpvec, *scratch;
+	    CVDT *invec2, *outvec, *true_outvec, *tmpvec, *scratch;
 	    tmpvec = tmpvec_buffer;
 	    scratch = scratch_buffer;
 
 	    // Prepare for read_line and write_line calls
-	    read_write_line_slice_data rwlsd;
-	    prep_line (pmdata, line, &rwlsd);
+	    prep_line (pmdata, line, &rwlsd1);
 
 	    // Loop over all the other polys to multiply with the first poly
 	    int prev_fft_size = 0;
 	    for (int i = 0; i < pmdata->num_other_polys; i++) {
 		gwnum	*gw_invec2 = pmdata->other_polys[i].invec2;		// Second input poly
-		int	gw_invec2_size = pmdata->other_polys[i].invec2_size;	// Size of the second input polynomial
 		gwnum	*gw_outvec = pmdata->other_polys[i].outvec;		// Output poly of size invec1_size + invec2_size - 1
 		int	gw_outvec_size = pmdata->other_polys[i].outvec_size;	// Size of the output polynomial.  Should be invec1_size + invec2_size (less one if not monic).
-		gwnum	*gw_fmavec = pmdata->other_polys[i].fmavec;		// Addin for FMA operations
 		int	options = pmdata->options | pmdata->other_polys[i].options;
 		polymult_plan *plan = &((polymult_plan *)pmdata->plan)[i];
 
-// Reload saved fftsize, post_monics, adjusted_sizes and anything else we need from the plan computed in polymult_several
+		// Reload saved fftsize, post_monics, adjusted_sizes and anything else we need from the plan computed in polymult_several
 		bool	strip_monic_from_invec1;	// True if ones are stripped from monic invec1 requiring invec2 to be added in during post processing
 		bool	post_monic_addin_invec2;	// True if ones are stripped from monic invec1 requiring invec2 to be added in during post processing
 		bool	strip_monic_from_invec2;	// True if ones are stripped from monic invec2 requiring invec1 to be added in during post processing
@@ -3807,24 +3877,25 @@ void polymult_line (
 		// Pad output vector on the left with a zero or two to reach the true_outvec_size
 		for (int i = 1; i <= plan->adjusted_pad; i++) memset (&true_outvec[true_outvec_size-i], 0, sizeof (CVDT));
 
-		// Check for pre-processed other poly and FMA addin vector
+		// Check for pre-processed other poly
 		invec2_preprocessed = is_preprocessed_poly (gw_invec2);
 		invec2_pre_ffted = invec2_preprocessed && is_preffted_poly (gw_invec2);
 
-		// Read invec1 on processing of first other poly.  For FFT implementation we can usually read invec1 into a buffer shared
+		// Read invec1 on processing of first other poly.  For FFT implementation we usually read invec1 into a buffer shared
 		// with tmpvec (the buffer that will hold the FFT of invec1).
 		if (i == 0) {
-			invec1 = (invec1_buffer == NULL ? tmpvec : invec1_buffer);
-			if (!invec1_preprocessed) read_line (pmdata, &rwlsd, gw_invec1, gw_invec1_size, invec1, options & INVEC1_OPTIONS, strip_monic_from_invec1);
-			else read_preprocess_line (pmdata, gw_invec1, gw_invec1_size, line, invec1, options & INVEC1_OPTIONS, strip_monic_from_invec1);
+			if (!invec1_preprocessed) read_line (pmdata, &rwlsd1);
+			else read_preprocess_line (pmdata, &rwlsd1);
 		}
 		// Plan should not change strip_monic_from_invec1 so that we can read invec1 just once (very important since outvecs can output to invec1)
 		ASSERTG (i == 0 || strip_monic_from_invec1 == ((polymult_plan *)pmdata->plan)[i-1].strip_monic_from_invec1);
 
 		// Read invec2.  For FFT implementation we can usually read invec2 into a buffer shared with outvec.
 		invec2 = (plan->impl == POLYMULT_IMPL_FFT && !post_monic_addin_invec2) ? outvec : invec2_buffer;
-		if (!invec2_preprocessed) read_line (pmdata, &rwlsd, gw_invec2, gw_invec2_size, invec2, options & INVEC2_OPTIONS, strip_monic_from_invec2);
-		else read_preprocess_line (pmdata, gw_invec2, gw_invec2_size, line, invec2, options & INVEC2_OPTIONS, strip_monic_from_invec2);
+		// Prepare for read_line and write_line calls
+		rwlsd2[i].lsd = rwlsd1.lsd;			// Copy data initialized by prep_line
+		if (!invec2_preprocessed) read_line (pmdata, &rwlsd2[i]);
+		else read_preprocess_line (pmdata, &rwlsd2[i]);
 
 		// Now execute a brute force implementation.  Brute_line does implement circular_size, that will not need to be emulated later.
 		// Because brute_line implements circular_size, it must get true_outvec buffer.
@@ -3895,7 +3966,8 @@ void polymult_line (
 //GW	true_outvec_size = 5   circular_size = 5			MSWs_skipped + outvec_size + LSWs_skipped = 5
 
 		// Copy outvec to the output gwnums.  Also apply optional FMA operations.
-		write_line (pmdata, &rwlsd, gw_outvec, gw_outvec_size, true_outvec + LSWs_skipped, gw_fmavec, options);
+		rwlsd3[i].lsd = rwlsd1.lsd;			// Copy data initialized by prep_line
+		write_line (pmdata, &rwlsd3[i]);
 	    }
 	}
 
@@ -4652,6 +4724,12 @@ void polymult_several (		// Multiply one poly with several polys
 		if (addin3 >= 0 && (addin3 >= outvec_size || outvec[addin3] == NULL)) addin3 = -1;
 		if (addin4 >= 0 && (addin4 >= outvec_size || outvec[addin4] == NULL)) addin4 = -1;
 
+		// Choose a brute force implementation if we are not returning many coefficients or one of the input polys is very small
+		// NOTE: No studies have been done regarding a close-to-optimal definition of "very small".  Brute force handles addins directly.
+		bool	will_brute_force;		// TRUE if we're going to choose a brute force implementation
+		will_brute_force = !must_fft && (true_invec1_size < pmdata->KARAT_BREAK || true_invec2_size < pmdata->KARAT_BREAK);
+		if (will_brute_force) addin1 = addin2 = addin3 = addin4 = -1;
+
 		// Save addins and skipped outputs in the plan
 		plan[i].addin[0] = addin1;
 		plan[i].addin[1] = addin2;
@@ -4669,7 +4747,7 @@ void polymult_several (		// Multiply one poly with several polys
 		bool	invec2_can_be_stripped_cheaply;	// TRUE if invec1 can have its ones stripped without requiring monic post processing
 		bool	strip_monic_from_invec1, strip_monic_from_invec2, post_monic_addin_invec1, post_monic_addin_invec2;
 
-		// If any 1*1 calculations land in a returned coefficient, then one of the monics must have its ones stripped.
+		// If any 1*1 calculations land in a returned coefficient and we're not using brute force, then one of the monics must have its ones stripped.
 		must_strip_a_monic = (addin1 >= 0 || addin2 >= 0 || addin3 >= 0 || addin4 >= 0);
 
 		// Stripping the ones from a monic normally requires post processing that adds the other invec to the result.  However, if all the non-one
@@ -4749,7 +4827,7 @@ void polymult_several (		// Multiply one poly with several polys
 
 		// If handling monics without stripping ones is possible, make that our best poly fft choice thusfar
 		if (!must_strip_a_monic && (pass == 1 || !pass2_strip_monic_from_invec1)) {
-					int possible_fft_size = polymult_fft_size (true_outvec_size);
+			int possible_fft_size = polymult_fft_size (true_outvec_size);
 			if (can_use_circular_fft_size && !can_use_circular_if_monic_stripped && circular_fft_size < possible_fft_size) possible_fft_size = circular_fft_size;
 			if (must_fft && fft_size > possible_fft_size) possible_fft_size = fft_size;
 			if (!must_fft && pass == 2 && possible_fft_size < largest_fft_size) possible_fft_size = largest_fft_size;
@@ -4757,6 +4835,8 @@ void polymult_several (		// Multiply one poly with several polys
 				best_choice = 1;
 				best_fft_size = possible_fft_size;
 				best_poly_addin_size = 0;
+				// Skip looking for smaller FFT size if we're going to choose brute force implementation
+				if (will_brute_force) goto use_it;
 			}
 		}
 
@@ -4837,7 +4917,7 @@ void polymult_several (		// Multiply one poly with several polys
 		}
 
 		// Make sure one of the 5 implementations was possible
-		ASSERTG (best_choice != 0);
+use_it:		ASSERTG (best_choice != 0);
 
 		// Set flags and sizes based on the best monic implementation determined above
 		if (best_choice == 1) {		// Monics handled without post processing
@@ -4896,7 +4976,7 @@ void polymult_several (		// Multiply one poly with several polys
 
 		// Choose a brute force implementation if we are not returning many coefficients or one of the input polys is very small
 		// NOTE: No studies have been done regarding a close-to-optimal definition of "very small".
-		if (!must_fft && (outvec_size < pmdata->KARAT_BREAK || adjusted_invec1_size < pmdata->KARAT_BREAK || adjusted_invec2_size < pmdata->KARAT_BREAK)) {
+		if (will_brute_force) {
 			plan[i].impl = POLYMULT_IMPL_BRUTE;
 		}
 		// Choose Karatsuba
