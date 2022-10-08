@@ -5198,7 +5198,7 @@ if (iters == 0) iters = 1;
 clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
 for (int types = 0; types < 4; types++) {
 if ((types & 2) && (double) CNT * (gwmap_to_estimated_size (1.0, 2, EXP, -1) + 64) * 2.0 > polymem * 1024.0 * 1024.0) continue;
-if (!(types & 1) && (double) CNT * (gwmap_to_estimated_size (1.0, 2, EXP, -1) + 64) + (double) polymult_mem_required (CNT/2, CNT/2, 0, CPU_FLAGS, 1) * HW_NUM_CORES) > polymem * 1024.0 * 1024.0) continue;
+if (!(types & 1) && (double) CNT * (gwmap_to_estimated_size (1.0, 2, EXP, -1) + 64) + (double) polymult_mem_required (CNT/2, CNT/2, 0, CPU_FLAGS, 1) * HW_NUM_CORES > polymem * 1024.0 * 1024.0) continue;
 gwinit (&gwdata); 
 gwset_num_threads (&gwdata, HW_NUM_CORES);
 gwset_thread_callback (&gwdata, SetAuxThreadPriority);
@@ -5212,12 +5212,14 @@ a = b = gwalloc_array (&gwdata, CNT);
 dbltogw (&gwdata, 10001.0, a[0]);
 for (int i = 1; i < CNT/2; i++) gwcopy (&gwdata, a[0], a[i]);
 if (types & 2) { a = polymult_preprocess (&pmdata, a, CNT/2, CNT/2, CNT-1, 0); }
-pmdata.L3_CACHE_SIZE = (types & 1) ? 1 : 1000000;	// bit off = old-way, bit on = new-way
+pmdata.L3_CACHE_SIZE = (types & 1) ? 1 : 1000000000;	// bit off = old-way, bit on = new-way
 start_timer (timers, 0);
-for (int i = 0; i < iters; i++) polymult (&pmdata, a, CNT/2, a, CNT/2, b, CNT-1, POLYMULT_NEXTFFT);
+for (int i = 0; i < iters; i++)
+	if (types < 4) polymult (&pmdata, a, CNT/2, a, CNT/2, b, CNT-1, POLYMULT_NEXTFFT);
+	else polymult (&pmdata, a, CNT/2, a, CNT/2, b, CNT, POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC_RLP | POLYMULT_NEXTFFT);
 end_timer (timers, 0);
 timers[0] /= iters;
-sprintf (buf, "Polymult %s-way%s.  Poly-size %d, gwnum FFT size %ld, time: ", (types & 1) ? "new" : "old", (types & 2) ? " preprocessed" : "", CNT, gwdata.FFTLEN);
+sprintf (buf, "Polymult %s-way%s.  Poly-size %d, gwnum FFT size %ld, time: ", (types & 1) ? "new" : "old", (types >= 4) ? " monic RLP" : (types & 2) ? " preprocessed" : "", CNT, gwdata.FFTLEN);
 print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR | TIMER_MS);
 OutputBoth (thread_num, buf);
 polymult_done (&pmdata);
@@ -7066,7 +7068,7 @@ start_timer_from_zero (timers, 0);
 	polymult_init (&ecmdata.polydata, &ecmdata.gwdata);
 	polymult_set_max_num_threads (&ecmdata.polydata, get_worker_num_threads (thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0));
 	polymult_set_cache_size (&ecmdata.polydata, IniGetInt (INI_FILE, "PolymultCacheSize", 256));
-	ecmdata.polydata.L3_CACHE_SIZE = IniGetInt (INI_FILE, "PolymultCacheSize2", 6);
+	ecmdata.polydata.L3_CACHE_SIZE = IniGetInt (INI_FILE, "PolymultCacheSize2", 6144);
 	bool use_polymult_multithreading;		// TRUE if we should use polymult multithreading instead of gwnum multithreading
 //GW: unused
 	use_polymult_multithreading = ecmdata.polydata.num_threads > 1 && ecmdata.poly_size > ecmdata.polydata.num_threads &&
@@ -10989,7 +10991,7 @@ pm1_polymult:
 	polymult_init (&pm1data.polydata, &pm1data.gwdata);
 	polymult_set_max_num_threads (&pm1data.polydata, get_worker_num_threads (thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0));
 	polymult_set_cache_size (&pm1data.polydata, IniGetInt (INI_FILE, "PolymultCacheSize", 256));
-	pm1data.polydata.L3_CACHE_SIZE = IniGetInt (INI_FILE, "PolymultCacheSize2", 6);
+	pm1data.polydata.L3_CACHE_SIZE = IniGetInt (INI_FILE, "PolymultCacheSize2", 6144);
 	bool use_polymult_multithreading;		// TRUE if we should use polymult multithreading instead of gwnum multithreading
 //GW: UNUSED.  Change to always use polymult_multithreading?
 	use_polymult_multithreading = pm1data.polydata.num_threads > 1 && pm1data.poly2_size > 2*pm1data.polydata.num_threads &&
