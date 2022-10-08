@@ -137,6 +137,7 @@ void polymult2 (
 // Accessing the preprocessed header directly is frowned upon, several accessor macros follow -- probably shouldn't use any but the first three
 #define is_preprocessed_poly(p)		((p) != NULL && (((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->self_ptr == (p)))
 #define is_preffted_poly(p)		(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->options & POLYMULT_PRE_FFT)
+#define is_compressed_poly(p)		(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->options & POLYMULT_PRE_COMPRESS)
 #define preprocessed_fft_size(p)	(intptr_t) (((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->line_size)
 #define preprocessed_num_elements(p)	(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->num_compressed_blks)
 #define preprocessed_element_size(p)	(intptr_t) (((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->element_size)
@@ -244,7 +245,7 @@ struct pmhandle_struct {
 	int	KARAT_BREAK;		// Output vector size where we switch from brute force to Karatsuba
 	int	FFT_BREAK;		// Output vector size where we switch from Karatsuba to FFTs
 	int	L2_CACHE_SIZE;		// Optimize FFTs to fit in this size cache (number is in KB).  Default is 256KB.
-	int	L3_CACHE_SIZE;		// Optimize FFTs to fit in this size cache (number is in MB).  Default is 6MB.
+	int	L3_CACHE_SIZE;		// Optimize FFTs to fit in this size cache (number is in KB).  Default is 6MB (6144KB).
 	// Cached twiddles
 	bool	cached_twiddles_enabled;// TRUE if caching twiddles is enabled
 	bool	twiddle_cache_additions_disabled; // TRUE if adding new entries to the twiddle cache is temporarily disabled

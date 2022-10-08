@@ -65,6 +65,8 @@
 // 75) If poly is pre-FFT'ed there is no need to read it into a line buffer, we can access it directly in fft_line_pass (or if compressed copy ir to a much smaller scratch buffer)
 // 76) Decrease planning/launching costs by having array_invec1 and array_invec2 and array_outvec listing all the length1/2/3/4 etc. tree build polys to multiply together?
 // 77) Create a read_line_whole and write_line_whole routine?  The overhead of sliced reads is significant for the very small poly lengths computing ECM polyG.
+// 78) Are there any cases where fused-multiply-add of polys makes sense?  That is, fft_line takes 3 args and computes a * b + c.  Presently FMA is done after the
+//     FFT so as to support brute/Karatsuba.  Perhaps monics complicate things too - and avoiding FFTing the FMA addin vector could well be faster.
 
 /* Opcodes for helper thread */
 
@@ -452,7 +454,7 @@ uint64_t polymult_mem_required (
 
 	// Each thread requires memory
 //GW: BUG - need to pass in whatever info is used in mt_polymult_line decision.  Make a common routine called should_mt_polymult_line.
-	memory *= (fft_size < 6 * 1048576 / (2 * complex_vector_size)) ? num_threads : 1;
+	memory *= (fft_size < 6144 * 1024 / (2 * complex_vector_size)) ? num_threads : 1;
 
 	// Also account for sin/cos tables
 	return (memory + (fft_size % 3 == 0 ? fft_size * 2 / 3 : fft_size) * sizeof (double));
@@ -495,7 +497,7 @@ void polymult_init (
 			
 	// Set default cache sizess to optimize FFTs for (256KB and 6MB)
 	pmdata->L2_CACHE_SIZE = 256;
-	pmdata->L3_CACHE_SIZE = 6;
+	pmdata->L3_CACHE_SIZE = 6144;
 
 	// Init FFT(1) if needed
 	if (pmdata->gwdata->k != 1.0) gwuser_init_FFT1 (pmdata->gwdata);
@@ -4910,7 +4912,7 @@ void polymult_several (		// Multiply one poly with several polys
 			// to fit two lines in the L3 cache".
 //GW: fine tune this!!!  should also do this if num_lines < num_threads (or if not "a lot more than")?
 			int complex_vector_size = complex_vector_size_in_bytes (pmdata->gwdata->cpu_flags);
-			if (pmdata->num_threads > 1 && (uint64_t) fft_size > (uint64_t) pmdata->L3_CACHE_SIZE * 1048576 / (2 * complex_vector_size))
+			if (pmdata->num_threads > 1 && (uint64_t) fft_size > (uint64_t) pmdata->L3_CACHE_SIZE * 1024 / (2 * complex_vector_size))
 				pmdata->mt_polymult_line = FALSE;
 		}						
 
