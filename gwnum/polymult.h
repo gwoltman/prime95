@@ -126,6 +126,9 @@ void polymult2 (
 #define POLYMULT_UNFFT_TOP	0x40000	// When multiplying polynomials with a monic input the resulting top coefficient does not involve any multiplications.
 					// It should be safe to use this coefficient without a gwunfft operation.  The default behavior is to not call gwunfft
 					// on this coefficient.  This option forces the unfft of the top coefficient.
+#define POLYMULT_SAVE_PLAN	0x80000	// Save pmdata->plan used for this polymult call.  Planning can be a significant overhead multiplying tiny polys.
+#define POLYMULT_USE_PLAN	0x100000 // Use previously generated pmdata->plan
+
 // The following options only apply to polymult_preprocess
 #define	POLYMULT_PRE_FFT	0x40	// Compute the forward FFT while creating a preprocessed polynomial
 #define	POLYMULT_PRE_COMPRESS	0x80	// Compress each double while creating a preprocessed polynomial
@@ -171,7 +174,7 @@ typedef struct pmargument_struct {	// Each of the several polys need to describe
 	int	options;	// Any of the polymult options that are not related to poly #1
 } polymult_arg;
 
-void polymult_several (		// Multiply one poly with several polys	
+void polymult_several (		// Multiply one poly with several polys
 	pmhandle *pmdata,	// Handle for polymult library
 	gwnum	*invec1,	// First input poly
 	int	invec1_size,	// Size of the first input polynomial
@@ -261,10 +264,6 @@ struct pmhandle_struct {
 	polymult_arg *other_polys;	// Array of second polys
 	int	num_other_polys;	// Number of second polys
 	int	options;
-	int	alloc_invec1_size;	// Pre-calculated allocation size for invec1
-	int	alloc_invec2_size;	// Pre-calculated allocation size for invec2
-	int	alloc_outvec_size;	// Pre-calculated allocation size for outvec
-	int	alloc_tmpvec_size;	// Pre-calculated allocation size for tmpvec
 	bool	mt_polymult_line;	// TRUE if polymult_line is multi-threaded and read_line, fft_line_pass, write_line is single-threaded
 	void	*plan;			// Plan for implementing the multiplication of invec1 and several invec2s
 	void	(*internal_callback)(int, pmhandle *, void *); // Internal routine to multithread read_line, fft_line, write_line 

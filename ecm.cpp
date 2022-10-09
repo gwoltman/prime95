@@ -4853,6 +4853,9 @@ void ecm_helper (
 
 	if (ecmdata->helper_work == ECM_POLYF_LEVEL_ZERO) {
 		pmhandle pmdata;
+		void	*plan2 = NULL;
+		void	*plan3 = NULL;
+		void	*plan4 = NULL;
 
 		// Initialize a polymult structure that uses the cloned gwdata
 		polymult_init (&pmdata, gwdata);
@@ -4876,29 +4879,48 @@ void ecm_helper (
 
 			// Combine two, three, or four length-1 polys
 			ASSERTG (num_polys >= 2 && num_polys <= 4);
-			if (num_polys == 2)
-				polymult (&pmdata, &source_poly[poly_base], 1, &source_poly[poly_base+1], 1,
-					  &dest_poly[poly_base], 2, POLYMULT_INVEC1_MONIC_NEGATE | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT);
+			if (num_polys == 2) {
+				int options = POLYMULT_INVEC1_MONIC_NEGATE | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT | POLYMULT_SAVE_PLAN;
+				if (plan2 != NULL) pmdata.plan = plan2, options |= POLYMULT_USE_PLAN;
+				polymult (&pmdata, &source_poly[poly_base], 1, &source_poly[poly_base+1], 1, &dest_poly[poly_base], 2, options);
+				plan2 = pmdata.plan;
+			}
 			else if (num_polys == 3) {
-				polymult (&pmdata, &source_poly[poly_base], 1, &source_poly[poly_base+1], 1,
-					  &dest_poly[poly_base], 2, POLYMULT_INVEC1_MONIC_NEGATE | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT);
-				polymult (&pmdata, &dest_poly[poly_base], 2, &source_poly[poly_base+2], 1,
-					  &dest_poly[poly_base], 3, POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT);
+				int options = POLYMULT_INVEC1_MONIC_NEGATE | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT | POLYMULT_SAVE_PLAN;
+				if (plan2 != NULL) pmdata.plan = plan2, options |= POLYMULT_USE_PLAN;
+				polymult (&pmdata, &source_poly[poly_base], 1, &source_poly[poly_base+1], 1, &dest_poly[poly_base], 2, options);
+				plan2 = pmdata.plan;
+				options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT | POLYMULT_SAVE_PLAN;
+				if (plan3 != NULL) pmdata.plan = plan3, options |= POLYMULT_USE_PLAN;
+				polymult (&pmdata, &dest_poly[poly_base], 2, &source_poly[poly_base+2], 1, &dest_poly[poly_base], 3, options);
+				plan3 = pmdata.plan;
 			} else {
-				polymult (&pmdata, &source_poly[poly_base], 1, &source_poly[poly_base+1], 1,
-					  &dest_poly[poly_base], 2, POLYMULT_INVEC1_MONIC_NEGATE | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT);
-				polymult (&pmdata, &source_poly[poly_base+2], 1, &source_poly[poly_base+3], 1,
-					  &dest_poly[poly_base+2], 2, POLYMULT_INVEC1_MONIC_NEGATE | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT);
-				polymult (&pmdata, &dest_poly[poly_base], 2, &dest_poly[poly_base+2], 2, 
-					  &dest_poly[poly_base], 4, POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_NEXTFFT);
+				int options = POLYMULT_INVEC1_MONIC_NEGATE | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT | POLYMULT_SAVE_PLAN;
+				if (plan2 != NULL) pmdata.plan = plan2, options |= POLYMULT_USE_PLAN;
+				polymult (&pmdata, &source_poly[poly_base], 1, &source_poly[poly_base+1], 1, &dest_poly[poly_base], 2, options);
+				options |= POLYMULT_USE_PLAN;
+				polymult (&pmdata, &source_poly[poly_base+2], 1, &source_poly[poly_base+3], 1, &dest_poly[poly_base+2], 2, options);
+				plan2 = pmdata.plan;
+				options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_NEXTFFT | POLYMULT_SAVE_PLAN;
+				if (plan4 != NULL) pmdata.plan = plan4, options |= POLYMULT_USE_PLAN;
+				polymult (&pmdata, &dest_poly[poly_base], 2, &dest_poly[poly_base+2], 2, &dest_poly[poly_base], 4, options);
+				plan4 = pmdata.plan;
 			}
 		}
+
+		// Free saved plans
+		free (plan2);
+		free (plan3);
+		free (plan4);
 	}
 
 /* Combine 2, 3, or 4 length-1 polys in polyG */
 
 	if (ecmdata->helper_work == ECM_POLYG_LEVEL_ZERO) {
 		pmhandle pmdata;
+		void	*plan2 = NULL;
+		void	*plan3 = NULL;
+		void	*plan4 = NULL;
 
 		// Initialize a polymult structure that uses the cloned gwdata
 		polymult_init (&pmdata, gwdata);
@@ -4939,23 +4961,38 @@ void ecm_helper (
 			// Combine the two, three, or four length-1 polys
 			ASSERTG (num_polys >= 2 && num_polys <= 4);
 			ASSERTG (num_polys >= 2 && num_polys <= 4);
-			if (num_polys == 2)
-				polymult (&pmdata, &poly1, 1, &poly2, 1, &polyG[poly_base], 2,
-					  POLYMULT_INVEC1_MONIC_NEGATE | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT);
+			if (num_polys == 2) {
+				int options = POLYMULT_INVEC1_MONIC_NEGATE | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT | POLYMULT_SAVE_PLAN;
+				if (plan2 != NULL) pmdata.plan = plan2, options |= POLYMULT_USE_PLAN;
+				polymult (&pmdata, &poly1, 1, &poly2, 1, &polyG[poly_base], 2, options);
+				plan2 = pmdata.plan;
+			}
 			else if (num_polys == 3) {
-				polymult (&pmdata, &poly1, 1, &poly2, 1, &polyG[poly_base], 2,
-					  POLYMULT_INVEC1_MONIC_NEGATE | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT);
-				polymult (&pmdata, &polyG[poly_base], 2, &poly3, 1, &polyG[poly_base], 3,
-					  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT);
+				int options = POLYMULT_INVEC1_MONIC_NEGATE | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT | POLYMULT_SAVE_PLAN;
+				if (plan2 != NULL) pmdata.plan = plan2, options |= POLYMULT_USE_PLAN;
+				polymult (&pmdata, &poly1, 1, &poly2, 1, &polyG[poly_base], 2, options);
+				plan2 = pmdata.plan;
+				options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT | POLYMULT_SAVE_PLAN;
+				if (plan3 != NULL) pmdata.plan = plan3, options |= POLYMULT_USE_PLAN;
+				polymult (&pmdata, &polyG[poly_base], 2, &poly3, 1, &polyG[poly_base], 3, options);
 			} else {
-				polymult (&pmdata, &poly1, 1, &poly2, 1, &polyG[poly_base], 2,
-					  POLYMULT_INVEC1_MONIC_NEGATE | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT);
-				polymult (&pmdata, &poly3, 1, &poly4, 1, &polyG[poly_base+2], 2,
-					  POLYMULT_INVEC1_MONIC_NEGATE | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT);
-				polymult (&pmdata, &polyG[poly_base], 2, &polyG[poly_base+2], 2, &polyG[poly_base], 4,
-					  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_NEXTFFT);
+				int options = POLYMULT_INVEC1_MONIC_NEGATE | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT | POLYMULT_SAVE_PLAN;
+				if (plan2 != NULL) pmdata.plan = plan2, options |= POLYMULT_USE_PLAN;
+				polymult (&pmdata, &poly1, 1, &poly2, 1, &polyG[poly_base], 2, options);
+				options |= POLYMULT_USE_PLAN;
+				polymult (&pmdata, &poly3, 1, &poly4, 1, &polyG[poly_base+2], 2, options);
+				plan2 = pmdata.plan;
+				options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_NEXTFFT | POLYMULT_SAVE_PLAN;
+				if (plan4 != NULL) pmdata.plan = plan4, options |= POLYMULT_USE_PLAN;
+				polymult (&pmdata, &polyG[poly_base], 2, &polyG[poly_base+2], 2, &polyG[poly_base], 4, options);
+				plan4 = pmdata.plan;
 			}
 		}
+
+		// Free saved plans
+		free (plan2);
+		free (plan3);
+		free (plan4);
 	}
 
 /* Use multithreading to build gg (the final value to be GCDed).  This is important in the cases where gwnum is using a single-pass FFT and no multi-threading. */
@@ -7170,6 +7207,8 @@ start_timer_from_zero (timers, 0);
 		else {
 			uint64_t poly_base_calculator = 0;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
 			int	poly_base = 0;			// PolyF array index
+			void	*plan1 = NULL;
+			void	*plan2 = NULL;
 			while (poly_base < ecmdata.poly_size) {
 				int	poly1_base, poly1_size, poly2_base, poly2_size;
 
@@ -7183,12 +7222,21 @@ start_timer_from_zero (timers, 0);
 				poly2_size = poly_base - poly2_base;
 
 				// Combine the two polys
-				polymult (&ecmdata.polydata,
-					  &source_poly[poly1_base], poly1_size,
-					  &source_poly[poly2_base], poly2_size,
-					  &ecmdata.polyF[poly1_base], poly1_size + poly2_size,
-					  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_NO_UNFFT);
+				void **plan_addr = (poly1_size == poly2_size) ? &plan1 : &plan2;
+				int options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_NO_UNFFT | POLYMULT_SAVE_PLAN;
+				if (*plan_addr != NULL) ecmdata.polydata.plan = *plan_addr, options |= POLYMULT_USE_PLAN;
+				if (poly1_size <= poly2_size)
+					polymult (&ecmdata.polydata, &source_poly[poly1_base], poly1_size, &source_poly[poly2_base], poly2_size,
+						  &ecmdata.polyF[poly1_base], poly1_size + poly2_size, options);
+				else
+					polymult (&ecmdata.polydata, &source_poly[poly2_base], poly2_size, &source_poly[poly1_base], poly1_size,
+						  &ecmdata.polyF[poly1_base], poly2_size + poly1_size, options);
+				*plan_addr = ecmdata.polydata.plan;
 			}
+
+			// Free saved plans
+			free (plan1);
+			free (plan2);
 
 			// Multithreaded unfft poly coefficients
 //GW: BUG - if saving this polyF to disk, only unfft result.
@@ -7370,6 +7418,8 @@ start_timer_from_zero (timers, 0);
 		for (int log2_num_polys = num_tree_levels - 2; log2_num_polys >= 1; log2_num_polys--) {
 			uint64_t poly_base_calculator = 0;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
 			int	poly_base = 0;			// PolyG array index
+			void	*plan1 = NULL;
+			void	*plan2 = NULL;
 
 //GW: keep poly_sizes within one for P-1 too,  also use special len1 for P-1?
 
@@ -7386,15 +7436,29 @@ start_timer_from_zero (timers, 0);
 				poly1_size = poly2_base - poly1_base;
 				poly2_size = poly_base - poly2_base;
 
-				// Options for the upcoming polymult
-				int options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_NO_UNFFT;
-
 				// The first outer loop iteration we write the final result to H(X) rather than G(X)
-				if (outer_loop_counter > 1 || log2_num_polys > 1)
-					polymult (&ecmdata.polydata, &polyG[poly1_base], poly1_size, &polyG[poly2_base], poly2_size, &polyG[poly1_base], poly1_size + poly2_size, options);
+				if (outer_loop_counter == 1 && log2_num_polys == 1) {
+					int options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_NO_UNFFT;
+					polymult (&ecmdata.polydata, &polyG[poly1_base], poly1_size, &polyG[poly2_base], poly2_size,
+						  polyH, poly1_size + poly2_size, options);
+					break;
+				}
+				// Combine the two polys
+				void **plan_addr = (poly1_size == poly2_size) ? &plan1 : &plan2;
+				int options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_NO_UNFFT | POLYMULT_SAVE_PLAN;
+				if (*plan_addr != NULL) ecmdata.polydata.plan = *plan_addr, options |= POLYMULT_USE_PLAN;
+				if (poly1_size <= poly2_size)
+					polymult (&ecmdata.polydata, &polyG[poly1_base], poly1_size, &polyG[poly2_base], poly2_size,
+						  &polyG[poly1_base], poly1_size + poly2_size, options);
 				else
-					polymult (&ecmdata.polydata, &polyG[poly1_base], poly1_size, &polyG[poly2_base], poly2_size, polyH, poly1_size + poly2_size, options);
+					polymult (&ecmdata.polydata, &polyG[poly2_base], poly2_size, &polyG[poly1_base], poly1_size,
+						  &polyG[poly1_base], poly2_size + poly1_size, options);
+				*plan_addr = ecmdata.polydata.plan;
 			}
+
+			// Free saved plans
+			free (plan1);
+			free (plan2);
 
 			// Multithreaded unfft poly coefficients
 			poly_unfft_fft_coefficients (&ecmdata.polydata, outer_loop_counter > 1 || log2_num_polys > 1 ? polyG : polyH, ecmdata.poly_size);
@@ -7597,6 +7661,8 @@ start_timer_from_zero (timers, 0);
 			int	log2_num_polys = num_levels_this_pass - (level-1) + log2_num_slices;		// Number of polyF polys in previous level
 			uint64_t poly_base_calculator;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
 			int	poly_base = 0;
+			void	*plan1 = NULL;
+			void	*plan2 = NULL;
 			poly_base_calculator = (slice << (log2_num_polys - log2_num_slices)) * (uint64_t) ecmdata.poly_size;
 			while (poly_base < slice_size) {
 				int	poly1_base, poly1_size, poly2_base, poly2_size;
@@ -7614,12 +7680,23 @@ start_timer_from_zero (timers, 0);
 				if (poly1_size == 0 || poly2_size == 0) { gwswap (polyF[poly1_base], prev_polyF[poly1_base]); continue; }
 
 				// Combine the two polys
-				polymult (&ecmdata.polydata, &prev_polyF[poly1_base], poly1_size, &prev_polyF[poly2_base], poly2_size,
-					  &polyF[poly1_base], poly1_size + poly2_size,
-					  (poly1_size == 1 ? POLYMULT_INVEC1_NEGATE : 0) +
-					  (poly2_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) +
-					  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_NO_UNFFT);
+				void **plan_addr = (poly1_size == poly2_size) ? &plan1 : &plan2;
+				int options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC | POLYMULT_NO_UNFFT | POLYMULT_SAVE_PLAN;
+				if (*plan_addr != NULL) ecmdata.polydata.plan = *plan_addr, options |= POLYMULT_USE_PLAN;
+				if (poly1_size <= poly2_size) {
+					if (poly1_size == 1) options |= POLYMULT_INVEC1_NEGATE;
+					if (poly2_size == 1) options |= POLYMULT_INVEC2_NEGATE;
+					polymult (&ecmdata.polydata, &prev_polyF[poly1_base], poly1_size, &prev_polyF[poly2_base], poly2_size,
+						  &polyF[poly1_base], poly1_size + poly2_size, options);
+				} else {
+					if (poly2_size == 1) options |= POLYMULT_INVEC1_NEGATE;
+					polymult (&ecmdata.polydata, &prev_polyF[poly2_base], poly2_size, &prev_polyF[poly1_base], poly1_size,
+						  &polyF[poly1_base], poly2_size + poly1_size, options);
+				}
+				*plan_addr = ecmdata.polydata.plan;
 			}
+			free (plan1);
+			free (plan2);
 			poly_unfft_fft_coefficients (&ecmdata.polydata, polyF, slice_size);
 		}
 if (slice == 0) {
@@ -7636,6 +7713,9 @@ start_timer_from_zero (timers, 0);
 			int	log2_num_polys = num_levels_this_pass - level + log2_num_slices;		// Number of polyF polys in this level
 			uint64_t poly_base_calculator;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
 			int	poly_base = 0;
+			void	*plan1 = NULL;
+			void	*plan2 = NULL;
+			void	*plan3 = NULL;
 			poly_base_calculator = (slice << (log2_num_polys - log2_num_slices)) * (uint64_t) ecmdata.poly_size;
 			while (poly_base < slice_size) {
 				int	poly1_base, poly1_size, poly2_base, poly2_size;
@@ -7672,8 +7752,17 @@ start_timer_from_zero (timers, 0);
 				a[1].circular_size = poly1_size + poly2_size;	// Poly result modulo (X^circular_size - 1)
 				a[1].first_mulmid = 0;
 				a[1].options = (poly1_size == 1 ? POLYMULT_INVEC2_NEGATE : 0) + POLYMULT_INVEC2_MONIC | POLYMULT_CIRCULAR | POLYMULT_MULHI;
-				polymult_several (&ecmdata.polydata, &polyH[slice_base+poly1_base], poly1_size + poly2_size, a, 2, POLYMULT_NO_UNFFT);
+
+				void **plan_addr = (poly1_size == poly2_size) ? &plan1 : (poly1_size < poly2_size) ? &plan2 : &plan3;
+				int options = POLYMULT_NO_UNFFT | POLYMULT_SAVE_PLAN;
+				if (*plan_addr != NULL) ecmdata.polydata.plan = *plan_addr, options |= POLYMULT_USE_PLAN;
+				polymult_several (&ecmdata.polydata, &polyH[slice_base+poly1_base], poly1_size + poly2_size, a, 2, options);
+				*plan_addr = ecmdata.polydata.plan;
 			}
+			// Free plans
+			free (plan1);
+			free (plan2);
+			free (plan3);
 			// Don't unfft the last polyH row.  Do that in ecm_helper when multiplying the polyH coefficients together.
 			if (pass == 1 || level > 0) poly_unfft_fft_coefficients (&ecmdata.polydata, &polyH[slice_base], slice_size);
 		}

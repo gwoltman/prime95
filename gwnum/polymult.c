@@ -67,7 +67,6 @@
 // 77) Create a read_line_whole and write_line_whole routine?  The overhead of sliced reads is significant for the very small poly lengths computing ECM polyG.
 // 78) Are there any cases where fused-multiply-add of polys makes sense?  That is, fft_line takes 3 args and computes a * b + c.  Presently FMA is done after the
 //     FFT so as to support brute/Karatsuba.  Perhaps monics complicate things too - and avoiding FFTing the FMA addin vector could well be faster.
-// 79) Planning is not cheap.  When polys are small, ECM needs to create 2 plans: n&n and n&n+1.  Then repeatedly plug in new addresses and execute plan.
 
 /* Opcodes for helper thread */
 
@@ -118,28 +117,39 @@ typedef struct {
 	preprocessed_poly_header *hdr;  // Header of the preprocessed poly under construction
 } preprocess_plan;
 
-// Internal description of the plan to multiply two polys
+// Internal description of the plan to multiply two or more polys
+// Internal description of the plan to multiply two or more polys
 typedef struct {
-	bool	emulate_circular;	// Emulating circular_size is required
-	bool	strip_monic_from_invec1;// True if ones are stripped from monic invec1 requiring (99% of the time) invec2 to be added in during post processing
-	bool	strip_monic_from_invec2;// True if ones are stripped from monic invec2 requiring (99% of the time) invec1 to be added in during post processing
-	bool	post_monic_addin_invec1;// True if ones are stripped from monic invec2 requiring invec1 to be added in during post processing
-	bool	post_monic_addin_invec2;// True if ones are stripped from monic invec1 requiring invec2 to be added in during post processing
-	int	impl;			// 0 = brute force, 1 = Karatsuba, 2 = poly FFT
-	int	fft_size;		// FFT size for impl type 2
-	int	adjusted_invec1_size;	// Sizes of the possibly smaller partial polymult result prior to post-monic-adjustment creating the full result
-	int	adjusted_invec2_size;
-	int	adjusted_outvec_size;
-	int	true_invec1_size;	// Sizes of the full polymult inputs and outputs
-	int	true_invec2_size;
-	int	true_outvec_size;
-	int	circular_size;		// Return result modulo (X^circular_size - 1)
-	int	LSWs_skipped;		// Least significant coefficients that do not need to be returned
-	int	MSWs_skipped;		// Most significant coefficients (of true_outvec_size) that do not need to be returned
-	int	addin[4];		// Outvec locations where four 1*1 values may need to be added at the very end of the polymult process
-	int	subout;			// Outvec location where 1*1 value may need to be subtracted at the very end of the polymult process
-	int	adjusted_shift;		// Number of coefficients to shift left the initial partial poly multiplication to reach true_outvec_size
-	int	adjusted_pad;		// Number of coefficients to pad on the left of the initial partial poly multiplication to reach true_outvec_size
+	bool	mt_polymult_line;	// TRUE if polymult_line is multi-threaded and read_line, fft_line_pass, write_line are single-threaded
+	int	alloc_invec1_size;	// Pre-calculated allocation size for invec1
+	int	alloc_invec2_size;	// Pre-calculated allocation size for invec2
+	int	alloc_outvec_size;	// Pre-calculated allocation size for outvec
+	int	alloc_tmpvec_size;	// Pre-calculated allocation size for tmpvec
+#ifdef GDEBUG
+	int	hash;
+#endif
+	struct planpart {
+		bool	emulate_circular;	// Emulating circular_size is required
+		bool	strip_monic_from_invec1;// True if ones are stripped from monic invec1 requiring (99% of the time) invec2 to be added during post processing
+		bool	strip_monic_from_invec2;// True if ones are stripped from monic invec2 requiring (99% of the time) invec1 to be added during post processing
+		bool	post_monic_addin_invec1;// True if ones are stripped from monic invec2 requiring invec1 to be added during post processing
+		bool	post_monic_addin_invec2;// True if ones are stripped from monic invec1 requiring invec2 to be added during post processing
+		int	impl;			// 0 = brute force, 1 = Karatsuba, 2 = poly FFT
+		int	fft_size;		// FFT size for impl type 2
+		int	adjusted_invec1_size;	// Sizes of the possibly smaller partial polymult result prior to post-monic-adjustment creating the full result
+		int	adjusted_invec2_size;
+		int	adjusted_outvec_size;
+		int	true_invec1_size;	// Sizes of the full polymult inputs and outputs
+		int	true_invec2_size;
+		int	true_outvec_size;
+		int	circular_size;		// Return result modulo (X^circular_size - 1)
+		int	LSWs_skipped;		// Least significant coefficients that do not need to be returned
+		int	MSWs_skipped;		// Most significant coefficients (of true_outvec_size) that do not need to be returned
+		int	addin[4];		// Outvec locations where four 1*1 values may need to be added at the very end of the polymult process
+		int	subout;			// Outvec location where 1*1 value may need to be subtracted at the very end of the polymult process
+		int	adjusted_shift;		// Number of coefficients to shift left the initial partial poly multiplication to reach true_outvec_size
+		int	adjusted_pad;		// Number of coefficients to pad on the left of the initial partial poly multiplication to reach true_outvec_size
+	} planpart[1];
 } polymult_plan;
 
 #define POLYMULT_IMPL_BRUTE		0		// Brute force polymult
@@ -1402,6 +1412,8 @@ void write_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rwlsd)
 	}
 }
 
+#elif defined (FMA)
+
 #elif defined (AVX)
 
 // When multiplying small polys (a few gwnums), the overhead in prepping read_line and write_line is measurable.  This routine aims to reduce that overhead.
@@ -2163,7 +2175,7 @@ void read_line_slice_dbl (int helper_num, pmhandle *pmdata, void *rwlsd)
 			}
 		}
 		else {				// Process complex values where imaginary part is 8 or 16 bytes above the real part
-			unsigned long offset = ((read_write_line_slice_data *) rwlsd)->offset;
+			unsigned long offset = ((read_write_line_slice_data *) rwlsd)->lsd.offset;
 			for (int j = slice_start; j < slice_end; j++) {
 				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 				ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
@@ -3745,6 +3757,7 @@ void polymult_line_preprocess (
 void polymult_line (
 	pmhandle *pmdata)		// Handle for polymult library
 {
+	polymult_plan *plan = (polymult_plan *) pmdata->plan;		// Plan for how to implement each multiplication
 	int	true_invec1_size, true_invec2_size, true_outvec_size, alloc_scratch_size;
 	int	invec1_size, invec2_size, outvec_size, fft_size, fft_options, line;
 	bool	invec1_preprocessed, invec1_pre_ffted, invec2_preprocessed, invec2_pre_ffted;
@@ -3767,18 +3780,17 @@ void polymult_line (
 	alloc_scratch_size = 0;
 	for (int i = 0; i < pmdata->num_other_polys; i++) {
 		unsigned int pass1_size, pass2_size;
-		polymult_plan *plan = &((polymult_plan *)pmdata->plan)[i];
-		if (plan->impl != POLYMULT_IMPL_FFT) continue;
-		pick_pass_sizes (pmdata, plan->fft_size, &pass1_size, &pass2_size);
+		if (plan->planpart[i].impl != POLYMULT_IMPL_FFT) continue;
+		pick_pass_sizes (pmdata, plan->planpart[i].fft_size, &pass1_size, &pass2_size);
 		if (pass1_size > 1 && (int) pass1_size > alloc_scratch_size) alloc_scratch_size = pass1_size;
 	}
 	if (!pmdata->mt_polymult_line) alloc_scratch_size *= pmdata->num_threads;
 
 	// Allocate memory for polymult.  For the output vector allocate two extra in case there are any monic RLP inputs.
-	invec1_buffer = (CVDT *) (pmdata->alloc_invec1_size ? aligned_malloc ((size_t) pmdata->alloc_invec1_size * sizeof (CVDT), 64) : NULL);
-	invec2_buffer = (CVDT *) (pmdata->alloc_invec2_size ? aligned_malloc ((size_t) pmdata->alloc_invec2_size * sizeof (CVDT), 64) : NULL);
-	tmpvec_buffer = (CVDT *) (pmdata->alloc_tmpvec_size ? aligned_malloc ((size_t) pmdata->alloc_tmpvec_size * sizeof (CVDT), 64) : NULL);
-	outvec_buffer = (CVDT *) aligned_malloc ((size_t) pmdata->alloc_outvec_size * sizeof (CVDT), 64);
+	invec1_buffer = (CVDT *) (plan->alloc_invec1_size ? aligned_malloc ((size_t) plan->alloc_invec1_size * sizeof (CVDT), 64) : NULL);
+	invec2_buffer = (CVDT *) (plan->alloc_invec2_size ? aligned_malloc ((size_t) plan->alloc_invec2_size * sizeof (CVDT), 64) : NULL);
+	tmpvec_buffer = (CVDT *) (plan->alloc_tmpvec_size ? aligned_malloc ((size_t) plan->alloc_tmpvec_size * sizeof (CVDT), 64) : NULL);
+	outvec_buffer = (CVDT *) aligned_malloc ((size_t) plan->alloc_outvec_size * sizeof (CVDT), 64);
 	scratch_buffer = (CVDT *) (alloc_scratch_size ? aligned_malloc ((size_t) alloc_scratch_size * sizeof (CVDT), 64) : NULL);
 
 //GW:   alternative if poly FFT size is large, reread invec1/2 in order to post process addin to save memory! Would this help P-1??? NO.
@@ -3794,24 +3806,24 @@ void polymult_line (
 	// Fill in rwlsd2 and rwlsd3 structures as much as we can for each other_poly
 	for (int i = 0; i < pmdata->num_other_polys; i++) {
 		int	options = pmdata->options | pmdata->other_polys[i].options;
-		polymult_plan *plan = &((polymult_plan *)pmdata->plan)[i];
+		struct planpart *planpart = &plan->planpart[i];
 
 		// Reload saved fftsize, post_monics, adjusted_sizes and anything else we need from the plan computed in polymult_several
 		bool	strip_monic_from_invec1;	// True if ones are stripped from monic invec1 requiring invec2 to be added in during post processing
 		bool	post_monic_addin_invec2;	// True if ones are stripped from monic invec1 requiring invec2 to be added in during post processing
 		bool	strip_monic_from_invec2;	// True if ones are stripped from monic invec2 requiring invec1 to be added in during post processing
 		bool	post_monic_addin_invec1;	// True if ones are stripped from monic invec2 requiring invec1 to be added in during post processing
-		strip_monic_from_invec1 = plan->strip_monic_from_invec1;
-		strip_monic_from_invec2 = plan->strip_monic_from_invec2;
-		post_monic_addin_invec1 = plan->post_monic_addin_invec1;
-		post_monic_addin_invec2 = plan->post_monic_addin_invec2;
+		strip_monic_from_invec1 = planpart->strip_monic_from_invec1;
+		strip_monic_from_invec2 = planpart->strip_monic_from_invec2;
+		post_monic_addin_invec1 = planpart->post_monic_addin_invec1;
+		post_monic_addin_invec2 = planpart->post_monic_addin_invec2;
 
 		// Finish setup of rwlsd1
 		rwlsd1.post_process_monics = strip_monic_from_invec1;		//GW: Technically this can be set outside of this loop
 
 		// Read invec2.  For FFT implementation we can usually read invec2 into a buffer shared with outvec.
-		CVDT *outvec = outvec_buffer + plan->adjusted_shift;
-		CVDT *invec2 = (plan->impl == POLYMULT_IMPL_FFT && !post_monic_addin_invec2) ? outvec : invec2_buffer;
+		CVDT *outvec = outvec_buffer + planpart->adjusted_shift;
+		CVDT *invec2 = (planpart->impl == POLYMULT_IMPL_FFT && !post_monic_addin_invec2) ? outvec : invec2_buffer;
 		rwlsd2[i].data = pmdata->other_polys[i].invec2;		// Second input poly
 		rwlsd2[i].size = pmdata->other_polys[i].invec2_size;	// Size of the second input polynomial
 		rwlsd2[i].vec = invec2;
@@ -3821,7 +3833,7 @@ void polymult_line (
 		// Copy outvec to the output gwnums.  Also apply optional FMA operations.
 		rwlsd3[i].data = pmdata->other_polys[i].outvec;		// Output poly of size invec1_size + invec2_size - 1
 		rwlsd3[i].size = pmdata->other_polys[i].outvec_size;	// Size of the output polynomial.  Should be invec1_size + invec2_size (less one if not monic).
-		rwlsd3[i].vec = outvec_buffer + plan->LSWs_skipped;
+		rwlsd3[i].vec = outvec_buffer + planpart->LSWs_skipped;
 		rwlsd3[i].fma_data = pmdata->other_polys[i].fmavec;		// Addin for FMA operations
 		rwlsd3[i].options = options;
 	}
@@ -3842,7 +3854,7 @@ void polymult_line (
 		gwnum	*gw_outvec = pmdata->other_polys[i].outvec;		// Output poly of size invec1_size + invec2_size - 1
 		int	gw_outvec_size = pmdata->other_polys[i].outvec_size;	// Size of the output polynomial.  Should be invec1_size + invec2_size (less one if not monic).
 		int	options = pmdata->options | pmdata->other_polys[i].options;
-		polymult_plan *plan = &((polymult_plan *)pmdata->plan)[i];
+		struct planpart *planpart = &plan->planpart[i];
 
 		// Reload saved fftsize, post_monics, adjusted_sizes and anything else we need from the plan computed in polymult_several
 		bool	strip_monic_from_invec1;	// True if ones are stripped from monic invec1 requiring invec2 to be added in during post processing
@@ -3851,31 +3863,31 @@ void polymult_line (
 		bool	post_monic_addin_invec1;	// True if ones are stripped from monic invec2 requiring invec1 to be added in during post processing
 		int	circular_size, LSWs_skipped;
 
-		strip_monic_from_invec1 = plan->strip_monic_from_invec1;
-		strip_monic_from_invec2 = plan->strip_monic_from_invec2;
-		post_monic_addin_invec1 = plan->post_monic_addin_invec1;
-		post_monic_addin_invec2 = plan->post_monic_addin_invec2;
-		fft_size = plan->fft_size;
-		circular_size = plan->circular_size;
-		LSWs_skipped = plan->LSWs_skipped;
+		strip_monic_from_invec1 = planpart->strip_monic_from_invec1;
+		strip_monic_from_invec2 = planpart->strip_monic_from_invec2;
+		post_monic_addin_invec1 = planpart->post_monic_addin_invec1;
+		post_monic_addin_invec2 = planpart->post_monic_addin_invec2;
+		fft_size = planpart->fft_size;
+		circular_size = planpart->circular_size;
+		LSWs_skipped = planpart->LSWs_skipped;
 
 		// When monic ones are stripped from inputs, the brute/Karatsuba/polyFFT code creates an output that is smaller than the true outvec result size.
 		// The unprefixed variables refer to the monic stripped input and output sizes, the true_XXX variables refer to the full input and output sizes.
-		invec1_size = plan->adjusted_invec1_size;
-		invec2_size = plan->adjusted_invec2_size;
-		outvec_size = plan->adjusted_outvec_size;
-		true_invec1_size = plan->true_invec1_size;
-		true_invec2_size = plan->true_invec2_size;
-		true_outvec_size = plan->true_outvec_size;
+		invec1_size = planpart->adjusted_invec1_size;
+		invec2_size = planpart->adjusted_invec2_size;
+		outvec_size = planpart->adjusted_outvec_size;
+		true_invec1_size = planpart->true_invec1_size;
+		true_invec2_size = planpart->true_invec2_size;
+		true_outvec_size = planpart->true_outvec_size;
 
 		// Pad/shift the outvec pointer so that multiplication results land in the correct location of the true outvec.
 		true_outvec = outvec_buffer;
-		outvec = outvec_buffer + plan->adjusted_shift;
+		outvec = outvec_buffer + planpart->adjusted_shift;
 
 		// Pad output vector on the right with a zero or two to reach the true_outvec_size
-		for (int i = 0; i < plan->adjusted_shift; i++) memset (&true_outvec[i], 0, sizeof (CVDT));
+		for (int i = 0; i < planpart->adjusted_shift; i++) memset (&true_outvec[i], 0, sizeof (CVDT));
 		// Pad output vector on the left with a zero or two to reach the true_outvec_size
-		for (int i = 1; i <= plan->adjusted_pad; i++) memset (&true_outvec[true_outvec_size-i], 0, sizeof (CVDT));
+		for (int i = 1; i <= planpart->adjusted_pad; i++) memset (&true_outvec[true_outvec_size-i], 0, sizeof (CVDT));
 
 		// Check for pre-processed other poly
 		invec2_preprocessed = is_preprocessed_poly (gw_invec2);
@@ -3888,10 +3900,10 @@ void polymult_line (
 			else read_preprocess_line (pmdata, &rwlsd1);
 		}
 		// Plan should not change strip_monic_from_invec1 so that we can read invec1 just once (very important since outvecs can output to invec1)
-		ASSERTG (i == 0 || strip_monic_from_invec1 == ((polymult_plan *)pmdata->plan)[i-1].strip_monic_from_invec1);
+		ASSERTG (i == 0 || strip_monic_from_invec1 == plan->planpart[i-1].strip_monic_from_invec1);
 
 		// Read invec2.  For FFT implementation we can usually read invec2 into a buffer shared with outvec.
-		invec2 = (plan->impl == POLYMULT_IMPL_FFT && !post_monic_addin_invec2) ? outvec : invec2_buffer;
+		invec2 = (planpart->impl == POLYMULT_IMPL_FFT && !post_monic_addin_invec2) ? outvec : invec2_buffer;
 		// Prepare for read_line and write_line calls
 		rwlsd2[i].lsd = rwlsd1.lsd;			// Copy data initialized by prep_line
 		if (!invec2_preprocessed) read_line (pmdata, &rwlsd2[i]);
@@ -3900,12 +3912,12 @@ void polymult_line (
 		// Now execute a brute force implementation.  Brute_line does implement circular_size, that will not need to be emulated later.
 		// Because brute_line implements circular_size, it must get true_outvec buffer.
 		// Brute_line does peer into gw_outvec to see if output coefficients need to be computed -- a minor optimization.
-		if (plan->impl == POLYMULT_IMPL_BRUTE) {
-			brute_line (invec1, invec1_size, invec2, invec2_size, true_outvec, circular_size, gw_outvec, gw_outvec_size, plan->adjusted_shift, LSWs_skipped);
+		if (planpart->impl == POLYMULT_IMPL_BRUTE) {
+			brute_line (invec1, invec1_size, invec2, invec2_size, true_outvec, circular_size, gw_outvec, gw_outvec_size, planpart->adjusted_shift, LSWs_skipped);
 		}
 
 		// Now execute a Karatsuba implementation
- 		else if (plan->impl == POLYMULT_IMPL_KARATSUBA) {
+ 		else if (planpart->impl == POLYMULT_IMPL_KARATSUBA) {
 			karatsuba_line (pmdata, invec1, invec1_size, invec2, invec2_size, tmpvec, outvec);
 			// Clear poly FFT size for next invec2 since we changed tmpvec
 			prev_fft_size = 0;
@@ -3935,7 +3947,7 @@ void polymult_line (
 		}
 
 		// Emulate circular_size when necessary.  We only do this for coefficients that might actual be returned to the caller.
-		if (plan->emulate_circular) {
+		if (planpart->emulate_circular) {
 			int	i, adjusted_i;		// i is index into true_outvec, adjusted_i is i % circular_size
 			for (i = circular_size + LSWs_skipped, adjusted_i = LSWs_skipped; i < true_outvec_size; ) {
 				if (adjusted_i >= LSWs_skipped + gw_outvec_size) {
@@ -4460,145 +4472,158 @@ void polymult_several (		// Multiply one poly with several polys
 	int	options)	// Poly #1 options.  Options not associated with poly #1 are applied to all other polys.
 {
 	polymult_plan *plan;		// Plan for how to implement each of the invec1 by invec2 multiplications
-	int	invec1_options;		// Options that only applied to invec1
+	int	invec1_options;		// Options that only apply to invec1
 	int	global_invec2_options;	// Options that apply to all invec2s
 
 	// Split up options.  For convenience to the programmer, invec2 options that apply to all other_polys can be specified in options argument.
 	invec1_options = options & INVEC1_OPTIONS;
 	global_invec2_options = options & ~INVEC1_OPTIONS;
+	for (int i = 0; i < num_other_polys; i++) other_polys[i].options |= global_invec2_options;
 
-	// Allocate array to plan each poly multiplication
-	pmdata->plan = plan = (polymult_plan *) malloc (num_other_polys * sizeof (polymult_plan));
+	// Use a previously generated plan
+	if (options & POLYMULT_USE_PLAN) {
+	    plan = (polymult_plan *) pmdata->plan;
+#define ps_hash(a,b,c,d,e,f) ((a)*3+(b)*17+(c)*131071+(d)*8191001+(e)*1001+(f)*65537)
+	    ASSERTG (ps_hash (invec1_size, num_other_polys, other_polys[0].invec2_size, other_polys[0].outvec_size, other_polys[0].options, options & 0x7FFFF) == ((polymult_plan *) pmdata->plan)->hash);
+	}
 
-	// Check for pre-processed input poly
-	bool invec1_preprocessed = is_preprocessed_poly (invec1);
-	bool invec1_pre_ffted = invec1_preprocessed && is_preffted_poly (invec1);
+	// Generate a new plan
+	else {
 
-	// The default plan is to multi-thread polymult_line.  If fft_size is large we'll change to multi-threading fft_line_pass instead.
-	pmdata->mt_polymult_line = TRUE;
+	    // Allocate array to plan each poly multiplication
+	    pmdata->plan = plan = (polymult_plan *) malloc (sizeof (polymult_plan) + (num_other_polys-1) * sizeof (struct planpart));
+#ifdef GDEBUG
+	    plan->hash = ps_hash (invec1_size, num_other_polys, other_polys[0].invec2_size, other_polys[0].outvec_size, other_polys[0].options, options & 0x7FFFF);
+#endif
 
-	// For better or worse, if "other polys" would select different FFT sizes we try to make them all use the largest FFT size.  That way invec1 will
-	// be forward FFTed only once.  We also need to make sure the strip_monic_from_invec1 is consistent (invec1 is only read once and that is where
-	// monic ones are stripped).  To make this happen we track the largest FFT size and strip_monic_from_invec1 settings.  We way need to make two
-	// passes through the planning process to make this happen.
-	int	largest_fft_size = 0;	// FFT size that we can use for all the other poly plans where we are free to choose the FFT size
-	bool	largest_strip_monic_from_invec1; // Whether invec1 has its monic one stripped when using largest_fft_size
-	bool	must_replan;		// TRUE if replanning will be required
-	bool	exists_pre_ffted_invec2 = FALSE; // TRUE if any of the invec2s are pre-FFTed.  If so, we may not be able to strip monic ones from invec1.
-	bool	pass2_strip_monic_from_invec1; // In second pass, all other polys must use the same strip_monic_from_invec1 setting.
+	    // Check for pre-processed input poly
+	    bool invec1_preprocessed = is_preprocessed_poly (invec1);
+	    bool invec1_pre_ffted = invec1_preprocessed && is_preffted_poly (invec1);
 
-	// Determine the best plan (brute/Karatsuba/FFT, FFT size, post_process_monic, 1*1 addins, etc.).  Sometimes this takes two passes.
-	for (int pass = 1; pass == 1 || must_replan; pass++) {
-	    must_replan = FALSE;
+	    // The default plan is to multi-thread polymult_line.  If fft_size is large we'll change to multi-threading fft_line_pass instead.
+	    plan->mt_polymult_line = TRUE;
 
-	    // Track the largest buffer sizes that must be allocated
-	    pmdata->alloc_invec1_size = 0;
-	    pmdata->alloc_invec2_size = 0;
-	    pmdata->alloc_outvec_size = 0;
-	    pmdata->alloc_tmpvec_size = 0;
+	    // For better or worse, if "other polys" would select different FFT sizes we try to make them all use the largest FFT size.  That way invec1 will
+	    // be forward FFTed only once.  We also need to make sure the strip_monic_from_invec1 is consistent (invec1 is only read once and that is where
+	    // monic ones are stripped).  To make this happen we track the largest FFT size and strip_monic_from_invec1 settings.  We way need to make two
+	    // passes through the planning process to make this happen.
+	    int	largest_fft_size = 0;			// FFT size that we can use for all the other poly plans where we are free to choose the FFT size
+	    bool largest_strip_monic_from_invec1;	// Whether invec1 has its monic one stripped when using largest_fft_size
+	    bool must_replan;				// TRUE if replanning will be required
+	    bool exists_pre_ffted_invec2 = FALSE;	// TRUE if any of the invec2s are pre-FFTed.  If so, we may not be able to strip monic ones from invec1.
+	    bool pass2_strip_monic_from_invec1;		// In second pass, all other polys must use the same strip_monic_from_invec1 setting.
 
-	    // Loop over all the other polys to determine the plan (brute/Karatsuba/FFT, FFT size, post_process_monic, 1*1 addins, etc.) needed for each
-	    for (int i = 0; i < num_other_polys; i++) {
-		gwnum	*invec2 = other_polys[i].invec2;		// Second input poly
-		int	invec2_size = other_polys[i].invec2_size;	// Size of the second input polynomial
-		gwnum	*outvec = other_polys[i].outvec;		// Output poly of size invec1_size + invec2_size - 1
-		int	outvec_size = other_polys[i].outvec_size;	// Size of the output polynomial.  Should be invec1_size + invec2_size (less one if not monic).
-		gwnum	*fmavec = other_polys[i].fmavec;		// Addin for FMA operations
-		int	circular_size = other_polys[i].circular_size;	// Return result modulo (X^circular_size - 1)
-		int	options;					// Merged invec1 and invec2 options to make life a little simpler
-		bool	must_fft = FALSE;				// TRUE if there are any pre-FFTed poly inputs
-		int	fft_size;
+	    // Determine the best plan (brute/Karatsuba/FFT, FFT size, post_process_monic, 1*1 addins, etc.).  Sometimes this takes two passes.
+	    for (int pass = 1; pass == 1 || must_replan; pass++) {
+		must_replan = FALSE;
 
-		// Apply any global invec2 options to all of the other polys.  Merge options into one variable.
-		other_polys[i].options |= global_invec2_options;	// Merge with any non-poly1 global options
-		options = invec1_options | other_polys[i].options;
+		// Track the largest buffer sizes that must be allocated
+		plan->alloc_invec1_size = 0;
+		plan->alloc_invec2_size = 0;
+		plan->alloc_outvec_size = 0;
+		plan->alloc_tmpvec_size = 0;
 
-		// Don't allow specifying any invec1 options in other poly array
-		ASSERTG (!(other_polys[i].options & INVEC1_OPTIONS));
-		// Cannot use combinations of POLYMULT_MULHI, POLYMULT_MULMID, and POLYMULT_MULLO
-		ASSERTG (!(options & POLYMULT_MULHI) || !(options & (POLYMULT_MULMID | POLYMULT_MULLO)));
-		ASSERTG (!(options & POLYMULT_MULMID) || !(options & (POLYMULT_MULHI | POLYMULT_MULLO)));
-		ASSERTG (!(options & POLYMULT_MULLO) || !(options & (POLYMULT_MULHI | POLYMULT_MULMID)));
-		// If POLYMULT_CIRCULAR option is consistent with circular_size setting
-		ASSERTG (((options & POLYMULT_CIRCULAR) && circular_size > 0) || (!(options & POLYMULT_CIRCULAR) && circular_size == 0));
-		// If first_mulmid can only be set when POLYMULT_MULMID is set
-		ASSERTG ((options & POLYMULT_MULMID) || other_polys[i].first_mulmid == 0);
-		// FMA vector cannot be pre-processed
-		ASSERTG (fmavec == NULL || !is_preprocessed_poly (fmavec));
+		// Loop over all the other polys to determine the plan (brute/Karatsuba/FFT, FFT size, post_process_monic, 1*1 addins, etc.) needed for each
+		for (int i = 0; i < num_other_polys; i++) {
+		    gwnum *invec2 = other_polys[i].invec2;		// Second input poly
+		    int	invec2_size = other_polys[i].invec2_size;	// Size of the second input polynomial
+		    gwnum *outvec = other_polys[i].outvec;		// Output poly of size invec1_size + invec2_size - 1
+		    int	outvec_size = other_polys[i].outvec_size;	// Size of the output polynomial.  Should be invec1_size + invec2_size (less one if not monic).
+		    gwnum *fmavec = other_polys[i].fmavec;		// Addin for FMA operations
+		    int	circular_size = other_polys[i].circular_size;	// Return result modulo (X^circular_size - 1)
+		    int	options;					// Merged invec1 and invec2 options to make life a little simpler
+		    bool must_fft = FALSE;				// TRUE if there are any pre-FFTed poly inputs
+		    int	fft_size;
+
+		    // Merge options into one variable.
+		    options = invec1_options | other_polys[i].options;
+
+		    // Don't allow specifying any invec1 options in other poly array
+		    ASSERTG (!(other_polys[i].options & INVEC1_OPTIONS));
+		    // Cannot use combinations of POLYMULT_MULHI, POLYMULT_MULMID, and POLYMULT_MULLO
+		    ASSERTG (!(options & POLYMULT_MULHI) || !(options & (POLYMULT_MULMID | POLYMULT_MULLO)));
+		    ASSERTG (!(options & POLYMULT_MULMID) || !(options & (POLYMULT_MULHI | POLYMULT_MULLO)));
+		    ASSERTG (!(options & POLYMULT_MULLO) || !(options & (POLYMULT_MULHI | POLYMULT_MULMID)));
+		    // If POLYMULT_CIRCULAR option is consistent with circular_size setting
+		    ASSERTG (((options & POLYMULT_CIRCULAR) && circular_size > 0) || (!(options & POLYMULT_CIRCULAR) && circular_size == 0));
+		    // If first_mulmid can only be set when POLYMULT_MULMID is set
+		    ASSERTG ((options & POLYMULT_MULMID) || other_polys[i].first_mulmid == 0);
+		    // FMA vector cannot be pre-processed
+		    ASSERTG (fmavec == NULL || !is_preprocessed_poly (fmavec));
 
 //GW: Make this a subroutine that polymult_preprocess can use???
 
-		// Check for pre-processed other poly
-		bool invec2_preprocessed = is_preprocessed_poly (invec2);
-		bool invec2_pre_ffted = invec2_preprocessed && is_preffted_poly (invec2);
-		exists_pre_ffted_invec2 |= invec2_pre_ffted;
+		    // Check for pre-processed other poly
+		    bool invec2_preprocessed = is_preprocessed_poly (invec2);
+		    bool invec2_pre_ffted = invec2_preprocessed && is_preffted_poly (invec2);
+		    exists_pre_ffted_invec2 |= invec2_pre_ffted;
 
-		// Check for and validate pre-FFTed polys
-		if (invec1_pre_ffted) {
+		    // Check for and validate pre-FFTed polys
+		    if (invec1_pre_ffted) {
 			must_fft = TRUE;
 			fft_size = preprocessed_fft_size (invec1);
-		}
-		if (invec2_pre_ffted) {
+		    }
+		    if (invec2_pre_ffted) {
 			ASSERTG (!must_fft || fft_size == preprocessed_fft_size (invec2));
 			must_fft = TRUE;
 			fft_size = preprocessed_fft_size (invec2);
-		}
+		    }
 
-		// Adjust sizes due to RLPs and monics.  Roughly speaking, the adjusted_XXX variables are for monics with their ones stripped thus requiring
-		// monic post processing, and the true_XXX variables are for monics handled by the poly FFT code.
-		int adjusted_invec1_size = (options & POLYMULT_INVEC1_RLP) ? 2 * invec1_size - 1 : invec1_size;
-		int adjusted_invec2_size = (options & POLYMULT_INVEC2_RLP) ? 2 * invec2_size - 1 : invec2_size;
-		int adjusted_outvec_size = adjusted_invec1_size + adjusted_invec2_size - 1;
-		int true_invec1_size = adjusted_invec1_size + ((options & POLYMULT_INVEC1_MONIC) ? ((options & POLYMULT_INVEC1_RLP) ? 2 : 1) : 0);
-		int true_invec2_size = adjusted_invec2_size + ((options & POLYMULT_INVEC2_MONIC) ? ((options & POLYMULT_INVEC2_RLP) ? 2 : 1) : 0);
-		int true_outvec_size = true_invec1_size + true_invec2_size - 1;
+		    // Adjust sizes due to RLPs and monics.  Roughly speaking, the adjusted_XXX variables are for monics with their ones stripped thus requiring
+		    // monic post processing, and the true_XXX variables are for monics handled by the poly FFT code.
+		    int adjusted_invec1_size = (options & POLYMULT_INVEC1_RLP) ? 2 * invec1_size - 1 : invec1_size;
+		    int adjusted_invec2_size = (options & POLYMULT_INVEC2_RLP) ? 2 * invec2_size - 1 : invec2_size;
+		    int adjusted_outvec_size = adjusted_invec1_size + adjusted_invec2_size - 1;
+		    int true_invec1_size = adjusted_invec1_size + ((options & POLYMULT_INVEC1_MONIC) ? ((options & POLYMULT_INVEC1_RLP) ? 2 : 1) : 0);
+		    int true_invec2_size = adjusted_invec2_size + ((options & POLYMULT_INVEC2_MONIC) ? ((options & POLYMULT_INVEC2_RLP) ? 2 : 1) : 0);
+		    int true_outvec_size = true_invec1_size + true_invec2_size - 1;
 
-		// We now know the true input and output vector sizes.  THIS WILL NOT CHANGE.  We may do a brute/Karatsuba/FFT multiply that is smaller
-		// than the true sizes and do some post-monic-addins to create the true result, but that will be reflected in other variables.
-		// Save the true sizes to the plan.
-		plan[i].true_invec1_size = true_invec1_size;
-		plan[i].true_invec2_size = true_invec2_size;
-		plan[i].true_outvec_size = true_outvec_size;
+		    // We now know the true input and output vector sizes.  THIS WILL NOT CHANGE.  We may do a brute/Karatsuba/FFT multiply that is smaller
+		    // than the true sizes and do some post-monic-addins to create the true result, but that will be reflected in other variables.
+		    // Save the true sizes to the plan.
+		    plan->planpart[i].true_invec1_size = true_invec1_size;
+		    plan->planpart[i].true_invec2_size = true_invec2_size;
+		    plan->planpart[i].true_outvec_size = true_outvec_size;
 
-		// If circular size is larger than the polymult result, then the modulo operation is a no-op.
-		if (circular_size >= true_outvec_size) options &= ~POLYMULT_CIRCULAR;
-		// Set circular_size even if POLYMULT_CIRCULAR option is not set.  This just makes later code simpler.
-		if (!(options & POLYMULT_CIRCULAR)) circular_size = true_outvec_size;
+		    // If circular size is larger than the polymult result, then the modulo operation is a no-op.
+		    if (circular_size >= true_outvec_size) options &= ~POLYMULT_CIRCULAR;
+		    // Set circular_size even if POLYMULT_CIRCULAR option is not set.  This just makes later code simpler.
+		    if (!(options & POLYMULT_CIRCULAR)) circular_size = true_outvec_size;
 
-		// Monic * monic is a mine field of edge cases.  We may have several options of including the monic one in the poly FFT data or using
-		// monic_line_adjustments after the polynomial multiplication.  Consider a monic-RLP times a monic-RLP, there are 4 possible implentations:
-		//
-		// Example:  1xxx1 * 1y1, impl1 is the obvious:  1xxx1*1y1
-		// Impl2 is:	(xxx*y)<<1 + 1xxx1<<2 + 1xxx1 + 1y1<<4 + 1y1 but don't add the ones in twice
-		// Impl3 is:	(1xxx1*y)<<1 + 1xxx1<<2 + 1xxx1
-		// Impl4 is:	(xxx*1y1)<<1 + 1y1<<4 + 1y1
-		//
-		// Furthermore, polymult must not calculate 1*1 because one is not a random number.  Consider a brute force multiplication of two
-		// polynomials that have one as a coefficient.  When two ones are multiplied together it adds the tiny signal FFT(1) to the result.
-		// This is a worst case scenario for round off error as it is easy for the FFT(1) signal to be "drowned out" by the summing of dozens
-		// or hundreds of multiplied signals of random numbers in the same "column".  There can be up to four 1*1 locations in the output
-		// vector (monic RLP * monic RLP).  Calculate the locations of these possible 1*1s.  These locations will need to be "patched" later
-		// and can affect the algorithm chosen to perform the polymult.
-		int	addin1, addin2, addin3, addin4, subout;		// Locations of the up to five 1*1 values may need to be patched later
-		addin1 = addin2 = addin3 = addin4 = subout = -1;	// Assume no addins or subouts of 1*1 are needed
+		    // Monic * monic is a mine field of edge cases.  We may have several options of including the monic one in the poly FFT data or using
+		    // monic_line_adjustments after the polynomial multiplication.  Consider a monic-RLP times a monic-RLP, there are 4 possible implentations:
+		    //
+		    // Example:  1xxx1 * 1y1, impl1 is the obvious:  1xxx1*1y1
+		    // Impl2 is:	(xxx*y)<<1 + 1xxx1<<2 + 1xxx1 + 1y1<<4 + 1y1 but don't add the ones in twice
+		    // Impl3 is:	(1xxx1*y)<<1 + 1xxx1<<2 + 1xxx1
+		    // Impl4 is:	(xxx*1y1)<<1 + 1y1<<4 + 1y1
+		    //
+		    // Furthermore, polymult must not calculate 1*1 because one is not a random number.  Consider a brute force multiplication of two
+		    // polynomials that have one as a coefficient.  When two ones are multiplied together it adds the tiny signal FFT(1) to the result.
+		    // This is a worst case scenario for round off error as it is easy for the FFT(1) signal to be "drowned out" by the summing of dozens
+		    // or hundreds of multiplied signals of random numbers in the same "column".  There can be up to four 1*1 locations in the output
+		    // vector (monic RLP * monic RLP).  Calculate the locations of these possible 1*1s.  These locations will need to be "patched" later
+		    // and can affect the algorithm chosen to perform the polymult.
+		    int	addin1, addin2, addin3, addin4, subout;		// Locations of the up to five 1*1 values may need to be patched later
+		    addin1 = addin2 = addin3 = addin4 = subout = -1;	// Assume no addins or subouts of 1*1 are needed
 
-		// We also need to track which of the true_outvec_size coefficients will be returned.  For example, a monic * monic will not return the
-		// leading one.  A monic-RLP * monic-RLP returns a monic-RLP where the leading one and entire lower half of outvec are not returned.
-		// Also, the caller can request a specific number of the most significant or least significant coefficients using MULHI/MULMID/MULLO.
-		int	LSWs_skipped;		// Number of least significant coefficients that will not be returned to the caller
-		int	MSWs_skipped;		// Number of most significant coefficients that will not be returned to the caller
+		    // We also need to track which of the true_outvec_size coefficients will be returned.  For example, a monic * monic will not return the
+		    // leading one.  A monic-RLP * monic-RLP returns a monic-RLP where the leading one and entire lower half of outvec are not returned.
+		    // Also, the caller can request a specific number of the most significant or least significant coefficients using MULHI/MULMID/MULLO.
+		    int	LSWs_skipped;		// Number of least significant coefficients that will not be returned to the caller
+		    int	MSWs_skipped;		// Number of most significant coefficients that will not be returned to the caller
 
-		// In examples in the comments that follow, we show how two length two invecs can be processed
+		    // In examples in the comments that follow, we show how two length two invecs can be processed
 
-		// The simplest case is two non-monic inputs giving a non-monic result
-		// Compute invec1 * invec2 as		(ab * cd)
-		if (!(options & POLYMULT_INVEC1_MONIC) && !(options & POLYMULT_INVEC2_MONIC)) {
+		    // The simplest case is two non-monic inputs giving a non-monic result
+		    // Compute invec1 * invec2 as		(ab * cd)
+		    if (!(options & POLYMULT_INVEC1_MONIC) && !(options & POLYMULT_INVEC2_MONIC)) {
 			LSWs_skipped = 0;
 			MSWs_skipped = 0;
-		}
+		    }
 
-		// Next up are monic * non-monic cases giving a non-monic result
-		else if ((options & POLYMULT_INVEC1_MONIC) && !(options & POLYMULT_INVEC2_MONIC)) {
+		    // Next up are monic * non-monic cases giving a non-monic result
+		    else if ((options & POLYMULT_INVEC1_MONIC) && !(options & POLYMULT_INVEC2_MONIC)) {
 			// monic-RLP * non-monic
 			// Compute invec1 * invec2 as		(aba * cd)		OR	(1aba1 * cd)
 			// Then post_monic_add			(aba * cd)<<1 + cd<<4 + cd
@@ -4613,10 +4638,10 @@ void polymult_several (		// Multiply one poly with several polys
 				LSWs_skipped = 0;
 				MSWs_skipped = 0;
 			}
-		}
+		    }
 
-		// and similarly the non-monic * monic cases giving a non-monic result
-		else if (!(options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC2_MONIC)) {
+		    // and similarly the non-monic * monic cases giving a non-monic result
+		    else if (!(options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC2_MONIC)) {
 			// non-monic * monic-RLP
 			// Compute invec1 * invec2 as		(ab * cdc)		OR	(ab * 1cdc1)
 			// Then post_monic_add			(ab * cdc)<<1 + ab<<4 + ab
@@ -4631,147 +4656,147 @@ void polymult_several (		// Multiply one poly with several polys
 				LSWs_skipped = 0;
 				MSWs_skipped = 0;
 			}
-		}
+		    }
 
-		// Both inputs are monic raising the possibility of forbidden 1*1 calculations
-		// The monic * monic case gives us a monic result unless POLYMULT_CIRCULAR is set (leading 1*1 not output unless POLYMULT_CIRCULAR is set)
-		// Compute invec1 * invec2 as			(ab * 1cd)		OR	(1ab * cd)		OR	(1ab * 1cd)
-		// Then post_monic_add				(ab * 1cd) + cd<<2	OR	(1ab * cd) + ab<<2
-		// One can also start with (ab * cd) and do two post monic adds:    (ab * cd) + cd<<2 + ab<<2
-		// Then post add the 1*1 if necessary
-		else if (!(options & POLYMULT_INVEC1_RLP) && !(options & POLYMULT_INVEC2_RLP)) {
+		    // Both inputs are monic raising the possibility of forbidden 1*1 calculations
+		    // The monic * monic case gives us a monic result unless POLYMULT_CIRCULAR is set (leading 1*1 not output unless POLYMULT_CIRCULAR is set)
+		    // Compute invec1 * invec2 as			(ab * 1cd)		OR	(1ab * cd)		OR	(1ab * 1cd)
+		    // Then post_monic_add				(ab * 1cd) + cd<<2	OR	(1ab * cd) + ab<<2
+		    // One can also start with (ab * cd) and do two post monic adds:    (ab * cd) + cd<<2 + ab<<2
+		    // Then post add the 1*1 if necessary
+		    else if (!(options & POLYMULT_INVEC1_RLP) && !(options & POLYMULT_INVEC2_RLP)) {
 			addin1 = true_outvec_size - 1;				// Location of the leading 1*1
 			MSWs_skipped = 1;					// The leading 1*1 is not output
 			LSWs_skipped = 0;
-		}
+		    }
 
-		// The monic-RLP * monic-RLP case gives us a monic-RLP result unless POLYMULT_CIRCULAR is set
-		// Compute invec1 * invec2 as		(aba * 1cdc1)				OR	(1aba1 * cdc)
-		// Then post_monic_add			(aba * 1cdc1)<<1 + cdc<<5 + cdc		OR	(1aba1 * cdc)<<1 + aba<<5 + aba
-		// One can also start with (aba * cdc) and do four post monic adds:	(aba * cdc)<<2 + cdc<<5 + cdc + aba<<5 + aba
-		// Then post add two middle 1*1s OR post add four 1*1s if circular
-		else if ((options & POLYMULT_INVEC1_RLP) && (options & POLYMULT_INVEC2_RLP)) {
+		    // The monic-RLP * monic-RLP case gives us a monic-RLP result unless POLYMULT_CIRCULAR is set
+		    // Compute invec1 * invec2 as		(aba * 1cdc1)				OR	(1aba1 * cdc)
+		    // Then post_monic_add			(aba * 1cdc1)<<1 + cdc<<5 + cdc		OR	(1aba1 * cdc)<<1 + aba<<5 + aba
+		    // One can also start with (aba * cdc) and do four post monic adds:	(aba * cdc)<<2 + cdc<<5 + cdc + aba<<5 + aba
+		    // Then post add two middle 1*1s OR post add four 1*1s if circular
+		    else if ((options & POLYMULT_INVEC1_RLP) && (options & POLYMULT_INVEC2_RLP)) {
 			addin1 = true_outvec_size - 1;				// Location of the leading 1*1
 			addin2 = true_invec2_size - 1;				// Location of middle 1*1 (leading 1 of invec2 * trailing 1 of invec1)
 			addin3 = true_invec1_size - 1;				// Location of middle 1*1 (leading 1 of invec1 * trailing 1 of invec2)
 			addin4 = 0;						// Location of the trailing 1*1
 			MSWs_skipped = 1;					// The leading 1*1 is not output
 			LSWs_skipped = 0;					// This will be changed later
-		}
+		    }
 
-		// The monic-RLP * monic case gives us a monic result unless POLYMULT_CIRCULAR is set
-		// Compute invec1 * invec2 as		(aba * 1cd)			OR	(1aba1 * cd)
-		// Then post_monic_add			(aba * 1cd)<<1 + cd<<4 + cd		(1aba1 * cd) + aba<<3
-		// One can also start with (aba * cd) and do three post monic adds:	(aba * cd)<<1 + cd<<4 + cd + aba<<3
-		// Then post add one middle 1*1 OR post add both 1*1s if circular
-		else if (!(options & POLYMULT_INVEC2_RLP)) {
+		    // The monic-RLP * monic case gives us a monic result unless POLYMULT_CIRCULAR is set
+		    // Compute invec1 * invec2 as		(aba * 1cd)			OR	(1aba1 * cd)
+		    // Then post_monic_add			(aba * 1cd)<<1 + cd<<4 + cd		(1aba1 * cd) + aba<<3
+		    // One can also start with (aba * cd) and do three post monic adds:	(aba * cd)<<1 + cd<<4 + cd + aba<<3
+		    // Then post add one middle 1*1 OR post add both 1*1s if circular
+		    else if (!(options & POLYMULT_INVEC2_RLP)) {
 			addin1 = true_outvec_size - 1;				// Location of the leading 1*1
 			addin2 = true_invec2_size - 1;				// Location of middle 1*1 (leading 1 of invec2 * trailing 1 of invec1)
 			MSWs_skipped = 1;					// The leading 1*1 is not output
 			LSWs_skipped = 0;
-		}
+		    }
 
-		// Similarly, the monic * monic-RLP case gives us a monic result unless POLYMULT_CIRCULAR is set
-		// Compute invec1 * invec2 as		(ab * 1cdc1)			OR	(1ab * cdc)
-		// Then post_monic_add			(ab * 1cdc1) + cdc<<3			(1ab * cdc)<<1 + ab<<4 + ab
-		// One can also start with (ab * cdc) and do three post monic adds:	(ab * cdc)<<1 + cdc<<3 + ab<<4 + ab
-		// Then post add one middle 1*1 OR post add both 1*1s if circular
-		else if (!(options & POLYMULT_INVEC2_RLP)) {
+		    // Similarly, the monic * monic-RLP case gives us a monic result unless POLYMULT_CIRCULAR is set
+		    // Compute invec1 * invec2 as		(ab * 1cdc1)			OR	(1ab * cdc)
+		    // Then post_monic_add			(ab * 1cdc1) + cdc<<3			(1ab * cdc)<<1 + ab<<4 + ab
+		    // One can also start with (ab * cdc) and do three post monic adds:	(ab * cdc)<<1 + cdc<<3 + ab<<4 + ab
+		    // Then post add one middle 1*1 OR post add both 1*1s if circular
+		    else if (!(options & POLYMULT_INVEC2_RLP)) {
 			addin1 = true_outvec_size - 1;				// Location of the leading 1*1
 			addin3 = true_invec1_size - 1;				// Location of middle 1*1 (leading 1 of invec1 * trailing 1 of invec2)
 			MSWs_skipped = 1;					// The leading 1*1 is not output
 			LSWs_skipped = 0;
-		}
+		    }
 
-		// The RLP * RLP case gives us a RLP result unless POLYMULT_CIRCULAR is set.  Do not return the half of the coefficients.
-		if ((options & POLYMULT_INVEC1_RLP) && (options & POLYMULT_INVEC2_RLP)) {
+		    // The RLP * RLP case gives us a RLP result unless POLYMULT_CIRCULAR is set.  Do not return the half of the coefficients.
+		    if ((options & POLYMULT_INVEC1_RLP) && (options & POLYMULT_INVEC2_RLP)) {
 			LSWs_skipped = true_outvec_size / 2;			// The trailing reciprocal coefficients are not output
-		}
+		    }
 
-		// For a circular polymult every coefficient is computed
-		if (options & POLYMULT_CIRCULAR) {
+		    // For a circular polymult every coefficient is computed
+		    if (options & POLYMULT_CIRCULAR) {
 			MSWs_skipped = 0;
 			LSWs_skipped = 0;
-		}
+		    }
 
-		// Validate outvec size argument
-		ASSERTG ((!(options & (POLYMULT_MULHI | POLYMULT_MULMID | POLYMULT_MULLO)) && outvec_size == circular_size - MSWs_skipped - LSWs_skipped) ||
-			 ((options & (POLYMULT_MULHI | POLYMULT_MULLO)) && outvec_size <= circular_size - MSWs_skipped - LSWs_skipped) ||
-			 ((options & POLYMULT_MULMID) && outvec_size <= circular_size - MSWs_skipped - LSWs_skipped - other_polys[i].first_mulmid));
+		    // Validate outvec size argument
+		    ASSERTG ((!(options & (POLYMULT_MULHI | POLYMULT_MULMID | POLYMULT_MULLO)) && outvec_size == circular_size - MSWs_skipped - LSWs_skipped) ||
+			     ((options & (POLYMULT_MULHI | POLYMULT_MULLO)) && outvec_size <= circular_size - MSWs_skipped - LSWs_skipped) ||
+			     ((options & POLYMULT_MULMID) && outvec_size <= circular_size - MSWs_skipped - LSWs_skipped - other_polys[i].first_mulmid));
 
-		// Adjust the output words skipped based on caller's MULHI/MULMID/MULLO request
-		if (options & POLYMULT_MULHI) LSWs_skipped = circular_size - MSWs_skipped - outvec_size;
-		if (options & POLYMULT_MULMID) LSWs_skipped += other_polys[i].first_mulmid;
-		if (options & (POLYMULT_MULMID | POLYMULT_MULLO)) MSWs_skipped = circular_size - LSWs_skipped - outvec_size;
-		ASSERTG (circular_size == MSWs_skipped + outvec_size + LSWs_skipped);
+		    // Adjust the output words skipped based on caller's MULHI/MULMID/MULLO request
+		    if (options & POLYMULT_MULHI) LSWs_skipped = circular_size - MSWs_skipped - outvec_size;
+		    if (options & POLYMULT_MULMID) LSWs_skipped += other_polys[i].first_mulmid;
+		    if (options & (POLYMULT_MULMID | POLYMULT_MULLO)) MSWs_skipped = circular_size - LSWs_skipped - outvec_size;
+		    ASSERTG (circular_size == MSWs_skipped + outvec_size + LSWs_skipped);
 
-		// If emulating POLYMULT_CIRCULAR, apply modulo to every addin location
-		if (addin1 >= circular_size) addin1 %= circular_size;
-		if (addin2 >= circular_size) addin2 %= circular_size;
-		if (addin3 >= circular_size) addin3 %= circular_size;
-		if (addin4 >= circular_size) addin4 %= circular_size;
+		    // If emulating POLYMULT_CIRCULAR, apply modulo to every addin location
+		    if (addin1 >= circular_size) addin1 %= circular_size;
+		    if (addin2 >= circular_size) addin2 %= circular_size;
+		    if (addin3 >= circular_size) addin3 %= circular_size;
+		    if (addin4 >= circular_size) addin4 %= circular_size;
 
-		// Make the 1*1 addins an index into outvec rather than the current index into true_outvec.  That is, adjust for LSWs skipped.
-		// We do this because 1*1 addins are added as the very last step before returning outvec.
-		addin1 -= LSWs_skipped;
-		addin2 -= LSWs_skipped;
-		addin3 -= LSWs_skipped;
-		addin4 -= LSWs_skipped;
+		    // Make the 1*1 addins an index into outvec rather than the current index into true_outvec.  That is, adjust for LSWs skipped.
+		    // We do this because 1*1 addins are added as the very last step before returning outvec.
+		    addin1 -= LSWs_skipped;
+		    addin2 -= LSWs_skipped;
+		    addin3 -= LSWs_skipped;
+		    addin4 -= LSWs_skipped;
 
-		// If any of the 1*1s are for a coefficient that is not returned to the caller, then clear the addin flag
-		if (addin1 >= 0 && (addin1 >= outvec_size || outvec[addin1] == NULL)) addin1 = -1;
-		if (addin2 >= 0 && (addin2 >= outvec_size || outvec[addin2] == NULL)) addin2 = -1;
-		if (addin3 >= 0 && (addin3 >= outvec_size || outvec[addin3] == NULL)) addin3 = -1;
-		if (addin4 >= 0 && (addin4 >= outvec_size || outvec[addin4] == NULL)) addin4 = -1;
+		    // If any of the 1*1s are for a coefficient that is not returned to the caller, then clear the addin flag
+		    if (addin1 >= 0 && (addin1 >= outvec_size || outvec[addin1] == NULL)) addin1 = -1;
+		    if (addin2 >= 0 && (addin2 >= outvec_size || outvec[addin2] == NULL)) addin2 = -1;
+		    if (addin3 >= 0 && (addin3 >= outvec_size || outvec[addin3] == NULL)) addin3 = -1;
+		    if (addin4 >= 0 && (addin4 >= outvec_size || outvec[addin4] == NULL)) addin4 = -1;
 
-		// Choose a brute force implementation if we are not returning many coefficients or one of the input polys is very small
-		// NOTE: No studies have been done regarding a close-to-optimal definition of "very small".  Brute force handles addins directly.
-		bool	will_brute_force;		// TRUE if we're going to choose a brute force implementation
-		will_brute_force = !must_fft && (true_invec1_size < pmdata->KARAT_BREAK || true_invec2_size < pmdata->KARAT_BREAK);
-		if (will_brute_force) addin1 = addin2 = addin3 = addin4 = -1;
+		    // Choose a brute force implementation if we are not returning many coefficients or one of the input polys is very small
+		    // NOTE: No studies have been done regarding a close-to-optimal definition of "very small".  Brute force handles addins directly.
+		    bool	will_brute_force;		// TRUE if we're going to choose a brute force implementation
+		    will_brute_force = !must_fft && (true_invec1_size < pmdata->KARAT_BREAK || true_invec2_size < pmdata->KARAT_BREAK);
+		    if (will_brute_force) addin1 = addin2 = addin3 = addin4 = -1;
 
-		// Save addins and skipped outputs in the plan
-		plan[i].addin[0] = addin1;
-		plan[i].addin[1] = addin2;
-		plan[i].addin[2] = addin3;
-		plan[i].addin[3] = addin4;
-		plan[i].LSWs_skipped = LSWs_skipped;
-		plan[i].MSWs_skipped = MSWs_skipped;
+		    // Save addins and skipped outputs in the plan
+		    plan->planpart[i].addin[0] = addin1;
+		    plan->planpart[i].addin[1] = addin2;
+		    plan->planpart[i].addin[2] = addin3;
+		    plan->planpart[i].addin[3] = addin4;
+		    plan->planpart[i].LSWs_skipped = LSWs_skipped;
+		    plan->planpart[i].MSWs_skipped = MSWs_skipped;
 
-		// If any 1*1s affect returned data then one (or both) of the monic polys must be stripped of their one coefficients and results
-		// patched as a final step.  Prefer to strip the one coefficients of the longer input (so we patch by adding in the shorter input).
-		// We track whether stripping ones from a monic invec is required.  Plus track if either invec can have its ones stripped without requiring
-		// monic post processing (very rare, but an early prime95 P-1 implementation actually did this).
-		bool	must_strip_a_monic;		// TRUE if at least one of the two invecs must have its monic ones stripped to avoid a dangerous 1*1
-		bool	invec1_can_be_stripped_cheaply;	// TRUE if invec1 can have its ones stripped without requiring monic post processing
-		bool	invec2_can_be_stripped_cheaply;	// TRUE if invec1 can have its ones stripped without requiring monic post processing
-		bool	strip_monic_from_invec1, strip_monic_from_invec2, post_monic_addin_invec1, post_monic_addin_invec2;
+		    // If any 1*1s affect returned data then one (or both) of the monic polys must be stripped of their one coefficients and results
+		    // patched as a final step.  Prefer to strip the one coefficients of the longer input (so we patch by adding in the shorter input).
+		    // We track whether stripping ones from a monic invec is required.  Plus track if either invec can have its ones stripped without requiring
+		    // monic post processing (very rare, but an early prime95 P-1 implementation actually did this).
+		    bool must_strip_a_monic;			// TRUE if at least one of the two invecs must have its monic ones stripped to avoid a dangerous 1*1
+		    bool invec1_can_be_stripped_cheaply;	// TRUE if invec1 can have its ones stripped without requiring monic post processing
+		    bool invec2_can_be_stripped_cheaply;	// TRUE if invec1 can have its ones stripped without requiring monic post processing
+		    bool strip_monic_from_invec1, strip_monic_from_invec2, post_monic_addin_invec1, post_monic_addin_invec2;
 
-		// If any 1*1 calculations land in a returned coefficient and we're not using brute force, then one of the monics must have its ones stripped.
-		must_strip_a_monic = (addin1 >= 0 || addin2 >= 0 || addin3 >= 0 || addin4 >= 0);
+		    // If any 1*1 calculations land in a returned coefficient and we're not using brute force, then one of the monics must have its ones stripped.
+		    must_strip_a_monic = (addin1 >= 0 || addin2 >= 0 || addin3 >= 0 || addin4 >= 0);
 
-		// Stripping the ones from a monic normally requires post processing that adds the other invec to the result.  However, if all the non-one
-		// coefficients in the other invec land in columns that are not returned, then the post processing step can be skipped (at most just the
-		// final 1*1 addin is needed to create the correct result).
-		invec1_can_be_stripped_cheaply = (options & POLYMULT_INVEC1_MONIC) &&
-			true_invec2_size - (((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)) ? 1 : 0) <= MSWs_skipped &&
-			(!(options & POLYMULT_INVEC1_RLP) || true_invec2_size - ((options & POLYMULT_INVEC2_MONIC) ? 1 : 0) <= LSWs_skipped);
-		invec2_can_be_stripped_cheaply = (options & POLYMULT_INVEC2_MONIC) &&
-			true_invec1_size - (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) ? 1 : 0) <= MSWs_skipped &&
-			(!(options & POLYMULT_INVEC2_RLP) || true_invec1_size - ((options & POLYMULT_INVEC1_MONIC) ? 1 : 0) <= LSWs_skipped);
+		    // Stripping the ones from a monic normally requires post processing that adds the other invec to the result.  However, if all the non-one
+		    // coefficients in the other invec land in columns that are not returned, then the post processing step can be skipped (at most just the
+		    // final 1*1 addin is needed to create the correct result).
+		    invec1_can_be_stripped_cheaply = (options & POLYMULT_INVEC1_MONIC) &&
+				true_invec2_size - (((options & POLYMULT_INVEC2_MONIC) && (options & POLYMULT_INVEC2_RLP)) ? 1 : 0) <= MSWs_skipped &&
+				(!(options & POLYMULT_INVEC1_RLP) || true_invec2_size - ((options & POLYMULT_INVEC2_MONIC) ? 1 : 0) <= LSWs_skipped);
+		    invec2_can_be_stripped_cheaply = (options & POLYMULT_INVEC2_MONIC) &&
+				true_invec1_size - (((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC1_RLP)) ? 1 : 0) <= MSWs_skipped &&
+				(!(options & POLYMULT_INVEC2_RLP) || true_invec1_size - ((options & POLYMULT_INVEC1_MONIC) ? 1 : 0) <= LSWs_skipped);
 
-		// If a pre-FFTed input had its monic ones stripped then we obviously must strip a monic
-		must_strip_a_monic |= (invec1_pre_ffted && !preprocessed_monics_included (invec1));
-		must_strip_a_monic |= (invec2_pre_ffted && !preprocessed_monics_included (invec2));
+		    // If a pre-FFTed input had its monic ones stripped then we obviously must strip a monic
+		    must_strip_a_monic |= (invec1_pre_ffted && !preprocessed_monics_included (invec1));
+		    must_strip_a_monic |= (invec2_pre_ffted && !preprocessed_monics_included (invec2));
 
-		// Under ideal conditions, a circular polymult can be done for free by the poly FFT.  Otherwise it must be emulated.
-		// Post-monic processing can handle a circular adjusted polymult result, but handling a shifted circular result would be tricky (invecs would
-		// need shifting or don't delete the trailing ones, brute_line would need changing).  Since this tricky combination only occurs in the rare
-		// monic * monic-RLP case, we simply force emulating circular size.
-		bool	can_use_circular_fft_size = FALSE;		// TRUE if using circular_size smaller than the true_outvec_size as poly FFT size will work
-		bool	can_use_circular_if_monic_stripped = FALSE;	// TRUE if using circular_size smaller than the true_outvec_size works if a monic is stripped
-		int	circular_fft_size;
-		if (options & POLYMULT_CIRCULAR) {
+		    // Under ideal conditions, a circular polymult can be done for free by the poly FFT.  Otherwise it must be emulated.
+		    // Post-monic processing can handle a circular adjusted polymult result, but handling a shifted circular result would be tricky (invecs would
+		    // need shifting or don't delete the trailing ones, brute_line would need changing).  Since this tricky combination only occurs in the rare
+		    // monic * monic-RLP case, we simply force emulating circular size.
+		    bool can_use_circular_fft_size = FALSE;		// TRUE if using circular_size smaller than the true_outvec_size as poly FFT size will work
+		    bool can_use_circular_if_monic_stripped = FALSE;	// TRUE if using circular_size smaller than the true_outvec_size works if a monic is stripped
+		    int	circular_fft_size;
+		    if (options & POLYMULT_CIRCULAR) {
 			// Verify that a pre-FFTed input vector is compatible with the circular size
 			ASSERTG (!must_fft || (fft_size >= circular_size && (fft_size <= circular_size + LSWs_skipped + 1 || fft_size >= true_outvec_size)));
 			// Calculate polymult FFT size we hope we can use for a free POLYMULT_CIRCULAR operation
@@ -4790,43 +4815,43 @@ void polymult_several (		// Multiply one poly with several polys
 				can_use_circular_if_monic_stripped = !(circular_fft_size == circular_size ||
 								       (true_outvec_size - circular_size <= LSWs_skipped && !must_strip_a_monic));
 			}
-		}
+		    }
 
-		// If some of the coefficients are not returned, we can use a smaller poly FFT size as the long as the wrapped
-		// coefficients pollute the coefficients that are not being returned.  For example, consider a true_outvec_size of 18:
-		// 4 MSWs skipped, 10 returned, 4 LSWs skipped => A circular mult=14 works (0 MSWs skipped, 10 returned, 4 LSWs skipped)
-		// 3 MSWs skipped, 10 returned, 5 LSWs skipped => A circular mult=15 works (0 MSWs skipped, 10 returned, 5 LSWs skipped)
-		// 5 MSWs skipped, 10 returned, 3 LSWs skipped => A circular mult=15 works (2 MSWs skipped, 10 returned, 3 LSWs skipped)
-		//GW NOTE:  We can do one better by writing monic_addin code that understands MSWs skipped.  That is a monic size9 * non-monic size9 (true_size=18)
-		// 5 MSWs skipped, 9 returned, 4 LSWs skipped => Strip the monic9 and use circular mult=13 (0 MSWs skipped, 9 returned, 4 LSWs skipped
-		// with only the lower 4 coefficients of the non-monic size9 added back in to the 9 returned coefficeints)
-		else if (MSWs_skipped > 0 && LSWs_skipped > 0 && (!must_fft || fft_size < true_outvec_size)) {
+		    // If some of the coefficients are not returned, we can use a smaller poly FFT size as the long as the wrapped
+		    // coefficients pollute the coefficients that are not being returned.  For example, consider a true_outvec_size of 18:
+		    // 4 MSWs skipped, 10 returned, 4 LSWs skipped => A circular mult=14 works (0 MSWs skipped, 10 returned, 4 LSWs skipped)
+		    // 3 MSWs skipped, 10 returned, 5 LSWs skipped => A circular mult=15 works (0 MSWs skipped, 10 returned, 5 LSWs skipped)
+		    // 5 MSWs skipped, 10 returned, 3 LSWs skipped => A circular mult=15 works (2 MSWs skipped, 10 returned, 3 LSWs skipped)
+		    //GW NOTE:  We can do one better by writing monic_addin code that understands MSWs skipped.  That is a monic size9 * non-monic size9 (true_size=18)
+		    // 5 MSWs skipped, 9 returned, 4 LSWs skipped => Strip the monic9 and use circular mult=13 (0 MSWs skipped, 9 returned, 4 LSWs skipped
+		    // with only the lower 4 coefficients of the non-monic size9 added back in to the 9 returned coefficeints)
+		    else if (MSWs_skipped > 0 && LSWs_skipped > 0 && (!must_fft || fft_size < true_outvec_size)) {
 			int savings = (LSWs_skipped <= MSWs_skipped) ? LSWs_skipped : MSWs_skipped;
 			circular_fft_size = polymult_fft_size (true_outvec_size - savings);
 			if (must_fft && fft_size > circular_fft_size) circular_fft_size = fft_size;
 			if (circular_fft_size < true_outvec_size) can_use_circular_fft_size = TRUE;
 //GW: Pre-fft knows nothing about this optimization -- need a method for pre-fft to output this smaller circular size??
-		}
+		    }
 
-		// Figure out how we want to handle monics.  If implementation is POLYMULT_IMPL_FFT, post processing monics is an O(N) cost whereas
-		// having the poly FFT do some or all of the monic work is free --- as long as it does not require a larger poly FFT size.
-		// For other implementations, the choice between post-processing monics or handling as part of brute or Karatsuba is pretty much irrelevant.
-		int	best_choice = 0;
-		int	best_fft_size = 0;
-		int	best_poly_addin_size = 0;
+		    // Figure out how we want to handle monics.  If implementation is POLYMULT_IMPL_FFT, post processing monics is an O(N) cost whereas
+		    // having the poly FFT do some or all of the monic work is free --- as long as it does not require a larger poly FFT size.
+		    // For other implementations, the choice between post-processing monics or handling as part of brute or Karatsuba is pretty much irrelevant.
+		    int	best_choice = 0;
+		    int	best_fft_size = 0;
+		    int	best_poly_addin_size = 0;
 
-		// There are 4 possible monic implementations.  1) All monic ones included in FFT data.  2) Monic ones stripped from invec2 requiring invec1
-		// to be added with post processing.  3) Monic ones stripped from invec1 requiring invec2 to be added with post processing.  4) Monic ones
-		// stripped from both invec1 and invec2 requiring invec1 and invec2 to be added with post processing.
-		// Select the implementation that gives us the smallest poly FFT size and fewest number of post-processing adds.
+		    // There are 4 possible monic implementations.  1) All monic ones included in FFT data.  2) Monic ones stripped from invec2 requiring invec1
+		    // to be added with post processing.  3) Monic ones stripped from invec1 requiring invec2 to be added with post processing.  4) Monic ones
+		    // stripped from both invec1 and invec2 requiring invec1 and invec2 to be added with post processing.
+		    // Select the implementation that gives us the smallest poly FFT size and fewest number of post-processing adds.
 
 //GW: best monic impl may well depend on how circular_size is implemented.  worrying too much about circular impl with monic addins is fairly pointless
 
 //GW:  Does code below work well for fft_size < FFT_BREAK?  we'll be selecting brute force impl.  Not sure if post_process is slower or faster.
 //GW:  This is especially important for detecting different strip_monic_invec1 settings
 
-		// If handling monics without stripping ones is possible, make that our best poly fft choice thusfar
-		if (!must_strip_a_monic && (pass == 1 || !pass2_strip_monic_from_invec1)) {
+		    // If handling monics without stripping ones is possible, make that our best poly fft choice thusfar
+		    if (!must_strip_a_monic && (pass == 1 || !pass2_strip_monic_from_invec1)) {
 			int possible_fft_size = polymult_fft_size (true_outvec_size);
 			if (can_use_circular_fft_size && !can_use_circular_if_monic_stripped && circular_fft_size < possible_fft_size) possible_fft_size = circular_fft_size;
 			if (must_fft && fft_size > possible_fft_size) possible_fft_size = fft_size;
@@ -4838,12 +4863,12 @@ void polymult_several (		// Multiply one poly with several polys
 				// Skip looking for smaller FFT size if we're going to choose brute force implementation
 				if (will_brute_force) goto use_it;
 			}
-		}
+		    }
 
-		// An experimental case where we allow a single 1*1 calculation that we think will not trigger roundoff errors.  If wrapping just the 1*1
-		// in a monic times monic polymult results in a smaller FFT size, then use the smaller FFT size and subtract 1*1 from the least significant
-		// coefficient.  We think this will be OK because the poly FFT will be adding the 1*1 to a single subproduct (LSW-of-invec1 * LSW-of-invec2).
-		if (!must_strip_a_monic && (pass == 1 || !pass2_strip_monic_from_invec1) &&
+		    // An experimental case where we allow a single 1*1 calculation that we think will not trigger roundoff errors.  If wrapping just the 1*1
+		    // in a monic times monic polymult results in a smaller FFT size, then use the smaller FFT size and subtract 1*1 from the least significant
+		    // coefficient.  We think this will be OK because the poly FFT will be adding the 1*1 to a single subproduct (LSW-of-invec1 * LSW-of-invec2).
+		    if (!must_strip_a_monic && (pass == 1 || !pass2_strip_monic_from_invec1) &&
 		    (options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC2_MONIC) && LSWs_skipped == 0) {
 			int possible_fft_size = polymult_fft_size (true_outvec_size - 1);
 			if ((must_fft || possible_fft_size >= pmdata->FFT_BREAK) &&
@@ -4854,13 +4879,13 @@ void polymult_several (		// Multiply one poly with several polys
 				best_fft_size = possible_fft_size;
 				best_poly_addin_size = 0;
 			}
-		}
+		    }
 
-		// If handling monics by removing ones from invec2 and post-adding invec1 is possible, then see if that is a better choice
-		if ((options & POLYMULT_INVEC2_MONIC) &&
-		    (pass == 1 || !pass2_strip_monic_from_invec1) &&
-		    (!invec2_pre_ffted || !preprocessed_monics_included (invec2)) &&
-		    (invec2_can_be_stripped_cheaply || !invec1_pre_ffted)) {
+		    // If handling monics by removing ones from invec2 and post-adding invec1 is possible, then see if that is a better choice
+		    if ((options & POLYMULT_INVEC2_MONIC) &&
+			(pass == 1 || !pass2_strip_monic_from_invec1) &&
+			(!invec2_pre_ffted || !preprocessed_monics_included (invec2)) &&
+			(invec2_can_be_stripped_cheaply || !invec1_pre_ffted)) {
 			int possible_fft_size = polymult_fft_size (true_outvec_size - (true_invec2_size - adjusted_invec2_size));
 			int possible_poly_addin_size = (invec2_can_be_stripped_cheaply ? 0 : adjusted_invec1_size);
 			if (can_use_circular_fft_size && circular_fft_size < possible_fft_size) possible_fft_size = circular_fft_size;
@@ -4873,13 +4898,13 @@ void polymult_several (		// Multiply one poly with several polys
 				best_fft_size = possible_fft_size;
 				best_poly_addin_size = possible_poly_addin_size;
 			}
-		}
+		    }
 
-		// If handling monics by removing ones from invec1 and post-adding invec2 is possible, then see if that is a better choice
-		if ((options & POLYMULT_INVEC1_MONIC) &&
-		    (pass == 1 || pass2_strip_monic_from_invec1) &&
-		    (!invec1_pre_ffted || !preprocessed_monics_included (invec1)) &&
-		    (invec1_can_be_stripped_cheaply || !invec2_pre_ffted)) {
+		    // If handling monics by removing ones from invec1 and post-adding invec2 is possible, then see if that is a better choice
+		    if ((options & POLYMULT_INVEC1_MONIC) &&
+			(pass == 1 || pass2_strip_monic_from_invec1) &&
+			(!invec1_pre_ffted || !preprocessed_monics_included (invec1)) &&
+			(invec1_can_be_stripped_cheaply || !invec2_pre_ffted)) {
 			int possible_fft_size = polymult_fft_size (true_outvec_size - (true_invec1_size - adjusted_invec1_size));
 			int possible_poly_addin_size = (invec1_can_be_stripped_cheaply ? 0 : adjusted_invec2_size);
 			if (can_use_circular_fft_size && circular_fft_size < possible_fft_size) possible_fft_size = circular_fft_size;
@@ -4892,15 +4917,15 @@ void polymult_several (		// Multiply one poly with several polys
 				best_fft_size = possible_fft_size;
 				best_poly_addin_size = possible_poly_addin_size;
 			}
-		}
+		    }
 
-		// If handling both monics by removing ones is possible, then see if that is a better choice
-		if ((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC2_MONIC) &&
-		    (pass == 1 || pass2_strip_monic_from_invec1) &&
-		    (!invec1_pre_ffted || !preprocessed_monics_included (invec1)) &&
-		    (!invec2_pre_ffted || !preprocessed_monics_included (invec2)) &&
-		    (invec1_can_be_stripped_cheaply || !invec2_pre_ffted) &&
-		    (invec2_can_be_stripped_cheaply || !invec1_pre_ffted)) {
+		    // If handling both monics by removing ones is possible, then see if that is a better choice
+		    if ((options & POLYMULT_INVEC1_MONIC) && (options & POLYMULT_INVEC2_MONIC) &&
+			(pass == 1 || pass2_strip_monic_from_invec1) &&
+			(!invec1_pre_ffted || !preprocessed_monics_included (invec1)) &&
+			(!invec2_pre_ffted || !preprocessed_monics_included (invec2)) &&
+			(invec1_can_be_stripped_cheaply || !invec2_pre_ffted) &&
+			(invec2_can_be_stripped_cheaply || !invec1_pre_ffted)) {
 		    	int possible_fft_size = polymult_fft_size (adjusted_outvec_size);
 			int possible_poly_addin_size = (invec1_can_be_stripped_cheaply ? 0 : adjusted_invec2_size) +
 						       (invec2_can_be_stripped_cheaply ? 0 : adjusted_invec1_size);
@@ -4914,19 +4939,19 @@ void polymult_several (		// Multiply one poly with several polys
 				best_fft_size = possible_fft_size;
 				best_poly_addin_size = possible_poly_addin_size;
 			}
-		}
+		    }
 
-		// Make sure one of the 5 implementations was possible
-use_it:		ASSERTG (best_choice != 0);
+		    // Make sure one of the 5 implementations was possible
+use_it:		    ASSERTG (best_choice != 0);
 
-		// Set flags and sizes based on the best monic implementation determined above
-		if (best_choice == 1) {		// Monics handled without post processing
+		    // Set flags and sizes based on the best monic implementation determined above
+		    if (best_choice == 1) {		// Monics handled without post processing
 			strip_monic_from_invec1 = post_monic_addin_invec2 = FALSE;
 			strip_monic_from_invec2 = post_monic_addin_invec1 = FALSE;
 			adjusted_invec1_size = true_invec1_size;
 			adjusted_invec2_size = true_invec2_size;
-		}
-		if (best_choice == 2) {		// Monics handled without post processing by wrapping a 1*1 and later subtracting it back out
+		    }
+		    if (best_choice == 2) {		// Monics handled without post processing by wrapping a 1*1 and later subtracting it back out
 			strip_monic_from_invec1 = post_monic_addin_invec2 = FALSE;
 			strip_monic_from_invec2 = post_monic_addin_invec1 = FALSE;
 			adjusted_invec1_size = true_invec1_size;
@@ -4934,27 +4959,27 @@ use_it:		ASSERTG (best_choice != 0);
 			circular_size = best_fft_size;
 //GW:  Do we need to set or adjust anything else?
 			subout = 0;		// Subtract one from least significant coefficient
-		}
-		if (best_choice == 3) {		// Monics handled by strippng ones from invec2 and usually adding invec1 during post processing
+		    }
+		    if (best_choice == 3) {		// Monics handled by strippng ones from invec2 and usually adding invec1 during post processing
 			strip_monic_from_invec1 = post_monic_addin_invec2 = FALSE;
 			strip_monic_from_invec2 = TRUE; post_monic_addin_invec1 = !invec2_can_be_stripped_cheaply;
 			adjusted_invec1_size = true_invec1_size;
-		}
-		if (best_choice == 4) {		// Monics handled by strippng ones from invec1 and usually adding invec2 during post processing
+		    }
+		    if (best_choice == 4) {		// Monics handled by strippng ones from invec1 and usually adding invec2 during post processing
 			strip_monic_from_invec1 = TRUE; post_monic_addin_invec2 = !invec1_can_be_stripped_cheaply;
 			strip_monic_from_invec2 = post_monic_addin_invec1 = FALSE;
 			adjusted_invec2_size = true_invec2_size;
-		}
-		if (best_choice == 5) {		// Monics handled by stripping ones from both invecs
+		    }
+		    if (best_choice == 5) {		// Monics handled by stripping ones from both invecs
 			strip_monic_from_invec1 = TRUE; post_monic_addin_invec2 = !invec1_can_be_stripped_cheaply;
 			strip_monic_from_invec2 = TRUE; post_monic_addin_invec1 = !invec2_can_be_stripped_cheaply;
-		}
-		adjusted_outvec_size = adjusted_invec1_size + adjusted_invec2_size - 1;
+		    }
+		    adjusted_outvec_size = adjusted_invec1_size + adjusted_invec2_size - 1;
 
-		// Make sure every "other poly" uses the same FFT size if possible.  In pass 1 we find the largest FFT size.
-		// This is not optimal but not worth optimizing, after all how often will someone want to have many other polys of different size!
-		// Optimal would likely order the other polys by FFT size and then minimize the number of FFT sizes used.
-		if (pass == 1) {
+		    // Make sure every "other poly" uses the same FFT size if possible.  In pass 1 we find the largest FFT size.
+		    // This is not optimal but not worth optimizing, after all how often will someone want to have many other polys of different size!
+		    // Optimal would likely order the other polys by FFT size and then minimize the number of FFT sizes used.
+		    if (pass == 1) {
 			if (best_fft_size != largest_fft_size) {
 				// We need a second pass if we encounter multiple FFT sizes in the first pass
 				if (largest_fft_size != 0) must_replan = TRUE;
@@ -4970,68 +4995,69 @@ use_it:		ASSERTG (best_choice != 0);
 					must_replan = TRUE;
 				}
 			}
-		}
-		// In pass 2, we should be using the largest FFT size whenever possible
-		ASSERTG (pass == 1 || must_fft || best_fft_size == largest_fft_size);
+		    }
+		    // In pass 2, we should be using the largest FFT size whenever possible
+		    ASSERTG (pass == 1 || must_fft || best_fft_size == largest_fft_size);
 
-		// Choose a brute force implementation if we are not returning many coefficients or one of the input polys is very small
-		// NOTE: No studies have been done regarding a close-to-optimal definition of "very small".
-		if (will_brute_force) {
-			plan[i].impl = POLYMULT_IMPL_BRUTE;
-		}
-		// Choose Karatsuba
-		else if (!must_fft && !can_use_circular_fft_size && adjusted_outvec_size < pmdata->FFT_BREAK) {
-			plan[i].impl = POLYMULT_IMPL_KARATSUBA;
-		}
-		// FFT implementation.  There may be several possible FFT sizes to choose from.  We prefer to choose the smallest.
-		else {
+		    // Choose a brute force implementation if we are not returning many coefficients or one of the input polys is very small
+		    // NOTE: No studies have been done regarding a close-to-optimal definition of "very small".
+		    if (will_brute_force) {
+			plan->planpart[i].impl = POLYMULT_IMPL_BRUTE;
+		    }
+		    // Choose Karatsuba
+		    else if (!must_fft && !can_use_circular_fft_size && adjusted_outvec_size < pmdata->FFT_BREAK) {
+			plan->planpart[i].impl = POLYMULT_IMPL_KARATSUBA;
+		    }
+		    // FFT implementation.  There may be several possible FFT sizes to choose from.  We prefer to choose the smallest.
+		    else {
 //GW: Does this code deal with the must_fft flag???  
-			plan[i].impl = POLYMULT_IMPL_FFT;
-			plan[i].fft_size = fft_size = best_fft_size;
+			plan->planpart[i].impl = POLYMULT_IMPL_FFT;
+			plan->planpart[i].fft_size = fft_size = best_fft_size;
 			// If fft_size is large we'll change to multi-threading fft_line_pass instead.  Large is defined as "polymult_line being unable
 			// to fit two lines in the L3 cache".
 //GW: fine tune this!!!  should also do this if num_lines < num_threads (or if not "a lot more than")?
 			int complex_vector_size = complex_vector_size_in_bytes (pmdata->gwdata->cpu_flags);
 			if (pmdata->num_threads > 1 && (uint64_t) fft_size > (uint64_t) pmdata->L3_CACHE_SIZE * 1024 / (2 * complex_vector_size))
-				pmdata->mt_polymult_line = FALSE;
-		}						
+				plan->mt_polymult_line = FALSE;
+		    }						
 
-		// If we selected the circular fft size, then save some necessary plan variables
-		if (can_use_circular_fft_size && plan[i].impl == POLYMULT_IMPL_FFT && fft_size == circular_fft_size) {
+		    // If we selected the circular fft size, then save some necessary plan variables
+		    if (can_use_circular_fft_size && plan->planpart[i].impl == POLYMULT_IMPL_FFT && fft_size == circular_fft_size) {
 			circular_size = circular_fft_size;
 //GW: Pre-fft knows nothing about this optimization -- need a method for pre-fft to output this smaller circular size
 //GW: Rotation not allowed if both inputs pre-ffted
 			// Verify that a pre-FFTed input vector is compatible with the circular size
 //GW			ASSERTG (!must_fft || fft_size >= circular_size);
-		}
+		    }
 
-		// Calculate how much to pad the adjusted polymult result.  Padding may be required on the left and right to reach true_outvec_size.
-//		if (true_outvec_size != circular_size) {
+		    // Calculate how much to pad the adjusted polymult result.  Padding may be required on the left and right to reach true_outvec_size.
+//		    if (true_outvec_size != circular_size) {
 //GW: BUG????  are all cases handled properly?? do this before the brute/karat/fft above? if poly FFT is implementing circular s.b. 0,0???
-		plan[i].adjusted_pad = plan[i].adjusted_shift = 0;
-		if (post_monic_addin_invec1) {
-			plan[i].adjusted_pad++;						// Padding on the left
-			if (options & POLYMULT_INVEC2_RLP) plan[i].adjusted_shift++;	// Padding on the right
-		}
-		if (post_monic_addin_invec2) {
-			plan[i].adjusted_pad++;						// Padding on the left
-			if (options & POLYMULT_INVEC1_RLP) plan[i].adjusted_shift++;	// Padding on the right
-		}
+		    plan->planpart[i].adjusted_pad = plan->planpart[i].adjusted_shift = 0;
+		    if (post_monic_addin_invec1) {
+			plan->planpart[i].adjusted_pad++;					// Padding on the left
+			if (options & POLYMULT_INVEC2_RLP) plan->planpart[i].adjusted_shift++;	// Padding on the right
+		    }
+		    if (post_monic_addin_invec2) {
+			plan->planpart[i].adjusted_pad++;					// Padding on the left
+			if (options & POLYMULT_INVEC1_RLP) plan->planpart[i].adjusted_shift++;	// Padding on the right
+		    }
 
-		// Save adjusted sizes and monic addins in the plan
-		plan[i].adjusted_invec1_size = adjusted_invec1_size;
-		plan[i].adjusted_invec2_size = adjusted_invec2_size;
-		plan[i].adjusted_outvec_size = adjusted_outvec_size;
-		plan[i].post_monic_addin_invec1 = post_monic_addin_invec1;
-		plan[i].post_monic_addin_invec2 = post_monic_addin_invec2;
-		plan[i].strip_monic_from_invec1 = strip_monic_from_invec1;
-		plan[i].strip_monic_from_invec2 = strip_monic_from_invec2;
-		plan[i].subout = subout;
+		    // Save adjusted sizes and monic addins in the plan
+		    plan->planpart[i].adjusted_invec1_size = adjusted_invec1_size;
+		    plan->planpart[i].adjusted_invec2_size = adjusted_invec2_size;
+		    plan->planpart[i].adjusted_outvec_size = adjusted_outvec_size;
+		    plan->planpart[i].post_monic_addin_invec1 = post_monic_addin_invec1;
+		    plan->planpart[i].post_monic_addin_invec2 = post_monic_addin_invec2;
+		    plan->planpart[i].strip_monic_from_invec1 = strip_monic_from_invec1;
+		    plan->planpart[i].strip_monic_from_invec2 = strip_monic_from_invec2;
+		    plan->planpart[i].subout = subout;
 
-		// Set plan's emulate_circular flag.  Brute force and ideal circular FFT size both implement circular_size for free.
-		plan[i].emulate_circular = ((options & POLYMULT_CIRCULAR) && circular_size != true_outvec_size &&
-					    ((plan[i].impl == POLYMULT_IMPL_FFT && circular_size != fft_size) || plan[i].impl == POLYMULT_IMPL_KARATSUBA));
-		plan[i].circular_size = circular_size;
+		    // Set plan's emulate_circular flag.  Brute force and ideal circular FFT size both implement circular_size for free.
+		    plan->planpart[i].emulate_circular = ((options & POLYMULT_CIRCULAR) && circular_size != true_outvec_size &&
+							  ((plan->planpart[i].impl == POLYMULT_IMPL_FFT && circular_size != fft_size) ||
+							   plan->planpart[i].impl == POLYMULT_IMPL_KARATSUBA));
+		    plan->planpart[i].circular_size = circular_size;
 
 //GW:			when given a choice pre-process should include the ones unless it forces a larger poly FFT size.
 //GW:			unless poly 2 will be pre-ffted, then we MUST include the ones  (need a preprocess option for that? POLYMULT_OTHER_POLY_PRE_FFTED?)
@@ -5041,40 +5067,41 @@ use_it:		ASSERTG (best_choice != 0);
 //GW: POST PROCESS to find cases where different FFT sizes are used and and switch all to larger one.  Could happen in non-power-of-two tree, but likely very rare:
 //gw: tree == 769 breaks down to 385 and 384 length.  It's not clear that using fftlen=385(rounds up to 512) for both would be faster    
 
-		// Track the largest buffer sizes that must be allocated
-		if (plan[i].impl == POLYMULT_IMPL_BRUTE) {
-			if (adjusted_invec1_size > pmdata->alloc_invec1_size) pmdata->alloc_invec1_size = adjusted_invec1_size;
-			if (adjusted_invec2_size > pmdata->alloc_invec2_size) pmdata->alloc_invec2_size = adjusted_invec2_size;
-			if (true_outvec_size > pmdata->alloc_outvec_size) pmdata->alloc_outvec_size = true_outvec_size;
-		}
-		else if (plan[i].impl == POLYMULT_IMPL_KARATSUBA) {
-			if (adjusted_invec1_size > pmdata->alloc_invec1_size) pmdata->alloc_invec1_size = adjusted_invec1_size;
-			if (adjusted_invec2_size > pmdata->alloc_invec2_size) pmdata->alloc_invec2_size = adjusted_invec2_size;
-			if (true_outvec_size > pmdata->alloc_outvec_size) pmdata->alloc_outvec_size = true_outvec_size;
-			if (adjusted_outvec_size + 32 > pmdata->alloc_tmpvec_size) pmdata->alloc_tmpvec_size = adjusted_outvec_size + 32; // May need extra for each recursion
-		}
-		else {
+		    // Track the largest buffer sizes that must be allocated
+		    if (plan->planpart[i].impl == POLYMULT_IMPL_BRUTE) {
+			if (adjusted_invec1_size > plan->alloc_invec1_size) plan->alloc_invec1_size = adjusted_invec1_size;
+			if (adjusted_invec2_size > plan->alloc_invec2_size) plan->alloc_invec2_size = adjusted_invec2_size;
+			if (true_outvec_size > plan->alloc_outvec_size) plan->alloc_outvec_size = true_outvec_size;
+		    }
+		    else if (plan->planpart[i].impl == POLYMULT_IMPL_KARATSUBA) {
+			if (adjusted_invec1_size > plan->alloc_invec1_size) plan->alloc_invec1_size = adjusted_invec1_size;
+			if (adjusted_invec2_size > plan->alloc_invec2_size) plan->alloc_invec2_size = adjusted_invec2_size;
+			if (true_outvec_size > plan->alloc_outvec_size) plan->alloc_outvec_size = true_outvec_size;
+			if (adjusted_outvec_size + 32 > plan->alloc_tmpvec_size) plan->alloc_tmpvec_size = adjusted_outvec_size + 32; // May need extra for each recursion
+		    }
+		    else {
 			// Invec1 will be read into tmpvec unless post_monic_addin_invec1 is set or multiple FFT sizes/stripping will be used
 			if ((post_monic_addin_invec1 || fft_size != largest_fft_size || strip_monic_from_invec1 != largest_strip_monic_from_invec1) &&
-			    true_invec1_size > pmdata->alloc_invec1_size)
-				pmdata->alloc_invec1_size = true_invec1_size;
+			    true_invec1_size > plan->alloc_invec1_size)
+				plan->alloc_invec1_size = true_invec1_size;
 			// The FFT of invec1 will be stored in tmpvec
-			if (fft_size > pmdata->alloc_tmpvec_size) pmdata->alloc_tmpvec_size = fft_size;
+			if (fft_size > plan->alloc_tmpvec_size) plan->alloc_tmpvec_size = fft_size;
 			// Invec2 will be read into outvec unless post_monic_addin_invec2 is set
-			if (post_monic_addin_invec2 && true_invec2_size > pmdata->alloc_invec2_size) pmdata->alloc_invec2_size = true_invec2_size;
+			if (post_monic_addin_invec2 && true_invec2_size > plan->alloc_invec2_size) plan->alloc_invec2_size = true_invec2_size;
 			// The FFT of invec2 as well as the polymult result will be stored in outvec
-			if (fft_size + plan[i].adjusted_pad + plan[i].adjusted_shift > pmdata->alloc_outvec_size)
-				pmdata->alloc_outvec_size = fft_size + plan[i].adjusted_pad + plan[i].adjusted_shift;
+			if (fft_size + plan->planpart[i].adjusted_pad + plan->planpart[i].adjusted_shift > plan->alloc_outvec_size)
+				plan->alloc_outvec_size = fft_size + plan->planpart[i].adjusted_pad + plan->planpart[i].adjusted_shift;
+		    }
 		}
-	    }
 
-	    // For the optional second pass, if any of the times we selected the largest FFT size required stripping monic one from invec1, then always strip.
-	    pass2_strip_monic_from_invec1 = largest_strip_monic_from_invec1;
-	    // For the optional second pass, if any of the other polys were pre-FFTed then assume we cannot strip monic one from invec1.
-	    // If using the largest FFT size required stripping monics then we will have to use the next larger FFT size.
-	    if (exists_pre_ffted_invec2) {
+		// For the optional second pass, if any of the times we selected the largest FFT size required stripping monic one from invec1, then always strip.
+		pass2_strip_monic_from_invec1 = largest_strip_monic_from_invec1;
+		// For the optional second pass, if any of the other polys were pre-FFTed then assume we cannot strip monic one from invec1.
+		// If using the largest FFT size required stripping monics then we will have to use the next larger FFT size.
+		if (exists_pre_ffted_invec2) {
 		    if (largest_strip_monic_from_invec1) largest_fft_size = polymult_fft_size (largest_fft_size + 1);
 		    pass2_strip_monic_from_invec1 = FALSE;
+		}
 	    }
 	}
 //GW		Change poly_preprocess to either fft_size of polymult_fft_size(insz1 + insz2 - 1) OR polymult_fft_size (outsz) if polymult circular set.
@@ -5086,6 +5113,7 @@ use_it:		ASSERTG (best_choice != 0);
 	pmdata->other_polys = other_polys;
 	pmdata->num_other_polys = num_other_polys;
 	pmdata->options = invec1_options;
+	pmdata->mt_polymult_line = plan->mt_polymult_line;
 
 	// FFT all the inputs
 	pmdata->helper_opcode = HELPER_PRE_FFT;		// The helpers are doing pre-FFT polymult work
@@ -5103,7 +5131,7 @@ use_it:		ASSERTG (best_choice != 0);
 	polymult_launch_helpers (pmdata);
 
 	// Free array that planned each poly multiplication
-	free (plan);
+	if (!(options & POLYMULT_SAVE_PLAN)) free (pmdata->plan), pmdata->plan = NULL;
 }
 
 /* Multi-threaded FFT of all the input vectors in a polymult */
@@ -5199,17 +5227,17 @@ void polymult_post_unfft (
 			// top coefficient have been degraded by the rounding done in the forward and inverse FFT.  We could fix this by special casing the
 			// top coefficient during the polymult FFT, however the savings will be small.
 			FFT_state (outvec[j]) = (gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
-			if (j == outvec_size - 1 &&						// Top outvec coefficient
-			    plan[i].impl != POLYMULT_IMPL_FFT &&				// Not doing a polymult FFT (see comments above)
-			    ! (options & POLYMULT_UNFFT_TOP) &&					// Caller not forcing the unfft on top coefficient
-			    ((options & POLYMULT_INVEC1_MONIC && options & POLYMULT_INVEC2_MONIC &&  // Monic * monic
-			      ((plan[i].circular_size == plan[i].true_outvec_size &&		// Not doing a circular multiply
-			        plan[i].MSWs_skipped == 1) ||					// Only the 1*1 coefficient is skipped
-			       (plan[i].circular_size == plan[i].true_outvec_size - 1 &&		// Doing a circular multiply
-			        plan[i].MSWs_skipped == 0))) ||					// where only the 1*1 coefficient is skipped
+			if (j == outvec_size - 1 &&							// Top outvec coefficient
+			    plan->planpart[i].impl != POLYMULT_IMPL_FFT &&				// Not doing a polymult FFT (see comments above)
+			    ! (options & POLYMULT_UNFFT_TOP) &&						// Caller not forcing the unfft on top coefficient
+			    ((options & POLYMULT_INVEC1_MONIC && options & POLYMULT_INVEC2_MONIC &&	// Monic * monic
+			      ((plan->planpart[i].circular_size == plan->planpart[i].true_outvec_size &&// Not doing a circular multiply
+			        plan->planpart[i].MSWs_skipped == 1) ||					// Only the 1*1 coefficient is skipped
+			       (plan->planpart[i].circular_size == plan->planpart[i].true_outvec_size - 1 &&// Doing a circular multiply
+			        plan->planpart[i].MSWs_skipped == 0))) ||				// where only the 1*1 coefficient is skipped
 			     (!(options & POLYMULT_INVEC1_MONIC) != !(options & POLYMULT_INVEC2_MONIC) && // Monic * non-monic (or vice-versa)
-			      plan[i].circular_size == plan[i].true_outvec_size &&		// Not doing a circular multiply
-			      plan[i].MSWs_skipped == 0))) {					// Top coefficient of monic * non-monic is output
+			      plan->planpart[i].circular_size == plan->planpart[i].true_outvec_size &&	// Not doing a circular multiply
+			      plan->planpart[i].MSWs_skipped == 0))) {					// Top coefficient of monic * non-monic is output
 				gwnum *invec1 = pmdata->invec1;
 				gwnum *invec2 = pmdata->other_polys[i].invec2;
 				int invec1_size = pmdata->invec1_size;
@@ -5226,8 +5254,8 @@ void polymult_post_unfft (
 				unnorms (outvec[j]) = 999.0e9f;					// Huge value to force an unfft
 
 			// See if this value needs to be unffted now or if we are waiting until later
-			bool j_affected_by_addin = (j == plan[i].addin[0] || j == plan[i].addin[1] ||
-						    j == plan[i].addin[2] || j == plan[i].addin[3] || j == plan[i].subout);
+			bool j_affected_by_addin = (j == plan->planpart[i].addin[0] || j == plan->planpart[i].addin[1] ||
+						    j == plan->planpart[i].addin[2] || j == plan->planpart[i].addin[3] || j == plan->planpart[i].subout);
 			if (!j_affected_by_addin) {
 				if (options & POLYMULT_NO_UNFFT) continue;
 				if (!polymult_must_unfft (gwdata, outvec[j])) continue;
@@ -5237,11 +5265,13 @@ void polymult_post_unfft (
 //GW: use gwsetaddin rather than gwaddsmall?  We'd need to save/restore the existing addin.  Only affect RLP * RLP, don't bother?
 			gwunfft2 (gwdata, outvec[j], outvec[j],
 				  ((options & (POLYMULT_STARTNEXTFFT | POLYMULT_NEXTFFT)) && !j_affected_by_addin) ? GWMUL_STARTNEXTFFT : 0);
-			if (j == plan[i].addin[0]) gwaddsmall (gwdata, outvec[j], addin_value);
-			if (j == plan[i].addin[1]) gwaddsmall (gwdata, outvec[j], addin_value);
-			if (j == plan[i].addin[2]) gwaddsmall (gwdata, outvec[j], addin_value);
-			if (j == plan[i].addin[3]) gwaddsmall (gwdata, outvec[j], addin_value);
-			if (j == plan[i].subout) gwaddsmall (gwdata, outvec[j], -addin_value);
+			if (j_affected_by_addin) {
+				if (j == plan->planpart[i].addin[0]) gwaddsmall (gwdata, outvec[j], addin_value);
+				if (j == plan->planpart[i].addin[1]) gwaddsmall (gwdata, outvec[j], addin_value);
+				if (j == plan->planpart[i].addin[2]) gwaddsmall (gwdata, outvec[j], addin_value);
+				if (j == plan->planpart[i].addin[3]) gwaddsmall (gwdata, outvec[j], addin_value);
+				if (j == plan->planpart[i].subout) gwaddsmall (gwdata, outvec[j], -addin_value);
+			}
 
 			// Do an optional forward FFT while data is in the CPU caches
 			if (options & POLYMULT_NEXTFFT) gwfft (gwdata, outvec[j], outvec[j]);
