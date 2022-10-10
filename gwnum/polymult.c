@@ -63,10 +63,10 @@
 //     as using lots less scratch memory)
 // 74) Fix mem_required to access L3_CACHE_SIZE and use same algorithm for determining mt_polymult_line.
 // 75) If poly is pre-FFT'ed there is no need to read it into a line buffer, we can access it directly in fft_line_pass (or if compressed copy ir to a much smaller scratch buffer)
-// 76) Decrease planning/launching costs by having array_invec1 and array_invec2 and array_outvec listing all the length1/2/3/4 etc. tree build polys to multiply together?
-// 77) Create a read_line_whole and write_line_whole routine?  The overhead of sliced reads is significant for the very small poly lengths computing ECM polyG.
 // 78) Are there any cases where fused-multiply-add of polys makes sense?  That is, fft_line takes 3 args and computes a * b + c.  Presently FMA is done after the
 //     FFT so as to support brute/Karatsuba.  Perhaps monics complicate things too - and avoiding FFTing the FMA addin vector could well be faster.
+// 79) Pick_pass_sizes only puts powers of two in pass 2.  Does this lead to nasty 4KB strides that we could avoid?  Add padding, maybe only in scratch area?
+// 80) put read-specific and write-specific data within a union in read_write_line_slice_data
 
 /* Opcodes for helper thread */
 
@@ -95,11 +95,6 @@ void polymult_line_sse2 (pmhandle *pmdata);
 void polymult_line_avx (pmhandle *pmdata);
 void polymult_line_fma (pmhandle *pmdata);
 void polymult_line_avx512 (pmhandle *pmdata);
-void fft_line_pass_dbl (int helper_num, pmhandle *pmdata, void *pdarg);
-void fft_line_pass_sse2 (int helper_num, pmhandle *pmdata, void *pdarg);
-void fft_line_pass_avx (int helper_num, pmhandle *pmdata, void *pdarg);
-void fft_line_pass_fma (int helper_num, pmhandle *pmdata, void *pdarg);
-void fft_line_pass_avx512 (int helper_num, pmhandle *pmdata, void *pdarg);
 
 // Internal description of the plan to preprocess a poly
 typedef struct {
@@ -1133,6 +1128,7 @@ void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd);
 void read_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd);
 void read_preprocess_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd);
 void write_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd);
+void fft_line_pass (int helper_num, pmhandle *pmdata, void *pdarg);
 
 #if defined (AVX512)
 
@@ -2574,7 +2570,7 @@ void fft_line_pass (
 {
 	fft_line_pass_data *pd = (fft_line_pass_data *) pdarg;	// Data passed to us from fft_line
 	CVDT	*scratch;		// Each helper thread will need its own scratch buffer
-	int	non_atomic_val = 0;	// Counter if not using atomics dur to multithreading
+	int	non_atomic_val = 0;	// Counter if not using atomics due to multithreading
 
 	// Calculate the scratch address
 	scratch = pd->scratch + helper_num * pd->pass1_size;
@@ -4484,7 +4480,7 @@ void polymult_several (		// Multiply one poly with several polys
 	if (options & POLYMULT_USE_PLAN) {
 	    plan = (polymult_plan *) pmdata->plan;
 #define ps_hash(a,b,c,d,e,f) ((a)*3+(b)*17+(c)*131071+(d)*8191001+(e)*1001+(f)*65537)
-	    ASSERTG (ps_hash (invec1_size, num_other_polys, other_polys[0].invec2_size, other_polys[0].outvec_size, other_polys[0].options, options & 0x7FFFF) == ((polymult_plan *) pmdata->plan)->hash);
+	    ASSERTG (ps_hash (invec1_size, num_other_polys, other_polys[0].invec2_size, other_polys[0].outvec_size, other_polys[0].options & 0x7FFFF, options & 0x7FFFF) == ((polymult_plan *) pmdata->plan)->hash);
 	}
 
 	// Generate a new plan
@@ -4493,7 +4489,7 @@ void polymult_several (		// Multiply one poly with several polys
 	    // Allocate array to plan each poly multiplication
 	    pmdata->plan = plan = (polymult_plan *) malloc (sizeof (polymult_plan) + (num_other_polys-1) * sizeof (struct planpart));
 #ifdef GDEBUG
-	    plan->hash = ps_hash (invec1_size, num_other_polys, other_polys[0].invec2_size, other_polys[0].outvec_size, other_polys[0].options, options & 0x7FFFF);
+	    plan->hash = ps_hash (invec1_size, num_other_polys, other_polys[0].invec2_size, other_polys[0].outvec_size, other_polys[0].options & 0x7FFFF, options & 0x7FFFF);
 #endif
 
 	    // Check for pre-processed input poly
@@ -4926,7 +4922,7 @@ void polymult_several (		// Multiply one poly with several polys
 			(!invec2_pre_ffted || !preprocessed_monics_included (invec2)) &&
 			(invec1_can_be_stripped_cheaply || !invec2_pre_ffted) &&
 			(invec2_can_be_stripped_cheaply || !invec1_pre_ffted)) {
-		    	int possible_fft_size = polymult_fft_size (adjusted_outvec_size);
+			int possible_fft_size = polymult_fft_size (adjusted_outvec_size);
 			int possible_poly_addin_size = (invec1_can_be_stripped_cheaply ? 0 : adjusted_invec2_size) +
 						       (invec2_can_be_stripped_cheaply ? 0 : adjusted_invec1_size);
 			if (can_use_circular_fft_size && circular_fft_size < possible_fft_size) possible_fft_size = circular_fft_size;
