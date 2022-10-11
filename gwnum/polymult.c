@@ -151,8 +151,10 @@ typedef struct {
 #define POLYMULT_IMPL_KARATSUBA		1		// Karasuba polymult
 #define POLYMULT_IMPL_FFT		2		// FFT based polymult
 
-#define INVEC1_OPTIONS	(POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_RLP | POLYMULT_INVEC1_NEGATE)
-#define INVEC2_OPTIONS	(POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_RLP | POLYMULT_INVEC2_NEGATE)
+#define PLAN_OPTIONS	(POLYMULT_SAVE_PLAN | POLYMULT_USE_PLAN)					// Options that govern all of the poly multiplications
+#define INVEC1_OPTIONS	(POLYMULT_INVEC1_MONIC | POLYMULT_INVEC1_RLP | POLYMULT_INVEC1_NEGATE)		// Options specific to invec1
+#define INVEC2_OPTIONS	(POLYMULT_INVEC2_MONIC | POLYMULT_INVEC2_RLP | POLYMULT_INVEC2_NEGATE)		// Options specific to invec2
+#define OUTVEC_OPTIONS	(~(PLAN_OPTIONS | INVEC1_OPTIONS | INVEC2_OPTIONS))				// Options that govern each poly multiplication
 
 // Handy vector size macros
 #define vector_size_in_doubles(f)		(((f) & CPU_AVX512F) ? 8 : ((f) & CPU_AVX) ? 4 :((f) & CPU_SSE2) ? 2 : 1)
@@ -4384,9 +4386,9 @@ void polymult (
 	arg.fmavec = NULL;
 	arg.circular_size = (options & POLYMULT_CIRCULAR) ? outvec_size : 0;
 	arg.first_mulmid = 0;
-	arg.options = (options & ~INVEC1_OPTIONS);
+	arg.options = options & (INVEC2_OPTIONS | OUTVEC_OPTIONS);
 
-	polymult_several (pmdata, invec1, invec1_size, &arg, 1, options & INVEC1_OPTIONS);
+	polymult_several (pmdata, invec1, invec1_size, &arg, 1, options & (PLAN_OPTIONS | INVEC1_OPTIONS));
 }
 
    
@@ -4416,9 +4418,9 @@ void polymult_fma (
 	arg.fmavec = fmavec;
 	arg.circular_size = (options & POLYMULT_CIRCULAR) ? outvec_size : 0;
 	arg.first_mulmid = 0;
-	arg.options = (options & ~INVEC1_OPTIONS);
+	arg.options = options & (INVEC2_OPTIONS | OUTVEC_OPTIONS);
 
-	polymult_several (pmdata, invec1, invec1_size, &arg, 1, options & INVEC1_OPTIONS);
+	polymult_several (pmdata, invec1, invec1_size, &arg, 1, options & (PLAN_OPTIONS | INVEC1_OPTIONS));
 }
 
 /* Multiply two polynomials.  Supports every possible polymult option.  The original polymult interface overloaded the outvec_size argument. */
@@ -4452,9 +4454,9 @@ void polymult2 (
 	arg.fmavec = fmavec;
 	arg.circular_size = circular_size;
 	arg.first_mulmid = first_mulmid;
-	arg.options = (options & ~INVEC1_OPTIONS);
+	arg.options = options & (INVEC2_OPTIONS | OUTVEC_OPTIONS);
 
-	polymult_several (pmdata, invec1, invec1_size, &arg, 1, options & INVEC1_OPTIONS);
+	polymult_several (pmdata, invec1, invec1_size, &arg, 1, options & (PLAN_OPTIONS | INVEC1_OPTIONS));
 }
 
 
@@ -4473,7 +4475,7 @@ void polymult_several (		// Multiply one poly with several polys
 
 	// Split up options.  For convenience to the programmer, invec2 options that apply to all other_polys can be specified in options argument.
 	invec1_options = options & INVEC1_OPTIONS;
-	global_invec2_options = options & ~INVEC1_OPTIONS;
+	global_invec2_options = options & (INVEC2_OPTIONS | OUTVEC_OPTIONS);
 	for (int i = 0; i < num_other_polys; i++) other_polys[i].options |= global_invec2_options;
 
 	// Use a previously generated plan
@@ -4534,8 +4536,8 @@ void polymult_several (		// Multiply one poly with several polys
 		    // Merge options into one variable.
 		    options = invec1_options | other_polys[i].options;
 
-		    // Don't allow specifying any invec1 options in other poly array
-		    ASSERTG (!(other_polys[i].options & INVEC1_OPTIONS));
+		    // Don't allow specifying any invec1 or plan options in other poly array
+		    ASSERTG (!(other_polys[i].options & (PLAN_OPTIONS | INVEC1_OPTIONS)));
 		    // Cannot use combinations of POLYMULT_MULHI, POLYMULT_MULMID, and POLYMULT_MULLO
 		    ASSERTG (!(options & POLYMULT_MULHI) || !(options & (POLYMULT_MULMID | POLYMULT_MULLO)));
 		    ASSERTG (!(options & POLYMULT_MULMID) || !(options & (POLYMULT_MULHI | POLYMULT_MULLO)));
