@@ -3461,7 +3461,7 @@ void monic_line_adjustments (
 
 	// Adjust addin vector pointer so that it looks like monic ones have not been stripped
 	if (leading_one && addinvec_monics_stripped) addinvec_size++;			// Increase length to "fake" a leading one
-	if (trailing_one && addinvec_monics_stripped) addinvec--, addinvec_size++;	// Change vectaor start and increase length to "fake" a trailing one
+	if (trailing_one && addinvec_monics_stripped) addinvec--, addinvec_size++;	// Change vector start and increase length to "fake" a trailing one
    
 	// If k != 1, we need to multiply the monic add-ins by FFT(1).
 	if (gwdata->k != 1.0) {
@@ -3855,9 +3855,9 @@ void polymult_line (
 		struct planpart *planpart = &plan->planpart[i];
 
 		// Reload saved fftsize, post_monics, adjusted_sizes and anything else we need from the plan computed in polymult_several
-		bool	strip_monic_from_invec1;	// True if ones are stripped from monic invec1 requiring invec2 to be added in during post processing
+		bool	strip_monic_from_invec1;	// True if ones are stripped from monic invec1 usually requiring invec2 to be added in during post processing
 		bool	post_monic_addin_invec2;	// True if ones are stripped from monic invec1 requiring invec2 to be added in during post processing
-		bool	strip_monic_from_invec2;	// True if ones are stripped from monic invec2 requiring invec1 to be added in during post processing
+		bool	strip_monic_from_invec2;	// True if ones are stripped from monic invec2 usually requiring invec1 to be added in during post processing
 		bool	post_monic_addin_invec1;	// True if ones are stripped from monic invec2 requiring invec1 to be added in during post processing
 		int	circular_size, LSWs_skipped;
 
@@ -3885,7 +3885,7 @@ void polymult_line (
 		// Pad output vector on the right with a zero or two to reach the true_outvec_size
 		for (int i = 0; i < planpart->adjusted_shift; i++) memset (&true_outvec[i], 0, sizeof (CVDT));
 		// Pad output vector on the left with a zero or two to reach the true_outvec_size
-		for (int i = 1; i <= planpart->adjusted_pad; i++) memset (&true_outvec[true_outvec_size-i], 0, sizeof (CVDT));
+		for (int i = 0; i < planpart->adjusted_pad; i++) memset (&true_outvec[outvec_size+planpart->adjusted_shift+i], 0, sizeof (CVDT));
 
 		// Check for pre-processed other poly
 		invec2_preprocessed = is_preprocessed_poly (gw_invec2);
@@ -4955,8 +4955,7 @@ use_it:		    ASSERTG (best_choice != 0);
 			adjusted_invec1_size = true_invec1_size;
 			adjusted_invec2_size = true_invec2_size;
 			circular_size = best_fft_size;
-//GW:  Do we need to set or adjust anything else?
-			subout = 0;		// Subtract one from least significant coefficient
+			subout = 0;			// Subtract one from least significant coefficient
 		    }
 		    if (best_choice == 3) {		// Monics handled by strippng ones from invec2 and usually adding invec1 during post processing
 			strip_monic_from_invec1 = post_monic_addin_invec2 = FALSE;
@@ -5008,7 +5007,6 @@ use_it:		    ASSERTG (best_choice != 0);
 		    }
 		    // FFT implementation.  There may be several possible FFT sizes to choose from.  We prefer to choose the smallest.
 		    else {
-//GW: Does this code deal with the must_fft flag???  
 			plan->planpart[i].impl = POLYMULT_IMPL_FFT;
 			plan->planpart[i].fft_size = fft_size = best_fft_size;
 			// If fft_size is large we'll change to multi-threading fft_line_pass instead.  Large is defined as "polymult_line being unable
