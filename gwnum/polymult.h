@@ -138,7 +138,7 @@ void polymult2 (
 +----------------------------------------------------------------------------*/
 
 // Accessing the preprocessed header directly is frowned upon, several accessor macros follow -- probably shouldn't use any but the first three
-#define is_preprocessed_poly(p)		((p) != NULL && (((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->self_ptr == (p)))
+#define is_preprocessed_poly(p)		(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->self_ptr == (p))
 #define is_preffted_poly(p)		(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->options & POLYMULT_PRE_FFT)
 #define is_compressed_poly(p)		(((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->options & POLYMULT_PRE_COMPRESS)
 #define preprocessed_fft_size(p)	(intptr_t) (((preprocessed_poly_header *)((char *)(p)-sizeof(gwarray_header)))->line_size)

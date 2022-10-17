@@ -35,7 +35,7 @@
 //	If we can save the smaller RLP in FFTed state using smaller FFT size that might influence our decision.
 // 41) Add callback routine to check for ^C/ESC
 // 42) Transparent / or easy way to store gwnums on disk as part of input and/or output vectors.  Picture using 12GB memory and 50GB disk for really huge polys.
-// 43) Read_line/write_line that reads/writes data with stride=1?
+// 43) Read_line/write_line that reads/writes data with stride!=1?
 // 45) If twiddle_stride gets large, build a smaller twiddle table for smaller strides.
 // 48) Test if hyperthreading is beneficial
 // 52) Half-sized DCT for RLPs?  The DJB FFTs may make reordering DCT outputs for an inverse FFT tricky.
@@ -325,31 +325,32 @@ typedef struct {
 #define cvsubfm(a,b,const_d,c)	(a).real = fnmaddpd (const_d, (c).real, (b).real), (a).imag = fnmaddpd (const_d, (c).imag, (b).imag)	// a = b - const_d*c
 #define cviaddfm(a,b,const_d,c)	(a).real = fnmaddpd (const_d, (c).imag, (b).real), (a).imag = fmaddpd (const_d, (c).real, (b).imag)	// a = b + i*const_d*c
 #define cvisubfm(a,b,const_d,c)	(a).real = fmaddpd (const_d, (c).imag, (b).real), (a).imag = fnmaddpd (const_d, (c).real, (b).imag)	// a = b - i*const_d*c
-//#define cvmul(a,b,c)		(a).real = fmsubpd ((b).real, (c).real, mulpd ((b).imag, (c).imag)), \
-//				(a).imag = fmaddpd ((b).imag, (c).real, mulpd ((b).real, (c).imag))					// a = b * c
 #define cvmul(a,b,c)		{ VDT __tmpproduct__ = mulpd ((b).imag, (c).imag); \
 				  (a).imag = fmaddpd ((b).imag, (c).real, mulpd ((b).real, (c).imag)); \
 				  (a).real = fmsubpd ((b).real, (c).real, __tmpproduct__); }						// a = b * c
 #define cvconjmul(a,b,c)	(a).real = fmaddpd ((b).real, (c).real, mulpd ((b).imag, (c).imag)), \
 				(a).imag = fmsubpd ((b).imag, (c).real, mulpd ((b).real, (c).imag))					// a = b * conjugate(c)
-//#define cvmulsafe(a,b,c)	{ CVDT tmp; cvmul (tmp, b, c); a = tmp; }								// a = b * c safely
-#define cvmulsafe(a,b,c)	cvmul (a, b, c);											// a = b * c safely
 
 // Structure for twiddle vector data type.
-// Twiddles aren't stored as real & imag.  Instead they are stored as cos & cos/sin (a.k.a. real & real/imag).  This provides more FMA opportunities.
+// Twiddles aren't stored as real & imag.  Instead they are stored as cos/sin & sin (a.k.a. real/imag & imag).  This provides more FMA opportunities.
 typedef struct {
 	VDT	cos_over_sin;
 	VDT	sin;
 } TVDT;
-#define twidload(t,b)		(t).cos_over_sin = broadcastsd ((b)[0]), (t).sin = broadcastsd ((b)[1])
-#define twidmul(a,b,t)		(a).real = mulpd (fmsubpd ((b).real, (t).cos_over_sin, (b).imag), (t).sin), \
-				(a).imag = mulpd (fmaddpd ((b).imag, (t).cos_over_sin, (b).real), (t).sin)		// a = b * t
-#define twidconjmul(a,b,t)	(a).real = mulpd (fmaddpd ((b).real, (t).cos_over_sin, (b).imag), (t).sin), \
-				(a).imag = mulpd (fmsubpd ((b).imag, (t).cos_over_sin, (b).real), (t).sin)		// a = b * conjugate(t)
-#define twidmuldelay(a,b,t)	(a).real = fmsubpd ((b).real, (t).cos_over_sin, (b).imag), \
-				(a).imag = fmaddpd ((b).imag, (t).cos_over_sin, (b).real)				// a = b * t, delay mul by sin
-#define twidconjmuldelay(a,b,t)	(a).real = fmaddpd ((b).real, (t).cos_over_sin, (b).imag), \
-				(a).imag = fmsubpd ((b).imag, (t).cos_over_sin, (b).real)				// a = b * conjugate(t), delay mul by sin
+#define twidload(t,b)			(t).cos_over_sin = broadcastsd ((b)[0]), (t).sin = broadcastsd ((b)[1])
+#define twidmul(a,b,t)			(a).real = mulpd (fmsubpd ((b).real, (t).cos_over_sin, (b).imag), (t).sin), \
+					(a).imag = mulpd (fmaddpd ((b).imag, (t).cos_over_sin, (b).real), (t).sin)	// a = b * t
+#define twidconjmul(a,b,t)		(a).real = mulpd (fmaddpd ((b).real, (t).cos_over_sin, (b).imag), (t).sin), \
+					(a).imag = mulpd (fmsubpd ((b).imag, (t).cos_over_sin, (b).real), (t).sin)	// a = b * conjugate(t)
+#define twidmulandconjmul(d1,d2,b,t)	{ CVDT bsin; bsin.real = mulpd ((b).real, (t).sin), bsin.imag = mulpd ((b).imag, (t).sin), \
+					  (d1).real = fmsubpd (bsin.real, (t).cos_over_sin, bsin.imag), \
+					  (d1).imag = fmaddpd (bsin.imag, (t).cos_over_sin, bsin.real), \
+					  (d2).real = fmaddpd (bsin.real, (t).cos_over_sin, bsin.imag), \
+					  (d2).imag = fmsubpd (bsin.imag, (t).cos_over_sin, bsin.real); }		// d1 = b * t, d2 = b * conjugate(t)
+#define twidmuldelay(a,b,t)		(a).real = fmsubpd ((b).real, (t).cos_over_sin, (b).imag), \
+					(a).imag = fmaddpd ((b).imag, (t).cos_over_sin, (b).real)			// a = b * t, delay mul by sin
+#define twidconjmuldelay(a,b,t)		(a).real = fmaddpd ((b).real, (t).cos_over_sin, (b).imag), \
+					(a).imag = fmsubpd ((b).imag, (t).cos_over_sin, (b).real)			// a = b * conjugate(t), delay mul by sin
 
 #if !defined (SSE2) && !defined (AVX) && !defined (FMA) && !defined (AVX512)
 
@@ -1128,7 +1129,6 @@ typedef struct {
 
 void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd);
 void read_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd);
-void read_preprocess_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd);
 void write_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd);
 void fft_line_pass (int helper_num, pmhandle *pmdata, void *pdarg);
 
@@ -1329,7 +1329,7 @@ void write_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rwlsd)
 									     gwdata->GW_FFT1[-14], gwdata->GW_FFT1[-13], gwdata->GW_FFT1[-12], gwdata->GW_FFT1[0]);
 						oneval.imag = _mm512_set_pd (gwdata->GW_FFT1[-24], gwdata->GW_FFT1[-23], gwdata->GW_FFT1[-22], gwdata->GW_FFT1[-21],
 									     gwdata->GW_FFT1[-20], gwdata->GW_FFT1[-19], 0.0, 0.0);
-						cvmulsafe (fmaval, fmaval, oneval);
+						cvmul (fmaval, fmaval, oneval);
 					}
 					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
 					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
@@ -1373,7 +1373,7 @@ void write_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rwlsd)
 									     gwdata->GW_FFT1[3], gwdata->GW_FFT1[2], gwdata->GW_FFT1[1], gwdata->GW_FFT1[8]);
 						oneval.imag = _mm512_set_pd (gwdata->GW_FFT1[15], gwdata->GW_FFT1[14], gwdata->GW_FFT1[13], gwdata->GW_FFT1[12],
 									     gwdata->GW_FFT1[11], gwdata->GW_FFT1[10], gwdata->GW_FFT1[9], 0.0);
-						cvmulsafe (fmaval, fmaval, oneval);
+						cvmul (fmaval, fmaval, oneval);
 					}
 					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
 					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
@@ -1394,7 +1394,7 @@ void write_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rwlsd)
 					else fmaval.real = ((VDT *) fma_data[j])[offset], fmaval.imag = ((VDT *) fma_data[j])[offset+1];
 					if (gwdata->k != 1.0) {
 						oneval.real = ((VDT *) gwdata->GW_FFT1)[offset], oneval.imag = ((VDT *) gwdata->GW_FFT1)[offset+1];
-						cvmulsafe (fmaval, fmaval, oneval);
+						cvmul (fmaval, fmaval, oneval);
 					}
 					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
 					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
@@ -1614,7 +1614,7 @@ void write_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd)
 					if (gwdata->k != 1.0) {
 						oneval.real = _mm256_set_pd (gwdata->GW_FFT1[-18], gwdata->GW_FFT1[-17], gwdata->GW_FFT1[-16], gwdata->GW_FFT1[-15]),
 						oneval.imag = _mm256_set_pd (gwdata->GW_FFT1[-24], gwdata->GW_FFT1[-23], gwdata->GW_FFT1[-22], gwdata->GW_FFT1[-21]);
-						cvmulsafe (fmaval, fmaval, oneval);
+						cvmul (fmaval, fmaval, oneval);
 					}
 					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
 					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
@@ -1644,7 +1644,7 @@ void write_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd)
 					if (gwdata->k != 1.0) {
 						oneval.real = _mm256_set_pd (gwdata->GW_FFT1[-14], gwdata->GW_FFT1[-13], gwdata->GW_FFT1[-12], gwdata->GW_FFT1[0]),
 						oneval.imag = _mm256_set_pd (gwdata->GW_FFT1[-20], gwdata->GW_FFT1[-19], 0.0, 0.0);
-						cvmulsafe (fmaval, fmaval, oneval);
+						cvmul (fmaval, fmaval, oneval);
 					}
 					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
 					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
@@ -1676,7 +1676,7 @@ void write_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd)
 					if (gwdata->k != 1.0) {
 						oneval.real = _mm256_set_pd (gwdata->GW_FFT1[3], gwdata->GW_FFT1[2], gwdata->GW_FFT1[1], gwdata->GW_FFT1[4]),
 						oneval.imag = _mm256_set_pd (gwdata->GW_FFT1[7], gwdata->GW_FFT1[6], gwdata->GW_FFT1[5], 0.0);
-						cvmulsafe (fmaval, fmaval, oneval);
+						cvmul (fmaval, fmaval, oneval);
 					}
 					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
 					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
@@ -1695,7 +1695,7 @@ void write_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd)
 					else fmaval.real = ((VDT *) fma_data[j])[offset], fmaval.imag = ((VDT *) fma_data[j])[offset+1];
 					if (gwdata->k != 1.0) {
 						oneval.real = ((VDT *) gwdata->GW_FFT1)[offset], oneval.imag = ((VDT *) gwdata->GW_FFT1)[offset+1];
-						cvmulsafe (fmaval, fmaval, oneval);
+						cvmul (fmaval, fmaval, oneval);
 					}
 					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
 					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
@@ -1943,7 +1943,7 @@ void write_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rwlsd)
 					if (gwdata->k != 1.0) {
 						oneval.real = _mm_set_pd (gwdata->GW_FFT1[index*2-10], gwdata->GW_FFT1[index*2-9]),
 						oneval.imag = _mm_set_pd (gwdata->GW_FFT1[index*2-16], gwdata->GW_FFT1[index*2-15]);
-						cvmulsafe (fmaval, fmaval, oneval);
+						cvmul (fmaval, fmaval, oneval);
 					}
 					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
 					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
@@ -2000,7 +2000,7 @@ void write_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rwlsd)
 						else
 							oneval.real = _mm_set_pd (gwdata->GW_FFT1[1], gwdata->GW_FFT1[4]),
 							oneval.imag = _mm_set_pd (gwdata->GW_FFT1[5], 0.0);
-						cvmulsafe (fmaval, fmaval, oneval);
+						cvmul (fmaval, fmaval, oneval);
 					}
 					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
 					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
@@ -2044,7 +2044,7 @@ void write_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rwlsd)
 						else 
 							oneval.real = ((VDT *) gwdata->GW_FFT1)[offset+(index&1)],
 							oneval.imag = ((VDT *) gwdata->GW_FFT1)[offset+(index&1)+2];
-						cvmulsafe (fmaval, fmaval, oneval);
+						cvmul (fmaval, fmaval, oneval);
 					}
 					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
 					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
@@ -2259,7 +2259,7 @@ void write_line_slice_dbl (int helper_num, pmhandle *pmdata, void *rwlsd)
 					else fmaval.real = fma_data[j][index-10], fmaval.imag = fma_data[j][index-17];
 					if (gwdata->k != 1.0) {
 						oneval.real = gwdata->GW_FFT1[index-10], oneval.imag = gwdata->GW_FFT1[index-17];
-						cvmulsafe (fmaval, fmaval, oneval);
+						cvmul (fmaval, fmaval, oneval);
 					}
 					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
 					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
@@ -2320,7 +2320,7 @@ void write_line_slice_dbl (int helper_num, pmhandle *pmdata, void *rwlsd)
 							oneval.real = gwdata->GW_FFT1[offset+(index&3)*2], oneval.imag = gwdata->GW_FFT1[offset+(index&3)*2+1];
 						else
 							oneval.real = gwdata->GW_FFT1[offset+(index&2)*2+(index&1)], oneval.imag = gwdata->GW_FFT1[offset+(index&2)*2+(index&1)+2];
-						cvmulsafe (fmaval, fmaval, oneval);
+						cvmul (fmaval, fmaval, oneval);
 					}
 					if (options & POLYMULT_FMADD) cvadd (vec[j], vec[j], fmaval);
 					else if (options & POLYMULT_FMSUB) cvsub (vec[j], vec[j], fmaval);
@@ -2491,6 +2491,148 @@ void karatsuba_line (
 
 #ifndef FMA
 
+// Read a line that was preprocessed by polymult_preprocess
+void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rwlsd)
+{
+	gwhandle *gwdata = pmdata->gwdata;
+	gwnum	*data = ((read_write_line_slice_data *) rwlsd)->data;
+	int	size = ((read_write_line_slice_data *) rwlsd)->size;
+	int	line = ((read_write_line_slice_data *) rwlsd)->lsd.line;
+	int	options = ((read_write_line_slice_data *) rwlsd)->options;
+	bool	post_process_monics = ((read_write_line_slice_data *) rwlsd)->post_process_monics;
+
+	preprocessed_poly_header *hdr;  // Header of the preprocessed poly being read
+	CVDT	*first_element;		// First element in the preprocessed poly array
+	CVDT	*element;		// Element to read in the preprocessed poly array
+	int	slice_size;		// Size of a slice to read
+
+	// Typecast to access the preprocessed poly header
+	hdr = (preprocessed_poly_header *) ((char *) data - sizeof (gwarray_header));
+	first_element = (CVDT *) round_up_to_multiple_of ((intptr_t) hdr + sizeof (preprocessed_poly_header), 64);
+
+	// Compute index into the preprocessed data.  If we've delayed splitting the two real values in !ALL_COMPLEX_FFT then read the first array entry
+	// for the first two indexes.  Finally, get pointer to the first byte to read.
+	int index_to_read = line;
+	if (!(hdr->options & POLYMULT_PRE_FFT) && !gwdata->ALL_COMPLEX_FFT && !gwdata->ZERO_PADDED_FFT) {
+		index_to_read--;
+		if (index_to_read < 0) index_to_read = 0;
+	}
+	element = (CVDT *) ((char *) first_element + index_to_read * hdr->element_size);
+
+	// If preprocessed data is FFTed, then ignore the passed in size, use the poly FFT size that was computed by polymult_line_preprocess
+	if (hdr->options & POLYMULT_PRE_FFT) size = hdr->line_size;
+	else ASSERTG (size == hdr->line_size);
+
+	// If multi-threading read_preprocess_line (slice_size set to zero), create a slice_size that will generate a goodly number of work units to multi-thread.
+	// If compressed, we may be able to read the poly in slices of 512 doubles.
+	if (((read_write_line_slice_data *) rwlsd)->slice_size == 0) slice_size = size;
+	else if (!(hdr->options & POLYMULT_PRE_COMPRESS)) slice_size = divide_rounding_up (size, 512);
+	else slice_size = hdr->line_size / hdr->num_compressed_blks;
+
+	// Read one slice at a time
+	for ( ; ; ) {
+		int	slice_start, slice_end;
+		// Get slice to work on.  Atomics aren't cheap, avoid them if reading the whole line.
+		if (slice_size == size) {
+			slice_start = 0;
+			slice_end = size;
+		} else {
+			int atomic_val = atomic_fetch_incr (((read_write_line_slice_data *) rwlsd)->blknum);
+			slice_start = atomic_val * slice_size;
+			if (slice_start >= size) break;
+			slice_end = slice_start + slice_size;
+			if (slice_end > size) slice_end = size;
+		}
+
+		// Reload vector pointer
+		CVDT *vec = ((read_write_line_slice_data *) rwlsd)->vec;
+
+		// If preprocessed data is FFTed, then return the data "as is" optionally decompressing.  Ignore the passed in size, use the poly FFT size
+		// that was computed by polymult_line_preprocess.
+		if (hdr->options & POLYMULT_PRE_FFT) {
+			if (!(hdr->options & POLYMULT_PRE_COMPRESS))
+				memcpy (&vec[slice_start], &element[slice_start], (uint64_t) (slice_end - slice_start) * sizeof (CVDT));
+			else
+				decompress_line_slice ((char *) element, (char *) &vec[slice_start], hdr, slice_start, slice_end, sizeof (CVDT));
+			if (slice_end == size) break;
+			else continue;
+		}
+
+		// If not post-processing monics and the input is a monic RLP, then output a 1+0i
+		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
+			if (slice_start == 0) {
+				if (gwdata->k == 1.0) {
+					vec[0].real = broadcastsd (1.0);
+					vec[0].imag = broadcastsd (0.0);
+				} else {
+					read_write_line_slice_data fft1_rwlsd;
+					prep_line (pmdata, line, &fft1_rwlsd);
+					fft1_rwlsd.data = &gwdata->GW_FFT1;
+					fft1_rwlsd.size = 1;
+					fft1_rwlsd.vec = vec;
+					fft1_rwlsd.options = 0;
+					fft1_rwlsd.post_process_monics = FALSE;
+					read_line (pmdata, &fft1_rwlsd);
+				}
+			}
+			vec++;
+		}
+
+		// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
+		if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += (size-1);
+
+		// Copy the preprocessed entry
+		ASSERTG ((hdr->options & POLYMULT_PRE_COMPRESS) || hdr->element_size == size * sizeof (CVDT));
+		if (!(hdr->options & POLYMULT_PRE_COMPRESS)) memcpy (&vec[slice_start], &element[slice_start], (uint64_t) (slice_end - slice_start) * sizeof (CVDT));
+		else decompress_line_slice ((char *) element, (char *) &vec[slice_start], hdr, slice_start, slice_end, sizeof (CVDT));
+
+		// If we've delayed splitting the two real values in !ALL_COMPLEX_FFT turn the two reals into two complex values here
+		if (!gwdata->ALL_COMPLEX_FFT && !gwdata->ZERO_PADDED_FFT && index_to_read == 0) {
+			for (int j = slice_start; j < slice_end; j++) {
+				union { VDT a; double b[VLEN / sizeof(double)]; } r, i;
+				r.a = vec[j].real;
+				i.a = vec[j].imag;
+				if (line == 0) {
+					memset (&r, 0, sizeof (r));
+					r.b[0] = i.b[0];
+					memset (&i, 0, sizeof (i));
+				} else {
+					i.b[0] = 0.0;
+				}
+				vec[j].real = r.a;
+				vec[j].imag = i.a;
+			}
+		}
+
+		// Duplicate RLP data in reverse order
+		if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
+			for (int j = slice_start; j < slice_end; j++) vec[-j] = vec[j];
+		}
+
+		// If not post-processing monics and the input is monic, then output a 1+0i
+		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
+			if (slice_start == 0) {
+				if (gwdata->k == 1.0) {
+					vec[size].real = broadcastsd (1.0);
+					vec[size].imag = broadcastsd (0.0);
+				} else {
+					read_write_line_slice_data fft1_rwlsd;
+					prep_line (pmdata, line, &fft1_rwlsd);
+					fft1_rwlsd.data = &gwdata->GW_FFT1;
+					fft1_rwlsd.size = 1;
+					fft1_rwlsd.vec = &vec[size];
+					fft1_rwlsd.options = 0;
+					fft1_rwlsd.post_process_monics = FALSE;
+					read_line (pmdata, &fft1_rwlsd);
+				}
+			}
+		}
+
+		// Check for completion
+		if (slice_end == size) break;
+	}
+}
+
 void read_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd)
 {
 	// Launch helpers to do read a line in slices.  This is tricky.  There are two cases.  The most common case is polymult_line is multi-threaded
@@ -2499,16 +2641,37 @@ void read_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd)
 	// nor can we have each thread setting pmdata->internal_callback_data.  To handle this we call read_line_slice directly when read_line_slice is
 	// single-threaded.  When read_line_slice is multi-threaded we use all the polymult_launch machinery, but polymult_launch must not
 	// atomic_set helper_counter as polymult_line is using that variable.
-	if (pmdata->mt_polymult_line || rwlsd->size < 512) {
-		rwlsd->slice_size = rwlsd->size;
-		read_line_slice (0, pmdata, rwlsd);
-	} else {
-		// Create a slice_size that will generate a goodly number of work units to multi-thread
-		rwlsd->slice_size = divide_rounding_up (rwlsd->size, 512);
-		atomic_set (rwlsd->blknum, 0);
-		pmdata->internal_callback = &read_line_slice;
-		pmdata->internal_callback_data = rwlsd;
-		polymult_launch_helpers (pmdata);
+	if (!is_preprocessed_poly (rwlsd->data)) {
+		if (pmdata->mt_polymult_line || rwlsd->size < 512) {
+			rwlsd->slice_size = rwlsd->size;
+			read_line_slice (0, pmdata, rwlsd);
+		} else {
+			// Create a slice_size that will generate a goodly number of work units to multi-thread
+			rwlsd->slice_size = divide_rounding_up (rwlsd->size, 512);
+			atomic_set (rwlsd->blknum, 0);
+			pmdata->internal_callback = &read_line_slice;
+			pmdata->internal_callback_data = rwlsd;
+			polymult_launch_helpers (pmdata);
+		}
+	}
+	// Launch helpers to read a preprocessed line in slices.  This is tricky.  There are two cases.  The most common case is polymult_line is multi-threaded and
+	// read_preprocess_line_slice is single-threaded.  The less common case is polymult_line is single-threaded and read_preprocess_line_slice is multi-threaded.
+	// If polymult_line is multi-threaded we cannot set pmdata->helper_opcode as all helper threads may not have dispatched based on the opcode,
+	// nor can we have each thread setting pmdata->internal_callback_data.  To handle this we call read_preprocess_line_slice directly when
+	// read_preprocess_line_slice is single-threaded.  When read_preprocess_line_slice is multi-threaded we use all the polymult_launch machinery, but
+	// polymult_launch must not atomic_set helper_counter as polymult_line is using that variable.
+	else {
+		if (pmdata->mt_polymult_line) {
+			rwlsd->slice_size = 0;			// Indicates not multi-threading, read_preprocess_line_slice figures out slice_size
+			read_preprocess_line_slice (0, pmdata, rwlsd);
+		} else {
+			// Create a slice_size that will generate a goodly number of work units to multi-thread
+			rwlsd->slice_size = -1;			// Indicates multi-threading, read_preprocess_line_slice figures out slice_size
+			atomic_set (rwlsd->blknum, 0);
+			pmdata->internal_callback = &read_preprocess_line_slice;
+			pmdata->internal_callback_data = rwlsd;
+			polymult_launch_helpers (pmdata);
+		}
 	}
 }
 
@@ -2542,12 +2705,17 @@ void write_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd)
 
 // Structure used to pass data from fft_line to fft_line_pass
 typedef struct {
-	CVDT	*invec1;			// Argument passed to fft_line
-	CVDT	*invec2;			// Argument passed to fft_line
-	CVDT	*outvec;			// Argument passed to fft_line
+	read_write_line_slice_data *rwlsd1;	// Info as to where invec1 is or how to read invec1
+	read_write_line_slice_data *rwlsd2;	// Info as to where invec2 is or how to read invec2
+	CVDT	*invec1;			// Where to write the FFT of invec1
+	CVDT	*invec2;			// Where to write the FFT of invec2
+	CVDT	*outvec;			// Where to write the result of invec1 * invec2
 	CVDT	*scratch;			// Scratch area for two-pass FFTs
 	int	options;			// Options passed to fft_line
 	bool	multithreading;			// TRUE if multi-threading each FFT pass
+	int	invec1_size;			// Size of invec1 after read_line.  Will zero pad from invec1_size to fft_size.
+	int	invec2_size;			// Size of invec2 after read_line.  Will zero pad from invec2_size to fft_size.
+	unsigned int fft_size;			// FFT size
 	unsigned int powers_of_two;		// Count of powers of two in fft_size
 	unsigned int pass1_size;		// Size of pass 1 in a two-pass FFT
 	unsigned int pass2_size;		// Size of pass 2 in a two-pass FFT
@@ -2603,6 +2771,8 @@ void fft_line_pass (
 		unsigned int outstride1;		// Unit stride through output FFT data in memory
 		unsigned int twiddle3_stride;		// Stride through the radix-3 twiddles data
 		unsigned int twiddle45_stride;		// Stride through the radix-4/5 twiddles data
+		unsigned int src_size;			// How much of the pass_size has been read in for this blknum (rest of pass_size must be zero padded)
+		bool	zpad;				// TRUE if zero padding is needed
 
 // Load starting twiddle strides for each block in the pass
 
@@ -2621,14 +2791,22 @@ void fft_line_pass (
 			// Pass 1 reads from an input vector into a scratch area to reduce large strides which CPU caches hate.  At end, result written
 			// back to input vector.  Pass 2 reads/writes directly from/to an input vector.
 			if (pd->pass == 1) {
-				src = (srcarg == 1 ? pd->invec1 : pd->invec2) + blki;
+//GW Use where rwlsd read into as the source		(until we come up with comprehensive sourcing procedures)
+src = (srcarg == 1 ? pd->rwlsd1->vec : pd->rwlsd2->vec) + blki;
+//was:	src = (srcarg == 1 ? pd->invec1 : pd->invec2) + blki;
 				dest = scratch;
 				instride1 = pd->pass2_size;
 				outstride1 = 1;
+				src_size = divide_rounding_up ((srcarg == 1 ? pd->invec1_size : pd->invec2_size) - blknum, instride1);
+				zpad = (src_size != pd->pass_size);
 			}
 			else {
-				src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_size;
+//GW Use where rwlsd read into as the source
+if (pd->pass1_size == 1) src = (srcarg == 1 ? pd->rwlsd1->vec : pd->rwlsd2->vec), dest = (srcarg == 1 ? pd->invec1 : pd->invec2);
+else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_size;
 				instride1 = outstride1 = 1;
+				src_size = (srcarg == 1 ? pd->invec1_size : pd->invec2_size);
+				zpad = (pd->pass1_size == 1 && src_size != pd->pass_size);
 			}
 
 			// Reset twiddle strides for each input vector
@@ -2643,22 +2821,28 @@ void fft_line_pass (
 			// Res1:  (R1+R2+R3) + (I1+I2+I3)i
 			// Res2:  (R1-.5R2-.5R3-.866I2+.866I3) + (I1-.5I2-.5I3+.866R2-.866R3)i
 			// Res3:  (R1-.5R2-.5R3+.866I2-.866I3) + (I1-.5I2-.5I3-.866R2+.866R3)i
-			for ( ; size % 3 == 0; size /= 3, twiddle3_stride *= 3, src = dest, instride1 = 1) {
-			    stride = size / 3;
-			    if (pd->pass == 1 && stride == 1) dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blki, outstride1 = pd->pass2_size;
+			for ( ; size % 3 == 0; size /= 3, twiddle3_stride *= 3, src = dest, instride1 = 1, zpad = FALSE) {
 			    VDT half = broadcastsd (0.5);
 			    VDT _866 = broadcastsd (0.86602540378443864676372317075294);
+			    stride = size / 3;
+			    if (pd->pass == 1 && stride == 1) dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blki, outstride1 = pd->pass2_size;
 			    for (unsigned int group = 0; group < pd->pass_size; group += stride * 3) {
-				for (unsigned int group_member = 0; group_member < stride; group_member++) {
+				unsigned int group_member = 0;		// Current group member to process
+				unsigned int last_group_member;		// Last group member to process.  We will process stride group members.
+
+				// Radix-3 with no zero padding
+				if (!zpad) last_group_member = stride;			// The not zero padding case, read 3 values for all groups
+				else if (src_size <= 2 * stride) last_group_member = 0;	// No groups have 3 values to read
+				else last_group_member = src_size - 2 * stride;		// Some groups have 3 values, the rest have 2 values
+				for ( ; group_member < last_group_member; group_member++) {
 					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle3_stride;
 					CVDT a = src[instride1*(group + group_member)];
 					CVDT b = src[instride1*(group + group_member + stride)];
 					CVDT c = src[instride1*(group + group_member + 2*stride)];
+					CVDT b_plus_c, b_minus_c, tmp23;
 
-					CVDT	b_plus_c, b_minus_c, tmp23;
-					cvadd (b_plus_c, b, c);			// b + c
-					cvsub (b_minus_c, b, c);		// b - c
-
+					cvadd (b_plus_c, b, c);					// b + c
+					cvsub (b_minus_c, b, c);				// b - c
 					cvsubfm (tmp23, a, half, b_plus_c);			// tmp23 = a - 0.5 * (b + c)
 
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
@@ -2672,7 +2856,7 @@ void fft_line_pass (
 #endif
 						cvadd (a, a, b_plus_c);				// a + b + c
 						dest[outstride1*(group + group_member)] = a;
-						dest[outstride1*(group + group_member + stride)]   = b;
+						dest[outstride1*(group + group_member + stride)] = b;
 						dest[outstride1*(group + group_member + 2*stride)] = c;
 					}
 					else {			// Apply twiddles
@@ -2697,6 +2881,83 @@ void fft_line_pass (
 #endif
 					}
 				}
+				if (group_member == stride) continue;
+
+				// Radix-3 reading two values and zero padding one value.  NOTE: group must be zero.
+				ASSERTG (group == 0);
+				if (group_member != 0) last_group_member = stride;	// We found some 3 value groups, the rest have 2 values
+				else if (src_size <= stride) last_group_member = 0;	// No groups have 2 values to read
+				else last_group_member = src_size - stride;		// Some groups have 2 values, the rest have 1 value
+				for ( ; group_member < last_group_member; group_member++) {
+					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle3_stride;
+					CVDT a = src[instride1*(group_member)];
+					CVDT b_in = src[instride1*(group_member + stride)];
+					CVDT b, c, tmp23;
+
+					cvsubfm (tmp23, a, half, b_in);				// tmp23 = a - 0.5 * (b + c=0)
+
+					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
+						cvadd (a, a, b_in);				// a + (b + c=0)
+#if !VFMA
+						cvrmul (b_in, _866, b_in);
+						cviadd (b, tmp23, b_in);			// b = tmp23 + i * .866 * (b - c=0)
+						cvisub (c, tmp23, b_in);			// c = tmp23 - i * .866 * (b - c=0)
+#else
+						cviaddfm (b, tmp23, _866, b_in);		// b = tmp23 + i * .866 * (b - c=0)
+						cvisubfm (c, tmp23, _866, b_in);		// c = tmp23 - i * .866 * (b - c=0)
+#endif
+						dest[outstride1*(group_member)] = a;
+						dest[outstride1*(group_member + stride)] = b;
+						dest[outstride1*(group_member + 2*stride)] = c;
+					}
+					else {			// Apply twiddles
+						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles1[2*twiddle_idx]);
+#if !VFMA
+						cvadd (a, a, b_in);				// a + b + c=0
+						cvrmul (b_in, _866, b_in);
+						cviadd (b, tmp23, b_in);			// b = tmp23 + i * .866 * (b - c=0)
+						cvisub (c, tmp23, b_in);			// c = tmp23 - i * .866 * (b - c=0)
+						dest[outstride1*(group_member)] = a;
+						twidmul     (dest[outstride1*(group_member + stride)], b, twiddle1);
+						twidconjmul (dest[outstride1*(group_member + 2*stride)], c, twiddle1);
+#else
+						VDT sin866 = mulpd (_866, twiddle1.sin);
+						cvrmul (tmp23, twiddle1.sin, tmp23);
+						cvadd (a, a, b_in);				// a + b + c=0
+						cviaddfm (b, tmp23, sin866, b_in);		// b = tmp23 + i * .866 * (b - c=0)
+						cvisubfm (c, tmp23, sin866, b_in);		// c = tmp23 - i * .866 * (b - c=0)
+						dest[outstride1*(group_member)] = a;
+						twidmuldelay     (dest[outstride1*(group_member + stride)], b, twiddle1);
+						twidconjmuldelay (dest[outstride1*(group_member + 2*stride)], c, twiddle1);
+#endif
+					}
+				}
+
+				// Radix-3 reading one value and zero padding two values.  NOTE: group must be zero.
+				if (group_member != 0) last_group_member = stride;	// We found some 2 value groups, the rest have 1 value
+				else last_group_member = src_size;			// Some groups have 1 values, the rest have 0 values
+				for ( ; group_member < last_group_member; group_member++) {
+					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle3_stride;
+					CVDT a = src[instride1*(group_member)];
+
+					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
+						dest[outstride1*(group_member)] = a;
+						dest[outstride1*(group_member + stride)] = a;
+						dest[outstride1*(group_member + 2*stride)] = a;
+					}
+					else {			// Apply twiddles
+						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles1[2*twiddle_idx]);
+						dest[outstride1*(group_member)] = a;
+						twidmulandconjmul (dest[outstride1*(group_member + stride)], dest[outstride1*(group_member + 2*stride)], a, twiddle1);
+					}
+				}
+
+				// Radix-3 reading zero values and zero padding three values.  NOTE: group must be zero.
+				for ( ; group_member < stride; group_member++) {
+					memset (&dest[outstride1*(group_member)], 0, sizeof (CVDT));
+					memset (&dest[outstride1*(group_member + stride)], 0, sizeof (CVDT));
+					memset (&dest[outstride1*(group_member + 2*stride)], 0, sizeof (CVDT));
+				}
 			    }
 			}
 
@@ -2711,15 +2972,23 @@ void fft_line_pass (
 			// I5= i1 +.309(i2+i5) -.809(i3+i4)    -.951(r2-r5) -.588(r3-r4)
 			// I3= i1 -.809(i2+i5) +.309(i3+i4)    +.588(r2-r5) -.951(r3-r4)
 			// I4= i1 -.809(i2+i5) +.309(i3+i4)    -.588(r2-r5) +.951(r3-r4)
-			for ( ; size % 5 == 0; size /= 5, twiddle45_stride *= 5, src = dest, instride1 = 1) {
+			for ( ; size % 5 == 0; size /= 5, twiddle45_stride *= 5, src = dest, instride1 = 1, zpad = FALSE) {
 			    VDT _309 = broadcastsd (0.30901699437494742410229341718282);
 			    VDT _809 = broadcastsd (0.80901699437494742410229341718282);
 			    VDT _951 = broadcastsd (0.95105651629515357211643933337938);
 			    VDT _588_951 = broadcastsd (0.61803398874989484820458683436564);
+			    VDT _m588 = broadcastsd (-0.58778525229247312916870595463907);
 			    stride = size / 5;
 			    if (pd->pass == 1 && stride == 1) dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blki, outstride1 = pd->pass2_size;
 			    for (unsigned int group = 0; group < pd->pass_size; group += stride * 5) {
-				for (unsigned int group_member = 0; group_member < stride; group_member++) {
+				unsigned int group_member = 0;		// Current group member to process
+				unsigned int last_group_member;		// Last group member to process.  We will process stride group members.
+
+				// Radix-5 with no zero padding
+				if (!zpad) last_group_member = stride;			// The not zero padding case, read 5 values for all groups
+				else if (src_size <= 4 * stride) last_group_member = 0;	// No groups have 5 values to read
+				else last_group_member = src_size - 4 * stride;		// Some groups have 5 values, the rest have 4 values
+				for ( ; group_member < last_group_member; group_member++) {
 					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle45_stride;
 					CVDT a = src[instride1*(group + group_member)];
 					CVDT b = src[instride1*(group + group_member + stride)];
@@ -2795,15 +3064,275 @@ void fft_line_pass (
 #endif
 					}
 				}
+				if (group_member == stride) continue;
+
+				// Radix-5 reading four values and zero padding one value.  NOTE: group must be zero.
+				ASSERTG (group == 0);
+				if (group_member != 0) last_group_member = stride;	// We found some 5 value groups, the rest have 4 values
+				else if (src_size <= 3 * stride) last_group_member = 0;	// No groups have 4 values to read
+				else last_group_member = src_size - 3 * stride;		// Some groups have 4 values, the rest have 3 values
+				for ( ; group_member < last_group_member; group_member++) {
+					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle45_stride;
+					CVDT a = src[instride1*(group_member)];
+					CVDT b = src[instride1*(group_member + stride)];
+					CVDT c = src[instride1*(group_member + 2*stride)];
+					CVDT d = src[instride1*(group_member + 3*stride)];
+					CVDT e, c_plus_d, c_minus_d, tmp25a, tmp25b, tmp34a, tmp34b;
+
+					cvadd (c_plus_d, c, d);					// c + d
+					cvsub (c_minus_d, c, d);				// c - d
+
+					cvaddfm (tmp25a, a, _309, b);
+					cvsubfm (tmp34a, a, _809, b);
+					cvadd   (a, a, b);
+					cvaddfm (tmp25b, b, _588_951, c_minus_d);		// tmp25b = delayed .951*(b-e=0) + 0.588*(c-d)
+					cvsubfm (tmp34b, c_minus_d, _588_951, b);		// tmp34b = delayed -.588*(b-e=0) + 0.951*(c-d)
+					cvsubfm (tmp25a, tmp25a, _809, c_plus_d);		// tmp25a = a +.309*(b+e=0) -.809*(c+d)
+					cvaddfm (tmp34a, tmp34a, _309, c_plus_d);		// tmp34a = a -.809*(b+e=0) +.309*(c+d)
+					cvadd   (a, a, c_plus_d);				// a + b + c + d + e
+
+					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
+#if !VFMA
+						cvrmul (tmp25b, _951, tmp25b);			// tmp25b *= .951
+						cvrmul (tmp34b, _951, tmp34b);			// tmp34b *= .951
+						cviadd (b, tmp25a, tmp25b);			// b = tmp25a + i*tmp25b
+						cvisub (e, tmp25a, tmp25b);			// e = tmp25a - i*tmp25b
+						cvisub (c, tmp34a, tmp34b);			// c = tmp34a + i*tmp34b
+						cviadd (d, tmp34a, tmp34b);			// d = tmp34a - i*tmp34b
+#else
+						cviaddfm (b, tmp25a, _951, tmp25b);		// b = tmp25a + i*.951*tmp25b
+						cvisubfm (e, tmp25a, _951, tmp25b);		// e = tmp25a - i*.951*tmp25b
+						cvisubfm (c, tmp34a, _951, tmp34b);		// c = tmp34a + i*.951*tmp34b
+						cviaddfm (d, tmp34a, _951, tmp34b);		// d = tmp34a - i*.951*tmp34b
+#endif
+						dest[outstride1*(group_member)] = a;
+						dest[outstride1*(group_member + stride)]   = b;
+						dest[outstride1*(group_member + 2*stride)] = c;
+						dest[outstride1*(group_member + 3*stride)] = d;
+						dest[outstride1*(group_member + 4*stride)] = e;
+					}
+					else {			// Apply twiddles
+						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
+						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
+#if !VFMA
+						cvrmul (tmp25b, _951, tmp25b);			// tmp25b *= .951
+						cvrmul (tmp34b, _951, tmp34b);			// tmp34b *= .951
+						cviadd (b, tmp25a, tmp25b);			// b = tmp25a + i*tmp25b
+						cvisub (e, tmp25a, tmp25b);			// e = tmp25a - i*tmp25b
+						cvisub (c, tmp34a, tmp34b);			// c = tmp34a + i*tmp34b
+						cviadd (d, tmp34a, tmp34b);			// d = tmp34a - i*tmp34b
+						dest[outstride1*(group_member)] = a;
+						twidmul     (dest[outstride1*(group_member + stride)], b, twiddle1);
+						twidmul     (dest[outstride1*(group_member + 2*stride)], c, twiddle2);
+						twidconjmul (dest[outstride1*(group_member + 3*stride)], d, twiddle2);
+						twidconjmul (dest[outstride1*(group_member + 4*stride)], e, twiddle1);
+#else
+						VDT sin1_951 = mulpd (_951, twiddle1.sin);
+						VDT sin2_951 = mulpd (_951, twiddle2.sin);
+						cvrmul   (tmp25a, twiddle1.sin, tmp25a);
+						cvrmul   (tmp34a, twiddle2.sin, tmp34a);
+						cviaddfm (b, tmp25a, sin1_951, tmp25b);		// b = tmp25a + i*.951*tmp25b
+						cvisubfm (e, tmp25a, sin1_951, tmp25b);		// e = tmp25a - i*.951*tmp25b
+						cvisubfm (c, tmp34a, sin2_951, tmp34b);		// c = tmp34a + i*.951*tmp34b
+						cviaddfm (d, tmp34a, sin2_951, tmp34b);		// d = tmp34a - i*.951*tmp34b
+						dest[outstride1*(group_member)] = a;
+						twidmuldelay     (dest[outstride1*(group_member + stride)], b, twiddle1);
+						twidmuldelay     (dest[outstride1*(group_member + 2*stride)], c, twiddle2);
+						twidconjmuldelay (dest[outstride1*(group_member + 3*stride)], d, twiddle2);
+						twidconjmuldelay (dest[outstride1*(group_member + 4*stride)], e, twiddle1);
+#endif
+					}
+				}
+
+				// Radix-5 reading three values and zero padding two values.  NOTE: group must be zero.
+				if (group_member != 0) last_group_member = stride;	// We found some 4 value groups, the rest have 3 values
+				else if (src_size <= 2 * stride) last_group_member = 0;	// No groups have 3 values to read
+				else last_group_member = src_size - 2 * stride;		// Some groups have 3 values, the rest have 2 values
+				for ( ; group_member < last_group_member; group_member++) {
+					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle45_stride;
+					CVDT a = src[instride1*(group_member)];
+					CVDT b = src[instride1*(group_member + stride)];
+					CVDT c = src[instride1*(group_member + 2*stride)];
+					CVDT d, e, tmp25a, tmp25b, tmp34a, tmp34b;
+
+					cvaddfm (tmp25a, a, _309, b);
+					cvsubfm (tmp34a, a, _809, b);
+					cvadd   (a, a, b);
+					cvaddfm (tmp25b, b, _588_951, c);			// tmp25b = delayed .951*(b-e=0) + 0.588*(c-d=0)
+					cvsubfm (tmp34b, c, _588_951, b);			// tmp34b = delayed -.588*(b-e=0) + 0.951*(c-d=0)
+					cvsubfm (tmp25a, tmp25a, _809, c);			// tmp25a = a +.309*(b+e=0) -.809*(c+d=0)
+					cvaddfm (tmp34a, tmp34a, _309, c);			// tmp34a = a -.809*(b+e=0) +.309*(c+d=0)
+					cvadd   (a, a, c);					// a + b + c + d=0 + e=0
+
+					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
+#if !VFMA
+						cvrmul (tmp25b, _951, tmp25b);			// tmp25b *= .951
+						cvrmul (tmp34b, _951, tmp34b);			// tmp34b *= .951
+						cviadd (b, tmp25a, tmp25b);			// b = tmp25a + i*tmp25b
+						cvisub (e, tmp25a, tmp25b);			// e = tmp25a - i*tmp25b
+						cvisub (c, tmp34a, tmp34b);			// c = tmp34a + i*tmp34b
+						cviadd (d, tmp34a, tmp34b);			// d = tmp34a - i*tmp34b
+#else
+						cviaddfm (b, tmp25a, _951, tmp25b);		// b = tmp25a + i*.951*tmp25b
+						cvisubfm (e, tmp25a, _951, tmp25b);		// e = tmp25a - i*.951*tmp25b
+						cvisubfm (c, tmp34a, _951, tmp34b);		// c = tmp34a + i*.951*tmp34b
+						cviaddfm (d, tmp34a, _951, tmp34b);		// d = tmp34a - i*.951*tmp34b
+#endif
+						dest[outstride1*(group_member)] = a;
+						dest[outstride1*(group_member + stride)]   = b;
+						dest[outstride1*(group_member + 2*stride)] = c;
+						dest[outstride1*(group_member + 3*stride)] = d;
+						dest[outstride1*(group_member + 4*stride)] = e;
+					}
+					else {			// Apply twiddles
+						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
+						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
+#if !VFMA
+						cvrmul (tmp25b, _951, tmp25b);			// tmp25b *= .951
+						cvrmul (tmp34b, _951, tmp34b);			// tmp34b *= .951
+						cviadd (b, tmp25a, tmp25b);			// b = tmp25a + i*tmp25b
+						cvisub (e, tmp25a, tmp25b);			// e = tmp25a - i*tmp25b
+						cvisub (c, tmp34a, tmp34b);			// c = tmp34a + i*tmp34b
+						cviadd (d, tmp34a, tmp34b);			// d = tmp34a - i*tmp34b
+						dest[outstride1*(group_member)] = a;
+						twidmul     (dest[outstride1*(group_member + stride)], b, twiddle1);
+						twidmul     (dest[outstride1*(group_member + 2*stride)], c, twiddle2);
+						twidconjmul (dest[outstride1*(group_member + 3*stride)], d, twiddle2);
+						twidconjmul (dest[outstride1*(group_member + 4*stride)], e, twiddle1);
+#else
+						VDT sin1_951 = mulpd (_951, twiddle1.sin);
+						VDT sin2_951 = mulpd (_951, twiddle2.sin);
+						cvrmul   (tmp25a, twiddle1.sin, tmp25a);
+						cvrmul   (tmp34a, twiddle2.sin, tmp34a);
+						cviaddfm (b, tmp25a, sin1_951, tmp25b);		// b = tmp25a + i*.951*tmp25b
+						cvisubfm (e, tmp25a, sin1_951, tmp25b);		// e = tmp25a - i*.951*tmp25b
+						cvisubfm (c, tmp34a, sin2_951, tmp34b);		// c = tmp34a + i*.951*tmp34b
+						cviaddfm (d, tmp34a, sin2_951, tmp34b);		// d = tmp34a - i*.951*tmp34b
+						dest[outstride1*(group_member)] = a;
+						twidmuldelay     (dest[outstride1*(group_member + stride)], b, twiddle1);
+						twidmuldelay     (dest[outstride1*(group_member + 2*stride)], c, twiddle2);
+						twidconjmuldelay (dest[outstride1*(group_member + 3*stride)], d, twiddle2);
+						twidconjmuldelay (dest[outstride1*(group_member + 4*stride)], e, twiddle1);
+#endif
+					}
+				}
+
+				// Radix-5 reading two values and zero padding three values.  NOTE: group must be zero.
+				if (group_member != 0) last_group_member = stride;	// We found some 3 value groups, the rest have 2 values
+				else if (src_size <= stride) last_group_member = 0;	// No groups have 2 values to read
+				else last_group_member = src_size - stride;		// Some groups have 2 values, the rest have 1 value
+				for ( ; group_member < last_group_member; group_member++) {
+					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle45_stride;
+					CVDT a = src[instride1*(group_member)];
+					CVDT b_in = src[instride1*(group_member + stride)];
+					CVDT b, c, d, e, tmp25a, tmp34a;
+
+					cvaddfm (tmp25a, a, _309, b_in);			// tmp25a = a +.309*(b+e=0) -.809*(c=0+d=0)
+					cvsubfm (tmp34a, a, _809, b_in);			// tmp34a = a -.809*(b+e=0) +.309*(c=0+d=0)
+					cvadd   (a, a, b_in);					// a = a + b + c=0 + d=0 + e=0
+
+					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
+#if !VFMA
+						CVDT tmp25b, tmp34b;
+						cvrmul (tmp25b, _951, b_in);			// tmp25b = b * .951
+						cvrmul (tmp34b, _m588, b_in);			// tmp34b = b * -.588
+						cviadd (b, tmp25a, tmp25b);			// b = tmp25a + i*tmp25b
+						cvisub (e, tmp25a, tmp25b);			// e = tmp25a - i*tmp25b
+						cvisub (c, tmp34a, tmp34b);			// c = tmp34a + i*tmp34b
+						cviadd (d, tmp34a, tmp34b);			// d = tmp34a - i*tmp34b
+#else
+						cviaddfm (b, tmp25a, _951, b_in);		// b = tmp25a + i*.951*b
+						cvisubfm (e, tmp25a, _951, b_in);		// e = tmp25a - i*.951*b
+						cvisubfm (c, tmp34a, _m588, b_in);		// c = tmp34a + i*-.588*b
+						cviaddfm (d, tmp34a, _m588, b_in);		// d = tmp34a - i*-.588*b
+#endif
+						dest[outstride1*(group + group_member)] = a;
+						dest[outstride1*(group + group_member + stride)]   = b;
+						dest[outstride1*(group + group_member + 2*stride)] = c;
+						dest[outstride1*(group + group_member + 3*stride)] = d;
+						dest[outstride1*(group + group_member + 4*stride)] = e;
+					}
+					else {			// Apply twiddles
+						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
+						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
+#if !VFMA
+						CVDT tmp25b, tmp34b;
+						cvrmul (tmp25b, _951, b_in);			// tmp25b = b * .951
+						cvrmul (tmp34b, _m588, b_in);			// tmp34b = b * -.588
+						cviadd (b, tmp25a, tmp25b);			// b = tmp25a + i*tmp25b
+						cvisub (e, tmp25a, tmp25b);			// e = tmp25a - i*tmp25b
+						cvisub (c, tmp34a, tmp34b);			// c = tmp34a + i*tmp34b
+						cviadd (d, tmp34a, tmp34b);			// d = tmp34a - i*tmp34b
+						dest[outstride1*(group_member)] = a;
+						twidmul     (dest[outstride1*(group_member + stride)], b, twiddle1);
+						twidmul     (dest[outstride1*(group_member + 2*stride)], c, twiddle2);
+						twidconjmul (dest[outstride1*(group_member + 3*stride)], d, twiddle2);
+						twidconjmul (dest[outstride1*(group_member + 4*stride)], e, twiddle1);
+#else
+						VDT sin1_951 = mulpd (_951, twiddle1.sin);
+						VDT sin2_m588 = mulpd (_m588, twiddle2.sin);
+						cvrmul   (tmp25a, twiddle1.sin, tmp25a);
+						cvrmul   (tmp34a, twiddle2.sin, tmp34a);
+						cviaddfm (b, tmp25a, sin1_951, b_in);		// b = tmp25a + i*.951*b
+						cvisubfm (e, tmp25a, sin1_951, b_in);		// e = tmp25a - i*.951*b
+						cvisubfm (c, tmp34a, sin2_m588, b_in);		// c = tmp34a + i*-.588*b
+						cviaddfm (d, tmp34a, sin2_m588, b_in);		// d = tmp34a - i*-.588*b
+						dest[outstride1*(group_member)] = a;
+						twidmuldelay     (dest[outstride1*(group_member + stride)], b, twiddle1);
+						twidmuldelay     (dest[outstride1*(group_member + 2*stride)], c, twiddle2);
+						twidconjmuldelay (dest[outstride1*(group_member + 3*stride)], d, twiddle2);
+						twidconjmuldelay (dest[outstride1*(group_member + 4*stride)], e, twiddle1);
+#endif
+					}
+				}
+
+				// Radix-5 reading one values and zero padding four values.  NOTE: group must be zero.
+				if (group_member != 0) last_group_member = stride;	// We found some 2 value groups, the rest have 1 value
+				else last_group_member = src_size;			// Some groups have 1 value, the rest have 0 values
+				for ( ; group_member < last_group_member; group_member++) {
+					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle45_stride;
+					CVDT a = src[instride1*(group_member)];
+
+					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
+						dest[outstride1*(group + group_member)] = a;
+						dest[outstride1*(group + group_member + stride)] = a;
+						dest[outstride1*(group + group_member + 2*stride)] = a;
+						dest[outstride1*(group + group_member + 3*stride)] = a;
+						dest[outstride1*(group + group_member + 4*stride)] = a;
+					}
+					else {			// Apply twiddles
+						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
+						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
+						dest[outstride1*(group_member)] = a;
+						twidmulandconjmul (dest[outstride1*(group_member + stride)], dest[outstride1*(group_member + 4*stride)], a, twiddle1);
+						twidmulandconjmul (dest[outstride1*(group_member + 2*stride)], dest[outstride1*(group_member + 3*stride)], a, twiddle2);
+					}
+				}
+
+				// Radix-5 reading zero values and zero padding five values.  NOTE: group must be zero.
+				for ( ; group_member < stride; group_member++) {
+					memset (&dest[outstride1*(group_member)], 0, sizeof (CVDT));
+					memset (&dest[outstride1*(group_member + stride)], 0, sizeof (CVDT));
+					memset (&dest[outstride1*(group_member + 2*stride)], 0, sizeof (CVDT));
+					memset (&dest[outstride1*(group_member + 3*stride)], 0, sizeof (CVDT));
+					memset (&dest[outstride1*(group_member + 4*stride)], 0, sizeof (CVDT));
+				}
 			    }
 			}
 
 			// Radix-4 FFT
-			for ( ; size != 8 && size % 4 == 0; size /= 4, twiddle45_stride *= 4, src = dest, instride1 = 1) {
+			for ( ; size != 8 && size % 4 == 0; size /= 4, twiddle45_stride *= 4, src = dest, instride1 = 1, zpad = FALSE) {
 			    stride = size / 4;
 			    if (pd->pass == 1 && stride == 1) dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blki, outstride1 = pd->pass2_size;
 			    for (unsigned int group = 0; group < pd->pass_size; group += stride * 4) {
-				for (unsigned int group_member = 0; group_member < stride; group_member++) {
+				unsigned int group_member = 0;		// Current group member to process
+				unsigned int last_group_member;		// Last group member to process.  We will process stride group members.
+
+				// Radix-4 with no zero padding
+				if (!zpad) last_group_member = stride;			// The not zero padding case, read 4 values for all groups
+				else if (src_size <= 3 * stride) last_group_member = 0;	// No groups have 4 values to read
+				else last_group_member = src_size - 3 * stride;		// Some groups have 3 values, the rest have 3 values
+				for ( ; group_member < last_group_member; group_member++) {
 					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle45_stride;
 					CVDT a = src[instride1*(group + group_member)];
 					CVDT b = src[instride1*(group + group_member + stride)];
@@ -2850,10 +3379,140 @@ void fft_line_pass (
 #endif
 					}
 				}
+				if (group_member == stride) continue;
+
+				// Radix-4 reading three values and zero padding one value.  NOTE: group must be zero.
+				ASSERTG (group == 0);
+				if (group_member != 0) last_group_member = stride;	// We found some 4 value groups, the rest have 3 values
+				else if (src_size <= 2 * stride) last_group_member = 0;	// No groups have 3 values to read
+				else last_group_member = src_size - 2 * stride;		// Some groups have 3 values, the rest have 2 values
+				for ( ; group_member < last_group_member; group_member++) {
+					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle45_stride;
+					CVDT a = src[instride1*(group_member)];
+					CVDT b_in = src[instride1*(group_member + stride)];
+					CVDT c = src[instride1*(group_member + 2*stride)];
+					CVDT b, d;
+
+					CVDT new_c; cvsub (new_c, a, c);			// a - c
+					CVDT new_a; cvadd (new_a, a, c);			// a + c
+
+					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
+						cviadd (c, new_c, b_in);			// c + id
+						cvisub (d, new_c, b_in);			// c - id
+						cvadd  (a, new_a, b_in);			// a + b
+						cvsub  (b, new_a, b_in);			// a - b
+						dest[outstride1*(group_member)] = a;
+						dest[outstride1*(group_member + 1*stride)] = c;		// Do not bit-reverse outputs
+						dest[outstride1*(group_member + 2*stride)] = b;
+						dest[outstride1*(group_member + 3*stride)] = d;
+					}
+					else {			// Apply twiddles
+						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
+						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
+#if !VFMA
+						cviadd (c, new_c, b_in);			// c + id
+						cvisub (d, new_c, b_in);			// c - id
+						cvadd  (a, new_a, b_in);			// a + b
+						cvsub  (b, new_a, b_in);			// a - b
+						dest[outstride1*(group_member)] = a;
+						twidmul     (dest[outstride1*(group_member + 1*stride)], c, twiddle1);
+						twidmul     (dest[outstride1*(group_member + 2*stride)], b, twiddle2);
+						twidconjmul (dest[outstride1*(group_member + 3*stride)], d, twiddle1);
+#else
+						cvrmul   (new_c, twiddle1.sin, new_c);
+						cvadd    (a, new_a, b_in);			// a + b
+						cvsub    (b, new_a, b_in);			// a - b
+						cviaddfm (c, new_c, twiddle1.sin, b_in);	// c + id
+						cvisubfm (d, new_c, twiddle1.sin, b_in);	// c - id
+						dest[outstride1*(group_member)] = a;
+						twidmuldelay     (dest[outstride1*(group_member + 1*stride)], c, twiddle1);
+						twidmul          (dest[outstride1*(group_member + 2*stride)], b, twiddle2);
+						twidconjmuldelay (dest[outstride1*(group_member + 3*stride)], d, twiddle1);
+#endif
+					}
+				}
+
+				// Radix-4 reading two values and zero padding two values.  NOTE: group must be zero.
+				if (group_member != 0) last_group_member = stride;	// We found some 3 value groups, the rest have 2 values
+				else if (src_size <= stride) last_group_member = 0;	// No groups have 2 values to read
+				else last_group_member = src_size - stride;		// Some groups have 2 values, the rest have 1 value
+				for ( ; group_member < last_group_member; group_member++) {
+					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle45_stride;
+					CVDT a_in = src[instride1*(group_member)];
+					CVDT b_in = src[instride1*(group_member + stride)];
+					CVDT a, b, c, d;
+
+					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
+						cviadd (c, a_in, b_in);				// c + id
+						cvisub (d, a_in, b_in);				// c - id
+						cvadd  (a, a_in, b_in);				// a + b
+						cvsub  (b, a_in, b_in);				// a - b
+						dest[outstride1*(group_member)] = a;
+						dest[outstride1*(group_member + 1*stride)] = c;		// Do not bit-reverse outputs
+						dest[outstride1*(group_member + 2*stride)] = b;
+						dest[outstride1*(group_member + 3*stride)] = d;
+					}
+					else {			// Apply twiddles
+						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
+						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
+#if !VFMA
+						cviadd (c, a_in, b_in);				// c + id
+						cvisub (d, a_in, b_in);				// c - id
+						cvadd  (a, a_in, b_in);				// a + b
+						cvsub  (b, a_in, b_in);				// a - b
+						dest[outstride1*(group_member)] = a;
+						twidmul     (dest[outstride1*(group_member + 1*stride)], c, twiddle1);
+						twidmul     (dest[outstride1*(group_member + 2*stride)], b, twiddle2);
+						twidconjmul (dest[outstride1*(group_member + 3*stride)], d, twiddle1);
+#else
+						CVDT new_c;
+						cvrmul   (new_c, twiddle1.sin, a_in);
+						cvadd    (a, a_in, b_in);			// a + b
+						cvsub    (b, a_in, b_in);			// a - b
+						cviaddfm (c, new_c, twiddle1.sin, b_in);		// c + id
+						cvisubfm (d, new_c, twiddle1.sin, b_in);		// c - id
+						dest[outstride1*(group_member)] = a;
+						twidmuldelay     (dest[outstride1*(group_member + 1*stride)], c, twiddle1);
+						twidmul          (dest[outstride1*(group_member + 2*stride)], b, twiddle2);
+						twidconjmuldelay (dest[outstride1*(group_member + 3*stride)], d, twiddle1);
+#endif
+					}
+				}
+
+				// Radix-4 reading one values and zero padding three values.  NOTE: group must be zero.
+				if (group_member != 0) last_group_member = stride;	// We found some 2 value groups, the rest have 1 value
+				else last_group_member = src_size;			// Some groups have 1 value, the rest have 0 values
+				for ( ; group_member < last_group_member; group_member++) {
+					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle45_stride;
+					CVDT a = src[instride1*(group_member)];
+
+					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
+						dest[outstride1*(group_member)] = a;
+						dest[outstride1*(group_member + 1*stride)] = a;
+						dest[outstride1*(group_member + 2*stride)] = a;
+						dest[outstride1*(group_member + 3*stride)] = a;
+					}
+					else {			// Apply twiddles
+						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
+						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
+						dest[outstride1*(group_member)] = a;
+						twidmulandconjmul (dest[outstride1*(group_member + 1*stride)], dest[outstride1*(group_member + 3*stride)], a, twiddle1);
+						twidmul     (dest[outstride1*(group_member + 2*stride)], a, twiddle2);
+					}
+				}
+
+				// Radix-4 reading zero values and zero padding four values.  NOTE: group must be zero.
+				for ( ; group_member < stride; group_member++) {
+					memset (&dest[outstride1*(group_member)], 0, sizeof (CVDT));
+					memset (&dest[outstride1*(group_member + stride)], 0, sizeof (CVDT));
+					memset (&dest[outstride1*(group_member + 2*stride)], 0, sizeof (CVDT));
+					memset (&dest[outstride1*(group_member + 3*stride)], 0, sizeof (CVDT));
+				}
 			    }
 			}
 
 			// Radix-8 FFT (if needed it is the last radix block done in pass 2)
+			ASSERTG (!zpad);
 			if (size == 8) {
 			    VDT _707 = broadcastsd (0.70710678118654752440084436210485);
 			    stride = 1;
@@ -3302,84 +3961,71 @@ void fft_line_pass (
 // Perform forward FFT, pointmul, inverse FFT in as few passes over memory as possible.
 
 void fft_line (
-	pmhandle *pmdata,		// Handle for polymult library
-	CVDT	*invec1,		// Array of complex values
-	CVDT	*invec2,		// Array of complex values
-	CVDT	*outvec,		// Array of complex values
-	CVDT	*scratch,		// Scratch area for two-pass FFTs       
-	unsigned int fft_size,		// The fft size
-	int	options)
+	pmhandle *pmdata,			// Handle for polymult library
+	fft_line_pass_data *pd)			// Structure containing all needed info to execute the FFT poly multiplication
 {
-	fft_line_pass_data pd;		// Data to pass to fft_line_pass
-	unsigned int threes_in_fft_size;// Radix-3's contribution to fft_size
+	unsigned int threes_in_fft_size;	// Radix-3's contribution to fft_size
 
 	// Generate twiddles (or use cached twiddles)
-	generate_sincos (pmdata, fft_size);
-
-	// Copy arguments for passing to fft_line_pass
-	pd.invec1 = invec1;
-	pd.invec2 = invec2;
-	pd.outvec = outvec;
-	pd.scratch = scratch;
-	pd.options = options;
+	generate_sincos (pmdata, pd->fft_size);
 
 	// Init some needed items
-	for (pd.powers_of_two = 0; (fft_size & (1 << pd.powers_of_two)) == 0; pd.powers_of_two++);	// Count powers of two to see if radix-8 step needed
-	for (threes_in_fft_size = 1; fft_size % (threes_in_fft_size * 3) == 0; threes_in_fft_size *= 3);// Count powers of three for twiddle stride calculations
-	pd.inv_fft_size = broadcastsd (1.0 / (double) fft_size);
-	pd.inv_fft_size_707 = broadcastsd (0.70710678118654752440084436210485 / (double) fft_size);
+	for (pd->powers_of_two = 0; (pd->fft_size & (1 << pd->powers_of_two)) == 0; pd->powers_of_two++);	// Count powers of two to see if radix-8 step needed
+	for (threes_in_fft_size = 1; pd->fft_size % (threes_in_fft_size * 3) == 0; threes_in_fft_size *= 3);	// Count powers of three for twiddle stride calcs
+	pd->inv_fft_size = broadcastsd (1.0 / (double) pd->fft_size);
+	pd->inv_fft_size_707 = broadcastsd (0.70710678118654752440084436210485 / (double) pd->fft_size);
 
 	// When the data set gets large it overflows the L2 cache.  This causes every radix-step to read & write data from main memory.  To combat
 	// this we use two passes to complete the FFT, doing as much work as possible while FFT data is in the L2 cache.
-	pick_pass_sizes (pmdata, fft_size, &pd.pass1_size, &pd.pass2_size);
+	pick_pass_sizes (pmdata, pd->fft_size, &pd->pass1_size, &pd->pass2_size);
 
 	// Do two-pass forward FFT merged with a pointmul and a two-pass inverse FFT.
 	// Pass 1 is first half of the forward FFT.  Pass 2 is second half of the forward FFT, pointwise multiply, and half of the inverse FFT.
 	// Pass 3 is the remaining half of the inverse FFT.
-	for (pd.pass = 1; pd.pass <= 3; pd.pass++) {
+	for (pd->pass = 1; pd->pass <= 3; pd->pass++) {
 
 		// Skip pass 1 and 3 for small FFTs (perform a one-pass FFT)
-		if (pd.pass != 2 && pd.pass1_size == 1) continue;
+		if (pd->pass != 2 && pd->pass1_size == 1) continue;
 		// Also skip pass 1 if neither input needs a forward FFT
-		if (pd.pass == 1 && !(options & FORWARD_FFT_INVEC1) && !(options & FORWARD_FFT_INVEC2)) continue;
+		if (pd->pass == 1 && !(pd->options & FORWARD_FFT_INVEC1) && !(pd->options & FORWARD_FFT_INVEC2)) continue;
 
 		// Figure out the starting twiddle strides for this pass.
 		// NOTE: Assumes all radix-3 work is done in the first pass for two-pass FFTs.
-		if (pd.pass == 1) {
-			pd.starting_twiddle3_stride = 1;
-			pd.starting_twiddle45_stride = 1;
-		} else if (pd.pass == 2) {
+		if (pd->pass == 1) {
+			pd->starting_twiddle3_stride = 1;
+			pd->starting_twiddle45_stride = 1;
+		} else if (pd->pass == 2) {
 			// If no forward FFT, start with the maximum strides to begin the inverse FFT
-			if (!(options & FORWARD_FFT_INVEC1) && !(options & FORWARD_FFT_INVEC2)) {
-				pd.starting_twiddle3_stride = threes_in_fft_size;
-				pd.starting_twiddle45_stride = fft_size / threes_in_fft_size;
+			if (!(pd->options & FORWARD_FFT_INVEC1) && !(pd->options & FORWARD_FFT_INVEC2)) {
+				pd->starting_twiddle3_stride = threes_in_fft_size;
+				pd->starting_twiddle45_stride = pd->fft_size / threes_in_fft_size;
 			}
 			// One pass FFTs start at 1
-			else if (pd.pass1_size == 1) {
-				pd.starting_twiddle3_stride = 1;
-				pd.starting_twiddle45_stride = 1;
+			else if (pd->pass1_size == 1) {
+				pd->starting_twiddle3_stride = 1;
+				pd->starting_twiddle45_stride = 1;
 			}
 			// Two pass FFTs won't perform any radix-3s in pass 2
 			else {
-				ASSERTG (pd.starting_twiddle3_stride = 9999);
-				pd.starting_twiddle45_stride = pd.pass1_size / threes_in_fft_size;
+				ASSERTG (pd->starting_twiddle3_stride = 9999);
+				pd->starting_twiddle45_stride = pd->pass1_size / threes_in_fft_size;
 			}
 		} else {
-			pd.starting_twiddle3_stride = threes_in_fft_size;
-			pd.starting_twiddle45_stride = pd.pass1_size / threes_in_fft_size;
+			pd->starting_twiddle3_stride = threes_in_fft_size;
+			pd->starting_twiddle45_stride = pd->pass1_size / threes_in_fft_size;
 		}
 
 		// Init some pass-specific variables
-		if (pd.pass != 2) {
-			pd.pass_size = pd.pass1_size;
-			pd.pass_stride = pd.pass2_size;
-			pd.num_exterior_blks = 1;
-			pd.num_interior_blks = pd.pass2_size;
+		if (pd->pass != 2) {
+			pd->pass_size = pd->pass1_size;
+			pd->pass_stride = pd->pass2_size;
+			pd->num_exterior_blks = 1;
+			pd->num_interior_blks = pd->pass2_size;
 		} else {
-			pd.pass_size = pd.pass2_size;
-			pd.pass_stride = 1;
-			pd.num_exterior_blks = pd.pass1_size;
-			pd.num_interior_blks = 1;
+			pd->pass_size = pd->pass2_size;
+			pd->pass_stride = 1;
+			pd->num_exterior_blks = pd->pass1_size;
+			pd->num_interior_blks = 1;
 		}
 
 		// Launch helpers to do one pass of fft_line.  This is tricky.  There are two cases.  The most common case is polymult_line is multi-threaded
@@ -3389,13 +4035,13 @@ void fft_line (
 		// single-threaded.  When fft_line_pass is multi-threaded we use all the polymult_launch machinery, but polymult_launch must not
 		// atomic_set helper_counter as polymult_line is using that variable.
 		if (pmdata->mt_polymult_line) {
-			pd.multithreading = FALSE;
-			fft_line_pass (0, pmdata, &pd);
+			pd->multithreading = FALSE;
+			fft_line_pass (0, pmdata, pd);
 		} else {
-			atomic_set (pd.blknum, 0);
-			pd.multithreading = TRUE;
+			atomic_set (pd->blknum, 0);
+			pd->multithreading = TRUE;
 			pmdata->internal_callback = &fft_line_pass;
-			pmdata->internal_callback_data = &pd;
+			pmdata->internal_callback_data = pd;
 			polymult_launch_helpers (pmdata);
 		}
 	}
@@ -3486,173 +4132,6 @@ void monic_line_adjustments (
 		monic_line_add_lo (fft1p, addinvec, addinvec_size, outvec, outvec_size, circular_size, leading_one, trailing_one);
 }
 
-// Read a line that was preprocessed by polymult_preprocess
-#ifndef FMA
-
-void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rwlsd)
-{
-	gwhandle *gwdata = pmdata->gwdata;
-	gwnum	*data = ((read_write_line_slice_data *) rwlsd)->data;
-	int	size = ((read_write_line_slice_data *) rwlsd)->size;
-	int	line = ((read_write_line_slice_data *) rwlsd)->lsd.line;
-	int	options = ((read_write_line_slice_data *) rwlsd)->options;
-	bool	post_process_monics = ((read_write_line_slice_data *) rwlsd)->post_process_monics;
-
-	preprocessed_poly_header *hdr;  // Header of the preprocessed poly being read
-	CVDT	*first_element;		// First element in the preprocessed poly array
-	CVDT	*element;		// Element to read in the preprocessed poly array
-	int	slice_size;		// Size of a slice to read
-
-	// Typecast to access the preprocessed poly header
-	hdr = (preprocessed_poly_header *) ((char *) data - sizeof (gwarray_header));
-	first_element = (CVDT *) round_up_to_multiple_of ((intptr_t) hdr + sizeof (preprocessed_poly_header), 64);
-
-	// Compute index into the preprocessed data.  If we've delayed splitting the two real values in !ALL_COMPLEX_FFT then read the first array entry
-	// for the first two indexes.  Finally, get pointer to the first byte to read.
-	int index_to_read = line;
-	if (!(hdr->options & POLYMULT_PRE_FFT) && !gwdata->ALL_COMPLEX_FFT && !gwdata->ZERO_PADDED_FFT) {
-		index_to_read--;
-		if (index_to_read < 0) index_to_read = 0;
-	}
-	element = (CVDT *) ((char *) first_element + index_to_read * hdr->element_size);
-
-	// If preprocessed data is FFTed, then ignore the passed in size, use the poly FFT size that was computed by polymult_line_preprocess
-	if (hdr->options & POLYMULT_PRE_FFT) size = hdr->line_size;
-	else ASSERTG (size == hdr->line_size);
-
-	// If multi-threading read_preprocess_line (slice_size set to zero), create a slice_size that will generate a goodly number of work units to multi-thread.
-	// If compressed, we may be able to read the poly in slices of 512 doubles.
-	if (((read_write_line_slice_data *) rwlsd)->slice_size == 0) slice_size = size;
-	else if (!(hdr->options & POLYMULT_PRE_COMPRESS)) slice_size = divide_rounding_up (size, 512);
-	else slice_size = hdr->line_size / hdr->num_compressed_blks;
-
-	// Read one slice at a time
-	for ( ; ; ) {
-		int	slice_start, slice_end;
-		// Get slice to work on.  Atomics aren't cheap, avoid them if reading the whole line.
-		if (slice_size == size) {
-			slice_start = 0;
-			slice_end = size;
-		} else {
-			int atomic_val = atomic_fetch_incr (((read_write_line_slice_data *) rwlsd)->blknum);
-			slice_start = atomic_val * slice_size;
-			if (slice_start >= size) break;
-			slice_end = slice_start + slice_size;
-			if (slice_end > size) slice_end = size;
-		}
-
-		// Reload vector pointer
-		CVDT *vec = ((read_write_line_slice_data *) rwlsd)->vec;
-
-		// If preprocessed data is FFTed, then return the data "as is" optionally decompressing.  Ignore the passed in size, use the poly FFT size
-		// that was computed by polymult_line_preprocess.
-		if (hdr->options & POLYMULT_PRE_FFT) {
-			if (!(hdr->options & POLYMULT_PRE_COMPRESS))
-				memcpy (&vec[slice_start], &element[slice_start], (uint64_t) (slice_end - slice_start) * sizeof (CVDT));
-			else
-				decompress_line_slice ((char *) element, (char *) &vec[slice_start], hdr, slice_start, slice_end, sizeof (CVDT));
-			if (slice_end == size) break;
-			else continue;
-		}
-
-		// If not post-processing monics and the input is a monic RLP, then output a 1+0i
-		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
-			if (slice_start == 0) {
-				if (gwdata->k == 1.0) {
-					vec[0].real = broadcastsd (1.0);
-					vec[0].imag = broadcastsd (0.0);
-				} else {
-					read_write_line_slice_data fft1_rwlsd;
-					prep_line (pmdata, line, &fft1_rwlsd);
-					fft1_rwlsd.data = &gwdata->GW_FFT1;
-					fft1_rwlsd.size = 1;
-					fft1_rwlsd.vec = vec;
-					fft1_rwlsd.options = 0;
-					fft1_rwlsd.post_process_monics = FALSE;
-					read_line (pmdata, &fft1_rwlsd);
-				}
-			}
-			vec++;
-		}
-
-		// If input is an RLP then read the data into the high half of vec.  We will duplicate the data as the last step.
-		if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) vec += (size-1);
-
-		// Copy the preprocessed entry
-		ASSERTG ((hdr->options & POLYMULT_PRE_COMPRESS) || hdr->element_size == size * sizeof (CVDT));
-		if (!(hdr->options & POLYMULT_PRE_COMPRESS)) memcpy (&vec[slice_start], &element[slice_start], (uint64_t) (slice_end - slice_start) * sizeof (CVDT));
-		else decompress_line_slice ((char *) element, (char *) &vec[slice_start], hdr, slice_start, slice_end, sizeof (CVDT));
-
-		// If we've delayed splitting the two real values in !ALL_COMPLEX_FFT turn the two reals into two complex values here
-		if (!gwdata->ALL_COMPLEX_FFT && !gwdata->ZERO_PADDED_FFT && index_to_read == 0) {
-			for (int j = slice_start; j < slice_end; j++) {
-				union { VDT a; double b[VLEN / sizeof(double)]; } r, i;
-				r.a = vec[j].real;
-				i.a = vec[j].imag;
-				if (line == 0) {
-					memset (&r, 0, sizeof (r));
-					r.b[0] = i.b[0];
-					memset (&i, 0, sizeof (i));
-				} else {
-					i.b[0] = 0.0;
-				}
-				vec[j].real = r.a;
-				vec[j].imag = i.a;
-			}
-		}
-
-		// Duplicate RLP data in reverse order
-		if (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP)) {
-			for (int j = slice_start; j < slice_end; j++) vec[-j] = vec[j];
-		}
-
-		// If not post-processing monics and the input is monic, then output a 1+0i
-		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
-			if (slice_start == 0) {
-				if (gwdata->k == 1.0) {
-					vec[size].real = broadcastsd (1.0);
-					vec[size].imag = broadcastsd (0.0);
-				} else {
-					read_write_line_slice_data fft1_rwlsd;
-					prep_line (pmdata, line, &fft1_rwlsd);
-					fft1_rwlsd.data = &gwdata->GW_FFT1;
-					fft1_rwlsd.size = 1;
-					fft1_rwlsd.vec = &vec[size];
-					fft1_rwlsd.options = 0;
-					fft1_rwlsd.post_process_monics = FALSE;
-					read_line (pmdata, &fft1_rwlsd);
-				}
-			}
-		}
-
-		// Check for completion
-		if (slice_end == size) break;
-	}
-}
-
-void read_preprocess_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd)
-{
-	// Launch helpers to read the line in slices.  This is tricky.  There are two cases.  The most common case is polymult_line is multi-threaded and
-	// read_preprocess_line_slice is single-threaded.  The less common case is polymult_line is single-threaded and read_preprocess_line_slice is multi-threaded.
-	// If polymult_line is multi-threaded we cannot set pmdata->helper_opcode as all helper threads may not have dispatched based on the opcode,
-	// nor can we have each thread setting pmdata->internal_callback_data.  To handle this we call read_preprocess_line_slice directly when
-	// read_preprocess_line_slice is single-threaded.  When read_preprocess_line_slice is multi-threaded we use all the polymult_launch machinery, but
-	// polymult_launch must not atomic_set helper_counter as polymult_line is using that variable.
-	if (pmdata->mt_polymult_line) {
-		rwlsd->slice_size = 0;			// Indicates not multi-threading, read_preprocess_line_slice figures out slice_size
-		read_preprocess_line_slice (0, pmdata, rwlsd);
-	} else {
-		// Create a slice_size that will generate a goodly number of work units to multi-thread
-		rwlsd->slice_size = -1;			// Indicates multi-threading, read_preprocess_line_slice figures out slice_size
-		atomic_set (rwlsd->blknum, 0);
-		pmdata->internal_callback = &read_preprocess_line_slice;
-		pmdata->internal_callback_data = rwlsd;
-		polymult_launch_helpers (pmdata);
-	}
-}
-
-#endif
-
 /* Preprocess a poly that will be used in multiple future polymult calls.  Preprocessing can reduce memory consumption or reduce CPU time. */
 /* Returns a massaged poly.  Caller should then free the unmassaged poly.  The massaged poly cannot be used in any gwnum calls, it can only be used */
 /* in future polymult calls with poly sizes and options that match those passed to this routine. */
@@ -3730,8 +4209,14 @@ void polymult_line_preprocess (
 
 		// Optionally forward FFT the line
 		if (options & POLYMULT_PRE_FFT) {
-			memset (invec1 + plan->adjusted_invec1_size, 0, (size_t) (fft_size - plan->adjusted_invec1_size) * sizeof (CVDT));
-			fft_line (pmdata, invec1, NULL, NULL, scratch, fft_size, FORWARD_FFT_INVEC1 | FORWARD_FFT_ONLY);
+			fft_line_pass_data fftd;
+			fftd.rwlsd1 = &rwlsd;
+			fftd.invec1 = invec1;
+			fftd.invec1_size = plan->adjusted_invec1_size;
+			fftd.scratch = scratch;
+			fftd.options = FORWARD_FFT_INVEC1 | FORWARD_FFT_ONLY;
+			fftd.fft_size = fft_size;
+			fft_line (pmdata, &fftd);
 		}
 
 		// If compressing each line, compress the vector of doubles.  Track the maximum compressed vector size.
@@ -3758,9 +4243,10 @@ void polymult_line (
 	polymult_plan *plan = (polymult_plan *) pmdata->plan;		// Plan for how to implement each multiplication
 	int	true_invec1_size, true_invec2_size, true_outvec_size, alloc_scratch_size;
 	int	invec1_size, invec2_size, outvec_size, fft_size, fft_options, line;
-	bool	invec1_preprocessed, invec1_pre_ffted, invec2_preprocessed, invec2_pre_ffted;
+	bool	invec1_pre_ffted, invec2_pre_ffted;
 	CVDT	*invec1_buffer, *invec2_buffer, *outvec_buffer, *tmpvec_buffer, *scratch_buffer;
 	CVDT	*invec1;
+	fft_line_pass_data fftd;
 	read_write_line_slice_data rwlsd1, rwlsd2[4], rwlsd3[4];
 
 	ASSERTG (pmdata->num_other_polys <= 4);			// It would not be hard to eliminate this restriction, just alloc the rwlsd structs
@@ -3770,8 +4256,7 @@ void polymult_line (
 	int	gw_invec1_size = pmdata->invec1_size;		// Size of the first input polynomial
 
 	// Check for pre-processed input poly
-	invec1_preprocessed = is_preprocessed_poly (gw_invec1);
-	invec1_pre_ffted = invec1_preprocessed && is_preffted_poly (gw_invec1);
+	invec1_pre_ffted = is_preprocessed_poly (gw_invec1) && is_preffted_poly (gw_invec1);
 
 	// Calculate the scratch area size.  This is the one buffer size that cannot be calculated during the planning process.
 	// If fft_line is multi-threaded we need a scratch buffer for each helper that fft_line might spawn.
@@ -3888,15 +4373,11 @@ void polymult_line (
 		for (int i = 0; i < planpart->adjusted_pad; i++) memset (&true_outvec[outvec_size+planpart->adjusted_shift+i], 0, sizeof (CVDT));
 
 		// Check for pre-processed other poly
-		invec2_preprocessed = is_preprocessed_poly (gw_invec2);
-		invec2_pre_ffted = invec2_preprocessed && is_preffted_poly (gw_invec2);
+		invec2_pre_ffted = is_preprocessed_poly (gw_invec2) && is_preffted_poly (gw_invec2);
 
 		// Read invec1 on processing of first other poly.  For FFT implementation we usually read invec1 into a buffer shared
 		// with tmpvec (the buffer that will hold the FFT of invec1).
-		if (i == 0) {
-			if (!invec1_preprocessed) read_line (pmdata, &rwlsd1);
-			else read_preprocess_line (pmdata, &rwlsd1);
-		}
+		if (i == 0) read_line (pmdata, &rwlsd1);
 		// Plan should not change strip_monic_from_invec1 so that we can read invec1 just once (very important since outvecs can output to invec1)
 		ASSERTG (i == 0 || strip_monic_from_invec1 == plan->planpart[i-1].strip_monic_from_invec1);
 
@@ -3904,8 +4385,7 @@ void polymult_line (
 		invec2 = (planpart->impl == POLYMULT_IMPL_FFT && !post_monic_addin_invec2) ? outvec : invec2_buffer;
 		// Prepare for read_line and write_line calls
 		rwlsd2[i].lsd = rwlsd1.lsd;			// Copy data initialized by prep_line
-		if (!invec2_preprocessed) read_line (pmdata, &rwlsd2[i]);
-		else read_preprocess_line (pmdata, &rwlsd2[i]);
+		read_line (pmdata, &rwlsd2[i]);
 
 		// Now execute a brute force implementation.  Brute_line does implement circular_size, that will not need to be emulated later.
 		// Because brute_line implements circular_size, it must get true_outvec buffer.
@@ -3930,16 +4410,28 @@ void polymult_line (
 			if (!invec2_pre_ffted) fft_options |= FORWARD_FFT_INVEC2;
 			// If we're FFTing invec1, copy and/or zero pad as necessary
 			if (fft_options & FORWARD_FFT_INVEC1) {
-				if (invec1 != tmpvec) memcpy (tmpvec, invec1, (size_t) invec1_size * sizeof (CVDT));
-				memset (tmpvec + invec1_size, 0, (size_t) (fft_size - invec1_size) * sizeof (CVDT));
+//GW				if (invec1 != tmpvec) memcpy (tmpvec, invec1, (size_t) invec1_size * sizeof (CVDT));
+//GW				memset (tmpvec + invec1_size, 0, (size_t) (fft_size - invec1_size) * sizeof (CVDT));
 			}
 			// If we're FFTing invec2, copy and/or zero pad as necessary
 			if (fft_options & FORWARD_FFT_INVEC2) {
-				if (invec2 != outvec) memcpy (outvec, invec2, (size_t) invec2_size * sizeof (CVDT));
-				memset (outvec + invec2_size, 0, (size_t) (fft_size - invec2_size) * sizeof (CVDT));
+//GW				if (invec2 != outvec) memcpy (outvec, invec2, (size_t) invec2_size * sizeof (CVDT));
+//GW				memset (outvec + invec2_size, 0, (size_t) (fft_size - invec2_size) * sizeof (CVDT));
 			}
 			// Now do the necessary forward FFTs, pointwise multiply, and inverse FFT.
-			fft_line (pmdata, tmpvec, outvec, outvec, scratch, fft_size, fft_options);
+//GW: Have fft_line detect pre-ffted inputs (or set flag here?)
+//GW: Some of these can be set outside of the loop
+			fftd.rwlsd1 = &rwlsd1;
+			fftd.rwlsd2 = &rwlsd2[i];
+			fftd.invec1 = tmpvec;
+			fftd.invec1_size = invec1_size;
+			fftd.invec2 = outvec;
+			fftd.invec2_size = invec2_size;
+			fftd.outvec = outvec;
+			fftd.scratch = scratch;
+			fftd.options = fft_options;
+			fftd.fft_size = fft_size;
+			fft_line (pmdata, &fftd);
 			// Remember poly FFT size for next invec2
 			prev_fft_size = fft_size;
 		}
