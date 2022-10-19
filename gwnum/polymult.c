@@ -67,6 +67,8 @@
 //     FFT so as to support brute/Karatsuba.  Perhaps monics complicate things too - and avoiding FFTing the FMA addin vector could well be faster.
 // 79) Pick_pass_sizes only puts powers of two in pass 2.  Does this lead to nasty 4KB strides that we could avoid?  Add padding, maybe only in scratch area?
 // 80) put read-specific and write-specific data within a union in read_write_line_slice_data
+// 81) 2 levels of radix-8 is cheaper than 3 levels of radix-4.  If radix-8 is cheaper than radix-4, perhaps a radix-6 would let us use a faster radix-8 than 2 radix-4s.
+
 
 /* Opcodes for helper thread */
 
@@ -330,6 +332,20 @@ typedef struct {
 				  (a).real = fmsubpd ((b).real, (c).real, __tmpproduct__); }						// a = b * c
 #define cvconjmul(a,b,c)	(a).real = fmaddpd ((b).real, (c).real, mulpd ((b).imag, (c).imag)), \
 				(a).imag = fmsubpd ((b).imag, (c).real, mulpd ((b).real, (c).imag))					// a = b * conjugate(c)
+// Butterfly operations
+#define cvaddsub(a1,a2,b,c)		cvadd (a1, b, c), cvsub (a2, b, c)					// a1 = b + c, a2 = b - c
+#define cvsubadd(a1,a2,b,c)		cvaddsub (a2, a1, b, c)							// a1 = b - c, a2 = b + c
+#define cviaddsub(a1,a2,b,c)		cviadd (a1, b, c), cvisub (a2, b, c)					// a1 = b + i*c, a2 = b - i*c
+#define cvisubadd(a1,a2,b,c)		cviaddsub (a2, a1, b, c)						// a1 = b - i*c, a2 = b + i*c
+#if !VFMA
+#define cvaddsubfm(a1,a2,b,const_d,c)	{ CVDT _dc; cvrmul (_dc, const_d, c); cvadd (a1, b, _dc); cvsub (a2, b, _dc); }		// a1,a2 = b +,- const_d*c
+#define cviaddsubfm(a1,a2,b,const_d,c)	{ CVDT _dc; cvrmul (_dc, const_d, c); cviadd (a1, b, _dc); cvisub (a2, b, _dc); }	// a1,a2 = b +,- i*const_d*c
+#else
+#define cvaddsubfm(a1,a2,b,const_d,c)	cvaddfm (a1, b, const_d, c), cvsubfm (a2, b, const_d, c)		// a1 = b + const_d*c, a2 = b - const_d*c
+#define cviaddsubfm(a1,a2,b,const_d,c)	cviaddfm (a1, b, const_d, c), cvisubfm (a2, b, const_d, c)		// a1 = b + i*const_d*c, a2 = b - i*const_d*c
+#endif
+#define cvsubaddfm(a1,a2,b,const_d,c)	cvaddsubfm (a2,a1,b,const_d,c)						// a1 = b - const_d*c, a2 = b + const_d*c
+#define cvisubaddfm(a1,a2,b,const_d,c)	cviaddsubfm (a2,a1,b,const_d,c)						// a1 = b - i*const_d*c, a2 = b + i*const_d*c
 
 // Structure for twiddle vector data type.
 // Twiddles aren't stored as real & imag.  Instead they are stored as cos/sin & sin (a.k.a. real/imag & imag).  This provides more FMA opportunities.
@@ -2841,19 +2857,11 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 					CVDT c = src[instride1*(group + group_member + 2*stride)];
 					CVDT b_plus_c, b_minus_c, tmp23;
 
-					cvadd (b_plus_c, b, c);					// b + c
-					cvsub (b_minus_c, b, c);				// b - c
+					cvaddsub (b_plus_c, b_minus_c, b, c);			// b + c, b - c
 					cvsubfm (tmp23, a, half, b_plus_c);			// tmp23 = a - 0.5 * (b + c)
 
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-#if !VFMA
-						cvrmul (b_minus_c, _866, b_minus_c);
-						cviadd (b, tmp23, b_minus_c);			// b = tmp23 + i * .866 * (b - c)
-						cvisub (c, tmp23, b_minus_c);			// c = tmp23 - i * .866 * (b - c)
-#else
-						cviaddfm (b, tmp23, _866, b_minus_c);		// b = tmp23 + i * .866 * (b - c)
-						cvisubfm (c, tmp23, _866, b_minus_c);		// c = tmp23 - i * .866 * (b - c)
-#endif
+						cviaddsubfm (b, c, tmp23, _866, b_minus_c);	// b = tmp23 + i * .866 * (b - c), c = tmp23 - i * .866 * (b - c)
 						cvadd (a, a, b_plus_c);				// a + b + c
 						dest[outstride1*(group + group_member)] = a;
 						dest[outstride1*(group + group_member + stride)] = b;
@@ -2861,35 +2869,24 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 					}
 					else {			// Apply twiddles
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles1[2*twiddle_idx]);
-#if !VFMA
-						cvrmul (b_minus_c, _866, b_minus_c);
-						cvadd (a, a, b_plus_c);				// a + b + c
-						cviadd (b, tmp23, b_minus_c);			// b = tmp23 + i * .866 * (b - c)
-						cvisub (c, tmp23, b_minus_c);			// c = tmp23 - i * .866 * (b - c)
-						dest[outstride1*(group + group_member)] = a;
-						twidmul     (dest[outstride1*(group + group_member + stride)], b, twiddle1);
-						twidconjmul (dest[outstride1*(group + group_member + 2*stride)], c, twiddle1);
-#else
 						VDT sin866 = mulpd (_866, twiddle1.sin);
 						cvrmul (tmp23, twiddle1.sin, tmp23);
 						cvadd (a, a, b_plus_c);				// a + b + c
-						cviaddfm (b, tmp23, sin866, b_minus_c);		// b = tmp23 + i * .866 * (b - c)
-						cvisubfm (c, tmp23, sin866, b_minus_c);		// c = tmp23 - i * .866 * (b - c)
+						cviaddsubfm (b, c, tmp23, sin866, b_minus_c);	// b = tmp23 + i * .866 * (b - c), c = tmp23 - i * .866 * (b - c)
 						dest[outstride1*(group + group_member)] = a;
 						twidmuldelay     (dest[outstride1*(group + group_member + stride)], b, twiddle1);
 						twidconjmuldelay (dest[outstride1*(group + group_member + 2*stride)], c, twiddle1);
-#endif
 					}
 				}
 				if (group_member == stride) continue;
 
 				// Radix-3 reading two values and zero padding one value.  NOTE: group must be zero.
-				ASSERTG (group == 0);
+				ASSERTG (group == 0);  ASSERTG (outstride1 == 1); ASSERTG (instride1 == pd->pass_stride); ASSERTG (twiddle3_stride == 1);
 				if (group_member != 0) last_group_member = stride;	// We found some 3 value groups, the rest have 2 values
 				else if (src_size <= stride) last_group_member = 0;	// No groups have 2 values to read
 				else last_group_member = src_size - stride;		// Some groups have 2 values, the rest have 1 value
 				for ( ; group_member < last_group_member; group_member++) {
-					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle3_stride;
+					unsigned int twiddle_idx = group_member * instride1 + blki;
 					CVDT a = src[instride1*(group_member)];
 					CVDT b_in = src[instride1*(group_member + stride)];
 					CVDT b, c, tmp23;
@@ -2898,38 +2895,20 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
 						cvadd (a, a, b_in);				// a + (b + c=0)
-#if !VFMA
-						cvrmul (b_in, _866, b_in);
-						cviadd (b, tmp23, b_in);			// b = tmp23 + i * .866 * (b - c=0)
-						cvisub (c, tmp23, b_in);			// c = tmp23 - i * .866 * (b - c=0)
-#else
-						cviaddfm (b, tmp23, _866, b_in);		// b = tmp23 + i * .866 * (b - c=0)
-						cvisubfm (c, tmp23, _866, b_in);		// c = tmp23 - i * .866 * (b - c=0)
-#endif
-						dest[outstride1*(group_member)] = a;
-						dest[outstride1*(group_member + stride)] = b;
-						dest[outstride1*(group_member + 2*stride)] = c;
+						cviaddsubfm (b, c, tmp23, _866, b_in);		// b = tmp23 + i * .866 * (b - c=0), c = tmp23 - i * .866 * (b - c=0)
+						dest[group_member] = a;
+						dest[group_member + stride] = b;
+						dest[group_member + 2*stride] = c;
 					}
 					else {			// Apply twiddles
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles1[2*twiddle_idx]);
-#if !VFMA
-						cvadd (a, a, b_in);				// a + b + c=0
-						cvrmul (b_in, _866, b_in);
-						cviadd (b, tmp23, b_in);			// b = tmp23 + i * .866 * (b - c=0)
-						cvisub (c, tmp23, b_in);			// c = tmp23 - i * .866 * (b - c=0)
-						dest[outstride1*(group_member)] = a;
-						twidmul     (dest[outstride1*(group_member + stride)], b, twiddle1);
-						twidconjmul (dest[outstride1*(group_member + 2*stride)], c, twiddle1);
-#else
 						VDT sin866 = mulpd (_866, twiddle1.sin);
 						cvrmul (tmp23, twiddle1.sin, tmp23);
 						cvadd (a, a, b_in);				// a + b + c=0
-						cviaddfm (b, tmp23, sin866, b_in);		// b = tmp23 + i * .866 * (b - c=0)
-						cvisubfm (c, tmp23, sin866, b_in);		// c = tmp23 - i * .866 * (b - c=0)
-						dest[outstride1*(group_member)] = a;
-						twidmuldelay     (dest[outstride1*(group_member + stride)], b, twiddle1);
-						twidconjmuldelay (dest[outstride1*(group_member + 2*stride)], c, twiddle1);
-#endif
+						cviaddsubfm (b, c, tmp23, sin866, b_in);	// b = tmp23 + i * .866 * (b - c=0), c = tmp23 - i * .866 * (b - c=0)
+						dest[group_member] = a;
+						twidmuldelay     (dest[group_member + stride], b, twiddle1);
+						twidconjmuldelay (dest[group_member + 2*stride], c, twiddle1);
 					}
 				}
 
@@ -2937,26 +2916,26 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 				if (group_member != 0) last_group_member = stride;	// We found some 2 value groups, the rest have 1 value
 				else last_group_member = src_size;			// Some groups have 1 values, the rest have 0 values
 				for ( ; group_member < last_group_member; group_member++) {
-					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle3_stride;
+					unsigned int twiddle_idx = group_member * instride1 + blki;
 					CVDT a = src[instride1*(group_member)];
 
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-						dest[outstride1*(group_member)] = a;
-						dest[outstride1*(group_member + stride)] = a;
-						dest[outstride1*(group_member + 2*stride)] = a;
+						dest[group_member] = a;
+						dest[group_member + stride] = a;
+						dest[group_member + 2*stride] = a;
 					}
 					else {			// Apply twiddles
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles1[2*twiddle_idx]);
-						dest[outstride1*(group_member)] = a;
-						twidmulandconjmul (dest[outstride1*(group_member + stride)], dest[outstride1*(group_member + 2*stride)], a, twiddle1);
+						dest[group_member] = a;
+						twidmulandconjmul (dest[group_member + stride], dest[group_member + 2*stride], a, twiddle1);
 					}
 				}
 
 				// Radix-3 reading zero values and zero padding three values.  NOTE: group must be zero.
 				for ( ; group_member < stride; group_member++) {
-					memset (&dest[outstride1*(group_member)], 0, sizeof (CVDT));
-					memset (&dest[outstride1*(group_member + stride)], 0, sizeof (CVDT));
-					memset (&dest[outstride1*(group_member + 2*stride)], 0, sizeof (CVDT));
+					memset (&dest[group_member], 0, sizeof (CVDT));
+					memset (&dest[group_member + stride], 0, sizeof (CVDT));
+					memset (&dest[group_member + 2*stride], 0, sizeof (CVDT));
 				}
 			    }
 			}
@@ -3013,19 +2992,8 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 					cvadd   (a, a, c_plus_d);				// a + b + c + d + e
 
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-#if !VFMA
-						cvrmul (tmp25b, _951, tmp25b);			// tmp25b *= .951
-						cvrmul (tmp34b, _951, tmp34b);			// tmp34b *= .951
-						cviadd (b, tmp25a, tmp25b);			// b = tmp25a + i*tmp25b
-						cvisub (e, tmp25a, tmp25b);			// e = tmp25a - i*tmp25b
-						cvisub (c, tmp34a, tmp34b);			// c = tmp34a + i*tmp34b
-						cviadd (d, tmp34a, tmp34b);			// d = tmp34a - i*tmp34b
-#else
-						cviaddfm (b, tmp25a, _951, tmp25b);		// b = tmp25a + i*.951*tmp25b
-						cvisubfm (e, tmp25a, _951, tmp25b);		// e = tmp25a - i*.951*tmp25b
-						cvisubfm (c, tmp34a, _951, tmp34b);		// c = tmp34a + i*.951*tmp34b
-						cviaddfm (d, tmp34a, _951, tmp34b);		// d = tmp34a - i*.951*tmp34b
-#endif
+						cviaddsubfm (b, e, tmp25a, _951, tmp25b);	// b = tmp25a + i*.951*tmp25b, e = tmp25a - i*.951*tmp25b
+						cvisubaddfm (c, d, tmp34a, _951, tmp34b);	// c = tmp34a + i*.951*tmp34b, d = tmp34a - i*.951*tmp34b
 						dest[outstride1*(group + group_member)] = a;
 						dest[outstride1*(group + group_member + stride)]   = b;
 						dest[outstride1*(group + group_member + 2*stride)] = c;
@@ -3035,44 +3003,28 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 					else {			// Apply twiddles
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
 						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
-#if !VFMA
-						cvrmul (tmp25b, _951, tmp25b);			// tmp25b *= .951
-						cvrmul (tmp34b, _951, tmp34b);			// tmp34b *= .951
-						cviadd (b, tmp25a, tmp25b);			// b = tmp25a + i*tmp25b
-						cvisub (e, tmp25a, tmp25b);			// e = tmp25a - i*tmp25b
-						cvisub (c, tmp34a, tmp34b);			// c = tmp34a + i*tmp34b
-						cviadd (d, tmp34a, tmp34b);			// d = tmp34a - i*tmp34b
-						dest[outstride1*(group + group_member)] = a;
-						twidmul     (dest[outstride1*(group + group_member + stride)], b, twiddle1);
-						twidmul     (dest[outstride1*(group + group_member + 2*stride)], c, twiddle2);
-						twidconjmul (dest[outstride1*(group + group_member + 3*stride)], d, twiddle2);
-						twidconjmul (dest[outstride1*(group + group_member + 4*stride)], e, twiddle1);
-#else
 						VDT sin1_951 = mulpd (_951, twiddle1.sin);
 						VDT sin2_951 = mulpd (_951, twiddle2.sin);
 						cvrmul   (tmp25a, twiddle1.sin, tmp25a);
 						cvrmul   (tmp34a, twiddle2.sin, tmp34a);
-						cviaddfm (b, tmp25a, sin1_951, tmp25b);		// b = tmp25a + i*.951*tmp25b
-						cvisubfm (e, tmp25a, sin1_951, tmp25b);		// e = tmp25a - i*.951*tmp25b
-						cvisubfm (c, tmp34a, sin2_951, tmp34b);		// c = tmp34a + i*.951*tmp34b
-						cviaddfm (d, tmp34a, sin2_951, tmp34b);		// d = tmp34a - i*.951*tmp34b
+						cviaddsubfm (b, e, tmp25a, sin1_951, tmp25b);	// b = tmp25a + i*.951*tmp25b, e = tmp25a - i*.951*tmp25b
+						cvisubaddfm (c, d, tmp34a, sin2_951, tmp34b);	// c = tmp34a + i*.951*tmp34b, d = tmp34a - i*.951*tmp34b
 						dest[outstride1*(group + group_member)] = a;
 						twidmuldelay     (dest[outstride1*(group + group_member + stride)], b, twiddle1);
 						twidmuldelay     (dest[outstride1*(group + group_member + 2*stride)], c, twiddle2);
 						twidconjmuldelay (dest[outstride1*(group + group_member + 3*stride)], d, twiddle2);
 						twidconjmuldelay (dest[outstride1*(group + group_member + 4*stride)], e, twiddle1);
-#endif
 					}
 				}
 				if (group_member == stride) continue;
 
 				// Radix-5 reading four values and zero padding one value.  NOTE: group must be zero.
-				ASSERTG (group == 0);
+				ASSERTG (group == 0);  ASSERTG (outstride1 == 1); ASSERTG (instride1 == pd->pass_stride); ASSERTG (twiddle45_stride == 1);
 				if (group_member != 0) last_group_member = stride;	// We found some 5 value groups, the rest have 4 values
 				else if (src_size <= 3 * stride) last_group_member = 0;	// No groups have 4 values to read
 				else last_group_member = src_size - 3 * stride;		// Some groups have 4 values, the rest have 3 values
 				for ( ; group_member < last_group_member; group_member++) {
-					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle45_stride;
+					unsigned int twiddle_idx = group_member * instride1 + blki;
 					CVDT a = src[instride1*(group_member)];
 					CVDT b = src[instride1*(group_member + stride)];
 					CVDT c = src[instride1*(group_member + 2*stride)];
@@ -3092,55 +3044,28 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 					cvadd   (a, a, c_plus_d);				// a + b + c + d + e
 
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-#if !VFMA
-						cvrmul (tmp25b, _951, tmp25b);			// tmp25b *= .951
-						cvrmul (tmp34b, _951, tmp34b);			// tmp34b *= .951
-						cviadd (b, tmp25a, tmp25b);			// b = tmp25a + i*tmp25b
-						cvisub (e, tmp25a, tmp25b);			// e = tmp25a - i*tmp25b
-						cvisub (c, tmp34a, tmp34b);			// c = tmp34a + i*tmp34b
-						cviadd (d, tmp34a, tmp34b);			// d = tmp34a - i*tmp34b
-#else
-						cviaddfm (b, tmp25a, _951, tmp25b);		// b = tmp25a + i*.951*tmp25b
-						cvisubfm (e, tmp25a, _951, tmp25b);		// e = tmp25a - i*.951*tmp25b
-						cvisubfm (c, tmp34a, _951, tmp34b);		// c = tmp34a + i*.951*tmp34b
-						cviaddfm (d, tmp34a, _951, tmp34b);		// d = tmp34a - i*.951*tmp34b
-#endif
-						dest[outstride1*(group_member)] = a;
-						dest[outstride1*(group_member + stride)]   = b;
-						dest[outstride1*(group_member + 2*stride)] = c;
-						dest[outstride1*(group_member + 3*stride)] = d;
-						dest[outstride1*(group_member + 4*stride)] = e;
+						cviaddsubfm (b, e, tmp25a, _951, tmp25b);	// b = tmp25a + i*.951*tmp25b, e = tmp25a - i*.951*tmp25b
+						cvisubaddfm (c, d, tmp34a, _951, tmp34b);	// c = tmp34a + i*.951*tmp34b, d = tmp34a - i*.951*tmp34b
+						dest[group_member] = a;
+						dest[group_member + stride]   = b;
+						dest[group_member + 2*stride] = c;
+						dest[group_member + 3*stride] = d;
+						dest[group_member + 4*stride] = e;
 					}
 					else {			// Apply twiddles
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
 						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
-#if !VFMA
-						cvrmul (tmp25b, _951, tmp25b);			// tmp25b *= .951
-						cvrmul (tmp34b, _951, tmp34b);			// tmp34b *= .951
-						cviadd (b, tmp25a, tmp25b);			// b = tmp25a + i*tmp25b
-						cvisub (e, tmp25a, tmp25b);			// e = tmp25a - i*tmp25b
-						cvisub (c, tmp34a, tmp34b);			// c = tmp34a + i*tmp34b
-						cviadd (d, tmp34a, tmp34b);			// d = tmp34a - i*tmp34b
-						dest[outstride1*(group_member)] = a;
-						twidmul     (dest[outstride1*(group_member + stride)], b, twiddle1);
-						twidmul     (dest[outstride1*(group_member + 2*stride)], c, twiddle2);
-						twidconjmul (dest[outstride1*(group_member + 3*stride)], d, twiddle2);
-						twidconjmul (dest[outstride1*(group_member + 4*stride)], e, twiddle1);
-#else
 						VDT sin1_951 = mulpd (_951, twiddle1.sin);
 						VDT sin2_951 = mulpd (_951, twiddle2.sin);
 						cvrmul   (tmp25a, twiddle1.sin, tmp25a);
 						cvrmul   (tmp34a, twiddle2.sin, tmp34a);
-						cviaddfm (b, tmp25a, sin1_951, tmp25b);		// b = tmp25a + i*.951*tmp25b
-						cvisubfm (e, tmp25a, sin1_951, tmp25b);		// e = tmp25a - i*.951*tmp25b
-						cvisubfm (c, tmp34a, sin2_951, tmp34b);		// c = tmp34a + i*.951*tmp34b
-						cviaddfm (d, tmp34a, sin2_951, tmp34b);		// d = tmp34a - i*.951*tmp34b
-						dest[outstride1*(group_member)] = a;
-						twidmuldelay     (dest[outstride1*(group_member + stride)], b, twiddle1);
-						twidmuldelay     (dest[outstride1*(group_member + 2*stride)], c, twiddle2);
-						twidconjmuldelay (dest[outstride1*(group_member + 3*stride)], d, twiddle2);
-						twidconjmuldelay (dest[outstride1*(group_member + 4*stride)], e, twiddle1);
-#endif
+						cviaddsubfm (b, e, tmp25a, sin1_951, tmp25b);	// b = tmp25a + i*.951*tmp25b, e = tmp25a - i*.951*tmp25b
+						cvisubaddfm (c, d, tmp34a, sin2_951, tmp34b);	// c = tmp34a + i*.951*tmp34b, d = tmp34a - i*.951*tmp34b
+						dest[group_member] = a;
+						twidmuldelay     (dest[group_member + stride], b, twiddle1);
+						twidmuldelay     (dest[group_member + 2*stride], c, twiddle2);
+						twidconjmuldelay (dest[group_member + 3*stride], d, twiddle2);
+						twidconjmuldelay (dest[group_member + 4*stride], e, twiddle1);
 					}
 				}
 
@@ -3149,7 +3074,7 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 				else if (src_size <= 2 * stride) last_group_member = 0;	// No groups have 3 values to read
 				else last_group_member = src_size - 2 * stride;		// Some groups have 3 values, the rest have 2 values
 				for ( ; group_member < last_group_member; group_member++) {
-					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle45_stride;
+					unsigned int twiddle_idx = group_member * instride1 + blki;
 					CVDT a = src[instride1*(group_member)];
 					CVDT b = src[instride1*(group_member + stride)];
 					CVDT c = src[instride1*(group_member + 2*stride)];
@@ -3165,55 +3090,28 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 					cvadd   (a, a, c);					// a + b + c + d=0 + e=0
 
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-#if !VFMA
-						cvrmul (tmp25b, _951, tmp25b);			// tmp25b *= .951
-						cvrmul (tmp34b, _951, tmp34b);			// tmp34b *= .951
-						cviadd (b, tmp25a, tmp25b);			// b = tmp25a + i*tmp25b
-						cvisub (e, tmp25a, tmp25b);			// e = tmp25a - i*tmp25b
-						cvisub (c, tmp34a, tmp34b);			// c = tmp34a + i*tmp34b
-						cviadd (d, tmp34a, tmp34b);			// d = tmp34a - i*tmp34b
-#else
-						cviaddfm (b, tmp25a, _951, tmp25b);		// b = tmp25a + i*.951*tmp25b
-						cvisubfm (e, tmp25a, _951, tmp25b);		// e = tmp25a - i*.951*tmp25b
-						cvisubfm (c, tmp34a, _951, tmp34b);		// c = tmp34a + i*.951*tmp34b
-						cviaddfm (d, tmp34a, _951, tmp34b);		// d = tmp34a - i*.951*tmp34b
-#endif
-						dest[outstride1*(group_member)] = a;
-						dest[outstride1*(group_member + stride)]   = b;
-						dest[outstride1*(group_member + 2*stride)] = c;
-						dest[outstride1*(group_member + 3*stride)] = d;
-						dest[outstride1*(group_member + 4*stride)] = e;
+						cviaddsubfm (b, e, tmp25a, _951, tmp25b);	// b = tmp25a + i*.951*tmp25b, e = tmp25a - i*.951*tmp25b
+						cvisubaddfm (c, d, tmp34a, _951, tmp34b);	// c = tmp34a + i*.951*tmp34b, d = tmp34a - i*.951*tmp34b
+						dest[group_member] = a;
+						dest[group_member + stride]   = b;
+						dest[group_member + 2*stride] = c;
+						dest[group_member + 3*stride] = d;
+						dest[group_member + 4*stride] = e;
 					}
 					else {			// Apply twiddles
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
 						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
-#if !VFMA
-						cvrmul (tmp25b, _951, tmp25b);			// tmp25b *= .951
-						cvrmul (tmp34b, _951, tmp34b);			// tmp34b *= .951
-						cviadd (b, tmp25a, tmp25b);			// b = tmp25a + i*tmp25b
-						cvisub (e, tmp25a, tmp25b);			// e = tmp25a - i*tmp25b
-						cvisub (c, tmp34a, tmp34b);			// c = tmp34a + i*tmp34b
-						cviadd (d, tmp34a, tmp34b);			// d = tmp34a - i*tmp34b
-						dest[outstride1*(group_member)] = a;
-						twidmul     (dest[outstride1*(group_member + stride)], b, twiddle1);
-						twidmul     (dest[outstride1*(group_member + 2*stride)], c, twiddle2);
-						twidconjmul (dest[outstride1*(group_member + 3*stride)], d, twiddle2);
-						twidconjmul (dest[outstride1*(group_member + 4*stride)], e, twiddle1);
-#else
 						VDT sin1_951 = mulpd (_951, twiddle1.sin);
 						VDT sin2_951 = mulpd (_951, twiddle2.sin);
 						cvrmul   (tmp25a, twiddle1.sin, tmp25a);
 						cvrmul   (tmp34a, twiddle2.sin, tmp34a);
-						cviaddfm (b, tmp25a, sin1_951, tmp25b);		// b = tmp25a + i*.951*tmp25b
-						cvisubfm (e, tmp25a, sin1_951, tmp25b);		// e = tmp25a - i*.951*tmp25b
-						cvisubfm (c, tmp34a, sin2_951, tmp34b);		// c = tmp34a + i*.951*tmp34b
-						cviaddfm (d, tmp34a, sin2_951, tmp34b);		// d = tmp34a - i*.951*tmp34b
-						dest[outstride1*(group_member)] = a;
-						twidmuldelay     (dest[outstride1*(group_member + stride)], b, twiddle1);
-						twidmuldelay     (dest[outstride1*(group_member + 2*stride)], c, twiddle2);
-						twidconjmuldelay (dest[outstride1*(group_member + 3*stride)], d, twiddle2);
-						twidconjmuldelay (dest[outstride1*(group_member + 4*stride)], e, twiddle1);
-#endif
+						cviaddsubfm (b, e, tmp25a, sin1_951, tmp25b);	// b = tmp25a + i*.951*tmp25b, e = tmp25a - i*.951*tmp25b
+						cvisubaddfm (c, d, tmp34a, sin2_951, tmp34b);	// c = tmp34a + i*.951*tmp34b, d = tmp34a - i*.951*tmp34b
+						dest[group_member] = a;
+						twidmuldelay     (dest[group_member + stride], b, twiddle1);
+						twidmuldelay     (dest[group_member + 2*stride], c, twiddle2);
+						twidconjmuldelay (dest[group_member + 3*stride], d, twiddle2);
+						twidconjmuldelay (dest[group_member + 4*stride], e, twiddle1);
 					}
 				}
 
@@ -3222,7 +3120,7 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 				else if (src_size <= stride) last_group_member = 0;	// No groups have 2 values to read
 				else last_group_member = src_size - stride;		// Some groups have 2 values, the rest have 1 value
 				for ( ; group_member < last_group_member; group_member++) {
-					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle45_stride;
+					unsigned int twiddle_idx = group_member * instride1 + blki;
 					CVDT a = src[instride1*(group_member)];
 					CVDT b_in = src[instride1*(group_member + stride)];
 					CVDT b, c, d, e, tmp25a, tmp34a;
@@ -3232,57 +3130,28 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 					cvadd   (a, a, b_in);					// a = a + b + c=0 + d=0 + e=0
 
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-#if !VFMA
-						CVDT tmp25b, tmp34b;
-						cvrmul (tmp25b, _951, b_in);			// tmp25b = b * .951
-						cvrmul (tmp34b, _m588, b_in);			// tmp34b = b * -.588
-						cviadd (b, tmp25a, tmp25b);			// b = tmp25a + i*tmp25b
-						cvisub (e, tmp25a, tmp25b);			// e = tmp25a - i*tmp25b
-						cvisub (c, tmp34a, tmp34b);			// c = tmp34a + i*tmp34b
-						cviadd (d, tmp34a, tmp34b);			// d = tmp34a - i*tmp34b
-#else
-						cviaddfm (b, tmp25a, _951, b_in);		// b = tmp25a + i*.951*b
-						cvisubfm (e, tmp25a, _951, b_in);		// e = tmp25a - i*.951*b
-						cvisubfm (c, tmp34a, _m588, b_in);		// c = tmp34a + i*-.588*b
-						cviaddfm (d, tmp34a, _m588, b_in);		// d = tmp34a - i*-.588*b
-#endif
-						dest[outstride1*(group + group_member)] = a;
-						dest[outstride1*(group + group_member + stride)]   = b;
-						dest[outstride1*(group + group_member + 2*stride)] = c;
-						dest[outstride1*(group + group_member + 3*stride)] = d;
-						dest[outstride1*(group + group_member + 4*stride)] = e;
+						cviaddsubfm (b, e, tmp25a, _951, b_in);		// b = tmp25a + i*.951*b, e = tmp25a - i*.951*b
+						cvisubaddfm (c, d, tmp34a, _m588, b_in);	// c = tmp34a + i*-.588*b, d = tmp34a - i*-.588*b
+						dest[group_member] = a;
+						dest[group_member + stride]   = b;
+						dest[group_member + 2*stride] = c;
+						dest[group_member + 3*stride] = d;
+						dest[group_member + 4*stride] = e;
 					}
 					else {			// Apply twiddles
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
 						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
-#if !VFMA
-						CVDT tmp25b, tmp34b;
-						cvrmul (tmp25b, _951, b_in);			// tmp25b = b * .951
-						cvrmul (tmp34b, _m588, b_in);			// tmp34b = b * -.588
-						cviadd (b, tmp25a, tmp25b);			// b = tmp25a + i*tmp25b
-						cvisub (e, tmp25a, tmp25b);			// e = tmp25a - i*tmp25b
-						cvisub (c, tmp34a, tmp34b);			// c = tmp34a + i*tmp34b
-						cviadd (d, tmp34a, tmp34b);			// d = tmp34a - i*tmp34b
-						dest[outstride1*(group_member)] = a;
-						twidmul     (dest[outstride1*(group_member + stride)], b, twiddle1);
-						twidmul     (dest[outstride1*(group_member + 2*stride)], c, twiddle2);
-						twidconjmul (dest[outstride1*(group_member + 3*stride)], d, twiddle2);
-						twidconjmul (dest[outstride1*(group_member + 4*stride)], e, twiddle1);
-#else
 						VDT sin1_951 = mulpd (_951, twiddle1.sin);
 						VDT sin2_m588 = mulpd (_m588, twiddle2.sin);
 						cvrmul   (tmp25a, twiddle1.sin, tmp25a);
 						cvrmul   (tmp34a, twiddle2.sin, tmp34a);
-						cviaddfm (b, tmp25a, sin1_951, b_in);		// b = tmp25a + i*.951*b
-						cvisubfm (e, tmp25a, sin1_951, b_in);		// e = tmp25a - i*.951*b
-						cvisubfm (c, tmp34a, sin2_m588, b_in);		// c = tmp34a + i*-.588*b
-						cviaddfm (d, tmp34a, sin2_m588, b_in);		// d = tmp34a - i*-.588*b
-						dest[outstride1*(group_member)] = a;
-						twidmuldelay     (dest[outstride1*(group_member + stride)], b, twiddle1);
-						twidmuldelay     (dest[outstride1*(group_member + 2*stride)], c, twiddle2);
-						twidconjmuldelay (dest[outstride1*(group_member + 3*stride)], d, twiddle2);
-						twidconjmuldelay (dest[outstride1*(group_member + 4*stride)], e, twiddle1);
-#endif
+						cviaddsubfm (b, e, tmp25a, sin1_951, b_in);	// b = tmp25a + i*.951*b, e = tmp25a - i*.951*b
+						cvisubaddfm (c, d, tmp34a, sin2_m588, b_in);	// c = tmp34a + i*-.588*b, d = tmp34a - i*-.588*b
+						dest[group_member] = a;
+						twidmuldelay     (dest[group_member + stride], b, twiddle1);
+						twidmuldelay     (dest[group_member + 2*stride], c, twiddle2);
+						twidconjmuldelay (dest[group_member + 3*stride], d, twiddle2);
+						twidconjmuldelay (dest[group_member + 4*stride], e, twiddle1);
 					}
 				}
 
@@ -3290,32 +3159,32 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 				if (group_member != 0) last_group_member = stride;	// We found some 2 value groups, the rest have 1 value
 				else last_group_member = src_size;			// Some groups have 1 value, the rest have 0 values
 				for ( ; group_member < last_group_member; group_member++) {
-					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle45_stride;
+					unsigned int twiddle_idx = group_member * instride1 + blki;
 					CVDT a = src[instride1*(group_member)];
 
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-						dest[outstride1*(group + group_member)] = a;
-						dest[outstride1*(group + group_member + stride)] = a;
-						dest[outstride1*(group + group_member + 2*stride)] = a;
-						dest[outstride1*(group + group_member + 3*stride)] = a;
-						dest[outstride1*(group + group_member + 4*stride)] = a;
+						dest[group_member] = a;
+						dest[group_member + stride] = a;
+						dest[group_member + 2*stride] = a;
+						dest[group_member + 3*stride] = a;
+						dest[group_member + 4*stride] = a;
 					}
 					else {			// Apply twiddles
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
 						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
-						dest[outstride1*(group_member)] = a;
-						twidmulandconjmul (dest[outstride1*(group_member + stride)], dest[outstride1*(group_member + 4*stride)], a, twiddle1);
-						twidmulandconjmul (dest[outstride1*(group_member + 2*stride)], dest[outstride1*(group_member + 3*stride)], a, twiddle2);
+						dest[group_member] = a;
+						twidmulandconjmul (dest[group_member + stride], dest[group_member + 4*stride], a, twiddle1);
+						twidmulandconjmul (dest[group_member + 2*stride], dest[group_member + 3*stride], a, twiddle2);
 					}
 				}
 
 				// Radix-5 reading zero values and zero padding five values.  NOTE: group must be zero.
 				for ( ; group_member < stride; group_member++) {
-					memset (&dest[outstride1*(group_member)], 0, sizeof (CVDT));
-					memset (&dest[outstride1*(group_member + stride)], 0, sizeof (CVDT));
-					memset (&dest[outstride1*(group_member + 2*stride)], 0, sizeof (CVDT));
-					memset (&dest[outstride1*(group_member + 3*stride)], 0, sizeof (CVDT));
-					memset (&dest[outstride1*(group_member + 4*stride)], 0, sizeof (CVDT));
+					memset (&dest[group_member], 0, sizeof (CVDT));
+					memset (&dest[group_member + stride], 0, sizeof (CVDT));
+					memset (&dest[group_member + 2*stride], 0, sizeof (CVDT));
+					memset (&dest[group_member + 3*stride], 0, sizeof (CVDT));
+					memset (&dest[group_member + 4*stride], 0, sizeof (CVDT));
 				}
 			    }
 			}
@@ -3338,17 +3207,14 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 					CVDT b = src[instride1*(group + group_member + stride)];
 					CVDT c = src[instride1*(group + group_member + 2*stride)];
 					CVDT d = src[instride1*(group + group_member + 3*stride)];
+					CVDT new_a, new_b, new_c, new_d;
 
-					CVDT new_c; cvsub (new_c, a, c);			// a - c
-					CVDT new_d; cvsub (new_d, b, d);			// b - d
-					CVDT new_a; cvadd (new_a, a, c);			// a + c
-					CVDT new_b; cvadd (new_b, b, d);			// b + d
+					cvaddsub (new_a, new_c, a, c);				// a + c, a - c
+					cvaddsub (new_b, new_d, b, d);				// b + d, b - d
 
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-						cviadd (c, new_c, new_d);			// c + id
-						cvisub (d, new_c, new_d);			// c - id
-						cvadd  (a, new_a, new_b);			// a + b
-						cvsub  (b, new_a, new_b);			// a - b
+						cvaddsub (a, b, new_a, new_b);			// a + b, a - b
+						cviaddsub (c, d, new_c, new_d);			// c + id, c - id
 						dest[outstride1*(group + group_member)] = a;
 						dest[outstride1*(group + group_member + 1*stride)] = c;		// Do not bit-reverse outputs
 						dest[outstride1*(group + group_member + 2*stride)] = b;
@@ -3357,78 +3223,49 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 					else {			// Apply twiddles
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
 						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
-#if !VFMA
-						cviadd (c, new_c, new_d);			// c + id
-						cvisub (d, new_c, new_d);			// c - id
-						cvadd  (a, new_a, new_b);			// a + b
-						cvsub  (b, new_a, new_b);			// a - b
-						dest[outstride1*(group + group_member)] = a;
-						twidmul     (dest[outstride1*(group + group_member + 1*stride)], c, twiddle1);
-						twidmul     (dest[outstride1*(group + group_member + 2*stride)], b, twiddle2);
-						twidconjmul (dest[outstride1*(group + group_member + 3*stride)], d, twiddle1);
-#else
 						cvrmul   (new_c, twiddle1.sin, new_c);
-						cvadd  (a, new_a, new_b);			// a + b
-						cvsub  (b, new_a, new_b);			// a - b
-						cviaddfm (c, new_c, twiddle1.sin, new_d);	// c + id
-						cvisubfm (d, new_c, twiddle1.sin, new_d);	// c - id
+						cvaddsub (a, b, new_a, new_b);			// a + b, a - b
+						cviaddsubfm (c, d, new_c, twiddle1.sin, new_d);	// c + id, c - id
 						dest[outstride1*(group + group_member)] = a;
 						twidmuldelay     (dest[outstride1*(group + group_member + 1*stride)], c, twiddle1);
 						twidmul          (dest[outstride1*(group + group_member + 2*stride)], b, twiddle2);
 						twidconjmuldelay (dest[outstride1*(group + group_member + 3*stride)], d, twiddle1);
-#endif
 					}
 				}
 				if (group_member == stride) continue;
 
 				// Radix-4 reading three values and zero padding one value.  NOTE: group must be zero.
-				ASSERTG (group == 0);
+				ASSERTG (group == 0);  ASSERTG (outstride1 == 1); ASSERTG (instride1 == pd->pass_stride); ASSERTG (twiddle45_stride == 1);
 				if (group_member != 0) last_group_member = stride;	// We found some 4 value groups, the rest have 3 values
 				else if (src_size <= 2 * stride) last_group_member = 0;	// No groups have 3 values to read
 				else last_group_member = src_size - 2 * stride;		// Some groups have 3 values, the rest have 2 values
 				for ( ; group_member < last_group_member; group_member++) {
-					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle45_stride;
+					unsigned int twiddle_idx = group_member * instride1 + blki;
 					CVDT a = src[instride1*(group_member)];
 					CVDT b_in = src[instride1*(group_member + stride)];
 					CVDT c = src[instride1*(group_member + 2*stride)];
-					CVDT b, d;
+					CVDT b, d, new_a, new_c;
 
-					CVDT new_c; cvsub (new_c, a, c);			// a - c
-					CVDT new_a; cvadd (new_a, a, c);			// a + c
+					cvaddsub (new_a, new_c, a, c);				// a + c, a - c
 
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-						cviadd (c, new_c, b_in);			// c + id
-						cvisub (d, new_c, b_in);			// c - id
-						cvadd  (a, new_a, b_in);			// a + b
-						cvsub  (b, new_a, b_in);			// a - b
-						dest[outstride1*(group_member)] = a;
-						dest[outstride1*(group_member + 1*stride)] = c;		// Do not bit-reverse outputs
-						dest[outstride1*(group_member + 2*stride)] = b;
-						dest[outstride1*(group_member + 3*stride)] = d;
+						cviaddsub (c, d, new_c, b_in);			// c + id, c - id
+						cvaddsub (a, b, new_a, b_in);			// a + b, a - b
+						dest[group_member] = a;
+						dest[group_member + 1*stride] = c;		// Do not bit-reverse outputs
+						dest[group_member + 2*stride] = b;
+						dest[group_member + 3*stride] = d;
 					}
 					else {			// Apply twiddles
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
 						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
-#if !VFMA
-						cviadd (c, new_c, b_in);			// c + id
-						cvisub (d, new_c, b_in);			// c - id
-						cvadd  (a, new_a, b_in);			// a + b
-						cvsub  (b, new_a, b_in);			// a - b
-						dest[outstride1*(group_member)] = a;
-						twidmul     (dest[outstride1*(group_member + 1*stride)], c, twiddle1);
-						twidmul     (dest[outstride1*(group_member + 2*stride)], b, twiddle2);
-						twidconjmul (dest[outstride1*(group_member + 3*stride)], d, twiddle1);
-#else
 						cvrmul   (new_c, twiddle1.sin, new_c);
-						cvadd    (a, new_a, b_in);			// a + b
-						cvsub    (b, new_a, b_in);			// a - b
-						cviaddfm (c, new_c, twiddle1.sin, b_in);	// c + id
-						cvisubfm (d, new_c, twiddle1.sin, b_in);	// c - id
-						dest[outstride1*(group_member)] = a;
-						twidmuldelay     (dest[outstride1*(group_member + 1*stride)], c, twiddle1);
-						twidmul          (dest[outstride1*(group_member + 2*stride)], b, twiddle2);
-						twidconjmuldelay (dest[outstride1*(group_member + 3*stride)], d, twiddle1);
-#endif
+						cvaddsub (a, b, new_a, b_in);			// a + b, a - b
+						cviaddsubfm (c, d, new_c, twiddle1.sin, b_in);	// c + id, c - id
+						dest[group_member] = a;
+						twidmuldelay     (dest[group_member + 1*stride], c, twiddle1);
+						twidmul          (dest[group_member + 2*stride], b, twiddle2);
+						twidconjmuldelay (dest[group_member + 3*stride], d, twiddle1);
 					}
 				}
 
@@ -3437,45 +3274,30 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 				else if (src_size <= stride) last_group_member = 0;	// No groups have 2 values to read
 				else last_group_member = src_size - stride;		// Some groups have 2 values, the rest have 1 value
 				for ( ; group_member < last_group_member; group_member++) {
-					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle45_stride;
+					unsigned int twiddle_idx = group_member * instride1 + blki;
 					CVDT a_in = src[instride1*(group_member)];
 					CVDT b_in = src[instride1*(group_member + stride)];
 					CVDT a, b, c, d;
 
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-						cviadd (c, a_in, b_in);				// c + id
-						cvisub (d, a_in, b_in);				// c - id
-						cvadd  (a, a_in, b_in);				// a + b
-						cvsub  (b, a_in, b_in);				// a - b
-						dest[outstride1*(group_member)] = a;
-						dest[outstride1*(group_member + 1*stride)] = c;		// Do not bit-reverse outputs
-						dest[outstride1*(group_member + 2*stride)] = b;
-						dest[outstride1*(group_member + 3*stride)] = d;
+						cvaddsub (a, b, a_in, b_in);			// a + b, a - b
+						cviaddsub (c, d, a_in, b_in);			// c + id, c - id
+						dest[group_member] = a;
+						dest[group_member + 1*stride] = c;		// Do not bit-reverse outputs
+						dest[group_member + 2*stride] = b;
+						dest[group_member + 3*stride] = d;
 					}
 					else {			// Apply twiddles
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
 						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
-#if !VFMA
-						cviadd (c, a_in, b_in);				// c + id
-						cvisub (d, a_in, b_in);				// c - id
-						cvadd  (a, a_in, b_in);				// a + b
-						cvsub  (b, a_in, b_in);				// a - b
-						dest[outstride1*(group_member)] = a;
-						twidmul     (dest[outstride1*(group_member + 1*stride)], c, twiddle1);
-						twidmul     (dest[outstride1*(group_member + 2*stride)], b, twiddle2);
-						twidconjmul (dest[outstride1*(group_member + 3*stride)], d, twiddle1);
-#else
 						CVDT new_c;
 						cvrmul   (new_c, twiddle1.sin, a_in);
-						cvadd    (a, a_in, b_in);			// a + b
-						cvsub    (b, a_in, b_in);			// a - b
-						cviaddfm (c, new_c, twiddle1.sin, b_in);		// c + id
-						cvisubfm (d, new_c, twiddle1.sin, b_in);		// c - id
-						dest[outstride1*(group_member)] = a;
-						twidmuldelay     (dest[outstride1*(group_member + 1*stride)], c, twiddle1);
-						twidmul          (dest[outstride1*(group_member + 2*stride)], b, twiddle2);
-						twidconjmuldelay (dest[outstride1*(group_member + 3*stride)], d, twiddle1);
-#endif
+						cvaddsub (a, b, a_in, b_in);			// a + b, a - b
+						cviaddsubfm (c, d, new_c, twiddle1.sin, b_in);	// c + id, c - id
+						dest[group_member] = a;
+						twidmuldelay     (dest[group_member + 1*stride], c, twiddle1);
+						twidmul          (dest[group_member + 2*stride], b, twiddle2);
+						twidconjmuldelay (dest[group_member + 3*stride], d, twiddle1);
 					}
 				}
 
@@ -3483,30 +3305,30 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 				if (group_member != 0) last_group_member = stride;	// We found some 2 value groups, the rest have 1 value
 				else last_group_member = src_size;			// Some groups have 1 value, the rest have 0 values
 				for ( ; group_member < last_group_member; group_member++) {
-					unsigned int twiddle_idx = ((group_member * pd->pass_stride) + blki) * twiddle45_stride;
+					unsigned int twiddle_idx = group_member * instride1 + blki;
 					CVDT a = src[instride1*(group_member)];
 
 					if (twiddle_idx == 0) {	// First group member's twiddles are 1+0i, skip twiddle multiply
-						dest[outstride1*(group_member)] = a;
-						dest[outstride1*(group_member + 1*stride)] = a;
-						dest[outstride1*(group_member + 2*stride)] = a;
-						dest[outstride1*(group_member + 3*stride)] = a;
+						dest[group_member] = a;
+						dest[group_member + 1*stride] = a;
+						dest[group_member + 2*stride] = a;
+						dest[group_member + 3*stride] = a;
 					}
 					else {			// Apply twiddles
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
 						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
-						dest[outstride1*(group_member)] = a;
-						twidmulandconjmul (dest[outstride1*(group_member + 1*stride)], dest[outstride1*(group_member + 3*stride)], a, twiddle1);
-						twidmul     (dest[outstride1*(group_member + 2*stride)], a, twiddle2);
+						dest[group_member] = a;
+						twidmulandconjmul (dest[group_member + 1*stride], dest[group_member + 3*stride], a, twiddle1);
+						twidmul           (dest[group_member + 2*stride], a, twiddle2);
 					}
 				}
 
 				// Radix-4 reading zero values and zero padding four values.  NOTE: group must be zero.
 				for ( ; group_member < stride; group_member++) {
-					memset (&dest[outstride1*(group_member)], 0, sizeof (CVDT));
-					memset (&dest[outstride1*(group_member + stride)], 0, sizeof (CVDT));
-					memset (&dest[outstride1*(group_member + 2*stride)], 0, sizeof (CVDT));
-					memset (&dest[outstride1*(group_member + 3*stride)], 0, sizeof (CVDT));
+					memset (&dest[group_member], 0, sizeof (CVDT));
+					memset (&dest[group_member + stride], 0, sizeof (CVDT));
+					memset (&dest[group_member + 2*stride], 0, sizeof (CVDT));
+					memset (&dest[group_member + 3*stride], 0, sizeof (CVDT));
 				}
 			    }
 			}
@@ -3517,6 +3339,8 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 			    VDT _707 = broadcastsd (0.70710678118654752440084436210485);
 			    stride = 1;
 			    for (unsigned int group = 0; group < pd->pass_size; group += stride * 8) {
+//GW: The group_member loop is not needed
+//GW: Cost out radix-8 vs radix-4
 				for (unsigned int group_member = 0; group_member < stride; group_member++) {
 					CVDT a = src[group + group_member];
 					CVDT b = src[group + group_member + stride];
@@ -3528,45 +3352,24 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 					CVDT h = src[group + group_member + 7*stride];
 
 					CVDT new_a, new_b, new_c, new_d, new_e, new_f, new_g, new_h, twid_f, twid_h;
-					cvadd (new_a, a, e);					// a + e
-					cvsub (new_e, a, e);					// a - e
-					cvadd (new_b, b, f);					// b + f
-					cvsub (new_f, b, f);					// b - f
-					cvadd (new_c, c, g);					// c + g
-					cvsub (new_g, c, g);					// c - g
-					cvadd (new_d, d, h);					// d + h
-					cvsub (new_h, d, h);					// d - h
+					cvaddsub (new_a, new_e, a, e);				// a + e, a - e
+					cvaddsub (new_b, new_f, b, f);				// b + f, b - f
+					cvaddsub (new_c, new_g, c, g);				// c + g, c - g
+					cvaddsub (new_d, new_h, d, h);				// d + h, d - h
 
-					cvadd  (a, new_a, new_c);				// a + c
-					cvsub  (c, new_a, new_c);				// a - c
-					cvadd  (b, new_b, new_d);				// b + d
-					cvsub  (d, new_b, new_d);				// b - d
-					cviadd (e, new_e, new_g);				// e + ig
-					cvisub (g, new_e, new_g);				// e - ig
-					cviadd (f, new_f, new_h);				// f + ih
-					cvisub (h, new_f, new_h);				// f - ih
+					cvaddsub (a, c, new_a, new_c);				// a + c, a - c
+					cvaddsub (b, d, new_b, new_d);				// b + d, b - d
+					cviaddsub (e, g, new_e, new_g);				// e + ig, e - ig
+					cviaddsub (f, h, new_f, new_h);				// f + ih, f - ih
 
-					cvadd  (new_a, a, b);					// a + b
-					cvsub  (new_b, a, b);					// a - b
-					cviadd (new_c, c, d);					// c + id
-					cvisub (new_d, c, d);					// c - id
+					cvaddsub (new_a, new_b, a, b);				// a + b, a - b
+					cviaddsub (new_c, new_d, c, d);				// c + id, c - id
 					twid_f.real = subpd (f.real, f.imag);			// twiddled f / .707
 					twid_f.imag = addpd (f.real, f.imag);
 					twid_h.real = addpd (h.real, h.imag);			// -twiddled h / .707
 					twid_h.imag = subpd (h.imag, h.real);
-#if !VFMA
-					cvrmul (twid_f, _707, twid_f);				// twiddled f
-					cvrmul (twid_h, _707, twid_h);				// -twiddled h
-					cvadd (new_e, e, twid_f);				// e + (sqrthalf+sqrthalf*i)f
-					cvsub (new_f, e, twid_f);				// e - (sqrthalf+sqrthalf*i)f
-					cvsub (new_g, g, twid_h);				// g + (-sqrthalf+sqrthalf*i)h
-					cvadd (new_h, g, twid_h);				// g - (-sqrthalf+sqrthalf*i)h
-#else
-					cvaddfm (new_e, e, _707, twid_f);			// e + (sqrthalf+sqrthalf*i)f
-					cvsubfm (new_f, e, _707, twid_f);			// e - (sqrthalf+sqrthalf*i)f
-					cvsubfm (new_g, g, _707, twid_h);			// g + (-sqrthalf+sqrthalf*i)h
-					cvaddfm (new_h, g, _707, twid_h);			// g - (-sqrthalf+sqrthalf*i)h
-#endif
+					cvaddsubfm (new_e, new_f, e, _707, twid_f);		// e + (sqrthalf+sqrthalf*i)f, e - (sqrthalf+sqrthalf*i)f
+					cvsubaddfm (new_g, new_h, g, _707, twid_h);		// g + (-sqrthalf+sqrthalf*i)h, g - (-sqrthalf+sqrthalf*i)h
 
 					dest[group + group_member] = new_a;			// Do not bit reverse outputs
 					dest[group + group_member + 4*stride] = new_b;
@@ -3633,71 +3436,26 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 
 					// Do the distance = 4 round, mul by inv_fft_size as efficiently as possible
 					cvrmul (a, pd->inv_fft_size, a);
-#if !VFMA
-					cvrmul (e, pd->inv_fft_size, e);
-					cvadd (new_a, a, e);					// a + e
-					cvsub (new_e, a, e);					// a - e
-#else
-					cvaddfm (new_a, a, pd->inv_fft_size, e);		// a + e
-					cvsubfm (new_e, a, pd->inv_fft_size, e);		// a - e
-#endif
-					cvadd (new_b, b, f);					// b + f
-					cvsub (new_f, b, f);					// b - f
-					cvadd (new_c, c, g);					// c + g
-					cvsub (new_g, c, g);					// c - g
-					cvadd (new_d, d, h);					// d + h
-					cvsub (new_h, d, h);					// d - h
+					cvaddsubfm (new_a, new_e, a, pd->inv_fft_size, e);	// a + e, a - e
+					cvaddsub (new_b, new_f, b, f);				// b + f, b - f
+					cvaddsub (new_c, new_g, c, g);				// c + g, c - g
+					cvaddsub (new_d, new_h, d, h);				// d + h, d - h
 
 					// Do the distance = 2 round, mul by inv_fft_size as efficiently as possible
-#if !VFMA
-					cvrmul (new_c, pd->inv_fft_size, new_c);
-					cvrmul (new_g, pd->inv_fft_size, new_g);
-					cvadd  (a, new_a, new_c);				// a + c
-					cvsub  (c, new_a, new_c);				// a - c
-					cvisub (e, new_e, new_g);				// e - ig
-					cviadd (g, new_e, new_g);				// e + ig
-#else
-					cvaddfm  (a, new_a, pd->inv_fft_size, new_c);		// a + c
-					cvsubfm  (c, new_a, pd->inv_fft_size, new_c);		// a - c
-					cvisubfm (e, new_e, pd->inv_fft_size, new_g);		// e - ig
-					cviaddfm (g, new_e, pd->inv_fft_size, new_g);		// e + ig
-#endif
-					cvadd  (b, new_b, new_d);				// b + d
-					cvsub  (d, new_b, new_d);				// b - d
-					cvisub (f, new_f, new_h);				// f - ih
-					cviadd (h, new_f, new_h);				// f + ih
+					cvaddsubfm  (a, c, new_a, pd->inv_fft_size, new_c);	// a + c, a - c
+					cvisubaddfm (e, g, new_e, pd->inv_fft_size, new_g);	// e - ig, e + ig
+					cvaddsub (b, d, new_b, new_d);				// b + d, b - d
+					cvisubadd (f, h, new_f, new_h);				// f - ih, f + ih
 
 					// Do the distance = 1 round, mul by inv_fft_size as efficiently as possible
-#if !VFMA
-					cvrmul (b, pd->inv_fft_size, b);
-					cvrmul (d, pd->inv_fft_size, d);
-					cvadd  (new_a, a, b);					// a + b
-					cvsub  (new_b, a, b);					// a - b
-					cvisub (new_c, c, d);					// c - id
-					cviadd (new_d, c, d);					// c + id
-#else
-					cvaddfm  (new_a, a, pd->inv_fft_size, b);		// a + b
-					cvsubfm  (new_b, a, pd->inv_fft_size, b);		// a - b
-					cvisubfm (new_c, c, pd->inv_fft_size, d);		// c - id
-					cviaddfm (new_d, c, pd->inv_fft_size, d);		// c + id
-#endif
+					cvaddsubfm  (new_a, new_b, a, pd->inv_fft_size, b);	// a + b, a - b
+					cvisubaddfm (new_c, new_d, c, pd->inv_fft_size, d);	// c - id, c + id
 					twid_f.real = addpd (f.real, f.imag);			// twiddled f / .707
 					twid_f.imag = subpd (f.imag, f.real);
 					twid_h.real = subpd (h.real, h.imag);			// -twiddled h / .707
 					twid_h.imag = addpd (h.real, h.imag);
-#if !VFMA
-					cvrmul (twid_f, pd->inv_fft_size_707, twid_f);		// twiddled f
-					cvrmul (twid_h, pd->inv_fft_size_707, twid_h);		// -twiddled h
-					cvadd (new_e, e, twid_f);				// e + (sqrthalf-sqrthalf*i)f
-					cvsub (new_f, e, twid_f);				// e - (sqrthalf-sqrthalf*i)f
-					cvsub (new_g, g, twid_h);				// g + (-sqrthalf-sqrthalf*i)h
-					cvadd (new_h, g, twid_h);				// g - (-sqrthalf-sqrthalf*i)h
-#else
-					cvaddfm (new_e, e, pd->inv_fft_size_707, twid_f);	// e + (sqrthalf-sqrthalf*i)f
-					cvsubfm (new_f, e, pd->inv_fft_size_707, twid_f);	// e - (sqrthalf-sqrthalf*i)f
-					cvsubfm (new_g, g, pd->inv_fft_size_707, twid_h);	// g + (-sqrthalf-sqrthalf*i)h
-					cvaddfm (new_h, g, pd->inv_fft_size_707, twid_h);	// g - (-sqrthalf-sqrthalf*i)h
-#endif
+					cvaddsubfm (new_e, new_f, e, pd->inv_fft_size_707, twid_f); // e + (sqrthalf-sqrthalf*i)f, e - (sqrthalf-sqrthalf*i)f
+					cvsubaddfm (new_g, new_h, g, pd->inv_fft_size_707, twid_h); // g + (-sqrthalf-sqrthalf*i)h, g - (-sqrthalf-sqrthalf*i)h
 
 					dest[group + group_member] = new_a;			// Do not bit reverse outputs
 					dest[group + group_member + 4*stride] = new_b;
@@ -3728,42 +3486,18 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 					CVDT	new_a, new_b, new_c, new_d;
 					if (twiddle_idx == 0) {
 						if (pd->pass != 2 || stride != 1) {	// Radix-8 has applied the inv_fft_size multiplier
-							cvadd (new_a, a, c);		// a + c
-							cvsub (new_c, a, c);		// a - c
-							cvadd (new_b, b, d);		// b + d
-							cvsub (new_d, b, d);		// b - d
+							cvaddsub (new_a, new_c, a, c);	// a + c, a - c
+							cvaddsub (new_b, new_d, b, d);	// b + d, b - d
 
-							cvadd  (a, new_a, new_b);	// a + b
-							cvsub  (b, new_a, new_b);	// a - b
-							cvisub (c, new_c, new_d);	// c - id
-							cviadd (d, new_c, new_d);	// c + id
+							cvaddsub (a, b, new_a, new_b);	// a + b, a - b
+							cvisubadd (c, d, new_c, new_d);	// c - id, c + id
 						} else {				// Radix-8 has not applied the inv_fft_size multiplier
 							cvrmul (a, pd->inv_fft_size, a);
-#if !VFMA
-							cvrmul (b, pd->inv_fft_size, b);
-							cvrmul (c, pd->inv_fft_size, c);
-							cvrmul (d, pd->inv_fft_size, d);
+							cvaddsubfm (new_a, new_c, a, pd->inv_fft_size, c);	// a + c, a - c
+							cvaddsub   (new_b, new_d, b, d);			// b + d, b - d
 
-							cvadd (new_a, a, c);		// a + c
-							cvsub (new_c, a, c);		// a - c
-							cvadd (new_b, b, d);		// b + d
-							cvsub (new_d, b, d);		// b - d
-
-							cvadd  (a, new_a, new_b);	// a + b
-							cvsub  (b, new_a, new_b);	// a - b
-							cvisub (c, new_c, new_d);	// c - id
-							cviadd (d, new_c, new_d);	// c + id
-#else
-							cvaddfm (new_a, a, pd->inv_fft_size, c);	// a + c
-							cvsubfm (new_c, a, pd->inv_fft_size, c);	// a - c
-							cvadd   (new_b, b, d);				// b + d
-							cvsub   (new_d, b, d);				// b - d
-
-							cvaddfm  (a, new_a, pd->inv_fft_size, new_b);	// a + b
-							cvsubfm  (b, new_a, pd->inv_fft_size, new_b);	// a - b
-							cvisubfm (c, new_c, pd->inv_fft_size, new_d);	// c - id
-							cviaddfm (d, new_c, pd->inv_fft_size, new_d);	// c + id
-#endif
+							cvaddsubfm  (a, b, new_a, pd->inv_fft_size, new_b);	// a + b, a - b
+							cvisubaddfm (c, d, new_c, pd->inv_fft_size, new_d);	// c - id, c + id
 						}
 					}
 					// Apply the CONJUGATE of the twiddle
@@ -3771,33 +3505,14 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 						CVDT	twiddled_b, twiddled_c, twiddled_d;
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles2[4*twiddle_idx]);
 						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
-#if !VFMA
-						twidconjmul (twiddled_b, b, twiddle1);
-						twidconjmul (twiddled_c, c, twiddle2);
-						twidmul     (twiddled_d, d, twiddle1);
-						cvadd (new_a, a, twiddled_c);				// a + c
-						cvsub (new_c, a, twiddled_c);				// a - c
-						cvadd (new_b, twiddled_b, twiddled_d);			// b + d
-						cvsub (new_d, twiddled_b, twiddled_d);			// b - d
-
-						cvadd  (a, new_a, new_b);				// a + b
-						cvsub  (b, new_a, new_b);				// a - b
-						cvisub (c, new_c, new_d);				// c - id
-						cviadd (d, new_c, new_d);				// c + id
-#else
 						twidconjmuldelay (twiddled_b, b, twiddle1);
 						twidconjmuldelay (twiddled_c, c, twiddle2);
 						twidmuldelay     (twiddled_d, d, twiddle1);
-						cvaddfm (new_a, a, twiddle2.sin, twiddled_c);		// a + c
-						cvsubfm (new_c, a, twiddle2.sin, twiddled_c);		// a - c
-						cvadd (new_b, twiddled_b, twiddled_d);			// b + d
-						cvsub (new_d, twiddled_b, twiddled_d);			// b - d
+						cvaddsubfm (new_a, new_c, a, twiddle2.sin, twiddled_c);		// a + c, a - c
+						cvaddsub (new_b, new_d, twiddled_b, twiddled_d);		// b + d, b - d
 
-						cvaddfm  (a, new_a, twiddle1.sin, new_b);		// a + b
-						cvsubfm  (b, new_a, twiddle1.sin, new_b);		// a - b
-						cvisubfm (c, new_c, twiddle1.sin, new_d);		// c - id
-						cviaddfm (d, new_c, twiddle1.sin, new_d);		// c + id
-#endif
+						cvaddsubfm (a, b, new_a, twiddle1.sin, new_b);			// a + b, a - b
+						cvisubaddfm (c, d, new_c, twiddle1.sin, new_d);			// c - id, c + id
 					}
 
 					// Save results
@@ -3839,10 +3554,8 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 					// Special case first group member, no twiddles necessary
 					CVDT	b_plus_e, b_minus_e, c_plus_d, c_minus_d;
 					if (twiddle_idx == 0) {
-						cvadd (b_plus_e, b, e);				// b + e
-						cvsub (b_minus_e, b, e);			// b - e
-						cvadd (c_plus_d, c, d);				// c + d
-						cvsub (c_minus_d, c, d);			// c - d
+						cvaddsub (b_plus_e, b_minus_e, b, e);		// b + e, b - e
+						cvaddsub (c_plus_d, c_minus_d, c, d);		// c + d, c - d
 					}
 					// Apply the CONJUGATE of the twiddle
 					else {
@@ -3851,21 +3564,10 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 						TVDT twiddle2; twidload (twiddle2, &pmdata->twiddles2[4*twiddle_idx+2]);
 						twidconjmul (twiddled_b, b, twiddle1);
 						twidconjmul (twiddled_c, c, twiddle2);
-#if !VFMA
-						twidmul (twiddled_d, d, twiddle2);
-						twidmul (twiddled_e, e, twiddle1);
-						cvadd (b_plus_e, twiddled_b, twiddled_e);			// b + e
-						cvsub (b_minus_e, twiddled_b, twiddled_e);			// b - e
-						cvadd (c_plus_d, twiddled_c, twiddled_d);			// c + d
-						cvsub (c_minus_d, twiddled_c, twiddled_d);			// c - d
-#else
 						twidmuldelay (twiddled_d, d, twiddle2);
 						twidmuldelay (twiddled_e, e, twiddle1);
-						cvaddfm (b_plus_e, twiddled_b, twiddle1.sin, twiddled_e);	// b + e
-						cvsubfm (b_minus_e, twiddled_b, twiddle1.sin, twiddled_e);	// b - e
-						cvaddfm (c_plus_d, twiddled_c, twiddle2.sin, twiddled_d);	// c + d
-						cvsubfm (c_minus_d, twiddled_c, twiddle2.sin, twiddled_d);	// c - d
-#endif
+						cvaddsubfm (b_plus_e, b_minus_e, twiddled_b, twiddle1.sin, twiddled_e);	// b + e, b - e
+						cvaddsubfm (c_plus_d, c_minus_d, twiddled_c, twiddle2.sin, twiddled_d);	// c + d, c - d
 					}
 
 					CVDT tmp25a, tmp25b, tmp34a, tmp34b;
@@ -3873,19 +3575,8 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 					cvsubfm (tmp34a, a, _809, b_plus_e); cvaddfm (tmp34a, tmp34a, _309, c_plus_d);	// tmp34a = a -.809*(b+e) +.309*(c+d)
 					cvaddfm (tmp25b, b_minus_e, _588_951, c_minus_d);				// tmp25b = delayed .951*(b-e) + 0.588*(c-d)
 					cvsubfm (tmp34b, c_minus_d, _588_951, b_minus_e);				// tmp34b = delayed -.588*(b-e) + 0.951*(c-d)
-#if !VFMA
-					cvrmul (tmp25b, _951, tmp25b);				// tmp25b *= .951
-					cvrmul (tmp34b, _951, tmp34b);				// tmp34b *= .951
-					cvisub (b, tmp25a, tmp25b);				// b = tmp25a - i*tmp25b
-					cviadd (e, tmp25a, tmp25b);				// e = tmp25a + i*tmp25b
-					cviadd (c, tmp34a, tmp34b);				// c = tmp34a - i*tmp34b
-					cvisub (d, tmp34a, tmp34b);				// d = tmp34a + i*tmp34b
-#else
-					cvisubfm (b, tmp25a, _951, tmp25b);			// b = tmp25a - i*.951*tmp25b
-					cviaddfm (e, tmp25a, _951, tmp25b);			// e = tmp25a + i*.951*tmp25b
-					cviaddfm (c, tmp34a, _951, tmp34b);			// c = tmp34a - i*.951*tmp34b
-					cvisubfm (d, tmp34a, _951, tmp34b);			// d = tmp34a + i*.951*tmp34b
-#endif
+					cvisubaddfm (b, e, tmp25a, _951, tmp25b);		// b = tmp25a - i*.951*tmp25b, e = tmp25a + i*.951*tmp25b
+					cviaddsubfm (c, d, tmp34a, _951, tmp34b);		// c = tmp34a + i*.951*tmp34b, d = tmp34a - i*.951*tmp34b
 					cvadd (a, a, b_plus_e);					// a + b + c + d + e
 					cvadd (a, a, c_plus_d);
 
@@ -3927,27 +3618,13 @@ else src = dest = (srcarg == 1 ? pd->invec1 : pd->invec2) + blke * pd->pass2_siz
 						CVDT twiddled_b, twiddled_c;
 						TVDT twiddle1; twidload (twiddle1, &pmdata->twiddles1[2*twiddle_idx]);
 						twidconjmul  (twiddled_b, b, twiddle1);
-#if !VFMA
-						twidmul (twiddled_c, c, twiddle1);
-						cvadd (b_plus_c, twiddled_b, twiddled_c);			// b + c
-						cvsub (b_minus_c, twiddled_b, twiddled_c);			// b - c
-#else
 						twidmuldelay (twiddled_c, c, twiddle1);
-						cvaddfm (b_plus_c, twiddled_b, twiddle1.sin, twiddled_c);	// b + c
-						cvsubfm (b_minus_c, twiddled_b, twiddle1.sin, twiddled_c);	// b - c
-#endif
+						cvaddsubfm (b_plus_c, b_minus_c, twiddled_b, twiddle1.sin, twiddled_c);	// b + c, b - c
 					}
 
-					CVDT tmp23; cvsubfm (tmp23, a, half, b_plus_c);			// tmp23 = a - 0.5 * (b + c)
-#if !VFMA
-					cvrmul (b_minus_c, _866, b_minus_c);
-					cvisub (b, tmp23, b_minus_c);					// b = tmp23 - i * .866 * (b - c)
-					cviadd (c, tmp23, b_minus_c);					// c = tmp23 + i * .866 * (b - c)
-#else
-					cvisubfm (b, tmp23, _866, b_minus_c);				// b = tmp23 - i * .866 * (b - c)
-					cviaddfm (c, tmp23, _866, b_minus_c);				// c = tmp23 + i * .866 * (b - c)
-#endif
-					cvadd (a, a, b_plus_c);						// a + b + c
+					CVDT tmp23; cvsubfm (tmp23, a, half, b_plus_c);		// tmp23 = a - 0.5 * (b + c)
+					cvisubaddfm (b, c, tmp23, _866, b_minus_c);		// b = tmp23 - i * .866 * (b - c), c = tmp23 + i * .866 * (b - c)
+					cvadd (a, a, b_plus_c);					// a + b + c
 
 					dest[outstride1*(group + group_member)] = a;
 					dest[outstride1*(group + group_member + stride)] = b;
