@@ -8615,15 +8615,15 @@ void gianttogw (
 /* Small numbers can also be optimized for many moduli by zeroing all the */
 /* FFT data using memset and then setting only the affected FFT elements. */
 
-	else if (labs (a->sign) == 1 && (gwdata->k == 1.0 || labs (gwdata->c) == 1)) {
+	else if (a->sign == 1 && (gwdata->k == 1.0 || labs (gwdata->c) == 1)) {
 		double	value_to_convert;
-		int32_t low_addin;
+		uint32_t low_addin;
 		int	i;
 
 /* Zero the FFT data, init the small value to convert to a gwnum */
 
 		memset (g, 0, gwnum_datasize (gwdata));
-		value_to_convert = (a->sign > 0) ? (double) a->n[0] : - (double) a->n[0];
+		value_to_convert = (double) a->n[0];
 
 /* To make the mod k*b^n+c step faster, gwnum's are pre-multiplied by 1/k. */
 /* Case 1 (k*b^n-1): Inverse of k is b^n.  Case 2 (k*b^n+1): Inverse of k is -b^n. */
@@ -8638,10 +8638,10 @@ void gianttogw (
 			quotient = floor (value_to_convert / gwdata->k);
 			remainder = value_to_convert - quotient * gwdata->k;
 			if (gwdata->c == -1) {
-				low_addin = (int32_t) quotient;
+				low_addin = (uint32_t) quotient;
 				high_addin = remainder;
 			} else {
-				low_addin = (int32_t) quotient + 1;
+				low_addin = (uint32_t) quotient + 1;
 				high_addin = gwdata->k - remainder;
 			}
 
@@ -8684,7 +8684,7 @@ void gianttogw (
 /* If k is 1, simply copy the giant value to the low FFT words */
 
 		else
-			low_addin = (int32_t) value_to_convert;
+			low_addin = (uint32_t) value_to_convert;
 
 /* Spread the low_addin value across the lowest FFT words as necessary */
 
@@ -8694,7 +8694,7 @@ void gianttogw (
 			maxval = intpow (gwdata->b, gwdata->NUM_B_PER_SMALL_WORD);
 			if (is_big_word (gwdata, i)) maxval *= gwdata->b;
 
-			value = low_addin % maxval;
+			value = (long) (low_addin % maxval);
 			low_addin = low_addin / maxval;
 			if (value > (maxval >> 1)) {
 				value = value - maxval;
@@ -8760,7 +8760,7 @@ void gianttogw (
 			a = newg;
 		}
 
-/* Now convert the giant to FFT format.  For base 2 we simply copy bits.  */
+/* Now convert the giant to gwnum format.  For base 2 we simply copy bits.  */
 
 		if (gwdata->b == 2) {
 			unsigned long i, limit, carry;
