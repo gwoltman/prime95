@@ -9801,6 +9801,7 @@ restart:
 
 		ASSERTG (pm1data.state == PM1_STATE_DONE);
 		if (pm1data.B > pm1data.B_done) goto more_B;
+		pm1data.B = pm1data.B_done;
 		if (pm1data.C > pm1data.C_done) {
 			pm1data.state = PM1_STATE_STAGE1;		// We're not in mid-stage until invx is calculated
 			if (pm1data.first_C_start == pm1data.B) pm1data.first_C_start = pm1data.C_done;
