@@ -529,6 +529,9 @@ void polymult_init (
 	pmdata->L2_CACHE_SIZE = 256;
 	pmdata->L3_CACHE_SIZE = 6144;
 
+	// Default performance options
+	pmdata->enable_strided_writes = FALSE;
+
 	// Init FFT(1) if needed
 	if (pmdata->gwdata->k != 1.0) gwuser_init_FFT1 (pmdata->gwdata);
 	if (pmdata->gwdata->ZERO_PADDED_FFT) zpad7_fft (pmdata->gwdata, pmdata->gwdata->GW_FFT1);
@@ -4199,7 +4202,7 @@ void polymult_line (
 			fftd.scratch = scratch;
 			fftd.options = fft_options;
 			fftd.fft_size = fft_size;
-			fftd.write_direct = !planpart->emulate_circular && !post_monic_addin_invec1 && !post_monic_addin_invec2;
+			fftd.write_direct = pmdata->enable_strided_writes && !planpart->emulate_circular && !post_monic_addin_invec1 && !post_monic_addin_invec2;
 			fft_line (pmdata, &fftd);
 			// Remember poly FFT size for next invec2
 			prev_fft_size = fft_size;
