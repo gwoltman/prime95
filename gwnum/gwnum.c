@@ -1063,13 +1063,10 @@ again:	zpad_jmptab = NULL;
 
 /* See if this is the FFT length that would be used for a generic modulo reduction */
 
-			if (generic_jmptab == NULL &&
-			    2.0 * (log2k + n * log2b) + 128.0 < max_exp + 0.3 * zpad_jmptab->fftlen)
+			if (generic_jmptab == NULL && 2.0 * (log2k + n * log2b) + 128.0 < max_exp + 0.15 * zpad_jmptab->fftlen)
 				generic_jmptab = zpad_jmptab;
 
-/* Compare the maximum number of bits allowed in the FFT input word */
-/* with the number of bits we would use.  Break when we find an acceptable */
-/* FFT length. */
+/* Compare the maximum number of bits allowed in the FFT input word with the number of bits we would use.  Break when we find an acceptable FFT length. */
 //  This is the old code which only supported b == 2
 //			max_bits_per_word = (double) max_exp / zpad_jmptab->fftlen;
 //			max_bits_per_word -= gwdata->safety_margin;
@@ -2397,14 +2394,12 @@ int gwsetup_general_mod_giant (
 /* roundoff errors.  Thus, the caller may need to insist we use an */
 /* irrational FFT on occasion. */
 
-/* Call gwinfo and have it figure out the FFT length we will use. */
-/* Since we zero the upper half of FFT input data, the FFT */
-/* outputs will be smaller.  This lets us get about another 0.3 bits */
-/* per input word. */
+/* Call gwinfo and have it figure out the FFT length we will use.  Since we zero the upper half of FFT input data, the FFT */
+/* outputs will be smaller.  This lets us get about another 0.15 bits per input word (data from Pavel Atnashev's primorial search). */
 
-	gwdata->safety_margin -= 0.3;
+	gwdata->safety_margin -= 0.15;
 	error_code = gwinfo (gwdata, 1.0, 2, n, -1);
-	gwdata->safety_margin += 0.3;
+	gwdata->safety_margin += 0.15;
 	if (error_code) return (error_code);
 	info = gwdata->jmptab;
 	fftlen = info->fftlen;
@@ -2448,23 +2443,18 @@ int gwsetup_general_mod_giant (
 		if (desired_n < max_exponent) n = desired_n;
 	}
 
-/* If possible, increase n to the next multiple of FFT length. */
-/* The extra bits allow gwsmallmul to avoid emulate_mod calls more often. */
-/* We hope the 0.3 safety_limit increase above will avoid getting too */
-/* close to the FFT limit as many users of this library turn on error */
-/* checking (slower) when near the FFT limit. */
-/* If that doesn't work, try adding a half FFT length instead. */
+/* If possible, increase n to the next multiple of FFT length.  The extra bits allow gwsmallmul to avoid emulate_mod calls more often. */
+/* We hope the 0.15 safety_limit increase above will avoid getting too close to the FFT limit as many users of this library turn on error */
+/* checking (slower) when near the FFT limit.  If that doesn't work, try adding a half FFT length instead. */
 
-	if (n + fftlen < max_exponent)
-		n = n + fftlen;
-	else if (gwdata->use_irrational_general_mod && n + fftlen / 2 < max_exponent)
-		n = n + fftlen / 2;
+	if (n + fftlen < max_exponent) n = n + fftlen;
+	else if (gwdata->use_irrational_general_mod && n + fftlen / 2 < max_exponent) n = n + fftlen / 2;
 
 /* Now setup the assembly code */
 
-	gwdata->safety_margin -= 0.3;
+	gwdata->safety_margin -= 0.15;
 	error_code = internal_gwsetup (gwdata, 1.0, 2, n, -1);
-	gwdata->safety_margin += 0.3;
+	gwdata->safety_margin += 0.15;
 	if (error_code) return (error_code);
 
 // BUG - setting the bit_length to the modulus size will break gwtogiant.
@@ -2579,37 +2569,33 @@ int gwsetup_without_mod (
 
 	if (gwdata->GWERROR) return (gwdata->GWERROR);
 
-/* Call gwinfo and have it figure out the FFT length we will use. */
-/* Since the user must zero the upper half of FFT input data, the FFT */
-/* outputs will be smaller.  This lets us get about another 0.3 bits */
-/* per input word. */
+/* Call gwinfo and have it figure out the FFT length we will use.  Since the user must zero the upper half of FFT input data, the FFT */
+/* outputs will be smaller.  This lets us get about another 0.15 bits per input word (data from Pavel Atnashev's primorial search). */
 
-	gwdata->safety_margin -= 0.3;
+	gwdata->safety_margin -= 0.15;
 	error_code = gwinfo (gwdata, 1.0, 2, n, -1);
-	gwdata->safety_margin += 0.3;
+	gwdata->safety_margin += 0.15;
 	info = gwdata->jmptab;
 	if (error_code) return (error_code);
 
 	max_exponent = adjusted_max_exponent (gwdata, info);
 	fftlen = info->fftlen;
 
-/* If possible, increase n to the next multiple of FFT length.  This is */
-/* because rational FFTs are faster than irrational FFTs (no FFT weights). */
+/* If possible, increase n to the next multiple of FFT length.  This is because rational FFTs are faster than irrational FFTs (no FFT weights). */
 
 	desired_n = round_up_to_multiple_of (n, fftlen);
 	if (desired_n < max_exponent) n = desired_n;
 
-/* Our FFTs don't handle cases where there are few bits per word because */
-/* carries must be propagated over too many words.  Arbitrarily insist */
-/* that n is at least 12 * fftlen.  */
+/* Our FFTs don't handle cases where there are few bits per word because carries must be propagated over too many words. */
+/* Arbitrarily insist that n is at least 12 * fftlen. */
 
 	if (n < 12 * fftlen) n = 12 * fftlen;
 
 /* Now setup the assembly code */
 
-	gwdata->safety_margin -= 0.3;
+	gwdata->safety_margin -= 0.15;
 	error_code = internal_gwsetup (gwdata, 1.0, 2, n, -1);
-	gwdata->safety_margin += 0.3;
+	gwdata->safety_margin += 0.15;
 	if (error_code) return (error_code);
 
 /* Set flag indicating general-purpose modulo operations are not in force */
