@@ -68,7 +68,8 @@
 // 79) Pick_pass_sizes only puts powers of two in pass 2.  Does this lead to nasty 4KB strides that we could avoid?  Add padding, maybe only in scratch area?
 // 80) put read-specific and write-specific data within a union in read_write_line_slice_data
 // 81) 2 levels of radix-8 is cheaper than 3 levels of radix-4.  If radix-8 is cheaper than radix-4, perhaps a radix-6 would let us use a faster radix-8 than 2 radix-4s.
-
+// 82) I don't like the way num_compressed_blks is chosen (only powers of two).  If not pre-FFTing we might get very small blk_size.  Change compress and decompress
+//	to handle partial final blk.  blk_sizes were added for multi-threading the preprocessing.  Address this when we tackle strided_reads.
 
 /* Opcodes for helper thread */
 
@@ -4565,7 +4566,7 @@ gwarray polymult_preprocess (		// Returns a plug-in replacement for the input po
 	plan.hdr->line_size = (options & POLYMULT_PRE_FFT) ? plan.fft_size : invec1_size;
 	// Compress large lines (more than 32K doubles) in blocks to allow multi-threaded read.  Blocks are typically 512 doubles.
 	if (pmdata->num_threads == 1 || element_size < 32768 * sizeof (double)) plan.hdr->num_compressed_blks = 1;
-	else for (int i = 64; i <= 512 && element_size % (i * sizeof (double)) == 0; i *= 2) plan.hdr->num_compressed_blks = (int) (element_size / (i * sizeof (double)));
+	else for (int i = 1; i <= 512 && element_size % (i * sizeof (double)) == 0; i *= 2) plan.hdr->num_compressed_blks = (int) (element_size / (i * sizeof (double)));
 
 	// Prepare for polymult_preprocess in parallel
 	pmdata->plan = &plan;
