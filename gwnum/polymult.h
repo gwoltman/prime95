@@ -250,6 +250,7 @@ struct pmhandle_struct {
 	int	L2_CACHE_SIZE;		// Optimize FFTs to fit in this size cache (number is in KB).  Default is 256KB.
 	int	L3_CACHE_SIZE;		// Optimize FFTs to fit in this size cache (number is in KB).  Default is 6MB (6144KB).
 	bool	enable_strided_writes;	// Strided writes improves performance on some CPUs
+	bool	enable_streamed_stores;	// Streamed stores improves performance on some CPUs
 	// Cached twiddles
 	bool	cached_twiddles_enabled;// TRUE if caching twiddles is enabled
 	bool	twiddle_cache_additions_disabled; // TRUE if adding new entries to the twiddle cache is temporarily disabled

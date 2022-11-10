@@ -70,6 +70,7 @@
 // 81) 2 levels of radix-8 is cheaper than 3 levels of radix-4.  If radix-8 is cheaper than radix-4, perhaps a radix-6 would let us use a faster radix-8 than 2 radix-4s.
 // 82) I don't like the way num_compressed_blks is chosen (only powers of two).  If not pre-FFTing we might get very small blk_size.  Change compress and decompress
 //	to handle partial final blk.  blk_sizes were added for multi-threading the preprocessing.  Address this when we tackle strided_reads.
+// 83) Under what circumstances do streaming stores provide a benefit?
 
 /* Opcodes for helper thread */
 
@@ -132,6 +133,7 @@ typedef struct {
 		bool	strip_monic_from_invec2;// True if ones are stripped from monic invec2 requiring (99% of the time) invec1 to be added during post processing
 		bool	post_monic_addin_invec1;// True if ones are stripped from monic invec2 requiring invec1 to be added during post processing
 		bool	post_monic_addin_invec2;// True if ones are stripped from monic invec1 requiring invec2 to be added during post processing
+		bool	streamed_stores;	// Use streamed stores
 		int	impl;			// 0 = brute force, 1 = Karatsuba, 2 = poly FFT
 		int	fft_size;		// FFT size for impl type 2
 		int	adjusted_invec1_size;	// Sizes of the possibly smaller partial polymult result prior to post-monic-adjustment creating the full result
@@ -196,6 +198,7 @@ typedef struct {
 #define fmaddpd			_mm512_fmadd_pd
 #define fmsubpd			_mm512_fmsub_pd
 #define fnmaddpd		_mm512_fnmadd_pd
+#define streampd(a,b)		_mm512_stream_pd((double*)(a),b)
 #elif defined (FMA)
 #define VLEN			256			// Vector is 256 bits wide
 #define VDT			__m256d			// Vector data type
@@ -225,6 +228,7 @@ typedef struct {
 #define fmaddpd			_mm256_fmadd_pd
 #define fmsubpd			_mm256_fmsub_pd
 #define fnmaddpd		_mm256_fnmadd_pd
+#define streampd(a,b)		_mm256_stream_pd((double*)(a),b)
 #elif defined (AVX)
 #define VLEN			256			// Vector is 256 bits wide
 #define VDT			__m256d			// Vector data type
@@ -251,8 +255,9 @@ typedef struct {
 #define subpd			_mm256_sub_pd
 #define mulpd			_mm256_mul_pd
 #define divpd			_mm256_div_pd
+#define streampd(a,b)		_mm256_stream_pd((double*)(a),b)
 #elif defined (SSE2)
-#define VLEN			128			// Vector is 256 bits wide
+#define VLEN			128			// Vector is 128 bits wide
 #define VDT			__m128d			// Vector data type
 #define VFMA			0			// FMA not supported
 #define	prep_line		prep_line_sse2		// Naming extension for this option
@@ -277,8 +282,9 @@ typedef struct {
 #define subpd			_mm_sub_pd
 #define mulpd			_mm_mul_pd
 #define divpd			_mm_div_pd
+#define streampd(a,b)		_mm_stream_pd((double*)(a),b)
 #else
-#define VLEN			64			// Vector is 256 bits wide
+#define VLEN			64			// Vector is 64 bits wide
 #define VDT			double			// Vector data type
 #define VFMA			0			// FMA not supported
 #define	prep_line		prep_line_dbl		// Naming extension for this option
@@ -302,6 +308,7 @@ typedef struct {
 #define subpd			_mm64_sub_pd
 #define mulpd			_mm64_mul_pd
 #define divpd			_mm64_div_pd
+#define streampd		_mm64_stream_pd
 // Emulate vector length 1 using Intel-style instrinsic naming conventions
 #define __m64d			double
 #define _mm64_set1_pd(a)	(a)
@@ -309,6 +316,7 @@ typedef struct {
 #define _mm64_sub_pd(a,b)	((a)-(b))
 #define _mm64_mul_pd(a,b)	((a)*(b))
 #define _mm64_div_pd(a,b)	((a)/(b))
+#define _mm64_stream_pd(a,b)	(*(double *)(a)=(b))
 #endif
 
 // Emulate FMA on CPUs that do not have an FMA instruction
@@ -532,6 +540,7 @@ void polymult_init (
 
 	// Default performance options
 	pmdata->enable_strided_writes = FALSE;
+	pmdata->enable_streamed_stores = TRUE;
 
 	// Init FFT(1) if needed
 	if (pmdata->gwdata->k != 1.0) gwuser_init_FFT1 (pmdata->gwdata);
@@ -1141,6 +1150,7 @@ typedef struct {
 	bool	post_process_monics;		// Argument passed to read_line, read_preprocess_line
 	gwnum	*fma_data;			// FMA poly to add during write_line
 	int	LSWs_skipped;			// Number of LSWs to be skipped from vec during write_line
+	bool	streamed_stores;		// TRUE if write_line should use streaming stores
 	gwatomic blknum;			// Block number to work on when multi-threading
 	int	slice_size;			// Size to read or write for each block
 	struct line_specific_data {
@@ -1418,8 +1428,13 @@ void write_line_slice_strided_avx512 (pmhandle *pmdata, read_write_line_slice_da
 				else if (options & POLYMULT_FMSUB) cvsub (vec[j_in], vec[j_in], fmaval);
 				else cvsub (vec[j_in], fmaval, vec[j_in]);
 			}
-			((VDT *) data[j_out])[offset] = vec[j_in].real;
-			((VDT *) data[j_out])[offset+1] = vec[j_in].imag;
+			if (rwlsd->streamed_stores) {
+				streampd (&((VDT *) data[j_out])[offset], vec[j_in].real);
+				streampd (&((VDT *) data[j_out])[offset+1], vec[j_in].imag);
+			} else {
+				((VDT *) data[j_out])[offset] = vec[j_in].real;
+				((VDT *) data[j_out])[offset+1] = vec[j_in].imag;
+			}
 		}
 	}
 }
@@ -1736,8 +1751,13 @@ void write_line_slice_strided_avx (pmhandle *pmdata, read_write_line_slice_data 
 				else if (options & POLYMULT_FMSUB) cvsub (vec[j_in], vec[j_in], fmaval);
 				else cvsub (vec[j_in], fmaval, vec[j_in]);
 			}
-			((VDT *) data[j_out])[offset] = vec[j_in].real;
-			((VDT *) data[j_out])[offset+1] = vec[j_in].imag;
+			if (rwlsd->streamed_stores) {
+				streampd (&((VDT *) data[j_out])[offset], vec[j_in].real);
+				streampd (&((VDT *) data[j_out])[offset+1], vec[j_in].imag);
+			} else {
+				((VDT *) data[j_out])[offset] = vec[j_in].real;
+				((VDT *) data[j_out])[offset+1] = vec[j_in].imag;
+			}
 		}
 	}
 }
@@ -4087,6 +4107,7 @@ void polymult_line (
 		rwlsd3[i].vec = outvec_buffer;
 		rwlsd3[i].fma_data = pmdata->other_polys[i].fmavec;		// Addin for FMA operations
 		rwlsd3[i].LSWs_skipped = planpart->LSWs_skipped;		// Entries to ignore in vec
+		rwlsd3[i].streamed_stores = planpart->streamed_stores;		// Optional streaming stores
 		rwlsd3[i].options = options;
 	}
 
@@ -5279,7 +5300,11 @@ use_it:		    ASSERTG (best_choice != 0);
 			int complex_vector_size = complex_vector_size_in_bytes (pmdata->gwdata->cpu_flags);
 			if (pmdata->num_threads > 1 && (uint64_t) fft_size > (uint64_t) pmdata->L3_CACHE_SIZE * 1024 / (2 * complex_vector_size))
 				plan->mt_polymult_line = FALSE;
-		    }						
+		    }
+		    // Use streamed stores if the output polynomial uses more memory than the L3 cache size
+//GW: fine tune this!!!  should probably use a different variable than L3_CACHE_SIZE
+		    plan->planpart[i].streamed_stores = (pmdata->enable_streamed_stores &&
+							 (uint64_t) outvec_size * gwnum_datasize (pmdata->gwdata) > (uint64_t) pmdata->L3_CACHE_SIZE * 1024);
 
 		    // If we selected the circular fft size, then save some necessary plan variables
 		    if (can_use_circular_fft_size && plan->planpart[i].impl == POLYMULT_IMPL_FFT && fft_size == circular_fft_size) {
