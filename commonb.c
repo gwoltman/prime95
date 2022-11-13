@@ -12,6 +12,7 @@
 
 #include "ecm.h"
 #include "exponentiate.h"
+#include "polymult.h"
 
 /* Globals for error messages */
 
@@ -520,7 +521,7 @@ void SetPriority (
 			break;
 		}
 
-/* If total num worker cores <= num cores, then there is an easy path forward.  Assign cores in ascending order.  This will assigne efficiency cores last. */
+/* If total num worker cores <= num cores, then there is an easy path forward.  Assign cores in ascending order.  This will assign efficiency cores last. */
 
 		if (worker_core_count <= HW_NUM_CORES) {
 			bind_type = 0;			// Set affinity to a specific physical CPU core
@@ -8891,6 +8892,119 @@ static	int	time_all_complex = 0;	/* TRUE if we should time all-complex FFTs */
 		if (p >= 9900 && p <= 9919)
 			return (test_randomly (thread_num, &sp_info));
 		return (test_all_impl (thread_num, &sp_info));
+	}
+
+	// Time polymult code
+	if (p >= 8900 && p <= 8999) {
+		char	buf[200];
+
+//	* starting gwnum FFTLEN point 
+//	* starting gwnum poly FFTLEN point 
+
+		int polymem = IniGetInt (LOCALINI_FILE, "PolyMem", (long) (0.8 * physical_memory ()));
+		if (polymem > (int) physical_memory ()) polymem = (int) (0.9 * physical_memory ());
+
+		sprintf (buf, "Polymult timing using %d threads, %dMB\n", HW_NUM_CORES, polymem);
+		OutputBoth (thread_num, buf);
+
+		memset (&sp_info, 0, sizeof (sp_info));
+		sp_info.type = SET_PRIORITY_NORMAL_WORK;
+		sp_info.worker_num = thread_num;
+		sp_info.verbosity = IniGetInt (INI_FILE, "AffinityVerbosity", 1);
+		sp_info.normal_work_hyperthreading = FALSE;
+		SetPriority (&sp_info);
+
+// starting gwnum FFTLEN option 
+// starting poly FFTLEN option
+		// Loop working on bigger and bigger exponents
+		for (int EXP = 1000; EXP < 500000000; EXP *= 4) {
+			int iters = 100000 / EXP;	// A small number of iterations that won't take too long
+			// Loop working on bigger and bigger poly sizes (CNT is the output poly size which roughly equals the poly FFT size)
+			for (int CNT = 3125; CNT < 500000000; CNT *= 2, iters = iters / 2) {
+				// Check if we have enough memory
+				if ((double) CNT * (gwmap_to_estimated_size (1.0, 2, EXP, -1) + 64) +
+				    (double) polymult_mem_required (CNT/2, CNT/2, 0, CPU_FLAGS, HW_NUM_CORES) > polymem * 1048576.0) break;
+
+				bool	first_poly = TRUE;
+				bool	mt_polymult_line;		// Multi-thread polymult_line vs multi-thread fft_line_pass
+				bool	preprocess;			// TRUE if poly should be pre-processed
+				bool	preFFT;				// TRUE if poly should be pre-FFTed
+				bool	compress;			// TRUE if preprocessed poly s.b. compressed
+				bool	strided_write;			// TRUE if writes should be strided
+				bool	streamed_stores;		// TRUE if writes should be streamed
+				bool	scrambled;			// TRUE if output array is scrambled
+				for (int mm = 0; mm < 2; mm++) { mt_polymult_line = mm;		// original polymult = 0, new fft_line_pass = 1
+				for (int sc = 0; sc < 2; sc++) { scrambled = sc;
+				for (int sw = 0; sw < 2; sw++) { strided_write = sw;
+				for (int ss = 0; ss < 2; ss++) { streamed_stores = ss;
+				for (int pp = 0; pp < 5; pp++) {
+				preprocess = (pp != 0);	// not preprocessed=0, preprocessed=1, compressed=2, preFFTed=3, preFFTed and compresed=4
+				preFFT = (pp >= 3);
+				compress = (pp == 2) || (pp == 4);
+				if (p == 8900 && pp > 0) continue;
+				if (p == 8901 && sc > 0) continue;
+
+				// Check if we have enough memory
+				if (!preprocess && mt_polymult_line &&
+				    (double) CNT * (gwmap_to_estimated_size (1.0, 2, EXP, -1) + 64) +
+				    (double) polymult_mem_required (CNT/2, CNT/2, 0, CPU_FLAGS, 1) * HW_NUM_CORES > polymem * 1048576.0) continue;
+				if (preprocess && !preFFT &&
+				    (double) CNT * (gwmap_to_estimated_size (1.0, 2, EXP, -1) + 64) * 1.5 > polymem * 1048576.0) continue;
+				if (preprocess && preFFT &&
+				    (double) CNT * (gwmap_to_estimated_size (1.0, 2, EXP, -1) + 64) * 2.0 > polymem * 1048576.0) continue;
+
+				gwhandle gwdata;
+				pmhandle pmdata;
+				gwarray a, b;
+				gwinit (&gwdata); 
+				gwset_num_threads (&gwdata, HW_NUM_CORES);
+				gwset_thread_callback (&gwdata, SetAuxThreadPriority);
+				gwset_thread_callback_data (&gwdata, &sp_info);
+				gwset_use_spin_wait (&gwdata, 1);
+				gwsetup (&gwdata, 1.0, 2, EXP, -1);
+				if (stopCheck (thread_num)) { gwdone (&gwdata); return 1; }
+				polymult_init (&pmdata, &gwdata);
+				polymult_set_max_num_threads (&pmdata, HW_NUM_CORES);
+				pmdata.L3_CACHE_SIZE = mt_polymult_line ? 1000000000 : 1;
+				pmdata.enable_strided_writes = strided_write;
+				pmdata.enable_streamed_stores = streamed_stores;
+				a = b = gwalloc_array (&gwdata, CNT);
+				if (scrambled) {
+					for (int i = 0; i < CNT; i++) {
+						int j = rand () % CNT;
+						gwswap (b[i], b[j]);
+					}
+				}
+				dbltogw (&gwdata, 10001.0, a[0]);
+				for (int i = 1; i < CNT/2; i++) gwcopy (&gwdata, a[0], a[i]);
+				if (preprocess) a = polymult_preprocess (&pmdata, a, CNT/2, CNT/2, CNT-1, (preFFT ? POLYMULT_PRE_FFT : 0) + (compress ? POLYMULT_PRE_COMPRESS : 0));
+				clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
+				start_timer (timers, 0);
+				if (iters == 0) iters = 1;
+				for (int i = 0; i < iters; i++) {
+					polymult (&pmdata, a, CNT/2, a, CNT/2, b, (CNT/2)*2-1, POLYMULT_NEXTFFT);
+					//polymult (&pmdata, a, CNT/2, a, CNT/2, b, CNT, POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC_RLP | POLYMULT_NEXTFFT);
+				}
+				end_timer (timers, 0);
+				timers[0] /= iters;
+				if (first_poly) {
+					sprintf (buf, "Poly-size %d, gwnum FFT size %ld\n", CNT, gwdata.FFTLEN);
+					OutputBoth (thread_num, buf);
+					first_poly = FALSE;
+				}
+				sprintf (buf, "  multithread %s, %s%s%s writes, Time: ",
+					 mt_polymult_line ? "lines" : "fft passes",
+					 !scrambled ? "" : "scrambled, ",
+					 !preprocess ? "" : !preFFT ? (!compress ? "preprocessed, " : "pre-compressed, ") : (!compress ? "pre-FFTed, " : "pre-FFT-compressed, "),
+					 !streamed_stores ? (strided_write ? "strided" : "standard") : (strided_write ? "strided streamed" : "standard streamed"));
+				print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR | TIMER_MS);
+				OutputBoth (thread_num, buf);
+				polymult_done (&pmdata);
+				gwdone (&gwdata);
+				}}}}}
+			}
+		}
+		return (0);
 	}
 
 /* Set the process/thread priority */
