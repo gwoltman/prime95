@@ -6917,11 +6917,22 @@ gwarray gwalloc_array (		/* Pointer to an array of gwnums */
 	// Feed all allocates through the parent gwdata
 	if (gwdata->clone_of) gwdata = gwdata->clone_of;
 
-	// Calc needed space for the array_header, array, 128 bytes to get gwnums aligned on an even cache line, and room for n aligned gwnums
-	array_header_size = sizeof (gwarray_header);
+	// Calc needed space for each gwnum in the array
 	gwnum_header_size = GW_HEADER_SIZE (gwdata);
 	aligned_gwnum_size = gwnum_datasize (gwdata) + gwnum_header_size;
 	aligned_gwnum_size = round_up_to_multiple_of (aligned_gwnum_size, 64);
+	// For AVX-512 CPUs, rounding to a multiple of 128 bytes seems to be a minor benefit.  More importantly, when polymult reads a single cache line from
+	// many gwnums, it is beneficial to have the aligned gwnum size be an odd multiple of the cache line size.  This lets us avoid nasty 4KB strides which
+	// make poor use of the CPU caches.  The AVX-512 gwnum FFT size of 12228 is an example where this makes a big difference.  Note the use of global
+	// CPU_FLAGS as AVX_512 CPUs as there are no AVX-512 FFTs smaller than 1K.
+	if (CPU_FLAGS & CPU_AVX512F) {
+		if (aligned_gwnum_size % 128 == 64) aligned_gwnum_size += 64;
+		if (aligned_gwnum_size % 256 == 0) aligned_gwnum_size += 128;
+	} else {
+		if (aligned_gwnum_size % 128 == 0) aligned_gwnum_size += 64;
+	}
+	// Calc needed space for the array_header, array, 128 bytes to get gwnums aligned on a cache line, and room for n aligned gwnums
+	array_header_size = sizeof (gwarray_header);
 	array_size = array_header_size + n * sizeof (gwnum) + 128 + n * aligned_gwnum_size;
 
 	// Allocate memory using large pages or regular malloc
@@ -6950,6 +6961,12 @@ gwarray gwalloc_array (		/* Pointer to an array of gwnums */
 		memset ((char *) next_gwnum - gwnum_header_size, 0, gwnum_header_size);
 		next_gwnum = (gwnum) ((char *) next_gwnum + aligned_gwnum_size);
 	}
+
+// Crazy idea, scramble the gwnums so that polymult strided writes have random strides
+//for (int i = 0; i < n; i++) {
+//int j = rand () % n;
+//gwswap (array[i], array[j]);
+//}
 
 	// Obtain lock necessary for thread-safe operation
 	gwmutex_lock (&gwdata->alloc_lock);
