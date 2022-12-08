@@ -685,7 +685,7 @@ int calculate_bif (
 	case CPU_ARCHITECTURE_AMD_ZEN:		/* Look for FFTs optimized for Ryzen */
 	case CPU_ARCHITECTURE_AMD_OTHER:	/* For no particularly good reason, assume future AMD processors do well with Intel FFTs */
 		if (gwdata->cpu_flags & CPU_AVX512F)
-			retval = BIF_SKX;	/* Use Intel optimized AVX-512 FFTs until we get benchmarks on future Ryzen chip */
+			retval = BIF_RYZEN;	/* Use AVX-512 FFTs optimized for Ryzen chip */
 		else if (gwdata->cpu_flags & CPU_FMA3)
 			retval = BIF_RYZEN;
 		else
@@ -4604,12 +4604,19 @@ int internal_gwsetup (
 		asm_data->HIGH_SCRATCH3_OFFSET = asm_data->ADDIN_OFFSET;
 	    }
 
-/* Set some global variables that make life easier in the assembly code */
-/* that handles zero padded FFTs. */
+/* Set some global variables that make life easier in the assembly code that handles zero padded FFTs. */
 
 	    if (gwdata->ZERO_PADDED_FFT) {
 		unsigned long num_b_in_k, num_b_in_word_0, num_b_in_word_1;
 		unsigned long num_b_in_word_2, num_b_in_word_3, num_b_in_word_4, num_b_in_word_5;
+
+		// Compute constant used for zero-padded ADDIN_VALUE when k=1 and c!=1
+		// when c = -1, 1 = b^n
+		// when c = 1, -1 = b^n, 1 = -b^n
+		// when c = -3, 3 = b^n, 1 = b^n - 2
+		// when c = 3, -3 = b^n, 3 = -b^n, 1 = -b^n - 2
+		// Pre-calculate the "- 2".  For c > 0, negate the result to compensate for the negation of ADDIN_VALUE in gwsetaddin.
+		asm_data->ZPAD_LSW_ADJUST = (double) (c < 0 ? c + 1 : c - 1);
 
 		if (gwdata->cpu_flags & CPU_SSE2 && ! (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX))) {
 			asm_data->u.xmm.ZPAD_WORD5_OFFSET = addr_offset (gwdata, 4);
@@ -8291,7 +8298,11 @@ void gwsetaddin (
 /* In a zero-padded FFT, the value is added into ZPAD0 */
 
 	if (gwdata->ZERO_PADDED_FFT) {
-		gwdata->asm_addin_value = (double) value;
+		// when c = -1, 1 = b^n
+		// when c = 1, -1 = b^n, 1 = -b^n
+		// when c = -3, 3 = b^n, 1 = b^n - 2
+		// when c = 3, -3 = b^n, 3 = -b^n, 1 = -b^n - 2
+		gwdata->asm_addin_value = (double) (gwdata->c < 0 ? value : -value);
 		return;
 	}
 
@@ -10002,13 +10013,15 @@ void cmn_gwmulop4 (		/* Calculate (s1 * s2) op s3 */
 		if (asm_data->DEST2ARG) {
 			asm_data->mul4_opcode = 0x80 | opcode;
 			asm_data->SRC2ARG = (void *) ((intptr_t) s3 - (intptr_t) s1);
-			if (gwdata->FFT1_state == 2 || FFT_state (s3) == FFTed_FOR_FMA) asm_data->SRC3ARG = (void *) (intptr_t) 1;
+			if (gwdata->FFT1_state == 2) asm_data->SRC3ARG = (void *) (intptr_t) 1;
+			else if (FFT_state (s3) == FFTed_FOR_FMA) asm_data->SRC3ARG = (void *) (intptr_t) 2;
 			else asm_data->SRC3ARG = (void *) ((intptr_t) gwdata->GW_FFT1 - (intptr_t) s1);
 			asm_mul (gwdata, s1, s2, s1, options);
 		} else {
 			asm_data->mul4_opcode = opcode;
 			asm_data->SRC2ARG = (void *) ((intptr_t) s3 - (intptr_t) d);
-			if (gwdata->FFT1_state == 2 || FFT_state (s3) == FFTed_FOR_FMA) asm_data->SRC3ARG = (void *) (intptr_t) 1;
+			if (gwdata->FFT1_state == 2) asm_data->SRC3ARG = (void *) (intptr_t) 1;
+			else if (FFT_state (s3) == FFTed_FOR_FMA) asm_data->SRC3ARG = (void *) (intptr_t) 2;
 			else asm_data->SRC3ARG = (void *) ((intptr_t) gwdata->GW_FFT1 - (intptr_t) d);
 			asm_mul (gwdata, s1, s2, d, options);
 		}
