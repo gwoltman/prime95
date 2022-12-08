@@ -83,7 +83,6 @@
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
 unsigned long cache_line_offset (gwhandle *gwdata, unsigned long i);
 void generate_sincos (pmhandle *pmdata, const unsigned int size);
-void pick_pass_sizes (pmhandle *pmdata, unsigned int fftsize, unsigned int *p1size, unsigned int *p2size);
 void zpad7_fft (gwhandle *gwdata, gwnum g);
 uint64_t compress_line (char *buf, uint64_t size, int num_compressed_blks);
 void decompress_line_slice (char *inbuf, char *outbuf, 	preprocessed_poly_header *hdr, int slice_start, int slice_end, int cvdt_size);
@@ -4225,6 +4224,7 @@ void polymult_line (
 			fftd.options = fft_options;
 			fftd.fft_size = fft_size;
 			fftd.write_direct = pmdata->enable_strided_writes && !planpart->emulate_circular && !post_monic_addin_invec1 && !post_monic_addin_invec2;
+//GW: Need variable (from an INI file?) that says no strided writes above this polymult size
 			fft_line (pmdata, &fftd);
 			// Remember poly FFT size for next invec2
 			prev_fft_size = fft_size;
@@ -5303,8 +5303,8 @@ use_it:		    ASSERTG (best_choice != 0);
 		    }
 		    // Use streamed stores if the output polynomial uses more memory than the L3 cache size
 //GW: fine tune this!!!  should probably use a different variable than L3_CACHE_SIZE
-		    plan->planpart[i].streamed_stores = (pmdata->enable_streamed_stores &&
-							 (uint64_t) outvec_size * gwnum_datasize (pmdata->gwdata) > (uint64_t) pmdata->L3_CACHE_SIZE * 1024);
+		    plan->planpart[i].streamed_stores = (pmdata->enable_streamed_stores );//&&
+							 //(uint64_t) outvec_size * gwnum_datasize (pmdata->gwdata) > (uint64_t) pmdata->L3_CACHE_SIZE * 1024);
 
 		    // If we selected the circular fft size, then save some necessary plan variables
 		    if (can_use_circular_fft_size && plan->planpart[i].impl == POLYMULT_IMPL_FFT && fft_size == circular_fft_size) {
