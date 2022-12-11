@@ -4305,6 +4305,13 @@ double ecm_stage2_impl_given_numvals (
 	cost_data.c.fftlen = gwfftlen (&ecmdata->gwdata);
 	cost_data.c.threads = get_worker_num_threads (ecmdata->thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
 	for (int stage2_type = 0; stage2_type <= 1; stage2_type++) {	// Prime pairing vs. polymult
+
+/* Check which stage 2 types we are to cost - mainly used for QA/debugging */
+
+	    if (forced_stage2_type != 99 && forced_stage2_type != stage2_type) continue;
+
+/* Loop through all possible implementations */
+
 	    for (int impl = 0; impl <= 7; impl++) {			// Eight possible implementations
 
 /* For polymult only cost out 3.57-MULT modinv */
@@ -4314,10 +4321,6 @@ double ecm_stage2_impl_given_numvals (
 /* Check for QA'ing a specific ECM implementation type */
 
 		if (QA_TYPE != 0 && QA_TYPE != impl + 1) continue;
-
-/* Check which stage 2 types we are to cost - mainly used for QA/debugging */
-
-		if (forced_stage2_type != 99 && forced_stage2_type != stage2_type) continue;
 
 /* Cost out an ECM stage 2 implementation.  2 vs. 4 FFT, N^2 vs. 3-MULT vs. 3.44-MULT vs. 3.57-MULT pooling.  All implementations must account for 9 gwnum */
 /* temporaries required by the main stage 2 loop (6 for computing mQx, gg, 2 for ell_add_xz_noscr temps).  Keep track of the best implementation. */
@@ -4379,10 +4382,11 @@ void ecm_choose_B2 (
 	kruppa (best[1], 250);
 	kruppa (best[2], 1250);
 
-/* Handle case where midpoint has worse efficiency than the start point */
-/* The search code requires best[1] is better than best[0] and best[2] */
+/* Handle case where midpoint has worse efficiency than the start point.  The search code requires best[1] is better than best[0] and best[2]. */
+/* There is an edge case where max_safe_poly_size returns a very small value and there is no case where best[1] is better than best[0]. */
+/* Thus, the test for best[0].i > 1.  We'll eventually use a larger FFT size with a larger safe poly_size. */
 
-	while (best[0].efficiency > best[1].efficiency) {
+	while (best[0].efficiency > best[1].efficiency && best[0].i > 1) {
 		best[2] = best[1];
 		best[1] = best[0];
 		kruppa (best[0], best[0].i / 2);
@@ -4399,7 +4403,7 @@ void ecm_choose_B2 (
 
 /* Find the best B2.  We use a binary-like search to speed things up (new in version 30.3b3). */
 
-	while (best[0].i + 2 != best[2].i) {
+	while (best[0].i + 2 != best[2].i && best[0].i > 1) {
 		struct ecm_stage2_efficiency midpoint;
 
 		ASSERTG (best[1].efficiency >= best[0].efficiency);
@@ -9133,10 +9137,10 @@ void pm1_choose_B2 (
 	p1eval (best[1], 20);
 	p1eval (best[2], 40);
 
-/* Handle case where midpoint is worse than the start point */
-/* The search code requires best[1] is better than best[0] and best[2] */
+/* Handle case where midpoint is worse than the start point.  The search code requires best[1] is better than best[0] and best[2]. */
+/* To be safe, like ECM catch cases where no suitable best[1] exists. */
 
-	while (p1compare (best[0], best[1])) {
+	while (p1compare (best[0], best[1]) && best[0].i > 1) {
 		best[2] = best[1];
 		p1eval (best[1], (best[0].i + best[2].i) / 2);
 	}
@@ -9152,7 +9156,7 @@ void pm1_choose_B2 (
 
 /* Find the best B2.  We use a binary-like search to speed things up (new in version 30.3b3). */
 
-	while (best[0].i + 2 != best[2].i) {
+	while (best[0].i + 2 != best[2].i && best[0].i > 1) {
 		struct pm1_stage2_efficiency midpoint;
 
 		// Work on the bigger of the lower section and upper section
