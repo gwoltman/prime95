@@ -10,7 +10,7 @@
  *	    20 Apr 97  RDW
  *
  *	c. 1997 Perfectly Scientific, Inc.
- *	c. 1998-2017 Mersenne Research, Inc.
+ *	c. 1998-2022 Mersenne Research, Inc.
  *	All Rights Reserved.
  *
  **************************************************************/
@@ -18,8 +18,7 @@
 #ifndef _GIANTS_H_
 #define _GIANTS_H_
 
-/* This is a C library.  If used in a C++ program, don't let the C++ */
-/* compiler mangle names. */
+/* This is a C library.  If used in a C++ program, don't let the C++ compiler mangle names. */
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,11 +55,9 @@ extern "C" {
 
 typedef struct
 {
-	 int	sign;
-	 uint32_t *n;		/* ptr to array of longs */
-#ifdef GDEBUG
-	int	maxsize;
-#endif
+	int	maxsize;	/* not used except for debugging.  Makes giantstruct compatible with GMP library! */
+	int	sign;		/* abs(sign) is number of uint32_t's in n.  If sign is negative, giant is negative. */
+	uint32_t *n;		/* ptr to array of longs */
 } giantstruct;
 
 typedef giantstruct *giant;
