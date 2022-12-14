@@ -75,11 +75,7 @@ typedef giantstruct *giant;
  **************************************************************/
 
 /* Create a new giant variable on the stack */
-#ifdef GDEBUG
-#define stackgiant(name,count) uint32_t name##_data[count]; giantstruct name##_struct = {0, (uint32_t *) &name##_data, count}; const giant name = &name##_struct
-#else
-#define stackgiant(name,count) uint32_t name##_data[count]; giantstruct name##_struct = {0, (uint32_t *) &name##_data}; const giant name = &name##_struct
-#endif
+#define stackgiant(name,count) uint32_t name##_data[count]; giantstruct name##_struct = {count, 0, (uint32_t *) &name##_data}; const giant name = &name##_struct
 
 /* Creates a new giant allocating an array of uint32_t */
 giant 	allocgiant(int count);
