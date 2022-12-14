@@ -994,14 +994,18 @@ double best_stage2_impl (
 // Return the window size for the prime pairing routine.  This is user-configurable based on the size of the number being worked on.
 // When totrels/numrels multiplier is large, non-windowed pairing gets very slow.  Switching off ON_THE_FLY_CAN_PAIR_TO would help.
 // We need to carefully study non-windowed timings and optimizations before making non-windowed pairing the default more often.
-
+// 2022-12-14:  Pminus1=1,2,87856183,-1,1000000,100000000 used 2.3GB of memory for non-windowed pairing.  Since pairing will only be
+// used in low-memory situations, we will always use windowed pairing.  Testing showed a window size of 100 used ~65MB over and above
+// the already allocated 107MB.  A window size of 350 also used ~65MB.  Thus, we'll arbitrarily use a window size of 1000.
+      
 int pair_window_size (
 	double	bit_length,
 	int16_t	*relp_sets)
 {
-	bool acceptable_multiplier = (relp_sets[0] <= IniGetInt (INI_FILE, "MaxPairingWindowMultiplier", 8));
-	bool windowed = (!acceptable_multiplier || bit_length < IniGetInt (INI_FILE, "MaxPairingWindowExponent", 80000000));
-	return (windowed ? IniGetInt (INI_FILE, "PairingWindowSize", 1000) : 0);
+//	bool acceptable_multiplier = (relp_sets[0] <= IniGetInt (INI_FILE, "MaxPairingWindowMultiplier", 8));
+//	bool windowed = (!acceptable_multiplier || bit_length < IniGetInt (INI_FILE, "MaxPairingWindowExponent", 80000000));
+//	return (windowed ? IniGetInt (INI_FILE, "PairingWindowSize", 1000) : 0);
+	return (1000);
 }
 
 /* Set N, the number we are trying to factor */
@@ -6013,6 +6017,7 @@ OutputStr (thread_num, buf); }
 
 	if (ecmdata.pairmap == NULL) {
 		int fill_window = pair_window_size (ecmdata.gwdata.bit_length, ecmdata.relp_sets);
+		gwfree_internal_memory (&ecmdata.gwdata);
 		stop_reason = fill_pairmap (ecmdata.thread_num, &ecmdata.sieve_info, ecmdata.D, fill_window,0,0,0,
 					    ecmdata.totrels, ecmdata.relp_sets+3, ecmdata.first_relocatable, ecmdata.last_relocatable,
 					    ecmdata.B2_start, ecmdata.C, ecmdata.max_pairmap_Dsections, &ecmdata.pairmap, &ecmdata.pairmap_size);
@@ -6653,6 +6658,7 @@ OutputStr (thread_num, buf); }
 			ecmdata.C_done = ecmdata.B2_start + ecmdata.Dsection * ecmdata.D;
 			ecmdata.first_relocatable = calc_new_first_relocatable (ecmdata.D, ecmdata.C_done);
 			int fill_window = pair_window_size (ecmdata.gwdata.bit_length, ecmdata.relp_sets);
+			gwfree_internal_memory (&ecmdata.gwdata);
 			stop_reason = fill_pairmap (ecmdata.thread_num, &ecmdata.sieve_info, ecmdata.D, fill_window,0,0,0,
 						    ecmdata.totrels, ecmdata.relp_sets+3, ecmdata.first_relocatable, ecmdata.last_relocatable,
 						    ecmdata.C_done, ecmdata.C, ecmdata.max_pairmap_Dsections, &ecmdata.pairmap, &ecmdata.pairmap_size);
@@ -10396,6 +10402,7 @@ OutputStr (thread_num, buf); }
 
 	if (pm1data.pairmap == NULL) {
 		int fill_window = pair_window_size (pm1data.gwdata.bit_length, pm1data.relp_sets);
+		gwfree_internal_memory (&pm1data.gwdata);
 		stop_reason = fill_pairmap (pm1data.thread_num, &pm1data.sieve_info, pm1data.D, fill_window,0,0,0,
 					    pm1data.totrels, pm1data.relp_sets+3, pm1data.first_relocatable, pm1data.last_relocatable,
 					    pm1data.B2_start, pm1data.C, pm1data.max_pairmap_Dsections, &pm1data.pairmap, &pm1data.pairmap_size);
@@ -10793,6 +10800,7 @@ OutputStr (thread_num, buf); }
 			pm1data.C_done = pm1data.B2_start + pm1data.Dsection * pm1data.D;
 			pm1data.first_relocatable = calc_new_first_relocatable (pm1data.D, pm1data.C_done);
 			int fill_window = pair_window_size (pm1data.gwdata.bit_length, pm1data.relp_sets);
+			gwfree_internal_memory (&pm1data.gwdata);
 			stop_reason = fill_pairmap (pm1data.thread_num, &pm1data.sieve_info, pm1data.D, fill_window,0,0,0,
 						    pm1data.totrels, pm1data.relp_sets+3, pm1data.first_relocatable, pm1data.last_relocatable,
 						    pm1data.C_done, pm1data.C, pm1data.max_pairmap_Dsections, &pm1data.pairmap, &pm1data.pairmap_size);
@@ -12826,6 +12834,7 @@ int pp1_stage2_impl (
 /* Create a map of (hopefully) close-to-optimal prime pairings */
 
 	int fill_window = pair_window_size (pp1data->gwdata.bit_length, pp1data->relp_sets);
+	gwfree_internal_memory (&pp1data->gwdata);
 	stop_reason = fill_pairmap (pp1data->thread_num, &pp1data->sieve_info, pp1data->D, fill_window,0,0,0,
 				    pp1data->totrels, pp1data->relp_sets+3, pp1data->first_relocatable, pp1data->last_relocatable,
 				    pp1data->B2_start, pp1data->C, pp1data->max_pairmap_Dsections, &pp1data->pairmap, &pp1data->pairmap_size);
