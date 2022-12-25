@@ -658,8 +658,11 @@ ZPRCENTRY2 MACRO procprefix, fftlen, procsuffix, p2size, clm, mem_needed, best_i
 	IF (bif AND SKX) NE 0
 		ZPRCENTRY3 procprefix, fftlen, procsuffix, p2size, clm, <_SKX>, mem_needed, SKX
 	ENDIF
+	IF (bif AND RYZEN) NE 0
+		ZPRCENTRY3 procprefix, fftlen, procsuffix, p2size, clm, <_SKX>, mem_needed, RYZEN
+	ENDIF
 	;; Output a jmptable entry even if this implementation is not best
-	IF (bif AND SKX) EQ 0
+	IF (bif AND (SKX OR RYZEN)) EQ 0
 		ZPRCENTRY3 procprefix, fftlen, procsuffix, p2size, clm, <_SKX>, mem_needed, 0
 	ENDIF
 	ENDM
@@ -5762,9 +5765,9 @@ zjmptable DD	0
 	ZPRCENTRY421		zfft_r4dwpn,5760K,,30720,10585216
 	ZPRCENTRY421		zfft_r4dwpn,5760K,,9216,7481984
 	ZPRCENTRY421		zfft_r4dwpn,5760K,,7680,8210944
-	ZPRCENTRY421		zfft_r4dwpn,5760K,,6144,5448320,,,RYZEN
+	ZPRCENTRY421		zfft_r4dwpn,5760K,,6144,5448320
 	ZPRCENTRY421		zfft_r4dwpn,5760K,,5120,5896704
-	ZPRCENTRY421		zfft_r4dwpn,5760K,,4608,7385088
+	ZPRCENTRY421		zfft_r4dwpn,5760K,,4608,7385088,,,RYZEN
 	ZPRCENTRY421		zfft_r4dwpn,5760K,,3840,7177984
 	ZPRCENTRY421		zfft_r4dwpn,5760K,,3072,5232640
 	ZPRCENTRY421		zfft_r4dwpn,5760K,,2560,5052160

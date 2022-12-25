@@ -683,7 +683,7 @@ int calculate_bif (
 			retval = BIF_K10;	/* Look for FFTs optimized for K10 */
 		break;
 	case CPU_ARCHITECTURE_AMD_ZEN:		/* Look for FFTs optimized for Ryzen */
-	case CPU_ARCHITECTURE_AMD_OTHER:	/* For no particularly good reason, assume future AMD processors do well with Intel FFTs */
+	case CPU_ARCHITECTURE_AMD_OTHER:	/* For no particularly good reason, assume future AMD processors do well with Ryzen FFTs */
 		if (gwdata->cpu_flags & CPU_AVX512F)
 			retval = BIF_RYZEN;	/* Use AVX-512 FFTs optimized for Ryzen chip */
 		else if (gwdata->cpu_flags & CPU_FMA3)
@@ -819,11 +819,13 @@ int is_fft_implemented (
 /* Calculate the architecture, number of cores, workers, and hyperthreads for looking up the right benchmark data */
 
 		switch (desired_bif) {			/* Only get benchmark data for relevant CPU architecture */
+		case BIF_RYZEN:
+			arch = (gwdata->cpu_flags & CPU_AVX512F) ? ARCH_SKX : ARCH_FMA3;
+			break;
 		case BIF_SKX:
 			arch = ARCH_SKX;
 			break;
 		case BIF_FMA3:
-		case BIF_RYZEN:
 			arch = ARCH_FMA3;
 			break;
 		case BIF_I7:
