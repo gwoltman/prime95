@@ -71,6 +71,10 @@
 // 82) I don't like the way num_compressed_blks is chosen (only powers of two).  If not pre-FFTing we might get very small blk_size.  Change compress and decompress
 //	to handle partial final blk.  blk_sizes were added for multi-threading the preprocessing.  Address this when we tackle strided_reads.
 // 83) Under what circumstances do streaming stores provide a benefit?
+// 84) A more flexible threading policy.  Now we only support one line at a time using all threads OR each thread doing its own line.  For FFT size 64 where
+//	num_lines=9 if threads=14 then 5 threads are totally unused.  Better might be processing 3 lines at a time using 5,5,4 threads.  This is hard as we'd
+//	need locks and mutexes for each of the 3 lines being processed.  Easier might be 8 threads processing a line with a single thread and one line being
+//	processed with 6 threads.  When that line completes the 6 threads switch to help processing one of the other 8 lines, and so on.
 
 /* Opcodes for helper thread */
 
@@ -81,6 +85,7 @@
 #define HELPER_EXIT			5
 
 // Forward declarations required for the SSE2, AVX, FMA, AVX512 compiles
+void pick_pass_sizes (pmhandle *pmdata, unsigned int fftsize, unsigned int *p1size, unsigned int *p2size);
 unsigned long cache_line_offset (gwhandle *gwdata, unsigned long i);
 void generate_sincos (pmhandle *pmdata, const unsigned int size);
 void zpad7_fft (gwhandle *gwdata, gwnum g);

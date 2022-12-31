@@ -8968,27 +8968,21 @@ static	int	time_all_complex = 0;	/* TRUE if we should time all-complex FFTs */
 				pmdata.L3_CACHE_SIZE = mt_polymult_line ? 1000000000 : 1;
 				pmdata.enable_strided_writes = strided_write;
 				pmdata.enable_streamed_stores = streamed_stores;
+				gwdata.scramble_arrays = (char) scrambled;
 				a = b = gwalloc_array (&gwdata, CNT);
-				if (scrambled) {
-					for (int i = 0; i < CNT; i++) {
-						int j = rand () % CNT;
-						gwswap (b[i], b[j]);
-					}
-				}
 				dbltogw (&gwdata, 10001.0, a[0]);
 				for (int i = 1; i < CNT/2; i++) gwcopy (&gwdata, a[0], a[i]);
 				if (preprocess) a = polymult_preprocess (&pmdata, a, CNT/2, CNT/2, CNT-1, (preFFT ? POLYMULT_PRE_FFT : 0) + (compress ? POLYMULT_PRE_COMPRESS : 0));
 				clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
 				start_timer (timers, 0);
 				if (iters == 0) iters = 1;
-				for (int i = 0; i < iters; i++) {
-					polymult (&pmdata, a, CNT/2, a, CNT/2, b, (CNT/2)*2-1, POLYMULT_NEXTFFT);
-					//polymult (&pmdata, a, CNT/2, a, CNT/2, b, CNT, POLYMULT_INVEC1_MONIC_RLP | POLYMULT_INVEC2_MONIC_RLP | POLYMULT_NEXTFFT);
-				}
+				for (int i = 0; i < iters; i++) polymult (&pmdata, a, CNT/2, a, CNT/2, b, (CNT/2)*2-1, POLYMULT_NEXTFFT);
 				end_timer (timers, 0);
 				timers[0] /= iters;
 				if (first_poly) {
-					sprintf (buf, "Poly-size %d, gwnum FFT size %ld\n", CNT, gwdata.FFTLEN);
+					int aligned_gwnum_size = gwnum_datasize (&gwdata) + GW_HEADER_SIZE (&gwdata);
+					aligned_gwnum_size = round_up_to_multiple_of (aligned_gwnum_size, 64);
+					sprintf (buf, "Poly-size %d, gwnum FFT size %ld, gwnum size %d, mod 256 %d\n", CNT, gwdata.FFTLEN, aligned_gwnum_size, aligned_gwnum_size % 256);
 					OutputBoth (thread_num, buf);
 					first_poly = FALSE;
 				}

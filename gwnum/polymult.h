@@ -29,9 +29,6 @@ double polymult_safety_margin (int invec1_size, int invec2_size);
 
 // Get the FFT size that will be used for an n = invec1_size + invec2_size polymult
 int polymult_fft_size (int n);
-// Polymult currently uses two-pass FFTs to implement larger multiplications.  This routine returns the sizes of the two FFT passes.
-// DO NOT CALL THIS ROUTINE, a future polymult library may change the way it internally implements FFTs.
-void pick_pass_sizes (pmhandle *pmdata, unsigned int fftsize, unsigned int *p1size, unsigned int *p2size);
 
 // Get the memory (in bytes) required for an FFT based polymult.  Use the information to ensure over-allocating memory does not occur.
 uint64_t polymult_mem_required (int invec1_size, int invec2_size, int options, int cpu_flags, int num_threads);

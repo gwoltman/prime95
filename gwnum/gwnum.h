@@ -1037,7 +1037,7 @@ struct gwhandle_struct {
 	char	use_spin_wait;		/* FALSE = use mutex, TRUE = spin wait.  Linus Torvalds hates spinning, see https://www.realworldtech.com/forum/?threadid=189711&curpostid=189723 */
 					/* GWNUM does use a spin lock, rather it can spin waiting for an atomic counter of active threads to reach zero. */
 					/* There is likely negligible difference between mutex wait and spin wait. */
-	char	unused_setup_flags[1];
+	char	scramble_arrays;	/* TRUE (the default) if gwalloc_array scrambles allocated gwnums in memory.  Polymult is often faster with scrambled set. */
 	int	bench_num_cores;	/* Set to expected number of cores that will FFT (affects select fastest FFT implementation) */
 	int	bench_num_workers;	/* Set to expected number of workers that will FFT (affects select fastest FFT implementation) */
 	/* End of variables affecting gwsetup */

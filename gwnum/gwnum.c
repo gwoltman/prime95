@@ -2093,6 +2093,7 @@ void gwinit2 (
 	gwdata->use_large_pages = 0;
 	gwdata->use_benchmarks = 1;
 	gwdata->gwnum_max_free_count = 10;
+	gwdata->scramble_arrays = 1;
 	gwdata->mem_needed = GWINIT_WAS_CALLED_VALUE;	/* Special code checked by gwsetup to ensure gwinit was called */
 
 /* Init structure that allows giants and gwnum code to share allocated memory */
@@ -6919,7 +6920,8 @@ gwarray gwalloc_array (		/* Pointer to an array of gwnums */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	int	n)		/* Size of the array of gwnums */
 {
-	size_t	array_header_size, gwnum_header_size, aligned_gwnum_size, array_size;
+	size_t	array_header_size, gwnum_header_size, gwnum_size, aligned_gwnum_size, array_size;
+	int	pad_frequency, pad_amount, pad_direction;
 	char	*p = NULL;			// Pointer to the allocated memory
 	int	freeable;			// Flags indicating how memory was allocated
 
@@ -6928,21 +6930,43 @@ gwarray gwalloc_array (		/* Pointer to an array of gwnums */
 
 	// Calc needed space for each gwnum in the array
 	gwnum_header_size = GW_HEADER_SIZE (gwdata);
-	aligned_gwnum_size = gwnum_datasize (gwdata) + gwnum_header_size;
-	aligned_gwnum_size = round_up_to_multiple_of (aligned_gwnum_size, 64);
+	gwnum_size = gwnum_datasize (gwdata) + gwnum_header_size;
+	aligned_gwnum_size = round_up_to_multiple_of (gwnum_size, 64);
+
 	// For AVX-512 CPUs, rounding to a multiple of 128 bytes seems to be a minor benefit.  More importantly, when polymult reads a single cache line from
 	// many gwnums, it is beneficial to have the aligned gwnum size be an odd multiple of the cache line size.  This lets us avoid nasty 4KB strides which
-	// make poor use of the CPU caches.  The AVX-512 gwnum FFT size of 12228 is an example where this makes a big difference.  Note the use of global
-	// CPU_FLAGS as AVX_512 CPUs as there are no AVX-512 FFTs smaller than 1K.
-	if (CPU_FLAGS & CPU_AVX512F) {
+	// make poor use of the CPU caches.  The AVX-512 gwnum FFT size of 12228 is an example where this makes a big difference.
+	if (gwdata->cpu_flags & CPU_AVX512F) {
 		if (aligned_gwnum_size % 128 == 64) aligned_gwnum_size += 64;
 		if (aligned_gwnum_size % 256 == 0) aligned_gwnum_size += 128;
+		pad_amount = 128;							// Pad to 128-byte boundaries
 	} else {
 		if (aligned_gwnum_size % 128 == 0) aligned_gwnum_size += 64;
+		pad_amount = 64;							// Pad to 64-byte boundaries
 	}
-	// Calc needed space for the array_header, array, 128 bytes to get gwnums aligned on a cache line, and room for n aligned gwnums
+
+	// Calc needed space for the array_header and array (128 bytes to get first gwnum aligned on a cache line and room for n aligned gwnums)
 	array_header_size = sizeof (gwarray_header);
 	array_size = array_header_size + n * sizeof (gwnum) + 128 + n * aligned_gwnum_size;
+
+	// If scrambling array pointers, no further padding is necessary
+	if (gwdata->scramble_arrays) {
+		pad_frequency = 0;
+	}
+	// Otherwise, when polymult uses two-pass FFTs it accesses cache lines within each gwnum with stride 1 in the second pass and stride 2^some_power in
+	// the first pass.  For best cache usage, we want both access patterns to avoid 4KB strides with makes the 2^some_power stride problematic.  The above
+	// code insures the stride 1 accesses are optimal.  Add another padding every 64 gwnums (32 gwnums in AVX-512).  This padding will ensure that a
+	// stride 64 access pattern can fetch 64 consecutive gwnums before a multiple of 4KB is encountered.  If 2^some_power is more than 64, we another padding
+	// every 64*64 gwnums to once again avoid distances that are a multiple of 4KB as much as possible.
+	else {
+		pad_frequency = 4096 / pad_amount;							// Pad every 4KB (every 32 or 64 gwnums)
+		if ((int) (aligned_gwnum_size - gwnum_size) >= pad_amount) pad_direction = -1;		// Undo last padding to avoid multiple of 4KB
+		else pad_direction = 1;									// Add a padding to avoid multiple of 4KB
+		// Bump array_size for paddings every 32 or 64 gwnums, more paddings every 32*32 or 64*64 gwnums, and so forth.
+		array_size += divide_rounding_down (n, pad_frequency) * pad_direction * pad_amount -
+			      divide_rounding_down (n, pad_frequency * pad_frequency) * pad_direction * pad_amount +
+			      divide_rounding_down (n, pad_frequency * pad_frequency  * pad_frequency) * pad_direction * pad_amount;
+	}
 
 	// Allocate memory using large pages or regular malloc
 	if (gwdata->use_large_pages) {
@@ -6961,21 +6985,37 @@ gwarray gwalloc_array (		/* Pointer to an array of gwnums */
 	gwarray array = (gwarray) (p + array_header_size);
 	array = (gwarray) round_up_to_multiple_of ((intptr_t) array, sizeof (gwnum));
 	gwnum next_gwnum = (gwnum) ((char *) array + n * sizeof (gwnum) + gwnum_header_size);
-	next_gwnum = (gwnum) round_up_to_multiple_of ((intptr_t) next_gwnum, 64);
+	next_gwnum = (gwnum) round_up_to_multiple_of ((intptr_t) next_gwnum, pad_amount);
 	gwarray_header *array_header = (gwarray_header *) ((char *) array - array_header_size);
 
 	// Init the array and each gwnum
 	for (int i = 0; i < n; i++) {
+		// If extra padding is required, apply that now
+		if (pad_frequency && i && i % pad_frequency == 0) {
+			// Pad to get off a 4KB multiple
+			next_gwnum = (gwnum) ((char *) next_gwnum + pad_direction * pad_amount);
+			// Occasionally pad even more so that really large strides also don't get stuck on 4KB multiples
+			if (i % (pad_frequency * pad_frequency) == 0) {
+				next_gwnum = (gwnum) ((char *) next_gwnum - pad_direction * pad_amount);
+				if (i % (pad_frequency * pad_frequency * pad_frequency) == 0) {
+					next_gwnum = (gwnum) ((char *) next_gwnum + pad_direction * pad_amount);
+				}
+			}
+		}
+		// Set array pointer, clear gwnum header, calc next gwnum pointer assuming no extra padding required
 		array[i] = next_gwnum;
 		memset ((char *) next_gwnum - gwnum_header_size, 0, gwnum_header_size);
 		next_gwnum = (gwnum) ((char *) next_gwnum + aligned_gwnum_size);
 	}
 
-// Crazy idea, scramble the gwnums so that polymult strided writes have random strides
-//for (int i = 0; i < n; i++) {
-//int j = rand () % n;
-//gwswap (array[i], array[j]);
-//}
+	// Clearly we do not fully understand memory accessing.  The above code that makes sure polymult strided accesses have a minimum number of 4KB strides is
+	// often slower than simply randomly placing the gwnum pointers in the gwnum array.  Until we can improve the above code, we default to scrambled addresses.
+	if (gwdata->scramble_arrays) {
+		for (int i = 0; i < n; i++) {
+			int j = rand () % n;
+			gwswap (array[i], array[j]);
+		}
+	}
 
 	// Obtain lock necessary for thread-safe operation
 	gwmutex_lock (&gwdata->alloc_lock);
