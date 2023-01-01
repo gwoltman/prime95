@@ -4382,26 +4382,27 @@ void polymult_thread (void *arg)
 	    /* the main thread has changed in preparation for the next batch of work for the helper threads. */
 	    if (pmdata->all_work_assigned) continue;
 	    num_active_helpers = atomic_incr_fetch (pmdata->num_active_helpers);
-	    if (!pmdata->all_work_assigned) {			// all_work_assigned set should be rare
+	    if (!pmdata->all_work_assigned) {		// Check for rare case of all_work_assigned set during atomic_incr_fetch
 
-		// If caller requests using fewer than the maximum number of helper threads, then some of the helpers need to do nothing
-		if (num_active_helpers > pmdata->num_threads);
-
-		// User-defined callbacks and some polymult helpers require a cloned gwdata
-		if (!cloned_gwdata_initialized && pmdata->helper_opcode != HELPER_PREPROCESS_LINE && pmdata->helper_opcode != HELPER_POLYMULT_LINE) {
+		// Dispatch unless caller requests using fewer than the maximum number of helper threads
+		if (num_active_helpers < pmdata->num_threads) {
+			    
+		    // User-defined callbacks and some polymult helpers require a cloned gwdata
+		    if (!cloned_gwdata_initialized && pmdata->helper_opcode != HELPER_PREPROCESS_LINE && pmdata->helper_opcode != HELPER_POLYMULT_LINE) {
 			gwclone (&cloned_gwdata, pmdata->gwdata);		// Clone gwdata
 			cloned_gwdata_initialized = TRUE;
-		}
+		    }
 
-		// Dispatch to perform the correct work
-		polymult_dispatch (thread_num, pmdata, &cloned_gwdata);
+		    // Dispatch to perform the correct work
+		    polymult_dispatch (thread_num, pmdata, &cloned_gwdata);
 
-		// Helpers that used a cloned gwdata require gwdata stats to be merged
-		if (pmdata->helper_opcode != HELPER_PREPROCESS_LINE && pmdata->helper_opcode != HELPER_POLYMULT_LINE) {
+		    // Helpers that used a cloned gwdata require gwdata stats to be merged
+		    if (pmdata->helper_opcode != HELPER_PREPROCESS_LINE && pmdata->helper_opcode != HELPER_POLYMULT_LINE) {
 			gwmutex_lock (&pmdata->poly_mutex);
 			if (pmdata->stats_gwdata == NULL) pmdata->stats_gwdata = &cloned_gwdata;	// Nothing to add our stats to yet
 			else gwclone_merge_stats (pmdata->stats_gwdata, &cloned_gwdata);		// Add our stats to pmdata->stats_gwdata
 			gwmutex_unlock (&pmdata->poly_mutex);
+		    }
 		}
 
 		// No more work to assign to helper threads
