@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2022 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2023 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
@@ -10966,7 +10966,7 @@ int generateProofFile (
 	char	proof_hash[33])		/* Returned MD5 hash of the entire proof file */
 {
 	int	proofgen_waits;
-	char	buf[512];
+	char	buf[512], filename[32], proof_filename[500], tmp_proof_filename[504];
 
 // Mihai's explanation for how a proof construction works for proof power N:
 //	Hashes must all be derived from the final residue B
@@ -10995,15 +10995,20 @@ int generateProofFile (
 		 ps->proof_power_mult > 1 ? " partial" : "", gwmodulo_as_string(gwdata), ps->proof_power, ps->hashlen);
 	OutputStr (ps->thread_num, buf);
 
-// Loop until we successfully generate the proof file
+// Proof file names
+
+	tempFileName (w, filename);
+	sprintf (proof_filename, "%s.proof", filename);
+	sprintf (tmp_proof_filename, "%s.proof.tmp", filename);
+
+// Loop until we successfully generate the proof file (or give up on ever being able to generate the proof file)
 
 	for ( ; ; ) {
 		int	fd, fdout, rc, i, stop_reason;
-		int64_t	proof_file_start_offset;	
+		int64_t	proof_header_size, proof_residues_size, proof_file_size, proof_file_start_offset;
 		uint64_t h[20];
 		hash256_t rooth, *prevh, thish;
 		gwnum	M;
-		char	filename[32], proof_filename[500], tmp_proof_filename[504];
 		MD5_CTX context;
 		unsigned char digest[16];
 		char	MD5_output[33];
@@ -11012,8 +11017,6 @@ int generateProofFile (
 
 		fd = -1;
 		fdout = -1;
-		M = NULL;
-
 		MD5Init (&context);
 		M = gwalloc (gwdata);
 		if (M == NULL) {
@@ -11033,35 +11036,86 @@ int generateProofFile (
 				goto pfail;
 			}
 		}
-		tempFileName (w, filename);
-		sprintf (proof_filename, "%s.proof", filename);
-		sprintf (tmp_proof_filename, "%s.proof.tmp", filename);
-		if (proof_number == 1)
-			fdout = _open (tmp_proof_filename, _O_BINARY | _O_WRONLY | _O_TRUNC | _O_CREAT, CREATE_FILE_ACCESS);
-		else
-			fdout = _open (tmp_proof_filename, _O_BINARY | _O_WRONLY | _O_APPEND | _O_CREAT, CREATE_FILE_ACCESS);
+		if (proof_number == 1) fdout = _open (tmp_proof_filename, _O_BINARY | _O_WRONLY | _O_CREAT, CREATE_FILE_ACCESS);
+		else fdout = _open (tmp_proof_filename, _O_BINARY | _O_WRONLY);
 		if (fdout < 0) {
-			sprintf (buf, "Cannot create PRP proof file: %s\n", proof_filename);
+			sprintf (buf, "Cannot %s PRP proof file: %s\n", proof_number == 1 ? "create" : "open", tmp_proof_filename);
 			OutputBoth (ps->thread_num, buf);
 			OutputBothErrno (ps->thread_num);
 			goto pfail;
 		}
-		// Get starting file offset for later rereading for MD5 comparison hash
-		proof_file_start_offset = _lseeki64 (fdout, 0, SEEK_END);
 
-// We need to be careful in the case where user rolls back to a much older save file.  If we've written out
-// one or more proofs then we cannot overwrite them as the needed interim residues file was deleted or may have been
-// partially overwritten after the proof was generated.  Determine how many proofs have been written based on the
-// size of the file.  Silently ignore attempts at overwriting.
+// Create (or recreate) the proof file header.  The proof file header looks like this:
+// PRP PROOF\n
+// VERSION=1\n
+// HASHSIZE=64\n
+// POWER=7x2\n
+// NUMBER=M216091\n
 
-		int proofs_written = (int) (proof_file_start_offset / ((ps->proof_power + 1) * ps->residue_size));
+		sprintf (buf, "PRP PROOF\nVERSION=%d\nHASHSIZE=%d\n", ps->proof_version, ps->hashlen);
+		if (ps->proof_power_mult == 1) sprintf (buf+strlen(buf), "POWER=%d\n", ps->proof_power);
+		else sprintf (buf+strlen(buf), "POWER=%dx%d\n", ps->proof_power, ps->proof_power_mult);
+		if (ps->prp_base != 3) sprintf (buf+strlen(buf), "BASE=%u\n", ps->prp_base);
+		if (_write (fdout, buf, (unsigned int) strlen (buf)) != (int) strlen (buf)) {
+			OutputBoth (ps->thread_num, "Error writing proof file header.\n");
+			OutputBothErrno (ps->thread_num);
+			goto pfail;
+		}
+		MD5Update (&context, buf, (unsigned int) strlen (buf));
+
+		// Output number.  Enclose non-Mersennes with known factors in parentheses.  Append known factors.
+		sprintf (buf, "NUMBER=");
+		if ((w->k != 1.0 || w->c != -1) && w->known_factors != NULL) strcat (buf, "(");
+		strcat (buf, gwmodulo_as_string (gwdata));
+		if ((w->k != 1.0 || w->c != -1) && w->known_factors != NULL) strcat (buf, ")");
+		if (w->known_factors != NULL) {		// Output known factors list
+			char	*p;
+			sprintf (buf + strlen (buf), "/%s", w->known_factors);
+			while ((p = strchr (buf, ',')) != NULL) *p = '/';
+		}
+		strcat (buf, "\n");
+		if (_write (fdout, buf, (unsigned int) strlen (buf)) != (int) strlen (buf)) {
+			OutputBoth (ps->thread_num, "Error writing proof file header.\n");
+			OutputBothErrno (ps->thread_num);
+			goto pfail;
+		}
+		MD5Update (&context, buf, (unsigned int) strlen (buf));
+
+		// Get the header size
+		proof_header_size = _lseeki64 (fdout, 0, SEEK_CUR);
+
+// We need to be careful in the case where user rolls back to a much older save file.  If we've written out one or more partial proofs then we cannot
+// overwrite them as the needed interim residues file may have been deleted after the partial proof was written.  We determine how many partial proofs
+// have been written based on the size of the file.
+
+// Now determine if the full or partial proof has already been output.  There are three cases:
+// 1) The normal case is where none of this full or partial proof was previously output.  Output this proof.
+// 2) Part of this full or partial proof was previously output.  Perhaps the computer crashed in the middle of proof generation.  Output this proof.
+// 3) This full or partial proof was previously output in its entirety.  The residues file may then have been deleted.  Use the previously generated proof.
+
+		// Use current proof file size to determine how many partial proofs have been completely written to the proof file
+		proof_file_size = _lseeki64 (fdout, 0, SEEK_END);
+		proof_residues_size = (ps->proof_power + 1) * ps->residue_size;
+		int proofs_written = (int) ((proof_file_size - proof_header_size) / proof_residues_size);
+
+		// If this proof has already been completely written to the proof file, then we don't need to write this full or partial proof
 		if (proofs_written >= proof_number) {
 			_close (fd);
 			_close (fdout);
 			gwfree (gwdata, M);
+			sprintf (buf, "Proof has already been written to %s.\n", tmp_proof_filename);
+			OutputBoth (ps->thread_num, buf);
 			break;
 		}
 
+// Proof file start offset is the really the starting offset of the MD5 checksum we are computing.  We'll compare the MD5 of data we've written to
+// the MD5 once the data is on disk.  NOTE:  We don't MD5 check the proof header when the rarely used proof_power_multiplier option is selected.
+
+		// Position to the start of this full or partial proof
+		proof_file_start_offset = _lseeki64 (fdout, proof_header_size + (proof_number - 1) * proof_residues_size, SEEK_SET);
+		if (proof_number == 0) proof_file_start_offset = 0;	// We will check the MD5 of the header plus the MD5 of the proof
+		else MD5Init (&context);				// We will not check the MD5 of the header but will check the MD5 of the proof
+   
 // Reset counters and errors, turn on error checking
 
 		gwdata->fft_count = 0;			// Reset count of FFTs performed
@@ -11069,45 +11123,7 @@ int generateProofFile (
 		gw_clear_maxerr (gwdata);
 		gwsetnormroutine (gwdata, 0, 1, 0);	// Error checking on
 
-// Create the proof file header.  The proof file header looks like this:
-// PRP PROOF\n
-// VERSION=1\n
-// HASHSIZE=64\n
-// POWER=7x2\n
-// NUMBER=M216091\n
-
-		if (proof_number == 1) {
-			sprintf (buf, "PRP PROOF\nVERSION=%d\nHASHSIZE=%d\n", ps->proof_version, ps->hashlen);
-			if (ps->proof_power_mult == 1)
-				sprintf (buf+strlen(buf), "POWER=%d\n", ps->proof_power);
-			else
-				sprintf (buf+strlen(buf), "POWER=%dx%d\n", ps->proof_power, ps->proof_power_mult);
-			if (ps->prp_base != 3) sprintf (buf+strlen(buf), "BASE=%u\n", ps->prp_base);
-			if (_write (fdout, buf, (unsigned int) strlen (buf)) != (int) strlen (buf)) {
-				OutputBoth (ps->thread_num, "Error writing proof file header.\n");
-				OutputBothErrno (ps->thread_num);
-				goto pfail;
-			}
-			MD5Update (&context, buf, (unsigned int) strlen (buf));
-
-			// Output number.  Enclose non-Mersennes with known factors in parentheses.  Append known factors.
-			sprintf (buf, "NUMBER=");
-			if ((w->k != 1.0 || w->c != -1) && w->known_factors != NULL) strcat (buf, "(");
-			strcat (buf, gwmodulo_as_string (gwdata));
-			if ((w->k != 1.0 || w->c != -1) && w->known_factors != NULL) strcat (buf, ")");
-			if (w->known_factors != NULL) {		// Output known factors list
-				char	*p;
-				sprintf (buf + strlen (buf), "/%s", w->known_factors);
-				while ((p = strchr (buf, ',')) != NULL) *p = '/';
-			}
-			strcat (buf, "\n");
-			if (_write (fdout, buf, (unsigned int) strlen (buf)) != (int) strlen (buf)) {
-				OutputBoth (ps->thread_num, "Error writing proof file header.\n");
-				OutputBothErrno (ps->thread_num);
-				goto pfail;
-			}
-			MD5Update (&context, buf, (unsigned int) strlen (buf));
-		}
+// Output this full or partial proof
 
 		// Output final residue
 		rc = readResidue (ps, gwdata, fd, (1 << ps->proof_power), M);
@@ -11158,21 +11174,6 @@ int generateProofFile (
 		if (fdout >= 0) _close (fdout), fdout = -1;
 		gwfree (gwdata, M); M = NULL;
 
-// Generate an MD5 hash of the bytes just written to the proof file.  This will be a unique identifier to thwart a bad actor from uploading a counterfeit proof file.
-// Compare the MD5 generated during output to the MD5 generated by re-reading the file			
-
-		md5_hexdigest_file_from_offset (proof_hash, tmp_proof_filename, proof_file_start_offset);
-		if (strcmp (MD5_output, proof_hash) != 0) {
-			OutputBoth (ps->thread_num, "The MD5 hash of the proof file is not correct.\n");
-			goto pfail;
-		}
-
-// Return an MD5 hash of the complete proof file.  This will be a unique identifier to thwart a bad actor from uploading
-// a counterfeit proof file.
-
-		if (proof_number == ps->proof_power_mult && proof_file_start_offset != 0)
-			md5_hexdigest_file (proof_hash, tmp_proof_filename);
-
 // Check if an error occurred before publishing our proof
 
 		if (gw_test_for_error (gwdata)) {
@@ -11185,30 +11186,24 @@ int generateProofFile (
 		if (gw_get_maxerr (gwdata) > 0.45) goto somewhere; ???
 #endif
 
-// Print messages, rename proof file (we used a temp file so that proof uploader thread does not see partial proof files)
-// Delete the large interim residues file
+// Print message on cost of proof construction
 
 		sprintf (buf, "Proof construction cost %d squarings\n", (int) ceil (gwdata->fft_count / 2.0));
 		OutputStr (ps->thread_num, buf);
-		if (proof_number == ps->proof_power_mult) {
-			unsigned long verify_cost = divide_rounding_up (ps->proof_num_iters, 1 << ps->proof_power);
-			sprintf (buf, "Proof verification will cost %lu squarings\n", verify_cost);
-			OutputStr (ps->thread_num, buf);
-			_unlink (proof_filename);
-			if (rename (tmp_proof_filename, proof_filename)) {
-				sprintf (buf, "Error renaming from %s to %s\n", tmp_proof_filename, proof_filename);
-				OutputBoth (ps->thread_num, buf);
-			}
-			_unlink (ps->residues_filename);
-		}
-		// Otherwise, delete residues file if user has option set to keep interim residues file as small as possible
-		else if (!IniGetInt (LOCALINI_FILE, "PreallocateDisk", 1)) {
-			_unlink (ps->residues_filename);
-		}
-		for (i = 0; i < ps->num_emergency_allocs; i++) free (ps->emergency_allocs[i]);
-		ps->num_emergency_allocs = 0;
-		break;
 
+// Generate an MD5 hash of the bytes just written to the proof file.  This will be a unique identifier to thwart a bad actor from uploading a counterfeit proof file.
+// Compare the MD5 generated during output to the MD5 generated by re-reading the file.
+
+		md5_hexdigest_file_from_offset (proof_hash, tmp_proof_filename, proof_file_start_offset);
+		if (strcmp (MD5_output, proof_hash) != 0) {
+			OutputBoth (ps->thread_num, "The MD5 hash of the proof file is not correct.\n");
+			goto pfail;
+		}
+
+// Proof generation successful.  Break out of loop trying to generate the proof.
+
+		break;
+		
 // Cleanup after a proof failure, close and delete/truncate proof file
 
 pfail_wont_get_better:
@@ -11228,8 +11223,6 @@ pfail:		if (fd >= 0) _close (fd);
 		if (proofgen_waits == 0) {		// We've run out of 5 minute waits.  Give up on trying to generate the proof file.
 			OutputBoth (ps->thread_num, "Proof generation failed.\n");
 			ps->proof_power = 0;		// Clear proof power so that JSON will report no proof file generated
-			for (i = 0; i < ps->num_emergency_allocs; i++) free (ps->emergency_allocs[i]);
-			ps->num_emergency_allocs = 0;
 			_unlink (ps->residues_filename);
 			break;
 		}
@@ -11243,6 +11236,35 @@ pfail:		if (fd >= 0) _close (fd);
 			return (stop_reason);
 		}
 	}
+
+// Either proof has been successfully generated or we've given up on ever being able to generate a proof.  If successful, print message on proof completion,
+// rename proof file (we used a temp file so that proof uploader thread does not see partial proof files).  Delete the large interim residues file
+
+	if (ps->proof_power) {
+		if (proof_number == ps->proof_power_mult) {
+			unsigned long verify_cost = divide_rounding_up (ps->proof_num_iters, 1 << ps->proof_power);
+			sprintf (buf, "Proof verification will cost %lu squarings\n", verify_cost);
+			OutputStr (ps->thread_num, buf);
+			_unlink (proof_filename);
+			if (rename (tmp_proof_filename, proof_filename)) {
+				sprintf (buf, "Error renaming from %s to %s\n", tmp_proof_filename, proof_filename);
+				OutputBoth (ps->thread_num, buf);
+			}
+			_unlink (ps->residues_filename);
+			// Return an MD5 hash of the complete proof file.  This unique identifier thwarts a bad actor from uploading a counterfeit proof file.
+			md5_hexdigest_file (proof_hash, proof_filename);
+
+		}
+		// Otherwise, delete residues file if user has option set to keep interim residues file as small as possible
+		else if (!IniGetInt (LOCALINI_FILE, "PreallocateDisk", 1)) {
+			_unlink (ps->residues_filename);
+		}
+	}
+
+// Free any emergency memory
+
+	for (int i = 0; i < ps->num_emergency_allocs; i++) free (ps->emergency_allocs[i]);
+	ps->num_emergency_allocs = 0;
 
 // Clear the waits counter, return no-need-to-stop code
 
