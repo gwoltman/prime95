@@ -1,4 +1,4 @@
-/* Copyright 1995-2022 Mersenne Research, Inc.  All rights reserved */
+/* Copyright 1995-2023 Mersenne Research, Inc.  All rights reserved */
 
 #ifndef _COMMONC_H
 #define _COMMONC_H
@@ -12,7 +12,7 @@ extern "C" {
 /* Constants */
 
 #define VERSION		"30.10"
-#define BUILD_NUM	"1"
+#define BUILD_NUM	"2"
 /* The list of assigned OS ports follows: */
 /* Win9x (prime95) #1 */
 /* Linux (mprime)  #2 */
