@@ -44,8 +44,8 @@
 
 /* Global variables */
 
-gwmutex	clone_lock;				/* This mutex lets parent and cloned gwdatas atomicly change a set of values */
-int	clone_lock_initialized = FALSE;		/* Whether clone mutex is initialized */
+gwmutex	gwclone_lock;				/* This mutex lets parent and cloned gwdatas atomicly change a set of values */
+int	gwclone_lock_initialized = FALSE;	/* Whether clone mutex is initialized */
 
 /* When debugging gwnum and giants, I sometimes write code that "cheats" */
 /* by calling a routine that is part of prime95 rather than the gwnum and */
@@ -2668,9 +2668,9 @@ int gwclone (
 
 /* Start by copying the handle, set flag indicating this is a cloned handle */
 
-	gwmutex_lock (&clone_lock);		// Protect against cloning while parent is atomicly changing a set of values
+	gwmutex_lock (&gwclone_lock);		// Protect against cloning while parent is atomicly changing a set of values
 	memcpy (cloned_gwdata, gwdata, sizeof (struct gwhandle_struct));
-	gwmutex_unlock (&clone_lock);
+	gwmutex_unlock (&gwclone_lock);
 	cloned_gwdata->clone_of = gwdata;
 
 // Init giants/gwdata sharing
@@ -2916,9 +2916,9 @@ int internal_gwsetup (
 
 /* Initialize the clone mutex if necessary */
 
-	if (!clone_lock_initialized) {
-		gwmutex_init (&clone_lock);
-		clone_lock_initialized = TRUE;
+	if (!gwclone_lock_initialized) {
+		gwmutex_init (&gwclone_lock);
+		gwclone_lock_initialized = TRUE;
 	}
 
 /* Allocate space for the assembly code global data.  This area is preceded */
@@ -6902,12 +6902,12 @@ void gwfree_internal_memory (
 {
 	// If the gwdata has been cloned, we cannot safely free shared gwnums as the cloned gwdatas may also be using these gwnums
 	if (gwdata->clone_count == 0 && gwdata->clone_of == NULL) {
-		gwmutex_lock (&clone_lock);		// Protect against a clone initializing right now.  The clone would copy pointers we are about to free.
+		gwmutex_lock (&gwclone_lock);		// Protect against a clone initializing right now.  The clone would copy pointers we are about to free.
 		gwfree (gwdata, gwdata->GW_RANDOM), gwdata->GW_RANDOM = NULL;
 		gwfree (gwdata, gwdata->GW_RANDOM_SQUARED), gwdata->GW_RANDOM_SQUARED = NULL;
 		gwfree (gwdata, gwdata->GW_RANDOM_FFT), gwdata->GW_RANDOM_FFT = NULL;
 		if (gwdata->FFT1_state == 1 && !gwdata->FFT1_user_allocated) gwfree (gwdata, gwdata->GW_FFT1), gwdata->GW_FFT1 = NULL, gwdata->FFT1_state = 0;
-		gwmutex_unlock (&clone_lock);
+		gwmutex_unlock (&gwclone_lock);
 	}
 	if (gwdata->to_radix_gwdata != NULL) gwdone (gwdata->to_radix_gwdata), free (gwdata->to_radix_gwdata), gwdata->to_radix_gwdata = NULL;
 	if (gwdata->from_radix_gwdata != NULL) gwdone (gwdata->from_radix_gwdata), free (gwdata->from_radix_gwdata), gwdata->from_radix_gwdata = NULL;
@@ -8391,7 +8391,7 @@ void raw_gwsetaddin (
 /* One could argue that protecting against this inconsistency is useless.  If you clone while the parent is in the middle of this routine, then the */
 /* caller has a race condition where he has no idea whether he's cloned the old or new addin value. */
 
-	if (gwdata->clone_of == NULL) gwmutex_lock (&clone_lock);
+	if (gwdata->clone_of == NULL) gwmutex_lock (&gwclone_lock);
 
 /* Handle calculations for AVX-512 FFTs.  All two-pass FFTs use a scratch area. */
 
@@ -8578,7 +8578,7 @@ void raw_gwsetaddin (
 
 /* Release clone lock now that ADDIN_ROW, ADDIN_OFFSET, and asm_addin_value have all been changed */
 
-	if (gwdata->clone_of == NULL) gwmutex_unlock (&clone_lock);
+	if (gwdata->clone_of == NULL) gwmutex_unlock (&gwclone_lock);
 }
 
 /* Initialize the cached GW_ADDIN value */
