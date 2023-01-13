@@ -16,7 +16,7 @@
 | threads IF AND ONLY IF each uses a different gwhandle structure
 | initialized by gwinit.
 | 
-|  Copyright 2002-2022 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2023 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 #ifndef _GWNUM_H
@@ -255,7 +255,7 @@ void gwfree (
 /* Allocate an array and fill it with gwnums.  Uses a little less memory than allocating an array and calling gwalloc many times. */
 gwarray gwalloc_array (		/* Pointer to an array of gwnums */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	int	n);		/* Size of the array of gwnums */
+	uint64_t n);		/* Size of the array of gwnums */
 
 /* Free a previously allocated array of gwnums */
 void gwfree_array (

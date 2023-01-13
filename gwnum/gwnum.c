@@ -5,7 +5,7 @@
 | in the multi-precision arithmetic routines.  That is, all routines
 | that deal with the gwnum data type.
 | 
-|  Copyright 2002-2022 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2023 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -5184,7 +5184,7 @@ static __inline void pass1_state0_assign_first_block (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
-	asm_data->this_block = atomic_fetch_addin (gwdata->next_block, asm_data->cache_line_multiplier);
+	asm_data->this_block = (int) atomic_fetch_addin (gwdata->next_block, asm_data->cache_line_multiplier);
 	asm_data->data_addr = pass1_data_addr (gwdata, asm_data, asm_data->this_block);
 	asm_data->premult_addr = pass1_premult_addr (gwdata, asm_data->this_block);
 }
@@ -5195,7 +5195,7 @@ static __inline void pass1_state0_assign_next_block (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
-	int next_block = atomic_fetch_addin (gwdata->next_block, asm_data->cache_line_multiplier);
+	int next_block = (int) atomic_fetch_addin (gwdata->next_block, asm_data->cache_line_multiplier);
 	if (next_block < (int) gwdata->num_pass1_blocks) {
 		asm_data->next_block = next_block;
 		/* Init prefetching for the next block */
@@ -5414,7 +5414,7 @@ static __inline void pass2_assign_first_block (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
-	asm_data->this_block = atomic_fetch_incr (gwdata->next_block);
+	asm_data->this_block = (int) atomic_fetch_incr (gwdata->next_block);
 	asm_data->data_addr = pass2_data_addr (gwdata, asm_data, asm_data->this_block);
 	asm_data->premult_addr = pass2_premult_addr (gwdata, asm_data->this_block);
 }
@@ -5425,7 +5425,7 @@ static __inline void pass2_assign_next_block (
 	gwhandle *gwdata,
 	struct gwasm_data *asm_data)
 {
-	int next_block = atomic_fetch_incr (gwdata->next_block);
+	int next_block = (int) atomic_fetch_incr (gwdata->next_block);
 	if (next_block < (int) gwdata->num_pass2_blocks) {
 		asm_data->next_block = next_block;
 		/* Init prefetching for the next block */
@@ -6918,7 +6918,7 @@ void gwfree_internal_memory (
 
 gwarray gwalloc_array (		/* Pointer to an array of gwnums */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	int	n)		/* Size of the array of gwnums */
+	uint64_t n)		/* Size of the array of gwnums */
 {
 	size_t	array_header_size, gwnum_header_size, gwnum_size, aligned_gwnum_size, array_size;
 	int	pad_frequency, pad_amount, pad_direction;
@@ -11109,14 +11109,10 @@ void do_multithread_op_work (
 
 	if (data->asm_proc == NULL) {
 		for ( ; ; ) {
-			int	i;
 
-/* Get next block to process */
+/* Get next block to process.  Break out of loop when there are no more blocks to process. */
 
-			i = atomic_fetch_incr (gwdata->next_block);
-
-/* Break out of loop when there are no more blocks to process */
-
+			int i = (int) atomic_fetch_incr (gwdata->next_block);
 			if (i >= data->num_blks) break;
 
 /* Move a 4KB block */
@@ -11129,14 +11125,10 @@ void do_multithread_op_work (
 
 	else if (gwdata->cpu_flags & CPU_AVX512F) {
 		for ( ; ; ) {
-			int	i;
 
-/* Get next block to process */
+/* Get next block to process.  Break out of loop when there are no more blocks to process. */
 
-			i = atomic_fetch_addin (gwdata->next_block, (data->is_quick ? 1 : 4));
-
-/* Break out of loop when there are no more blocks to process */
-
+			int i = (int) atomic_fetch_addin (gwdata->next_block, (data->is_quick ? 1 : 4));
 			if (i >= data->num_blks) break;
 
 /* Process the block */
@@ -11157,14 +11149,10 @@ void do_multithread_op_work (
 
 	else {
 		for ( ; ; ) {
-			int	i;
 
-/* Get next block to process */
+/* Get next block to process.  Break out of loop when there are no more blocks to process. */
 
-			i = atomic_fetch_addin (gwdata->next_block, 1);
-
-/* Break out of loop when there are no more blocks to process */
-
+			int i = (int) atomic_fetch_addin (gwdata->next_block, 1);
 			if (i >= data->num_blks) break;
 
 /* Process the block */

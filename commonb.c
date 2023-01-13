@@ -7831,7 +7831,7 @@ int selfTestInternal (
 		if (in_place)
 			num_gwnums = 1;
 		else {
-			num_gwnums = cvt_mem_to_gwnums (&lldata.gwdata, memory);
+			num_gwnums = (int) cvt_mem_to_gwnums (&lldata.gwdata, memory);
 			if (num_gwnums < 1) num_gwnums = 1;
 			if (num_gwnums > ll_iters) num_gwnums = ll_iters;
 		}
@@ -8922,8 +8922,7 @@ static	int	time_all_complex = 0;	/* TRUE if we should time all-complex FFTs */
 			// Loop working on bigger and bigger poly sizes (CNT is the output poly size which roughly equals the poly FFT size)
 			for (int CNT = 3125; CNT < 500000000; CNT *= 2, iters = iters / 2) {
 				// Check if we have enough memory
-				if ((double) CNT * (gwmap_to_estimated_size (1.0, 2, EXP, -1) + 64) +
-				    (double) polymult_mem_required (CNT/2, CNT/2, 0, CPU_FLAGS, HW_NUM_CORES) > polymem * 1048576.0) break;
+				if ((double) CNT * (gwmap_to_estimated_size (1.0, 2, EXP, -1) + 64) > polymem * 1048576.0) break;
 
 				bool	first_poly = TRUE;
 				bool	mt_polymult_line;		// Multi-thread polymult_line vs multi-thread fft_line_pass
@@ -8944,15 +8943,6 @@ static	int	time_all_complex = 0;	/* TRUE if we should time all-complex FFTs */
 				if (p == 8900 && pp > 0) continue;
 				if (p == 8901 && sc > 0) continue;
 
-				// Check if we have enough memory
-				if (!preprocess && mt_polymult_line &&
-				    (double) CNT * (gwmap_to_estimated_size (1.0, 2, EXP, -1) + 64) +
-				    (double) polymult_mem_required (CNT/2, CNT/2, 0, CPU_FLAGS, 1) * HW_NUM_CORES > polymem * 1048576.0) continue;
-				if (preprocess && !preFFT &&
-				    (double) CNT * (gwmap_to_estimated_size (1.0, 2, EXP, -1) + 64) * 1.5 > polymem * 1048576.0) continue;
-				if (preprocess && preFFT &&
-				    (double) CNT * (gwmap_to_estimated_size (1.0, 2, EXP, -1) + 64) * 2.0 > polymem * 1048576.0) continue;
-
 				gwhandle gwdata;
 				pmhandle pmdata;
 				gwarray a, b;
@@ -8964,11 +8954,24 @@ static	int	time_all_complex = 0;	/* TRUE if we should time all-complex FFTs */
 				gwsetup (&gwdata, 1.0, 2, EXP, -1);
 				if (stopCheck (thread_num)) { gwdone (&gwdata); return 1; }
 				polymult_init (&pmdata, &gwdata);
+				polymult_default_tuning (&pmdata,
+					IniGetInt (INI_FILE, "PolymultCacheSize", CPU_NUM_L2_CACHES > 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 256),
+					IniGetInt (INI_FILE, "PolymultCacheSize2", CPU_NUM_L3_CACHES > 0 ? CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES : 6144));
 				polymult_set_max_num_threads (&pmdata, HW_NUM_CORES);
-				pmdata.L3_CACHE_SIZE = mt_polymult_line ? 1000000000 : 1;
-				pmdata.enable_strided_writes = strided_write;
-				pmdata.enable_streamed_stores = streamed_stores;
+				pmdata.mt_ffts_start = mt_polymult_line ? 0xFFFFFFFF : 0;
+				pmdata.mt_ffts_end = 0xFFFFFFFF;
+				pmdata.strided_writes_start = strided_write ? 0 : 0xFFFFFFFF;
+				pmdata.streamed_stores_start = streamed_stores ? 0 : 0xFFFFFFFF;
 				gwdata.scramble_arrays = (char) scrambled;
+
+				// Check if we have enough memory
+				if ((!preprocess ? 1.0 : !preFFT ? 1.5 : 2.0) * CNT * (gwnum_datasize (&gwdata) + 64) +
+				    (double) polymult_mem_required (&pmdata, CNT/2, CNT/2, 0) > polymem * 1048576.0) {
+					polymult_done (&pmdata);
+					gwdone (&gwdata);
+					continue;
+				}
+
 				a = b = gwalloc_array (&gwdata, CNT);
 				dbltogw (&gwdata, 10001.0, a[0]);
 				for (int i = 1; i < CNT/2; i++) gwcopy (&gwdata, a[0], a[i]);
