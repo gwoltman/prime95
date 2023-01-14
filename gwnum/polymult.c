@@ -559,6 +559,15 @@ void polymult_default_tuning (
 	// Calculate doubles in a complex vector
 	int complex_vector_size = complex_vector_size_in_doubles (pmdata->gwdata->cpu_flags);
 
+	// Multi-threading lines has an inefficiency if number of threads does not divide number of lines.  For example, if there are 9 lines (gwnum FFT size 64)
+	// and eight threads, then 8 threads each do 1 line followed by 1 thread doing a line a 7 threads being idle.
+	int lines_we_could_process = divide_rounding_up (pmdata->num_lines, pmdata->num_threads) * pmdata->num_threads;
+	double mt_line_efficiency = (double) pmdata->num_lines / (double) lines_we_could_process;
+
+	// Determine the maximum one pass FFT size.  Since there is some overhead associated with two-pass FFTs, we arbitarily start two pass FFTs when
+	// FFT data is 4 times the size of the L2 cache.  For 256KB L2 cache with no AVX-512 support, that translates to 262144 * 4 / 64 / 2 = 8192 fft size.
+	pmdata->two_pass_start = L2_CACHE_SIZE * 4 * (1024 / complex_vector_size) / 2;
+
 	// Determine the maximum size of pass 2 in two-pass FFTs.  Since we try to make pass 1 size and pass 2 size roughly equal, this setting will only
 	// make a difference for FFT sizes larger than max_pass2_size^2.  My thinking here is to find the FFT size that will fit in the L2 cache, so that pass 2
 	// is very efficient and only pass 1 pays for cache miss penalties.  This could be wrong, and requires further investigation.  Perhaps three pass
@@ -566,29 +575,26 @@ void polymult_default_tuning (
 	// For 256KB L2 cache with no AVX-512 support, that translates to 262144 / 64 / 2 = 2048 fft size.
 	pmdata->max_pass2_size = L2_CACHE_SIZE * (1024 / complex_vector_size) / 2;
 
-	// Determine the maximum one pass FFT size.  Since there is some overhead associated with two-pass FFTs, we arbitarily start two pass FFTs when
-	// FFT data is 4 times the size of the L2 cache.  For 256KB L2 cache with no AVX-512 support, that translates to 262144 * 4 / 64 / 2 = 8192 fft size.
-	pmdata->two_pass_start = L2_CACHE_SIZE * 4 * (1024 / complex_vector_size) / 2;
-
 	// Guess at a good FFT size to switch from multi-threading lines (each thread does its own FFT on a separate line of data) vs.
 	// multi-threading FFTs (all threads cooperating to FFT a single line of data).
-// Why....
-pmdata->mt_ffts_start = L3_CACHE_SIZE * (1024 / complex_vector_size) / 2;
-// explain why Pavel's machine seems to like mt_lines for big FFTs
-pmdata->mt_ffts_end = 0xFFFFFFFF;
-// FFT size at which we switch back to multi-thread lines from multi-threading the FFT
-			// If fft_size is large we'll change to multi-threading fft_line_pass instead.  Large is defined as "polymult_line being unable
-			// to fit two lines in the L3 cache".
+	// Benchmarks indicate that multi-threading lines is better as long as all the lines fit in the L3 cache.  We adjust for the inefficiency
+	// inherent when multi-threading lines.
+	// We adjust this down further (arbitrarily using 0.8) because polymult usually involves reading two lines and writing one.
+	pmdata->mt_ffts_start = (uint64_t) ((double) L3_CACHE_SIZE * 1024.0 / complex_vector_size / pmdata->num_threads * mt_line_efficiency * 0.8);
 
-	// Default performance options
-pmdata->strided_writes_start = 13000;
+	// Once even a single line exceeds the L3 cache, then it may pay to go back to multi-threading lines.  This is because multi-threading FFTs has
+	// more locking and syncing overhead than multi-threading lines.  
+	pmdata->mt_ffts_end = (mt_line_efficiency > 0.98 ? (uint64_t) L3_CACHE_SIZE * 1024 / complex_vector_size : 0xFFFFFFFFFFFFFFFFULL);
 
-	// Use streamed stores if the result of the polymult will not fit in L3 cache.  We don't want to write to the CPU caches if the data will not be used
-	// evicted by the time the gwunfft operations are performed.  NOTE: If the caller is using POLYMULT_NO_UNFFT we have no idea when the gwunfft will take
-	// place.  In prime95 P-1 and ECM code builds one big poly from many smaller polys with POLYMULT_NO_UNFFT set.  It is not until all smaller polys have
-	// been multiplied that the gwunffts happen.  Thus, Prime95 overrides the default streamed_stores_start value to a much smaller fft size.
-	// NOTE:  The calculation below is the same as "how many gwnum coefficients fit in the L3 cache".
-// or maybe streaming is only better if the data item is likely to NOT be in the L3 cache
+	// This setting we don't have any good theories.  In theory strided writes should always be beneficial.  Benchmarks show that at large poly sizes
+	// non-strided writes win by a significant margin.  This seems to happen around the time a line does not fit in the L3 cache.
+	pmdata->strided_writes_end = (uint64_t) L3_CACHE_SIZE * 1024 / complex_vector_size;
+
+	// Streamed stores seem to be beneficial if the result of the polymult does not fit in L3 cache.  We don't want to write to the CPU caches since the data
+	// will not be used and thus evicted by the time the gwunfft operations are performed.  NOTE: If the caller is using POLYMULT_NO_UNFFT we have no idea
+	// when the gwunfft will take place.  In prime95 P-1 and ECM code builds one big poly from many smaller polys with POLYMULT_NO_UNFFT set.  It is not until
+	// all smaller polys have been multiplied that the gwunffts happen.  Thus, Prime95 overrides the default streamed_stores_start value to a much smaller fft
+	// size.  NOTE:  The calculation below is the same as "how many gwnum coefficients fit in the L3 cache".
 	pmdata->streamed_stores_start = L3_CACHE_SIZE * (1024 / complex_vector_size) / pmdata->num_lines;
 }
 
@@ -4268,9 +4274,8 @@ void polymult_line (
 			fftd.scratch = scratch;
 			fftd.options = fft_options;
 			fftd.fft_size = fft_size;
-			fftd.write_direct = (fft_size >= pmdata->strided_writes_start && !planpart->emulate_circular &&
+			fftd.write_direct = (fft_size < pmdata->strided_writes_end && !planpart->emulate_circular &&
 					     !post_monic_addin_invec1 && !post_monic_addin_invec2);
-//GW: Need variable strided_writes_end that says no strided writes above this polymult size???
 			fft_line (pmdata, &fftd);
 			// Remember poly FFT size for next invec2
 			prev_fft_size = fft_size;

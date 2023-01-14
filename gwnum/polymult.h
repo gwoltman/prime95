@@ -260,10 +260,10 @@ struct pmhandle_struct {
 	// Tuning parameters, assigned by polymult_default_tuning.  These defaults can be safely overridden.
 	uint32_t two_pass_start;	// FFT size at which we switch from one pass FFTs to two pass FFTs.
 	uint32_t max_pass2_size;	// Maximum size for pass 2 in two pass FFTs.
-	uint32_t mt_ffts_start;		// FFT size at which we switch from multi-thread lines to multi-threading the FFT
-	uint32_t mt_ffts_end;		// FFT size at which we switch back to multi-thread lines from multi-threading the FFT
-	uint32_t streamed_stores_start;	// FFT size at which streaming stores are used.  Streamed stores may improve performance when FFT lines don't fit in the caches.
-	uint32_t strided_writes_start;	// FFT size at which strided writes are used. Strided writes may improves performance on some CPUs.
+	uint64_t mt_ffts_start;		// FFT size at which we switch from multi-thread lines to multi-threading the FFT
+	uint64_t mt_ffts_end;		// FFT size at which we switch back to multi-thread lines from multi-threading the FFT
+	uint64_t streamed_stores_start;	// FFT size at which streaming stores are used.  Streamed stores may improve performance when FFT lines don't fit in the caches.
+	uint64_t strided_writes_end;	// FFT size at which strided writes are no longer used. Strided writes may improves performance on some CPUs in some cases.
 	// Cached twiddles
 	bool	cached_twiddles_enabled;// TRUE if caching twiddles is enabled
 	bool	twiddle_cache_additions_disabled; // TRUE if adding new entries to the twiddle cache is temporarily disabled

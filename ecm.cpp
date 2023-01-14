@@ -5821,8 +5821,8 @@ replan:	unsigned long original_fftlen, best_fftlen;
 					 IniGetInt (INI_FILE, "PolymultCacheSize", CPU_NUM_L2_CACHES > 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 256),
 					 IniGetInt (INI_FILE, "PolymultCacheSize2", CPU_NUM_L3_CACHES > 0 ? CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES : 6144));
 		ecmdata.gwdata.scramble_arrays = (char) IniGetInt (INI_FILE, "PolymultScramble", ecmdata.gwdata.scramble_arrays);
-		ecmdata.polydata.strided_writes_start = IniGetInt (INI_FILE, "PolymultStridedWrites", ecmdata.polydata.strided_writes_start);
-		ecmdata.polydata.streamed_stores_start = IniGetInt (INI_FILE, "PolymultStridedWrites", 0);	// Default is always stream stores because of POLYMULT_NOUNFFT
+		ecmdata.polydata.strided_writes_end = IniGetInt64 (INI_FILE, "PolymultStridedWritesEnd", ecmdata.polydata.strided_writes_end);
+		ecmdata.polydata.streamed_stores_start = IniGetInt64 (INI_FILE, "PolymultStreamStores", 0); // Default is always stream stores because of POLYMULT_NOUNFFT
 
 /* When recovering from a roundoff error, only cost FFT lengths larger than the FFT length that generated the roundoff error. */
 
@@ -10213,8 +10213,8 @@ replan:	unsigned long original_fftlen, best_fftlen;
 					 IniGetInt (INI_FILE, "PolymultCacheSize", CPU_NUM_L2_CACHES > 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 256),
 					 IniGetInt (INI_FILE, "PolymultCacheSize2", CPU_NUM_L3_CACHES > 0 ? CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES : 6144));
 		pm1data.gwdata.scramble_arrays = (char) IniGetInt (INI_FILE, "PolymultScramble", pm1data.gwdata.scramble_arrays);
-		pm1data.polydata.strided_writes_start = IniGetInt (INI_FILE, "PolymultStridedWrites", pm1data.polydata.strided_writes_start);
-		pm1data.polydata.streamed_stores_start = IniGetInt (INI_FILE, "PolymultStridedWrites", 0);	// Default is always stream stores because of POLYMULT_NOUNFFT
+		pm1data.polydata.strided_writes_end = IniGetInt64 (INI_FILE, "PolymultStridedWritesEnd", pm1data.polydata.strided_writes_end);
+		pm1data.polydata.streamed_stores_start = IniGetInt64 (INI_FILE, "PolymultStreamStores", 0); // Default is always stream stores because of POLYMULT_NOUNFFT
 
 /* When recovering from a roundoff error, only cost FFT lengths larger than the FFT length that generated the roundoff error. */
 

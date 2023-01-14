@@ -8958,10 +8958,10 @@ static	int	time_all_complex = 0;	/* TRUE if we should time all-complex FFTs */
 					IniGetInt (INI_FILE, "PolymultCacheSize", CPU_NUM_L2_CACHES > 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 256),
 					IniGetInt (INI_FILE, "PolymultCacheSize2", CPU_NUM_L3_CACHES > 0 ? CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES : 6144));
 				polymult_set_max_num_threads (&pmdata, HW_NUM_CORES);
-				pmdata.mt_ffts_start = mt_polymult_line ? 0xFFFFFFFF : 0;
-				pmdata.mt_ffts_end = 0xFFFFFFFF;
-				pmdata.strided_writes_start = strided_write ? 0 : 0xFFFFFFFF;
-				pmdata.streamed_stores_start = streamed_stores ? 0 : 0xFFFFFFFF;
+				pmdata.mt_ffts_start = mt_polymult_line ? 0xFFFFFFFFFFFFFFFFULL : 0;
+				pmdata.mt_ffts_end = 0xFFFFFFFFFFFFFFFFULL;
+				pmdata.strided_writes_end = strided_write ? 0xFFFFFFFFFFFFFFFFULL : 0;
+				pmdata.streamed_stores_start = streamed_stores ? 0 : 0xFFFFFFFFFFFFFFFFULL;
 				gwdata.scramble_arrays = (char) scrambled;
 
 				// Check if we have enough memory
