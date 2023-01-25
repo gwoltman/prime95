@@ -6081,7 +6081,7 @@ retry:
 	can_get_cert_work = (header_words[1] & HEADER_FLAG_WORK_QUEUE) && IniGetInt (LOCALINI_FILE, "CertWork", 1) && DAYS_OF_WORK > 0.0;
 	if (WELL_BEHAVED_WORK || SEQUENTIAL_WORK == 1) can_get_cert_work = FALSE;
 	if (CPU_HOURS <= 12) can_get_cert_work = FALSE;
-	if (PAUSEABLE_WORKERS_RUNNING) can_get_cert_work = FALSE;
+	if (is_timed_event_active (TE_PAUSE_WHILE) || is_timed_event_active (TE_READ_PAUSE_DATA)) can_get_cert_work = FALSE;
 	if (can_get_cert_work) {
 		int	max_cert_assignments;
 		can_get_small_cert_work = FALSE;
