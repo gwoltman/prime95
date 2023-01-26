@@ -84,6 +84,7 @@ gwmutex	LOG_MUTEX;			/* Lock for prime.log access */
 gwmutex	WORKTODO_MUTEX;			/* Lock for accessing worktodo structure */
 
 gwevent AUTOBENCH_EVENT;		/* Event to wake up workers after an auto-benchmark */
+gwevent PROOF_UPLOAD_EVENT;		/* Event to wake up proof uploader */
 
 int	LAUNCH_TYPE = 0;		/* Type of worker threads launched */
 unsigned int WORKER_THREADS_ACTIVE = 0;	/* Number of worker threads running */
@@ -5784,7 +5785,7 @@ static	int	send_message_retry_count = 0;
 	double	est, work_to_get, unreserve_threshold;
 	int	rc, stop_reason;
 	int	talked_to_server = FALSE;
-	int	can_get_cert_work, can_get_small_cert_work;
+	int	can_get_cert_work, can_get_small_cert_work, sent_prp_result;
 	int	server_options_counter, retry_count;
 	char	buf[1000];
 
@@ -5803,8 +5804,7 @@ static	int	send_message_retry_count = 0;
 /* possibility, reread the computer name from the INI file. */
 
 	if (COMPID[0] == 0) {
-		IniGetString (LOCALINI_FILE, "ComputerID", COMPID,
-			      sizeof (COMPID), NULL);
+		IniGetString (LOCALINI_FILE, "ComputerID", COMPID, sizeof (COMPID), NULL);
 		sanitizeString (COMPID);
 	}
 
@@ -5981,6 +5981,7 @@ retry:
 /* Send the messages */
 
 	msg_offset = SPOOL_FILE_MSG_OFFSET;
+	sent_prp_result = FALSE;
 	for ( ; ; ) {
 		short	msgType;
 		union {
@@ -6057,6 +6058,11 @@ retry:
 		}
 		send_message_retry_count = 0;
 
+/* Note the sending of a PRP result */
+
+		if (msgType == PRIMENET_ASSIGNMENT_RESULT && (msg.ar.result_type == PRIMENET_AR_PRP_RESULT || msg.ar.result_type == PRIMENET_AR_PRP_PRIME))
+			sent_prp_result = TRUE;
+
 /* Flag the message as successfully sent.  Even if there was an error, the */
 /* error code is such that resending the message will not be helpful. */
 
@@ -6070,6 +6076,10 @@ retry:
 		gwmutex_unlock (&SPOOL_FILE_MUTEX);
 		msg_offset = new_offset;
 	}
+
+/* If we just sent a PRP result, trigger thread that uploads proofs */
+
+	if (sent_prp_result) gwevent_signal (&PROOF_UPLOAD_EVENT);
 
 /* See if we can request certification work.  Certification work must be done ASAP to reduce disk space used by PrimeNet server. */
 /* Thus, it is priority work.  Some options turn off priority work which precludes getting certification work.  Part-time computers */
@@ -7034,24 +7044,29 @@ int inUploadWindow (int *minutes_to_start)
 void proofUploader (void *arg)
 {
 	char	proof_files[50][255];		// We can send up to 50 proof files
-	int	i, minutes_to_start, num_proof_files;
+	int	i, minutes_to_wait, minutes_to_start, num_proof_files;
 
-/* Loop forever */
+/* Init event that triggers proof uploads without waiting for next hourly check */
 
-	for ( ; ; ) {
+	gwevent_init (&PROOF_UPLOAD_EVENT);
+
+/* Loop forever, waking up once an hour */
+
+	for ( ; ; gwevent_wait (&PROOF_UPLOAD_EVENT, minutes_to_wait * 60 * 1000)) {
+
+/* Default is to check for proof files once an hour */
+
+		gwevent_reset (&PROOF_UPLOAD_EVENT);
+		minutes_to_wait = 60;
 
 /* If we are not using Primenet, wait one hour in case user changes settings from dialog box) */
 
-		if (!USE_PRIMENET) {
-			Sleep (60 * 60 * 1000);
-			continue;
-		}
+		if (!USE_PRIMENET) continue;
 
 /* If we are not in the upload time window, pause until we are (or one hour, in case user changes time window from dialog box) */
 
 		if (!inUploadWindow (&minutes_to_start)) {
-			if (minutes_to_start > 60) minutes_to_start = 60;
-			Sleep (minutes_to_start * 60 * 1000);
+			if (minutes_to_start < 60) minutes_to_wait = minutes_to_start;
 			continue;
 		}
 
@@ -7067,16 +7082,12 @@ void proofUploader (void *arg)
 		// There is a race condition where this proof uploading thread could attempt to send the proof file
 		// before the results reporting thread has submitted the results of the PRP test.  This results in a
 		// harmless "Unauthorized" error message.  Here is a rather low-tech "solution" to make this less likely.
-		if (num_proof_files) Sleep (5 * 60 * 1000);	// Sleep 5 more minutes
+		if (num_proof_files) Sleep (1 * 60 * 1000);	// Sleep 1 more minute
 
 		// Send each file
 		for (i = 0; i < num_proof_files && inUploadWindow (NULL); i++) {
 			ProofUpload (proof_files[i]);
 		}
-
-/* Sleep for one hour to look for more proof files */
-
-		Sleep (60 * 60 * 1000);
 	}
 }
 

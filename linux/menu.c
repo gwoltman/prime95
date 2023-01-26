@@ -998,6 +998,7 @@ void options_resources (void)
 		IniSectionWriteString (INI_FILE, "PrimeNet", "UploadStartTime", m_upload_start);
 		IniSectionWriteString (INI_FILE, "PrimeNet", "UploadEndTime", m_upload_end);
 		IniSectionWriteInt (INI_FILE, "PrimeNet", "DownloadDailyLimit", m_download_mb);
+		gwevent_signal (&PROOF_UPLOAD_EVENT);		/* Trigger proof uploader in case upload start or end time changed */
 		IniWriteString (LOCALINI_FILE, "ProofResiduesDir", m_temp_dir);
 		IniWriteString (LOCALINI_FILE, "ProofArchiveDir", m_archive_dir);
 

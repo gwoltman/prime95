@@ -12,7 +12,7 @@ extern "C" {
 /* Constants */
 
 #define VERSION		"30.10"
-#define BUILD_NUM	"2"
+#define BUILD_NUM	"3"
 /* The list of assigned OS ports follows: */
 /* Win9x (prime95) #1 */
 /* Linux (mprime)  #2 */
@@ -239,6 +239,7 @@ extern gwthread COMMUNICATION_THREAD;	/* Handle for comm thread.  Set when comm 
 extern gwthread UPLOAD_THREAD;		/* Handle for proof file upload thread */
 
 extern gwevent AUTOBENCH_EVENT;		/* Event to wake up workers after an auto-benchmark */
+extern gwevent PROOF_UPLOAD_EVENT;	/* Event to wake up proof uploader */
 
 /* Topology variables and routines */
 
