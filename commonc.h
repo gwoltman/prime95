@@ -423,30 +423,34 @@ void tempFileName (struct work_unit *, char *);
 int fileExists (const char *);
 void DirPlusFilename (char *, const char *);
 
-int read_array (int fd, char *buf, size_t len, unsigned long *sum);
-int write_array (int fd, const char *buf, size_t len, unsigned long *sum);
-int read_giant (int fd, giant g, unsigned long *sum);
-int write_giant (int fd, giant g, unsigned long *sum);
-int read_gwnum (int fd, gwhandle *gwdata, gwnum g, unsigned long *sum);
-int write_gwnum (int fd, gwhandle *gwdata, gwnum g, unsigned long *sum);
-int read_short (int fd, short *val);
-int read_long (int fd, unsigned long *val, unsigned long *sum);
-int write_long (int fd, unsigned long val, unsigned long *sum);
-int read_slong (int fd, long *val, unsigned long *sum);
-int write_slong (int fd, long val, unsigned long *sum);
-int read_int (int fd, int *val, unsigned long *sum);
-int write_int (int fd, int val, unsigned long *sum);
-int read_double (int fd, double *val, unsigned long *sum);
-int write_double (int fd, double dbl, unsigned long *sum);
-int read_uint32 (int fd, uint32_t *val, unsigned long *sum);
-int write_uint32 (int fd, uint32_t val, unsigned long *sum);
-int read_uint64 (int fd, uint64_t *val, unsigned long *sum);
-int write_uint64 (int fd, uint64_t val, unsigned long *sum);
-int read_magicnum (int fd, unsigned long magicnum);
-int read_header (int fd, unsigned long *version, struct work_unit *w, unsigned long *sum);
-int write_header (int fd, unsigned long magicnum, unsigned long version, struct work_unit *w);
-int read_checksum (int fd, unsigned long *sum);
-int write_checksum (int fd, unsigned long sum);
+int read_array (int fd, char *buf, size_t len, uint32_t *sum);
+int write_array (int fd, const char *buf, size_t len, uint32_t *sum);
+int read_giant (int fd, giant g, uint32_t *sum);
+int write_giant (int fd, giant g, uint32_t *sum);
+int read_gwnum (int fd, gwhandle *gwdata, gwnum g, uint32_t *sum);
+int write_gwnum (int fd, gwhandle *gwdata, gwnum g, uint32_t *sum);
+int read_double (int fd, double *val, uint32_t *sum);
+int write_double (int fd, double dbl, uint32_t *sum);
+int read_int32 (int fd, int32_t *val, uint32_t *sum);
+int write_int32 (int fd, int32_t val, uint32_t *sum);
+int read_uint32 (int fd, uint32_t *val, uint32_t *sum);
+int write_uint32 (int fd, uint32_t val, uint32_t *sum);
+int read_int64 (int fd, int64_t *val, uint32_t *sum);
+int write_int64 (int fd, int64_t val, uint32_t *sum);
+int read_uint64 (int fd, uint64_t *val, uint32_t *sum);
+int write_uint64 (int fd, uint64_t val, uint32_t *sum);
+int read_magicnum (int fd, uint32_t magicnum);
+int read_header (int fd, uint32_t *version, struct work_unit *w, uint32_t *sum);
+int write_header (int fd, uint32_t magicnum, uint32_t version, struct work_unit *w);
+int read_checksum (int fd, uint32_t *sum);
+int write_checksum (int fd, uint32_t sum);
+// Deprecated versions (int = int32, long = uint32, slong = int32)
+int read_long (int fd, unsigned long *val, uint32_t *sum);
+#define write_long(fd,val,sum)	write_uint32 (fd, (uint32_t) (val), sum)
+int read_int (int fd, int *val, uint32_t *sum);
+#define write_int(fd,val,sum)	write_int32 (fd, (int32_t) (val), sum)
+int read_slong (int fd, long *val, uint32_t *sum);
+#define write_slong(fd,val,sum)	write_int32 (fd, (int32_t) (val), sum)
 
 void formatMsgForResultsFile (char *, struct work_unit *);
 int writeResults (const char *);

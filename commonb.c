@@ -5351,50 +5351,14 @@ begin:	factor_found = 0;
 		test_bits = 78;
 	}
 
-/* Check for a v24 continuation file.  These were named pXXXXXXX.  The */
-/* first 16 bits contained a 2 to distinguish it from a LL save file. */
-/* In v25, we name the file fXXXXXXX and use the common header format */
-/* to make Test/Status and computing completion dates easier. */
+/* Check for a v24 continuation file.  These were named pXXXXXXX.  The first 16 bits contained a 2 to distinguish it from a LL save file. */
+/* In v25, we name the file fXXXXXXX and use the common header format to make Test/Status and computing completion dates easier. */
+/* In v30.10, we no longer attempt to read v24 TF save files. */
+
+/* Read v25+ continuation file.  Limit number of backup files we try to read in case there is an error deleting bad save files. */
 
 	continuation = FALSE;
 	tempFileName (w, filename);
-	filename[0] = 'p';
-	fd = _open (filename, _O_BINARY | _O_RDONLY);
-	if (fd > 0) {
-		short	type;
-		short	shortdummy;
-		unsigned long longdummy, fachsw, facmsw;
-		short	file_factor_found, file_bits, file_pass;
-
-		if (read_short (fd, &type) &&
-		    type == 2 &&
-		    read_long (fd, &longdummy, NULL) &&
-		    read_short (fd, &shortdummy) &&
-		    read_short (fd, &file_factor_found) &&
-		    read_short (fd, &shortdummy) &&
-		    read_short (fd, &file_bits) &&
-		    read_short (fd, &file_pass) &&
-		    read_long (fd, &fachsw, NULL) &&
-		    read_long (fd, &facmsw, NULL) &&
-		    read_long (fd, &endpthi, NULL) &&
-		    read_long (fd, &endptlo, NULL)) {
-			OutputBoth (thread_num, "Using old-style factoring save file.\n");
-			facdata.asm_data->FACHSW = fachsw;
-			facdata.asm_data->FACMSW = facmsw;
-			factor_found = file_factor_found;
-			bits = file_bits;
-			pass = file_pass;
-			continuation = TRUE;
-			_close (fd);
-			_unlink (filename);
-		} else {
-			_close (fd);
-		}
-	}
-
-/* Read v25+ continuation file.  Limit number of backup files we try */
-/* to read in case there is an error deleting bad save files. */
-
 	filename[0] = 'f';
 	readSaveFileStateInit (&read_save_file_state, thread_num, filename);
 	writeSaveFileStateInit (&write_save_file_state, filename, 0);
@@ -5415,7 +5379,8 @@ begin:	factor_found = 0;
 
 		fd = _open (read_save_file_state.current_filename, _O_BINARY | _O_RDONLY);
 		if (fd > 0) {
-			unsigned long version, sum, fachsw, facmsw;
+			unsigned long fachsw, facmsw;
+			uint32_t version, sum;
 			if (read_magicnum (fd, FACTOR_MAGICNUM) &&
 			    read_header (fd, &version, w, &sum) &&
 			    version == FACTOR_VERSION &&
@@ -6019,7 +5984,7 @@ int writeLLSaveFile (
 	unsigned long error_count)
 {
 	int	fd;
-	unsigned long sum = 0;
+	uint32_t sum = 0;
 
 /* Open the save file */
 
@@ -6051,7 +6016,8 @@ void writeNewErrorCount (
 	unsigned long new_error_count)
 {
 	int	fd;
-	unsigned long sum, old_error_count;
+	unsigned long old_error_count;
+	uint32_t sum;
 
 /* Open the intermediate file, position past the FFT data */
 
@@ -6089,7 +6055,7 @@ int readLLSaveFile (
 	unsigned long *error_count)
 {
 	int	fd;
-	unsigned long sum, filesum, version;
+	uint32_t version, sum, filesum;
 
 	fd = _open (filename, _O_BINARY | _O_RDONLY);
 	if (fd <= 0) return (FALSE);
@@ -11319,7 +11285,7 @@ int writePRPSaveFile (			// Returns TRUE if successful
 	struct prp_state *ps)
 {
 	int	fd;
-	unsigned long sum = 0;
+	uint32_t sum = 0;
 	char	buf[512];
 
 /* If there are interim proof residues sitting in emergency memory, do not write a save file.  This is because */
@@ -11430,7 +11396,8 @@ int readPRPSaveFile (
 	struct prp_state *ps)		/* PRP state structure to read and fill in */
 {
 	int	fd;
-	unsigned long savefile_prp_base, sum, filesum, version;
+	unsigned long savefile_prp_base;
+	uint32_t version, sum, filesum;
 
 	// Open the save file
 	fd = _open (filename, _O_BINARY | _O_RDONLY);

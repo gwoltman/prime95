@@ -2164,18 +2164,18 @@ int normalize_pool_init (
 
 /* Allocate memory for modular inverse pooling arrays of pointers to gwnums */
 
-	ecmdata->pool_values = (gwnum *) malloc (max_pool_size * sizeof (gwnum));
+	ecmdata->pool_values = (gwnum *) malloc ((size_t) (max_pool_size * sizeof (gwnum)));
 	if (ecmdata->pool_values == NULL) goto oom;
 	if (ecmdata->pool_type == POOL_3MULT) {		// 3MULT pooling requires 100% more gwnums
-		ecmdata->poolz_values = (gwnum *) malloc (max_pool_size * sizeof (gwnum));
+		ecmdata->poolz_values = (gwnum *) malloc ((size_t) (max_pool_size * sizeof (gwnum)));
 		if (ecmdata->poolz_values == NULL) goto oom;
 	}
 	if (ecmdata->pool_type == POOL_3POINT44MULT) {	// 3POINT44MULT pooling requires 33% plus a couple more gwnums
-		ecmdata->poolz_values = (gwnum *) malloc ((divide_rounding_up (max_pool_size, 3) + 2) * sizeof (gwnum));
+		ecmdata->poolz_values = (gwnum *) malloc ((size_t) ((divide_rounding_up (max_pool_size, 3) + 2) * sizeof (gwnum)));
 		if (ecmdata->poolz_values == NULL) goto oom;
 	}
 	if (ecmdata->pool_type == POOL_3POINT57MULT) {	// 3POINT57MULT pooling requires 14% plus 5 more gwnums
-		ecmdata->poolz_values = (gwnum *) malloc ((divide_rounding_up (max_pool_size, 7) + 5) * sizeof (gwnum));
+		ecmdata->poolz_values = (gwnum *) malloc ((size_t) ((divide_rounding_up (max_pool_size, 7) + 5) * sizeof (gwnum)));
 		if (ecmdata->poolz_values == NULL) goto oom;
 	}
 
@@ -4576,7 +4576,7 @@ void ecm_save (
 {
 	int	fd;
 	struct work_unit *w = ecmdata->w;
-	unsigned long sum = 0;
+	uint32_t sum = 0;
 
 /* Create the intermediate file */
 
@@ -4666,10 +4666,10 @@ writeerr:
 int ecm_old_restore (			/* For version 25 save files */
 	ecmhandle *ecmdata,
 	int	fd,
-	unsigned long filesum)
+	uint32_t filesum)
 {
 	unsigned long state;
-	unsigned long sum = 0;
+	uint32_t sum = 0;
 	uint64_t savefile_B, unused64;
 
 /* Read the file data */
@@ -4726,8 +4726,7 @@ int ecm_restore (			/* For version 30.4 and later save files */
 {
 	int	fd;
 	struct work_unit *w = ecmdata->w;
-	unsigned long version;
-	unsigned long sum = 0, filesum;
+	uint32_t version, sum = 0, filesum;
 	uint64_t savefile_B;
 
 /* Open the intermediate file */
@@ -5905,7 +5904,7 @@ OutputStr (thread_num, buf); }
 		if (best_fftlen && (double) memory * 1000000.0 / (double) array_gwnum_size (&ecmdata.gwdata) < 60.0) found_best = TRUE;
 
 		// If we fail to get a new best efficient poly twice in a row, then we've found our best poly plan
-//GW: Likely costing overkill -- do we need a faster gwsetup (no computing weights and sin/cos?)
+//GW: Likely costing overkill
 		if (best_poly_efficiency != 0.0) best_fails++;
 		if (best_fails == 3) found_best = TRUE;
 
@@ -6778,6 +6777,7 @@ OutputStr (thread_num, buf); }
 
 ecm_polymult:
 	start_timer_from_zero (timers, 1);
+//GW: foobar?
 int foobar; foobar = ecmdata.gwdata.num_threads;
 
 //GW: We don't need gg, we possibly need the full H(X) from a save file.  Wow, thats a lot of disk.  Might have to invest the CPU time reducing H(X) to
@@ -7305,13 +7305,9 @@ print_timer (timers, 0, buf, TIMER_NL);
 OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 start_timer_from_zero (timers, 0);
 
-//GW:test code: F(X) * 1/F(X)
-//polymult (&ecmdata.polydata, ecmdata.polyF, ecmdata.poly_size, ecmdata.polyR, ecmdata.poly_size, polyG, 2*ecmdata.poly_size,
-//	  POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC_NEGATE);
-
 /* We're nearing peak memory usage, free any cached gwnums */
 
-//GW: DANGER, DANGER - freeing internal memory can delete gwnums (GW_FFT1, GW_RANDOM, etc.) that clones are pointing to!  re-init clones?
+//GW: DANGER, DANGER - freeing internal memory can delete gwnums (GW_FFT1, GW_RANDOM, etc.) that clones are pointing to!  gwnum handles this!
 	gwfree_internal_memory (&ecmdata.gwdata);
 	mallocFreeForOS ();
 
@@ -7356,10 +7352,12 @@ start_timer_from_zero (timers, 0);
 // of the improved speeds.  To avoid unnecessary gwcopys, 6/7 of polyG is filled in and the caller must get the last 1/7th from polyGaux.
 
 //GW: Idea: precompute all the D values and write them to disk.  Saves memory, likely reduces modinvs as we can do this before F,G,H are allocated
+//GW: Figure out a way to multithread this!
 		stop_reason = mQ_next_array (&ecmdata, polyG);
 		if (stop_reason) {
 			// In case stop_reason is out-of-memory, free some up before calling ecm_save.
 			mQ_term_array (&ecmdata);
+//GW: must wait to save, jump to polyH reduce?
 			ecm_save (&ecmdata);
 			goto exit;
 		}
@@ -7523,6 +7521,7 @@ saving=0;//GW:		saving = testSaveFilesFlag (thread_num);
 
 /* Periodicly write a save file */
 
+// GW: saving not allowed here.  break instead if we've built polyH (or de-monic polyG to make polyH)
 		if (stop_reason || saving) {
 			ecm_save (&ecmdata);
 			if (stop_reason) goto exit;
@@ -7530,11 +7529,6 @@ saving=0;//GW:		saving = testSaveFilesFlag (thread_num);
 	}
 
 /* Now work on H(X) down the F(X) tree using Bernstein's scaled remainders paper */
-
-//dbltogw(&ecmdata.gwdata, 1.0, ecmdata.polyH[0]);
-//dbltogw(&ecmdata.gwdata, 4.0, ecmdata.polyH[1]);
-//dbltogw(&ecmdata.gwdata, 1.0, ecmdata.polyH[2]);
-//dbltogw(&ecmdata.gwdata, 3.0, ecmdata.polyH[3]);
 
 	// Multiply H(X) by 1/F(X) to make scaled remainders
 	polymult (&ecmdata.polydata, polyH, ecmdata.poly_size, ecmdata.polyR, ecmdata.poly_size,
@@ -7560,12 +7554,12 @@ start_timer_from_zero (timers, 0);
 //GW: When we combine a length 0 and length 1 poly (no-op) we copy the gwnum -- we're likely overcounting the needed gwnums in pass 2
 	ecmdata.polyF = gwalloc_array (&ecmdata.gwdata, gwnums_needed - (ecmdata.poly_size + ecmdata.polyGaux_size));
 	if (ecmdata.polyF == NULL) goto lowmem;
-	Ftree = (gwarray) malloc (gwnums_needed * sizeof (gwnum));
+	Ftree = (gwarray) malloc ((size_t) (gwnums_needed * sizeof (gwnum)));
 	if (Ftree == NULL) goto lowmem;
 //GW: if num_polyGs == 1, polyG and polyH are the same  -- allocate a bigger polyF and don't copy polyG?
-	memcpy (Ftree, polyG, ecmdata.poly_size * sizeof (gwnum));
-	memcpy (Ftree + ecmdata.poly_size, ecmdata.polyGaux, ecmdata.polyGaux_size * sizeof (gwnum));
-	memcpy (Ftree + ecmdata.poly_size + ecmdata.polyGaux_size, ecmdata.polyF, (gwnums_needed - (ecmdata.poly_size + ecmdata.polyGaux_size)) * sizeof (gwnum));
+	memcpy (Ftree, polyG, (size_t) (ecmdata.poly_size * sizeof (gwnum)));
+	memcpy (Ftree + ecmdata.poly_size, ecmdata.polyGaux, (size_t) (ecmdata.polyGaux_size * sizeof (gwnum)));
+	memcpy (Ftree + ecmdata.poly_size + ecmdata.polyGaux_size, ecmdata.polyF, (size_t) ((gwnums_needed - (ecmdata.poly_size + ecmdata.polyGaux_size)) * sizeof (gwnum)));
 
 	// Use two passes.  The first pass does only 3 levels operating on the entire H(X) poly.  The second pass does the remaining levels operating
 	// on 1/8th of H(X) at a time.
@@ -7797,6 +7791,8 @@ start_timer_from_zero (timers, 0);
 
 	mQ_term_array (&ecmdata);
 	normalize_pool_term (&ecmdata);
+
+//GW: Do the ecm_save here and exit if stop_reason was set earlier
 
 /* Compute the new Kruppa-adjusted B2 work completed.  This is needed when curves are run with different optimal B2 values due to */
 /* changing available memory.  The Primenet server expects just one B2 value representing the work done. */
@@ -8414,7 +8410,7 @@ void pm1_save (
 {
 	int	fd;
 	struct work_unit *w = pm1data->w;
-	unsigned long sum = 0;
+	uint32_t sum = 0;
 
 /* Create the intermediate file */
 
@@ -8532,9 +8528,9 @@ int pm1_old_restore (
 	pm1handle *pm1data,
 	int	fd,
 	unsigned long version,
-	unsigned long filesum)
+	uint32_t filesum)
 {
-	unsigned long sum = 0;
+	uint32_t sum = 0;
 	unsigned long state, bitarray_len, unused;
 	uint64_t processed, B_done, B, C_done, unused64;
 
@@ -8638,8 +8634,7 @@ int pm1_restore (			/* For version 30.4 and later save files */
 {
 	int	fd;
 	struct work_unit *w = pm1data->w;
-	unsigned long version;
-	unsigned long sum = 0, filesum;
+	uint32_t version, sum = 0, filesum;
 
 /* Open the intermediate file */
 
@@ -10296,7 +10291,7 @@ OutputStr (thread_num, buf); }
 		if (best_fftlen && (double) memory * 1000000.0 / (double) array_gwnum_size (&pm1data.gwdata) < 60.0) found_best = TRUE;
 
 		// If we fail to get a new best efficient poly twice in a row, then we've found our best poly plan
-//GW: Likely costing overkill -- do we need a faster gwsetup (no computing weights and sin/cos?)
+//GW: Likely costing overkill
 		if (best_poly_efficiency != 0.0) best_fails++;
 		if (best_fails == 3) found_best = TRUE;
 
@@ -10956,10 +10951,10 @@ pm1_polymult:
 	poly1 = gwalloc_array (&pm1data.gwdata, pm1data.poly1_size);	// Poly #1, a monic RLP of size numrels
 	if (poly1 == NULL) goto lowmem;
 	// Allocate output poly array.  This array tells polymult where to write the polymult results.
-	pm1data.nQx = (gwnum *) malloc (outpoly_size * sizeof (gwnum));
+	pm1data.nQx = (gwnum *) malloc ((size_t) (outpoly_size * sizeof (gwnum)));
 	if (pm1data.nQx == NULL) goto lowmem;
 	outpoly = pm1data.nQx;					
-	memset (outpoly, 0, outpoly_size * sizeof (gwnum));
+	memset (outpoly, 0, (size_t) (outpoly_size * sizeof (gwnum)));
 
 // From Montgomery/Silverman paper (near formulas 9.4 & 9.5), D = 2 mod 4.  Calculate monic RLP coefficients
 // for u=1..D/4  if (gcd (u, D/2) == 1) compute V(2u).  The monic RLP is (x^2 - V(2u) + 1).
@@ -11343,7 +11338,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 // The evaluated points during a polymult overwrite many of the poly #2 coefficients the rest are preserved.  Take advantage of this by using circular
 // convolution where the "wrapped" results are coefficients we don't care about.  The output poly size is the first poly fft size >= poly2_size.
 
-		memcpy (outpoly + 2*pm1data.numrels, poly2 + 2*pm1data.numrels, pm1data.num_points * sizeof (gwnum));
+		memcpy (outpoly + 2*pm1data.numrels, poly2 + 2*pm1data.numrels, (size_t) (pm1data.num_points * sizeof (gwnum)));
 
 // Evaluate poly #1 at many points using polymult!
 
@@ -11441,7 +11436,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);}
 /* Rotate poly 2 coefficients.  We reuse the numrels*2 coefficients that were preserved during the polymult. */
 
 		memmove (poly2 + pm1data.num_points, poly2, 2*pm1data.numrels * sizeof (gwnum));
-		memcpy (poly2, outpoly + 2*pm1data.numrels, pm1data.num_points * sizeof (gwnum));
+		memcpy (poly2, outpoly + 2*pm1data.numrels, (size_t) (pm1data.num_points * sizeof (gwnum)));
 	}
 
 /* Set C_done for the final save file */
@@ -12335,7 +12330,7 @@ void pp1_save (
 {
 	int	fd;
 	struct work_unit *w = pp1data->w;
-	unsigned long sum = 0;
+	uint32_t sum = 0;
 
 /* Create the intermediate file */
 
@@ -12432,8 +12427,7 @@ int pp1_restore (
 {
 	int	fd, numerator, denominator;
 	struct work_unit *w = pp1data->w;
-	unsigned long version;
-	unsigned long sum = 0, filesum;
+	uint32_t version, sum = 0, filesum;
 
 /* Open the intermediate file */
 

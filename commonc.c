@@ -2318,7 +2318,7 @@ void pct_complete_from_savefile (
 	struct work_unit *w)
 {
 	int	fd, res;
-	unsigned long version;
+	uint32_t version;
 	char	filename[32];
 
 /* Generate the save file name */
@@ -4220,14 +4220,14 @@ int read_array (
 	int	fd,
 	char	*buf,
 	size_t	len,
-	unsigned long *sum)
+	uint32_t *sum)
 {
 	size_t	i;
 	unsigned char *ubuf;
 
 	if (__read (fd, buf, len) != len) return (FALSE);
 	ubuf = (unsigned char *) buf;
-	if (sum != NULL) for (i = 0; i < len; i++) *sum = (uint32_t) (*sum + ubuf[i]);
+	if (sum != NULL) for (i = 0; i < len; i++) *sum += (uint32_t) ubuf[i];
 	return (TRUE);
 }
 
@@ -4235,7 +4235,7 @@ int write_array (
 	int	fd,
 	const char *buf,
 	size_t	len,
-	unsigned long *sum)
+	uint32_t *sum)
 {
 	size_t	i;
 	unsigned char *ubuf;
@@ -4243,7 +4243,7 @@ int write_array (
 	if (len == 0) return (TRUE);
 	if (__write (fd, buf, len) != len) return (FALSE);
 	ubuf = (unsigned char *) buf;
-	if (sum != NULL) for (i = 0; i < len; i++) *sum = (uint32_t) (*sum + ubuf[i]);
+	if (sum != NULL) for (i = 0; i < len; i++) *sum += (uint32_t) ubuf[i];
 	return (TRUE);
 }
 
@@ -4252,7 +4252,7 @@ int write_array (
 int read_giant (
 	int	fd,
 	giant	g,
-	unsigned long *sum)
+	uint32_t *sum)
 {
 	unsigned long i, len, bytes;
 
@@ -4263,15 +4263,15 @@ int read_giant (
 	if (_read (fd, g->n, bytes) != bytes) return (FALSE);
 	if (len && g->n[len-1] == 0) return (FALSE);
 	g->sign = len;
-	*sum = (uint32_t) (*sum + len);
-	for (i = 0; i < len; i++) *sum = (uint32_t) (*sum + g->n[i]);
+	*sum += (uint32_t) len;
+	for (i = 0; i < len; i++) *sum += (uint32_t) g->n[i];
 	return (TRUE);
 }
 
 int write_giant (
 	int	fd,
 	giant	g,
-	unsigned long *sum)
+	uint32_t *sum)
 {
 	unsigned long i, len, bytes;
 
@@ -4291,8 +4291,8 @@ int write_giant (
 		OutputBoth (MAIN_THREAD_NUM, buf);
 		return (FALSE);
 	}
-	*sum = (uint32_t) (*sum + len);
-	for (i = 0; i < len; i++) *sum = (uint32_t) (*sum + g->n[i]);
+	*sum += (uint32_t) len;
+	for (i = 0; i < len; i++) *sum += (uint32_t) g->n[i];
 	return (TRUE);
 }
 
@@ -4302,7 +4302,7 @@ int read_gwnum (
 	int	fd,
 	gwhandle *gwdata,
 	gwnum	g,
-	unsigned long *sum)
+	uint32_t *sum)
 {
 	giant	tmp;
 
@@ -4324,7 +4324,7 @@ int write_gwnum (
 	int	fd,
 	gwhandle *gwdata,
 	gwnum	g,
-	unsigned long *sum)
+	uint32_t *sum)
 {
 	giant	tmp;
 	gwnum	tmp_gwnum = NULL;
@@ -4362,150 +4362,138 @@ err:	pushg (&gwdata->gdata, 1);
 
 /* Routines to read and write values from and to a save file */
 
+int read_int32 (
+	int	fd,
+	int32_t *val,
+	uint32_t *sum)
+{
+	if (_read (fd, val, sizeof (int32_t)) != sizeof (int32_t)) return (FALSE);
+	if (sum != NULL) *sum += (uint32_t) *val;
+	return (TRUE);
+}
+
+int write_int32 (
+	int	fd,
+	int32_t val,
+	uint32_t *sum)
+{
+	if (_write (fd, &val, sizeof (int32_t)) != sizeof (int32_t)) return (FALSE);
+	if (sum != NULL) *sum += (uint32_t) val;
+	return (TRUE);
+}
+
 int read_uint32 (
 	int	fd,
 	uint32_t *val,
-	unsigned long *sum)
+	uint32_t *sum)
 {
 	if (_read (fd, val, sizeof (uint32_t)) != sizeof (uint32_t)) return (FALSE);
-	if (sum != NULL) *sum = (uint32_t) (*sum + *val);
+	if (sum != NULL) *sum += (uint32_t) *val;
 	return (TRUE);
 }
 
 int write_uint32 (
 	int	fd,
 	uint32_t val,
-	unsigned long *sum)
+	uint32_t *sum)
 {
 	if (_write (fd, &val, sizeof (uint32_t)) != sizeof (uint32_t)) return (FALSE);
-	if (sum != NULL) *sum = (uint32_t) (*sum + val);
+	if (sum != NULL) *sum += (uint32_t) val;
+	return (TRUE);
+}
+
+int read_int64 (
+	int	fd,
+	int64_t *val,
+	uint32_t *sum)
+{
+	if (_read (fd, val, sizeof (int64_t)) != sizeof (int64_t)) return (FALSE);
+	if (sum != NULL) *sum += (uint32_t) ((*val >> 32) + *val);
+	return (TRUE);
+}
+
+int write_int64 (
+	int	fd,
+	int64_t val,
+	uint32_t *sum)
+{
+	if (_write (fd, &val, sizeof (int64_t)) != sizeof (int64_t)) return (FALSE);
+	if (sum != NULL) *sum += (uint32_t) ((val >> 32) + val);
 	return (TRUE);
 }
 
 int read_uint64 (
 	int	fd,
 	uint64_t *val,
-	unsigned long *sum)
+	uint32_t *sum)
 {
 	if (_read (fd, val, sizeof (uint64_t)) != sizeof (uint64_t)) return (FALSE);
-	if (sum != NULL) *sum = (uint32_t) (*sum + (*val >> 32) + *val);
+	if (sum != NULL) *sum += (uint32_t) ((*val >> 32) + *val);
 	return (TRUE);
 }
 
 int write_uint64 (
 	int	fd,
 	uint64_t val,
-	unsigned long *sum)
+	uint32_t *sum)
 {
 	if (_write (fd, &val, sizeof (uint64_t)) != sizeof (uint64_t)) return (FALSE);
-	if (sum != NULL) *sum = (uint32_t) (*sum + (val >> 32) + val);
+	if (sum != NULL) *sum += (uint32_t) ((val >> 32) + val);
 	return (TRUE);
-}
-
-int read_short (			/* Used for old-style save files */
-	int	fd,
-	short	*val)
-{
-	if (_read (fd, val, sizeof (short)) != sizeof (short)) return (FALSE);
-	return (TRUE);
-}
-
-int read_long (
-	int	fd,
-	unsigned long *val,
-	unsigned long *sum)
-{
-	uint32_t tmp;
-
-	if (_read (fd, &tmp, sizeof (uint32_t)) != sizeof (uint32_t))
-		return (FALSE);
-	if (sum != NULL) *sum = (uint32_t) (*sum + tmp);
-	*val = tmp;
-	return (TRUE);
-}
-
-int write_long (
-	int	fd,
-	unsigned long val,
-	unsigned long *sum)
-{
-	uint32_t tmp;
-
-	tmp = (uint32_t) val;
-	if (_write (fd, &tmp, sizeof (uint32_t)) != sizeof (uint32_t))
-		return (FALSE);
-	if (sum != NULL) *sum = (uint32_t) (*sum + tmp);
-	return (TRUE);
-}
-
-int read_slong (
-	int	fd,
-	long	*val,
-	unsigned long *sum)
-{
-	int32_t tmp;
-
-	if (_read (fd, &tmp, sizeof (int32_t)) != sizeof (int32_t))
-		return (FALSE);
-	if (sum != NULL) *sum = (uint32_t) (*sum + (uint32_t) tmp);
-	*val = tmp;
-	return (TRUE);
-}
-
-int write_slong (
-	int	fd,
-	long	val,
-	unsigned long *sum)
-{
-	int32_t tmp;
-
-	tmp = (int32_t) val;
-	if (_write (fd, &tmp, sizeof (int32_t)) != sizeof (int32_t))
-		return (FALSE);
-	if (sum != NULL) *sum = (uint32_t) (*sum + (uint32_t) tmp);
-	return (TRUE);
-}
-
-int read_int (
-	int	fd,
-	int	*val,
-	unsigned long *sum)
-{
-	long	tmp;
-
-	if (! read_slong (fd, &tmp, sum)) return (FALSE);
-	*val = (int) tmp;
-	return (TRUE);
-}
-
-int write_int (
-	int	fd,
-	int	val,
-	unsigned long *sum)
-{
-	return (write_slong (fd, val, sum));
 }
 
 int read_double (
 	int	fd,
 	double	*val,
-	unsigned long *sum)
+	uint32_t *sum)
 {
-	if (_read (fd, val, sizeof (double)) != sizeof (double))
-		return (FALSE);
-	if (sum != NULL) *sum = (uint32_t) (*sum + (uint32_t) *val);
+	if (_read (fd, val, sizeof (double)) != sizeof (double)) return (FALSE);
+	if (sum != NULL) *sum += (uint32_t) *val;
 	return (TRUE);
 }
 
 int write_double (
 	int	fd,
 	double	val,
-	unsigned long *sum)
+	uint32_t *sum)
 {
-	if (_write (fd, &val, sizeof (double)) != sizeof (double))
-		return (FALSE);
-	if (sum != NULL) *sum += (uint32_t) (*sum + (uint32_t) val);
+	if (_write (fd, &val, sizeof (double)) != sizeof (double)) return (FALSE);
+	if (sum != NULL) *sum += (uint32_t) val;
 	return (TRUE);
+}
+
+
+int read_long (				// DEPRECATED
+	int	fd,
+	unsigned long *val,
+	uint32_t *sum)
+{
+	uint32_t tmp;
+	int retval = read_uint32 (fd, &tmp, sum);
+	*val = tmp;
+	return (retval);
+}
+
+int read_slong (			// DEPRECATED
+	int	fd,
+	long	*val,
+	uint32_t *sum)
+{
+	int32_t tmp;
+	int retval = read_int32 (fd, &tmp, sum);
+	*val = tmp;
+	return (retval);
+}
+
+int read_int (				// DEPRECATED
+	int	fd,
+	int	*val,
+	uint32_t *sum)
+{
+	int32_t tmp;
+	int retval = read_int32 (fd, &tmp, sum);
+	*val = tmp;
+	return (retval);
 }
 
 /* Routines to read and write the common header portion of all save files */
@@ -4527,14 +4515,14 @@ int write_double (
 
 int read_magicnum (
 	int	fd,
-	unsigned long magicnum)
+	uint32_t magicnum)
 {
-	unsigned long filenum;
+	uint32_t filenum;
 
 /* Read the magic number from the first 4 bytes */
 
 	_lseek (fd, 0, SEEK_SET);
-	if (!read_long (fd, &filenum, NULL)) return (FALSE);
+	if (!read_uint32 (fd, &filenum, NULL)) return (FALSE);
 
 /* Return TRUE if the magic number matches the caller's desired magic number */
 
@@ -4545,9 +4533,9 @@ int read_magicnum (
 
 int read_header (
 	int	fd,
-	unsigned long *version,
+	uint32_t *version,
 	struct work_unit *w,
-	unsigned long *sum)
+	uint32_t *sum)
 {
 	double	k;
 	unsigned long b, n;
@@ -4555,7 +4543,7 @@ int read_header (
 	char	pad;
 	char	stage[10];
 	double	pct_complete;
-	unsigned long trash_sum;
+	uint32_t trash_sum;
 
 /* Skip past the magic number in the first 4 bytes */
 
@@ -4563,7 +4551,7 @@ int read_header (
 
 /* Read the header */
 
-	if (!read_long (fd, version, NULL)) return (FALSE);
+	if (!read_uint32 (fd, version, NULL)) return (FALSE);
 	if (!read_double (fd, &k, NULL)) return (FALSE);
 	if (!read_long (fd, &b, NULL)) return (FALSE);
 	if (!read_long (fd, &n, NULL)) return (FALSE);
@@ -4573,7 +4561,7 @@ int read_header (
 	if (!read_array (fd, &pad, 1, NULL)) return (FALSE);
 	if (!read_double (fd, &pct_complete, NULL)) return (FALSE);
 	if (sum == NULL) sum = &trash_sum;
-	if (!read_long (fd, sum, NULL)) return (FALSE);
+	if (!read_uint32 (fd, sum, NULL)) return (FALSE);
 
 /* Validate the k,b,n,c values */
 
@@ -4594,15 +4582,15 @@ int read_header (
 
 int write_header (
 	int	fd,
-	unsigned long magicnum,
-	unsigned long version,
+	uint32_t magicnum,
+	uint32_t version,
 	struct work_unit *w)
 {
 	char	pad = 0;
 	uint32_t sum = 0;
 
-	if (!write_long (fd, magicnum, NULL)) return (FALSE);
-	if (!write_long (fd, version, NULL)) return (FALSE);
+	if (!write_uint32 (fd, magicnum, NULL)) return (FALSE);
+	if (!write_uint32 (fd, version, NULL)) return (FALSE);
 	if (!write_double (fd, w->k, NULL)) return (FALSE);
 	if (!write_long (fd, w->b, NULL)) return (FALSE);
 	if (!write_long (fd, w->n, NULL)) return (FALSE);
@@ -4611,7 +4599,7 @@ int write_header (
 	if (!write_array (fd, &pad, 1, NULL)) return (FALSE);
 	if (!write_array (fd, &pad, 1, NULL)) return (FALSE);
 	if (!write_double (fd, w->pct_complete, NULL)) return (FALSE);
-	if (!write_long (fd, sum, NULL)) return (FALSE);
+	if (!write_uint32 (fd, sum, NULL)) return (FALSE);
 	return (TRUE);
 }
 
@@ -4619,19 +4607,19 @@ int write_header (
 
 int read_checksum (
 	int	fd,
-	unsigned long *sum)
+	uint32_t *sum)
 {
 	_lseek (fd, CHECKSUM_OFFSET, SEEK_SET);
-	if (!read_long (fd, sum, NULL)) return (FALSE);
+	if (!read_uint32 (fd, sum, NULL)) return (FALSE);
 	return (TRUE);
 }
 
 int write_checksum (
 	int	fd,
-	unsigned long sum)
+	uint32_t sum)
 {
 	_lseek (fd, CHECKSUM_OFFSET, SEEK_SET);
-	if (!write_long (fd, sum, NULL)) return (FALSE);
+	if (!write_uint32 (fd, sum, NULL)) return (FALSE);
 	return (TRUE);
 }
 
