@@ -667,9 +667,19 @@ int map_D_to_index (int D)
 	ASSERTG (0);
 	return (0);
 }
+// Map a poly D value to the poly_D_data index
+int map_polyD_to_index (int D)
+{
+	int	i;
+	for (i = 0; i < NUM_D; i++) if (poly_D_data[i].D == D) return (i);
+	ASSERTG (0);
+	return (0);
+}
 
 // Return minimum number of relprimes for a D (same as number of relative primes less than D/2)
 #define map_D_to_numrels(D)	D_data[map_D_to_index(D)].numrels
+// Return first_missing_prime for a poly D
+#define map_polyD_to_first_missing_prime(D)	poly_D_data[map_polyD_to_index(D)].first_missing_prime
 
 /* Structure used to pass data to and return data from ECM, P-1, P+1 stage 2 costing routines */
 /* Originally this was only used for the prime pairing algorithm.  Now it also used to analyze polymult-based algorithms. */
@@ -685,6 +695,7 @@ struct common_cost_data {
 	bool	extra_credit;		/* Set to TRUE if there is "extra credit" for going past B2_end */
 	bool	use_poly_D_data;	/* Set to TRUE if selecting from the alternate D_data designed for polymult */
 	bool	centers_on_Dmultiple;	/* Set to TRUE if pairing is centered on a multiple of D (as opposed to odd multiple of D/2) */
+	int	required_missing;	/* An interrupted polymult stage 2 relocated primes using this small prime.  New D must not be a multiple of this value. */
 	uint64_t gap_start;		/* last_relocatable or zero (when pairmaps are split, c_start to gap_start are the remaining relocatables to pair) */
 	uint64_t gap_end;		/* a.k.a C_done (when pairmaps are split, gap_end to C are the remaining primes to pair) */
 	/* Data returned from cost function follows */
@@ -793,13 +804,16 @@ double best_stage2_impl_internal (
 		}			
 		c->numDsections = (B2_end - c->B2_start) / D;
 
+/* Perform pairing-specific and polymult-specific initializations */
+
+		if (!c->use_poly_D_data) {
+
 /* When pairmaps are split, the last_relocatable set by the first pairmap restricts which D values can now be used */
 
-		if (c->gap_start && c->gap_start * d_data[i].first_missing_prime > B2_end) continue;
+			if (c->gap_start && c->gap_start * d_data[i].first_missing_prime > B2_end) continue;
 
 /* Estimate our prime pairing percentage and number of D sections that can fit in a pairing map */
 
-		if (!c->use_poly_D_data) {
 			/* We only support relp_sets up to 20 entries */
 			c->totrels = (max_numvals > 20 * d_data[i].numrels) ? 20 * d_data[i].numrels : (int) max_numvals;
 			estimate_pairing (d_data[i].second_missing_prime, C_start, C, c->totrels, d_data[i].numrels, &pairing_percentage, &pairing_runtime);
@@ -828,6 +842,13 @@ double best_stage2_impl_internal (
 
 			c->multiplier = (double) c->totrels / (double) c->numrels;
 			c->relp_sets = relp_set_selection ((int) ceil (c->multiplier));
+		}
+
+/* When a polymult stage 2 starts, small primes are "moved" to a multiple of first_missing_prime.  When polymult stage 2 resumes, we cannot select a */
+/* D value that includes the original first_missing_prime as that would miss some of these moved small primes. */
+
+		else {
+			if (c->required_missing && D % c->required_missing == 0) continue;
 		}
 
 /* Calculate the cost of this stage 2 plan */
@@ -1398,6 +1419,8 @@ typedef struct {
 	uint8_t *pairmap_ptr;	/* Pointer to the next byte to process in the pairing map */
 
 	/* Polymult stage 2 data */
+	int32_t	required_missing; /* When B2_start exceeds B1, primes are moved to first_missing_prime * prime.  If a save file is created mid-stage 2 */
+				/* then resuming must pick a D value that does not eliminate multiples of first_missing_prime. */ 
 	pmhandle polydata;	/* Polymult data structure */
 	uint64_t poly_size;	/* Size of F(X), G(X), H(X) polynomials */
 	gwarray	polyF;		/* Array of coefficients for poly F(X) */
@@ -3405,8 +3428,8 @@ int mQ_init (
 		gwfree_cached (&ecmdata->gwdata);
 		mallocFreeForOS ();
 
-/* QD is no longer needed except that we cannot delete it yet because ecm_save accesses QD if an error occurs during stage 2 init. */
-/* So for now, do not not free ecmdata.QD to QD^(E/2).  As the very last step of stage 2 init, we'll free ecmdata.QD. */
+		// QD is no longer needed
+		free_xz (ecmdata, &ecmdata->QD);
 
 		// Return first entry in the mQx array
 		ecmdata->mQx_retcount = 0;
@@ -3643,9 +3666,8 @@ int mQ_init_array (
 	// From here on out, use polyGaux for all our normalize temporaries
 	ecmdata->use_preallocated_norm_temps = TRUE;
 
-//GW:???
-/* QD is no longer needed except that we cannot delete it yet because ecm_save accesses QD if an error occurs during stage 2 init. */
-/* So for now, do not not free ecmdata.QD to QD^(E/2).  As the very last step of stage 2 init, we'll free ecmdata.QD. */
+	// QD is no longer needed
+	free_xz (ecmdata, &ecmdata->QD);
 
 	// Return first entry in the mQx array
 	ecmdata->mQx_retcount = 0;
@@ -4296,6 +4318,7 @@ double ecm_stage2_impl_given_numvals (
 	cost_data.c.extra_credit = FALSE;
 	cost_data.c.use_poly_D_data = FALSE;
 	cost_data.c.centers_on_Dmultiple = TRUE;
+	cost_data.c.required_missing = ecmdata->required_missing;
 	cost_data.c.gwdata = &ecmdata->gwdata;
 	cost_data.c.polydata = &ecmdata->polydata;
 	cost_data.c.fftlen = gwfftlen (&ecmdata->gwdata);
@@ -4475,8 +4498,8 @@ double ecm_stage2_impl (
 /* If we are contemplating ditching the save file pairmap, figure out which non-relocatable primes are definitely included in the stage 2 */
 /* accumulator.  Set C_done appropriately, but do not change first_relocatable as there is no guarantee which relocatables are in the accumulator. */
 
-	if (ecmdata->state == ECM_STATE_STAGE2) {
-		int max_relp_set = (ecmdata->stage2_type == ECM_STAGE2_PAIRING) ? get_max_relp_set (ecmdata->relp_sets) : 0;
+	if (ecmdata->state == ECM_STATE_STAGE2 && ecmdata->stage2_type == ECM_STAGE2_PAIRING) {
+		int max_relp_set = get_max_relp_set (ecmdata->relp_sets);
 		if (ecmdata->Dsection > max_relp_set) ecmdata->C_done = ecmdata->B2_start + (ecmdata->Dsection - max_relp_set) * ecmdata->D;
 	}
 
@@ -4526,11 +4549,12 @@ double ecm_stage2_impl (
 		ecmdata->totrels = (int) cost_data.c.totrels;
 		memcpy (ecmdata->relp_sets, cost_data.c.relp_sets, sizeof (ecmdata->relp_sets));
 		ecmdata->max_pairmap_Dsections = cost_data.c.max_pairmap_Dsections;
+		if (ecmdata->state < ECM_STATE_STAGE2 || ecmdata->last_relocatable > ecmdata->B2_start) ecmdata->last_relocatable = ecmdata->B2_start;
 	} else {
 		ecmdata->poly_size = cost_data.c.numrels;
 		ecmdata->Ftree_polys_in_mem = cost_data.Ftree_polys_in_mem;
+		if (ecmdata->B2_start > ecmdata->C_done) ecmdata->required_missing = cost_data.c.first_missing_prime;
 	}
-	if (ecmdata->state < ECM_STATE_STAGE2 || ecmdata->last_relocatable > ecmdata->B2_start) ecmdata->last_relocatable = ecmdata->B2_start;
 
 /* Output data regarding our cost estimates so user can make adjustments when our estimates are wildly off the mark */
 
@@ -4595,7 +4619,7 @@ void ecm_save (
 	if (! write_uint64 (fd, ecmdata->C, &sum)) goto writeerr;
 
 /* Write the stage-specific data */
-	
+
 	if (ecmdata->state == ECM_STATE_STAGE1) {
 		if (! write_uint64 (fd, ecmdata->stage1_prime, &sum)) goto writeerr;
 		if (! write_gwnum (fd, &ecmdata->gwdata, ecmdata->xz.x, &sum)) goto writeerr;
@@ -4634,17 +4658,26 @@ void ecm_save (
 			if (! write_int32 (fd, ecmdata->relp, &sum)) goto writeerr;
 			if (! write_array (fd, (char *) ecmdata->relp_sets, 32 * sizeof (int16_t), &sum)) goto writeerr;
 			// Output the truncated pairmap
-//GW:  handle NULL pairmap?
 			remaining_pairmap_size = ecmdata->pairmap_size - (ecmdata->pairmap_ptr - ecmdata->pairmap);
 			if (! write_uint64 (fd, remaining_pairmap_size, &sum)) goto writeerr;
 			if (! write_array (fd, (char *) ecmdata->pairmap_ptr, (size_t) remaining_pairmap_size, &sum)) goto writeerr;
-//GW output qx, gg_binary, else gg
+			// Output the gwnums
+//GW: safe to free Qx_binary and write_gwnum nQx[0]??
+			if (! write_giant (fd, ecmdata->Qx_binary, &sum)) goto writeerr;
+			if (! write_gwnum (fd, &ecmdata->gwdata, ecmdata->gg, &sum)) goto writeerr;
 		} else {						// Polymult stage 2
-//GW output qx, gg_binary
+			// Output how much of stage 2 is complete and the gwnums
+			int32_t tmp;
+			if (! write_int32 (fd, ecmdata->required_missing, &sum)) goto writeerr;
+			if (! write_uint64 (fd, ecmdata->C_done, &sum)) goto writeerr;
+//GW: safe to free Qx_binary and write_gwnum nQx[0]??
+			if (! write_giant (fd, ecmdata->Qx_binary, &sum)) goto writeerr;
+			ASSERTG (ecmdata->gg_binary == NULL || ecmdata->gg == NULL);
+			tmp = (ecmdata->gg_binary != NULL || ecmdata->gg != NULL);
+			if (! write_int32 (fd, tmp, &sum)) goto writeerr;
+			if (ecmdata->gg_binary != NULL && ! write_giant (fd, ecmdata->gg_binary, &sum)) goto writeerr;
+			if (ecmdata->gg != NULL && ! write_gwnum (fd, &ecmdata->gwdata, ecmdata->gg, &sum)) goto writeerr;
 		}
-//GW: use the binaries?
-//GW		if (! write_gwnum (fd, &ecmdata->gwdata, ecmdata->nQx[0], &sum)) goto writeerr;
-//GW		if (! write_gwnum (fd, &ecmdata->gwdata, ecmdata->gg, &sum)) goto writeerr;
 	}
 
 	else if (ecmdata->state == ECM_STATE_GCD) {
@@ -4804,6 +4837,7 @@ int ecm_restore (			/* For version 30.4 and later save files */
 	}
 
 	else if (ecmdata->state == ECM_STATE_STAGE2) {
+		int32_t	tmp;
 		if (! read_int32 (fd, &ecmdata->stage2_type, &sum)) goto readerr;
 		if (ecmdata->stage2_type != ECM_STAGE2_POLYMULT) {	// Prime pairing stage 2
 			if (! read_uint64 (fd, &ecmdata->stage2_numvals, &sum)) goto readerr;
@@ -4827,12 +4861,25 @@ int ecm_restore (			/* For version 30.4 and later save files */
 			if (ecmdata->pairmap == NULL) goto readerr;
 			if (! read_array (fd, (char *) ecmdata->pairmap, (size_t) ecmdata->pairmap_size, &sum)) goto readerr;
 			ecmdata->pairmap_ptr = ecmdata->pairmap;
+			ecmdata->Qx_binary = allocgiant (((int) ecmdata->gwdata.bit_length >> 5) + 10);
+			if (ecmdata->Qx_binary == NULL) goto readerr;
+			if (! read_giant (fd, ecmdata->Qx_binary, &sum)) goto readerr;
+			ecmdata->gg_binary = allocgiant (((int) ecmdata->gwdata.bit_length >> 5) + 10);
+			if (ecmdata->gg_binary == NULL) goto readerr;
+			if (! read_giant (fd, ecmdata->gg_binary, &sum)) goto readerr;
 		} else {						// Polynomial stage 2
+			if (! read_int32 (fd, &ecmdata->required_missing, &sum)) goto readerr;
+			if (! read_uint64 (fd, &ecmdata->C_done, &sum)) goto readerr;
+			ecmdata->Qx_binary = allocgiant (((int) ecmdata->gwdata.bit_length >> 5) + 10);
+			if (ecmdata->Qx_binary == NULL) goto readerr;
+			if (! read_giant (fd, ecmdata->Qx_binary, &sum)) goto readerr;
+			if (! read_int32 (fd, &tmp, &sum)) goto readerr;
+			if (tmp) {
+				ecmdata->gg_binary = allocgiant (((int) ecmdata->gwdata.bit_length >> 5) + 10);
+				if (ecmdata->gg_binary == NULL) goto readerr;
+				if (! read_giant (fd, ecmdata->gg_binary, &sum)) goto readerr;
+			}
 		}
-//GW read as binary or gwnum depending on stage
-//GW	   if (! read_gwnum (fd, &ecmdata->gwdata, ecmdata->xz.x, &sum)) goto readerr;
-//GW there may not be a Qz or gg value to read!
-//GW		if (! read_gwnum (fd, &ecmdata->gwdata, ecmdata->xz.z, &sum)) goto readerr;
 	}
 
 	else if (ecmdata->state == ECM_STATE_GCD) {
@@ -5068,7 +5115,7 @@ int ecm (
 	int	i;
 	unsigned int memused;
 	char	filename[32], ftree_filename[40], buf[255], JSONbuf[4000], fft_desc[200];
-	int	res, stop_reason, stage, first_iter_msg;
+	int	res, stop_reason, delayed_stop_reason, stage, first_iter_msg;
 	int	msglen, continueECM, prpAfterEcmFactor;
 	char	*str, *msg;
 	double	timers[10];
@@ -5774,11 +5821,17 @@ skip_stage_2:	start_timer_from_zero (timers, 0);
 	gwtogiant (&ecmdata.gwdata, ecmdata.xz.z, ecmdata.Qz_binary);
 	free_xz (&ecmdata, &ecmdata.xz);
 
+/* No restrictions on polymult D value */
+
+	ecmdata.required_missing = 0;
+
 /* Entry point for continuing stage 2 from a save file.  When continuing from a stage 2 save file, we have either a normalized or unnormalized xz value */
-/* and possibly a GCD accumulator.  These values come in binary format. */
+/* and possibly a GCD accumulator.  These values come in binary format.  There also may be restrictions on the D value selected. */
 
 restart3:
 	ASSERTG (ecmdata.xz.x == NULL && ecmdata.xz.x == NULL && ecmdata.gg == NULL);
+	Dmultiple_map.clear ();			// Map should already be clear
+	relp_set_map.clear ();			// Map should already be clear
 
 /* Make sure we will have enough memory to run stage 2 at some time.  We need at least 13 gwnums in stage 2 main loop. */
 
@@ -6108,9 +6161,7 @@ OutputStr (thread_num, buf); }
 		if (!alloc_xz (&ecmdata, &t3)) goto lowmem;
 		t4.x = NULL; t4.z = NULL;					// Only needed if Q2 is needed after QD is calculated
 
-/* Compute Q^2 and place in ecmdata.QD.  This is the value we will save if init is aborted and we create a save file. */
-/* Q^2 will be replaced by Q^D later on in this loop.  At all times ecmdata.QD will be a save-able value! */
-/* Remember Q^1 as the first nQx value.  After the first stage 2 init, xz.x is already normalized. */
+/* Compute Q^2 and place in ecmdata.QD.  Q^2 will be replaced by Q^D later on in this loop.  Remember Q^1 as the first nQx value. */
 
 		xzswap (t1, ecmdata.QD);					// Move Q^1 from QD to t1
 		Q1 = &t1;							// Q^1
@@ -6237,9 +6288,7 @@ OutputStr (thread_num, buf); }
 		if (!alloc_xz (&ecmdata, &t4)) goto lowmem;
 		if (!alloc_xz (&ecmdata, &t5)) goto lowmem;
 
-/* Compute Q^2 and place in ecmdata.QD.  This is the value we will save if init is aborted and we create a save file. */
-/* Q^2 will be replaced by Q^D later on in this loop.  At all times ecmdata.QD will be a save-able value! */
-/* After the first stage 2 init, QD.x is already normalized, but we do not take advantage of this fact. */
+/* Compute Q^2 and place in ecmdata.  Q^2 will be replaced by Q^D later on in this loop. */
 
 		ell_dbl_xz_scr (&ecmdata, &ecmdata.QD, &t1, &t5);		// Q2 = 2 * Q1, scratch = t5
 		xzswap (t1, ecmdata.QD);					// Move Q^1 from QD to t1
@@ -6435,7 +6484,6 @@ OutputStr (thread_num, buf); }
 		stop_reason = stopCheck (thread_num);
 		if (stop_reason) goto possible_lowmem;
 	}
-//GW: are xz buffers allocated by Dmultiple map properly cleaned up (especially in oom case)?  use class to do it? 
 
 /* For the 2-FFT stage 2, mQ_preinit wants the QD^(E/2) value normalized.  Do so now that we've computed the value. */
 
@@ -6446,7 +6494,6 @@ OutputStr (thread_num, buf); }
 	}
 
 /* There will be no more ell_dbl calls, so free Ad4 */
-//GW: the last ell_dbl call may have happened before the last dmult calculation (free earlier if that makes a MEMPEAK difference)
 
 	gwfree (&ecmdata.gwdata, ecmdata.Ad4);
 	ecmdata.Ad4 = NULL;
@@ -6587,8 +6634,7 @@ OutputStr (thread_num, buf); }
 	if (ecmdata.gg == NULL) goto lowmem;
 	if (ecmdata.gg_binary != NULL) {
 		gianttogw (&ecmdata.gwdata, ecmdata.gg_binary, ecmdata.gg);
-		free (ecmdata.gg_binary);
-		ecmdata.gg_binary = NULL;
+		free (ecmdata.gg_binary), ecmdata.gg_binary = NULL;
 	} else
 		dbltogw (&ecmdata.gwdata, 1.0, ecmdata.gg);
 
@@ -6596,10 +6642,6 @@ OutputStr (thread_num, buf); }
 
 	stop_reason = stopCheck (thread_num);
 	if (stop_reason) goto possible_lowmem;
-
-/* For 2-FFT stage 2, mQ_init wanted to free QD but could not because of potential ecm_save issues.  Now that stage 2 init is finished, free QD. */
-
-	if (ecmdata.TWO_FFT_STAGE2) free_xz (&ecmdata, &ecmdata.QD);
 
 /* Initialization of stage 2 complete */
 
@@ -6794,9 +6836,6 @@ ecm_polymult:
 //GW: foobar?
 int foobar; foobar = ecmdata.gwdata.num_threads;
 
-//GW: We don't need gg, we possibly need the full H(X) from a save file.  Wow, thats a lot of disk.  Might have to invest the CPU time reducing H(X) to
-// to create a save file.
-
 // Polymult stage 2 does not need a prime sieve
 
 //GW: should we end the sieve - it might be re-usable in next curve  (do we call start sieve with corrent ending p value?)
@@ -6814,13 +6853,13 @@ int foobar; foobar = ecmdata.gwdata.num_threads;
 /* Allocate nQx array of pointers to relative prime gwnums.  Allocate an array large enough to hold x & z values for all relp. */
 /* This is much more than we will need once stage 2 init completes. */
 
-//GW: use gwalloc_array, handle z_offset differently, carefully convert freeing nQx!  Make this code common with prime pairing.  Multithread using polymult?
+//GW: use gwalloc_array, carefully convert freeing nQx!  Make this code common with prime pairing?  Multithread using polymult tools?
 	ecmdata.nQx = (gwnum *) malloc (ecmdata.numrels * sizeof (gwnum));
 	if (ecmdata.nQx == NULL) goto lowmem;
 
 /* Allocate some of the memory for modular inverse pooling */
 
-//GW: Are there costs to calling this with too large a value?  Not very much.
+//GW: Are there costs to calling this with too large a value?  Not very much.  Malloc the pool on-demand rather than upfront?
 	stop_reason = normalize_pool_init (&ecmdata, ecmdata.poly_size * 2);	// GW: Shouldn't be more than a handful above poly_size
 	if (stop_reason) goto possible_lowmem;
 
@@ -6829,69 +6868,67 @@ int foobar; foobar = ecmdata.gwdata.num_threads;
 start_timer_from_zero (timers, 0);
 	ASSERTG (ecmdata.D % 3 == 0);
 	{
-	struct xz t1, t2, t3, t4, t5, t6;
-	struct xz *Q1, *Q2, *Q3, *Q5, *Q6, *Q7, *Q11, *Qnext_i;
-	struct {
-		struct xz *Qi;
-		struct xz *Qi_minus6;
-		int	Qi_is_relp;
-		int	Qi_minus6_is_relp;
-	} Q1mod6, Q5mod6, *curr;
-	int	i_gap, have_QD;
-	uint32_t totrels;
+		struct xz t1, t2, t3, t4, t5, t6;
+		struct xz *Q1, *Q2, *Q3, *Q5, *Q6, *Q7, *Q11, *Qnext_i;
+		struct {
+			struct xz *Qi;
+			struct xz *Qi_minus6;
+			int	Qi_is_relp;
+			int	Qi_minus6_is_relp;
+		} Q1mod6, Q5mod6, *curr;
+		int	i_gap, have_QD;
+		uint32_t totrels;
 
 /* Allocate memory and init values for computing nQx.  We need Q^1, Q^5, Q^6, Q^7, Q^11. */
 /* We also need Q^4 to compute Q^D in the middle of the nQx init loop. */
 
-	if (!alloc_xz (&ecmdata, &t1)) goto lowmem;
-	if (!alloc_xz (&ecmdata, &t2)) goto lowmem;
-	if (!alloc_xz (&ecmdata, &t3)) goto lowmem;
-	if (!alloc_xz (&ecmdata, &t4)) goto lowmem;
-	if (!alloc_xz (&ecmdata, &t5)) goto lowmem;
+		if (!alloc_xz (&ecmdata, &t1)) goto lowmem;
+		if (!alloc_xz (&ecmdata, &t2)) goto lowmem;
+		if (!alloc_xz (&ecmdata, &t3)) goto lowmem;
+		if (!alloc_xz (&ecmdata, &t4)) goto lowmem;
+		if (!alloc_xz (&ecmdata, &t5)) goto lowmem;
 
-/* Compute Q^2 and place in ecmdata.QD.  This is the value we will save if init is aborted and we create a save file. */
-/* Q^2 will be replaced by Q^D later on in this loop.  At all times ecmdata.QD will be a save-able value! */
-/* After the first stage 2 init, QD.x is already normalized, but we do not take advantage of this fact. */
+/* Compute Q^2 and place in ecmdata.QD.  Q^2 will be replaced by Q^D later on in this loop. */
 
-	ell_dbl_xz_scr (&ecmdata, &ecmdata.QD, &t1, &t5);		// Q2 = 2 * Q1, scratch = t5
-	xzswap (t1, ecmdata.QD);					// Move Q^1 from QD to t1
-	Q1 = &t1;							// Q^1
-	Q2 = &ecmdata.QD;
+		ell_dbl_xz_scr (&ecmdata, &ecmdata.QD, &t1, &t5);		// Q2 = 2 * Q1, scratch = t5
+		xzswap (t1, ecmdata.QD);					// Move Q^1 from QD to t1
+		Q1 = &t1;							// Q^1
+		Q2 = &ecmdata.QD;
 
 /* Compute Q^5, Q^6, Q^7, Q^11 */
 
-	Q3 = &t2;
-	ell_add_xz (&ecmdata, Q2, Q1, Q1, Q3);				// Q3 = Q2 + Q1 (diff Q1)
+		Q3 = &t2;
+		ell_add_xz (&ecmdata, Q2, Q1, Q1, Q3);				// Q3 = Q2 + Q1 (diff Q1)
 
-	Q5 = &t3;
-	ell_add_xz (&ecmdata, Q3, Q2, Q1, Q5);				// Q5 = Q3 + Q2 (diff Q1)
+		Q5 = &t3;
+		ell_add_xz (&ecmdata, Q3, Q2, Q1, Q5);				// Q5 = Q3 + Q2 (diff Q1)
 
-	Q6 = Q3;
-	ell_dbl_xz_scr (&ecmdata, Q3, Q6, &t5);				// Q6 = 2 * Q3, scratch = t5, Q3 no longer needed
+		Q6 = Q3;
+		ell_dbl_xz_scr (&ecmdata, Q3, Q6, &t5);				// Q6 = 2 * Q3, scratch = t5, Q3 no longer needed
 
-	Q7 = &t4;
-	ell_add_xz (&ecmdata, Q6, Q1, Q5, Q7);				// Q7 = Q6 + Q1 (diff Q5)
+		Q7 = &t4;
+		ell_add_xz (&ecmdata, Q6, Q1, Q5, Q7);				// Q7 = Q6 + Q1 (diff Q5)
 
-	Q11 = &t5;
-	ell_add_xz (&ecmdata, Q6, Q5, Q1, Q11);				// Q11 = Q6 + Q5 (diff Q1)
+		Q11 = &t5;
+		ell_add_xz (&ecmdata, Q6, Q5, Q1, Q11);				// Q11 = Q6 + Q5 (diff Q1)
 
 /* Init structures used in the loop below */
 
-	Q1mod6.Qi_minus6 = Q1;
-	Q1mod6.Qi_minus6_is_relp = 1;
-	Q5mod6.Qi_minus6 = Q5;
-	Q5mod6.Qi_minus6_is_relp = relatively_prime (5, ecmdata.D);
-	Q1mod6.Qi = Q7;
-	Q1mod6.Qi_is_relp = relatively_prime (7, ecmdata.D);
-	Q5mod6.Qi = Q11;
-	Q5mod6.Qi_is_relp = relatively_prime (11, ecmdata.D);
+		Q1mod6.Qi_minus6 = Q1;
+		Q1mod6.Qi_minus6_is_relp = 1;
+		Q5mod6.Qi_minus6 = Q5;
+		Q5mod6.Qi_minus6_is_relp = relatively_prime (5, ecmdata.D);
+		Q1mod6.Qi = Q7;
+		Q1mod6.Qi_is_relp = relatively_prime (7, ecmdata.D);
+		Q5mod6.Qi = Q11;
+		Q5mod6.Qi_is_relp = relatively_prime (11, ecmdata.D);
 
 /* For relprimes, we remember the .x value in the nQx pool.  In the loop below, we relinquish ownership of the .z value when we call add_to_normalize_pool_ro. */
 
-	ecmdata.nQx[0] = Q1->x; totrels = 1;
-	if (Q5mod6.Qi_minus6_is_relp) { ecmdata.nQx[totrels] = Q5->x; totrels++; }
-	if (Q1mod6.Qi_is_relp) { ecmdata.nQx[totrels] = Q7->x; totrels++; }
-	if (Q5mod6.Qi_is_relp) { ecmdata.nQx[totrels] = Q11->x; totrels++; }
+		ecmdata.nQx[0] = Q1->x; totrels = 1;
+		if (Q5mod6.Qi_minus6_is_relp) { ecmdata.nQx[totrels] = Q5->x; totrels++; }
+		if (Q1mod6.Qi_is_relp) { ecmdata.nQx[totrels] = Q7->x; totrels++; }
+		if (Q5mod6.Qi_is_relp) { ecmdata.nQx[totrels] = Q11->x; totrels++; }
 
 #define normalize_or_free(xz,is_relp)	{ if (is_relp) { stop_reason = add_to_normalize_pool_ro (&ecmdata, xz->x, xz->z); \
 							 if (stop_reason) goto possible_lowmem; \
@@ -6900,81 +6937,81 @@ start_timer_from_zero (timers, 0);
 
 /* Compute the rest of the nQx values below D (Q^i for i >= 7) */
 
-	Qnext_i = &t6;
-	have_QD = FALSE;
-	for (i = 7, i_gap = 4; ; i += i_gap, i_gap = 6 - i_gap) {
-		int	next_i_is_relp;
+		Qnext_i = &t6;
+		have_QD = FALSE;
+		for (i = 7, i_gap = 4; ; i += i_gap, i_gap = 6 - i_gap) {
+			int	next_i_is_relp;
 
 /* Point to the i, i-6 pair to work on */
 
-		curr = (i_gap == 4) ? &Q1mod6 : &Q5mod6;
+			curr = (i_gap == 4) ? &Q1mod6 : &Q5mod6;
 
 /* See if we are about to compute the next relative prime */
 
-		next_i_is_relp = (relatively_prime (i+6, ecmdata.D) && totrels < ecmdata.numrels);
+			next_i_is_relp = (relatively_prime (i+6, ecmdata.D) && totrels < ecmdata.numrels);
 
 /* Get next i value.  Don't destroy Qi_minus6 in case it is an nQx value. */
 
-		if (!alloc_xz (&ecmdata, Qnext_i)) goto lowmem;
-		ell_add_xz (&ecmdata, curr->Qi, Q6, curr->Qi_minus6, Qnext_i);		// Next_Qi = Qi + Q6 (diff Q{i-6})
+			if (!alloc_xz (&ecmdata, Qnext_i)) goto lowmem;
+			ell_add_xz (&ecmdata, curr->Qi, Q6, curr->Qi_minus6, Qnext_i);		// Next_Qi = Qi + Q6 (diff Q{i-6})
 
 /* We no longer need Qi_minus6.  Normalize it or free it */
 
-		normalize_or_free (curr->Qi_minus6, curr->Qi_minus6_is_relp);
+			normalize_or_free (curr->Qi_minus6, curr->Qi_minus6_is_relp);
 
 /* Shuffle i values along */
 
-		struct xz *shuffle;
-		shuffle = curr->Qi_minus6;
-		curr->Qi_minus6 = curr->Qi;
-		curr->Qi_minus6_is_relp = curr->Qi_is_relp;
-		curr->Qi = Qnext_i;
-		curr->Qi_is_relp = next_i_is_relp;
-		Qnext_i = shuffle;
+			struct xz *shuffle;
+			shuffle = curr->Qi_minus6;
+			curr->Qi_minus6 = curr->Qi;
+			curr->Qi_minus6_is_relp = curr->Qi_is_relp;
+			curr->Qi = Qnext_i;
+			curr->Qi_is_relp = next_i_is_relp;
+			Qnext_i = shuffle;
 
 /* Compute Q^D which we will need in mQ_init.  Do this with a single ell_add_xz call when we reach two values that are 2 or 4 apart that add to D. */
 
-		if ((i+6) + (i+i_gap) == ecmdata.D) {
-			struct xz tmp;
-			struct xz *Qgap = Q2;
-			ASSERTG (Qgap == &ecmdata.QD);
-			if (!alloc_xz (&ecmdata, &tmp)) goto lowmem;
-			if (6 - i_gap == 4) ell_dbl_xz_scr (&ecmdata, Q2, Qgap, &tmp);		  // Qgap = Q4 = 2 * Q2, Q2 no longer needed
-			ell_add_xz_scr (&ecmdata, Q1mod6.Qi, Q5mod6.Qi, Qgap, &ecmdata.QD, &tmp); // QD = i+6 + i+i_gap (diff Qgap), Qgap no longer needed
-			free_xz (&ecmdata, &tmp);
-			have_QD = TRUE;
-		}
+			if ((i+6) + (i+i_gap) == ecmdata.D) {
+				struct xz tmp;
+				struct xz *Qgap = Q2;
+				ASSERTG (Qgap == &ecmdata.QD);
+				if (!alloc_xz (&ecmdata, &tmp)) goto lowmem;
+				if (6 - i_gap == 4) ell_dbl_xz_scr (&ecmdata, Q2, Qgap, &tmp);		  // Qgap = Q4 = 2 * Q2, Q2 no longer needed
+				ell_add_xz_scr (&ecmdata, Q1mod6.Qi, Q5mod6.Qi, Qgap, &ecmdata.QD, &tmp); // QD = i+6 + i+i_gap (diff Qgap), Qgap no longer needed
+				free_xz (&ecmdata, &tmp);
+				have_QD = TRUE;
+			}
 
 /* If the newly computed i is a relative prime, then remember .x for a later add_to_nomalize */
 
-		if (next_i_is_relp) {
-			ecmdata.nQx[totrels] = curr->Qi->x;
-			totrels++;
-		}
+			if (next_i_is_relp) {
+				ecmdata.nQx[totrels] = curr->Qi->x;
+				totrels++;
+			}
 
 /* Break out of loop when we have all our nQx values less than D */
 
-		if (have_QD && totrels == ecmdata.numrels) break;
+			if (have_QD && totrels == ecmdata.numrels) break;
 
 /* Check for errors, user abort, restart for mem changed, etc. */
 
-		if (gw_test_for_error (&ecmdata.gwdata) || gw_get_maxerr (&ecmdata.gwdata) > allowable_maxerr) goto err;
-		stop_reason = stopCheck (thread_num);
-		if (stop_reason) goto possible_lowmem;
-	}
+			if (gw_test_for_error (&ecmdata.gwdata) || gw_get_maxerr (&ecmdata.gwdata) > allowable_maxerr) goto err;
+			stop_reason = stopCheck (thread_num);
+			if (stop_reason) goto possible_lowmem;
+		}
 
 /* Free memory used in computing nQx values */
 
-	normalize_or_free (Q1mod6.Qi, Q1mod6.Qi_is_relp);
-	normalize_or_free (Q1mod6.Qi_minus6, Q1mod6.Qi_minus6_is_relp);
-	normalize_or_free (Q5mod6.Qi, Q5mod6.Qi_is_relp);
-	normalize_or_free (Q5mod6.Qi_minus6, Q5mod6.Qi_minus6_is_relp);
-	free_xz (&ecmdata, Q6);
+		normalize_or_free (Q1mod6.Qi, Q1mod6.Qi_is_relp);
+		normalize_or_free (Q1mod6.Qi_minus6, Q1mod6.Qi_minus6_is_relp);
+		normalize_or_free (Q5mod6.Qi, Q5mod6.Qi_is_relp);
+		normalize_or_free (Q5mod6.Qi_minus6, Q5mod6.Qi_minus6_is_relp);
+		free_xz (&ecmdata, Q6);
 	}
+	#undef normalize_or_free
 
 /* Add Q^D computed above to the D-multiples map */
 
-//GW: we deleted the code that cleared DMult map
 	{
 		auto it_Dmult = Dmultiple_map.find (1);
 		if (it_Dmult == Dmultiple_map.end()) it_Dmult = Dmultiple_map.insert({1, {0, 1}}).first;
@@ -6982,22 +7019,20 @@ start_timer_from_zero (timers, 0);
 	}
 
 /* Allocate scratch space for computing mQx values that will be written to G(X). */
-/* Init code that computes Q^m, where m is the first D section we are working on. */
 
 //GW: formula might be different for other 1%7 vaules  (and we don't know why + 5 does not work!
+//GW: round up to multiple of num_threads when we implement multithreading?
 	ecmdata.polyGaux_size = divide_rounding_up (ecmdata.poly_size - 1, 7) + 6;	// Assumes 3.57MULT normalization
 	ecmdata.polyGaux = gwalloc_array (&ecmdata.gwdata, ecmdata.polyGaux_size);
 	if (ecmdata.polyGaux == NULL) goto lowmem;
 
-/* Init for computing Q^(multiples of D).  We simply add the starting multiples of D that need to be computed to the D-multiples map. */
+/* Init for computing Q^(multiples of D).  This adds the needed starting multiples of D to the D-multiples map. */
 
 	stop_reason = mQ_preinit_array (&ecmdata, Dmultiple_map);
 	if (stop_reason) goto possible_lowmem;
 
-// Calculate all the needed Q^(multiples-of-D).  This is needed even if multiplier<=2 case (Q^mD and Q^(m+1)D are needed) so we must be memory conscious.
+// Calculate all the needed Q^(multiples-of-D)
 
-//GW: use the dmult map code below?  make it a subroutine?  add b2_start and b2_start + 1 (did mQ_preinit do that)?
-//GW: recode using code from 29.8?			
 	process_Dmult_map (Dmultiple_map);
 	for (auto this_Dmult = Dmultiple_map.begin(); this_Dmult != Dmultiple_map.end(); ++this_Dmult) {
 		// Ignore the already computed Q^D
@@ -7033,7 +7068,6 @@ start_timer_from_zero (timers, 0);
 		if (stop_reason) goto possible_lowmem;
 	}
 	Dmultiple_map.clear ();
-//GW: are xz buffers allocated by Dmultiple map properly cleaned up (especially in oom case)?  use class to do it? 
 
 /* For subsequent polyGs, mQ_preinit wants the QD^(polyGaux_size/2) value normalized.  Do so now that we've computed the value. */
 
@@ -7058,17 +7092,7 @@ start_timer_from_zero (timers, 0);
 //GW: ???
 	gwfree_internal_memory (&ecmdata.gwdata);
 
-/* Normalize all the nQx values */
-
-// mQ_init_array does this normalize
-//	stop_reason = normalize_pool (&ecmdata);
-//	if (stop_reason) goto possible_lowmem;
-
-/* If we found a factor, we're done */
-
-//	if (ecmdata.factor != NULL) goto bingo;
-
-/* Init code that computes Q^m, where m is the first D section we are working on. */
+/* Init code that computes Q^m, where m is the first D section we are working on.  This normalizes the normalize_pool. */
 
 	stop_reason = mQ_init_array (&ecmdata);
 	if (stop_reason) goto possible_lowmem;
@@ -7082,15 +7106,11 @@ start_timer_from_zero (timers, 0);
 		gwtogiant (&ecmdata.gwdata, ecmdata.nQx[0], ecmdata.Qx_binary);
 		free (ecmdata.Qz_binary), ecmdata.Qz_binary = NULL;
 	}
-	
+
 /* Last chance to create a save file that doesn't lock us into a particular stage 2 implementation.  Check for user requesting a stop. */
 
 	stop_reason = stopCheck (thread_num);
 	if (stop_reason) goto possible_lowmem;
-
-/* For 2-FFT stage 2, mQ_init wanted to free QD but could not because of potential ecm_save issues.  Now that stage 2 init is finished, free QD. */
-//GW: we're fixing these save file issues, right?
-	free_xz (&ecmdata, &ecmdata.QD);
 
 //	bool use_polymult_multithreading;		// TRUE if we should use polymult multithreading instead of gwnum multithreading
 //GW: unused
@@ -7366,6 +7386,7 @@ start_timer_from_zero (timers, 0);
 	start_timer_from_zero (timers, 0);
 	start_timer_from_zero (timers, 1);
 	last_output = last_output_t = 0;
+	delayed_stop_reason = 0;
 	for (int outer_loop_counter = 1; ; outer_loop_counter++) {
 
 // Compute G(X).  mQ_next calculations require some temporary memory to do normalizations, the polyGaux array is used for this.  PolyGaux is 1/7th the size
@@ -7373,15 +7394,16 @@ start_timer_from_zero (timers, 0);
 // The memory required to save the entire polyG array is better used to choose larger poly sizes.  However, we can save 1/7th of polyG in polyGaux to get some
 // of the improved speeds.  To avoid unnecessary gwcopys, 6/7 of polyG is filled in and the caller must get the last 1/7th from polyGaux.
 
-//GW: Idea: precompute all the D values and write them to disk.  Saves memory, likely reduces modinvs as we can do this before F,G,H are allocated
-//GW: Figure out a way to multithread this!
+//GW: Figure out a way to multithread this!  Each thread with its own normalize pool (since modinv) is not multithreaded?
 		stop_reason = mQ_next_array (&ecmdata, polyG);
 		if (stop_reason) {
-			// In case stop_reason is out-of-memory, free some up before calling ecm_save.
-			mQ_term_array (&ecmdata);
-//GW: must wait to save, jump to polyH reduce?
-			ecm_save (&ecmdata);
-			goto exit;
+			// If we've run out of memory, or we haven't made much progress in stage 2, then save stage 1 state and exit
+			if (stop_reason == STOP_OUT_OF_MEM || outer_loop_counter <= 2) {
+				ecm_save (&ecmdata);
+				goto exit;
+			}
+			delayed_stop_reason = stop_reason;
+			goto polydown;
 		}
 		if (ecmdata.factor != NULL) goto bingo;
 
@@ -7449,7 +7471,15 @@ start_timer_from_zero (timers, 0);
 
 			// Periodic checks for user stop request
 			stop_reason = stopCheck (thread_num);
-			if (stop_reason) goto possible_lowmem;
+			if (stop_reason) {
+				// If we've run out of memory, or we haven't made much progress in stage 2, then save stage 1 state and exit
+				if (stop_reason == STOP_OUT_OF_MEM || outer_loop_counter <= 2) {
+					ecm_save (&ecmdata);
+					goto exit;
+				}
+				delayed_stop_reason = stop_reason;
+				goto polydown;
+			}
 		}
 strcpy (buf, "PolyG built.  Time: ");
 end_timer (timers, 0);
@@ -7460,7 +7490,7 @@ start_timer_from_zero (timers, 0);
 // First loop iteration do nothing.  On subsequent loop iterations, H(X) = G(X) * H(X) mod F(X).  The first time we do this H(X) is monic.
 // It might appear that doing just one loop could be advantageous -- we wouldn't need memory for an H(X) poly.  However, increasing the D
 // value has both extra costs (polyF, polyR, scaled remainder costs all go up) and savings (G(X) and H(X) costs go down due to fewer D values).
-// The happy balance seems to be around four iterations of this loop.
+// The happy balance seems to be around four iterations of the outer loop.
 
 		if (outer_loop_counter > 1) {
 			// Compute tmp = G(X) * H(X).  We can store tmp in polyGH.
@@ -7481,20 +7511,13 @@ OutputStr (thread_num, buf);
 start_timer_from_zero (timers, 0);
 		}
 
-// Check for ESC before doing expensive polymult
-//		stop_reason = stopCheck (thread_num);
-//		if (stop_reason) { ecm_save (&ecmdata); goto exit; }
-
 if (ecmdata.Dsection==0 && IniGetInt (INI_FILE, "PolyVerbose", 0)) {
 sprintf (buf, "Round off: %.10g\n", gw_get_maxerr (&ecmdata.gwdata));
 OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);}
 
-// Check for errors, user esc, restart for mem changed, saving, etc.
+/* Test for errors */
 
-		if (gw_test_for_error (&ecmdata.gwdata)) goto err;
-		stop_reason = stopCheck (thread_num);
-saving=0;//GW:		saving = testSaveFilesFlag (thread_num);
-//GW: Skip accumulating gg if stopping?  Save file prior to accumulating ggs??  All depends on how fast we think these gg accumulates will be
+		if (gw_test_for_error (&ecmdata.gwdata) || gw_get_maxerr (&ecmdata.gwdata) > allowable_maxerr) goto err;
 
 // Keep track of the sections processed thusfar
 
@@ -7504,10 +7527,6 @@ saving=0;//GW:		saving = testSaveFilesFlag (thread_num);
 /* Calculate stage 2 percentage. */
 
 		w->pct_complete = base_pct_complete + (1.0 - base_pct_complete) * (double) ecmdata.Dsection / (double) ecmdata.numDsections;
-
-/* Test for errors */
-
-		if (gw_test_for_error (&ecmdata.gwdata) || gw_get_maxerr (&ecmdata.gwdata) > allowable_maxerr) goto err;
 
 /* Output the title every so often */
 
@@ -7543,16 +7562,20 @@ saving=0;//GW:		saving = testSaveFilesFlag (thread_num);
 
 /* Periodicly write a save file */
 
-// GW: saving not allowed here.  break instead if we've built polyH (or de-monic polyG to make polyH)
-		if (stop_reason || saving) {
+		if (testSaveFilesFlag (thread_num)) {
 			ecm_save (&ecmdata);
-			if (stop_reason) goto exit;
+			saving = FALSE;
 		}
+
+/* If we are delaying stopping until we've worked down the poly tree, don't do more polyG outer loops */
+
+		if (delayed_stop_reason) break;
 	}
 
 /* Now work on H(X) down the F(X) tree using Bernstein's scaled remainders paper */
 
 	// Multiply H(X) by 1/F(X) to make scaled remainders
+polydown:
 	polymult (&ecmdata.polydata, polyH, ecmdata.poly_size, ecmdata.polyR, ecmdata.poly_size,
 		  polyH, ecmdata.poly_size, POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_MULHI | POLYMULT_NEXTFFT);
 strcpy (buf, "H(X) scaled.  Time: ");
@@ -7784,8 +7807,7 @@ start_timer_from_zero (timers, 0);
 			     (i != ecmdata.polydata.num_threads - 1 || ecmdata.gg_binary != NULL) ? GWMUL_STARTNEXTFFT : 0);
 	}
 
-/* Now multiply in the accumulator read from a continuation file */
-//GW: It could have come from a save file if it started off doing prime pairing and switched to poly (or we allow save files in stage 2)
+/* Now multiply in the accumulator read from a save file */
 
 ASSERTG (foobar == ecmdata.gwdata.num_threads);
 ASSERTG (ecmdata.gg == NULL);
@@ -7794,8 +7816,7 @@ ASSERTG (ecmdata.gg == NULL);
 		gwnum tmp = gwalloc (&ecmdata.gwdata);
 		if (tmp == NULL) goto oom;
 		gianttogw (&ecmdata.gwdata, ecmdata.gg_binary, tmp);
-		free (ecmdata.gg_binary);
-		ecmdata.gg_binary = NULL;
+		free (ecmdata.gg_binary), ecmdata.gg_binary = NULL;
 		gwmul3 (&ecmdata.gwdata, ecmdata.polyGH[0], tmp, ecmdata.polyGH[0], 0);
 		gwfree (&ecmdata.gwdata, tmp);
 	}
@@ -7806,9 +7827,18 @@ print_timer (timers, 0, buf, TIMER_NL);
 OutputStr (thread_num, buf);
 start_timer_from_zero (timers, 0);
 
-/* Set C_done for the final save file and the Kruppa adjustment */
+/* Set C and C_done for the delayed or final save file and the Kruppa adjustment */
 
-	ecmdata.C = ecmdata.C_done = ecmdata.B2_start + ecmdata.Dsection * ecmdata.D;
+	ecmdata.C_done = ecmdata.B2_start + ecmdata.Dsection * ecmdata.D;
+	ecmdata.C = ecmdata.B2_start + ecmdata.numDsections * ecmdata.D;
+
+/* If we've delayed stopping until gg is calculated, then create the save file and exit */
+
+	if (delayed_stop_reason) {
+		ecm_save (&ecmdata);
+		stop_reason = delayed_stop_reason;
+		goto exit;
+	}
 
 /* Cleanup and free poly gwnums before GCD.  GCD can use significant amounts of memory. */
 
@@ -7821,8 +7851,6 @@ start_timer_from_zero (timers, 0);
 
 	mQ_term_array (&ecmdata);
 	normalize_pool_term (&ecmdata);
-
-//GW: Do the ecm_save here and exit if stop_reason was set earlier
 
 /* Compute the new Kruppa-adjusted B2 work completed.  This is needed when curves are run with different optimal B2 values due to */
 /* changing available memory.  The Primenet server expects just one B2 value representing the work done. */
@@ -7880,6 +7908,7 @@ more_curves:
 	ecmdata.xz.x = NULL;
 	ecmdata.xz.z = NULL;
 	ecmdata.gg = NULL;
+//GW: LEAK: free all memory except N and gwdone()
 	mallocFreeForOS ();
 	if (++ecmdata.curve <= w->curves_to_do) {
 		// If necessary, switch back to the stage 1 FFT length
@@ -7914,7 +7943,7 @@ more_curves:
 			sprintf (msgbuf, "Switching back to %s\n", fft_desc);
 			OutputStr (thread_num, msgbuf);
 		} else
-			gwsetaddin (&ecmdata.gwdata, 0);		// This should not be necessary
+			gwsetaddin (&ecmdata.gwdata, 0);	// This should not be necessary, just in case there is code still using the old gwnum interface
 		goto restart0;
 	}
 
@@ -8317,6 +8346,8 @@ typedef struct {
 	int	relp;		/* Last relative prime processed in the current D section */
 
 	/* Polymult stage 2 data */
+	int32_t	required_missing; /* When B2_start exceeds B1, primes are moved to first_missing_prime * prime.  If a save file is created mid-stage 2 */
+				/* then resuming must pick a D value that does not eliminate multiples of first_missing_prime. */ 
 	pmhandle polydata;	/* Polymult data structure */
 	uint64_t poly1_size;	/* Size of the first RLP poly */
 	uint64_t poly2_size;	/* Size of the second RLP that evaluates poly #1 at multiple points */
@@ -8433,7 +8464,8 @@ oom:	return (OutOfMemory (pm1data->thread_num));
 //#define PM1_VERSION	4				/* Complete overhaul in 30.4.  New stage 2 code with Preda optimizations */
 //#define PM1_VERSION	5				/* Stage 2 overhaul in 30.7.  P+1 style stage 2, pairing with relp_sets, compressed pairing map */
 //#define PM1_VERSION	6				/* Version 30.8 pre-beta.  Max_stage0_prime and stage0_bitnum stored as uint64_t. */
-#define PM1_VERSION	7				/* Stage 2 overhaul in 30.8.  Polymult. */
+//#define PM1_VERSION	7				/* Stage 2 overhaul in 30.8.  Polymult. */
+#define PM1_VERSION	8				/* 30.10 added required_missing */
 
 void pm1_save (
 	pm1handle *pm1data)
@@ -8479,6 +8511,7 @@ void pm1_save (
 		if (! write_uint64 (fd, pm1data->C_done, &sum)) goto writeerr;
 		if (! write_uint64 (fd, pm1data->interim_C, &sum)) goto writeerr;
 		if (! write_int (fd, pm1data->stage2_type, &sum)) goto writeerr;
+//GW: ECM has a much cleaner save file for polymult stage 2!  Clean this up?
 		if (! write_int (fd, pm1data->D, &sum)) goto writeerr;
 		if (! write_int (fd, pm1data->numrels, &sum)) goto writeerr;
 		if (! write_uint64 (fd, pm1data->B2_start, &sum)) goto writeerr;
@@ -8493,10 +8526,11 @@ void pm1_save (
 			if (! write_int (fd, pm1data->relp, &sum)) goto writeerr;
 			if (! write_array (fd, (char *) pm1data->relp_sets, 32 * sizeof (int16_t), &sum)) goto writeerr;
 			// Output the truncated pairmap
-//GW:  handle NULL pairmap?
 			remaining_pairmap_size = pm1data->pairmap_size - (pm1data->pairmap_ptr - pm1data->pairmap);
 			if (! write_uint64 (fd, remaining_pairmap_size, &sum)) goto writeerr;
 			if (! write_array (fd, (char *) pm1data->pairmap_ptr, (size_t) remaining_pairmap_size, &sum)) goto writeerr;
+		} else {
+			if (! write_int32 (fd, pm1data->required_missing, &sum)) goto writeerr;
 		}
 	}
 
@@ -8747,6 +8781,12 @@ int pm1_restore (			/* For version 30.4 and later save files */
 			if (pm1data->pairmap == NULL) goto readerr;
 			if (! read_array (fd, (char *) pm1data->pairmap, (size_t) pm1data->pairmap_size, &sum)) goto readerr;
 			pm1data->pairmap_ptr = pm1data->pairmap;
+		} else {
+			if (version <= 7) {		// Version 30.8 did not write this field (a bug).  Compute it assuming stage 2 was no
+				pm1data->required_missing = map_polyD_to_first_missing_prime (pm1data->D);
+			} else {
+				if (! read_int32 (fd, &pm1data->required_missing, &sum)) goto readerr;
+			}
 		}
 	}
 
@@ -9084,6 +9124,7 @@ double pm1_stage2_impl_given_numvals (
 	best_cost = 1.0e99;
 	cost_data.c.numvals = numvals;
 	cost_data.c.extra_credit = TRUE;
+	cost_data.c.required_missing = pm1data->required_missing;
 	cost_data.c.gwdata = &pm1data->gwdata;
 	cost_data.c.polydata = &pm1data->polydata;
 	cost_data.c.fftlen = gwfftlen (&pm1data->gwdata);
@@ -9324,6 +9365,7 @@ double pm1_stage2_impl (
 	} else {
 		pm1data->poly1_size = cost_data.c.numrels;
 		pm1data->poly2_size = cost_data.poly2_size;
+		if (pm1data->B2_start > pm1data->C_done) pm1data->required_missing = cost_data.c.first_missing_prime;
 	}
 
 /* Output data regarding our cost estimates so user can make adjustments when our estimates are wildly off the mark */
@@ -10158,6 +10200,10 @@ restart3a:
 	pm1data.state = PM1_STATE_MIDSTAGE;
 	strcpy (w->stage, "S2");
 	w->pct_complete = 0.0;
+
+/* No restrictions on polymult D value */
+
+	pm1data.required_missing = 0;
 
 /* Restart here when in the middle of stage 2.  Convert x and invx to binary for saving to a file.  Compute V. */
 
