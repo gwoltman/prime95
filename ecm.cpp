@@ -1450,7 +1450,7 @@ void mQ_term (ecmhandle *ecmdata);
 
 /* Perform cleanup functions */
 
-void ecm_cleanup (
+void ecm_mini_cleanup (
 	ecmhandle *ecmdata)
 {
 	normalize_pool_term (ecmdata);
@@ -1461,11 +1461,21 @@ void ecm_cleanup (
 	free (ecmdata->gg_binary), ecmdata->gg_binary = NULL;
 	free (ecmdata->nQx), ecmdata->nQx = NULL;
 	free (ecmdata->pairmap), ecmdata->pairmap = NULL;
-	polymult_done (&ecmdata->polydata);
-	gwdone (&ecmdata->gwdata);
-	end_sieve (ecmdata->sieve_info), ecmdata->sieve_info = NULL;
-	free (ecmdata->N), ecmdata->N = NULL;
 	free (ecmdata->factor), ecmdata->factor = NULL;
+	end_sieve (ecmdata->sieve_info), ecmdata->sieve_info = NULL;
+	polymult_done (&ecmdata->polydata);
+	gwfreeall (&ecmdata->gwdata);
+	ecmdata->xz.x = NULL;
+	ecmdata->xz.z = NULL;
+	ecmdata->gg = NULL;
+}
+
+void ecm_cleanup (
+	ecmhandle *ecmdata)
+{
+	ecm_mini_cleanup (ecmdata);
+	free (ecmdata->N), ecmdata->N = NULL;
+	gwdone (&ecmdata->gwdata);
 }
 
 /**********************************************************************************************************************/
@@ -4787,7 +4797,6 @@ int ecm_restore (			/* For version 30.4 and later save files */
 	if (! read_uint32 (fd, &ecmdata->state, &sum)) goto readerr;
 	if (! read_double (fd, &ecmdata->sigma, NULL)) goto readerr;
 	if (! read_uint64 (fd, &savefile_B, &sum)) goto readerr;
-//GW: should we be overwriting C with savefile_C?
 	if (! read_uint64 (fd, &ecmdata->C, &sum)) goto readerr;
 
 /* Handle the case where we have a save file with a smaller bound #1 than the bound #1 we are presently working on. */
@@ -7402,6 +7411,7 @@ start_timer_from_zero (timers, 0);
 				ecm_save (&ecmdata);
 				goto exit;
 			}
+			if (delayed_stop_reason == 0) OutputStr (thread_num, "Stopping.  Please be patient.\n");
 			delayed_stop_reason = stop_reason;
 			goto polydown;
 		}
@@ -7477,6 +7487,7 @@ start_timer_from_zero (timers, 0);
 					ecm_save (&ecmdata);
 					goto exit;
 				}
+				if (delayed_stop_reason == 0) OutputStr (thread_num, "Stopping.  Please be patient.\n");
 				delayed_stop_reason = stop_reason;
 				goto polydown;
 			}
@@ -7863,7 +7874,7 @@ stage2_done:
 		ecmdata.average_B2 = kruppa_unadjust (total_B2 / ecmdata.curve, ecmdata.B);
 	}
 
-/* Stage 2 is complete */
+/* Stage 2 is complete.  Free memory so that other high memory workers can begin. */
 
 	gwfree_internal_memory (&ecmdata.gwdata);
 	mallocFreeForOS ();
@@ -7904,11 +7915,7 @@ restart4:
 /* Check if more curves need to be done */
 
 more_curves:
-	gwfreeall (&ecmdata.gwdata);
-	ecmdata.xz.x = NULL;
-	ecmdata.xz.z = NULL;
-	ecmdata.gg = NULL;
-//GW: LEAK: free all memory except N and gwdone()
+	ecm_mini_cleanup (&ecmdata);		// Free all memory except N and gwdata
 	mallocFreeForOS ();
 	if (++ecmdata.curve <= w->curves_to_do) {
 		// If necessary, switch back to the stage 1 FFT length
@@ -10735,7 +10742,6 @@ OutputStr (thread_num, buf); }
 		stop_reason = stopCheck (thread_num);
 		if (stop_reason) goto possible_lowmem;
 	}
-//GW: are xz buffers allocated by Dmultiple map properly cleaned up (especially in oom case)?  use class to do it? 
 
 /* We're about to reach peak memory usage, free any gwnum internal memory */
 
@@ -12144,8 +12150,8 @@ void guess_pminus1_bounds (
 	gwdata.FFTLEN = g.fftlen;
 	gwdata.cpu_flags = CPU_FLAGS;
 	if (gwdata.FFTLEN < 1024 && gwdata.cpu_flags & CPU_AVX512F) gwdata.cpu_flags &= ~CPU_AVX512F;
+	gwdata.num_threads = g.threads;
 	polymult_init (&g.polydata, &gwdata);
-	polymult_set_max_num_threads (&g.polydata, g.threads);
 	polymult_default_tuning (&g.polydata,
 				 IniGetInt (INI_FILE, "PolymultCacheSize", CPU_NUM_L2_CACHES > 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 256),
 				 IniGetInt (INI_FILE, "PolymultCacheSize2", CPU_NUM_L3_CACHES > 0 ? CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES : 6144));
