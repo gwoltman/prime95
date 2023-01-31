@@ -119,6 +119,10 @@ uint32_t HW_NUM_COMPUTE_THREADING_NODES;/* Same as HW_NUM_THREADING_NODES but on
 uint32_t HW_NUM_NUMA_NODES;		/* Total number of NUMA nodes in the computer */
 struct hw_core_info *HW_CORES = NULL;	/* Information on every core */
 
+/* Forward declarations */
+
+int parseWorkToDoLine (char *line, struct work_unit *w);
+
 /* Generate the application string.  This is sent to the server in a */
 /* UC (Update Computer info) call.  It is also displayed in the Help/About dialog box. */
 
@@ -1715,13 +1719,9 @@ int readIniFiles (void)
 /*               Utility routines to work with ".add" files                 */
 /****************************************************************************/
 
-/* See if an "add file" file exists.  An add file lets the user create a */
-/* prime.add, local.add, or worktodo.add file to overwrite/append options */
-/* or append work while the program is running.  This is especially handy */
-/* for workstations that are not physically accessible but there file */
-/* systems are by network.  If this feature was not available, the only */
-/* safe method for updating would be to stop the program, edit the .txt */
-/* file, and restart the program. */
+/* See if an "add file" file exists.  An add file lets the user create a prime.add or local.add file to overwrite/append options while the program is running. */
+/* This is especially handy for workstations that are not physically accessible but their file systems are by network.  If this feature was not available, */
+/* the only safe method for updating would be to stop the program, edit the .txt file, and restart the program. */
 
 int addFileExists (void)
 {
@@ -1737,14 +1737,6 @@ int addFileExists (void)
 		if (fileExists (filename)) return (TRUE);
 	}
 	strcpy (filename, LOCALINI_FILE);
-	dot = strrchr (filename, '.');
-	if (dot != NULL) {
-		strcpy (dot, ".add");
-		if (fileExists (filename)) return (TRUE);
-		strcpy (dot, ".add.txt");
-		if (fileExists (filename)) return (TRUE);
-	}
-	strcpy (filename, WORKTODO_FILE);
 	dot = strrchr (filename, '.');
 	if (dot != NULL) {
 		strcpy (dot, ".add");
@@ -1789,7 +1781,7 @@ void incorporateIniAddFiles (void)
 	}
 }
 
-/* Merge optional worktodo.add file into their worktodo.txt file */
+/* Merge worktodo.add file into the worktodo.txt file */
 
 int incorporateWorkToDoAddFile (void)
 {
@@ -1829,18 +1821,16 @@ static	int	worktodo_add_disabled = FALSE;
 	tnum = 0;
 	while (fgets (line, sizeof (line), fd)) {
 		struct work_unit *w;
+		int	rc;
 
 /* Remove trailing CRLFs */
 
-		if (line[strlen(line)-1] == '\n')
-			line[strlen(line)-1] = 0;
-		if (line[0] && line[strlen(line)-1] == '\r')
-			line[strlen(line)-1] = 0;
+		if (line[strlen(line)-1] == '\n') line[strlen(line)-1] = 0;
+		if (line[0] && line[strlen(line)-1] == '\r') line[strlen(line)-1] = 0;
 		if (line[0] == 0) continue;
 
-/* If this is a section header find the matching section header in */
-/* worktodo.txt.  If no match is found, add this to the first empty thread */
-/* or the very last thread */
+/* If this is a section header find the matching section header in worktodo.txt.  If no match is found, add this to the */
+/* first empty thread or the very last thread. */
 
 		if (line[0] == '[') {
 			struct work_unit *w;
@@ -1849,9 +1839,7 @@ static	int	worktodo_add_disabled = FALSE;
 				if (w == NULL) {
 					if (tnum) break;
 				} else {
-					if (w->work_type == WORK_NONE &&
-					    _stricmp (w->comment, line) == 0)
-						break;
+					if (w->work_type == WORK_NONE && _stricmp (w->comment, line) == 0) break;
 				}
 				if (tnum == NUM_WORKER_THREADS - 1) {
 					w = NULL;
@@ -1867,13 +1855,10 @@ static	int	worktodo_add_disabled = FALSE;
 		if (w == NULL) goto nomem;
 		memset (w, 0, sizeof (struct work_unit));
 
-/* Save new line as a comment.  It will be properly parsed when we re-read */
-/* the worktodo.txt file. */
+/* Parse the new line */
 
-		w->work_type = WORK_NONE;
-		w->comment = (char *) malloc (strlen (line) + 1);
-		if (w->comment == NULL) goto nomem;
-		strcpy (w->comment, line);
+		rc = parseWorkToDoLine (line, w);
+		if (rc) goto retrc;
 
 /* Grow the work_unit array if necessary and add this entry */
 
@@ -1898,8 +1883,7 @@ static	int	worktodo_add_disabled = FALSE;
 
 	_unlink (filename);
 	if (fileExists (filename)) {
-		OutputBoth (MAIN_THREAD_NUM,
-			    "ERROR:  Can't delete worktodo.add file\n");
+		OutputBoth (MAIN_THREAD_NUM, "ERROR: Can't delete worktodo.add file\n");
 		worktodo_add_disabled = TRUE;
 	}
 
@@ -2515,8 +2499,426 @@ int addToWorkUnitArray (
 	return (0);
 }
 
-/* Read the entire worktodo.txt file into memory.  Return error_code */
-/* if we have a memory or file I/O error. */
+/* Parse one worktodo.txt line */
+
+int parseWorkToDoLine (
+	char	*line,
+	struct work_unit *w)
+{
+	char	keyword[20], buf[200];
+	char	*value;
+	int	i;
+
+/* All lines other than keyword=value are saved as comment lines. */
+
+	if (((line[0] < 'A' || line[0] > 'Z') && (line[0] < 'a' || line[0] > 'z'))) goto comment;
+
+/* Otherwise, parse keyword=value lines */
+
+	value = strchr (line, '=');
+	if (value == NULL || (int) (value - (char *) line) >= sizeof (keyword) - 1) goto illegal_line;
+	*value = 0;
+	strcpy (keyword, line);
+	*value++ = '=';
+
+/* Set some default values.  Historically, this program worked on Mersenne numbers only.  Default to an FFT length chosen by gwnum library. */
+
+	w->k = 1.0;
+	w->b = 2;
+	w->c = -1;
+	w->minimum_fftlen = 0;
+	w->extension[0] = 0;
+
+/* Parse the optional assignment_uid */
+
+	if ((value[0] == 'N' || value[0] == 'n') && (value[1] == '/') && (value[2] == 'A' || value[2] == 'a') && (value[3] == ',')) {
+		w->ra_failed = TRUE;
+		safe_strcpy (value, value+4);
+	}
+	for (i = 0; ; i++) {
+		if (!(value[i] >= '0' && value[i] <= '9') && !(value[i] >= 'A' && value[i] <= 'F') && !(value[i] >= 'a' && value[i] <= 'f')) break;
+		if (i == 31) {
+			if (value[32] != ',') break;
+			value[32] = 0;
+			strcpy (w->assignment_uid, value);
+			safe_strcpy (value, value+33);
+			break;
+		}
+	}
+
+/* Parse the FFT length to use.  The syntax is FFT_length for x87 cpus and FFT2_length for SSE2 machines.  We support two syntaxes so that an */
+/* assignment moved from an x87 to-or-from an SSE2 machine will recalculate the soft FFT crossover. */
+
+	if ((value[0] == 'F' || value[0] == 'f') && (value[1] == 'F' || value[1] == 'f') && (value[2] == 'T' || value[2] == 't')) {
+		int	sse2;
+		unsigned long fftlen;
+		char	*p;
+
+		if (value[3] == '2') {
+			sse2 = TRUE;
+			p = value+5;
+		} else {
+			sse2 = FALSE;
+			p = value+4;
+		}
+		fftlen = atoi (p);
+		while (isdigit (*p)) p++;
+		if (*p == 'K' || *p == 'k') fftlen <<= 10, p++;
+		if (*p == 'M' || *p == 'm') fftlen <<= 20, p++;
+		if (*p == ',') p++;
+		safe_strcpy (value, p);
+		if ((sse2 && (CPU_FLAGS & CPU_SSE2)) || (!sse2 && ! (CPU_FLAGS & CPU_SSE2)))
+			w->minimum_fftlen = fftlen;
+	}
+
+/* Parse the optional file extension to use on save files (no good use right now, was formerly used for multiple workers ECMing the same number) */
+
+	if ((value[0] == 'E' || value[0] == 'e') && (value[1] == 'X' || value[1] == 'x') && (value[2] == 'T' || value[2] == 't') && value[3] == '=') {
+		char	*comma, *p;
+
+		p = value+4;
+		comma = strchr (p, ',');
+		if (comma != NULL) {
+			*comma = 0;
+			if (strlen (p) > 8) p[8] = 0;
+			strcpy (w->extension, p);
+			safe_strcpy (value, comma+1);
+		}
+	}
+
+/* Handle Test= and DoubleCheck= lines.					*/
+/*	Test=exponent,how_far_factored,has_been_pminus1ed		*/
+/*	DoubleCheck=exponent,how_far_factored,has_been_pminus1ed	*/
+/* New in 30.4, for consistency with PRP worktodo lines assume no TF or P-1 needed if those fields are left out */
+
+	if (_stricmp (keyword, "Test") == 0) {
+		float	sieve_depth;
+		w->work_type = WORK_TEST;
+		sieve_depth = 99.0;
+		w->pminus1ed = 1;
+		sscanf (value, "%lu,%f,%d", &w->n, &sieve_depth, &w->pminus1ed);
+		w->sieve_depth = sieve_depth;
+		w->tests_saved = 1.3;
+	}
+	else if (_stricmp (keyword, "DoubleCheck") == 0) {
+		float	sieve_depth;
+		w->work_type = WORK_DBLCHK;
+		sieve_depth = 99.0;
+		w->pminus1ed = 1;
+		sscanf (value, "%lu,%f,%d", &w->n, &sieve_depth, &w->pminus1ed);
+		w->sieve_depth = sieve_depth;
+		w->tests_saved = 1.0;
+	}
+
+/* Handle AdvancedTest= lines. */
+/*	AdvancedTest=exponent */
+
+	else if (_stricmp (keyword, "AdvancedTest") == 0) {
+		w->work_type = WORK_ADVANCEDTEST;
+		sscanf (value, "%lu", &w->n);
+	}
+
+/* Handle Factor= lines.  Old style is:					*/
+/*	Factor=exponent,how_far_factored				*/
+/* New style is:							*/
+/*	Factor=exponent,how_far_factored,how_far_to_factor_to		*/
+
+	else if (_stricmp (keyword, "Factor") == 0) {
+		float	sieve_depth, factor_to;
+		w->work_type = WORK_FACTOR;
+		sieve_depth = 0.0;
+		factor_to = 0.0;
+		sscanf (value, "%lu,%f,%f", &w->n, &sieve_depth, &factor_to);
+		w->sieve_depth = sieve_depth;
+		w->factor_to = factor_to;
+	}
+
+/* Handle Pfactor= lines.  Old style is:						*/
+/*	Pfactor=exponent,how_far_factored,double_check_flag				*/
+/* New style is:									*/
+/*	Pfactor=k,b,n,c,how_far_factored,ll_tests_saved_if_factor_found			*/
+/* Starting in 30.9:									*/
+/*	Pfactor=k,b,n,c,how_far_factored,ll_tests_saved_if_factor_found[,known_factors]	*/
+
+	else if (_stricmp (keyword, "PFactor") == 0) {
+		float	sieve_depth;
+		w->work_type = WORK_PFACTOR;
+		sieve_depth = 0.0;
+		if (countCommas (value) > 3) {		/* New style */
+			char	*q;
+			float	tests_saved;
+			tests_saved = 0.0;
+			w->k = atof (value);
+			if ((q = strchr (value, ',')) == NULL) goto illegal_line;
+			sscanf (q+1, "%lu,%lu,%ld,%f,%f", &w->b, &w->n, &w->c, &sieve_depth, &tests_saved);
+			for (i = 1; i <= 4; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+			q = strchr (q+1, ',');
+			w->sieve_depth = sieve_depth;
+			w->tests_saved = tests_saved;
+			if (q != NULL && q[1] == '"') {
+				w->known_factors = (char *) malloc (strlen (q));
+				if (w->known_factors == NULL) goto nomem;
+				strcpy (w->known_factors, q+2);
+			}
+		} else {				/* Old style */
+			int	dblchk;
+			sscanf (value, "%lu,%f,%d", &w->n, &sieve_depth, &dblchk);
+			w->sieve_depth = sieve_depth;
+			w->tests_saved = dblchk ? 1.0 : 1.3;
+		}
+	}
+
+/* Handle ECM= and ECM2= lines.  Note we've deprecated the old (2002ish) ECM= syntax and now treat ECM= and ECM2= the same. */
+/*	ECM2=k,b,n,c,B1,B2,curves_to_do[,specific_sigma,B2_start][,"factors"] */
+
+	else if (_stricmp (keyword, "ECM") == 0 || _stricmp (keyword, "ECM2") == 0) {
+		int	i;
+		char	*q;
+		w->work_type = WORK_ECM;
+		w->k = atof (value);
+		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
+		sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
+		for (i = 1; i <= 3; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+		w->B1 = (uint64_t) atof (q+1);
+		if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+		w->B2 = (uint64_t) atof (q+1);
+		if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+		w->curves_to_do = atoi (q+1);
+		q = strchr (q+1, ',');
+		w->curve = 0;
+		if (q != NULL && q[1] != '"') {
+			w->curve = atof (q+1);
+			q = strchr (q+1, ',');
+		}
+		w->B2_start = w->B1;
+		if (q != NULL && q[1] != '"') {
+			uint64_t j = (uint64_t) atof (q+1);
+			if (j > w->B1) w->B2_start = j;
+			q = strchr (q+1, ',');
+		}
+		if (q != NULL && q[1] == '"') {
+			w->known_factors = (char *) malloc (strlen (q));
+			if (w->known_factors == NULL) goto nomem;
+			strcpy (w->known_factors, q+2);
+		}
+	}
+
+/* Handle Pminus1 lines:						*/
+/*	Pminus1=k,b,n,c,B1,B2[,how_far_factored][,B2_start][,"factors"] */
+
+	else if (_stricmp (keyword, "Pminus1") == 0) {
+		char	*q;
+		w->work_type = WORK_PMINUS1;
+		w->k = atof (value);
+		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
+		sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
+		for (i = 1; i <= 3; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+		w->B1 = (uint64_t) atof (q+1);
+		if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+		w->B2 = (uint64_t) atof (q+1);
+		q = strchr (q+1, ',');
+		w->sieve_depth = 0.0;
+		if (q != NULL && q[1] != '"') {
+			double j = atof (q+1);
+			if (j <= 300.0) w->sieve_depth = j;
+			q = strchr (q+1, ',');
+		}
+		w->B2_start = 0;
+		if (q != NULL && q[1] != '"') {
+			uint64_t j;
+			j = (uint64_t) atof (q+1);
+			if (j > w->B1) w->B2_start = j;
+			q = strchr (q+1, ',');
+		}
+		if (q != NULL && q[1] == '"') {
+			w->known_factors = (char *) malloc (strlen (q));
+			if (w->known_factors == NULL) goto nomem;
+			strcpy (w->known_factors, q+2);
+		}
+	}
+
+/* Handle Pplus1 lines:							*/
+/*	Pplus1=k,b,n,c,B1,B2,nth_run[,how_far_factored][,"factors"]	*/
+/* where nth_run is 1 for start 2/7, 2 for start 6/5, 3+ for random start */
+
+	else if (_stricmp (keyword, "Pplus1") == 0) {
+		char	*q;
+		w->work_type = WORK_PPLUS1;
+		w->k = atof (value);
+		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
+		sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
+		for (i = 1; i <= 3; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+		w->B1 = (uint64_t) atof (q+1);
+		if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+		w->B2 = (uint64_t) atof (q+1);
+		q = strchr (q+1, ',');
+		w->nth_run = 1;
+		if (q != NULL && q[1] != '"') {
+			int nth_run = atoi (q+1);
+			if (nth_run >= 1 && nth_run <= 3) w->nth_run = nth_run;
+			q = strchr (q+1, ',');
+		}
+		w->sieve_depth = 0.0;
+		if (q != NULL && q[1] != '"') {
+			double j = atof (q+1);
+			if (j <= 300.0) w->sieve_depth = j;
+			q = strchr (q+1, ',');
+		}
+		if (q != NULL && q[1] == '"') {
+			w->known_factors = (char *) malloc (strlen (q));
+			if (w->known_factors == NULL) goto nomem;
+			strcpy (w->known_factors, q+2);
+		}
+	}
+
+/* Handle PRP= lines.									*/
+/*	PRP=k,b,n,c[,how_far_factored,tests_saved[,base,residue_type]][,known_factors]	*/
+/*	PRPDC=k,b,n,c[,how_far_factored,tests_saved[,base,residue_type]][,known_factors]*/
+/* A tests_saved value of 0.0 will bypass any P-1 factoring				*/
+/* The PRP residue type is defined in primenet.h					*/
+
+	else if (_stricmp (keyword, "PRP") == 0 || _stricmp (keyword, "PRPDC") == 0) {
+		char	*q;
+
+		w->work_type = WORK_PRP;
+		w->prp_dblchk = (keyword[3] != 0);
+		w->k = atof (value);
+		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
+		sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
+		for (i = 1; i <= 2; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+		q = strchr (q+1, ',');
+
+		w->sieve_depth = 99.0;		// Default to "no TF needed"
+		w->tests_saved = 0.0;		// Default to "no P-1 needed"
+		w->prp_base = 0;
+		w->prp_residue_type = 0;
+		if (q != NULL && q[1] != '"') {
+			w->sieve_depth = atof (q+1);
+			if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+			w->tests_saved = atof (q+1);
+			q = strchr (q+1, ',');
+			if (q != NULL && q[1] != '"') {
+				w->prp_base = atoi (q+1);
+				if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+				w->prp_residue_type = atoi (q+1);
+				q = strchr (q+1, ',');
+			}
+		}
+		if (q != NULL && q[1] == '"') {
+			w->known_factors = (char *) malloc (strlen (q));
+			if (w->known_factors == NULL) goto nomem;
+			strcpy (w->known_factors, q+2);
+		}
+	}
+
+/* Handle Cert= lines.  Certifying a PRP proof.		*/
+/*	Cert=k,b,n,c,num_squarings			*/
+
+	else if (_stricmp (keyword, "Cert") == 0) {
+		char	*q;
+
+		w->work_type = WORK_CERT;
+		w->k = atof (value);
+		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
+		sscanf (q+1, "%lu,%lu,%ld,%d", &w->b, &w->n, &w->c, &w->cert_squarings);
+		for (i = 1; i <= 3; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+	}
+
+/* Uh oh.  We have a worktodo.txt line we cannot process. */
+
+	else if (_stricmp (keyword, "AdvancedFactor") == 0) {
+		OutputSomewhere (MAIN_THREAD_NUM, "Worktodo error: AdvancedFactor no longer supported\n");
+		goto comment;
+	} else {
+		goto illegal_line;
+	}
+
+/* Trim trailing non-digit characters from known factors list (this should be the closing double quote) */
+/* Turn all non-digit characters into commas (they should be anyway) */
+
+	if (w->known_factors != NULL) {
+		for (i = (int) strlen (w->known_factors); i > 0 && !isdigit (w->known_factors[i-1]); i--);
+		w->known_factors[i] = 0;
+		for (i = 0; i < (int) strlen (w->known_factors); i++)
+			if (!isdigit (w->known_factors[i])) w->known_factors[i] = ',';
+	}
+
+/* If this is ECM or P-1 on a Fermat number, then automatically add known Fermat factors */
+
+	addKnownFermatFactors (w);
+
+/* Make sure this line of work from the file makes sense. The exponent should be a prime number, bounded by values we can handle, and we */
+/* should never be asked to factor a number more than we are capable of. */
+
+	if (w->k == 1.0 && w->b == 2 && !isPrime (w->n) && w->c == -1 && w->known_factors == NULL &&
+	    w->work_type != WORK_ECM && w->work_type != WORK_PMINUS1 && w->work_type != WORK_PPLUS1 &&
+	    !(w->work_type == WORK_PRP && IniGetInt (INI_FILE, "PhiExtensions", 0))) {
+		sprintf (buf, "Error: Worktodo.txt file contained composite exponent: %ld\n", w->n);
+		OutputBoth (MAIN_THREAD_NUM, buf);
+		goto illegal_line;
+	}
+	if ((w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK || w->work_type == WORK_ADVANCEDTEST) &&
+	    (w->n < MIN_PRIME ||
+	     (w->minimum_fftlen == 0 &&
+	      w->n > (unsigned long) ((CPU_FLAGS & CPU_AVX512F) ? MAX_PRIME_AVX512 :
+				      (CPU_FLAGS & CPU_FMA3) ? MAX_PRIME_FMA3 :
+				      (CPU_FLAGS & CPU_AVX) ? MAX_PRIME_AVX :
+				      (CPU_FLAGS & CPU_SSE2) ? MAX_PRIME_SSE2 : MAX_PRIME)))) {
+		sprintf (buf, "Error: Worktodo.txt file contained bad LL exponent: %ld\n", w->n);
+		OutputBoth (MAIN_THREAD_NUM, buf);
+		goto illegal_line;
+	}
+	if (w->work_type == WORK_FACTOR && w->n < 200000) {
+		sprintf (buf, "Error: Use ECM instead of trial factoring for exponent: %ld\n", w->n);
+		OutputBoth (MAIN_THREAD_NUM, buf);
+		goto illegal_line;
+	}
+	if (w->work_type == WORK_FACTOR && w->n > MAX_FACTOR && !IniGetInt (INI_FILE, "LargeTFexponents", 0)) {
+		sprintf (buf, "Error: Worktodo.txt file contained bad factoring assignment: %ld\n", w->n);
+		OutputBoth (MAIN_THREAD_NUM, buf);
+		goto illegal_line;
+	}
+	if ((w->work_type == WORK_PMINUS1 || w->work_type == WORK_PPLUS1 || w->work_type == WORK_ECM) && w->B1 < 50000 && !IniGetInt (INI_FILE, "AllowLowB1", 0)) {
+		sprintf (buf, "Error: Worktodo.txt file has P-1/P+1/ECM with B1 < 50000 (exponent: %ld)\n", w->n);
+		OutputBoth (MAIN_THREAD_NUM, buf);
+		goto illegal_line;
+	}
+
+/* A user discovered a case where a computer that dual boots between 32-bit prime95 and 64-bit prime95 can run into problems.  If near the FFT limit an FFT */
+/* length is picked and written to worktodo.txt.  When running the other executable, that FFT length may not be supported leading to a "cannot initialize */
+/* FFT error".  For example, the 2800K FFT length is implemented in 64-bit prime95, but not 32-bit prime95.  The quick workaround here is to ignore FFT */
+/* lengths from the worktodo file if that FFT length is not supported.  This is non-optimal because the proper FFT size will have to be recalculated. */
+//  This should not be necessary now that we use gwnum's minimum_fftlen
+//	if (w->minimum_fftlen && gwmap_fftlen_to_max_exponent (w->minimum_fftlen) == 0) {
+//		sprintf (buf, "Warning: Ignoring unsupported FFT length, %ld, on line %u of worktodo.txt.\n", w->minimum_fftlen, linenum);
+//		OutputBoth (MAIN_THREAD_NUM, buf);
+//		w->minimum_fftlen = 0;
+//	}
+
+/* Do more initialization of the work_unit structure */
+
+	auxiliaryWorkUnitInit (w);
+
+// Return success
+
+	return (0);
+
+// Handle error conditions
+
+illegal_line:
+	sprintf (buf, "Illegal line in worktodo.txt file: %.80s\n", line);
+	OutputSomewhere (MAIN_THREAD_NUM, buf);
+
+comment:w->work_type = WORK_NONE;
+	w->comment = (char *) malloc (strlen (line) + 1);
+	if (w->comment == NULL) goto nomem;
+	strcpy (w->comment, line);
+	return (0);
+
+nomem:	return (OutOfMemory (MAIN_THREAD_NUM));
+}
+
+/* Read the entire worktodo.txt file into memory.  Return error_code if we have a memory or file I/O error. */
 
 int readWorkToDoFile (void)
 {
@@ -2572,8 +2974,7 @@ int readWorkToDoFile (void)
 		WORK_UNITS[tnum].last = NULL;
 	}
 
-/* Read the lines of the work file.  It is OK if the worktodo.txt file */
-/* does not exist. */
+/* Read the lines of the work file.  It is OK if the worktodo.txt file does not exist. */
 
 	fd = fopen (WORKTODO_FILE, "r");
 	if (fd == NULL) goto done;
@@ -2582,8 +2983,6 @@ int readWorkToDoFile (void)
 	linenum = 0;
 	while (fgets (line, sizeof (line), fd)) {
 	    struct work_unit *w;
-	    char keyword[20];
-	    char *value;
 
 /* Remove trailing CRLFs */
 
@@ -2597,8 +2996,7 @@ int readWorkToDoFile (void)
 	    if (w == NULL) goto nomem;
 	    memset (w, 0, sizeof (struct work_unit));
 
-/* A section header precedes each worker thread's work units.  The first */
-/* section need not be preceeded by a section header. */
+/* A section header precedes each worker thread's work units.  The first section need not be preceeded by a section header. */
 
 	    if (line[0] == '[' && linenum > 1) {
 		tnum++;
@@ -2614,449 +3012,18 @@ int readWorkToDoFile (void)
 		}
 	    }
 
-/* All lines other than keyword=value are saved as comment lines. */
+/* Parse the worktodo line */
 
-	    if (((line[0] < 'A' || line[0] > 'Z') &&
-		 (line[0] < 'a' || line[0] > 'z'))) {
-comment:	w->work_type = WORK_NONE;
-		w->comment = (char *) malloc (strlen (line) + 1);
-		if (w->comment == NULL) goto nomem;
-		strcpy (w->comment, line);
-		goto wdone;
-	    }
-
-/* Otherwise, parse keyword=value lines */
-
-	    value = strchr (line, '=');
-	    if (value == NULL || (int) (value - (char *) line) >= sizeof (keyword) - 1) {
-		char	buf[2100];
-illegal_line:	sprintf (buf, "Illegal line in worktodo.txt file: %s\n", line);
-		OutputSomewhere (MAIN_THREAD_NUM, buf);
-		goto comment;
-	    }
-	    *value = 0;
-	    strcpy (keyword, line);
-	    *value++ = '=';
-
-/* Set some default values.  Historically, this program worked on */
-/* Mersenne numbers only.  Default to an FFT length chosen by gwnum library. */
-
-	    w->k = 1.0;
-	    w->b = 2;
-	    w->c = -1;
-	    w->minimum_fftlen = 0;
-	    w->extension[0] = 0;
-
-/* Parse the optional assignment_uid */
-
-	    if ((value[0] == 'N' || value[0] == 'n') &&
-		(value[1] == '/') &&
-		(value[2] == 'A' || value[2] == 'a') &&
-		(value[3] == ',')) {
-		w->ra_failed = TRUE;
-		safe_strcpy (value, value+4);
-	    }
-	    for (i = 0; ; i++) {
-		if (!(value[i] >= '0' && value[i] <= '9') &&
-		    !(value[i] >= 'A' && value[i] <= 'F') &&
-		    !(value[i] >= 'a' && value[i] <= 'f')) break;
-		if (i == 31) {
-			if (value[32] != ',') break;
-			value[32] = 0;
-			strcpy (w->assignment_uid, value);
-			safe_strcpy (value, value+33);
-			break;
-		}
-	    }
-
-/* Parse the FFT length to use.  The syntax is FFT_length for x87 cpus and */
-/* FFT2_length for SSE2 machines.  We support two syntaxes so that an */
-/* assignment moved from an x87 to-or-from an SSE2 machine will recalculate */
-/* the soft FFT crossover. */
-
-	    if ((value[0] == 'F' || value[0] == 'f') &&
-	        (value[1] == 'F' || value[1] == 'f') &&
-	        (value[2] == 'T' || value[2] == 't')) {
-		int	sse2;
-		unsigned long fftlen;
-		char	*p;
-
-		if (value[3] == '2') {
-			sse2 = TRUE;
-			p = value+5;
-		} else {
-			sse2 = FALSE;
-			p = value+4;
-		}
-		fftlen = atoi (p);
-		while (isdigit (*p)) p++;
-		if (*p == 'K' || *p == 'k') fftlen <<= 10, p++;
-		if (*p == 'M' || *p == 'm') fftlen <<= 20, p++;
-		if (*p == ',') p++;
-		safe_strcpy (value, p);
-		if ((sse2 && (CPU_FLAGS & CPU_SSE2)) ||
-		    (!sse2 && ! (CPU_FLAGS & CPU_SSE2)))
-			w->minimum_fftlen = fftlen;
-	    }
-
-/* Parse the optional file extension to use on save files (no good use */
-/* right now, was formerly used for multiple workers ECMing the same number) */
-
-	    if ((value[0] == 'E' || value[0] == 'e') &&
-	        (value[1] == 'X' || value[1] == 'x') &&
-	        (value[2] == 'T' || value[2] == 't') &&
-		value[3] == '=') {
-		char	*comma, *p;
-
-		p = value+4;
-		comma = strchr (p, ',');
-		if (comma != NULL) {
-			*comma = 0;
-			if (strlen (p) > 8) p[8] = 0;
-			strcpy (w->extension, p);
-			safe_strcpy (value, comma+1);
-		}
-	    }
-
-/* Handle Test= and DoubleCheck= lines.					*/
-/*	Test=exponent,how_far_factored,has_been_pminus1ed		*/
-/*	DoubleCheck=exponent,how_far_factored,has_been_pminus1ed	*/
-/* New in 30.4, for consistency with PRP worktodo lines assume no TF or P-1 needed if those fields are left out */
-
-	    if (_stricmp (keyword, "Test") == 0) {
-		float	sieve_depth;
-		w->work_type = WORK_TEST;
-		sieve_depth = 99.0;
-		w->pminus1ed = 1;
-		sscanf (value, "%lu,%f,%d", &w->n, &sieve_depth, &w->pminus1ed);
-		w->sieve_depth = sieve_depth;
-		w->tests_saved = 1.3;
-	    }
-	    else if (_stricmp (keyword, "DoubleCheck") == 0) {
-		float	sieve_depth;
-		w->work_type = WORK_DBLCHK;
-		sieve_depth = 99.0;
-		w->pminus1ed = 1;
-		sscanf (value, "%lu,%f,%d", &w->n, &sieve_depth, &w->pminus1ed);
-		w->sieve_depth = sieve_depth;
-		w->tests_saved = 1.0;
-	    }
-
-/* Handle AdvancedTest= lines. */
-/*	AdvancedTest=exponent */
-
-	    else if (_stricmp (keyword, "AdvancedTest") == 0) {
-		w->work_type = WORK_ADVANCEDTEST;
-		sscanf (value, "%lu", &w->n);
-	    }
-
-/* Handle Factor= lines.  Old style is:					*/
-/*	Factor=exponent,how_far_factored				*/
-/* New style is:							*/
-/*	Factor=exponent,how_far_factored,how_far_to_factor_to		*/
-
-	    else if (_stricmp (keyword, "Factor") == 0) {
-		float	sieve_depth, factor_to;
-		w->work_type = WORK_FACTOR;
-		sieve_depth = 0.0;
-		factor_to = 0.0;
-		sscanf (value, "%lu,%f,%f", &w->n, &sieve_depth, &factor_to);
-		w->sieve_depth = sieve_depth;
-		w->factor_to = factor_to;
-	    }
-
-/* Handle Pfactor= lines.  Old style is:						*/
-/*	Pfactor=exponent,how_far_factored,double_check_flag				*/
-/* New style is:									*/
-/*	Pfactor=k,b,n,c,how_far_factored,ll_tests_saved_if_factor_found			*/
-/* Starting in 30.9:									*/
-/*	Pfactor=k,b,n,c,how_far_factored,ll_tests_saved_if_factor_found[,known_factors]	*/
-
-	    else if (_stricmp (keyword, "PFactor") == 0) {
-		float	sieve_depth;
-		w->work_type = WORK_PFACTOR;
-		sieve_depth = 0.0;
-		if (countCommas (value) > 3) {		/* New style */
-			char	*q;
-			float	tests_saved;
-			tests_saved = 0.0;
-			w->k = atof (value);
-			if ((q = strchr (value, ',')) == NULL) goto illegal_line;
-			sscanf (q+1, "%lu,%lu,%ld,%f,%f", &w->b, &w->n, &w->c, &sieve_depth, &tests_saved);
-			for (i = 1; i <= 4; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-			q = strchr (q+1, ',');
-			w->sieve_depth = sieve_depth;
-			w->tests_saved = tests_saved;
-			if (q != NULL && q[1] == '"') {
-				w->known_factors = (char *) malloc (strlen (q));
-				if (w->known_factors == NULL) goto nomem;
-				strcpy (w->known_factors, q+2);
-			}
-		} else {				/* Old style */
-			int	dblchk;
-			sscanf (value, "%lu,%f,%d", &w->n, &sieve_depth, &dblchk);
-			w->sieve_depth = sieve_depth;
-			w->tests_saved = dblchk ? 1.0 : 1.3;
-		}
-	    }
-
-/* Handle ECM= and ECM2= lines.  Note we've deprecated the old (2002ish) ECM= syntax and now treat ECM= and ECM2= the same. */
-/*	ECM2=k,b,n,c,B1,B2,curves_to_do[,specific_sigma,B2_start][,"factors"] */
-
-	    else if (_stricmp (keyword, "ECM") == 0 || _stricmp (keyword, "ECM2") == 0) {
-		int	i;
-		char	*q;
-		w->work_type = WORK_ECM;
-		w->k = atof (value);
-		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
-		sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
-		for (i = 1; i <= 3; i++)
-			if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		w->B1 = (uint64_t) atof (q+1);
-		if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		w->B2 = (uint64_t) atof (q+1);
-		if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		w->curves_to_do = atoi (q+1);
-		q = strchr (q+1, ',');
-		w->curve = 0;
-		if (q != NULL && q[1] != '"') {
-			w->curve = atof (q+1);
-			q = strchr (q+1, ',');
-		}
-		w->B2_start = w->B1;
-		if (q != NULL && q[1] != '"') {
-			uint64_t j = (uint64_t) atof (q+1);
-			if (j > w->B1) w->B2_start = j;
-			q = strchr (q+1, ',');
-		}
-		if (q != NULL && q[1] == '"') {
-			w->known_factors = (char *) malloc (strlen (q));
-			if (w->known_factors == NULL) goto nomem;
-			strcpy (w->known_factors, q+2);
-		}
-	    }
-
-/* Handle Pminus1 lines:						*/
-/*	Pminus1=k,b,n,c,B1,B2[,how_far_factored][,B2_start][,"factors"] */
-
-	    else if (_stricmp (keyword, "Pminus1") == 0) {
-		char	*q;
-		w->work_type = WORK_PMINUS1;
-		w->k = atof (value);
-		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
-		sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
-		for (i = 1; i <= 3; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		w->B1 = (uint64_t) atof (q+1);
-		if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		w->B2 = (uint64_t) atof (q+1);
-		q = strchr (q+1, ',');
-		w->sieve_depth = 0.0;
-		if (q != NULL && q[1] != '"') {
-			double j = atof (q+1);
-			if (j <= 300.0) w->sieve_depth = j;
-			q = strchr (q+1, ',');
-		}
-		w->B2_start = 0;
-		if (q != NULL && q[1] != '"') {
-			uint64_t j;
-			j = (uint64_t) atof (q+1);
-			if (j > w->B1) w->B2_start = j;
-			q = strchr (q+1, ',');
-		}
-		if (q != NULL && q[1] == '"') {
-			w->known_factors = (char *) malloc (strlen (q));
-			if (w->known_factors == NULL) goto nomem;
-			strcpy (w->known_factors, q+2);
-		}
-	    }
-
-/* Handle Pplus1 lines:							*/
-/*	Pplus1=k,b,n,c,B1,B2,nth_run[,how_far_factored][,"factors"]	*/
-/* where nth_run is 1 for start 2/7, 2 for start 6/5, 3+ for random start */
-
-	    else if (_stricmp (keyword, "Pplus1") == 0) {
-		char	*q;
-		w->work_type = WORK_PPLUS1;
-		w->k = atof (value);
-		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
-		sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
-		for (i = 1; i <= 3; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		w->B1 = (uint64_t) atof (q+1);
-		if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		w->B2 = (uint64_t) atof (q+1);
-		q = strchr (q+1, ',');
-		w->nth_run = 1;
-		if (q != NULL && q[1] != '"') {
-			int nth_run = atoi (q+1);
-			if (nth_run >= 1 && nth_run <= 3) w->nth_run = nth_run;
-			q = strchr (q+1, ',');
-		}
-		w->sieve_depth = 0.0;
-		if (q != NULL && q[1] != '"') {
-			double j = atof (q+1);
-			if (j <= 300.0) w->sieve_depth = j;
-			q = strchr (q+1, ',');
-		}
-		if (q != NULL && q[1] == '"') {
-			w->known_factors = (char *) malloc (strlen (q));
-			if (w->known_factors == NULL) goto nomem;
-			strcpy (w->known_factors, q+2);
-		}
-	    }
-
-/* Handle PRP= lines.									*/
-/*	PRP=k,b,n,c[,how_far_factored,tests_saved[,base,residue_type]][,known_factors]	*/
-/*	PRPDC=k,b,n,c[,how_far_factored,tests_saved[,base,residue_type]][,known_factors]*/
-/* A tests_saved value of 0.0 will bypass any P-1 factoring				*/
-/* The PRP residue type is defined in primenet.h					*/
-
-	    else if (_stricmp (keyword, "PRP") == 0 || _stricmp (keyword, "PRPDC") == 0) {
-		char	*q;
-
-		w->work_type = WORK_PRP;
-		w->prp_dblchk = (keyword[3] != 0);
-		w->k = atof (value);
-		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
-		sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
-		for (i = 1; i <= 2; i++)
-			if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		q = strchr (q+1, ',');
-
-		w->sieve_depth = 99.0;		// Default to "no TF needed"
-		w->tests_saved = 0.0;		// Default to "no P-1 needed"
-		w->prp_base = 0;
-		w->prp_residue_type = 0;
-		if (q != NULL && q[1] != '"') {
-			w->sieve_depth = atof (q+1);
-			if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-			w->tests_saved = atof (q+1);
-			q = strchr (q+1, ',');
-			if (q != NULL && q[1] != '"') {
-				w->prp_base = atoi (q+1);
-				if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-				w->prp_residue_type = atoi (q+1);
-				q = strchr (q+1, ',');
-			}
-		}
-		if (q != NULL && q[1] == '"') {
-			w->known_factors = (char *) malloc (strlen (q));
-			if (w->known_factors == NULL) goto nomem;
-			strcpy (w->known_factors, q+2);
-		}
-	    }
-
-/* Handle Cert= lines.  Certifying a PRP proof.		*/
-/*	Cert=k,b,n,c,num_squarings			*/
-
-	    else if (_stricmp (keyword, "Cert") == 0) {
-		char	*q;
-
-		w->work_type = WORK_CERT;
-		w->k = atof (value);
-		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
-		sscanf (q+1, "%lu,%lu,%ld,%d", &w->b, &w->n, &w->c, &w->cert_squarings);
-		for (i = 1; i <= 3; i++)
-			if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-	    }
-
-/* Uh oh.  We have a worktodo.txt line we cannot process. */
-
-	    else if (_stricmp (keyword, "AdvancedFactor") == 0) {
-		OutputSomewhere (MAIN_THREAD_NUM, "Worktodo error: AdvancedFactor no longer supported\n");
-		goto comment;
-	    } else {
-		goto illegal_line;
-	    }
-
-/* Trim trailing non-digit characters from known factors list (this should be the closing double quote) */
-/* Turn all non-digit characters into commas (they should be anyway) */
-
-	    if (w->known_factors != NULL) {
-		for (i = (unsigned int) strlen (w->known_factors);
-		     i > 0 && !isdigit (w->known_factors[i-1]);
-		     i--);
-		w->known_factors[i] = 0;
-		for (i = 0; i < (unsigned int) strlen (w->known_factors); i++)
-			if (!isdigit (w->known_factors[i])) w->known_factors[i] = ',';
-	    }
-
-/* If this is ECM or P-1 on a Fermat number, then automatically add known Fermat factors */
-
-	    addKnownFermatFactors (w);
-
-/* Make sure this line of work from the file makes sense. The exponent */
-/* should be a prime number, bounded by values we can handle, and we */
-/* should never be asked to factor a number more than we are capable of. */
-
-	    if (w->k == 1.0 && w->b == 2 && !isPrime (w->n) && w->c == -1 && w->known_factors == NULL &&
-		w->work_type != WORK_ECM && w->work_type != WORK_PMINUS1 && w->work_type != WORK_PPLUS1 &&
-		!(w->work_type == WORK_PRP && IniGetInt (INI_FILE, "PhiExtensions", 0))) {
-		char	buf[80];
-		sprintf (buf, "Error: Worktodo.txt file contained composite exponent: %ld\n", w->n);
-		OutputBoth (MAIN_THREAD_NUM, buf);
-		goto illegal_line;
-	    }
-	    if ((w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK || w->work_type == WORK_ADVANCEDTEST) &&
-	        (w->n < MIN_PRIME ||
-		 (w->minimum_fftlen == 0 &&
-		  w->n > (unsigned long) ((CPU_FLAGS & CPU_AVX512F) ? MAX_PRIME_AVX512 :
-					  (CPU_FLAGS & CPU_FMA3) ? MAX_PRIME_FMA3 :
-					  (CPU_FLAGS & CPU_AVX) ? MAX_PRIME_AVX :
-					  (CPU_FLAGS & CPU_SSE2) ? MAX_PRIME_SSE2 : MAX_PRIME)))) {
-		char	buf[80];
-		sprintf (buf, "Error: Worktodo.txt file contained bad LL exponent: %ld\n", w->n);
-		OutputBoth (MAIN_THREAD_NUM, buf);
-		goto illegal_line;
-	    }
-	    if (w->work_type == WORK_FACTOR && w->n < 200000) {
-		char	buf[100];
-		sprintf (buf, "Error: Use ECM instead of trial factoring for exponent: %ld\n", w->n);
-		OutputBoth (MAIN_THREAD_NUM, buf);
-		goto illegal_line;
-	    }
-	    if (w->work_type == WORK_FACTOR && w->n > MAX_FACTOR && !IniGetInt (INI_FILE, "LargeTFexponents", 0)) {
-		char	buf[100];
-		sprintf (buf, "Error: Worktodo.txt file contained bad factoring assignment: %ld\n", w->n);
-		OutputBoth (MAIN_THREAD_NUM, buf);
-		goto illegal_line;
-	    }
-	    if ((w->work_type == WORK_PMINUS1 || w->work_type == WORK_PPLUS1 || w->work_type == WORK_ECM) &&
-		(w->B1 < 50000) && !IniGetInt (INI_FILE, "AllowLowB1", 0)) {
-		char	buf[100];
-		sprintf (buf, "Error: Worktodo.txt file has P-1/P+1/ECM with B1 < 50000 (exponent: %ld)\n", w->n);
-		OutputBoth (MAIN_THREAD_NUM, buf);
-		goto illegal_line;
-	    }
-
-/* A user discovered a case where a computer that dual boots between 32-bit prime95 */
-/* and 64-bit prime95 can run into problems.  If near the FFT limit an FFT length is */
-/* picked and written to worktodo.txt.  When running the other executable, that FFT */
-/* length may not be supported leading to a "cannot initialize FFT error".  For */
-/* example, the 2800K FFT length is implemented in 64-bit prime95, but not 32-bit prime95. */
-/* The quick workaround here is to ignore FFT lengths from the worktodo file if that FFT */
-/* length is not supported.  This is non-optimal because the proper FFT size will */
-/* have to be recalculated. */
-//  This should not be necessary now that we use gwnum's minimum_fftlen
-//	    if (w->minimum_fftlen && gwmap_fftlen_to_max_exponent (w->minimum_fftlen) == 0) {
-//		    char	buf[100];
-//		    sprintf (buf, "Warning: Ignoring unsupported FFT length, %ld, on line %u of worktodo.txt.\n",
-//			     w->minimum_fftlen, linenum);
-//		    OutputBoth (MAIN_THREAD_NUM, buf);
-//		    w->minimum_fftlen = 0;
-//	    }
-
-/* Do more initialization of the work_unit structure */
-
-	    auxiliaryWorkUnitInit (w);
+	    rc = parseWorkToDoLine (line, w);
+	    if (rc) goto retrc;
 
 /* Grow the work_unit array if necessary and add this entry */
 
-wdone:	    rc = addToWorkUnitArray (tnum, w, TRUE);
+	    rc = addToWorkUnitArray (tnum, w, TRUE);
 	    if (rc) goto retrc;
 	}
 
-/* Now that we've finished reading the worktodo file, set stage */
-/* and pct_complete based on existing save files. */
+/* Now that we've finished reading the worktodo file, set stage and pct_complete based on existing save files. */
 
 	for (tnum = 0; tnum < MAX_NUM_WORKER_THREADS; tnum++) {
 	    struct work_unit *w;
@@ -6950,7 +6917,8 @@ void timed_events_scheduler (void *arg)
 			case TE_SAVE_FILES:	/* Timer to trigger writing save files */
 						/* Also check for add files */
 				timed_events[i].active = FALSE;
-				if (addFileExists ()) stop_workers_for_add_files ();
+				if (addFileExists ()) stop_workers_for_add_files ();	// Look for prime.add or local.add
+				incorporateWorkToDoAddFile ();				// Append work from worktodo.add
 				saveFilesTimer ();
 				break;
 			case TE_BATTERY_CHECK:	/* Test battery status */

@@ -305,7 +305,6 @@ int readIniFiles (void);
 
 void processTimedIniFile (const char *);
 
-int addFileExists (void);
 void incorporateIniAddFiles (void);
 int incorporateWorkToDoAddFile (void);
 
