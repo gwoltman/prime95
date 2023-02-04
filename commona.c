@@ -8,7 +8,7 @@
 | Commonb contains information used only during execution
 | Commonc contains information used during setup and execution
 |
-| Copyright 1995-2021 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2023 Mersenne Research, Inc.  All rights reserved
 +---------------------------------------------------------------------*/
 
 /* Routine to eliminate odd puctuation characters from user ID */
@@ -148,7 +148,8 @@ void rangeStatusMessage (
 		buf += strlen (buf);
 
 		if (w->work_type == WORK_ECM)
-			sprintf (buf, "ECM %d curve%s B1=%" PRIu64, w->curves_to_do, w->curves_to_do == 1 ? "" : "s", w->B1);
+			sprintf (buf, "ECM %d curve%s B1=%" PRIu64, w->curves_to_do, w->curves_to_do == 1 ? "" : "s",
+				 w->B1 * IniGetInt (INI_FILE, "ECMBoundsMultiplier", 1));
 		else if (w->work_type == WORK_PMINUS1)
 			sprintf (buf, "P-1 B1=%" PRIu64, w->B1);
 		else if (w->work_type == WORK_PPLUS1)

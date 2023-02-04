@@ -3614,6 +3614,8 @@ double work_estimate (
 			est += stage1_time * (1.0 - pct_complete) + stage2_time;
 		if (stage == 2)
 			est += stage2_time * (1.0 - pct_complete);
+
+		est *= IniGetInt (INI_FILE, "ECMBoundsMultiplier", 1);
 	}
 
 /* For P-1, estimate about 1.4545 * B1 squarings in stage 1.  Estimate stage 2 will take as long as stage 1.  The stage 2 estimate */
