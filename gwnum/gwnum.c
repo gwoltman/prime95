@@ -6950,7 +6950,7 @@ gwarray gwalloc_array (		/* Pointer to an array of gwnums */
 
 	// Calc needed space for the array_header and array (128 bytes to get first gwnum aligned on a cache line and room for n aligned gwnums)
 	array_header_size = sizeof (gwarray_header);
-	array_size = array_header_size + n * sizeof (gwnum) + 128 + n * aligned_gwnum_size;
+	array_size = (size_t) (array_header_size + n * sizeof (gwnum) + 128 + n * aligned_gwnum_size);
 
 	// If scrambling array pointers, no further padding is necessary
 	if (gwdata->scramble_arrays) {
@@ -6966,9 +6966,9 @@ gwarray gwalloc_array (		/* Pointer to an array of gwnums */
 		if ((int) (aligned_gwnum_size - gwnum_size) >= pad_amount) pad_direction = -1;		// Undo last padding to avoid multiple of 4KB
 		else pad_direction = 1;									// Add a padding to avoid multiple of 4KB
 		// Bump array_size for paddings every 32 or 64 gwnums, more paddings every 32*32 or 64*64 gwnums, and so forth.
-		array_size += divide_rounding_down (n, pad_frequency) * pad_direction * pad_amount -
-			      divide_rounding_down (n, pad_frequency * pad_frequency) * pad_direction * pad_amount +
-			      divide_rounding_down (n, pad_frequency * pad_frequency  * pad_frequency) * pad_direction * pad_amount;
+		array_size += (size_t) (divide_rounding_down (n, pad_frequency) * pad_direction * pad_amount -
+					divide_rounding_down (n, pad_frequency * pad_frequency) * pad_direction * pad_amount +
+					divide_rounding_down (n, pad_frequency * pad_frequency  * pad_frequency) * pad_direction * pad_amount);
 	}
 
 	// Allocate memory using large pages or regular malloc
