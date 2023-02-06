@@ -2456,7 +2456,10 @@ int gwsetup_general_mod_giant (
 /* Now setup the assembly code */
 
 	gwdata->safety_margin -= 0.15;
+	int saved_larger_fftlen_count = gwdata->larger_fftlen_count;	// though not necessary, remember this so caller knows they set this option
+	gwdata->larger_fftlen_count = 0;				// gwinfo above already found the next larger fft length
 	error_code = internal_gwsetup (gwdata, 1.0, 2, n, -1);
+	gwdata->larger_fftlen_count = saved_larger_fftlen_count;	// though not necessary, restore this so caller knows they set this option
 	gwdata->safety_margin += 0.15;
 	if (error_code) return (error_code);
 
