@@ -351,7 +351,7 @@ uint32_t get_worker_num_threads (
 	char	section_name[32];
 	const char *p;
 	sprintf (section_name, "Worker #%d", worker_num + 1);
-	p = IniSectionGetStringRaw (LOCALINI_FILE, section_name, "Affinity");
+	p = IniSectionGetStringRaw (INI_FILE, section_name, "Affinity");
 	if (p != NULL) return (countCommas (p) + 1);
 
 	// Second case is the special SET_PRIORITY_NORMAL_WORK code where num workers = num cores
@@ -479,7 +479,7 @@ void SetPriority (
 			char	section_name[32];
 			const char *p;
 			sprintf (section_name, "Worker #%d", info->worker_num+1);
-			p = IniSectionGetStringRaw (LOCALINI_FILE, section_name, "Affinity");
+			p = IniSectionGetStringRaw (INI_FILE, section_name, "Affinity");
 			if (p != NULL) {
 				bind_type = 2;				// Set affinity to a set of logical CPUs
 				truncated_strcpy (logical_CPU_string, sizeof (logical_CPU_string), p);
@@ -1107,13 +1107,13 @@ void read_mem_info (void)
 /* Read and parse the Memory data from the INI file */
 
 	seconds_until_reread = 0;
-	AVAIL_MEM = IniGetTimedInt (LOCALINI_FILE, "Memory", physical_memory () / 16, &seconds);
+	AVAIL_MEM = IniGetTimedInt (INI_FILE, "Memory", physical_memory () / 16, &seconds);
 	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
 		seconds_until_reread = seconds;
 	for (tnum = 0; tnum < (int) MAX_NUM_WORKER_THREADS; tnum++) {
 		char	section_name[32];
 		sprintf (section_name, "Worker #%d", tnum+1);
-		AVAIL_MEM_PER_WORKER[tnum] = IniSectionGetTimedInt (LOCALINI_FILE, section_name, "Memory", AVAIL_MEM, &seconds);
+		AVAIL_MEM_PER_WORKER[tnum] = IniSectionGetTimedInt (INI_FILE, section_name, "Memory", AVAIL_MEM, &seconds);
 		if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
 			seconds_until_reread = seconds;
 	}
@@ -1121,7 +1121,7 @@ void read_mem_info (void)
 /* Compute the maximum memory setting.  If not found, assume 8MB. */
 
 	MAX_MEM = 8;
-	p = IniSectionGetStringRaw (LOCALINI_FILE, NULL, "Memory");
+	p = IniSectionGetStringRaw (INI_FILE, NULL, "Memory");
 	if (p != NULL) for ( ; ; ) {
 		unsigned long mem = atol (p);
 		if (mem > MAX_MEM) MAX_MEM = mem;
@@ -1132,7 +1132,7 @@ void read_mem_info (void)
 
 /* Get the maximum number of workers that can use lots of memory.  Default is one. */
 
-	MAX_HIGH_MEM_WORKERS = IniGetTimedInt (LOCALINI_FILE, "MaxHighMemWorkers", 1, &seconds);
+	MAX_HIGH_MEM_WORKERS = IniGetTimedInt (INI_FILE, "MaxHighMemWorkers", 1, &seconds);
 	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread)) seconds_until_reread = seconds;
 	if (MAX_HIGH_MEM_WORKERS < 1) MAX_HIGH_MEM_WORKERS = 1;
 
@@ -1255,7 +1255,7 @@ int are_threads_using_lots_of_memory (
 
 /* If there are enough threads with variable memory usage, then return TRUE. */
 
-	high_mem_threshold = IniGetInt (LOCALINI_FILE, "HighMemThreshold", 250);
+	high_mem_threshold = IniGetInt (INI_FILE, "HighMemThreshold", 250);
 	for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
 		if (i != thread_num &&
 		    ((MEM_FLAGS[i] & MEM_WILL_BE_VARIABLE_USAGE) ||
@@ -1468,7 +1468,7 @@ unsigned long max_mem (
 /* Compute the maximum memory setting for this thread.  If not found, return the global max memory. */
 
 	sprintf (section_name, "Worker #%d", thread_num+1);
-	p = IniSectionGetStringRaw (LOCALINI_FILE, section_name, "Memory");
+	p = IniSectionGetStringRaw (INI_FILE, section_name, "Memory");
 	if (p == NULL) return (MAX_MEM);
 
 	memory = 0;
@@ -3903,7 +3903,7 @@ int factorSetup (
 	asm_data->EXPONENT = p;
 	asm_data->cpu_flags = CPU_FLAGS;
 	asm_data->firstcall = 0;
-	if (!IniGetInt (LOCALINI_FILE, "FactorUsingSSE2", 1)) asm_data->cpu_flags &= ~CPU_SSE2;
+	if (!IniGetInt (INI_FILE, "FactorUsingSSE2", 1)) asm_data->cpu_flags &= ~CPU_SSE2;
 
 /* Setup complete */
 
@@ -4299,7 +4299,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 
 	asm_data->p = p;
 	asm_data->cpu_flags = CPU_FLAGS;
-	if (!IniGetInt (LOCALINI_FILE, "FactorUsingSSE2", 0)) asm_data->cpu_flags &= ~CPU_SSE2;
+	if (!IniGetInt (INI_FILE, "FactorUsingSSE2", 0)) asm_data->cpu_flags &= ~CPU_SSE2;
 	asm_data->alternate_sieve_count = IniGetInt (INI_FILE, "AlternateTFSieveCount", 9);
 	if (asm_data->alternate_sieve_count < 1) asm_data->alternate_sieve_count = 1;
 
@@ -6679,7 +6679,7 @@ int prime (
 /* Setup the LL test */
 
 begin:	gwinit (&lldata.gwdata);
-	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&lldata.gwdata);
+	if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&lldata.gwdata);
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&lldata.gwdata);
 	gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&lldata.gwdata, 2);
@@ -7949,7 +7949,7 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 	else sprintf (buf, SELFPASS, (int) fftlen, "", addl_msg);
 	OutputBoth (thread_num, buf);
 //	sprintf (iniName, SelfTestIniMask, (int) (fftlen/1024));
-//	IniWriteInt (LOCALINI_FILE, iniName, 1);
+//	IniWriteInt (INI_FILE, iniName, 1);
 	return (0);
 }
 
@@ -8026,7 +8026,7 @@ int selfTest (
 /* Make sure we haven't run this self-test already. */
 
 	sprintf (iniName, SelfTestIniMask, (int) (fftlen/1024));
-	if (IniGetInt (LOCALINI_FILE, iniName, 0)) return (0);
+	if (IniGetInt (INI_FILE, iniName, 0)) return (0);
 #ifdef SERVER_TESTING
 	return (0);
 #endif
@@ -8867,7 +8867,7 @@ static	int	time_all_complex = 0;	/* TRUE if we should time all-complex FFTs */
 //	* starting gwnum FFTLEN point 
 //	* starting gwnum poly FFTLEN point 
 
-		int polymem = IniGetInt (LOCALINI_FILE, "PolyMem", (long) (0.8 * physical_memory ()));
+		int polymem = IniGetInt (INI_FILE, "PolyMem", (long) (0.8 * physical_memory ()));
 		if (polymem > (int) physical_memory ()) polymem = (int) (0.9 * physical_memory ());
 
 		sprintf (buf, "Polymult timing using %d threads, %dMB\n", HW_NUM_CORES, polymem);
@@ -9031,7 +9031,7 @@ static	int	time_all_complex = 0;	/* TRUE if we should time all-complex FFTs */
 			gwset_bench_workers (&lldata.gwdata, NUM_WORKER_THREADS);	// We're most likely to have bench data for this case
 			if (ERRCHK) gwset_will_error_check (&lldata.gwdata);
 			else gwset_will_error_check_near_limit (&lldata.gwdata);
-			if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&lldata.gwdata);
+			if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&lldata.gwdata);
 			if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&lldata.gwdata);
 			// Here is a hack to let me time different FFT implementations.
 			// For example, 39000001 times the first 2M FFT implementation,
@@ -10227,7 +10227,7 @@ int primeBench (
 
 		  gwinit (&lldata.gwdata);
 		  gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
-		  if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&lldata.gwdata);
+		  if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&lldata.gwdata);
 		  if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&lldata.gwdata);
 		  gwset_num_threads (&lldata.gwdata, get_ranked_num_threads (0, cores, hypercpu > 1));
 		  sp_info.bench_base_core_num = 0;
@@ -10956,7 +10956,7 @@ int generateProofFile (
 
 	proofgen_waits = IniGetInt (INI_FILE, "MaxProofgenWaits", 48 * 60 / 5);		// Default is 48 hours
 	if (proofgen_waits < 1) proofgen_waits = 1;
-	proofgen_waits = IniGetInt (LOCALINI_FILE, "CurrentProofgenWaits", proofgen_waits);
+	proofgen_waits = IniGetInt (INI_FILE, "CurrentProofgenWaits", proofgen_waits);
 
 // Output startup message
 
@@ -11201,7 +11201,7 @@ pfail:		if (fd >= 0) _close (fd);
 		OutputStr (ps->thread_num, "Waiting 5 minutes to try proof generation again.\n");
 		stop_reason = SleepFive (ps->thread_num);
 		if (stop_reason) {
-			IniWriteInt (LOCALINI_FILE, "CurrentProofgenWaits", proofgen_waits);
+			IniWriteInt (INI_FILE, "CurrentProofgenWaits", proofgen_waits);
 			return (stop_reason);
 		}
 	}
@@ -11225,7 +11225,7 @@ pfail:		if (fd >= 0) _close (fd);
 
 		}
 		// Otherwise, delete residues file if user has option set to keep interim residues file as small as possible
-		else if (!IniGetInt (LOCALINI_FILE, "PreallocateDisk", 1)) {
+		else if (!IniGetInt (INI_FILE, "PreallocateDisk", 1)) {
 			_unlink (ps->residues_filename);
 		}
 	}
@@ -11237,7 +11237,7 @@ pfail:		if (fd >= 0) _close (fd);
 
 // Clear the waits counter, return no-need-to-stop code
 
-	IniWriteString (LOCALINI_FILE, "CurrentProofgenWaits", NULL);
+	IniWriteString (INI_FILE, "CurrentProofgenWaits", NULL);
 	return (0);
 }
 
@@ -11958,7 +11958,7 @@ begin:	N = exp = NULL;
 
 	gwinit (&gwdata);
 	gwsetmaxmulbyconst (&gwdata, ps.prp_base);
-	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&gwdata);
+	if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&gwdata);
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&gwdata, 2);
 	gwset_bench_cores (&gwdata, HW_NUM_CORES);
@@ -12159,7 +12159,7 @@ begin:	N = exp = NULL;
 		int	max_emergency_memory;
 		double	disk_space, proof_file_size;
 
-		max_emergency_memory = IniGetInt (LOCALINI_FILE, "MaxEmergencyMemory", 1024);
+		max_emergency_memory = IniGetInt (INI_FILE, "MaxEmergencyMemory", 1024);
 		ps.residue_size = divide_rounding_up ((int) ceil(gwdata.bit_length), 8);
 		ps.max_emergency_allocs = (int) ((double) max_emergency_memory * 1000000.0 / (double) ps.residue_size);
 		if (ps.max_emergency_allocs < 1) ps.max_emergency_allocs = 1;
@@ -12168,11 +12168,11 @@ begin:	N = exp = NULL;
 
 // Create and optionally prefill the proof interim residues file
 
-		IniGetString (LOCALINI_FILE, "ProofResiduesDir", ps.residues_filename, sizeof (ps.residues_filename), NULL);
+		IniGetString (INI_FILE, "ProofResiduesDir", ps.residues_filename, sizeof (ps.residues_filename), NULL);
 		DirPlusFilename (ps.residues_filename, filename);
 		strcat (ps.residues_filename, ".residues");
 		if (ps.counter == 0)
-			createProofResiduesFile (&gwdata, &ps, IniGetInt (LOCALINI_FILE, "PreallocateDisk", 1));
+			createProofResiduesFile (&gwdata, &ps, IniGetInt (INI_FILE, "PreallocateDisk", 1));
 
 /* Calculate how many extra squarings are needed because of a version 1 PRP proof */
 

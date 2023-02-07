@@ -6,7 +6,6 @@ In prime.txt you can force the program to use different filenames for 6 files.
 You can also change the working directory (identical to the -W command line
 argument).
 	prime.ini=your_filename
-	local.ini=your_filename
 	worktodo.ini=your_filename
 	prime.log=your_filename
 	prime.spl=your_filename
@@ -21,7 +20,7 @@ where setting is defined as
 At present, only Memory, MaxHighMemWorkers, PauseWhileRunning, LowMemWhileRunning,
 and PauseCheckInterval support this during/else syntax.  Also note you can
 no longer edit these options from the user interface.  To use this feature,
-you must manually edit the prime.txt/local.txt file.  An example in local.txt:
+you must manually edit the prime.txt file.  An example in prime.txt:
 	Memory=500 during 1-5/17:30-24:00,1-5/0:00-8:30,6-7/0:00-24:00 else 200
 The 1-5 and 6-7 refer to days of the week, with Monday=1 and Sunday=7.  The
 time portion refers to the hours of the day based on a 24-hour clock.
@@ -31,7 +30,7 @@ during the week from 5:30PM to 8:30AM and all day on weekends.  Otherwise
 (weekdays from 8:30AM to 5:30PM), the program can use only 200MB.
 
 There are some additional PRP proof controls that are not available in the
-Resource Limits dialog box.  In local.txt,
+Resource Limits dialog box.  In prime.txt,
 	PreallocateDisk=0 or 1		(default is 1)
 will control whether disk space to hold the PRP proof residues is
 allocated at the beginning of the PRP test to insure we do not run out
@@ -70,7 +69,7 @@ if temporary disk space resources, proof file size resources, and upload bandwid
 resources are this limited it is strongly recommended switching to less demanding
 work, such as double-checking.
 
-There are also some options for controlling certification work.  In local.txt, add
+There are also some options for controlling certification work.  In prime.txt, add
 	CertWorker=n
 	CertMinExponent=x
 	CertMaxExponent=y
@@ -210,7 +209,7 @@ where n is the number of seconds to wait.  The default is 5 seconds.
 The program supports many different code paths for PRP/LL testing depending on
 the CPU type.  It also has a few different factoring code paths.  You can
 force the program to choose a specific code path by setting the proper
-combination of these settings in local.txt:
+combination of these settings in prime.txt:
 	CpuSupportsRDTSC=0 or 1
 	CpuSupportsCMOV=0 or 1
 	CpuSupportsPrefetch=0 or 1
@@ -228,7 +227,7 @@ to see if the CPU supports these features.
 The program also supports different code paths for LL testing on a Pentium 4
 based on the size of the L2 cache.  You can explicitly specify the L2 cache
 size although this shouldn't be necessary since the program uses the CPUID
-instruction to determine the L2 cache size.  In local.txt enter:
+instruction to determine the L2 cache size.  In prime.txt enter:
 	CpuL2CacheSize=128 or 256 or 512
 	CpuL2CacheLineSize=32 or 64 or 128
 	CpuL2SetAssociative=4 or 8
@@ -236,7 +235,7 @@ instruction to determine the L2 cache size.  In local.txt enter:
 The program automatically computes the number of CPU cores, hyperthreading, and speed.
 This information is used to calculate how much work to get.  In the unlikely event
 the program did not correctly figure out your CPU information, you can override
-the info in local.txt:
+the info in prime.txt:
 	NumCores=n
 	CoreXXXNumThreads=1 or 2
 	CoreXXXRanking=0 or 1
@@ -364,7 +363,7 @@ You can do "optimal" P-1 factoring of k*b^n+c by adding lines to worktodo.txt:
 	Pfactor=k,b,n,c,how_far_factored,num_primality_tests_saved
 For example, Pfactor=1,2,10000157,-1,64,2.0
 
-You can limit which exponents PrimeNet will assign to you.  In local.txt, add
+You can limit which exponents PrimeNet will assign to you.  In prime.txt, add
 	GetMinExponent=x
 	GetMaxExponent=y
 Assignments from PrimeNet will be on exponents between x and y.
@@ -697,16 +696,16 @@ automatic detection of hardware changes.  To do this, in prime.txt set
 Adding 32 to the MergeWindows value in prime.txt suppresses screen output
 of the "Comm thread", "Main thread", "Work thread" prefix.
 
-The Memory=n setting in local.txt refers to the total amount of memory the
+The Memory=n setting in prime.txt refers to the total amount of memory the
 program can use.  You can also put this in the [Worker #n] section to place
 a maximum amount of memory that one particular worker can use.
 
-You can set MaxHighMemWorkers=n in local.txt.  This tells the program how
+You can set MaxHighMemWorkers=n in prime.txt.  This tells the program how
 many workers are allowed to use lots of memory.  This occurs doing stage 2
 of P-1, P+1, or ECM.  Default is 1.
 
 You can set a threshold for what is considered lots of memory in MaxHighMemWorkers
-calculations.  In local.txt, set:
+calculations.  In prime.txt, set:
 	HighMemThreshold=n		(default is 250)
 The value n is in MB.
 
@@ -726,9 +725,9 @@ if similar issues occur in the future:
 	EnableSetAffinity=0 or 1	(default is 1)
 Set these options in prime.txt
 
-One can override the default affinity settings with the Affinity= option in local.txt.
+One can override the default affinity settings with the Affinity= option in prime.txt.
 Suppose you want to change which logical CPUs the second worker window uses.  Here are some
-example lines you might add to the "[Worker #2]" section of local.txt (the logical CPUs use
+example lines you might add to the "[Worker #2]" section of prime.txt (the logical CPUs use
 the zero-based numbering scheme for PU# returned by hwloc which you can see in results.txt
 by doing a benchmark):
 	Affinity=3,6,9
@@ -745,7 +744,7 @@ Run main worker on logical CPUs #3, #5, #6, & #7, run aux thread on logical CPUs
 In the prime.txt file, the DaysBetweenCheckin value can be set to any value
 between 0.04 and 7.0.  Some SeventeenOrBust users want to send updates hourly.
 
-To attempt using 2MB pages under Windows and Linux, add this line to local.txt:
+To attempt using 2MB pages under Windows and Linux, add this line to prime.txt:
 	UseLargePages=1
 My experience has been maybe a 0.5% speed improvement, but sometimes I get worse timings.
 It may well be that any benefit is within the margin of error in obtaining accurate timings.

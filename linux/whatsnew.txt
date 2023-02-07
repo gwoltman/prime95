@@ -6,6 +6,7 @@ New features in Version 30.10 of mprime
 2) Proof files start uploading within a minute of sending a PRP result to the server.
    Previously it could take up to an hour for proof uploading to begin.
 3) Worktodo.add files are now processed without stopping all workers.
+4) Settings from local.txt have been moved to prime.txt.
 
 New features in Version 30.8 of mprime
 --------------------------------------

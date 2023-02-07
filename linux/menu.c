@@ -408,7 +408,7 @@ done:	if (askOkCancel ()) {
 		if (strcmp (COMPID, m_compid) != 0) {
 			strcpy (COMPID, m_compid);
 			sanitizeString (COMPID);
-			IniWriteString (LOCALINI_FILE, "ComputerID", COMPID);
+			IniWriteString (INI_FILE, "ComputerID", COMPID);
 			update_computer_info = TRUE;
 		}
 
@@ -472,7 +472,7 @@ void test_workers (void)
 		m_work_pref[i] = WORK_PREFERENCE[i];
 		m_numcpus[i] = 0;
 	}
-	m_cert_work = IniGetInt (LOCALINI_FILE, "CertWork", 1);
+	m_cert_work = IniGetInt (INI_FILE, "CertWork", 1);
 
 	if (max_num_workers () <= 1 && !USE_PRIMENET) {
 		outputLongLine ("This menu choice only makes sense if you've elected to use PrimeNet to get work and report results.\n");
@@ -573,7 +573,7 @@ again:	if (max_num_workers () > 1)
 
 		if (m_num_thread != NUM_WORKER_THREADS) {
 			NUM_WORKER_THREADS = m_num_thread;
-			IniWriteInt (LOCALINI_FILE, "WorkerThreads", NUM_WORKER_THREADS);
+			IniWriteInt (INI_FILE, "WorkerThreads", NUM_WORKER_THREADS);
 			new_options = TRUE;
 			restart = TRUE;
 		}
@@ -597,13 +597,13 @@ again:	if (max_num_workers () > 1)
 /* If the user changed any of the cores_per_test record it in the INI file */
 
 		if (AreAllTheSame (m_numcpus, m_num_thread))
-			PTOSetAll (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, m_numcpus[0]);
+			PTOSetAll (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, m_numcpus[0]);
 		else for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
-			PTOSetOne (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, m_numcpus[i]);
+			PTOSetOne (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, m_numcpus[i]);
 
 /* Write the new CertWork setting */
 
-		IniWriteInt (LOCALINI_FILE, "CertWork", m_cert_work);
+		IniWriteInt (INI_FILE, "CertWork", m_cert_work);
 
 /* Send new settings to the server */
 
@@ -899,10 +899,10 @@ void options_cpu (void)
 	if (askOkCancel ()) {
 		if (CPU_HOURS != m_hours) {
 			CPU_HOURS = m_hours;
-			IniWriteInt (LOCALINI_FILE, "CPUHours", CPU_HOURS);
+			IniWriteInt (INI_FILE, "CPUHours", CPU_HOURS);
 			ROLLING_AVERAGE = 1000;
-			IniWriteInt (LOCALINI_FILE, "RollingAverage", 1000);
-			IniWriteInt (LOCALINI_FILE, "RollingStartTime", 0);
+			IniWriteInt (INI_FILE, "RollingAverage", 1000);
+			IniWriteInt (INI_FILE, "RollingStartTime", 0);
 			spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
 			delete_timed_event (TE_COMM_SERVER);
 			UpdateEndDates ();
@@ -934,16 +934,16 @@ void options_resources (void)
 	IniSectionGetString (INI_FILE, "PrimeNet", "UploadEndTime", m_upload_end, sizeof (m_upload_end), "24:00");
 	if (strcmp (m_upload_end, "24:00") != 0) minutesToStr (strToMinutes (m_upload_end), m_upload_end);
 	m_download_mb = IniSectionGetInt (INI_FILE, "PrimeNet", "DownloadDailyLimit", 40);
-	IniGetString (LOCALINI_FILE, "ProofResiduesDir", m_temp_dir, sizeof (m_temp_dir), NULL);
-	IniGetString (LOCALINI_FILE, "ProofArchiveDir", m_archive_dir, sizeof (m_archive_dir), NULL);
+	IniGetString (INI_FILE, "ProofResiduesDir", m_temp_dir, sizeof (m_temp_dir), NULL);
+	IniGetString (INI_FILE, "ProofArchiveDir", m_archive_dir, sizeof (m_archive_dir), NULL);
 	m_memory_editable = read_memory_settings (&day_memory, &night_memory, &day_start_time, &day_end_time);
 	m_day_memory = (float) round_to_tenth (day_memory / 1024.0);
 	m_night_memory = (float) round_to_tenth (night_memory / 1024.0);
 	minutesToStr (day_start_time, m_start_time);
 	minutesToStr (day_end_time, m_end_time);
-	m_emergency_mem = (float) round_to_tenth (IniGetInt (LOCALINI_FILE, "MaxEmergencyMemory", 1024) / 1024.0);
+	m_emergency_mem = (float) round_to_tenth (IniGetInt (INI_FILE, "MaxEmergencyMemory", 1024) / 1024.0);
 	m_priority = PRIORITY;
-	m_cert_cpu = IniGetInt (LOCALINI_FILE, "CertDailyCPULimit", 10);
+	m_cert_cpu = IniGetInt (INI_FILE, "CertDailyCPULimit", 10);
 	m_hyper_tf = HYPERTHREAD_TF;
 	m_hyper_ll = HYPERTHREAD_LL;
 	can_upload = IniSectionGetInt (INI_FILE, "PrimeNet", "ProofUploads", 1);
@@ -964,7 +964,7 @@ void options_resources (void)
 		askStr ("Upload large files time period start", m_upload_start, 8);
 		askStr ("Upload large files time period end", m_upload_end, 8);
 	}
-	if (IniGetInt (LOCALINI_FILE, "CertWork", 1))
+	if (IniGetInt (INI_FILE, "CertWork", 1))
 		askNum ("Download limit for certification work in MB/day", &m_download_mb, 0, 999999);
 
 	outputLongLine ("Skip advanced resource settings");
@@ -975,7 +975,7 @@ void options_resources (void)
 		askStr ("Optional directory to hold archived proofs", m_archive_dir, 511);
 		askFloat ("Max emergency memory in GB/worker", &m_emergency_mem, 0.0, max_emergency_mem);
 		askNum ("Priority -- 1 is highly recommended, see readme.txt", &m_priority, 1, 10);
-		if (IniGetInt (LOCALINI_FILE, "CertWork", 1))
+		if (IniGetInt (INI_FILE, "CertWork", 1))
 			askNum ("Certification work limit in % of CPU time", &m_cert_cpu, 1, 100);
 		if (HW_NUM_CORES != HW_NUM_THREADS && OS_CAN_SET_AFFINITY) {
 			askYN ("Use hyperthreading for trial factoring (recommended)", &m_hyper_tf);
@@ -993,14 +993,14 @@ void options_resources (void)
 			askOK ();
 		}
 		CPU_WORKER_DISK_SPACE = m_disk;
-		IniWriteFloat (LOCALINI_FILE, "WorkerDiskSpace", CPU_WORKER_DISK_SPACE);
+		IniWriteFloat (INI_FILE, "WorkerDiskSpace", CPU_WORKER_DISK_SPACE);
 		IniSectionWriteFloat (INI_FILE, "PrimeNet", "UploadRateLimit", m_upload_bandwidth);
 		IniSectionWriteString (INI_FILE, "PrimeNet", "UploadStartTime", m_upload_start);
 		IniSectionWriteString (INI_FILE, "PrimeNet", "UploadEndTime", m_upload_end);
 		IniSectionWriteInt (INI_FILE, "PrimeNet", "DownloadDailyLimit", m_download_mb);
 		gwevent_signal (&PROOF_UPLOAD_EVENT);		/* Trigger proof uploader in case upload start or end time changed */
-		IniWriteString (LOCALINI_FILE, "ProofResiduesDir", m_temp_dir);
-		IniWriteString (LOCALINI_FILE, "ProofArchiveDir", m_archive_dir);
+		IniWriteString (INI_FILE, "ProofResiduesDir", m_temp_dir);
+		IniWriteString (INI_FILE, "ProofArchiveDir", m_archive_dir);
 
 /* Save the new memory settings */
 
@@ -1014,7 +1014,7 @@ void options_resources (void)
 			mem_settings_have_changed ();
 			spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);
 		}
-		IniWriteInt (LOCALINI_FILE, "MaxEmergencyMemory", (long) (m_emergency_mem * 1024.0));
+		IniWriteInt (INI_FILE, "MaxEmergencyMemory", (long) (m_emergency_mem * 1024.0));
 
 /* If user changed the priority of worker threads, then change the INI file. */
 /* Restart worker threads so that they are running at the new priority. */
@@ -1027,18 +1027,18 @@ void options_resources (void)
 
 /* Handle cert work CPU limit */
 
-		IniWriteInt (LOCALINI_FILE, "CertDailyCPULimit", m_cert_cpu);
+		IniWriteInt (INI_FILE, "CertDailyCPULimit", m_cert_cpu);
 
 /* If user changed the hyperthreading options, then save the options to the INI file */
 
 		if (m_hyper_tf != HYPERTHREAD_TF) {
 			HYPERTHREAD_TF = m_hyper_tf;
-			IniWriteInt (LOCALINI_FILE, "HyperthreadTF", HYPERTHREAD_TF);
+			IniWriteInt (INI_FILE, "HyperthreadTF", HYPERTHREAD_TF);
 			restart = TRUE;
 		}
 		if (m_hyper_ll != HYPERTHREAD_LL) {
 			HYPERTHREAD_LL = m_hyper_ll;
-			IniWriteInt (LOCALINI_FILE, "HyperthreadLL", HYPERTHREAD_LL);
+			IniWriteInt (INI_FILE, "HyperthreadLL", HYPERTHREAD_LL);
 			restart = TRUE;
 		}
 
@@ -1096,7 +1096,7 @@ void options_preferences (void)
 		SILENT_VICTORY = !m_noise;
 		if (RUN_ON_BATTERY != m_battery) {
 			RUN_ON_BATTERY = m_battery;
-			IniWriteInt (LOCALINI_FILE, "RunOnBattery", RUN_ON_BATTERY);
+			IniWriteInt (INI_FILE, "RunOnBattery", RUN_ON_BATTERY);
 			run_on_battery_changed ();
 		}
 		IniWriteInt (INI_FILE, "OutputIterations", ITER_OUTPUT);

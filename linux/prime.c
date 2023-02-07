@@ -1,4 +1,4 @@
-/* Copyright 1995-2022 Mersenne Research, Inc. */
+/* Copyright 1995-2023 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -521,8 +521,8 @@ void linuxContinue (
 /* Compare this process' ID and the pid from the INI file */
 
 	my_pid = getpid ();
-	IniFileReread (LOCALINI_FILE);
-	running_pid = IniGetInt (LOCALINI_FILE, "Pid", 0);
+	IniFileReread (INI_FILE);
+	running_pid = IniGetInt (INI_FILE, "Pid", 0);
 	if (running_pid == 0 || my_pid == running_pid) goto ok;
 
 #if defined (__APPLE__) || defined (__HAIKU__)
@@ -579,9 +579,9 @@ void linuxContinue (
 
 /* All is OK, save our pid, run, then delete our pid */
 
-ok:	IniWriteInt (LOCALINI_FILE, "Pid", my_pid);
+ok:	IniWriteInt (INI_FILE, "Pid", my_pid);
 	LaunchWorkerThreads (thread_num, wait_flag);
-	if (wait_flag) IniWriteInt (LOCALINI_FILE, "Pid", 0);
+	if (wait_flag) IniWriteInt (INI_FILE, "Pid", 0);
 }
 
 /* Implement the rest of the OS-specific routines */

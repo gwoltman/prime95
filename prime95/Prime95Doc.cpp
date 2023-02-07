@@ -256,7 +256,7 @@ void CPrime95Doc::OnPrimenet()
 		if (strcmp (COMPID, dlg.m_compid) != 0) {
 			strcpy (COMPID, (const char *) dlg.m_compid);
 			sanitizeString (COMPID);
-			IniWriteString (LOCALINI_FILE, "ComputerID", COMPID);
+			IniWriteString (INI_FILE, "ComputerID", COMPID);
 			update_computer_info = TRUE;
 		}
 		if (!USE_PRIMENET && dlg.m_primenet) {
@@ -325,7 +325,7 @@ void CPrime95Doc::OnWorkerThreads()
 		dlg.m_work_pref[i] = WORK_PREFERENCE[i];
 		dlg.m_numcpus[i] = CORES_PER_TEST[i];
 	}
-	dlg.m_cert_work = IniGetInt (LOCALINI_FILE, "CertWork", 1);
+	dlg.m_cert_work = IniGetInt (INI_FILE, "CertWork", 1);
 
 again:	if (dlg.DoModal () == IDOK) {
 		int	restart = FALSE;
@@ -371,7 +371,7 @@ again:	if (dlg.DoModal () == IDOK) {
 
 		if (dlg.m_num_workers != NUM_WORKER_THREADS) {
 			NUM_WORKER_THREADS = dlg.m_num_workers;
-			IniWriteInt (LOCALINI_FILE, "WorkerThreads", NUM_WORKER_THREADS);
+			IniWriteInt (INI_FILE, "WorkerThreads", NUM_WORKER_THREADS);
 			new_options = TRUE;
 			restart = TRUE;
 		}
@@ -394,13 +394,13 @@ again:	if (dlg.DoModal () == IDOK) {
 /* If user changed any of the cores_per_test, then record it in the INI file */
 
 		if (dlg.AreAllTheSame (dlg.m_numcpus))
-			PTOSetAll (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, dlg.m_numcpus[0]);
+			PTOSetAll (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, dlg.m_numcpus[0]);
 		else for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
-			PTOSetOne (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, dlg.m_numcpus[i]);
+			PTOSetOne (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, dlg.m_numcpus[i]);
 
 /* Write the new CertWork setting */
 
-		IniWriteInt (LOCALINI_FILE, "CertWork", dlg.m_cert_work);
+		IniWriteInt (INI_FILE, "CertWork", dlg.m_cert_work);
 
 /* Send new settings to the server */
 
@@ -659,10 +659,10 @@ void CPrime95Doc::OnCpu()
 
 		if (CPU_HOURS != dlg.m_hours) {
 			CPU_HOURS = dlg.m_hours;
-			IniWriteInt (LOCALINI_FILE, "CPUHours", CPU_HOURS);
+			IniWriteInt (INI_FILE, "CPUHours", CPU_HOURS);
 			ROLLING_AVERAGE = 1000;
-			IniWriteInt (LOCALINI_FILE, "RollingAverage", 1000);
-			IniWriteInt (LOCALINI_FILE, "RollingStartTime", 0);
+			IniWriteInt (INI_FILE, "RollingAverage", 1000);
+			IniWriteInt (INI_FILE, "RollingStartTime", 0);
 			spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
 			delete_timed_event (TE_COMM_SERVER);
 			UpdateEndDates ();
@@ -714,7 +714,7 @@ void CPrime95Doc::OnResources()
 			AfxMessageBox (MSG_DISK, MB_ICONEXCLAMATION | MB_OK);
 		}
 		CPU_WORKER_DISK_SPACE = dlg.m_disk;
-		IniWriteFloat (LOCALINI_FILE, "WorkerDiskSpace", CPU_WORKER_DISK_SPACE);
+		IniWriteFloat (INI_FILE, "WorkerDiskSpace", CPU_WORKER_DISK_SPACE);
 
 /* Save the new memory settings */
 
@@ -765,7 +765,7 @@ void CPrime95Doc::OnPreferences()
 		SILENT_VICTORY = !dlg.m_noise;
 		if (RUN_ON_BATTERY != dlg.m_battery) {
 			RUN_ON_BATTERY = dlg.m_battery;
-			IniWriteInt (LOCALINI_FILE, "RunOnBattery", RUN_ON_BATTERY);
+			IniWriteInt (INI_FILE, "RunOnBattery", RUN_ON_BATTERY);
 			run_on_battery_changed ();
 		}
 		IniWriteInt (INI_FILE, "OutputIterations", ITER_OUTPUT);

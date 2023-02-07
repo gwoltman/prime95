@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------------
-| Copyright 2020-2022 Mersenne Research, Inc.  All rights reserved
+| Copyright 2020-2023 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines to upload one proof file to the Primenet server
 +--------------------------------------------------------------------------*/
@@ -14,7 +14,7 @@ void archiveOrDelete (FILE **fd, char *filename, char fileMD5[33])
 
 /* Get the archive directory */
 
-	IniGetString (LOCALINI_FILE, "ProofArchiveDir", archive_filename, sizeof (archive_filename), NULL);
+	IniGetString (INI_FILE, "ProofArchiveDir", archive_filename, sizeof (archive_filename), NULL);
 
 /* If there is an archive directory, copy the proof file to the archive directory */
 

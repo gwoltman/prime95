@@ -161,7 +161,7 @@ int cert (
 
 /* Init the FFT code for squaring modulo k*b^n+c */
 
-	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&cs.gwdata);
+	if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&cs.gwdata);
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&cs.gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&cs.gwdata, 2);
 	gwset_bench_cores (&cs.gwdata, HW_NUM_CORES);
@@ -547,8 +547,8 @@ int cert (
 /* Retry up to 8 times.  Output retry work later message and return. */
 
 retry_work:
-	echk = IniGetInt (LOCALINI_FILE, "CertErrorCount", 0) + 1;
-	IniWriteInt (LOCALINI_FILE, "CertErrorCount", echk);
+	echk = IniGetInt (INI_FILE, "CertErrorCount", 0) + 1;
+	IniWriteInt (INI_FILE, "CertErrorCount", echk);
 	if (echk >= 8) goto abandon_work;
 	OutputStr (thread_num, "Will retry certification later.\n");
 	stop_reason = STOP_RETRY_LATER;
@@ -565,7 +565,7 @@ abandon_work:
 /* Return work unit complete "error" code */
 			
 work_complete:
-	IniWriteString (LOCALINI_FILE, "CertErrorCount", NULL);
+	IniWriteString (INI_FILE, "CertErrorCount", NULL);
 	stop_reason = STOP_WORK_UNIT_COMPLETE;
 	goto exit;
 

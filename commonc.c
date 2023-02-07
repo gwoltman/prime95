@@ -14,7 +14,6 @@
 static const char JUNK[]="Copyright 1996-2023 Mersenne Research, Inc. All rights reserved";
 
 char	INI_FILE[260] = {0};
-char	LOCALINI_FILE[260] = {0};
 char	WORKTODO_FILE[260] = {0};
 char	RESFILE[260] = {0};
 char	RESFILEBENCH[260] = {0};
@@ -228,19 +227,19 @@ void clearCachedProgramOptions (void)
 	int	tnum;
 	char	section_name[32];
 
-	IniWriteString (LOCALINI_FILE, "SrvrPO1", NULL);
+	IniWriteString (INI_FILE, "SrvrPO1", NULL);
 	for (tnum = 0; tnum < MAX_NUM_WORKER_THREADS; tnum++) {
 		sprintf (section_name, "Worker #%d", tnum+1);
-		IniSectionWriteString (LOCALINI_FILE, section_name, "SrvrPO1", NULL);
+		IniSectionWriteString (INI_FILE, section_name, "SrvrPO1", NULL);
 	}
-	IniWriteString (LOCALINI_FILE, "SrvrPO2", NULL);
-	IniWriteString (LOCALINI_FILE, "SrvrPO3", NULL);
-	IniWriteString (LOCALINI_FILE, "SrvrPO4", NULL);
-	IniWriteString (LOCALINI_FILE, "SrvrPO5", NULL);
-	IniWriteString (LOCALINI_FILE, "SrvrPO6", NULL);
-	IniWriteString (LOCALINI_FILE, "SrvrPO7", NULL);
-	IniWriteString (LOCALINI_FILE, "SrvrPO8", NULL);
-	IniWriteString (LOCALINI_FILE, "SrvrPO9", NULL);
+	IniWriteString (INI_FILE, "SrvrPO2", NULL);
+	IniWriteString (INI_FILE, "SrvrPO3", NULL);
+	IniWriteString (INI_FILE, "SrvrPO4", NULL);
+	IniWriteString (INI_FILE, "SrvrPO5", NULL);
+	IniWriteString (INI_FILE, "SrvrPO6", NULL);
+	IniWriteString (INI_FILE, "SrvrPO7", NULL);
+	IniWriteString (INI_FILE, "SrvrPO8", NULL);
+	IniWriteString (INI_FILE, "SrvrPO9", NULL);
 }
 
 /* Generate a globally unique ID for this computer.  All Primenet */
@@ -254,13 +253,13 @@ void generate_computer_guid (void)
 	time (&current_time);
 	sprintf (buf, "%s%d%f%d", CPU_BRAND, CPU_SIGNATURE, CPU_SPEED, (int) current_time);
 	md5_hexdigest_string (COMPUTER_GUID, buf);
-	IniWriteString (LOCALINI_FILE, "ComputerGUID", COMPUTER_GUID);
+	IniWriteString (INI_FILE, "ComputerGUID", COMPUTER_GUID);
 
 /* Clear out local copies of what we think the server knows about this computer */
 /* The server now knows nothing about this computer because of the newly generated computer ID */
 
-	IniWriteString (LOCALINI_FILE, "SrvrUID", NULL);
-	IniWriteString (LOCALINI_FILE, "SrvrComputerName", NULL);
+	IniWriteString (INI_FILE, "SrvrUID", NULL);
+	IniWriteString (INI_FILE, "SrvrComputerName", NULL);
 	clearCachedProgramOptions ();
 
 /* Since we're generating a new computer GUID, we can use the latest, */
@@ -283,7 +282,7 @@ void getCpuSpeed (void)
 
 /* Now let the user override the cpu speed from the local.txt file */
 
-	temp = IniGetInt (LOCALINI_FILE, "CpuSpeed", 99);
+	temp = IniGetInt (INI_FILE, "CpuSpeed", 99);
 	if (temp != 99) CPU_SPEED = temp;
 
 /* Make sure the cpu speed is reasonable */
@@ -304,16 +303,16 @@ void getCpuSpeed (void)
 /* in erroneously unreserving exponents. */
 
 	report_new_cpu_speed = FALSE;
-	old_cpu_speed = IniGetInt (LOCALINI_FILE, "OldCpuSpeed", 0);
+	old_cpu_speed = IniGetInt (INI_FILE, "OldCpuSpeed", 0);
 	if (CPU_SPEED < (double) old_cpu_speed * 0.97) {
-		if (IniGetInt (LOCALINI_FILE, "NewCpuSpeedCount", 0) <= 5) {
-			if (CPU_SPEED > (double) IniGetInt (LOCALINI_FILE, "NewCpuSpeed", 0))
-				IniWriteInt (LOCALINI_FILE, "NewCpuSpeed", (int) (CPU_SPEED + 0.5));
-			IniWriteInt (LOCALINI_FILE, "NewCpuSpeedCount", IniGetInt (LOCALINI_FILE, "NewCpuSpeedCount", 0) + 1);
+		if (IniGetInt (INI_FILE, "NewCpuSpeedCount", 0) <= 5) {
+			if (CPU_SPEED > (double) IniGetInt (INI_FILE, "NewCpuSpeed", 0))
+				IniWriteInt (INI_FILE, "NewCpuSpeed", (int) (CPU_SPEED + 0.5));
+			IniWriteInt (INI_FILE, "NewCpuSpeedCount", IniGetInt (INI_FILE, "NewCpuSpeedCount", 0) + 1);
 			CPU_SPEED = old_cpu_speed;
 		} else {
-			if (CPU_SPEED < (double) IniGetInt (LOCALINI_FILE, "NewCpuSpeed", 0))
-				CPU_SPEED = (double) IniGetInt (LOCALINI_FILE, "NewCpuSpeed", 0);
+			if (CPU_SPEED < (double) IniGetInt (INI_FILE, "NewCpuSpeed", 0))
+				CPU_SPEED = (double) IniGetInt (INI_FILE, "NewCpuSpeed", 0);
 			report_new_cpu_speed = TRUE;
 		}
 	}
@@ -324,8 +323,8 @@ void getCpuSpeed (void)
 /* dialog has been displayed). */
 
 	else if (CPU_SPEED < (double) old_cpu_speed * 1.03) {
-		IniWriteInt (LOCALINI_FILE, "NewCpuSpeedCount", 0);
-		IniWriteInt (LOCALINI_FILE, "NewCpuSpeed", 0);
+		IniWriteInt (INI_FILE, "NewCpuSpeedCount", 0);
+		IniWriteInt (INI_FILE, "NewCpuSpeed", 0);
 	}
 
 /* If CPU speed is much larger than the speed reported to the server, then */
@@ -341,9 +340,9 @@ void getCpuSpeed (void)
 /* do this on the first run (before the Welcome dialog has been displayed). */
 
 	if (report_new_cpu_speed) {
-		IniWriteInt (LOCALINI_FILE, "OldCpuSpeed", (int) (CPU_SPEED + 0.5));
-		IniWriteInt (LOCALINI_FILE, "NewCpuSpeedCount", 0);
-		IniWriteInt (LOCALINI_FILE, "NewCpuSpeed", 0);
+		IniWriteInt (INI_FILE, "OldCpuSpeed", (int) (CPU_SPEED + 0.5));
+		IniWriteInt (INI_FILE, "NewCpuSpeedCount", 0);
+		IniWriteInt (INI_FILE, "NewCpuSpeed", 0);
 		if (old_cpu_speed) {
 			if (WORKTODO_COUNT) {
 				ROLLING_AVERAGE = (int) (ROLLING_AVERAGE * old_cpu_speed / CPU_SPEED);
@@ -351,8 +350,8 @@ void getCpuSpeed (void)
 			}
 			else
 				ROLLING_AVERAGE = 1000;
-			IniWriteInt (LOCALINI_FILE, "RollingAverage", ROLLING_AVERAGE);
-			IniWriteInt (LOCALINI_FILE, "RollingStartTime", 0);
+			IniWriteInt (INI_FILE, "RollingAverage", ROLLING_AVERAGE);
+			IniWriteInt (INI_FILE, "RollingStartTime", 0);
 			spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
 			UpdateEndDates ();
 		}
@@ -417,12 +416,12 @@ void getCpuInfo (void)
 
 /* Allow overriding the hwloc generated values for number of physical processors and NUMA nodes. */
 
-	HW_NUM_CORES = IniGetInt (LOCALINI_FILE, "NumCPUs", HW_NUM_CORES);
-	HW_NUM_CORES = IniGetInt (LOCALINI_FILE, "NumCores", HW_NUM_CORES);
+	HW_NUM_CORES = IniGetInt (INI_FILE, "NumCPUs", HW_NUM_CORES);
+	HW_NUM_CORES = IniGetInt (INI_FILE, "NumCores", HW_NUM_CORES);
 	if (HW_NUM_CORES < 1) HW_NUM_CORES = 1;
-	HW_NUM_THREADS = IniGetInt (LOCALINI_FILE, "NumThreads", HW_NUM_THREADS);
+	HW_NUM_THREADS = IniGetInt (INI_FILE, "NumThreads", HW_NUM_THREADS);
 	if (HW_NUM_THREADS < 1) HW_NUM_THREADS = 1;
-	HW_NUM_NUMA_NODES = IniGetInt (LOCALINI_FILE, "NumNUMANodes", HW_NUM_NUMA_NODES);
+	HW_NUM_NUMA_NODES = IniGetInt (INI_FILE, "NumNUMANodes", HW_NUM_NUMA_NODES);
 	if (HW_NUM_NUMA_NODES == 0) HW_NUM_NUMA_NODES = 1;
 
 /* Create a structure to describe each physical core.  Initialize as performance cores with the appropriate number of hyperthreads. */
@@ -439,7 +438,7 @@ void getCpuInfo (void)
 		// Let user override calculated number of threads
 		char key[50];
 		sprintf (key, "Core%" PRIu32 "NumThreads", core);
-		num_threads = IniGetInt (LOCALINI_FILE, key, num_threads);
+		num_threads = IniGetInt (INI_FILE, key, num_threads);
 		if (num_threads < 1) num_threads = 1;
 		HW_CORES[core].num_threads = (uint16_t) num_threads;
 	}
@@ -562,7 +561,7 @@ void getCpuInfo (void)
 	for (core = 0; core < HW_NUM_CORES; core++) {
 		char key[50];
 		sprintf (key, "Core%" PRIu32 "Ranking", core);
-		HW_CORES[core].ranking = (uint16_t) IniGetInt (LOCALINI_FILE, key, HW_CORES[core].ranking);
+		HW_CORES[core].ranking = (uint16_t) IniGetInt (INI_FILE, key, HW_CORES[core].ranking);
 	}
 
 /* Calculate the number of compute cores (as opposed to efficiency cores) */
@@ -580,76 +579,76 @@ void getCpuInfo (void)
 
 /* Let the user override the cpu flags from the local.txt file */
 
-	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsRDTSC", 99);
+	temp = IniGetInt (INI_FILE, "CpuSupportsRDTSC", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_RDTSC;
 	if (temp == 1) CPU_FLAGS |= CPU_RDTSC;
-	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsCMOV", 99);
+	temp = IniGetInt (INI_FILE, "CpuSupportsCMOV", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_CMOV;
 	if (temp == 1) CPU_FLAGS |= CPU_CMOV;
-	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsPrefetch", 99);
+	temp = IniGetInt (INI_FILE, "CpuSupportsPrefetch", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_PREFETCH;
 	if (temp == 1) CPU_FLAGS |= CPU_PREFETCH;
-	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsPrefetchw", 99);
+	temp = IniGetInt (INI_FILE, "CpuSupportsPrefetchw", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_PREFETCHW;
 	if (temp == 1) CPU_FLAGS |= CPU_PREFETCHW;
-	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsPrefetchwt1", 99);
+	temp = IniGetInt (INI_FILE, "CpuSupportsPrefetchwt1", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_PREFETCHWT1;
 	if (temp == 1) CPU_FLAGS |= CPU_PREFETCHWT1;
-	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsSSE", 99);
+	temp = IniGetInt (INI_FILE, "CpuSupportsSSE", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_SSE;
 	if (temp == 1) CPU_FLAGS |= CPU_SSE;
-	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsSSE2", 99);
+	temp = IniGetInt (INI_FILE, "CpuSupportsSSE2", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_SSE2;
 	if (temp == 1) CPU_FLAGS |= CPU_SSE2;
-	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsSSE4", 99);
+	temp = IniGetInt (INI_FILE, "CpuSupportsSSE4", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_SSE41;
 	if (temp == 1) CPU_FLAGS |= CPU_SSE41;
-	temp = IniGetInt (LOCALINI_FILE, "CpuSupports3DNow", 99);
+	temp = IniGetInt (INI_FILE, "CpuSupports3DNow", 99);
 	if (temp == 0) CPU_FLAGS &= ~(CPU_3DNOW + CPU_3DNOW_PREFETCH);
 	if (temp == 1) CPU_FLAGS |= (CPU_3DNOW + CPU_3DNOW_PREFETCH);
-	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsAVX", 99);
+	temp = IniGetInt (INI_FILE, "CpuSupportsAVX", 99);
 	if (temp == 0) CPU_FLAGS &= ~(CPU_AVX | CPU_FMA3);
 	if (temp == 1) CPU_FLAGS |= CPU_AVX;
-	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsFMA3", 99);
+	temp = IniGetInt (INI_FILE, "CpuSupportsFMA3", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_FMA3;
 	if (temp == 1) CPU_FLAGS |= (CPU_AVX | CPU_FMA3);
-	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsFMA4", 99);
+	temp = IniGetInt (INI_FILE, "CpuSupportsFMA4", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_FMA4;
 	if (temp == 1) CPU_FLAGS |= CPU_FMA4;
-	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsAVX2", 99);
+	temp = IniGetInt (INI_FILE, "CpuSupportsAVX2", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_AVX2;
 	if (temp == 1) CPU_FLAGS |= CPU_AVX2;
-	temp = IniGetInt (LOCALINI_FILE, "CpuSupportsAVX512F", 99);
+	temp = IniGetInt (INI_FILE, "CpuSupportsAVX512F", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_AVX512F;
 	if (temp == 1) CPU_FLAGS |= CPU_AVX512F;
 
 /* Let the user override the L1/L2/L3/L4 cache size in local.txt file */
 
-	CPU_TOTAL_L1_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL1TotalCacheSize", CPU_TOTAL_L1_CACHE_SIZE);
-	CPU_NUM_L1_CACHES = IniGetInt (LOCALINI_FILE, "CpuL1NumCaches", CPU_NUM_L1_CACHES);
+	CPU_TOTAL_L1_CACHE_SIZE = IniGetInt (INI_FILE, "CpuL1TotalCacheSize", CPU_TOTAL_L1_CACHE_SIZE);
+	CPU_NUM_L1_CACHES = IniGetInt (INI_FILE, "CpuL1NumCaches", CPU_NUM_L1_CACHES);
 
-	CPU_TOTAL_L2_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL2TotalCacheSize", CPU_TOTAL_L2_CACHE_SIZE);
-	CPU_NUM_L2_CACHES = IniGetInt (LOCALINI_FILE, "CpuL2NumCaches", CPU_NUM_L2_CACHES);
-	CPU_L2_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL2CacheSize", CPU_L2_CACHE_SIZE);
-	CPU_L2_CACHE_LINE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL2CacheLineSize", CPU_L2_CACHE_LINE_SIZE);
-	CPU_L2_SET_ASSOCIATIVE = IniGetInt (LOCALINI_FILE, "CpuL2SetAssociative", CPU_L2_SET_ASSOCIATIVE);
-	CPU_L2_CACHE_INCLUSIVE = IniGetInt (LOCALINI_FILE, "CpuL2CacheInclusive", CPU_L2_CACHE_INCLUSIVE);
+	CPU_TOTAL_L2_CACHE_SIZE = IniGetInt (INI_FILE, "CpuL2TotalCacheSize", CPU_TOTAL_L2_CACHE_SIZE);
+	CPU_NUM_L2_CACHES = IniGetInt (INI_FILE, "CpuL2NumCaches", CPU_NUM_L2_CACHES);
+	CPU_L2_CACHE_SIZE = IniGetInt (INI_FILE, "CpuL2CacheSize", CPU_L2_CACHE_SIZE);
+	CPU_L2_CACHE_LINE_SIZE = IniGetInt (INI_FILE, "CpuL2CacheLineSize", CPU_L2_CACHE_LINE_SIZE);
+	CPU_L2_SET_ASSOCIATIVE = IniGetInt (INI_FILE, "CpuL2SetAssociative", CPU_L2_SET_ASSOCIATIVE);
+	CPU_L2_CACHE_INCLUSIVE = IniGetInt (INI_FILE, "CpuL2CacheInclusive", CPU_L2_CACHE_INCLUSIVE);
 
-	CPU_TOTAL_L3_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL3TotalCacheSize", CPU_TOTAL_L3_CACHE_SIZE);
-	CPU_NUM_L3_CACHES = IniGetInt (LOCALINI_FILE, "CpuL3NumCaches", CPU_NUM_L3_CACHES);
-	CPU_L3_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL3CacheSize", CPU_L3_CACHE_SIZE);
-	CPU_L3_CACHE_LINE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL3CacheLineSize", CPU_L3_CACHE_LINE_SIZE);
-	CPU_L3_SET_ASSOCIATIVE = IniGetInt (LOCALINI_FILE, "CpuL3SetAssociative", CPU_L3_SET_ASSOCIATIVE);
-	CPU_L3_CACHE_INCLUSIVE = IniGetInt (LOCALINI_FILE, "CpuL3CacheInclusive", CPU_L3_CACHE_INCLUSIVE);
+	CPU_TOTAL_L3_CACHE_SIZE = IniGetInt (INI_FILE, "CpuL3TotalCacheSize", CPU_TOTAL_L3_CACHE_SIZE);
+	CPU_NUM_L3_CACHES = IniGetInt (INI_FILE, "CpuL3NumCaches", CPU_NUM_L3_CACHES);
+	CPU_L3_CACHE_SIZE = IniGetInt (INI_FILE, "CpuL3CacheSize", CPU_L3_CACHE_SIZE);
+	CPU_L3_CACHE_LINE_SIZE = IniGetInt (INI_FILE, "CpuL3CacheLineSize", CPU_L3_CACHE_LINE_SIZE);
+	CPU_L3_SET_ASSOCIATIVE = IniGetInt (INI_FILE, "CpuL3SetAssociative", CPU_L3_SET_ASSOCIATIVE);
+	CPU_L3_CACHE_INCLUSIVE = IniGetInt (INI_FILE, "CpuL3CacheInclusive", CPU_L3_CACHE_INCLUSIVE);
 
-	CPU_TOTAL_L4_CACHE_SIZE = IniGetInt (LOCALINI_FILE, "CpuL4TotalCacheSize", CPU_TOTAL_L4_CACHE_SIZE);
-	CPU_NUM_L4_CACHES = IniGetInt (LOCALINI_FILE, "CpuL4NumCaches", CPU_NUM_L4_CACHES);
-	CPU_L4_CACHE_INCLUSIVE = IniGetInt (LOCALINI_FILE, "CpuL4CacheInclusive", CPU_L4_CACHE_INCLUSIVE);
+	CPU_TOTAL_L4_CACHE_SIZE = IniGetInt (INI_FILE, "CpuL4TotalCacheSize", CPU_TOTAL_L4_CACHE_SIZE);
+	CPU_NUM_L4_CACHES = IniGetInt (INI_FILE, "CpuL4NumCaches", CPU_NUM_L4_CACHES);
+	CPU_L4_CACHE_INCLUSIVE = IniGetInt (INI_FILE, "CpuL4CacheInclusive", CPU_L4_CACHE_INCLUSIVE);
 
 /* Let the user override the CPUID brand string.  It should never be necessary. */
 /* However, one Athlon owner's brand string became corrupted with illegal characters. */
 
-	IniGetString (LOCALINI_FILE, "CpuBrand", CPU_BRAND, sizeof(CPU_BRAND), CPU_BRAND);
+	IniGetString (INI_FILE, "CpuBrand", CPU_BRAND, sizeof(CPU_BRAND), CPU_BRAND);
 
 /* Apply sane corrections if HW_NUM_COREs was reduced significantly) */
 
@@ -661,13 +660,13 @@ void getCpuInfo (void)
 
 /* Let user override the CPU architecture */
 
-	CPU_ARCHITECTURE = IniGetInt (LOCALINI_FILE, "CpuArchitecture", CPU_ARCHITECTURE);
+	CPU_ARCHITECTURE = IniGetInt (INI_FILE, "CpuArchitecture", CPU_ARCHITECTURE);
 
 /* Allow overriding the calculated number of threading nodes */
 
-	HW_NUM_THREADING_NODES = IniGetInt (LOCALINI_FILE, "NumThreadingNodes", HW_NUM_THREADING_NODES);
+	HW_NUM_THREADING_NODES = IniGetInt (INI_FILE, "NumThreadingNodes", HW_NUM_THREADING_NODES);
 	if (HW_NUM_THREADING_NODES < 1) HW_NUM_THREADING_NODES = 1;
-	HW_NUM_COMPUTE_THREADING_NODES = IniGetInt (LOCALINI_FILE, "NumComputeThreadingNodes", HW_NUM_COMPUTE_THREADING_NODES);
+	HW_NUM_COMPUTE_THREADING_NODES = IniGetInt (INI_FILE, "NumComputeThreadingNodes", HW_NUM_COMPUTE_THREADING_NODES);
 	if (HW_NUM_COMPUTE_THREADING_NODES < 1) HW_NUM_COMPUTE_THREADING_NODES = 1;
 
 /* Now get the CPU speed */
@@ -1117,11 +1116,11 @@ void write_memory_settings (
 	sprintf (buf, "%d during %d:%02d-%d:%02d else %d",
 		 day_memory, day_start_time / 60, day_start_time % 60,
 		 day_end_time / 60, day_end_time % 60, night_memory);
-	IniWriteString (LOCALINI_FILE, "Memory", buf);
-	IniWriteString (LOCALINI_FILE, "DayMemory", NULL);
-	IniWriteString (LOCALINI_FILE, "NightMemory", NULL);
-	IniWriteString (LOCALINI_FILE, "DayStartTime", NULL);
-	IniWriteString (LOCALINI_FILE, "DayEndTime", NULL);
+	IniWriteString (INI_FILE, "Memory", buf);
+	IniWriteString (INI_FILE, "DayMemory", NULL);
+	IniWriteString (INI_FILE, "NightMemory", NULL);
+	IniWriteString (INI_FILE, "DayStartTime", NULL);
+	IniWriteString (INI_FILE, "DayEndTime", NULL);
 }
 
 /* Convert the new MEMORY setting into the old DAY_MEMORY, NIGHT_MEMORY settings. */
@@ -1144,7 +1143,7 @@ int read_memory_settings (
 
 /* Get the memory settings.  If not found, return the defaults */
 
-	p = IniSectionGetStringRaw (LOCALINI_FILE, NULL, "Memory");
+	p = IniSectionGetStringRaw (INI_FILE, NULL, "Memory");
 	if (p == NULL) return (TRUE);
 
 /* Find the time specifiers.  If none found, return the same value for */
@@ -1206,6 +1205,7 @@ void ini_error_handler (
 void nameAndReadIniFiles (
 	int	named_ini_files)
 {
+	char	localini_file[260];
 	char	buf[513];
 
 /* Determine the hardware topology using the hwloc library.  This library is much more */
@@ -1233,7 +1233,7 @@ void nameAndReadIniFiles (
 
 	if (named_ini_files < 0) {
 		strcpy (INI_FILE, "prime.txt");
-		strcpy (LOCALINI_FILE, "local.txt");
+		strcpy (localini_file, "local.txt");
 		strcpy (WORKTODO_FILE, "worktodo.txt");
 		strcpy (RESFILE, "results.txt");
 		strcpy (RESFILEBENCH, "results.bench.txt");
@@ -1242,7 +1242,7 @@ void nameAndReadIniFiles (
 		strcpy (LOGFILE, "prime.log");
 	} else {
 		sprintf (INI_FILE, "prim%04d.txt", named_ini_files);
-		sprintf (LOCALINI_FILE, "loca%04d.txt", named_ini_files);
+		sprintf (localini_file, "loca%04d.txt", named_ini_files);
 		sprintf (WORKTODO_FILE, "work%04d.txt", named_ini_files);
 		sprintf (RESFILE, "resu%04d.txt", named_ini_files);
 		sprintf (RESFILEBENCH, "resu%04d.bench.txt", named_ini_files);
@@ -1254,7 +1254,7 @@ void nameAndReadIniFiles (
 /* Let the user rename these files and pick a different working directory */
 
 	IniGetString (INI_FILE, "WorkingDir", buf, sizeof(buf), NULL);
-	IniGetString (INI_FILE, "local.ini", LOCALINI_FILE, 260, LOCALINI_FILE);
+	IniGetString (INI_FILE, "local.ini", localini_file, 260, localini_file);
 	IniGetString (INI_FILE, "worktodo.ini", WORKTODO_FILE, 260, WORKTODO_FILE);
 	IniGetString (INI_FILE, "results.txt", RESFILE, 260, RESFILE);
 	IniGetString (INI_FILE, "results.bench.txt", RESFILEBENCH, 260, RESFILEBENCH);
@@ -1265,6 +1265,36 @@ void nameAndReadIniFiles (
 	if (buf[0]) {
 		(void) _chdir (buf);
 		IniFileReread (INI_FILE);
+	}
+
+/* In 30.10 build 5, we copy the settings from local.txt to prime.txt, then delete local.txt */
+
+	{
+		FILE *fd = fopen (localini_file, "r");
+		if (fd != NULL) {
+			char	section[80];
+			char	line[1000];
+			section[0] = 0;
+			IniDelayWrites (INI_FILE);
+			while (fgets (line, sizeof (line), fd)) {
+				if (line[strlen(line)-1] == '\n') line[strlen(line)-1] = 0;
+				if (line[0] && line[strlen(line)-1] == '\r') line[strlen(line)-1] = 0;
+				if (line[0] == 0) continue;
+				// Locate section headers
+				if (line[0] == '[') {
+					strcpy (section, line+1);
+					if (strchr (section, ']') != NULL) *strchr (section, ']') = 0;
+					continue;
+				}
+				// Write line as a comment
+				if (section[0]) IniSectionWriteString (INI_FILE, section, NULL, line);
+				else IniWriteString (INI_FILE, NULL, line);
+			}
+			fclose (fd);
+			_unlink (localini_file);
+			IniResumeImmediateWrites (INI_FILE);
+			IniFileReread (INI_FILE);
+		}
 	}
 
 /* Perform other one-time initializations */
@@ -1420,7 +1450,7 @@ void read_cores_per_test (void)
 
 /* Get the old ThreadsPerTest values that we used to support */
 
-	PTOGetAll (LOCALINI_FILE, "ThreadsPerTest", temp, 0);
+	PTOGetAll (INI_FILE, "ThreadsPerTest", temp, 0);
 
 /* If we found some old settings then delete them from the INI file, */
 /* convert from threads to cores as best we can, and write out the new settings */
@@ -1449,17 +1479,17 @@ void read_cores_per_test (void)
 		// Write out the new settings
 		memset (CORES_PER_TEST, 0xFF, sizeof (CORES_PER_TEST));
 		if (all_the_same)
-			PTOSetAll (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, temp[0]);
+			PTOSetAll (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, temp[0]);
 		else for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
-			PTOSetOne (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, temp[i]);
+			PTOSetOne (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, temp[i]);
 		// Clear old settings
-		PTOSetAll (LOCALINI_FILE, "ThreadsPerTest", NULL, temp, 0);
-		IniWriteString (LOCALINI_FILE, "ThreadsPerTest", NULL);
+		PTOSetAll (INI_FILE, "ThreadsPerTest", NULL, temp, 0);
+		IniWriteString (INI_FILE, "ThreadsPerTest", NULL);
 	}
 
 /* Read in the CoresPerTest values that we support as of version 29.1 */
 
-	PTOGetAll (LOCALINI_FILE, "CoresPerTest", CORES_PER_TEST, 0);
+	PTOGetAll (INI_FILE, "CoresPerTest", CORES_PER_TEST, 0);
 
 /* If we did not find any settings, use hwloc's information to give us a good default setting. */
 /* For example, consider a dual CPU Xeon system with 9 cores per CPU.  A good setting for four workers */
@@ -1498,9 +1528,9 @@ void read_cores_per_test (void)
 		}
 		// Write out the new settings
 		if (all_the_same)
-			PTOSetAll (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, temp[0]);
+			PTOSetAll (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, temp[0]);
 		else for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
-			PTOSetOne (LOCALINI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, temp[i]);
+			PTOSetOne (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, temp[i]);
 	}
 
 /* Sanity check the CoresPerTest.  In case user hand-edited local.txt */
@@ -1523,7 +1553,6 @@ int readIniFiles (void)
 /* Incorporate any additions from .add files */
 
 	IniFileReread (INI_FILE);
-	IniFileReread (LOCALINI_FILE);
 	incorporateIniAddFiles ();
 
 /* Get the CPU type, speed, and capabilities. */
@@ -1547,31 +1576,31 @@ int readIniFiles (void)
 
 /* Put commonly used options in global variables */
 
-	IniGetString (LOCALINI_FILE, "ComputerGUID", COMPUTER_GUID, sizeof (COMPUTER_GUID), NULL);
+	IniGetString (INI_FILE, "ComputerGUID", COMPUTER_GUID, sizeof (COMPUTER_GUID), NULL);
 	IniGetString (INI_FILE, "V5UserID", USERID, sizeof (USERID), NULL);
-	IniGetString (LOCALINI_FILE, "ComputerID", COMPID, sizeof (COMPID), NULL);
+	IniGetString (INI_FILE, "ComputerID", COMPID, sizeof (COMPID), NULL);
 	sanitizeString (COMPID);
 	USE_PRIMENET = (int) IniGetInt (INI_FILE, "UsePrimenet", 0);
 	DIAL_UP = (int) IniGetInt (INI_FILE, "DialUp", 0);
 	DAYS_OF_WORK = (unsigned int) IniGetInt (INI_FILE, "DaysOfWork", 3);
 	if (DAYS_OF_WORK > 180) DAYS_OF_WORK = 180;
 
-	CPU_WORKER_DISK_SPACE = IniGetFloat (LOCALINI_FILE, "WorkerDiskSpace", 6.0);
+	CPU_WORKER_DISK_SPACE = IniGetFloat (INI_FILE, "WorkerDiskSpace", 6.0);
 	if (CPU_WORKER_DISK_SPACE < 0.0) CPU_WORKER_DISK_SPACE = 0.0;
 	if (CPU_WORKER_DISK_SPACE > 1000.0) CPU_WORKER_DISK_SPACE = 1000.0;
 
-	CPU_HOURS = (unsigned int) IniGetInt (LOCALINI_FILE, "CPUHours", 24);
+	CPU_HOURS = (unsigned int) IniGetInt (INI_FILE, "CPUHours", 24);
 	if (CPU_HOURS < 1) CPU_HOURS = 1;
 	if (CPU_HOURS > 24) CPU_HOURS = 24;
 
-	ROLLING_AVERAGE = (unsigned int) IniGetInt (LOCALINI_FILE, "RollingAverage", 1000);
+	ROLLING_AVERAGE = (unsigned int) IniGetInt (INI_FILE, "RollingAverage", 1000);
 	if (ROLLING_AVERAGE < 10) ROLLING_AVERAGE = 10;
 	if (ROLLING_AVERAGE > 4000) ROLLING_AVERAGE = 4000;
 	/* Rolling average needs to be reset when AVX capable machines upgrade from v26 to v27. */
-	if (CPU_FLAGS & CPU_AVX && ! IniGetInt (LOCALINI_FILE, "RollingAverageIsFromV27", 0)) {
+	if (CPU_FLAGS & CPU_AVX && ! IniGetInt (INI_FILE, "RollingAverageIsFromV27", 0)) {
 		ROLLING_AVERAGE = 1000;
-		IniWriteInt (LOCALINI_FILE, "RollingAverage", 1000);
-		IniWriteInt (LOCALINI_FILE, "RollingAverageIsFromV27", 1);
+		IniWriteInt (INI_FILE, "RollingAverage", 1000);
+		IniWriteInt (INI_FILE, "RollingAverageIsFromV27", 1);
 	}
 
 	PRECISION = (unsigned int) IniGetInt (INI_FILE, "PercentPrecision", 2);
@@ -1602,19 +1631,19 @@ int readIniFiles (void)
 	if (DAYS_BETWEEN_CHECKINS * 24.0 < 1.0) DAYS_BETWEEN_CHECKINS = (float) (1.0 / 24.0);	/* 1 hour minimum */
 	SILENT_VICTORY = (int) IniGetInt (INI_FILE, "SilentVictory", 0);
 	SILENT_VICTORY_PRP = (int) IniGetInt (INI_FILE, "SilentVictoryPRP", 1);
-	RUN_ON_BATTERY = (int) IniGetInt (LOCALINI_FILE, "RunOnBattery", 1);
+	RUN_ON_BATTERY = (int) IniGetInt (INI_FILE, "RunOnBattery", 1);
 	BATTERY_PERCENT = (int) IniGetInt (INI_FILE, "BatteryPercent", 0);
-	DEFEAT_POWER_SAVE = (int) IniGetInt (LOCALINI_FILE, "DefeatPowerSave", 1);
+	DEFEAT_POWER_SAVE = (int) IniGetInt (INI_FILE, "DefeatPowerSave", 1);
 
 	STRESS_TESTER = (int) IniGetInt (INI_FILE, "StressTester", 99);
 	temp = (int) IniGetInt (INI_FILE, "ErrorCheck", 0);
 	ERRCHK = (temp != 0);
 	temp = (int) IniGetInt (INI_FILE, "SumInputsErrorCheck", 0);
 	SUM_INPUTS_ERRCHK = (temp != 0);
-	NUM_WORKER_THREADS = IniGetInt (LOCALINI_FILE, "WorkerThreads", good_default_for_num_workers ());
+	NUM_WORKER_THREADS = IniGetInt (INI_FILE, "WorkerThreads", good_default_for_num_workers ());
 	if (NUM_WORKER_THREADS < 1) NUM_WORKER_THREADS = 1;
 	if (NUM_WORKER_THREADS > MAX_NUM_WORKER_THREADS) NUM_WORKER_THREADS = MAX_NUM_WORKER_THREADS;
-	IniWriteInt (LOCALINI_FILE, "WorkerThreads", NUM_WORKER_THREADS); // Write in case future prime95 changes good_default_for_num_workers
+	IniWriteInt (INI_FILE, "WorkerThreads", NUM_WORKER_THREADS); // Write in case future prime95 changes good_default_for_num_workers
 	PRIORITY = (unsigned int) IniGetInt (INI_FILE, "Priority", 1);
 	if (PRIORITY < 1) PRIORITY = 1;
 	if (PRIORITY > 10) PRIORITY = 10;
@@ -1639,8 +1668,8 @@ int readIniFiles (void)
 		IniWriteInt (INI_FILE, "V30OptionsConverted", 1);
 	}
 	read_cores_per_test ();		// Get CORES_PER_TEST array, may require upgrading old INI settings
-	HYPERTHREAD_TF = IniGetInt (LOCALINI_FILE, "HyperthreadTF", OS_CAN_SET_AFFINITY);
-	HYPERTHREAD_LL = IniGetInt (LOCALINI_FILE, "HyperthreadLL", 0);
+	HYPERTHREAD_TF = IniGetInt (INI_FILE, "HyperthreadTF", OS_CAN_SET_AFFINITY);
+	HYPERTHREAD_LL = IniGetInt (INI_FILE, "HyperthreadLL", 0);
 	MANUAL_COMM = (int) IniGetInt (INI_FILE, "ManualComm", 0);
 	HIDE_ICON = (int) IniGetInt (INI_FILE, "HideIcon", 0);
 	TRAY_ICON = (int) IniGetInt (INI_FILE, "TrayIcon", 1);
@@ -1656,8 +1685,8 @@ int readIniFiles (void)
 /* Convert the old DAY_MEMORY, NIGHT_MEMORY settings into the simpler, all-inclusive */
 /* and more powerful MEMORY setting. */
 
-	day_memory = IniGetInt (LOCALINI_FILE, "DayMemory", 0);
-	night_memory = IniGetInt (LOCALINI_FILE, "NightMemory", 0);
+	day_memory = IniGetInt (INI_FILE, "DayMemory", 0);
+	night_memory = IniGetInt (INI_FILE, "NightMemory", 0);
 	if (day_memory || night_memory) {
 		int	day_start_time, day_end_time;
 		day_memory = (day_memory < 0) ? physical_memory () + day_memory : day_memory;
@@ -1666,8 +1695,8 @@ int readIniFiles (void)
 		night_memory = (night_memory < 0) ? physical_memory () + night_memory : night_memory;
 		if (night_memory < 8) night_memory = 8;
 		if ((unsigned long) night_memory > physical_memory () - 8) night_memory = physical_memory () - 8;
-		day_start_time = IniGetInt (LOCALINI_FILE, "DayStartTime", 450);
-		day_end_time = IniGetInt (LOCALINI_FILE, "DayEndTime", 1410);
+		day_start_time = IniGetInt (INI_FILE, "DayStartTime", 450);
+		day_end_time = IniGetInt (INI_FILE, "DayEndTime", 1410);
 		write_memory_settings (day_memory, night_memory, day_start_time, day_end_time);
 	}
 	read_mem_info ();
@@ -1719,7 +1748,7 @@ int readIniFiles (void)
 /*               Utility routines to work with ".add" files                 */
 /****************************************************************************/
 
-/* See if an "add file" file exists.  An add file lets the user create a prime.add or local.add file to overwrite/append options while the program is running. */
+/* See if an "add file" file exists.  An add file lets the user create a prime.add file to overwrite/append options while the program is running. */
 /* This is especially handy for workstations that are not physically accessible but their file systems are by network.  If this feature was not available, */
 /* the only safe method for updating would be to stop the program, edit the .txt file, and restart the program. */
 
@@ -1729,14 +1758,6 @@ int addFileExists (void)
 	char	*dot;
 
 	strcpy (filename, INI_FILE);
-	dot = strrchr (filename, '.');
-	if (dot != NULL) {
-		strcpy (dot, ".add");
-		if (fileExists (filename)) return (TRUE);
-		strcpy (dot, ".add.txt");
-		if (fileExists (filename)) return (TRUE);
-	}
-	strcpy (filename, LOCALINI_FILE);
 	dot = strrchr (filename, '.');
 	if (dot != NULL) {
 		strcpy (dot, ".add");
@@ -1765,19 +1786,6 @@ void incorporateIniAddFiles (void)
 		strcpy (dot, ".add.txt");
 		if (fileExists (filename))
 			IniAddFileMerge (INI_FILE, filename, NULL);
-	}
-
-/* Merge additions to local.txt */
-
-	strcpy (filename, LOCALINI_FILE);
-	dot = strrchr (filename, '.');
-	if (dot != NULL) {
-		strcpy (dot, ".add");
-		if (fileExists (filename))
-			IniAddFileMerge (LOCALINI_FILE, filename, NULL);
-		strcpy (dot, ".add.txt");
-		if (fileExists (filename))
-			IniAddFileMerge (LOCALINI_FILE, filename, NULL);
 	}
 }
 
@@ -1948,7 +1956,7 @@ void PTOSetAll (
 		array[i] = new_val;
 	}
 	if (shadow_keyword != NULL)
-		IniWriteInt (LOCALINI_FILE, shadow_keyword, new_val);
+		IniWriteInt (INI_FILE, shadow_keyword, new_val);
 
 /* Now clear all section specific overrides */
 
@@ -1956,7 +1964,7 @@ void PTOSetAll (
 		sprintf (section_name, "Worker #%d", i+1);
 		IniSectionWriteString (ini_filename, section_name, keyword, NULL);
 		if (shadow_keyword != NULL)
-			IniSectionWriteString (LOCALINI_FILE, section_name, shadow_keyword, NULL);
+			IniSectionWriteString (INI_FILE, section_name, shadow_keyword, NULL);
 	}
 }
 
@@ -1986,12 +1994,12 @@ void PTOSetOne (
 
 		IniWriteString (ini_filename, keyword, NULL);
 		if (shadow_keyword != NULL)
-			IniWriteString (LOCALINI_FILE, shadow_keyword, NULL);
+			IniWriteString (INI_FILE, shadow_keyword, NULL);
 		for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
 			sprintf (section_name, "Worker #%d", i+1);
 			IniSectionWriteInt (ini_filename, section_name, keyword, array[i]);
 			if (shadow_keyword != NULL)
-				IniSectionWriteInt (LOCALINI_FILE, section_name, shadow_keyword, array[i]);
+				IniSectionWriteInt (INI_FILE, section_name, shadow_keyword, array[i]);
 		}
 	}
 
@@ -2001,7 +2009,7 @@ void PTOSetOne (
 	sprintf (section_name, "Worker #%d", tnum+1);
 	IniSectionWriteInt (ini_filename, section_name, keyword, new_val);
 	if (shadow_keyword != NULL)
-		IniSectionWriteInt (LOCALINI_FILE, section_name, shadow_keyword, new_val);
+		IniSectionWriteInt (INI_FILE, section_name, shadow_keyword, new_val);
 }
 
 int PTOIsGlobalOption (
@@ -2027,14 +2035,14 @@ int PTOHasOptionChanged (
 
 	if (tnum == -1)
 		return (PTOIsGlobalOption (array) &&
-			array[0] != IniGetInt (LOCALINI_FILE, shadow_keyword, -1));
+			array[0] != IniGetInt (INI_FILE, shadow_keyword, -1));
 
 /* Otherwise, return TRUE if this is not a globally set option and it has changed. */
 
 	else {
 		sprintf (section_name, "Worker #%d", tnum+1);
 		return (!PTOIsGlobalOption (array) &&
-			array[tnum] != IniSectionGetInt (LOCALINI_FILE, section_name, shadow_keyword, -1));
+			array[tnum] != IniSectionGetInt (INI_FILE, section_name, shadow_keyword, -1));
 	}
 }
 
@@ -3900,8 +3908,8 @@ void rolling_average_work_unit_complete (
 
 /* Get current rolling average computation variables */
 
-	hash = IniGetInt (LOCALINI_FILE, "RollingHash", 0);
-	time_to_complete = IniGetInt (LOCALINI_FILE, "RollingCompleteTime", 0);
+	hash = IniGetInt (INI_FILE, "RollingHash", 0);
+	time_to_complete = IniGetInt (INI_FILE, "RollingCompleteTime", 0);
 
 /* Grab the lock so that other threads do not add or delete lines */
 /* while we are making this calculation. */
@@ -3940,8 +3948,8 @@ void rolling_average_work_unit_complete (
 
 /* Update the changed rolling average computation values */
 
-	IniWriteInt (LOCALINI_FILE, "RollingHash", hash);
-	IniWriteInt (LOCALINI_FILE, "RollingCompleteTime", time_to_complete);
+	IniWriteInt (INI_FILE, "RollingHash", hash);
+	IniWriteInt (INI_FILE, "RollingCompleteTime", time_to_complete);
 }
 
 /* Adjust the rolling average */
@@ -3986,13 +3994,13 @@ void adjust_rolling_average (void)
 
 /* Get the current time and starting time */
 
-	starting_time = IniGetInt (LOCALINI_FILE, "RollingStartTime", 0);
+	starting_time = IniGetInt (INI_FILE, "RollingStartTime", 0);
 	time (&current_time);
 
 /* Make sure hash codes match.  This protects us against making incorrect */
 /* rolling average adjustments when user manually edits worktodo.txt. */
 
-	if (hash != IniGetInt (LOCALINI_FILE, "RollingHash", 0))
+	if (hash != IniGetInt (INI_FILE, "RollingHash", 0))
 		goto no_update;
 
 /* Now compute the rolling average for this time period.  For example, if */
@@ -4002,7 +4010,7 @@ void adjust_rolling_average (void)
 
 	time_in_this_period = (unsigned long) (current_time - starting_time);
 	starting_time_to_complete =
-		IniGetInt (LOCALINI_FILE, "RollingCompleteTime", 0);
+		IniGetInt (INI_FILE, "RollingCompleteTime", 0);
 
 	/* Sanity checks for bogus time periods and completion estimates*/
 
@@ -4043,10 +4051,10 @@ void adjust_rolling_average (void)
 /* Update rolling average data in the local.txt file */
 
 no_update:
-	IniWriteInt (LOCALINI_FILE, "RollingHash", hash);
-	IniWriteInt (LOCALINI_FILE, "RollingStartTime", (unsigned long) current_time);
-	IniWriteInt (LOCALINI_FILE, "RollingCompleteTime", time_to_complete);
-	IniWriteInt (LOCALINI_FILE, "RollingAverage", ROLLING_AVERAGE);
+	IniWriteInt (INI_FILE, "RollingHash", hash);
+	IniWriteInt (INI_FILE, "RollingStartTime", (unsigned long) current_time);
+	IniWriteInt (INI_FILE, "RollingCompleteTime", time_to_complete);
+	IniWriteInt (INI_FILE, "RollingAverage", ROLLING_AVERAGE);
 }
 
 /* If a work_unit performed less work than estimated (say by unexpectedly */
@@ -4054,7 +4062,7 @@ no_update:
 
 void invalidateNextRollingAverageUpdate (void)
 {
-	IniWriteInt (LOCALINI_FILE, "RollingStartTime", 0);
+	IniWriteInt (INI_FILE, "RollingStartTime", 0);
 	adjust_rolling_average ();
 }
 
@@ -4789,7 +4797,7 @@ void set_comm_timers (void)
 /* Get the current time and when the completion dates were last sent */
 
 	time (&current_time);
-	last_time = IniGetInt (LOCALINI_FILE, "LastEndDatesSent", 0);
+	last_time = IniGetInt (INI_FILE, "LastEndDatesSent", 0);
 
 /* If it's been the correct number of days, then update the end dates */
 
@@ -5496,14 +5504,14 @@ int getProgramOptions (void)
 		if (pkt.priority != -1) {
 			PRIORITY = pkt.priority;
 			IniWriteInt (INI_FILE, "Priority", PRIORITY);
-			IniWriteInt (LOCALINI_FILE, "SrvrPO2", PRIORITY);
+			IniWriteInt (INI_FILE, "SrvrPO2", PRIORITY);
 			restart = TRUE;
 		}
 
 		if (pkt.daysOfWork != -1) {
 			DAYS_OF_WORK = pkt.daysOfWork;
 			IniWriteInt (INI_FILE, "DaysOfWork", DAYS_OF_WORK);
-			IniWriteInt (LOCALINI_FILE, "SrvrPO3", DAYS_OF_WORK);
+			IniWriteInt (INI_FILE, "SrvrPO3", DAYS_OF_WORK);
 		}
 
 		if (pkt.dayMemory != -1) {
@@ -5511,7 +5519,7 @@ int getProgramOptions (void)
 				day_memory = pkt.dayMemory;
 				mem_changed = TRUE;
 			}
-			IniWriteInt (LOCALINI_FILE, "SrvrPO4", day_memory);
+			IniWriteInt (INI_FILE, "SrvrPO4", day_memory);
 		}
 
 		if (pkt.nightMemory != -1) {
@@ -5519,7 +5527,7 @@ int getProgramOptions (void)
 				night_memory = pkt.nightMemory;
 				mem_changed = TRUE;
 			}
-			IniWriteInt (LOCALINI_FILE, "SrvrPO5", night_memory);
+			IniWriteInt (INI_FILE, "SrvrPO5", night_memory);
 		}
 
 		if (pkt.dayStartTime != -1) {
@@ -5527,7 +5535,7 @@ int getProgramOptions (void)
 				day_start_time = pkt.dayStartTime;
 				mem_changed = TRUE;
 			}
-			IniWriteInt (LOCALINI_FILE, "SrvrPO6", day_start_time);
+			IniWriteInt (INI_FILE, "SrvrPO6", day_start_time);
 		}
 
 		if (pkt.nightStartTime != -1) {
@@ -5535,20 +5543,20 @@ int getProgramOptions (void)
 				day_end_time = pkt.nightStartTime;
 				mem_changed = TRUE;
 			}
-			IniWriteInt (LOCALINI_FILE, "SrvrPO7", day_end_time);
+			IniWriteInt (INI_FILE, "SrvrPO7", day_end_time);
 		}
 
 		if (pkt.runOnBattery != -1) {
 			RUN_ON_BATTERY = pkt.runOnBattery;
 			IniWriteInt (INI_FILE, "RunOnBattery", RUN_ON_BATTERY);
-			IniWriteInt (LOCALINI_FILE, "SrvrPO8", RUN_ON_BATTERY);
+			IniWriteInt (INI_FILE, "SrvrPO8", RUN_ON_BATTERY);
 		}
 
 		if (pkt.num_workers != -1) {
 			if (pkt.num_workers > (int) (HW_NUM_THREADS)) pkt.num_workers = HW_NUM_THREADS;
 			NUM_WORKER_THREADS = pkt.num_workers;
-			IniWriteInt (LOCALINI_FILE, "WorkerThreads", NUM_WORKER_THREADS);
-			IniWriteInt (LOCALINI_FILE, "SrvrPO9", NUM_WORKER_THREADS);
+			IniWriteInt (INI_FILE, "WorkerThreads", NUM_WORKER_THREADS);
+			IniWriteInt (INI_FILE, "SrvrPO9", NUM_WORKER_THREADS);
 			restart = TRUE;
 		}
 		if (mem_readable && mem_changed)
@@ -5562,7 +5570,7 @@ int getProgramOptions (void)
 /* in the INI file.  If it is different we know we need to get the program */
 /* options from the server. */
 
-	IniWriteInt (LOCALINI_FILE, "SrvrP00", pkt.options_counter);
+	IniWriteInt (INI_FILE, "SrvrP00", pkt.options_counter);
 
 /* If memory settings, priority, num_workers, or run-on-battery changed, */
 /* then restart threads that may be affected by the change. */
@@ -5613,56 +5621,56 @@ int sendProgramOptions (
 
 		pkt.priority = -1;
 		if (tnum == -1 &&
-		    PRIORITY != IniGetInt (LOCALINI_FILE, "SrvrPO2", -1)) {
+		    PRIORITY != IniGetInt (INI_FILE, "SrvrPO2", -1)) {
 			pkt.priority = PRIORITY;
 			options_changed = TRUE;
 		}
 
 		pkt.daysOfWork = -1;
 		if (tnum == -1 &&
-		    DAYS_OF_WORK != IniGetInt (LOCALINI_FILE, "SrvrPO3", -1)) {
+		    DAYS_OF_WORK != IniGetInt (INI_FILE, "SrvrPO3", -1)) {
 			pkt.daysOfWork = DAYS_OF_WORK;
 			options_changed = TRUE;
 		}
 
 		pkt.dayMemory = -1;
 		if (tnum == -1 && mem_readable &&
-		    day_memory != IniGetInt (LOCALINI_FILE, "SrvrPO4", -1)) {
+		    day_memory != IniGetInt (INI_FILE, "SrvrPO4", -1)) {
 			pkt.dayMemory = day_memory;
 			options_changed = TRUE;
 		}
 
 		pkt.nightMemory = -1;
 		if (tnum == -1 && mem_readable &&
-		    night_memory != IniGetInt (LOCALINI_FILE, "SrvrPO5", -1)) {
+		    night_memory != IniGetInt (INI_FILE, "SrvrPO5", -1)) {
 			pkt.nightMemory = night_memory;
 			options_changed = TRUE;
 		}
 
 		pkt.dayStartTime = -1;
 		if (tnum == -1 && mem_readable &&
-		    day_start_time != IniGetInt (LOCALINI_FILE, "SrvrPO6", -1)) {
+		    day_start_time != IniGetInt (INI_FILE, "SrvrPO6", -1)) {
 			pkt.dayStartTime = day_start_time;
 			options_changed = TRUE;
 		}
 
 		pkt.nightStartTime = -1;
 		if (tnum == -1 && mem_readable &&
-		    day_end_time != IniGetInt (LOCALINI_FILE, "SrvrPO7", -1)) {
+		    day_end_time != IniGetInt (INI_FILE, "SrvrPO7", -1)) {
 			pkt.nightStartTime = day_end_time;
 			options_changed = TRUE;
 		}
 
 		pkt.runOnBattery = -1;
 		if (tnum == -1 &&
-		    RUN_ON_BATTERY != IniGetInt (LOCALINI_FILE, "SrvrPO8", -1)) {
+		    RUN_ON_BATTERY != IniGetInt (INI_FILE, "SrvrPO8", -1)) {
 			pkt.runOnBattery = RUN_ON_BATTERY;
 			options_changed = TRUE;
 		}
 
 		pkt.num_workers = -1;
 		if (tnum == -1 &&
-		    NUM_WORKER_THREADS != IniGetInt (LOCALINI_FILE, "SrvrPO9", -1)) {
+		    NUM_WORKER_THREADS != IniGetInt (INI_FILE, "SrvrPO9", -1)) {
 			pkt.num_workers = NUM_WORKER_THREADS;
 			options_changed = TRUE;
 		}
@@ -5678,9 +5686,8 @@ int sendProgramOptions (
 		if (rc) return (rc);
 		*talked_to_server = TRUE;
 
-/* Now save the shadow copy of the changed options in our LOCALINI file */
-/* so we can detect future changes to the program options (even if user */
-/* hand edits prime.txt!) */
+/* Now save the shadow copy of the changed options in our prime.txt file so we can detect future changes to the program */
+/* options (even if user hand edits prime.txt!) */
 
 		if (work_pref_changed) {
 			if (tnum == -1)
@@ -5689,16 +5696,16 @@ int sendProgramOptions (
 				PTOSetOne (INI_FILE, "WorkPreference", "SrvrPO1", WORK_PREFERENCE, tnum, WORK_PREFERENCE[tnum]);
 		}
 		if (tnum == -1) {
-			IniWriteInt (LOCALINI_FILE, "SrvrPO2", PRIORITY);
-			IniWriteInt (LOCALINI_FILE, "SrvrPO3", DAYS_OF_WORK);
+			IniWriteInt (INI_FILE, "SrvrPO2", PRIORITY);
+			IniWriteInt (INI_FILE, "SrvrPO3", DAYS_OF_WORK);
 			if (mem_readable) {
-				IniWriteInt (LOCALINI_FILE, "SrvrPO4", day_memory);
-				IniWriteInt (LOCALINI_FILE, "SrvrPO5", night_memory);
-				IniWriteInt (LOCALINI_FILE, "SrvrPO6", day_start_time);
-				IniWriteInt (LOCALINI_FILE, "SrvrPO7", day_end_time);
+				IniWriteInt (INI_FILE, "SrvrPO4", day_memory);
+				IniWriteInt (INI_FILE, "SrvrPO5", night_memory);
+				IniWriteInt (INI_FILE, "SrvrPO6", day_start_time);
+				IniWriteInt (INI_FILE, "SrvrPO7", day_end_time);
 			}
-			IniWriteInt (LOCALINI_FILE, "SrvrPO8", RUN_ON_BATTERY);
-			IniWriteInt (LOCALINI_FILE, "SrvrPO9", NUM_WORKER_THREADS);
+			IniWriteInt (INI_FILE, "SrvrPO8", RUN_ON_BATTERY);
+			IniWriteInt (INI_FILE, "SrvrPO9", NUM_WORKER_THREADS);
 		}
 
 /* Increment the options counter so that we can detect when the options */
@@ -5713,10 +5720,10 @@ int sendProgramOptions (
 /* protection from the INI file value somehow getting larger than the */
 /* returned od value - causing us to miss future web page updates). */
 
-		local_od = IniGetInt (LOCALINI_FILE, "SrvrP00", -1) + 1;
+		local_od = IniGetInt (INI_FILE, "SrvrP00", -1) + 1;
 		if (local_od > pkt.options_counter)
 			local_od = pkt.options_counter;
-		IniWriteInt (LOCALINI_FILE, "SrvrP00", local_od);
+		IniWriteInt (INI_FILE, "SrvrP00", local_od);
 	}
 	return (0);
 }
@@ -5761,7 +5768,7 @@ static	int	send_message_retry_count = 0;
 /* possibility, reread the computer name from the INI file. */
 
 	if (COMPID[0] == 0) {
-		IniGetString (LOCALINI_FILE, "ComputerID", COMPID, sizeof (COMPID), NULL);
+		IniGetString (INI_FILE, "ComputerID", COMPID, sizeof (COMPID), NULL);
 		sanitizeString (COMPID);
 	}
 
@@ -5885,12 +5892,12 @@ retry:
 		/* The spec says only send the UserID if it has changed. */
 		/* Rather than store the UID that we last sent to the server */
 		/* we store a hash value so the user is not tempted to hand edit it. */
-		server_uid = IniGetInt (LOCALINI_FILE, "SrvrUID", 0);
+		server_uid = IniGetInt (INI_FILE, "SrvrUID", 0);
 		if (string_to_hash (USERID) != server_uid)
 			strcpy (pkt.user_id, USERID);
 		/* The spec says only send the computer name if it changed */
 		/* Again store a hash value so the user won't hand edit the value */
-		server_computer_name = IniGetInt (LOCALINI_FILE, "SrvrComputerName", 0);
+		server_computer_name = IniGetInt (INI_FILE, "SrvrComputerName", 0);
 		if (string_to_hash (COMPID) != server_computer_name)
 			strcpy (pkt.computer_name, COMPID);
 		LOCKED_WORK_UNIT = NULL;
@@ -5899,10 +5906,10 @@ retry:
 		talked_to_server = TRUE;
 		strcpy (USERID, pkt.user_id);
 		IniWriteString (INI_FILE, "V5UserID", USERID);
-		IniWriteInt (LOCALINI_FILE, "SrvrUID", string_to_hash (USERID));
+		IniWriteInt (INI_FILE, "SrvrUID", string_to_hash (USERID));
 		strcpy (COMPID, pkt.computer_name);
-		IniWriteString (LOCALINI_FILE, "ComputerID", COMPID);
-		IniWriteInt (LOCALINI_FILE, "SrvrComputerName", string_to_hash (COMPID));
+		IniWriteString (INI_FILE, "ComputerID", COMPID);
+		IniWriteInt (INI_FILE, "SrvrComputerName", string_to_hash (COMPID));
 		server_options_counter = pkt.options_counter;
 	}
 
@@ -5914,7 +5921,7 @@ retry:
 //startup_in_progress code path?  What about options that came from a
 // copied prime.txt file - which take precedence?
 	if (server_options_counter == 1 &&
-	    server_options_counter > IniGetInt (LOCALINI_FILE, "SrvrP00", 0)) {
+	    server_options_counter > IniGetInt (INI_FILE, "SrvrP00", 0)) {
 		rc = getProgramOptions ();
 		if (rc) goto error_exit;
 		talked_to_server = TRUE;
@@ -5929,7 +5936,7 @@ retry:
 
 /* Finally get program options if they've been changed on the server. */
 
-	if (server_options_counter > IniGetInt (LOCALINI_FILE, "SrvrP00", 0)) {
+	if (server_options_counter > IniGetInt (INI_FILE, "SrvrP00", 0)) {
 		rc = getProgramOptions ();
 		if (rc) goto error_exit;
 		talked_to_server = TRUE;
@@ -6045,14 +6052,15 @@ retry:
 /* double-checks to process quick work that they believe is not part of GIMPS main purpose).  If the user is doing cofactor work, */
 /* then by all means default to getting cert work on PRP cofactor proofs. */
 
-	can_get_cert_work = (header_words[1] & HEADER_FLAG_WORK_QUEUE) && IniGetInt (LOCALINI_FILE, "CertWork", 1) && DAYS_OF_WORK > 0.0;
+	can_get_cert_work = (header_words[1] & HEADER_FLAG_WORK_QUEUE) && IniGetInt (INI_FILE, "CertWork", 1) && DAYS_OF_WORK > 0.0;
 	if (WELL_BEHAVED_WORK || SEQUENTIAL_WORK == 1) can_get_cert_work = FALSE;
+	if (!WORKER_THREADS_ACTIVE || WORKER_THREADS_STOPPING) can_get_cert_work = FALSE;
 	if (CPU_HOURS <= 12) can_get_cert_work = FALSE;
 	if (is_timed_event_active (TE_PAUSE_WHILE) || is_timed_event_active (TE_READ_PAUSE_DATA)) can_get_cert_work = FALSE;
 	if (can_get_cert_work) {
 		int	max_cert_assignments;
 		can_get_small_cert_work = FALSE;
-		max_cert_assignments = (IniGetInt (LOCALINI_FILE, "CertDailyCPULimit", 10) >= 50 ? 3 : 1);
+		max_cert_assignments = (IniGetInt (INI_FILE, "CertDailyCPULimit", 10) >= 50 ? 3 : 1);
 		for (tnum = 0; tnum < NUM_WORKER_THREADS; tnum++) {
 			struct work_unit *w;
 			for (w = NULL; ; ) {
@@ -6074,17 +6082,17 @@ retry:
 		float	days_since_last_update;
 
 		max_daily_MB_limit = (float) IniSectionGetInt (INI_FILE, "PrimeNet", "DownloadDailyLimit", 40); // Daily download limit in MB
-		max_daily_CPU_limit = (float) IniGetInt (LOCALINI_FILE, "CertDailyCPULimit", 10); // Cert Daily cpu limit (1.0 = 1% of 2015 quadcore)
+		max_daily_CPU_limit = (float) IniGetInt (INI_FILE, "CertDailyCPULimit", 10); // Cert Daily cpu limit (1.0 = 1% of 2015 quadcore)
 
-		daily_MB_limit_remaining = IniGetFloat (LOCALINI_FILE, "CertDailyMBRemaining", max_daily_MB_limit);
-		daily_CPU_limit_remaining = IniGetFloat (LOCALINI_FILE, "CertDailyCPURemaining", max_daily_CPU_limit);
+		daily_MB_limit_remaining = IniGetFloat (INI_FILE, "CertDailyMBRemaining", max_daily_MB_limit);
+		daily_CPU_limit_remaining = IniGetFloat (INI_FILE, "CertDailyCPURemaining", max_daily_CPU_limit);
 
 		// Calc how many days have elapsed since unused quotas (daily_MB_limit_remaining, daily_CPU_limit_remaining) were updated
 		time (&current_time);
-		last_update_time = IniGetInt (LOCALINI_FILE, "CertDailyRemainingLastUpdate", 0);
+		last_update_time = IniGetInt (INI_FILE, "CertDailyRemainingLastUpdate", 0);
 		days_since_last_update = (float) (current_time - last_update_time) / (float) 86400.0;
 		if (days_since_last_update < 0.0) days_since_last_update = 0.0;
-		IniWriteInt (LOCALINI_FILE, "CertDailyRemainingLastUpdate", (unsigned long) current_time);
+		IniWriteInt (INI_FILE, "CertDailyRemainingLastUpdate", (unsigned long) current_time);
 
 		// Increase remaining unused quotas based upon time elapsed since last update
 		daily_MB_limit_remaining += days_since_last_update * max_daily_MB_limit;
@@ -6093,8 +6101,8 @@ retry:
 		if (daily_CPU_limit_remaining > max_daily_CPU_limit) daily_CPU_limit_remaining = max_daily_CPU_limit;
 
 		// Save the updated quotas
-		IniWriteFloat (LOCALINI_FILE, "CertDailyMBRemaining", daily_MB_limit_remaining);
-		IniWriteFloat (LOCALINI_FILE, "CertDailyCPURemaining", daily_CPU_limit_remaining);
+		IniWriteFloat (INI_FILE, "CertDailyMBRemaining", daily_MB_limit_remaining);
+		IniWriteFloat (INI_FILE, "CertDailyCPURemaining", daily_CPU_limit_remaining);
 
 		// Disable getting cert work if either quota exceeded
 		if (daily_MB_limit_remaining <= 0.0 || daily_CPU_limit_remaining <= 0.0) can_get_cert_work = FALSE;
@@ -6156,7 +6164,7 @@ retry:
 /* be completed ASAP to free up the temp disk space they are using.  Actually, any work that is near done, the user might */
 /* be watching with anticipation for its completion. */
 
-		if (est == 0.0 && IniGetInt (LOCALINI_FILE, "CertDailyCPULimit", 10) < 50 &&
+		if (est == 0.0 && IniGetInt (INI_FILE, "CertDailyCPULimit", 10) < 50 &&
 		    (w->work_type == WORK_PMINUS1 || w->work_type == WORK_PFACTOR || w->work_type == WORK_ECM ||
 		     w->work_type == WORK_PPLUS1 || w->pct_complete > 0.85))
 			first_work_unit_interruptable = FALSE;
@@ -6256,11 +6264,12 @@ retry:
 
 	    if (header_words[1] & HEADER_FLAG_QUIT_GIMPS || IniGetInt (INI_FILE, "NoMoreWork", 0) || !USE_PRIMENET) continue;
 
-/* Occasionally get certification work from the server.  P-1 and ECM stage 2 may have significant costs with an interruption */
-/* to do priority work.  Also, lots of work_units is not a typical setup -- may indicate a large worktodo.txt file with high */
-/* costs reading and writing it.  Also, provide a method of limiting CERT work to one specific worker. */
+/* Occasionally get certification work from the server.  P-1 and ECM stage 2 may have significant costs with an interruption to do priority work. */
+/* Also, lots of work_units is not a typical setup -- may indicate a large worktodo.txt file with high costs reading and writing it.  Also, check */
+/* that this thread isn't stopped and provide a method of limiting CERT work to one specific worker. */
 
-	    if (can_get_cert_work && first_work_unit_interruptable && num_work_units < 20 && IniGetInt (LOCALINI_FILE, "CertWorker", tnum+1) == tnum+1) {
+	    if (can_get_cert_work && first_work_unit_interruptable && num_work_units < 20 && ACTIVE_WORKERS[tnum] &&
+		IniGetInt (INI_FILE, "CertWorker", tnum+1) == tnum+1) {
 		int	num_certs = 0;
 
 		can_get_cert_work = FALSE;	// Only one worker can get certification work
@@ -6276,10 +6285,10 @@ retry:
 			memset (&pkt1, 0, sizeof (pkt1));
 			strcpy (pkt1.computer_guid, COMPUTER_GUID);
 			pkt1.cpu_num = tnum;
-			pkt1.get_cert_work = IniGetInt (LOCALINI_FILE, "CertDailyCPULimit", 10); // Helps server decide cert exponent size
+			pkt1.get_cert_work = IniGetInt (INI_FILE, "CertDailyCPULimit", 10); // Helps server decide cert exponent size
 			if (pkt1.get_cert_work <= 0) pkt1.get_cert_work = 1;
-			pkt1.min_exp = IniGetInt (LOCALINI_FILE, "CertMinExponent", can_get_small_cert_work ? 0 : 50000000);
-			pkt1.max_exp = IniGetInt (LOCALINI_FILE, "CertMaxExponent", HW_NUM_CORES / NUM_WORKER_THREADS < 4 ? 200000000 : 0);
+			pkt1.min_exp = IniGetInt (INI_FILE, "CertMinExponent", can_get_small_cert_work ? 0 : 50000000);
+			pkt1.max_exp = IniGetInt (INI_FILE, "CertMaxExponent", HW_NUM_CORES / NUM_WORKER_THREADS < 4 ? 200000000 : 0);
 			LOCKED_WORK_UNIT = NULL;
 			rc = sendMessage (PRIMENET_GET_ASSIGNMENT, &pkt1);
 			// Ignore errors, we expect this work to only be available sometimes
@@ -6311,8 +6320,8 @@ retry:
 /* Update the daily cert quotas */
 
 			float	daily_MB_limit_remaining, daily_CPU_limit_remaining, daily_CPU_quota_used;
-			daily_MB_limit_remaining = IniGetFloat (LOCALINI_FILE, "CertDailyMBRemaining", 40.0);
-			daily_CPU_limit_remaining = IniGetFloat (LOCALINI_FILE, "CertDailyCPURemaining", 10.0);
+			daily_MB_limit_remaining = IniGetFloat (INI_FILE, "CertDailyMBRemaining", 40.0);
+			daily_CPU_limit_remaining = IniGetFloat (INI_FILE, "CertDailyCPURemaining", 10.0);
 
 			// Decrease remaining unused quotas based expected work required for this cert
 			// A daily CPU limit of 1.0 is equals 1% of the work a 2015 quad-core CPU can do in a day.
@@ -6323,8 +6332,8 @@ retry:
 			daily_CPU_limit_remaining -= daily_CPU_quota_used;
 
 			// Save the updated quotas
-			IniWriteFloat (LOCALINI_FILE, "CertDailyMBRemaining", daily_MB_limit_remaining);
-			IniWriteFloat (LOCALINI_FILE, "CertDailyCPURemaining", daily_CPU_limit_remaining);
+			IniWriteFloat (INI_FILE, "CertDailyMBRemaining", daily_MB_limit_remaining);
+			IniWriteFloat (INI_FILE, "CertDailyCPURemaining", daily_CPU_limit_remaining);
 
 			// If quotas exceeded, get no more cert assignments
 			if (daily_MB_limit_remaining <= 0.0 || daily_CPU_limit_remaining <= 0.0) break;
@@ -6335,11 +6344,11 @@ retry:
 
 			// Usually get one big cert at a time.  For users that want to lump their CERTs together (perhaps to reduce the number
 			// priority work interruptions), allow getting several certifications at a time.
-			if (num_certs < IniGetInt (LOCALINI_FILE, "CertQuantity", 1)) continue;
+			if (num_certs < IniGetInt (INI_FILE, "CertQuantity", 1)) continue;
 
 			// Usually get one big cert at a time.  For the rare user that wants to do lots of certifications (they set cert CPU
 			// percentage above 50%) let them get several.
-			if (IniGetInt (LOCALINI_FILE, "CertDailyCPULimit", 10) < 50) break;
+			if (IniGetInt (INI_FILE, "CertDailyCPULimit", 10) < 50) break;
 		}
 	    }
 
@@ -6356,8 +6365,8 @@ retry:
 		strcpy (pkt1.computer_guid, COMPUTER_GUID);
 		pkt1.cpu_num = tnum;
 		pkt1.temp_disk_space = CPU_WORKER_DISK_SPACE;
-		pkt1.min_exp = IniGetInt (LOCALINI_FILE, "GetMinExponent", 0);
-		pkt1.max_exp = IniGetInt (LOCALINI_FILE, "GetMaxExponent", 0);
+		pkt1.min_exp = IniGetInt (INI_FILE, "GetMinExponent", 0);
+		pkt1.max_exp = IniGetInt (INI_FILE, "GetMaxExponent", 0);
 		LOCKED_WORK_UNIT = NULL;
 		rc = sendMessage (PRIMENET_GET_ASSIGNMENT, &pkt1);
 		if (rc) goto error_exit;
@@ -6512,7 +6521,7 @@ retry:
 	else if (header_words[1] & HEADER_FLAG_END_DATES) {
 		time_t current_time;
 		time (&current_time);
-		IniWriteInt (LOCALINI_FILE, "LastEndDatesSent", (long) current_time);
+		IniWriteInt (INI_FILE, "LastEndDatesSent", (long) current_time);
 		if (!MANUAL_COMM)
 			add_timed_event (TE_COMPLETION_DATES, (int) (DAYS_BETWEEN_CHECKINS * 86400.0));
 	}
@@ -6558,8 +6567,7 @@ error_exit:
 /* command to get the current userid value from the server. */
 
 	if (rc == PRIMENET_ERROR_INVALID_USER) {
-		IniGetString (LOCALINI_FILE, "SrvrUID",
-			      USERID, sizeof (USERID), NULL);
+		IniGetString (INI_FILE, "SrvrUID", USERID, sizeof (USERID), NULL);
 		spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
 		if (retry_count++ < 10) goto retry;
 		OutputStr (COMM_THREAD_NUM, RETRY_EXCEEDED);
@@ -6884,12 +6892,12 @@ void timed_events_scheduler (void *arg)
 						     HW_NUM_CORES >= 3 ? 8.0 :		/* 3-6 cores = 8 hours */
 						     HW_NUM_CORES >= 2 ? 12.0 : 24.0);	/* 2 cores = 12 hours, 1 core = 24 hours */
 				// Serious CERT volunteers check every half hour
-				if (IniGetInt (LOCALINI_FILE, "CertDailyCPULimit", 10) >= 50) cert_freq = 0.5;
+				if (IniGetInt (INI_FILE, "CertDailyCPULimit", 10) >= 50) cert_freq = 0.5;
 				// Let user pick their own CERT frequency (in hours).  Minimum is 15 minutes.
-				cert_freq = IniGetFloat (LOCALINI_FILE, "CertGetFrequency", cert_freq);
+				cert_freq = IniGetFloat (INI_FILE, "CertGetFrequency", cert_freq);
 				if (cert_freq < 0.25) cert_freq = 0.25;
 				// If CERT work is disabled, check regular work queue every 8 hours
-				if (!IniGetInt (LOCALINI_FILE, "CertWork", 1)) cert_freq = 8.0;
+				if (!IniGetInt (INI_FILE, "CertWork", 1)) cert_freq = 8.0;
 				// Set timer (convert frequency from hours to seconds)
 				timed_events[i].time_to_fire = this_time + (int) (cert_freq * 3600.0);
 				spoolMessage (MSG_CHECK_WORK_QUEUE, NULL);
