@@ -1315,10 +1315,13 @@ int isProbablePrime (
 // From Alex Kruppa, master of all things ECM, the following formula computes the value of a curve when using B2 values that are not 100 * B1.
 // curve_worth = 0.11 + 0.89 * (log10(B2 / B1) / 2) ^ 1.5
 // B2 = B1 * 10 ^ ((((curve_worth - 0.11) / 0.89) ^ (1 / 1.5)) * 2)
+// 2023:  Adjusting formula based on research done with gmp-ecm 6.04 on various B1/B2 values
+// power = 1.96617 - 0.06781 * log10(B1)
+// curve_worth = 0.11343 + 0.88657 * (log10(B2 / B1) / 2) ^ power
 
-#define kruppa_adjust_ratio(B2B1ratio)	(0.11 + 0.89 * pow (_log10(B2B1ratio) / 2.0, 1.5))
-#define kruppa_adjust(B2,B1)		kruppa_adjust_ratio ((double)(B2) / (double)(B1))
-#define kruppa_unadjust(worth,B1)	(uint64_t) round((B1) * pow (10.0, pow (((worth) - 0.11) / 0.89, 1.0 / 1.5) * 2))
+#define kruppa_power(B1)		(1.96617 - 0.06781 * _log10((double)(B1)))
+#define kruppa_adjust(B2,B1)		(0.11343 + 0.88657 * pow (_log10((double)(B2) / (double)(B1)) / 2.0, kruppa_power (B1)))
+#define kruppa_unadjust(worth,B1)	(uint64_t) round((B1) * pow (10.0, pow (((worth) - 0.11343) / 0.88657, 1.0 / kruppa_power (B1)) * 2.0))
 
 /* When a pairmap completes, we know that all relocatable primes that could be relocated to that pairmap are processed. */
 /* Calculate the new first prime that needs relocating. */
@@ -4391,13 +4394,16 @@ void ecm_choose_B2 (
 
 // From Alex Kruppa, master of all things ECM, the following formula compensates for using B2 values that are not 100 * B1.
 // curve_worth = 0.11 + 0.89 * (log10(B2 / B1) / 2) ^ 1.5
+// 2023:  Adjusting formula based on research done with gmp-ecm 6.04 on various B1/B2 values
+// power = 1.96617 - 0.06781 * log10(B1)
+// curve_worth = 0.11343 + 0.88657 * (log10(B2 / B1) / 2) ^ power
 
 	max_B2mult = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", (int) (numvals < 100000 ? numvals * 100 : 10000000));
 #define kruppa(x,B2mult)	x.i = B2mult; \
 				if (x.i > max_B2mult) x.i = max_B2mult; \
 				ecmdata->C = x.i * ecmdata->B; \
 				B2_cost = ecm_stage2_impl_given_numvals (ecmdata, numvals, forced_stage2_type, &cost_data); \
-				x.efficiency = kruppa_adjust_ratio (x.i) / (B1_cost + B2_cost + cost_data.gcd_cost);
+				x.efficiency = kruppa_adjust (ecmdata->C, ecmdata->B) / (B1_cost + B2_cost + cost_data.gcd_cost);
 
 // The cost of B1 (in FFTs) is about 25.48 * B1 (measured at 25.42 for B1=50000, 25.53 for B1=250000).
 
@@ -5473,7 +5479,7 @@ if (w->n == 604) {
 
 	gwinit (&ecmdata.gwdata);
 	gwset_sum_inputs_checking (&ecmdata.gwdata, SUM_INPUTS_ERRCHK);
-	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
+	if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&ecmdata.gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&ecmdata.gwdata, 2);
 	gwset_bench_cores (&ecmdata.gwdata, HW_NUM_CORES);
@@ -5992,7 +5998,7 @@ OutputStr (thread_num, buf); }
 			gwinit (&ecmdata.gwdata);
 			if (next_fftlen != best_fftlen) gwset_information_only (&ecmdata.gwdata);
 			gwset_sum_inputs_checking (&ecmdata.gwdata, SUM_INPUTS_ERRCHK);
-			if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
+			if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
 			if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&ecmdata.gwdata);
 			if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&ecmdata.gwdata, 2);
 			gwset_bench_cores (&ecmdata.gwdata, HW_NUM_CORES);
@@ -7924,7 +7930,7 @@ more_curves:
 			gwdone (&ecmdata.gwdata);
 			gwinit (&ecmdata.gwdata);
 			gwset_sum_inputs_checking (&ecmdata.gwdata, SUM_INPUTS_ERRCHK);
-			if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
+			if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
 			if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&ecmdata.gwdata);
 			if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&ecmdata.gwdata, 2);
 			gwset_bench_cores (&ecmdata.gwdata, HW_NUM_CORES);
@@ -9675,7 +9681,7 @@ restart:
 
 	gwinit (&pm1data.gwdata);
 	gwset_sum_inputs_checking (&pm1data.gwdata, SUM_INPUTS_ERRCHK);
-	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pm1data.gwdata);
+	if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pm1data.gwdata);
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pm1data.gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&pm1data.gwdata, 2);
 	gwset_bench_cores (&pm1data.gwdata, HW_NUM_CORES);
@@ -10396,7 +10402,7 @@ OutputStr (thread_num, buf); }
 			gwinit (&pm1data.gwdata);
 			if (next_fftlen != best_fftlen) gwset_information_only (&pm1data.gwdata);
 			gwset_sum_inputs_checking (&pm1data.gwdata, SUM_INPUTS_ERRCHK);
-			if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pm1data.gwdata);
+			if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pm1data.gwdata);
 			if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pm1data.gwdata);
 			if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&pm1data.gwdata, 2);
 			gwset_bench_cores (&pm1data.gwdata, HW_NUM_CORES);
@@ -13395,7 +13401,7 @@ restart:
 
 	gwinit (&pp1data.gwdata);
 	gwset_sum_inputs_checking (&pp1data.gwdata, SUM_INPUTS_ERRCHK);
-	if (IniGetInt (LOCALINI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pp1data.gwdata);
+	if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pp1data.gwdata);
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pp1data.gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&pp1data.gwdata, 2);
 	gwset_bench_cores (&pp1data.gwdata, HW_NUM_CORES);
