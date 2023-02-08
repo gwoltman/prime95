@@ -4487,7 +4487,7 @@ double ecm_stage2_impl (
 	numvals = cvt_mem_to_array_gwnums_adj (&ecmdata->gwdata, memory, 0.0);
 	if (numvals < 13) numvals = 13;
 
-/* Set first_relocatable for future best_stage2_impl calls. */
+/* Set first_relocatable for future best_stage2_impl calls that cost prime pairing. */
 /* Override B2 with optimal B2 based on amount of memory available. */
 
 	if (ecmdata->state == ECM_STATE_MIDSTAGE) {
@@ -4495,6 +4495,10 @@ double ecm_stage2_impl (
 		ecmdata->first_relocatable = ecmdata->B;
 		ecmdata->last_relocatable = 0;
 		if (ecmdata->optimal_B2) ecm_choose_B2 (ecmdata, numvals, forced_stage2_type, msgbuf + strlen (msgbuf));
+	}
+	if (ecmdata->state >= ECM_STATE_STAGE2 && ecmdata->stage2_type == ECM_STAGE2_POLYMULT) {
+		ecmdata->first_relocatable = ecmdata->C_done > ecmdata->B ? ecmdata->C_done : ecmdata->B;
+		ecmdata->last_relocatable = 0;
 	}
 
 /* If are continuing from a save file that was in stage 2, check to see if we currently have enough memory to continue with the save file's */
@@ -9294,7 +9298,7 @@ double pm1_stage2_impl (
 	if (numvals < 8) numvals = 8;
 	if (QA_TYPE) numvals = QA_TYPE;			/* Optionally override numvals for QA purposes */
 
-/* Set first_relocatable for future best_stage2_impl calls. */
+/* Set first_relocatable for future best_stage2_impl calls that cost prime pairing. */
 /* Override B2 with optimal B2 based on amount of memory available. */
 
 	if (pm1data->state == PM1_STATE_MIDSTAGE) {
@@ -9306,6 +9310,10 @@ double pm1_stage2_impl (
 			pm1data->first_relocatable = pm1data->C_done;
 			pm1data->last_relocatable = 0;
 		}
+	}
+	if (pm1data->state >= PM1_STATE_STAGE2 && pm1data->stage2_type == PM1_STAGE2_POLYMULT) {
+		pm1data->first_relocatable = pm1data->C_done > pm1data->B ? pm1data->C_done : pm1data->B;
+		pm1data->last_relocatable = 0;
 	}
 
 /* If are continuing from a save file that was in stage 2, check to see if we currently have enough memory to continue with the save file's */
