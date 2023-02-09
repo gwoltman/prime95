@@ -112,7 +112,7 @@ err:	_close (fd);
 /* Do a PRP proof certification */
 
 int cert (
-	int	thread_num,		/* Worker thread number */
+	int	thread_num,		/* Worker number */
 	struct PriorityInfo *sp_info,	/* SetPriority information */
 	struct work_unit *w,		/* Worktodo entry */
 	int	pass)			/* PrimeContinue pass */
@@ -165,7 +165,7 @@ int cert (
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&cs.gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&cs.gwdata, 2);
 	gwset_bench_cores (&cs.gwdata, HW_NUM_CORES);
-	gwset_bench_workers (&cs.gwdata, NUM_WORKER_THREADS);
+	gwset_bench_workers (&cs.gwdata, NUM_WORKERS);
 	if (ERRCHK) gwset_will_error_check (&cs.gwdata);
 	else gwset_will_error_check_near_limit (&cs.gwdata);
 	gwset_num_threads (&cs.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));

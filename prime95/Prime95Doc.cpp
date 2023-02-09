@@ -44,8 +44,8 @@ IMPLEMENT_DYNCREATE(CPrime95Doc, CDocument)
 BEGIN_MESSAGE_MAP(CPrime95Doc, CDocument)
 	//{{AFX_MSG_MAP(CPrime95Doc)
 	ON_COMMAND(IDM_PRIMENET, OnPrimenet)
-	ON_UPDATE_COMMAND_UI(IDM_WORKER_THREADS, OnUpdateWorkerThreads)
-	ON_COMMAND(IDM_WORKER_THREADS, OnWorkerThreads)
+	ON_UPDATE_COMMAND_UI(IDM_WORKERS, OnUpdateWorkers)
+	ON_COMMAND(IDM_WORKERS, OnWorkers)
 	ON_UPDATE_COMMAND_UI(IDM_CONTINUE_SWITCHER, OnUpdateContinueSwitcher)
 	ON_COMMAND(IDM_CONTINUE_SWITCHER, OnContinueSwitcher)
 	ON_COMMAND(IDM_CONTINUE, OnContinue)
@@ -164,9 +164,9 @@ void CPrime95Doc::OnCloseDocument()
 
 // Stop background threads before exiting
 
-	if (WORKER_THREADS_ACTIVE) {
+	if (WORKERS_ACTIVE) {
 		OnStop ();
-		while (WORKER_THREADS_STOPPING) Sleep (50);
+		while (WORKERS_STOPPING) Sleep (50);
 	}
 
 // Remember the main window's size and position
@@ -207,7 +207,7 @@ void CPrime95Doc::OnPrimenet()
 	int	update_computer_info, primenet_debug;
 
 	update_computer_info = FALSE;
-	primenet_debug = IniSectionGetInt (INI_FILE, "PrimeNet", "Debug", 0);
+	primenet_debug = IniSectionGetInt (INI_FILE, SEC_PrimeNet, KEY_Debug, 0);
 
 	PrimenetDlg dlg;
 	char	szProxyHost[120], szProxyUser[50], szProxyPassword[50];
@@ -234,14 +234,14 @@ void CPrime95Doc::OnPrimenet()
 		strcpy (szProxyHost, (const char *) dlg.m_proxyhost);
 		if (szProxyHost[0] && dlg.m_proxyport != 8080)
 			sprintf (szProxyHost + strlen (szProxyHost), ":%d", dlg.m_proxyport);
-		IniSectionWriteString (INI_FILE, "PrimeNet", "ProxyHost", szProxyHost);
-		IniSectionWriteString (INI_FILE, "PrimeNet", "ProxyUser", dlg.m_proxyuser);
+		IniSectionWriteString (INI_FILE, SEC_PrimeNet, KEY_ProxyHost, szProxyHost);
+		IniSectionWriteString (INI_FILE, SEC_PrimeNet, KEY_ProxyUser, dlg.m_proxyuser);
 		if (strcmp (szProxyPassword, dlg.m_proxypassword)) {
-			IniSectionWriteString (INI_FILE, "PrimeNet", "ProxyPass", dlg.m_proxypassword);
-			IniSectionWriteInt (INI_FILE, "PrimeNet", "ProxyMask", 0);
+			IniSectionWriteString (INI_FILE, SEC_PrimeNet, KEY_ProxyPass, dlg.m_proxypassword);
+			IniSectionWriteInt (INI_FILE, SEC_PrimeNet, KEY_ProxyMask, 0);
 		}
 		if (!dlg.m_debug != !primenet_debug) {
-			IniSectionWriteInt (INI_FILE, "PrimeNet", "Debug", dlg.m_debug ? 1 : 0);
+			IniSectionWriteInt (INI_FILE, SEC_PrimeNet, KEY_Debug, dlg.m_debug ? 1 : 0);
 		}
 
 		if (dlg.m_userid[0] == 0)
@@ -310,18 +310,18 @@ void CPrime95Doc::OnQuitGimps()
 	}
 }
 
-void CPrime95Doc::OnUpdateWorkerThreads(CCmdUI* pCmdUI) 
+void CPrime95Doc::OnUpdateWorkers(CCmdUI* pCmdUI) 
 {
 	pCmdUI->Enable (1);
 }
 
-void CPrime95Doc::OnWorkerThreads() 
+void CPrime95Doc::OnWorkers() 
 {
 	CWorkerDlg dlg;
 	int	i;
 
-	dlg.m_num_workers = NUM_WORKER_THREADS;
-	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
+	dlg.m_num_workers = NUM_WORKERS;
+	for (i = 0; i < MAX_NUM_WORKERS; i++) {
 		dlg.m_work_pref[i] = WORK_PREFERENCE[i];
 		dlg.m_numcpus[i] = CORES_PER_TEST[i];
 	}
@@ -369,9 +369,9 @@ again:	if (dlg.DoModal () == IDOK) {
 
 /* If user changed the number of workers, then make the necessary changes.  Restart workers so that we are running the correct number of workers. */
 
-		if (dlg.m_num_workers != NUM_WORKER_THREADS) {
-			NUM_WORKER_THREADS = dlg.m_num_workers;
-			IniWriteInt (INI_FILE, "WorkerThreads", NUM_WORKER_THREADS);
+		if (dlg.m_num_workers != NUM_WORKERS) {
+			NUM_WORKERS = dlg.m_num_workers;
+			IniWriteInt (INI_FILE, "WorkerThreads", NUM_WORKERS);
 			new_options = TRUE;
 			restart = TRUE;
 		}
@@ -384,7 +384,7 @@ again:	if (dlg.DoModal () == IDOK) {
 				new_options = TRUE;
 			}
 		} else {
-			for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+			for (i = 0; i < (int) NUM_WORKERS; i++) {
 				if (WORK_PREFERENCE[i] == dlg.m_work_pref[i]) continue;
 				PTOSetOne (INI_FILE, "WorkPreference", NULL, WORK_PREFERENCE, i, dlg.m_work_pref[i]);
 				new_options = TRUE;
@@ -395,7 +395,7 @@ again:	if (dlg.DoModal () == IDOK) {
 
 		if (dlg.AreAllTheSame (dlg.m_numcpus))
 			PTOSetAll (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, dlg.m_numcpus[0]);
-		else for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
+		else for (i = 0; i < (int) NUM_WORKERS; i++)
 			PTOSetOne (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, dlg.m_numcpus[i]);
 
 /* Write the new CertWork setting */
@@ -406,9 +406,8 @@ again:	if (dlg.DoModal () == IDOK) {
 
 		if (new_options) spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);
 
-/* Restart worker threads with new options.  Since Windows must create */
-/* worker windows in the main thread, the routine we call will do that */
-/* if there are now more worker threads. */
+/* Restart workers with new options.  Since Windows must create worker windows in the main thread, the routine we call will do that */
+/* if there are now more workers. */
 
 		if (restart) stop_workers_for_restart ();
 	} else
@@ -422,16 +421,16 @@ void CPrime95Doc::OnRangeStatus()
 
 void CPrime95Doc::OnUpdateContinueSwitcher(CCmdUI* pCmdUI) 
 {
-	pCmdUI->SetText (((!WORKER_THREADS_ACTIVE && NUM_WORKER_THREADS > 1) ||
-			  (WORKER_THREADS_ACTIVE && active_workers_count () != WORKER_THREADS_ACTIVE - 1)) ? "&Continue..." : "&Continue");
-	pCmdUI->Enable ((!WORKER_THREADS_ACTIVE && (USE_PRIMENET || WORKTODO_COUNT)) ||
-			(WORKER_THREADS_ACTIVE && active_workers_count () != WORKER_THREADS_ACTIVE));
+	pCmdUI->SetText (((!WORKERS_ACTIVE && NUM_WORKERS > 1) ||
+			  (WORKERS_ACTIVE && active_workers_count () != WORKERS_ACTIVE - 1)) ? "&Continue..." : "&Continue");
+	pCmdUI->Enable ((!WORKERS_ACTIVE && (USE_PRIMENET || WORKTODO_COUNT)) ||
+			(WORKERS_ACTIVE && active_workers_count () != WORKERS_ACTIVE));
 }
 
 void CPrime95Doc::OnContinueSwitcher() 
 {
-	if ((!WORKER_THREADS_ACTIVE && NUM_WORKER_THREADS > 1) ||
-	    (WORKER_THREADS_ACTIVE && active_workers_count () != WORKER_THREADS_ACTIVE - 1)) {
+	if ((!WORKERS_ACTIVE && NUM_WORKERS > 1) ||
+	    (WORKERS_ACTIVE && active_workers_count () != WORKERS_ACTIVE - 1)) {
 		// Start the dialog box
 		CStartDlg dlg;
 
@@ -439,7 +438,7 @@ void CPrime95Doc::OnContinueSwitcher()
 			if (dlg.m_all_workers)
 				OnContinue ();
 			else
-				LaunchWorkerThreads (dlg.m_worker-1, FALSE);
+				LaunchWorkers (dlg.m_worker-1, FALSE);
 		}
 	} else {
 		// Start the thread
@@ -450,14 +449,14 @@ void CPrime95Doc::OnContinueSwitcher()
 void CPrime95Doc::OnContinue() 
 {
 	// Start the threads
-	LaunchWorkerThreads (ALL_WORKERS, FALSE);
+	LaunchWorkers (ALL_WORKERS, FALSE);
 }
 
 void CPrime95Doc::OnUpdateStopSwitcher(CCmdUI* pCmdUI) 
 {
 	// Set text to "Stop..." if multiple workers or torture threads are running
 	pCmdUI->SetText (active_workers_count () > 1 ? "St&op..." : "St&op");
-	pCmdUI->Enable (WORKER_THREADS_ACTIVE && !WORKER_THREADS_STOPPING);
+	pCmdUI->Enable (WORKERS_ACTIVE && !WORKERS_STOPPING);
 }
 
 void CPrime95Doc::OnStopSwitcher() 
@@ -503,7 +502,7 @@ void CPrime95Doc::OnTest()
 		w.n = dlg.m_p;
 		w.c = -1;
 		addWorkToDoLine (dlg.m_worker - 1, &w);
-		if (WORKER_THREADS_ACTIVE)
+		if (WORKERS_ACTIVE)
 			stop_worker_for_advanced_test (dlg.m_worker - 1);
 		else
 			OnContinue ();
@@ -512,7 +511,7 @@ void CPrime95Doc::OnTest()
 
 void CPrime95Doc::OnUpdateTime(CCmdUI* pCmdUI) 
 {
-	pCmdUI->Enable (!WORKER_THREADS_STOPPING);
+	pCmdUI->Enable (!WORKERS_STOPPING);
 }
 
 void CPrime95Doc::OnTime() 
@@ -553,10 +552,9 @@ void CPrime95Doc::OnPminus1()
 		w.B2 = dlg.m_bound2;
 		addWorkToDoLine (dlg.m_worker - 1, &w);
 
-/* If worker threads are running, adding the work should have restarted */
-/* threads waiting for work.  Otherwise, start the worker threads. */
+/* If workers are running, adding the work should have restarted threads waiting for work.  Otherwise, start the workers. */
 
-		if (!WORKER_THREADS_ACTIVE) OnContinue ();
+		if (!WORKERS_ACTIVE) OnContinue ();
 	}
 }
 
@@ -588,10 +586,9 @@ void CPrime95Doc::OnEcm()
 		w.curves_to_do = dlg.m_num_curves;
 		addWorkToDoLine (dlg.m_worker - 1, &w);
 
-/* If worker threads are running, adding the work should have restarted */
-/* threads waiting for work.  Otherwise, start the worker threads. */
+/* If workers are running, adding the work should have restarted threads waiting for work.  Otherwise, start the workers. */
 
-		if (!WORKER_THREADS_ACTIVE) OnContinue ();
+		if (!WORKERS_ACTIVE) OnContinue ();
 	}
 }
 
@@ -654,7 +651,6 @@ void CPrime95Doc::OnCpu()
 	dlg.m_hours = CPU_HOURS;
 	getCpuDescription (buf, 0);
 	dlg.m_cpu_info = buf;
-//again:
 	if (dlg.DoModal () == IDOK) {
 
 		if (CPU_HOURS != dlg.m_hours) {
@@ -667,15 +663,6 @@ void CPrime95Doc::OnCpu()
 			delete_timed_event (TE_COMM_SERVER);
 			UpdateEndDates ();
 		}
-
-// Now that Primenet almost always hands out LL assignments that are P-1'ed,
-// there is little reason to prompt user into allowing us to use more memory.
-//		if (!IniGetInt (INI_FILE, "AskedAboutMemory", 0)) {
-//			IniWriteInt (INI_FILE, "AskedAboutMemory", 1);
-//			if (dlg.m_day_memory == 8 && dlg.m_night_memory == 8 &&
-//			    AfxMessageBox (MSG_MEMORY, MB_YESNO | MB_ICONQUESTION) == IDYES)
-//				goto again;
-//		}
 	} else
 		STARTUP_IN_PROGRESS = 0;
 }
@@ -696,16 +683,16 @@ void CPrime95Doc::OnResources()
 	dlg.m_start_time = timebuf;
 	minutesToStr (day_end_time, timebuf);
 	dlg.m_end_time = timebuf;
-	dlg.m_upload_bandwidth = IniSectionGetFloat (INI_FILE, "PrimeNet", "UploadRateLimit", 0.25);
+	dlg.m_upload_bandwidth = IniSectionGetFloat (INI_FILE, SEC_PrimeNet, KEY_UploadRateLimit, 0.25);
 	if (dlg.m_upload_bandwidth <= 0.0 || dlg.m_upload_bandwidth > 10000.0) dlg.m_upload_bandwidth = 10000.0;
-	IniSectionGetString (INI_FILE, "PrimeNet", "UploadStartTime", timebuf, sizeof (timebuf), "00:00");
+	IniSectionGetString (INI_FILE, SEC_PrimeNet, KEY_UploadStartTime, timebuf, sizeof (timebuf), "00:00");
 	if (strcmp (timebuf, "00:00") != 0) minutesToStr (strToMinutes (timebuf), timebuf);
 	dlg.m_upload_start = timebuf;
-	IniSectionGetString (INI_FILE, "PrimeNet", "UploadEndTime", timebuf, sizeof (timebuf), "24:00");
+	IniSectionGetString (INI_FILE, SEC_PrimeNet, KEY_UploadEndTime, timebuf, sizeof (timebuf), "24:00");
 	if (strcmp (timebuf, "24:00") != 0) minutesToStr (strToMinutes (timebuf), timebuf);
 	dlg.m_upload_end = timebuf;
-	dlg.m_download_mb = IniSectionGetInt (INI_FILE, "PrimeNet", "DownloadDailyLimit", 40);
-	dlg.m_can_upload = IniSectionGetInt (INI_FILE, "PrimeNet", "ProofUploads", 1);
+	dlg.m_download_mb = IniSectionGetInt (INI_FILE, SEC_PrimeNet, KEY_DownloadDailyLimit, 40);
+	dlg.m_can_upload = IniSectionGetInt (INI_FILE, SEC_PrimeNet, KEY_ProofUploads, 1);
 	if (dlg.DoModal () == IDOK) {
 		unsigned int new_day_start_time, new_day_end_time;
 
@@ -731,10 +718,10 @@ void CPrime95Doc::OnResources()
 
 /* Write bandwidth settings */
 
-		IniSectionWriteFloat (INI_FILE, "PrimeNet", "UploadRateLimit", dlg.m_upload_bandwidth);
-		IniSectionWriteString (INI_FILE, "PrimeNet", "UploadStartTime", (const char *) dlg.m_upload_start);
-		IniSectionWriteString (INI_FILE, "PrimeNet", "UploadEndTime", (const char *) dlg.m_upload_end);
-		IniSectionWriteInt (INI_FILE, "PrimeNet", "DownloadDailyLimit", dlg.m_download_mb);
+		IniSectionWriteFloat (INI_FILE, SEC_PrimeNet, KEY_UploadRateLimit, dlg.m_upload_bandwidth);
+		IniSectionWriteString (INI_FILE, SEC_PrimeNet, KEY_UploadStartTime, (const char *) dlg.m_upload_start);
+		IniSectionWriteString (INI_FILE, SEC_PrimeNet, KEY_UploadEndTime, (const char *) dlg.m_upload_end);
+		IniSectionWriteInt (INI_FILE, SEC_PrimeNet, KEY_DownloadDailyLimit, dlg.m_download_mb);
 		gwevent_signal (&PROOF_UPLOAD_EVENT);		/* Trigger proof uploader in case upload start or end time changed */
 	}
 }
@@ -783,7 +770,7 @@ void CPrime95Doc::OnPreferences()
 
 void CPrime95Doc::OnUpdateBenchmark(CCmdUI* pCmdUI) 
 {
-	pCmdUI->Enable (!WORKER_THREADS_STOPPING);
+	pCmdUI->Enable (!WORKERS_STOPPING);
 }
 
 void CPrime95Doc::OnBenchmark() 
@@ -811,7 +798,7 @@ void CPrime95Doc::OnBenchmark()
 	// Otherwise, assume user is trying to figure out how many workers to run and form a string
 	// with the most common best values for number of workers: 1, num_threading_nodes, num_cores, num_workers
 	numvals = 0;
-	sorted_add_unique (vals, &numvals, NUM_WORKER_THREADS);
+	sorted_add_unique (vals, &numvals, NUM_WORKERS);
 	if (!dlg.m_all_FFT_impl) {
 		sorted_add_unique (vals, &numvals, 1);
 		sorted_add_unique (vals, &numvals, HW_NUM_THREADING_NODES);
@@ -842,7 +829,7 @@ void CPrime95Doc::OnBenchmark()
 
 void CPrime95Doc::OnUpdateTorture(CCmdUI* pCmdUI)
 {
-	pCmdUI->Enable (!WORKER_THREADS_STOPPING);
+	pCmdUI->Enable (!WORKERS_STOPPING);
 }
 
 void CPrime95Doc::OnTorture() 
@@ -1039,7 +1026,7 @@ void CPrime95Doc::OnMergeMain()
 
 void CPrime95Doc::OnUpdateMergeComm(CCmdUI* pCmdUI)
 {
-	pCmdUI->SetText (NUM_WORKER_THREADS == 1 ?
+	pCmdUI->SetText (NUM_WORKERS == 1 ?
 				"Merge Main && Comm && &Worker" :
 			 MERGE_WINDOWS & MERGE_WORKER_WINDOWS ?
 				"Merge Main && Comm && &Workers" :
@@ -1075,7 +1062,7 @@ void CPrime95Doc::OnMergeComm()
 
 void CPrime95Doc::OnUpdateMergeAll(CCmdUI* pCmdUI)
 {
-//	pCmdUI->Enable (NUM_WORKER_THREADS > 1);
+//	pCmdUI->Enable (NUM_WORKERS > 1);
 	pCmdUI->Enable (TRUE);					/* Stress testers may want to set this option */
 	pCmdUI->SetCheck (MERGE_WINDOWS & MERGE_WORKER_WINDOWS);
 }
@@ -1085,13 +1072,13 @@ void CPrime95Doc::OnMergeAll()
 	int	i;
 
 	if (! (MERGE_WINDOWS & MERGE_WORKER_WINDOWS)) {
-		for (i = 1; i < MAX_NUM_WORKER_THREADS; i++)
+		for (i = 1; i < MAX_NUM_WORKERS; i++)
 			destroy_window (i);
 	}
 	MERGE_WINDOWS ^= MERGE_WORKER_WINDOWS;
 	IniWriteInt (INI_FILE, "MergeWindows", MERGE_WINDOWS);
 	if (! (MERGE_WINDOWS & MERGE_WORKER_WINDOWS)) {
-		create_worker_windows (NUM_WORKER_THREADS);
+		create_worker_windows (NUM_WORKERS);
 	}
 	PositionViews (TRUE);
 }
@@ -1148,7 +1135,7 @@ void CPrime95Doc::OnWelcome()
 		OnPrimenet();
 		if (USE_PRIMENET && STARTUP_IN_PROGRESS) OnCpu ();
 		if (STARTUP_IN_PROGRESS) OnResources ();
-		if (USE_PRIMENET && STARTUP_IN_PROGRESS) OnWorkerThreads ();
+		if (USE_PRIMENET && STARTUP_IN_PROGRESS) OnWorkers ();
 		if (USE_PRIMENET && STARTUP_IN_PROGRESS) {
 			STARTUP_IN_PROGRESS = 0;
 			set_comm_timers ();
@@ -1199,7 +1186,7 @@ void flashWindowAndBeep ()
 #include "proof_getdata.c"
 #include "gwtest.c"
 
-/* Do some work prior to launching worker threads */
+/* Do some work prior to launching workers */
 
 void PreLaunchCallback (
 	int	launch_type)
@@ -1220,7 +1207,7 @@ void PreLaunchCallback (
 	}
 }
 
-/* Do some work after worker threads have terminated */
+/* Do some work after workers have terminated */
 
 void PostLaunchCallback (
 	int	launch_type)

@@ -1,5 +1,5 @@
 // MainFrm.cpp : implementation of the CMainFrame class
-// Copyright 1995-2020 Mersenne Research, Inc.  All rights reserved
+// Copyright 1995-2023 Mersenne Research, Inc.  All rights reserved
 //
 
 #include "stdafx.h"
@@ -153,15 +153,15 @@ LRESULT CMainFrame::OnTrayMessage(WPARAM uID, LPARAM uMouseMsg)
 			m.cch = (UINT) strlen (m.dwTypeData);
 			SetMenuItemInfo (hSubMenu, IDM_TRAY_OPEN, FALSE, &m);
 		}
-		if (!WORKER_THREADS_ACTIVE) {
+		if (!WORKERS_ACTIVE) {
 			m.fMask = MIIM_STRING;
 			m.fType = MFT_STRING;
 			m.dwTypeData = "Continue";
 			m.cch = (UINT) strlen (m.dwTypeData);
 			SetMenuItemInfo (hSubMenu, IDM_STOP_CONTINUE, FALSE, &m);
 		}
-		if ((WORKER_THREADS_ACTIVE && WORKER_THREADS_STOPPING) ||
-		    (!WORKER_THREADS_ACTIVE &&
+		if ((WORKERS_ACTIVE && WORKERS_STOPPING) ||
+		    (!WORKERS_ACTIVE &&
 		     !USE_PRIMENET && WORKTODO_COUNT == 0)) {
 			m.fMask = MIIM_STATE;
 			m.fState = MFS_DISABLED;
@@ -196,7 +196,7 @@ void CMainFrame::OnTrayOpenWindow()
 
 void CMainFrame::OnStopContinue()
 {
-	if (WORKER_THREADS_ACTIVE)
+	if (WORKERS_ACTIVE)
 		PostMessage (WM_COMMAND, IDM_STOP, 0);
 	else
 		PostMessage (WM_COMMAND, IDM_CONTINUE, 0);

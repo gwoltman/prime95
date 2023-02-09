@@ -35,9 +35,9 @@ int	STRESS_TESTER = 0;
 int volatile ERRCHK = 0;
 int volatile SUM_INPUTS_ERRCHK = 0;	/* 1 to turn on sum(inputs) != sum(outputs) error checking */
 unsigned int PRIORITY = 1;
-unsigned int NUM_WORKER_THREADS = 1;	/* Number of work threads to launch */
-unsigned int WORK_PREFERENCE[MAX_NUM_WORKER_THREADS] = {0};
-unsigned int CORES_PER_TEST[MAX_NUM_WORKER_THREADS] = {1}; /* Number of threads gwnum can use in computations. */
+unsigned int NUM_WORKERS = 1;		/* Number of workers to launch */
+unsigned int WORK_PREFERENCE[MAX_NUM_WORKERS] = {0};
+unsigned int CORES_PER_TEST[MAX_NUM_WORKERS] = {1}; /* Number of cores gwnum can use in computations. */
 int	HYPERTHREAD_TF = 1;		/* TRUE if trial factoring should use hyperthreads */
 int	HYPERTHREAD_LL = 0;		/* TRUE if FFTs (LL, P-1, ECM, PRP) should use hyperthreads */
 int	MANUAL_COMM = 0;
@@ -85,11 +85,11 @@ gwmutex	WORKTODO_MUTEX;			/* Lock for accessing worktodo structure */
 gwevent AUTOBENCH_EVENT;		/* Event to wake up workers after an auto-benchmark */
 gwevent PROOF_UPLOAD_EVENT;		/* Event to wake up proof uploader */
 
-int	LAUNCH_TYPE = 0;		/* Type of worker threads launched */
-unsigned int WORKER_THREADS_ACTIVE = 0;	/* Number of worker threads running */
-int	WORKER_THREADS_STOPPING = 0;	/* TRUE iff worker threads are stopping */
+int	LAUNCH_TYPE = 0;		/* Type of workers launched */
+unsigned int WORKERS_ACTIVE = 0;	/* Number of workers running */
+int	WORKERS_STOPPING = 0;		/* TRUE iff workers are stopping */
 
-struct work_unit_array WORK_UNITS[MAX_NUM_WORKER_THREADS] = {0}; /* An array of work units for each worker thread */
+struct work_unit_array WORK_UNITS[MAX_NUM_WORKERS] = {0}; /* An array of work units for each worker */
 unsigned int WORKTODO_COUNT = 0;	/* Count of valid work lines */
 unsigned int WORKTODO_IN_USE_COUNT = 0;	/* Count of work units in use */
 int	WORKTODO_CHANGED = 0;		/* Flag indicating worktodo file needs writing */
@@ -117,6 +117,34 @@ uint32_t HW_NUM_THREADING_NODES;	/* Total number of nodes where it should be ben
 uint32_t HW_NUM_COMPUTE_THREADING_NODES;/* Same as HW_NUM_THREADING_NODES but only counting nodes governing compute cores */
 uint32_t HW_NUM_NUMA_NODES;		/* Total number of NUMA nodes in the computer */
 struct hw_core_info *HW_CORES = NULL;	/* Information on every core */
+
+/* INI section and settings strings */
+
+const char SEC_Internals[] = "Internals";
+const char KEY_V30OptionsConverted[] = "V30OptionsConverted";
+const char KEY_RollingAverage[] = "RollingAverage";
+const char KEY_RollingHash[] = "RollingHash";
+const char KEY_RollingStartTime[] = "RollingStartTime";
+const char KEY_RollingCompleteTime[] = "RollingCompleteTime";
+const char KEY_CertDailyMBRemaining[] = "CertDailyMBRemaining";
+const char KEY_CertDailyCPURemaining[] = "CertDailyCPURemaining";
+const char KEY_CertDailyRemainingLastUpdate[] = "CertDailyRemainingLastUpdate";
+const char SEC_PrimeNet[] = "PrimeNet";
+const char KEY_Debug[] = "Debug";
+const char KEY_ProxyHost[] = "ProxyHost";
+const char KEY_ProxyUser[] = "ProxyUser";
+const char KEY_ProxyPass[] = "ProxyPass";
+const char KEY_ProxyMask[] = "ProxyMask";
+const char KEY_UploadRateLimit[] = "UploadRateLimit";
+const char KEY_UploadStartTime[] = "UploadStartTime";
+const char KEY_UploadEndTime[] = "UploadEndTime";
+const char KEY_DownloadDailyLimit[] = "DownloadDailyLimit";
+const char KEY_DownloadRateLimit[] = "DownloadRateLimit";
+const char KEY_ProofUploads[] = "ProofUploads";
+const char KEY_ProofHashLength[] = "ProofHashLength";
+const char KEY_ProofPower[] = "ProofPower";
+const char KEY_ProofPowerMult[] = "ProofPowerMult";
+const char KEY_UploadChunkSize[] = "UploadChunkSize";
 
 /* Forward declarations */
 
@@ -228,7 +256,7 @@ void clearCachedProgramOptions (void)
 	char	section_name[32];
 
 	IniWriteString (INI_FILE, "SrvrPO1", NULL);
-	for (tnum = 0; tnum < MAX_NUM_WORKER_THREADS; tnum++) {
+	for (tnum = 0; tnum < MAX_NUM_WORKERS; tnum++) {
 		sprintf (section_name, "Worker #%d", tnum+1);
 		IniSectionWriteString (INI_FILE, section_name, "SrvrPO1", NULL);
 	}
@@ -350,8 +378,8 @@ void getCpuSpeed (void)
 			}
 			else
 				ROLLING_AVERAGE = 1000;
-			IniWriteInt (INI_FILE, "RollingAverage", ROLLING_AVERAGE);
-			IniWriteInt (INI_FILE, "RollingStartTime", 0);
+			IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_RollingAverage, ROLLING_AVERAGE);
+			IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_RollingStartTime, 0);
 			spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
 			UpdateEndDates ();
 		}
@@ -1199,6 +1227,18 @@ void ini_error_handler (
 	OutputSomewhere (MAIN_THREAD_NUM, buf);
 }
 
+/* Move an ini setting to its appropriate section */
+
+void moveToSection (const char *section, const char *key)
+{
+	char val[256];
+	IniGetString (INI_FILE, key, val, sizeof (val), "");
+	if (val[0]) {
+		IniSectionWriteString (INI_FILE, section, key, val);
+		IniWriteString (INI_FILE, key, NULL);
+	}
+}
+
 /* Determine the names of the INI files, then read them.  This is also the */
 /* perfect time to initialize mutexes and do other initializations. */
 
@@ -1296,6 +1336,36 @@ void nameAndReadIniFiles (
 			IniFileReread (INI_FILE);
 		}
 	}
+
+/* In 30.10 build 5, we moved many settings to individual sections of prime.txt */
+
+	moveToSection (SEC_Internals, KEY_V30OptionsConverted);			// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_RollingAverage);			// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_RollingHash);				// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_RollingStartTime);			// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_RollingCompleteTime);			// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_CertDailyCPURemaining);		// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_CertDailyMBRemaining);		// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_CertDailyRemainingLastUpdate);	// Moved here 30.10b5
+	IniWriteString (INI_FILE, "RollingAverageIsFromV27", NULL);		// Deprecated 30.10b5
+	IniWriteString (INI_FILE, "V24OptionsConverted", NULL);			// Deprecated 30.10b5
+	IniWriteString (INI_FILE, "AskedAboutMemory", NULL);			// Deprecated long before 30.10b5
+	IniWriteString (INI_FILE, "Advanced", NULL);				// Deprecated long before 30.10b5
+	moveToSection (SEC_PrimeNet, KEY_Debug);				// Has always been here
+	moveToSection (SEC_PrimeNet, KEY_ProxyHost);				// Has always been here
+	moveToSection (SEC_PrimeNet, KEY_ProxyUser);				// Has always been here
+	moveToSection (SEC_PrimeNet, KEY_ProxyPass);				// Has always been here
+	moveToSection (SEC_PrimeNet, KEY_ProxyMask);				// Has always been here
+	moveToSection (SEC_PrimeNet, KEY_UploadRateLimit);			// Has always been here
+	moveToSection (SEC_PrimeNet, KEY_UploadStartTime);			// Has always been here
+	moveToSection (SEC_PrimeNet, KEY_UploadEndTime);			// Has always been here
+	moveToSection (SEC_PrimeNet, KEY_DownloadDailyLimit);			// Has always been here
+	moveToSection (SEC_PrimeNet, KEY_DownloadRateLimit);			// Has always been here
+	moveToSection (SEC_PrimeNet, KEY_ProofUploads);				// Has always been here
+	moveToSection (SEC_PrimeNet, KEY_ProofHashLength);			// Has always been here
+	//moveToSection (SEC_PrimeNet, KEY_ProofPower);				// Cannot move, appears in both main and PrimeNet section
+	//moveToSection (SEC_PrimeNet, KEY_ProofPowerMult);			// Cannot move, appears in both main and PrimeNet section
+	moveToSection (SEC_PrimeNet, KEY_UploadChunkSize);			// Has always been here
 
 /* Perform other one-time initializations */
 
@@ -1397,7 +1467,7 @@ void nameAndReadIniFiles (
 
 /* Start the proof uploading thread */
 
-	if (IniSectionGetInt (INI_FILE, "PrimeNet", "ProofUploads", 1))
+	if (IniSectionGetInt (INI_FILE, SEC_PrimeNet, KEY_ProofUploads, 1))
 		gwthread_create (&UPLOAD_THREAD, &proofUploader, NULL);
 }
 
@@ -1446,7 +1516,7 @@ int good_default_for_num_workers (void)
 void read_cores_per_test (void)
 {
 	int	i, all_the_same;
-	unsigned int temp[MAX_NUM_WORKER_THREADS];
+	unsigned int temp[MAX_NUM_WORKERS];
 
 /* Get the old ThreadsPerTest values that we used to support */
 
@@ -1458,7 +1528,7 @@ void read_cores_per_test (void)
 	if (temp[0] != 0) {
 		int	total_threads, trim;
 		// Sum up the number of threads, see if each worker has the same number of threads
-		for (i = 0, total_threads = 0; i < (int) NUM_WORKER_THREADS; i++) {
+		for (i = 0, total_threads = 0; i < (int) NUM_WORKERS; i++) {
 			if (temp[i] <= 0) temp[i] = 1;  // In theory, can't happen
 			total_threads += temp[i];
 		}
@@ -1466,21 +1536,21 @@ void read_cores_per_test (void)
 		// going on.  In the new scheme of things using hyperthreading is handled via
 		// a different INI setting.  Reduce the array values until we are not
 		// oversubscribing cores.
-		for (i = 0; total_threads > (int) HW_NUM_CORES && i < (int) NUM_WORKER_THREADS; i++) {
+		for (i = 0; total_threads > (int) HW_NUM_CORES && i < (int) NUM_WORKERS; i++) {
 			trim = temp[i] / 2;
 			if (total_threads - trim < (int) HW_NUM_CORES) trim = total_threads - HW_NUM_CORES;
 			temp[i] -= trim;
 			total_threads -= trim;
 		}
 		// See if each worker has the same number of cores
-		for (i = 0, all_the_same = TRUE; i < (int) NUM_WORKER_THREADS; i++) {
+		for (i = 0, all_the_same = TRUE; i < (int) NUM_WORKERS; i++) {
 			if (i && temp[i] != temp[i-1]) all_the_same = FALSE;
 		}
 		// Write out the new settings
 		memset (CORES_PER_TEST, 0xFF, sizeof (CORES_PER_TEST));
 		if (all_the_same)
 			PTOSetAll (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, temp[0]);
-		else for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
+		else for (i = 0; i < (int) NUM_WORKERS; i++)
 			PTOSetOne (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, temp[i]);
 		// Clear old settings
 		PTOSetAll (INI_FILE, "ThreadsPerTest", NULL, temp, 0);
@@ -1502,7 +1572,7 @@ void read_cores_per_test (void)
 
 		i = 0;
 		cores = HW_NUM_COMPUTE_CORES;
-		workers = NUM_WORKER_THREADS;
+		workers = NUM_WORKERS;
 		for (node = 0; node < (int) HW_NUM_COMPUTE_THREADING_NODES; node++) {
 			// Make workers this node proportional to the fraction of total cores in this node.
 			// In the final node, we must assign all the workers we have not yet figured out.  This happens
@@ -1523,19 +1593,19 @@ void read_cores_per_test (void)
 		ASSERTG (workers == 0 && cores == 0);
 
 		// See if each worker has the same number of cores
-		for (i = 0, all_the_same = TRUE; i < (int) NUM_WORKER_THREADS; i++) {
+		for (i = 0, all_the_same = TRUE; i < (int) NUM_WORKERS; i++) {
 			if (i && temp[i] != temp[i-1]) all_the_same = FALSE;
 		}
 		// Write out the new settings
 		if (all_the_same)
 			PTOSetAll (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, temp[0]);
-		else for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
+		else for (i = 0; i < (int) NUM_WORKERS; i++)
 			PTOSetOne (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, temp[i]);
 	}
 
 /* Sanity check the CoresPerTest.  In case user hand-edited local.txt */
 
-	for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+	for (i = 0; i < (int) NUM_WORKERS; i++) {
 		if (CORES_PER_TEST[i] < 1) CORES_PER_TEST[i] = 1;
 		if (CORES_PER_TEST[i] > HW_NUM_CORES) CORES_PER_TEST[i] = HW_NUM_CORES;
 	}
@@ -1559,21 +1629,6 @@ int readIniFiles (void)
 
 	getCpuInfo ();
 
-/* Convert V4 work preferences to v5 work preferences */
-
-	if (!IniGetInt (INI_FILE, "V24OptionsConverted", 0)) {
-		IniWriteInt (INI_FILE, "V24OptionsConverted", 1);
-		if (IniGetInt (INI_FILE, "WorkPreference", 0) == 16) // Ten million digit
-			IniWriteInt (INI_FILE, "WorkPreference", PRIMENET_WP_LL_WORLD_RECORD);
-		else if (IniGetInt (INI_FILE, "WorkPreference", 0) == 2)
-			IniWriteInt (INI_FILE, "WorkPreference", PRIMENET_WP_LL_FIRST);
-		else if (IniGetInt (INI_FILE, "WorkPreference", 0) == 4)
-			IniWriteInt (INI_FILE, "WorkPreference", PRIMENET_WP_LL_DBLCHK);
-		else if (IniGetInt (INI_FILE, "WorkPreference", 0) == 1)
-			IniWriteInt (INI_FILE, "WorkPreference", PRIMENET_WP_FACTOR);
-		IniSectionWriteInt (INI_FILE, "PrimeNet", "Debug", 0);
-	}
-
 /* Put commonly used options in global variables */
 
 	IniGetString (INI_FILE, "ComputerGUID", COMPUTER_GUID, sizeof (COMPUTER_GUID), NULL);
@@ -1593,15 +1648,9 @@ int readIniFiles (void)
 	if (CPU_HOURS < 1) CPU_HOURS = 1;
 	if (CPU_HOURS > 24) CPU_HOURS = 24;
 
-	ROLLING_AVERAGE = (unsigned int) IniGetInt (INI_FILE, "RollingAverage", 1000);
+	ROLLING_AVERAGE = (unsigned int) IniSectionGetInt (INI_FILE, SEC_Internals, KEY_RollingAverage, 1000);
 	if (ROLLING_AVERAGE < 10) ROLLING_AVERAGE = 10;
 	if (ROLLING_AVERAGE > 4000) ROLLING_AVERAGE = 4000;
-	/* Rolling average needs to be reset when AVX capable machines upgrade from v26 to v27. */
-	if (CPU_FLAGS & CPU_AVX && ! IniGetInt (INI_FILE, "RollingAverageIsFromV27", 0)) {
-		ROLLING_AVERAGE = 1000;
-		IniWriteInt (INI_FILE, "RollingAverage", 1000);
-		IniWriteInt (INI_FILE, "RollingAverageIsFromV27", 1);
-	}
 
 	PRECISION = (unsigned int) IniGetInt (INI_FILE, "PercentPrecision", 2);
 	if (PRECISION > 6) PRECISION = 6;
@@ -1640,18 +1689,18 @@ int readIniFiles (void)
 	ERRCHK = (temp != 0);
 	temp = (int) IniGetInt (INI_FILE, "SumInputsErrorCheck", 0);
 	SUM_INPUTS_ERRCHK = (temp != 0);
-	NUM_WORKER_THREADS = IniGetInt (INI_FILE, "WorkerThreads", good_default_for_num_workers ());
-	if (NUM_WORKER_THREADS < 1) NUM_WORKER_THREADS = 1;
-	if (NUM_WORKER_THREADS > MAX_NUM_WORKER_THREADS) NUM_WORKER_THREADS = MAX_NUM_WORKER_THREADS;
-	IniWriteInt (INI_FILE, "WorkerThreads", NUM_WORKER_THREADS); // Write in case future prime95 changes good_default_for_num_workers
+	NUM_WORKERS = IniGetInt (INI_FILE, "WorkerThreads", good_default_for_num_workers ());
+	if (NUM_WORKERS < 1) NUM_WORKERS = 1;
+	if (NUM_WORKERS > MAX_NUM_WORKERS) NUM_WORKERS = MAX_NUM_WORKERS;
+	IniWriteInt (INI_FILE, "WorkerThreads", NUM_WORKERS); // Write in case future prime95 changes good_default_for_num_workers
 	PRIORITY = (unsigned int) IniGetInt (INI_FILE, "Priority", 1);
 	if (PRIORITY < 1) PRIORITY = 1;
 	if (PRIORITY > 10) PRIORITY = 10;
 	PTOGetAll (INI_FILE, "WorkPreference", WORK_PREFERENCE, 0);
 	// Upgrade pre-v30 users from LL to PRP, combine LL-DC and PRP-DC into one work preference
-	if (!IniGetInt (INI_FILE, "V30OptionsConverted", 0)) {
+	if (!IniSectionGetInt (INI_FILE, SEC_Internals, KEY_V30OptionsConverted, 0)) {
 		int	i, all_the_same = TRUE;
-		for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
+		for (i = 0; i < MAX_NUM_WORKERS; i++) {
 			if (WORK_PREFERENCE[i] == PRIMENET_WP_LL_FIRST) WORK_PREFERENCE[i] = PRIMENET_WP_PRP_FIRST;
 			if (WORK_PREFERENCE[i] == PRIMENET_WP_LL_10M) WORK_PREFERENCE[i] = PRIMENET_WP_PRP_FIRST;
 			if (WORK_PREFERENCE[i] == PRIMENET_WP_LL_FIRST_NOFAC) WORK_PREFERENCE[i] = PRIMENET_WP_PRP_FIRST;
@@ -1662,10 +1711,10 @@ int readIniFiles (void)
 		}
 		if (all_the_same)
 			PTOSetAll (INI_FILE, "WorkPreference", NULL, WORK_PREFERENCE, WORK_PREFERENCE[0]);
-		else for (i = 0; i < (int) NUM_WORKER_THREADS; i++)
+		else for (i = 0; i < (int) NUM_WORKERS; i++)
 			PTOSetOne (INI_FILE, "WorkPreference", NULL, WORK_PREFERENCE, i, WORK_PREFERENCE[i]);
 		spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);
-		IniWriteInt (INI_FILE, "V30OptionsConverted", 1);
+		IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_V30OptionsConverted, 1);
 	}
 	read_cores_per_test ();		// Get CORES_PER_TEST array, may require upgrading old INI settings
 	HYPERTHREAD_TF = IniGetInt (INI_FILE, "HyperthreadTF", OS_CAN_SET_AFFINITY);
@@ -1849,7 +1898,7 @@ static	int	worktodo_add_disabled = FALSE;
 				} else {
 					if (w->work_type == WORK_NONE && _stricmp (w->comment, line) == 0) break;
 				}
-				if (tnum == NUM_WORKER_THREADS - 1) {
+				if (tnum == NUM_WORKERS - 1) {
 					w = NULL;
 					break;
 				}
@@ -1926,13 +1975,13 @@ void PTOGetAll (
 /* Copy the global option setting to the entire array */
 
 	global_val = IniGetInt (ini_filename, keyword, def_val);
-	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
+	for (i = 0; i < MAX_NUM_WORKERS; i++) {
 		array[i] = global_val;
 	}
 
 /* Now look for any section specific overrides */
 
-	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
+	for (i = 0; i < MAX_NUM_WORKERS; i++) {
 		sprintf (section_name, "Worker #%d", i+1);
 		array[i] = IniSectionGetInt (ini_filename, section_name, keyword, array[i]);
 	}
@@ -1952,7 +2001,7 @@ void PTOSetAll (
 /* Copy the global option setting to the entire array */
 
 	IniWriteInt (ini_filename, keyword, new_val);
-	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
+	for (i = 0; i < MAX_NUM_WORKERS; i++) {
 		array[i] = new_val;
 	}
 	if (shadow_keyword != NULL)
@@ -1960,7 +2009,7 @@ void PTOSetAll (
 
 /* Now clear all section specific overrides */
 
-	for (i = 0; i < MAX_NUM_WORKER_THREADS; i++) {
+	for (i = 0; i < MAX_NUM_WORKERS; i++) {
 		sprintf (section_name, "Worker #%d", i+1);
 		IniSectionWriteString (ini_filename, section_name, keyword, NULL);
 		if (shadow_keyword != NULL)
@@ -1995,7 +2044,7 @@ void PTOSetOne (
 		IniWriteString (ini_filename, keyword, NULL);
 		if (shadow_keyword != NULL)
 			IniWriteString (INI_FILE, shadow_keyword, NULL);
-		for (i = 0; i < (int) NUM_WORKER_THREADS; i++) {
+		for (i = 0; i < (int) NUM_WORKERS; i++) {
 			sprintf (section_name, "Worker #%d", i+1);
 			IniSectionWriteInt (ini_filename, section_name, keyword, array[i]);
 			if (shadow_keyword != NULL)
@@ -2017,7 +2066,7 @@ int PTOIsGlobalOption (
 {
 	int	i;
 
-	for (i = 1; i < (int) NUM_WORKER_THREADS; i++)
+	for (i = 1; i < (int) NUM_WORKERS; i++)
 		if (array[i-1] != array[i]) return (FALSE);
 	return (TRUE);
 }
@@ -2243,14 +2292,14 @@ void JSONaddUserComputerAID (
 /*               Routines to process worktodo.txt files                     */
 /****************************************************************************/
 
-/* The worktodo structures are accessed by worker threds, the communication */
+/* The worktodo structures are accessed by workers, the communication */
 /* thread, the timer threads, and the GUI thread.  We must be VERY CAREFUL */
 /* with our locking scheme to make sure there are no crashes or hangs. */
 
 /* The simplest scheme just locks on entry to each of these routines. */
 /* This solves some basic problems such as two threads writing the worktodo */
 /* file at the same time.  However, more difficult problems still exist. */
-/* For example, a worker thread could delete the work unit while the */
+/* For example, a worker could delete the work unit while the */
 /* GUI (Test/Status) or comm thread (sending completion dates) try to */
 /* has a pointer to the work unit structure.  A dereference after the */
 /* delete will crash. */
@@ -2444,7 +2493,7 @@ int addToWorkUnitArray (
 /* number of worker windows), redistribute lines from those worker sections to the */
 /* active sections. */
 
-	tnum = tnum % NUM_WORKER_THREADS;
+	tnum = tnum % NUM_WORKERS;
 
 /* If add_to_end is set, then we are reading the worktodo.txt file. */
 /* Add the entry to the end of the array */
@@ -2942,7 +2991,7 @@ int readWorkToDoFile (void)
 		gwmutex_lock (&WORKTODO_MUTEX);
 
 /* Make sure no other threads are accessing work units right now. */
-/* There should be no worker threads active so any use should be short-lived. */
+/* There should be no workers active so any use should be short-lived. */
 
 		if (WORKTODO_IN_USE_COUNT == 0 && !WORKTODO_CHANGED) break;
 		gwmutex_unlock (&WORKTODO_MUTEX);
@@ -2966,11 +3015,11 @@ int readWorkToDoFile (void)
 	WORKTODO_CHANGED = FALSE;
 	WORKTODO_COUNT = 0;
 
-/* Free old work_units for each worker thread. */
+/* Free old work_units for each worker. */
 /* We sometimes reread the worktodo.txt file in case the user */
 /* manually edits the file while the program is running. */
 
-	for (tnum = 0; tnum < MAX_NUM_WORKER_THREADS; tnum++) {
+	for (tnum = 0; tnum < MAX_NUM_WORKERS; tnum++) {
 		struct work_unit *w, *next_w;
 		for (w = WORK_UNITS[tnum].first; w != NULL; w = next_w) {
 			next_w = w->next;
@@ -3004,15 +3053,15 @@ int readWorkToDoFile (void)
 	    if (w == NULL) goto nomem;
 	    memset (w, 0, sizeof (struct work_unit));
 
-/* A section header precedes each worker thread's work units.  The first section need not be preceeded by a section header. */
+/* A section header preceeds each worker's work units.  The first section need not be preceeded by a section header. */
 
 	    if (line[0] == '[' && linenum > 1) {
 		tnum++;
-		if (tnum >= NUM_WORKER_THREADS) {
+		if (tnum >= NUM_WORKERS) {
 		    char	buf[100];
 		    sprintf (buf,
 			     "Too many sections in worktodo.txt.  Moving work from section #%u to #%u.\n",
-			     tnum + 1, tnum % NUM_WORKER_THREADS + 1);
+			     tnum + 1, tnum % NUM_WORKERS + 1);
 		    OutputSomewhere (MAIN_THREAD_NUM, buf);
 		    safe_strcpy (line + 9, line);
 		    memcpy (line, ";;MOVED;;", 9);
@@ -3033,7 +3082,7 @@ int readWorkToDoFile (void)
 
 /* Now that we've finished reading the worktodo file, set stage and pct_complete based on existing save files. */
 
-	for (tnum = 0; tnum < MAX_NUM_WORKER_THREADS; tnum++) {
+	for (tnum = 0; tnum < MAX_NUM_WORKERS; tnum++) {
 	    struct work_unit *w;
 	    int first_real_work_line;
 
@@ -3067,7 +3116,7 @@ int readWorkToDoFile (void)
 /* See if any other worker's first work unit is testing the same number. */
 /* If so, assume any existing save files are for that worker */
 
-			for (tnum2 = 0; tnum2 < MAX_NUM_WORKER_THREADS; tnum2++) {
+			for (tnum2 = 0; tnum2 < MAX_NUM_WORKERS; tnum2++) {
 				for (w2 = WORK_UNITS[tnum2].first; w2 != NULL; w2 = w2->next) {
 					if (w2->work_type == WORK_NONE) continue;
 					if (w2->work_type == w->work_type &&
@@ -3166,22 +3215,21 @@ int writeWorkToDoFile (
 		return (STOP_FILE_IO_ERROR);
 	}
 
-/* Loop over all worker threads */
+/* Loop over all workers */
 
 	last_line_was_blank = FALSE;
-	for (tnum = 0; tnum < MAX_NUM_WORKER_THREADS; tnum++) {
+	for (tnum = 0; tnum < MAX_NUM_WORKERS; tnum++) {
 	    struct work_unit *w;
 	    unsigned int len;
 
-/* If we've processed all the worker threads and there is nothing left */
-/* to output, then we are done. */
+/* If we've processed all the workers and there is nothing left to output, then we are done. */
 
-	    if (tnum >= NUM_WORKER_THREADS &&
+	    if (tnum >= NUM_WORKERS &&
 		WORK_UNITS[tnum].first == NULL) break;
 
 /* Output a standardized section header */
 
-	    if (tnum || NUM_WORKER_THREADS > 0) {
+	    if (tnum || NUM_WORKERS > 0) {
 		char	buf[40];
 		if (tnum && !last_line_was_blank && _write (fd, "\n", 1) != 1)
 			goto write_error;
@@ -3191,7 +3239,7 @@ int writeWorkToDoFile (
 		last_line_was_blank = FALSE;
 	    }
 
-/* Loop over each assignment for this worker thread */
+/* Loop over each assignment for this worker */
 
 	    for (w = WORK_UNITS[tnum].first; w != NULL; w = w->next) {
 		char	idbuf[100];
@@ -3328,7 +3376,7 @@ write_error:		OutputBoth (MAIN_THREAD_NUM, "Error writing worktodo.txt file\n");
 	return (0);
 }
 
-/* Return a worktodo.txt entry for the given worker thread */
+/* Return a worktodo.txt entry for the given worker */
 
 struct work_unit *getNextWorkToDoLine (
 	int	thread_num,		/* Thread number starting from 0 */
@@ -3337,7 +3385,7 @@ struct work_unit *getNextWorkToDoLine (
 {
 	struct work_unit *next;		/* Next WorkToDo entry (or NULL) */
 
-	ASSERTG (thread_num < (int) NUM_WORKER_THREADS);
+	ASSERTG (thread_num < (int) NUM_WORKERS);
 
 /* Grab the lock so that other threads do not add or delete lines */
 /* while we are finding the next entry. */
@@ -3395,7 +3443,7 @@ struct work_unit *getNextWorkToDoLine (
 	return (next);
 }
 
-/* Return a worktodo.txt entry for the given worker thread */
+/* Return a worktodo.txt entry for the given worker */
 
 void decrementWorkUnitUseCount (
 	struct work_unit *w,		/* WorkToDo entry */
@@ -3421,7 +3469,7 @@ void decrementWorkUnitUseCount (
 /* Add a line of work to the work-to-do INI file. */
 
 int addWorkToDoLine (
-	int	tnum,		/* Worker thread to process this work unit */
+	int	tnum,		/* Worker to process this work unit */
 	struct work_unit *w)	/* Type of work */
 {
 	struct work_unit *malloc_w;
@@ -3441,7 +3489,7 @@ int addWorkToDoLine (
 
 	addKnownFermatFactors (malloc_w);
 
-/* Grab the lock so that comm thread and/or worker threads do not */
+/* Grab the lock so that comm thread and/or workers do not */
 /* access structure while the other is adding/deleting lines. */
 
 	gwmutex_lock (&WORKTODO_MUTEX);
@@ -3471,7 +3519,7 @@ retrc:	gwmutex_unlock (&WORKTODO_MUTEX);
 /* INI file needs to be written.  */
 
 int updateWorkToDoLine (
-	int	tnum,		/* Worker thread to process this work unit */
+	int	tnum,		/* Worker to process this work unit */
 	struct work_unit *w)	/* Type of work */
 {
 
@@ -3490,7 +3538,7 @@ int updateWorkToDoLine (
 /* getNextWorkToDoLine works properly. */
 
 int deleteWorkToDoLine (
-	int	tnum,		/* Worker thread to process this work unit */
+	int	tnum,		/* Worker to process this work unit */
 	struct work_unit *w,	/* Work unit pointer */
 	int	stop_if_in_progress) /* Stop thread processing work unit */
 {
@@ -3500,13 +3548,12 @@ int deleteWorkToDoLine (
 
 	if (w->work_type == WORK_DELETED) return (0);
 
-/* Grab the lock so that comm thread and/or worker threads do not */
-/* access structure while the other is adding/deleting lines. */
+/* Grab the lock so that comm thread and/or workers do access structure while the other is adding/deleting lines. */
 
 	gwmutex_lock (&WORKTODO_MUTEX);
 
 /* If we are deleting a work unit that is currently being worked on */
-/* then set a flag so that the worker thread will abort the work unit */
+/* then set a flag so that the worker will abort the work unit */
 /* at its first opportunity.  There is a race condition whereby the worker */
 /* thread may move on to a different work unit before testing the */
 /* abort-work-unit flag.  This is harmless as the new work unit will be */
@@ -3539,7 +3586,7 @@ int isWorkUnitActive (
 	struct work_unit *w)	/* work_unit pointer */
 {
 
-/* At the present time only a worker thread actively working on a work unit */
+/* At the present time only a worker actively working on a work unit */
 /* sets the LONG_TERM_USE flag of in_use_count.  Use that fact, to decide */
 /* if the work unit is active. */
 
@@ -3790,7 +3837,7 @@ double work_estimate (
 /* If the user unwisely oversubscribed the CPU cores, then increase the time estimate */
 
 	total_cores = 0;
-	for (i = 0; i < NUM_WORKER_THREADS; i++) total_cores += CORES_PER_TEST[i];
+	for (i = 0; i < NUM_WORKERS; i++) total_cores += CORES_PER_TEST[i];
 	if (total_cores > HW_NUM_CORES) est *= (double) total_cores / (double) HW_NUM_CORES;
 
 /* Return the total estimated time in seconds */
@@ -3908,8 +3955,8 @@ void rolling_average_work_unit_complete (
 
 /* Get current rolling average computation variables */
 
-	hash = IniGetInt (INI_FILE, "RollingHash", 0);
-	time_to_complete = IniGetInt (INI_FILE, "RollingCompleteTime", 0);
+	hash = IniSectionGetInt (INI_FILE, SEC_Internals, KEY_RollingHash, 0);
+	time_to_complete = IniSectionGetInt (INI_FILE, SEC_Internals, KEY_RollingCompleteTime, 0);
 
 /* Grab the lock so that other threads do not add or delete lines */
 /* while we are making this calculation. */
@@ -3948,8 +3995,8 @@ void rolling_average_work_unit_complete (
 
 /* Update the changed rolling average computation values */
 
-	IniWriteInt (INI_FILE, "RollingHash", hash);
-	IniWriteInt (INI_FILE, "RollingCompleteTime", time_to_complete);
+	IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_RollingHash, hash);
+	IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_RollingCompleteTime, time_to_complete);
 }
 
 /* Adjust the rolling average */
@@ -3971,7 +4018,7 @@ void adjust_rolling_average (void)
 
 	hash = 0;
 	time_to_complete = 0;
-	for (tnum = 0; tnum < NUM_WORKER_THREADS; tnum++) {
+	for (tnum = 0; tnum < NUM_WORKERS; tnum++) {
 		struct work_unit *w;
 
 		for (w = WORK_UNITS[tnum].first; w != NULL; w = w->next)
@@ -3994,14 +4041,13 @@ void adjust_rolling_average (void)
 
 /* Get the current time and starting time */
 
-	starting_time = IniGetInt (INI_FILE, "RollingStartTime", 0);
+	starting_time = IniSectionGetInt (INI_FILE, SEC_Internals, KEY_RollingStartTime, 0);
 	time (&current_time);
 
 /* Make sure hash codes match.  This protects us against making incorrect */
 /* rolling average adjustments when user manually edits worktodo.txt. */
 
-	if (hash != IniGetInt (INI_FILE, "RollingHash", 0))
-		goto no_update;
+	if (hash != IniSectionGetInt (INI_FILE, SEC_Internals, KEY_RollingHash, 0)) goto no_update;
 
 /* Now compute the rolling average for this time period.  For example, if */
 /* the time-to-complete decreased 5 hours over the last 6 hours of elapsed */
@@ -4009,8 +4055,7 @@ void adjust_rolling_average (void)
 /* current rolling average. */
 
 	time_in_this_period = (unsigned long) (current_time - starting_time);
-	starting_time_to_complete =
-		IniGetInt (INI_FILE, "RollingCompleteTime", 0);
+	starting_time_to_complete = IniSectionGetInt (INI_FILE, SEC_Internals, KEY_RollingCompleteTime, 0);
 
 	/* Sanity checks for bogus time periods and completion estimates*/
 
@@ -4022,15 +4067,14 @@ void adjust_rolling_average (void)
 
 	rolling_average_this_period =
 		(double) (starting_time_to_complete - time_to_complete) /
-		(double) NUM_WORKER_THREADS /
+		(double) NUM_WORKERS /
 		(double) time_in_this_period *
 		(double) ROLLING_AVERAGE;
 
-	/* If the user is running more worker threads than there are */
-	/* CPUs, then adjust the rolling average upward accordingly. */
+	/* If the user is running more workers than there are CPUs, then adjust the rolling average upward accordingly. */
 
-	if (NUM_WORKER_THREADS > HW_NUM_CORES)
-		rolling_average_this_period *= (double) NUM_WORKER_THREADS / (double) HW_NUM_CORES;
+	if (NUM_WORKERS > HW_NUM_CORES)
+		rolling_average_this_period *= (double) NUM_WORKERS / (double) HW_NUM_CORES;
 
 	/* More safeguard against bogus or abruptly changing data */
 
@@ -4051,10 +4095,10 @@ void adjust_rolling_average (void)
 /* Update rolling average data in the local.txt file */
 
 no_update:
-	IniWriteInt (INI_FILE, "RollingHash", hash);
-	IniWriteInt (INI_FILE, "RollingStartTime", (unsigned long) current_time);
-	IniWriteInt (INI_FILE, "RollingCompleteTime", time_to_complete);
-	IniWriteInt (INI_FILE, "RollingAverage", ROLLING_AVERAGE);
+	IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_RollingHash, hash);
+	IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_RollingStartTime, (unsigned long) current_time);
+	IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_RollingCompleteTime, time_to_complete);
+	IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_RollingAverage, ROLLING_AVERAGE);
 }
 
 /* If a work_unit performed less work than estimated (say by unexpectedly */
@@ -4062,7 +4106,7 @@ no_update:
 
 void invalidateNextRollingAverageUpdate (void)
 {
-	IniWriteInt (INI_FILE, "RollingStartTime", 0);
+	IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_RollingStartTime, 0);
 	adjust_rolling_average ();
 }
 
@@ -5066,7 +5110,7 @@ int unreserve (
 /* Find exponent in worktodo.txt and delete it if present */
 
 	found_one = FALSE;
-	for (tnum = 0; tnum < NUM_WORKER_THREADS; tnum++) {
+	for (tnum = 0; tnum < NUM_WORKERS; tnum++) {
 	    struct work_unit *w;
 
 	    w = NULL;
@@ -5249,7 +5293,7 @@ void aid_to_text (
 
 /* Scan all work units until we find a matching assignment id */
 
-	for (tnum = 0; tnum < NUM_WORKER_THREADS; tnum++) {
+	for (tnum = 0; tnum < NUM_WORKERS; tnum++) {
 	    w = NULL;
 	    for ( ; ; ) {
 		w = getNextWorkToDoLine (tnum, w, SHORT_TERM_USE);
@@ -5461,7 +5505,7 @@ int getProgramOptions (void)
 	restart = FALSE;
 	mem_changed = FALSE;
 	original_rob = RUN_ON_BATTERY;
-	for (tnum = -1; tnum < (int) NUM_WORKER_THREADS; tnum++) {
+	for (tnum = -1; tnum < (int) NUM_WORKERS; tnum++) {
 
 /* Init the packet.  A packet where no options are sent to the server tells */
 /* the server to send us all the options saved on the server. */
@@ -5554,9 +5598,9 @@ int getProgramOptions (void)
 
 		if (pkt.num_workers != -1) {
 			if (pkt.num_workers > (int) (HW_NUM_THREADS)) pkt.num_workers = HW_NUM_THREADS;
-			NUM_WORKER_THREADS = pkt.num_workers;
-			IniWriteInt (INI_FILE, "WorkerThreads", NUM_WORKER_THREADS);
-			IniWriteInt (INI_FILE, "SrvrPO9", NUM_WORKER_THREADS);
+			NUM_WORKERS = pkt.num_workers;
+			IniWriteInt (INI_FILE, "WorkerThreads", NUM_WORKERS);
+			IniWriteInt (INI_FILE, "SrvrPO9", NUM_WORKERS);
 			restart = TRUE;
 		}
 		if (mem_readable && mem_changed)
@@ -5600,7 +5644,7 @@ int sendProgramOptions (
 /* Loop once for global options (tnum = -1) and once for each thread */
 /* to send thread-specific options. */
 
-	for (tnum = -1; tnum < (int) NUM_WORKER_THREADS; tnum++) {
+	for (tnum = -1; tnum < (int) NUM_WORKERS; tnum++) {
 
 		memset (&pkt, 0, sizeof (pkt));
 		strcpy (pkt.computer_guid, COMPUTER_GUID);
@@ -5670,8 +5714,8 @@ int sendProgramOptions (
 
 		pkt.num_workers = -1;
 		if (tnum == -1 &&
-		    NUM_WORKER_THREADS != IniGetInt (INI_FILE, "SrvrPO9", -1)) {
-			pkt.num_workers = NUM_WORKER_THREADS;
+		    NUM_WORKERS != IniGetInt (INI_FILE, "SrvrPO9", -1)) {
+			pkt.num_workers = NUM_WORKERS;
 			options_changed = TRUE;
 		}
 
@@ -5705,7 +5749,7 @@ int sendProgramOptions (
 				IniWriteInt (INI_FILE, "SrvrPO7", day_end_time);
 			}
 			IniWriteInt (INI_FILE, "SrvrPO8", RUN_ON_BATTERY);
-			IniWriteInt (INI_FILE, "SrvrPO9", NUM_WORKER_THREADS);
+			IniWriteInt (INI_FILE, "SrvrPO9", NUM_WORKERS);
 		}
 
 /* Increment the options counter so that we can detect when the options */
@@ -5831,8 +5875,7 @@ retry:
 	write_long (fd, header_words[0], NULL);
 	write_long (fd, header_words[1], NULL);
 
-/* Close and unlock the spool file.  This allows worker threads to write */
-/* messages to the spool file while we are sending messages. */
+/* Close and unlock the spool file.  This allows workers to write messages to the spool file while we are sending messages. */
 
 	_close (fd);
 	gwmutex_unlock (&SPOOL_FILE_MUTEX);
@@ -6054,14 +6097,14 @@ retry:
 
 	can_get_cert_work = (header_words[1] & HEADER_FLAG_WORK_QUEUE) && IniGetInt (INI_FILE, "CertWork", 1) && DAYS_OF_WORK > 0.0;
 	if (WELL_BEHAVED_WORK || SEQUENTIAL_WORK == 1) can_get_cert_work = FALSE;
-	if (!WORKER_THREADS_ACTIVE || WORKER_THREADS_STOPPING) can_get_cert_work = FALSE;
+	if (!WORKERS_ACTIVE || WORKERS_STOPPING) can_get_cert_work = FALSE;
 	if (CPU_HOURS <= 12) can_get_cert_work = FALSE;
 	if (is_timed_event_active (TE_PAUSE_WHILE) || is_timed_event_active (TE_READ_PAUSE_DATA)) can_get_cert_work = FALSE;
 	if (can_get_cert_work) {
 		int	max_cert_assignments;
 		can_get_small_cert_work = FALSE;
 		max_cert_assignments = (IniGetInt (INI_FILE, "CertDailyCPULimit", 10) >= 50 ? 3 : 1);
-		for (tnum = 0; tnum < NUM_WORKER_THREADS; tnum++) {
+		for (tnum = 0; tnum < NUM_WORKERS; tnum++) {
 			struct work_unit *w;
 			for (w = NULL; ; ) {
 				w = getNextWorkToDoLine (tnum, w, SHORT_TERM_USE);
@@ -6081,18 +6124,18 @@ retry:
 		time_t	current_time, last_update_time;
 		float	days_since_last_update;
 
-		max_daily_MB_limit = (float) IniSectionGetInt (INI_FILE, "PrimeNet", "DownloadDailyLimit", 40); // Daily download limit in MB
+		max_daily_MB_limit = (float) IniSectionGetInt (INI_FILE, SEC_PrimeNet, KEY_DownloadDailyLimit, 40); // Daily download limit in MB
 		max_daily_CPU_limit = (float) IniGetInt (INI_FILE, "CertDailyCPULimit", 10); // Cert Daily cpu limit (1.0 = 1% of 2015 quadcore)
 
-		daily_MB_limit_remaining = IniGetFloat (INI_FILE, "CertDailyMBRemaining", max_daily_MB_limit);
-		daily_CPU_limit_remaining = IniGetFloat (INI_FILE, "CertDailyCPURemaining", max_daily_CPU_limit);
+		daily_MB_limit_remaining = IniSectionGetFloat (INI_FILE, SEC_Internals, KEY_CertDailyMBRemaining, max_daily_MB_limit);
+		daily_CPU_limit_remaining = IniSectionGetFloat (INI_FILE, SEC_Internals, KEY_CertDailyCPURemaining, max_daily_CPU_limit);
 
 		// Calc how many days have elapsed since unused quotas (daily_MB_limit_remaining, daily_CPU_limit_remaining) were updated
 		time (&current_time);
-		last_update_time = IniGetInt (INI_FILE, "CertDailyRemainingLastUpdate", 0);
+		last_update_time = IniSectionGetInt (INI_FILE, SEC_Internals, KEY_CertDailyRemainingLastUpdate, 0);
 		days_since_last_update = (float) (current_time - last_update_time) / (float) 86400.0;
 		if (days_since_last_update < 0.0) days_since_last_update = 0.0;
-		IniWriteInt (INI_FILE, "CertDailyRemainingLastUpdate", (unsigned long) current_time);
+		IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_CertDailyRemainingLastUpdate, (unsigned long) current_time);
 
 		// Increase remaining unused quotas based upon time elapsed since last update
 		daily_MB_limit_remaining += days_since_last_update * max_daily_MB_limit;
@@ -6101,18 +6144,18 @@ retry:
 		if (daily_CPU_limit_remaining > max_daily_CPU_limit) daily_CPU_limit_remaining = max_daily_CPU_limit;
 
 		// Save the updated quotas
-		IniWriteFloat (INI_FILE, "CertDailyMBRemaining", daily_MB_limit_remaining);
-		IniWriteFloat (INI_FILE, "CertDailyCPURemaining", daily_CPU_limit_remaining);
+		IniSectionWriteFloat (INI_FILE, SEC_Internals, KEY_CertDailyMBRemaining, daily_MB_limit_remaining);
+		IniSectionWriteFloat (INI_FILE, SEC_Internals, KEY_CertDailyCPURemaining, daily_CPU_limit_remaining);
 
 		// Disable getting cert work if either quota exceeded
 		if (daily_MB_limit_remaining <= 0.0 || daily_CPU_limit_remaining <= 0.0) can_get_cert_work = FALSE;
 	}
 
-/* Loop over all worker threads to get enough work for each thread */
+/* Loop over all workers to get enough work for each worker */
 
 	unreserve_threshold = IniGetInt (INI_FILE, "UnreserveDays", 30) * 86400.0;
 	work_to_get = DAYS_OF_WORK * 86400.0;
-	for (tnum = 0; tnum < NUM_WORKER_THREADS; tnum++) {
+	for (tnum = 0; tnum < NUM_WORKERS; tnum++) {
 	    struct work_unit *w;
 	    int	num_work_units;
 	    int	first_work_unit_interruptable = TRUE;
@@ -6288,7 +6331,7 @@ retry:
 			pkt1.get_cert_work = IniGetInt (INI_FILE, "CertDailyCPULimit", 10); // Helps server decide cert exponent size
 			if (pkt1.get_cert_work <= 0) pkt1.get_cert_work = 1;
 			pkt1.min_exp = IniGetInt (INI_FILE, "CertMinExponent", can_get_small_cert_work ? 0 : 50000000);
-			pkt1.max_exp = IniGetInt (INI_FILE, "CertMaxExponent", HW_NUM_CORES / NUM_WORKER_THREADS < 4 ? 200000000 : 0);
+			pkt1.max_exp = IniGetInt (INI_FILE, "CertMaxExponent", HW_NUM_CORES / NUM_WORKERS < 4 ? 200000000 : 0);
 			LOCKED_WORK_UNIT = NULL;
 			rc = sendMessage (PRIMENET_GET_ASSIGNMENT, &pkt1);
 			// Ignore errors, we expect this work to only be available sometimes
@@ -6320,8 +6363,8 @@ retry:
 /* Update the daily cert quotas */
 
 			float	daily_MB_limit_remaining, daily_CPU_limit_remaining, daily_CPU_quota_used;
-			daily_MB_limit_remaining = IniGetFloat (INI_FILE, "CertDailyMBRemaining", 40.0);
-			daily_CPU_limit_remaining = IniGetFloat (INI_FILE, "CertDailyCPURemaining", 10.0);
+			daily_MB_limit_remaining = IniSectionGetFloat (INI_FILE, SEC_Internals, KEY_CertDailyMBRemaining, 40.0);
+			daily_CPU_limit_remaining = IniSectionGetFloat (INI_FILE, SEC_Internals, KEY_CertDailyCPURemaining, 10.0);
 
 			// Decrease remaining unused quotas based expected work required for this cert
 			// A daily CPU limit of 1.0 is equals 1% of the work a 2015 quad-core CPU can do in a day.
@@ -6332,8 +6375,8 @@ retry:
 			daily_CPU_limit_remaining -= daily_CPU_quota_used;
 
 			// Save the updated quotas
-			IniWriteFloat (INI_FILE, "CertDailyMBRemaining", daily_MB_limit_remaining);
-			IniWriteFloat (INI_FILE, "CertDailyCPURemaining", daily_CPU_limit_remaining);
+			IniSectionWriteFloat (INI_FILE, SEC_Internals, KEY_CertDailyMBRemaining, daily_MB_limit_remaining);
+			IniSectionWriteFloat (INI_FILE, SEC_Internals, KEY_CertDailyCPURemaining, daily_CPU_limit_remaining);
 
 			// If quotas exceeded, get no more cert assignments
 			if (daily_MB_limit_remaining <= 0.0 || daily_CPU_limit_remaining <= 0.0) break;
@@ -6978,9 +7021,9 @@ int inUploadWindow (int *minutes_to_start)
 
 /* Get upload times from INI file */
 
-	IniSectionGetString (INI_FILE, "PrimeNet", "UploadStartTime", timebuf, sizeof (timebuf), "00:00");
+	IniSectionGetString (INI_FILE, SEC_PrimeNet, KEY_UploadStartTime, timebuf, sizeof (timebuf), "00:00");
 	start_time = strToMinutes (timebuf);
-	IniSectionGetString (INI_FILE, "PrimeNet", "UploadEndTime", timebuf, sizeof (timebuf), "24:00");
+	IniSectionGetString (INI_FILE, SEC_PrimeNet, KEY_UploadEndTime, timebuf, sizeof (timebuf), "24:00");
 	end_time = strToMinutes (timebuf);
 
 // BUG - Enforce a minimum upload window of 2 hours.  (make this user settable?)

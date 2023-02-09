@@ -82,7 +82,7 @@ BEGIN
     POPUP "&Test"
     BEGIN
         MENUITEM "&PrimeNet...",                IDM_PRIMENET
-        MENUITEM "&Worker Windows...",          IDM_WORKER_THREADS
+        MENUITEM "&Worker Windows...",          IDM_WORKERS
         MENUITEM SEPARATOR
         MENUITEM "&Status...",                  IDM_STATUS
         MENUITEM SEPARATOR
@@ -147,7 +147,7 @@ BEGIN
     POPUP "&Test"
     BEGIN
         MENUITEM "&PrimeNet...",                IDM_PRIMENET
-        MENUITEM "&Worker Windows...",          IDM_WORKER_THREADS
+        MENUITEM "&Worker Windows...",          IDM_WORKERS
         MENUITEM SEPARATOR
         MENUITEM "&Status...",                  IDM_STATUS
         MENUITEM SEPARATOR
@@ -591,7 +591,7 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,295,24,50,14
 END
 
-IDD_WORKER_THREADS DIALOGEX 0, 0, 309, 143
+IDD_WORKERS DIALOGEX 0, 0, 309, 143
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Worker Windows"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
@@ -755,7 +755,7 @@ BEGIN
     IDM_TRAY                "Place program icon in system tray"
     IDM_HIDE                "Completely hide program icon"
     IDM_TORTURE             "Run a torture test to assess hardware stability"
-    IDM_WORKER_THREADS      "Edit properties of worker windows"
+    IDM_WORKERS             "Edit properties of worker windows"
     IDM_PRIMENET            "PrimeNet Properties"
     IDM_QUIT                "Remove this computer from the GIMPS project"
     IDM_SERVICE             "Start program automatically when you logon"

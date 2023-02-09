@@ -1,4 +1,4 @@
-/* Copyright 1995-2017 Mersenne Research, Inc.  All rights reserved */
+/* Copyright 1995-2023 Mersenne Research, Inc.  All rights reserved */
 
 // Prime95View.cpp : implementation of the CPrime95View class
 //
@@ -19,7 +19,7 @@ static char THIS_FILE[] = __FILE__;
 #endif
 
 
-#define MAX_VIEWS	(MAX_NUM_WORKER_THREADS+2)	/* MDI windows: Main_thread, comm_thread and worker threads. */
+#define MAX_VIEWS	(MAX_NUM_WORKERS+2)	/* MDI windows: Main_thread, comm_thread and workers. */
 
 
 CPrime95View *Views[MAX_VIEWS] = {0};
@@ -299,7 +299,7 @@ static	int	was_iconic = TRUE;
 // aren't running I'll set it to the main or comm window title.
 
 	if (pApp->m_pMainWnd &&
-	    (! WORKER_THREADS_ACTIVE ||
+	    (! WORKERS_ACTIVE ||
 	     (this != Views[0] && this != Views[1]))) {
 		sprintf (buf, "Prime95 - %s", Title);
 		if (TRAY_ICON) {
@@ -342,7 +342,7 @@ void base_title (
 
 	if (MERGE_WINDOWS & MERGE_MAIN_WINDOW &&
 	    MERGE_WINDOWS & MERGE_COMM_WINDOW &&
-	    (MERGE_WINDOWS & MERGE_WORKER_WINDOWS || NUM_WORKER_THREADS == 1))
+	    (MERGE_WINDOWS & MERGE_WORKER_WINDOWS || NUM_WORKERS == 1))
 		str = "";
 	else if ((thread_num == MAIN_THREAD_NUM &&
 		  MERGE_WINDOWS & MERGE_MAIN_WINDOW) ||
@@ -351,7 +351,7 @@ void base_title (
 		 (thread_num >= 0 &&
 		  MERGE_WINDOWS & MERGE_WORKER_WINDOWS)) {
 		if (MERGE_WINDOWS & MERGE_WORKER_WINDOWS &&
-		    NUM_WORKER_THREADS > 1)
+		    NUM_WORKERS > 1)
 			str = "Workers";
 		else
 			str = "Worker";
@@ -795,7 +795,7 @@ static	int	partial_line_output[MAX_VIEWS] = {FALSE};
 		   MERGE_WINDOWS & (MERGE_MAIN_WINDOW | MERGE_COMM_WINDOW)) ||
 		  (thread_num == 0 &&
 		   MERGE_WINDOWS & MERGE_WORKER_WINDOWS &&
-		   NUM_WORKER_THREADS > 1) ||
+		   NUM_WORKERS > 1) ||
 		  (thread_num >= 1 &&
 		   MERGE_WINDOWS & MERGE_WORKER_WINDOWS))) {
 		char	prefix[50];
@@ -804,7 +804,7 @@ static	int	partial_line_output[MAX_VIEWS] = {FALSE};
 		else if (thread_num == COMM_THREAD_NUM)
 			strcpy (prefix, "[Comm thread");
 		else if (! (MERGE_WINDOWS & MERGE_WORKER_WINDOWS) ||
-			 NUM_WORKER_THREADS == 1)
+			 NUM_WORKERS == 1)
 			strcpy (prefix, "[Work thread");
 		else
 			sprintf (prefix, "[Worker #%d", thread_num+1);
@@ -870,8 +870,7 @@ void CPrime95View::RealOutputStr (
 }
 
 /* Destroy a window.  The user has decided to close the MDI window. */
-/* We use a mutex to make sure a worker thread is not writing to this */
-/* MDI window while we are destroying it. */
+/* We use a mutex to make sure a worker is not writing to this MDI window while we are destroying it. */
 
 void CPrime95View::OnDestroy()
 {

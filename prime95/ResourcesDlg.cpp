@@ -109,8 +109,8 @@ void CResourcesDlg::OnAdvanced()
 
 		IniWriteInt (INI_FILE, "MaxEmergencyMemory", (long) (dlg.m_emergency_mem * 1024.0));
 
-/* If user changed the priority of worker threads, then change the INI file. */
-/* Restart worker threads so that they are running at the new priority. */
+/* If user changed the priority of workers, then change the INI file. */
+/* Restart workers so that they are running at the new priority. */
 
 		if (PRIORITY != dlg.m_priority) {
 			PRIORITY = dlg.m_priority;
@@ -135,7 +135,7 @@ void CResourcesDlg::OnAdvanced()
 			restart = TRUE;
 		}
 
-/* Restart worker threads with new options */
+/* Restart workers with new options */
 
 		if (restart) stop_workers_for_restart ();
 	}

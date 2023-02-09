@@ -36,7 +36,7 @@ extern "C" {
 /* limitations in our own old affinity code, we used to limit */
 /* Windows 32-bit to 32 workers, Windows 64-bit to 64 workers. */
 
-#define MAX_NUM_WORKER_THREADS 1024	/* Number of launchable work threads */
+#define MAX_NUM_WORKERS 1024		/* Number of launchable workers */
 
 /* Factoring limits based on complex formulas given the speed of the */
 /* factoring code vs. the speed of the Lucas-Lehmer code */
@@ -151,12 +151,11 @@ extern char COMPUTER_GUID[33];		/* Global unique computer ID */
 extern int USE_PRIMENET;		/* TRUE if we're using PrimeNet */
 extern int DIAL_UP;			/* TRUE if we're dialing into */
 					/* PrimeNet server */
-extern unsigned int NUM_WORKER_THREADS; /* Number of work threads to launch */
-extern unsigned int WORK_PREFERENCE[MAX_NUM_WORKER_THREADS];
-					/* Type of work (factoring, testing, */
-					/* etc.) to get from the server. */
-extern unsigned int CORES_PER_TEST[MAX_NUM_WORKER_THREADS];
-					/* Number of threads gwnum can use in computations. */
+extern unsigned int NUM_WORKERS;	/* Number of workers to launch */
+extern unsigned int WORK_PREFERENCE[MAX_NUM_WORKERS];
+					/* Type of work (factoring, testing, etc.) to get from the server. */
+extern unsigned int CORES_PER_TEST[MAX_NUM_WORKERS];
+					/* Number of cores gwnum can use in computations */
 extern int HYPERTHREAD_TF;		/* TRUE if trial factoring should use hyperthreads */
 extern int HYPERTHREAD_LL;		/* TRUE if FFTs (LL, P-1, ECM, PRP) should use hyperthreads */
 extern unsigned int DAYS_OF_WORK;	/* How much work to retrieve from */
@@ -172,8 +171,7 @@ extern unsigned int volatile CPU_HOURS;	/* Hours per day program will run */
 extern int CLASSIC_OUTPUT;		/* LL and PRP output to worker windows should use the pre-v28.5 classic style */
 extern int OUTPUT_ROUNDOFF;		/* LL and PRP output to worker windows shound include the roundoff error */
 extern unsigned long volatile ITER_OUTPUT;/* Iterations between outputs */
-extern unsigned long volatile ITER_OUTPUT_RES;/* Iterations between results */
-					/* file outputs */
+extern unsigned long volatile ITER_OUTPUT_RES;/* Iterations between results file outputs */
 extern unsigned long volatile DISK_WRITE_TIME;
 					/* Number of minutes between writing */
 					/* intermediate results to disk */
@@ -226,9 +224,9 @@ extern int THROTTLE_PCT;		/* Percent CPU time prog should run */
 
 extern int STARTUP_IN_PROGRESS;		/* TRUE if startup dialogs are up */
 
-extern int LAUNCH_TYPE;			/* Type of worker threads launched */
-extern unsigned int WORKER_THREADS_ACTIVE;/* Num worker threads running */
-extern int WORKER_THREADS_STOPPING;	/* TRUE iff worker threads stopping */
+extern int LAUNCH_TYPE;			/* Type of workers launched */
+extern unsigned int WORKERS_ACTIVE;/* Num workers running */
+extern int WORKERS_STOPPING;	/* TRUE iff workers stopping */
 
 extern unsigned int WORKTODO_COUNT;	/* Count of valid work lines */
 
@@ -272,6 +270,33 @@ struct hw_core_info {
 };
 extern struct hw_core_info *HW_CORES;	/* Information on every core */
 
+/* INI section and settings strings */
+
+extern const char SEC_Internals[];
+extern const char KEY_V30OptionsConverted[];
+extern const char KEY_RollingAverage[];
+extern const char KEY_RollingHash[];
+extern const char KEY_RollingStartTime[];
+extern const char KEY_RollingCompleteTime[];
+extern const char KEY_CertDailyMBRemaining[];
+extern const char KEY_CertDailyCPURemaining[];
+extern const char KEY_CertDailyRemainingLastUpdate[];
+extern const char SEC_PrimeNet[];
+extern const char KEY_Debug[];
+extern const char KEY_ProxyHost[];
+extern const char KEY_ProxyUser[];
+extern const char KEY_ProxyPass[];
+extern const char KEY_ProxyMask[];
+extern const char KEY_UploadRateLimit[];
+extern const char KEY_UploadStartTime[];
+extern const char KEY_UploadEndTime[];
+extern const char KEY_DownloadDailyLimit[];
+extern const char KEY_DownloadRateLimit[];
+extern const char KEY_ProofUploads[];
+extern const char KEY_ProofHashLength[];
+extern const char KEY_ProofPower[];
+extern const char KEY_ProofPowerMult[];
+extern const char KEY_UploadChunkSize[];
 
 /* Common routines */
 
@@ -389,7 +414,7 @@ struct work_unit {		/* One line from the worktodo file */
 	unsigned long fftlen;	/* FFT length in use */
 	int	ra_failed;	/* Set when register assignment fails, tells us not to try registering it again. */
 };
-struct work_unit_array {	/* All the lines for one worker thread */
+struct work_unit_array {	/* All the lines for one worker */
 	struct work_unit *first; /* First work unit */
 	struct work_unit *last;	/* Last work unit */
 };

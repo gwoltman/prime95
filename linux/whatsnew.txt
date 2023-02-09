@@ -6,7 +6,7 @@ New features in Version 30.10 of mprime
 2) Proof files start uploading within a minute of sending a PRP result to the server.
    Previously it could take up to an hour for proof uploading to begin.
 3) Worktodo.add files are now processed without stopping all workers.
-4) Settings from local.txt have been moved to prime.txt.
+4) Settings from local.txt have been moved to prime.txt.  Settings in prime.txt grouped for clarity.
 
 New features in Version 30.8 of mprime
 --------------------------------------
@@ -336,7 +336,7 @@ New features in Version 26.2 of mprime
     likely scroll off the screen unnoticed.  Now, all future progress updates to
     the screen will be followed by a message containing a count of the errors that
     have occurred during the test.
-5)  Worker threads now stagger their starts.  This improves timings for some
+5)  Workers now stagger their starts.  This improves timings for some
     CPUs and operating systems.  See undoc.txt to control this feature.
 
 New features in Version 25.11 of mprime
@@ -346,7 +346,7 @@ New features in Version 25.11 of mprime
 2)  Zero-padded FFTs are about 3-4% faster.  These FFTs are used in projects
     like SeventeenOrBust.
 3)  Mprime automatically sets the program to nice priority.  Technically, this
-    is not necessary since worker threads are set to the lowest possible priority.
+    is not necessary since workers are set to the lowest possible priority.
     However, sysadmins might be alarmed to see a CPU intensive program not running
     at nice priority when executing a ps command (it takes a more complicated ps
     command to see that the CPU intensive threads are running at a lower priority).
@@ -404,7 +404,7 @@ New features in Version 25.8 of mprime
 5)  The "days between checkin" value now has a range of 1 to 7 days.
     In version 24, the range was 1 to 60 days with a default of 28 days.
 6)  A bug where some low memory situations on a multi-core machine resulted
-    in one or more worker threads sat idle has been fixed.
+    in one or more workers sat idle has been fixed.
 7)  A crash bug doing 61 and 62 bit trial factoring on Pentium CPUs that
     do not support the CMOV instruction was fixed.  On these same CPUs
     a bug was fixed when factors smaller than 2^60 was found.
@@ -419,7 +419,7 @@ New features in Version 25.7 of mprime
 4)  Ability to stop and start individual workers added.
 5)  DayMemory and NightMemory in local.txt replaced with a single Memory
     setting.
-6)  Memory can be set for each worker thread.
+6)  Memory can be set for each worker.
 7)  Scheme to distribute available memory among workers needing a lot of
     memory has been completely revamped.
 8)  MaxHighMemWorkers replaces delayStage2Workers option.

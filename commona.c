@@ -43,14 +43,13 @@ void rangeStatusMessage (
 	double	prob, est;
 	char	*orig_buf;
 
-/* Just in case the user hand added work to the worktodo file, reread it */
-/* now if the worker threads and communication threads are not active. */
+/* Just in case the user hand added work to the worktodo file, reread it now if the workers and communication thread are not active. */
 
-	if (! WORKER_THREADS_ACTIVE && !COMMUNICATION_THREAD) readIniFiles ();
+	if (! WORKERS_ACTIVE && !COMMUNICATION_THREAD) readIniFiles ();
 
 /* Init.  Default is 32 lines in a 2000 character buffer */
 
-	lines_per_worker = (unsigned int) IniGetInt (INI_FILE, "StatusLines", buflen / 62) / NUM_WORKER_THREADS;
+	lines_per_worker = (unsigned int) IniGetInt (INI_FILE, "StatusLines", buflen / 62) / NUM_WORKERS;
 	if (lines_per_worker < 3) lines_per_worker = 3;
 	orig_buf = buf;
 	ll_and_prp_cnt = 0;
@@ -59,9 +58,9 @@ void rangeStatusMessage (
 	strcpy (buf, STAT0);
 	buf += strlen (buf);
 
-/* Loop over all worker threads */
+/* Loop over all workers */
 
-	for (tnum = 0; tnum < NUM_WORKER_THREADS; tnum++) {
+	for (tnum = 0; tnum < NUM_WORKERS; tnum++) {
 	    struct work_unit *w;
 	    unsigned int lines_output;
 	    int truncated_status_msg;
@@ -71,10 +70,10 @@ void rangeStatusMessage (
 	    lines_output = 0;
 	    truncated_status_msg = FALSE;
 
-/* Output thread id */
+/* Output worker num */
 
-	    if (NUM_WORKER_THREADS > 1) {
-		sprintf (buf, "[Worker thread #%d]\n", tnum+1);
+	    if (NUM_WORKERS > 1) {
+		sprintf (buf, "[Worker #%d]\n", tnum+1);
 		buf += strlen (buf);
 		lines_output++;
 	    }

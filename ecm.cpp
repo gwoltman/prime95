@@ -913,7 +913,7 @@ double best_stage2_impl (
 
 /* Determine the maximum pairmap size.  The costing functions may increase the stage 2 setup costs if the pairmap must be split in chunks. */
 
-	{
+	if (!c->use_poly_D_data) {
 		int max_pairmap_size = IniGetInt (INI_FILE, "MaximumBitArraySize", 250);
 		if (max_pairmap_size > 2000) max_pairmap_size = 2000;
 		if (max_pairmap_size < 1) max_pairmap_size = 1;
@@ -1011,7 +1011,7 @@ double best_stage2_impl (
 // 2022-12-14:  Pminus1=1,2,87856183,-1,1000000,100000000 used 2.3GB of memory for non-windowed pairing.  Since pairing will only be
 // used in low-memory situations, we will always use windowed pairing.  Testing showed a window size of 100 used ~65MB over and above
 // the already allocated 107MB.  A window size of 350 also used ~65MB.  Thus, we'll arbitrarily use a window size of 1000.
-      
+
 int pair_window_size (
 	double	bit_length,
 	int16_t	*relp_sets)
@@ -1354,7 +1354,7 @@ uint64_t calc_new_first_relocatable (
 
 typedef struct {
 	gwhandle gwdata;	/* GWNUM handle */
-	int	thread_num;	/* Worker thread number */
+	int	thread_num;	/* Worker number */
 	struct work_unit *w;	/* Worktodo.txt entry */
 	uint32_t curve;		/* Curve # starting with 1 */
 	uint32_t state;		/* Curve state defined above */
@@ -5486,7 +5486,7 @@ if (w->n == 604) {
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&ecmdata.gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&ecmdata.gwdata, 2);
 	gwset_bench_cores (&ecmdata.gwdata, HW_NUM_CORES);
-	gwset_bench_workers (&ecmdata.gwdata, NUM_WORKER_THREADS);
+	gwset_bench_workers (&ecmdata.gwdata, NUM_WORKERS);
 	if (ERRCHK) gwset_will_error_check (&ecmdata.gwdata);
 	gwset_num_threads (&ecmdata.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
 	gwset_thread_callback (&ecmdata.gwdata, SetAuxThreadPriority);
@@ -6004,7 +6004,7 @@ OutputStr (thread_num, buf); }
 			if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&ecmdata.gwdata);
 			if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&ecmdata.gwdata, 2);
 			gwset_bench_cores (&ecmdata.gwdata, HW_NUM_CORES);
-			gwset_bench_workers (&ecmdata.gwdata, NUM_WORKER_THREADS);
+			gwset_bench_workers (&ecmdata.gwdata, NUM_WORKERS);
 			if (ERRCHK) gwset_will_error_check (&ecmdata.gwdata);
 			gwset_num_threads (&ecmdata.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
 			gwset_thread_callback (&ecmdata.gwdata, SetAuxThreadPriority);
@@ -7937,7 +7937,7 @@ more_curves:
 			if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&ecmdata.gwdata);
 			if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&ecmdata.gwdata, 2);
 			gwset_bench_cores (&ecmdata.gwdata, HW_NUM_CORES);
-			gwset_bench_workers (&ecmdata.gwdata, NUM_WORKER_THREADS);
+			gwset_bench_workers (&ecmdata.gwdata, NUM_WORKERS);
 			if (ERRCHK) gwset_will_error_check (&ecmdata.gwdata);
 			gwset_num_threads (&ecmdata.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
 			gwset_thread_callback (&ecmdata.gwdata, SetAuxThreadPriority);
@@ -8311,7 +8311,7 @@ print out each test case (all relevant data)*/
 
 typedef struct {
 	gwhandle gwdata;	/* GWNUM handle */
-	int	thread_num;	/* Worker thread number */
+	int	thread_num;	/* Worker number */
 	struct work_unit *w;	/* Worktodo.txt entry */
 	int	state;		/* One of the states listed above */
 	uint64_t B;		/* Bound #1 (a.k.a. B1) */
@@ -9692,7 +9692,7 @@ restart:
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pm1data.gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&pm1data.gwdata, 2);
 	gwset_bench_cores (&pm1data.gwdata, HW_NUM_CORES);
-	gwset_bench_workers (&pm1data.gwdata, NUM_WORKER_THREADS);
+	gwset_bench_workers (&pm1data.gwdata, NUM_WORKERS);
 	if (ERRCHK) gwset_will_error_check (&pm1data.gwdata);
 	else gwset_will_error_check_near_limit (&pm1data.gwdata);
 	gwset_num_threads (&pm1data.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
@@ -10413,7 +10413,7 @@ OutputStr (thread_num, buf); }
 			if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pm1data.gwdata);
 			if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&pm1data.gwdata, 2);
 			gwset_bench_cores (&pm1data.gwdata, HW_NUM_CORES);
-			gwset_bench_workers (&pm1data.gwdata, NUM_WORKER_THREADS);
+			gwset_bench_workers (&pm1data.gwdata, NUM_WORKERS);
 			if (ERRCHK) gwset_will_error_check (&pm1data.gwdata);
 			else gwset_will_error_check_near_limit (&pm1data.gwdata);
 			gwset_num_threads (&pm1data.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
@@ -12357,7 +12357,7 @@ int pfactor (
 
 typedef struct {
 	gwhandle gwdata;	/* GWNUM handle */
-	int	thread_num;	/* Worker thread number */
+	int	thread_num;	/* Worker number */
 	struct work_unit *w;	/* Worktodo.txt entry */
 	int	state;		/* One of the states listed above */
 	double	takeAwayBits;	/* Bits we get for free in smoothness of P+1 factor */
@@ -12856,7 +12856,7 @@ int pp1_stage2_impl (
 
 /* Output a message telling us how much memory is available */
 
-	if (NUM_WORKER_THREADS > 1) {
+	if (NUM_WORKERS > 1) {
 		char	buf[100];
 		sprintf (buf, "Available memory is %dMB.\n", memory);
 		OutputStr (pp1data->thread_num, buf);
@@ -13416,7 +13416,7 @@ restart:
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pp1data.gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&pp1data.gwdata, 2);
 	gwset_bench_cores (&pp1data.gwdata, HW_NUM_CORES);
-	gwset_bench_workers (&pp1data.gwdata, NUM_WORKER_THREADS);
+	gwset_bench_workers (&pp1data.gwdata, NUM_WORKERS);
 	if (ERRCHK) gwset_will_error_check (&pp1data.gwdata);
 	else gwset_will_error_check_near_limit (&pp1data.gwdata);
 	gwset_num_threads (&pp1data.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));

@@ -127,7 +127,7 @@ void ProofUpload (char *filename)
 
 // Get bandwidth rate limit (default 0.25Mbps) and max_chunk_size (default 1/2/4/7MB)
 
-	bandwidth_rate_limit_flt = IniSectionGetFloat (INI_FILE, "PrimeNet", "UploadRateLimit", 0.25);	// Rate limit in Mbps
+	bandwidth_rate_limit_flt = IniSectionGetFloat (INI_FILE, SEC_PrimeNet, KEY_UploadRateLimit, 0.25);	// Rate limit in Mbps
 	if (bandwidth_rate_limit_flt < 0.0) bandwidth_rate_limit_flt = 0.0;
 	if (bandwidth_rate_limit_flt > 10000.0) bandwidth_rate_limit_flt = 10000.0;	// Max out at 10Gbps
 
@@ -135,7 +135,7 @@ void ProofUpload (char *filename)
 	else if (bandwidth_rate_limit_flt >= 8.0) max_chunk_size_flt = 4.0;
 	else if (bandwidth_rate_limit_flt >= 1.0) max_chunk_size_flt = 2.0;
 	else max_chunk_size_flt = 1.0;
-	max_chunk_size_flt = IniSectionGetFloat (INI_FILE, "PrimeNet", "UploadChunkSize", max_chunk_size_flt);
+	max_chunk_size_flt = IniSectionGetFloat (INI_FILE, SEC_PrimeNet, KEY_UploadChunkSize, max_chunk_size_flt);
 	if (max_chunk_size_flt <= 1.0) max_chunk_size_flt = 1.0;
 	if (max_chunk_size_flt >= 8.0) max_chunk_size_flt = 8.0;			// Primenet maxes out POST data at 8MB
 
@@ -207,7 +207,7 @@ void ProofUpload (char *filename)
 
 /* Get debug logging flag */
 
-	debug = IniSectionGetInt (INI_FILE, "PrimeNet", "Debug", 0);
+	debug = IniSectionGetInt (INI_FILE, SEC_PrimeNet, KEY_Debug, 0);
  
 /* Init the cURL structures */
 
