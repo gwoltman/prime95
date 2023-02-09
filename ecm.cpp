@@ -662,16 +662,14 @@ struct D_data poly_D_data[] = {
 // Map a D value to the D_data index
 int map_D_to_index (int D)
 {
-	int	i;
-	for (i = 0; i < NUM_D; i++) if (D_data[i].D == D) return (i);
+	for (int i = 0; i < NUM_D; i++) if (D_data[i].D == D) return (i);
 	ASSERTG (0);
 	return (0);
 }
 // Map a poly D value to the poly_D_data index
 int map_polyD_to_index (int D)
 {
-	int	i;
-	for (i = 0; i < NUM_D; i++) if (poly_D_data[i].D == D) return (i);
+	for (int i = 0; i < POLY_NUM_D; i++) if (poly_D_data[i].D == D) return (i);
 	ASSERTG (0);
 	return (0);
 }
@@ -4267,7 +4265,7 @@ if (Ftree_polys_in_mem + more_Ftree_polys_in_mem > num_Ftree_polys - 1) more_Ftr
 
 		cost_data->c.est_stage2_transforms += poly_size * 2.0;
 
-/* Compute the total cost including pairing runtime and modular inverses */
+/* Compute the total cost including modular inverses */
 
 		cost = cost_data->c.est_init_transforms + cost_data->c.est_stage2_transforms;
 		cost *= IniGetFloat (INI_FILE, "EcmTransformCost", (float) 1.0);
@@ -4280,8 +4278,8 @@ if (Ftree_polys_in_mem + more_Ftree_polys_in_mem > num_Ftree_polys - 1) more_Ftr
 
 	adjusted_cost = cost;
 	if (cost_data->c.extra_credit) {
-		double excess_work_credit = (double) (cost_data->c.B2_start + cost_data->c.numDsections * cost_data->c.D - cost_data->c.B1) /
-					    (double) (cost_data->c.B2 - cost_data->c.B1);
+		double excess_work_credit = (double) kruppa_adjust (cost_data->c.B2_start + cost_data->c.numDsections * cost_data->c.D, cost_data->c.B1) /
+					    (double) kruppa_adjust (cost_data->c.B2, cost_data->c.B1);
 		adjusted_cost /= excess_work_credit;
 	}
 
@@ -4329,6 +4327,7 @@ double ecm_stage2_impl_given_numvals (
 	best_cost = 1.0e99;
 	cost_data.c.numvals = numvals;
 	cost_data.c.extra_credit = FALSE;
+//GW cost_data.c.extra_credit = TRUE;
 	cost_data.c.use_poly_D_data = FALSE;
 	cost_data.c.centers_on_Dmultiple = TRUE;
 	cost_data.c.required_missing = ecmdata->required_missing;
@@ -4403,7 +4402,8 @@ void ecm_choose_B2 (
 				if (x.i > max_B2mult) x.i = max_B2mult; \
 				ecmdata->C = x.i * ecmdata->B; \
 				B2_cost = ecm_stage2_impl_given_numvals (ecmdata, numvals, forced_stage2_type, &cost_data); \
-				x.efficiency = kruppa_adjust (ecmdata->C, ecmdata->B) / (B1_cost + B2_cost + cost_data.gcd_cost);
+				x.efficiency = kruppa_adjust (cost_data.c.B2_start + cost_data.c.numDsections * cost_data.c.D, ecmdata->B) / (B1_cost + B2_cost + cost_data.gcd_cost);
+//				x.efficiency = kruppa_adjust (ecmdata->C, ecmdata->B) / (B1_cost + B2_cost + cost_data.gcd_cost);
 
 // The cost of B1 (in FFTs) is about 25.48 * B1 (measured at 25.42 for B1=50000, 25.53 for B1=250000).
 
@@ -4573,7 +4573,6 @@ double ecm_stage2_impl (
 	} else {
 		ecmdata->poly_size = cost_data.c.numrels;
 		ecmdata->Ftree_polys_in_mem = cost_data.Ftree_polys_in_mem;
-		if (ecmdata->B2_start > ecmdata->C_done) ecmdata->required_missing = cost_data.c.first_missing_prime;
 	}
 
 /* Output data regarding our cost estimates so user can make adjustments when our estimates are wildly off the mark */
@@ -5655,7 +5654,7 @@ restart1:
 		int	count;
 
 		next_prime = sieve (ecmdata.sieve_info);
-
+//GW if(next_prime > 10)break;
 /* Test for user interrupt, save files, and error checking */
 
 		stop_reason = stopCheck (thread_num);
@@ -5943,9 +5942,8 @@ replan:	unsigned long original_fftlen, best_fftlen;
 			if (ecmdata.pairmap != NULL) break;
 
 /* Adjust the cost for the different B2 endpoints of each stage 2 plan.  In other words search for the most efficient stage 2 plan. */
-/* Multiply efficiency by a billion solely for pretty output in case PolyVerbose is set. */
 
-			efficiency = cost / (double) (ecmdata.B2_start + ecmdata.numDsections * ecmdata.D - ecmdata.B) * 1.0e9;
+			efficiency = cost / kruppa_adjust (ecmdata.B2_start + ecmdata.numDsections * ecmdata.D, ecmdata.B);
 if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
 if (cost == 0.0) sprintf (buf, "FFT: %d no stage 2 plan works\n", (int) gwfftlen (&ecmdata.gwdata));
 else sprintf (buf, "FFT: %d, B2: %" PRIu64 "/%" PRIu64 ", numvals: %" PRIu64 "/%d, poly: %" PRIu64 ", efficiency: %.0f\n", (int) gwfftlen (&ecmdata.gwdata), ecmdata.C,
@@ -7848,8 +7846,9 @@ print_timer (timers, 0, buf, TIMER_NL);
 OutputStr (thread_num, buf);
 start_timer_from_zero (timers, 0);
 
-/* Set C and C_done for the delayed or final save file and the Kruppa adjustment */
+/* Set required_missing for continuation from a new C_done value.  Set C and C_done for the delayed or final save file and the Kruppa adjustment. */
 
+	if (ecmdata.B2_start > ecmdata.C_done) ecmdata.required_missing = map_polyD_to_first_missing_prime (ecmdata.D);
 	ecmdata.C_done = ecmdata.B2_start + ecmdata.Dsection * ecmdata.D;
 	ecmdata.C = ecmdata.B2_start + ecmdata.numDsections * ecmdata.D;
 
@@ -9211,7 +9210,8 @@ void pm1_choose_B2 (
 				if (x.i > max_B2mult) x.i = max_B2mult; \
 				pm1data->C = x.i * pm1data->B; \
 				x.B2_cost = pm1_stage2_impl_given_numvals (pm1data, numvals, forced_stage2_type, &cost_data); \
-				x.fac_pct = pm1prob (takeAwayBits, sieve_depth, pm1data->B, x.i * pm1data->B);
+				x.fac_pct = pm1prob (takeAwayBits, sieve_depth, pm1data->B, cost_data.c.B2_start + cost_data.c.numDsections * cost_data.c.D);
+//				x.fac_pct = pm1prob (takeAwayBits, sieve_depth, pm1data->B, x.i * pm1data->B);
 
 // Return TRUE if x is better than y.  Determined by seeing if taking the increased cost of y's higher B2 and investing it in increasing x's bounds
 // results in a higher chance of finding a factor.
@@ -9386,7 +9386,6 @@ double pm1_stage2_impl (
 	} else {
 		pm1data->poly1_size = cost_data.c.numrels;
 		pm1data->poly2_size = cost_data.poly2_size;
-		if (pm1data->B2_start > pm1data->C_done) pm1data->required_missing = cost_data.c.first_missing_prime;
 	}
 
 /* Output data regarding our cost estimates so user can make adjustments when our estimates are wildly off the mark */
@@ -11382,6 +11381,10 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 
 	gwfree_cached (&pm1data.gwdata);
 	mallocFreeForOS ();
+
+/* Set required_missing for continuation from a polymult PM1_STATE_STAGE2 */
+
+	if (pm1data.B2_start > pm1data.C_done) pm1data.required_missing = map_polyD_to_first_missing_prime (pm1data.D);
 
 // Loop over all the D-sections between B1 and B2
 
