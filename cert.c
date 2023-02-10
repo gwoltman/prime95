@@ -547,8 +547,8 @@ int cert (
 /* Retry up to 8 times.  Output retry work later message and return. */
 
 retry_work:
-	echk = IniGetInt (INI_FILE, "CertErrorCount", 0) + 1;
-	IniWriteInt (INI_FILE, "CertErrorCount", echk);
+	echk = IniSectionGetInt (INI_FILE, SEC_Internals, KEY_CertErrorCount, 0) + 1;
+	IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_CertErrorCount, echk);
 	if (echk >= 8) goto abandon_work;
 	OutputStr (thread_num, "Will retry certification later.\n");
 	stop_reason = STOP_RETRY_LATER;
@@ -565,7 +565,7 @@ abandon_work:
 /* Return work unit complete "error" code */
 			
 work_complete:
-	IniWriteString (INI_FILE, "CertErrorCount", NULL);
+	IniSectionWriteString (INI_FILE, SEC_Internals, KEY_CertErrorCount, NULL);
 	stop_reason = STOP_WORK_UNIT_COMPLETE;
 	goto exit;
 

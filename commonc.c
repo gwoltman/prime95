@@ -124,6 +124,9 @@ const char KEY_NumWorkers[] = "NumWorkers";
 
 const char SEC_Internals[] = "Internals";
 const char KEY_V30OptionsConverted[] = "V30OptionsConverted";
+const char KEY_OldCpuSpeed[] = "OldCpuSpeed";
+const char KEY_NewCpuSpeed[] = "NewCpuSpeed";
+const char KEY_NewCpuSpeedCount[] = "NewCpuSpeedCount";
 const char KEY_RollingAverage[] = "RollingAverage";
 const char KEY_RollingHash[] = "RollingHash";
 const char KEY_RollingStartTime[] = "RollingStartTime";
@@ -144,7 +147,10 @@ const char KEY_SrvrPO6[] = "SrvrPO6";
 const char KEY_SrvrPO7[] = "SrvrPO7";
 const char KEY_SrvrPO8[] = "SrvrPO8";
 const char KEY_SrvrPO9[] = "SrvrPO9";
-
+const char KEY_LastEndDatesSent[] = "LastEndDatesSent";
+const char KEY_WGUID_version[] = "WGUID_version";
+const char KEY_CertErrorCount[] = "CertErrorCount";
+   
 const char SEC_PrimeNet[] = "PrimeNet";
 const char KEY_DialUp[] = "DialUp";
 const char KEY_ProxyHost[] = "ProxyHost";
@@ -232,7 +238,7 @@ void calc_windows_guid (void)
 	int	algorithm_version;
 	char	buf[500];
 
-	algorithm_version = IniGetInt (INI_FILE, "WGUID_version", 1);
+	algorithm_version = IniSectionGetInt (INI_FILE, SEC_Internals, KEY_WGUID_version, 1);
 	if (algorithm_version == 1) {
 		getWindowsSerialNumber (buf);
 		getWindowsSID (buf + strlen (buf));
@@ -310,7 +316,7 @@ void generate_computer_guid (void)
 /* Since we're generating a new computer GUID, we can use the latest, */
 /* most robust version of calculating the Windows GUID. */
 
-	IniWriteInt (INI_FILE, "WGUID_version", 2);
+	IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_WGUID_version, 2);
 	calc_windows_guid ();
 }
 
@@ -348,16 +354,16 @@ void getCpuSpeed (void)
 /* in erroneously unreserving exponents. */
 
 	report_new_cpu_speed = FALSE;
-	old_cpu_speed = IniGetInt (INI_FILE, "OldCpuSpeed", 0);
+	old_cpu_speed = IniSectionGetInt (INI_FILE, SEC_Internals, KEY_OldCpuSpeed, 0);
 	if (CPU_SPEED < (double) old_cpu_speed * 0.97) {
-		if (IniGetInt (INI_FILE, "NewCpuSpeedCount", 0) <= 5) {
-			if (CPU_SPEED > (double) IniGetInt (INI_FILE, "NewCpuSpeed", 0))
-				IniWriteInt (INI_FILE, "NewCpuSpeed", (int) (CPU_SPEED + 0.5));
-			IniWriteInt (INI_FILE, "NewCpuSpeedCount", IniGetInt (INI_FILE, "NewCpuSpeedCount", 0) + 1);
+		if (IniSectionGetInt (INI_FILE, SEC_Internals, KEY_NewCpuSpeedCount, 0) <= 5) {
+			if (CPU_SPEED > (double) IniSectionGetInt (INI_FILE, SEC_Internals, KEY_NewCpuSpeed, 0))
+				IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_NewCpuSpeed, (int) (CPU_SPEED + 0.5));
+			IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_NewCpuSpeedCount, IniSectionGetInt (INI_FILE, SEC_Internals, KEY_NewCpuSpeedCount, 0) + 1);
 			CPU_SPEED = old_cpu_speed;
 		} else {
-			if (CPU_SPEED < (double) IniGetInt (INI_FILE, "NewCpuSpeed", 0))
-				CPU_SPEED = (double) IniGetInt (INI_FILE, "NewCpuSpeed", 0);
+			if (CPU_SPEED < (double) IniSectionGetInt (INI_FILE, SEC_Internals, KEY_NewCpuSpeed, 0))
+				CPU_SPEED = (double) IniSectionGetInt (INI_FILE, SEC_Internals, KEY_NewCpuSpeed, 0);
 			report_new_cpu_speed = TRUE;
 		}
 	}
@@ -368,8 +374,8 @@ void getCpuSpeed (void)
 /* dialog has been displayed). */
 
 	else if (CPU_SPEED < (double) old_cpu_speed * 1.03) {
-		IniWriteInt (INI_FILE, "NewCpuSpeedCount", 0);
-		IniWriteInt (INI_FILE, "NewCpuSpeed", 0);
+		IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_NewCpuSpeedCount, 0);
+		IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_NewCpuSpeed, 0);
 	}
 
 /* If CPU speed is much larger than the speed reported to the server, then */
@@ -385,9 +391,9 @@ void getCpuSpeed (void)
 /* do this on the first run (before the Welcome dialog has been displayed). */
 
 	if (report_new_cpu_speed) {
-		IniWriteInt (INI_FILE, "OldCpuSpeed", (int) (CPU_SPEED + 0.5));
-		IniWriteInt (INI_FILE, "NewCpuSpeedCount", 0);
-		IniWriteInt (INI_FILE, "NewCpuSpeed", 0);
+		IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_OldCpuSpeed, (int) (CPU_SPEED + 0.5));
+		IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_NewCpuSpeedCount, 0);
+		IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_NewCpuSpeed, 0);
 		if (old_cpu_speed) {
 			if (WORKTODO_COUNT) {
 				ROLLING_AVERAGE = (int) (ROLLING_AVERAGE * old_cpu_speed / CPU_SPEED);
@@ -1369,12 +1375,18 @@ void nameAndReadIniFiles (
 
 /* In 30.10 build 5, we moved many settings to individual sections of prime.txt */
 
+	renameIniKey (NULL, "WorkerThreads", KEY_NumWorkers);			// Renamed in 30.10b5
+
 	IniWriteString (INI_FILE, "RollingAverageIsFromV27", NULL);		// Deprecated 30.10b5
 	IniWriteString (INI_FILE, "V24OptionsConverted", NULL);			// Deprecated 30.10b5
 	IniWriteString (INI_FILE, "AskedAboutMemory", NULL);			// Deprecated long before 30.10b5
 	IniWriteString (INI_FILE, "Advanced", NULL);				// Deprecated long before 30.10b5
+	IniWriteString (INI_FILE, "Affinity", NULL);				// Deprecated well before 30.10b5
 
 	moveToSection (SEC_Internals, KEY_V30OptionsConverted);			// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_OldCpuSpeed);				// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_NewCpuSpeed);				// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_NewCpuSpeedCount);			// Moved here 30.10b5
 	moveToSection (SEC_Internals, KEY_RollingAverage);			// Moved here 30.10b5
 	moveToSection (SEC_Internals, KEY_RollingHash);				// Moved here 30.10b5
 	moveToSection (SEC_Internals, KEY_RollingStartTime);			// Moved here 30.10b5
@@ -1394,6 +1406,9 @@ void nameAndReadIniFiles (
 	moveToSection (SEC_Internals, KEY_SrvrPO7);				// Moved here 30.10b5
 	moveToSection (SEC_Internals, KEY_SrvrPO8);				// Moved here 30.10b5
 	moveToSection (SEC_Internals, KEY_SrvrPO9);				// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_LastEndDatesSent);			// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_WGUID_version);			// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_CertErrorCount);			// Moved here 30.10b5
 
 	moveToSection (SEC_PrimeNet, KEY_DialUp);				// Moved here 30.10b5
 	moveToSection (SEC_PrimeNet, KEY_ProxyHost);				// Has always been here
@@ -1411,7 +1426,6 @@ void nameAndReadIniFiles (
 	//moveToSection (SEC_PrimeNet, KEY_ProofPower);				// Cannot move, appears in both main and PrimeNet section
 	//moveToSection (SEC_PrimeNet, KEY_ProofPowerMult);			// Cannot move, appears in both main and PrimeNet section
 	moveToSection (SEC_PrimeNet, KEY_UploadChunkSize);			// Has always been here
-	renameIniKey (NULL, "WorkerThreads", KEY_NumWorkers);			// Renamed in 30.10b5
 
 /* Perform other one-time initializations */
 
@@ -4870,7 +4884,7 @@ void set_comm_timers (void)
 /* Get the current time and when the completion dates were last sent */
 
 	time (&current_time);
-	last_time = IniGetInt (INI_FILE, "LastEndDatesSent", 0);
+	last_time = IniSectionGetInt (INI_FILE, SEC_Internals, KEY_LastEndDatesSent, 0);
 
 /* If it's been the correct number of days, then update the end dates */
 
@@ -6581,7 +6595,7 @@ retry:
 	else if (header_words[1] & HEADER_FLAG_END_DATES) {
 		time_t current_time;
 		time (&current_time);
-		IniWriteInt (INI_FILE, "LastEndDatesSent", (long) current_time);
+		IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_LastEndDatesSent, (long) current_time);
 		if (!MANUAL_COMM)
 			add_timed_event (TE_COMPLETION_DATES, (int) (DAYS_BETWEEN_CHECKINS * 86400.0));
 	}

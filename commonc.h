@@ -276,6 +276,9 @@ extern const char KEY_NumWorkers[];
 
 extern const char SEC_Internals[];
 extern const char KEY_V30OptionsConverted[];
+extern const char KEY_OldCpuSpeed[];
+extern const char KEY_NewCpuSpeed[];
+extern const char KEY_NewCpuSpeedCount[];
 extern const char KEY_RollingAverage[];
 extern const char KEY_RollingHash[];
 extern const char KEY_RollingStartTime[];
@@ -296,6 +299,9 @@ extern const char KEY_SrvrPO6[];
 extern const char KEY_SrvrPO7[];
 extern const char KEY_SrvrPO8[];
 extern const char KEY_SrvrPO9[];
+extern const char KEY_LastEndDatesSent[];
+extern const char KEY_WGUID_version[];
+extern const char KEY_CertErrorCount[];
 
 extern const char SEC_PrimeNet[];
 extern const char KEY_DialUp[];
