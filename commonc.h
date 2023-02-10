@@ -321,6 +321,16 @@ extern const char KEY_ProofPower[];
 extern const char KEY_ProofPowerMult[];
 extern const char KEY_UploadChunkSize[];
 
+extern const char SEC_Windows[];
+extern const char KEY_MergeWindows[];
+extern const char KEY_TrayIcon[];
+extern const char KEY_HideIcon[];
+extern const char KEY_Left[];
+extern const char KEY_Right[];
+extern const char KEY_Top[];
+extern const char KEY_Bottom[];
+extern const char KEY_ExitOnX[];
+
 /* Common routines */
 
 void generate_application_string (char *);

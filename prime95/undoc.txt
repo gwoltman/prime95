@@ -726,7 +726,7 @@ if similar issues occur in the future:
 Set these options in prime.txt
 
 One can override the default affinity settings with the Affinity= option in prime.txt.
-Suppose you want to change which logical CPUs the second worker window uses.  Here are some
+Suppose you want to change which logical CPUs the second worker uses.  Here are some
 example lines you might add to the "[Worker #2]" section of prime.txt (the logical CPUs use
 the zero-based numbering scheme for PU# returned by hwloc which you can see in results.txt
 by doing a benchmark):

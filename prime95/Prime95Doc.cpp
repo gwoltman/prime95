@@ -177,10 +177,10 @@ void CPrime95Doc::OnCloseDocument()
 	WINDOWPLACEMENT wp;
 	if (pApp->m_pMainWnd && INI_FILE[0]) {
 		pApp->m_pMainWnd->GetWindowPlacement (&wp);
-		IniWriteInt (INI_FILE, "Left", wp.rcNormalPosition.left);
-		IniWriteInt (INI_FILE, "Top", wp.rcNormalPosition.top);
-		IniWriteInt (INI_FILE, "Right", wp.rcNormalPosition.right);
-		IniWriteInt (INI_FILE, "Bottom", wp.rcNormalPosition.bottom);
+		IniSectionWriteInt (INI_FILE, SEC_Windows, KEY_Left, wp.rcNormalPosition.left);
+		IniSectionWriteInt (INI_FILE, SEC_Windows, KEY_Top, wp.rcNormalPosition.top);
+		IniSectionWriteInt (INI_FILE, SEC_Windows, KEY_Right, wp.rcNormalPosition.right);
+		IniSectionWriteInt (INI_FILE, SEC_Windows, KEY_Bottom, wp.rcNormalPosition.bottom);
 	}
 
 // Free the networking library
@@ -899,8 +899,8 @@ void CPrime95Doc::OnTray()
 	} else {
 		pApp->TrayMessage (NIM_DELETE, NULL, 0);
 	}
-	IniWriteInt (INI_FILE, "HideIcon", HIDE_ICON);
-	IniWriteInt (INI_FILE, "TrayIcon", TRAY_ICON);
+	IniSectionWriteInt (INI_FILE, SEC_Windows, KEY_HideIcon, HIDE_ICON);
+	IniSectionWriteInt (INI_FILE, SEC_Windows, KEY_TrayIcon, TRAY_ICON);
 }
 
 void CPrime95Doc::OnUpdateHide(CCmdUI* pCmdUI) 
@@ -918,8 +918,8 @@ void CPrime95Doc::OnHide()
 		if (TRAY_ICON) pApp->TrayMessage (NIM_DELETE, NULL, 0);
 		TRAY_ICON = 0;
 	}
-	IniWriteInt (INI_FILE, "HideIcon", HIDE_ICON);
-	IniWriteInt (INI_FILE, "TrayIcon", TRAY_ICON);
+	IniSectionWriteInt (INI_FILE, SEC_Windows, KEY_HideIcon, HIDE_ICON);
+	IniSectionWriteInt (INI_FILE, SEC_Windows, KEY_TrayIcon, TRAY_ICON);
 }
 
 // Check the menu item if start at logon is enabled
@@ -1017,7 +1017,7 @@ void CPrime95Doc::OnMergeMain()
 	// In both checked and unchecked states we need to make sure the comm window exists
 	create_window (COMM_THREAD_NUM);
 	base_title (COMM_THREAD_NUM, "Communication thread");
-	IniWriteInt (INI_FILE, "MergeWindows", MERGE_WINDOWS);
+	IniSectionWriteInt (INI_FILE, SEC_Windows, KEY_MergeWindows, MERGE_WINDOWS);
 	PositionViews (TRUE);
 }
 
@@ -1056,7 +1056,7 @@ void CPrime95Doc::OnMergeComm()
 		MERGE_WINDOWS |= MERGE_MAIN_WINDOW;
 		MERGE_WINDOWS |= MERGE_COMM_WINDOW;
 	}
-	IniWriteInt (INI_FILE, "MergeWindows", MERGE_WINDOWS);
+	IniSectionWriteInt (INI_FILE, SEC_Windows, KEY_MergeWindows, MERGE_WINDOWS);
 	PositionViews (TRUE);
 }
 
@@ -1076,7 +1076,7 @@ void CPrime95Doc::OnMergeAll()
 			destroy_window (i);
 	}
 	MERGE_WINDOWS ^= MERGE_WORKER_WINDOWS;
-	IniWriteInt (INI_FILE, "MergeWindows", MERGE_WINDOWS);
+	IniSectionWriteInt (INI_FILE, SEC_Windows, KEY_MergeWindows, MERGE_WINDOWS);
 	if (! (MERGE_WINDOWS & MERGE_WORKER_WINDOWS)) {
 		create_worker_windows (NUM_WORKERS);
 	}

@@ -222,15 +222,8 @@ static	int first_sizing = 0;
 // windows tiling on the first size message works.  Go figure.
 
 	if (nType != SIZE_MINIMIZED && first_sizing < 2) {
-		int id;
-		char rgch[80];
-
-		rgch[0] = 0;
-		IniGetString (INI_FILE, "W0", rgch, sizeof(rgch), NULL);
-
 		first_sizing++;
-		id = (0 == rgch[0]) ? ID_WINDOW_TILE_HORZ : ID_WINDOW_POSITION;
-		PostMessage (WM_COMMAND, id, 0);
+		PostMessage (WM_COMMAND, ID_WINDOW_POSITION, 0);
 	}
 }
 
@@ -270,9 +263,7 @@ void CMainFrame::OnActivateApp(BOOL bActive, DWORD hTask)
 
 void CMainFrame::OnSysCommand(UINT nID, LPARAM lParam)
 {
-	if ((nID & 0xFFF0) == SC_CLOSE &&
-	    ! IniGetInt (INI_FILE, "ExitOnX", 0) &&
-	    (TRAY_ICON || HIDE_ICON)) {
+	if ((nID & 0xFFF0) == SC_CLOSE && ! IniSectionGetInt (INI_FILE, SEC_Windows, KEY_ExitOnX, 0) && (TRAY_ICON || HIDE_ICON)) {
 		SendMessage (WM_SYSCOMMAND, SC_MINIMIZE, 0);
 		return;
 	}

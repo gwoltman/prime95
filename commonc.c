@@ -150,7 +150,7 @@ const char KEY_SrvrPO9[] = "SrvrPO9";
 const char KEY_LastEndDatesSent[] = "LastEndDatesSent";
 const char KEY_WGUID_version[] = "WGUID_version";
 const char KEY_CertErrorCount[] = "CertErrorCount";
-   
+
 const char SEC_PrimeNet[] = "PrimeNet";
 const char KEY_DialUp[] = "DialUp";
 const char KEY_ProxyHost[] = "ProxyHost";
@@ -168,6 +168,16 @@ const char KEY_ProofHashLength[] = "ProofHashLength";
 const char KEY_ProofPower[] = "ProofPower";
 const char KEY_ProofPowerMult[] = "ProofPowerMult";
 const char KEY_UploadChunkSize[] = "UploadChunkSize";
+
+const char SEC_Windows[] = "Windows";
+const char KEY_MergeWindows[] = "MergeWindows";
+const char KEY_TrayIcon[] = "TrayIcon";
+const char KEY_HideIcon[] = "HideIcon";
+const char KEY_Left[] = "Left";
+const char KEY_Right[] = "Right";
+const char KEY_Top[] = "Top";
+const char KEY_Bottom[] = "Bottom";
+const char KEY_ExitOnX[] = "ExitOnX";
 
 /* Forward declarations */
 
@@ -1255,7 +1265,19 @@ void ini_error_handler (
 void moveToSection (const char *section, const char *key)
 {
 	char val[256];
-	IniGetString (INI_FILE, key, val, sizeof (val), "");
+	// Hack to move a number of keys
+	if (strstr (key, "%d") != NULL) {
+		for (int i = 1; i < 10000; i++) {
+			char	numbered_key[80];
+			sprintf (numbered_key, key, i);
+			IniGetString (INI_FILE, numbered_key, val, sizeof (val), NULL);
+			if (val[0] == 0) return;
+			IniSectionWriteString (INI_FILE, section, numbered_key, val);
+			IniWriteString (INI_FILE, numbered_key, NULL);
+		}
+	}
+	// Move a single key
+	IniGetString (INI_FILE, key, val, sizeof (val), NULL);
 	if (val[0]) {
 		IniSectionWriteString (INI_FILE, section, key, val);
 		IniWriteString (INI_FILE, key, NULL);
@@ -1382,6 +1404,7 @@ void nameAndReadIniFiles (
 	IniWriteString (INI_FILE, "AskedAboutMemory", NULL);			// Deprecated long before 30.10b5
 	IniWriteString (INI_FILE, "Advanced", NULL);				// Deprecated long before 30.10b5
 	IniWriteString (INI_FILE, "Affinity", NULL);				// Deprecated well before 30.10b5
+	IniWriteString (INI_FILE, "W0", NULL);					// Deprecated 30.10b5, I don't believe this Windows-only setting was ever used
 
 	moveToSection (SEC_Internals, KEY_V30OptionsConverted);			// Moved here 30.10b5
 	moveToSection (SEC_Internals, KEY_OldCpuSpeed);				// Moved here 30.10b5
@@ -1427,6 +1450,16 @@ void nameAndReadIniFiles (
 	//moveToSection (SEC_PrimeNet, KEY_ProofPowerMult);			// Cannot move, appears in both main and PrimeNet section
 	moveToSection (SEC_PrimeNet, KEY_UploadChunkSize);			// Has always been here
 
+	moveToSection (SEC_Windows, KEY_MergeWindows);				// Moved here 30.10b5
+	moveToSection (SEC_Windows, KEY_TrayIcon);				// Moved here 30.10b5
+	moveToSection (SEC_Windows, KEY_HideIcon);				// Moved here 30.10b5
+	moveToSection (SEC_Windows, KEY_Left);					// Moved here 30.10b5
+	moveToSection (SEC_Windows, KEY_Right);					// Moved here 30.10b5
+	moveToSection (SEC_Windows, KEY_Top);					// Moved here 30.10b5
+	moveToSection (SEC_Windows, KEY_Bottom);				// Moved here 30.10b5
+	moveToSection (SEC_Windows, KEY_ExitOnX);				// Moved here 30.10b5
+	moveToSection (SEC_Windows, "W%d");					// Moved here 30.10b5
+
 /* Perform other one-time initializations */
 
 	LoadPrimenet ();
@@ -1435,7 +1468,7 @@ void nameAndReadIniFiles (
 
 /* Create and name the main window */
 
-	MERGE_WINDOWS = (int) IniGetInt (INI_FILE, "MergeWindows", MERGE_MAINCOMM_WINDOWS);
+	MERGE_WINDOWS = (int) IniSectionGetInt (INI_FILE, SEC_Windows, KEY_MergeWindows, MERGE_MAINCOMM_WINDOWS);
 	create_window (MAIN_THREAD_NUM);
 	base_title (MAIN_THREAD_NUM, "Main thread");
 
@@ -1780,9 +1813,9 @@ int readIniFiles (void)
 	HYPERTHREAD_TF = IniGetInt (INI_FILE, "HyperthreadTF", OS_CAN_SET_AFFINITY);
 	HYPERTHREAD_LL = IniGetInt (INI_FILE, "HyperthreadLL", 0);
 	MANUAL_COMM = (int) IniGetInt (INI_FILE, "ManualComm", 0);
-	HIDE_ICON = (int) IniGetInt (INI_FILE, "HideIcon", 0);
-	TRAY_ICON = (int) IniGetInt (INI_FILE, "TrayIcon", 1);
-	MERGE_WINDOWS = (int) IniGetInt (INI_FILE, "MergeWindows", MERGE_MAINCOMM_WINDOWS);
+	HIDE_ICON = (int) IniSectionGetInt (INI_FILE, SEC_Windows, KEY_HideIcon, 0);
+	TRAY_ICON = (int) IniSectionGetInt (INI_FILE, SEC_Windows, KEY_TrayIcon, 1);
+	MERGE_WINDOWS = (int) IniSectionGetInt (INI_FILE, SEC_Windows, KEY_MergeWindows, MERGE_MAINCOMM_WINDOWS);
 
 /* Convert old TwoBackupFiles boolean to new NumBackupFiles integer.  Old default */
 /* was 2 save files, new default is 3 save files. */	

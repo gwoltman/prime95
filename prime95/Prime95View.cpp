@@ -570,7 +570,7 @@ BOOL getSubWindowPlacement(
 
 	wsprintf(name, "W%d", vnum);
 	rgch[0] = 0;
-	IniGetString (INI_FILE, name, rgch, sizeof(rgch), NULL);
+	IniSectionGetString (INI_FILE, SEC_Windows, name, rgch, sizeof (rgch), NULL);
 	if (0 != rgch[0])
 	{
 		int state = 0;
@@ -578,10 +578,8 @@ BOOL getSubWindowPlacement(
 		RECT *prc	= &wp.rcNormalPosition;
 		POINT *pptMin= &wp.ptMinPosition;
 		POINT *pptMax= &wp.ptMaxPosition;
-		int count = sscanf(rgch, "%d %ld %ld %ld %ld %ld %ld %ld %ld", &state, 
-								&prc->top, &prc->right, &prc->bottom, &prc->left,
-								&pptMin->x, &pptMin->y, &pptMax->x, &pptMax->y
-								);
+		int count = sscanf (rgch, "%d %ld %ld %ld %ld %ld %ld %ld %ld",
+				    &state, &prc->top, &prc->right, &prc->bottom, &prc->left, &pptMin->x, &pptMin->y, &pptMax->x, &pptMax->y);
 		if (9 == count)
 		{
 			BOOL fMinimized = (0 != (state & P95_WP_MINIMIZED));
@@ -636,13 +634,11 @@ BOOL setSubWindowPlacement(
 			state = P95_WP_MINIMIZED;
 		}
 		
-		wsprintf(rgch, "%d %ld %ld %ld %ld %ld %ld %ld %ld", state, 
-					prc->top, prc->right, prc->bottom, prc->left,
-					pptMin->x, pptMin->y, pptMax->x, pptMax->y
-				);
+		wsprintf (rgch, "%d %ld %ld %ld %ld %ld %ld %ld %ld",
+			  state, prc->top, prc->right, prc->bottom, prc->left, pptMin->x, pptMin->y, pptMax->x, pptMax->y);
 
-		wsprintf(name, "W%d", vnum);
-		IniWriteString(INI_FILE, name, rgch);
+		wsprintf (name, "W%d", vnum);
+		IniSectionWriteString (INI_FILE, SEC_Windows, name, rgch);
 	}
 
 	return handled;
