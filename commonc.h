@@ -270,7 +270,9 @@ struct hw_core_info {
 };
 extern struct hw_core_info *HW_CORES;	/* Information on every core */
 
-/* INI section and settings strings */
+/* INI section and keyword strings */
+
+extern const char KEY_NumWorkers[];
 
 extern const char SEC_Internals[];
 extern const char KEY_V30OptionsConverted[];
@@ -281,12 +283,27 @@ extern const char KEY_RollingCompleteTime[];
 extern const char KEY_CertDailyMBRemaining[];
 extern const char KEY_CertDailyCPURemaining[];
 extern const char KEY_CertDailyRemainingLastUpdate[];
+extern const char KEY_Pid[];
+extern const char KEY_SrvrUID[];
+extern const char KEY_SrvrComputerName[];
+extern const char KEY_SrvrP00[];
+extern const char KEY_SrvrPO1[];
+extern const char KEY_SrvrPO2[];
+extern const char KEY_SrvrPO3[];
+extern const char KEY_SrvrPO4[];
+extern const char KEY_SrvrPO5[];
+extern const char KEY_SrvrPO6[];
+extern const char KEY_SrvrPO7[];
+extern const char KEY_SrvrPO8[];
+extern const char KEY_SrvrPO9[];
+
 extern const char SEC_PrimeNet[];
-extern const char KEY_Debug[];
+extern const char KEY_DialUp[];
 extern const char KEY_ProxyHost[];
 extern const char KEY_ProxyUser[];
 extern const char KEY_ProxyPass[];
 extern const char KEY_ProxyMask[];
+extern const char KEY_Debug[];
 extern const char KEY_UploadRateLimit[];
 extern const char KEY_UploadStartTime[];
 extern const char KEY_UploadEndTime[];

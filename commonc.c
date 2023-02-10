@@ -120,6 +120,8 @@ struct hw_core_info *HW_CORES = NULL;	/* Information on every core */
 
 /* INI section and settings strings */
 
+const char KEY_NumWorkers[] = "NumWorkers";
+
 const char SEC_Internals[] = "Internals";
 const char KEY_V30OptionsConverted[] = "V30OptionsConverted";
 const char KEY_RollingAverage[] = "RollingAverage";
@@ -129,12 +131,27 @@ const char KEY_RollingCompleteTime[] = "RollingCompleteTime";
 const char KEY_CertDailyMBRemaining[] = "CertDailyMBRemaining";
 const char KEY_CertDailyCPURemaining[] = "CertDailyCPURemaining";
 const char KEY_CertDailyRemainingLastUpdate[] = "CertDailyRemainingLastUpdate";
+const char KEY_Pid[] = "Pid";
+const char KEY_SrvrUID[] = "SrvrUID";
+const char KEY_SrvrComputerName[] = "SrvrComputerName";
+const char KEY_SrvrP00[] = "SrvrP00";
+const char KEY_SrvrPO1[] = "SrvrPO1";
+const char KEY_SrvrPO2[] = "SrvrPO2";
+const char KEY_SrvrPO3[] = "SrvrPO3";
+const char KEY_SrvrPO4[] = "SrvrPO4";
+const char KEY_SrvrPO5[] = "SrvrPO5";
+const char KEY_SrvrPO6[] = "SrvrPO6";
+const char KEY_SrvrPO7[] = "SrvrPO7";
+const char KEY_SrvrPO8[] = "SrvrPO8";
+const char KEY_SrvrPO9[] = "SrvrPO9";
+
 const char SEC_PrimeNet[] = "PrimeNet";
-const char KEY_Debug[] = "Debug";
+const char KEY_DialUp[] = "DialUp";
 const char KEY_ProxyHost[] = "ProxyHost";
 const char KEY_ProxyUser[] = "ProxyUser";
 const char KEY_ProxyPass[] = "ProxyPass";
 const char KEY_ProxyMask[] = "ProxyMask";
+const char KEY_Debug[] = "Debug";
 const char KEY_UploadRateLimit[] = "UploadRateLimit";
 const char KEY_UploadStartTime[] = "UploadStartTime";
 const char KEY_UploadEndTime[] = "UploadEndTime";
@@ -255,19 +272,19 @@ void clearCachedProgramOptions (void)
 	int	tnum;
 	char	section_name[32];
 
-	IniWriteString (INI_FILE, "SrvrPO1", NULL);
+	IniSectionWriteString (INI_FILE, SEC_Internals, KEY_SrvrPO1, NULL);
 	for (tnum = 0; tnum < MAX_NUM_WORKERS; tnum++) {
 		sprintf (section_name, "Worker #%d", tnum+1);
-		IniSectionWriteString (INI_FILE, section_name, "SrvrPO1", NULL);
+		IniSectionWriteString (INI_FILE, section_name, KEY_SrvrPO1, NULL);
 	}
-	IniWriteString (INI_FILE, "SrvrPO2", NULL);
-	IniWriteString (INI_FILE, "SrvrPO3", NULL);
-	IniWriteString (INI_FILE, "SrvrPO4", NULL);
-	IniWriteString (INI_FILE, "SrvrPO5", NULL);
-	IniWriteString (INI_FILE, "SrvrPO6", NULL);
-	IniWriteString (INI_FILE, "SrvrPO7", NULL);
-	IniWriteString (INI_FILE, "SrvrPO8", NULL);
-	IniWriteString (INI_FILE, "SrvrPO9", NULL);
+	IniSectionWriteString (INI_FILE, SEC_Internals, KEY_SrvrPO2, NULL);
+	IniSectionWriteString (INI_FILE, SEC_Internals, KEY_SrvrPO3, NULL);
+	IniSectionWriteString (INI_FILE, SEC_Internals, KEY_SrvrPO4, NULL);
+	IniSectionWriteString (INI_FILE, SEC_Internals, KEY_SrvrPO5, NULL);
+	IniSectionWriteString (INI_FILE, SEC_Internals, KEY_SrvrPO6, NULL);
+	IniSectionWriteString (INI_FILE, SEC_Internals, KEY_SrvrPO7, NULL);
+	IniSectionWriteString (INI_FILE, SEC_Internals, KEY_SrvrPO8, NULL);
+	IniSectionWriteString (INI_FILE, SEC_Internals, KEY_SrvrPO9, NULL);
 }
 
 /* Generate a globally unique ID for this computer.  All Primenet */
@@ -286,8 +303,8 @@ void generate_computer_guid (void)
 /* Clear out local copies of what we think the server knows about this computer */
 /* The server now knows nothing about this computer because of the newly generated computer ID */
 
-	IniWriteString (INI_FILE, "SrvrUID", NULL);
-	IniWriteString (INI_FILE, "SrvrComputerName", NULL);
+	IniSectionWriteString (INI_FILE, SEC_Internals, KEY_SrvrUID, NULL);
+	IniSectionWriteString (INI_FILE, SEC_Internals, KEY_SrvrComputerName, NULL);
 	clearCachedProgramOptions ();
 
 /* Since we're generating a new computer GUID, we can use the latest, */
@@ -1239,6 +1256,19 @@ void moveToSection (const char *section, const char *key)
 	}
 }
 
+/* Rename an ini setting */
+
+void renameIniKey (const char *section, const char *old_key_name, const char *new_key_name)
+{
+	char val[256];
+	IniSectionGetString (INI_FILE, section, old_key_name, val, sizeof (val), old_key_name);
+	// If old key name does not exist, we are done
+	if (strcmp (val, old_key_name) == 0) return;
+	// Write to the new key name and delete the old key name
+	IniSectionWriteString (INI_FILE, section, new_key_name, val);
+	IniSectionWriteString (INI_FILE, section, old_key_name, NULL);
+}
+
 /* Determine the names of the INI files, then read them.  This is also the */
 /* perfect time to initialize mutexes and do other initializations. */
 
@@ -1339,6 +1369,11 @@ void nameAndReadIniFiles (
 
 /* In 30.10 build 5, we moved many settings to individual sections of prime.txt */
 
+	IniWriteString (INI_FILE, "RollingAverageIsFromV27", NULL);		// Deprecated 30.10b5
+	IniWriteString (INI_FILE, "V24OptionsConverted", NULL);			// Deprecated 30.10b5
+	IniWriteString (INI_FILE, "AskedAboutMemory", NULL);			// Deprecated long before 30.10b5
+	IniWriteString (INI_FILE, "Advanced", NULL);				// Deprecated long before 30.10b5
+
 	moveToSection (SEC_Internals, KEY_V30OptionsConverted);			// Moved here 30.10b5
 	moveToSection (SEC_Internals, KEY_RollingAverage);			// Moved here 30.10b5
 	moveToSection (SEC_Internals, KEY_RollingHash);				// Moved here 30.10b5
@@ -1347,15 +1382,25 @@ void nameAndReadIniFiles (
 	moveToSection (SEC_Internals, KEY_CertDailyCPURemaining);		// Moved here 30.10b5
 	moveToSection (SEC_Internals, KEY_CertDailyMBRemaining);		// Moved here 30.10b5
 	moveToSection (SEC_Internals, KEY_CertDailyRemainingLastUpdate);	// Moved here 30.10b5
-	IniWriteString (INI_FILE, "RollingAverageIsFromV27", NULL);		// Deprecated 30.10b5
-	IniWriteString (INI_FILE, "V24OptionsConverted", NULL);			// Deprecated 30.10b5
-	IniWriteString (INI_FILE, "AskedAboutMemory", NULL);			// Deprecated long before 30.10b5
-	IniWriteString (INI_FILE, "Advanced", NULL);				// Deprecated long before 30.10b5
-	moveToSection (SEC_PrimeNet, KEY_Debug);				// Has always been here
+	moveToSection (SEC_Internals, KEY_SrvrUID);				// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_SrvrComputerName);			// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_SrvrP00);				// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_SrvrPO1);				// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_SrvrPO2);				// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_SrvrPO3);				// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_SrvrPO4);				// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_SrvrPO5);				// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_SrvrPO6);				// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_SrvrPO7);				// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_SrvrPO8);				// Moved here 30.10b5
+	moveToSection (SEC_Internals, KEY_SrvrPO9);				// Moved here 30.10b5
+
+	moveToSection (SEC_PrimeNet, KEY_DialUp);				// Moved here 30.10b5
 	moveToSection (SEC_PrimeNet, KEY_ProxyHost);				// Has always been here
 	moveToSection (SEC_PrimeNet, KEY_ProxyUser);				// Has always been here
 	moveToSection (SEC_PrimeNet, KEY_ProxyPass);				// Has always been here
 	moveToSection (SEC_PrimeNet, KEY_ProxyMask);				// Has always been here
+	moveToSection (SEC_PrimeNet, KEY_Debug);				// Has always been here
 	moveToSection (SEC_PrimeNet, KEY_UploadRateLimit);			// Has always been here
 	moveToSection (SEC_PrimeNet, KEY_UploadStartTime);			// Has always been here
 	moveToSection (SEC_PrimeNet, KEY_UploadEndTime);			// Has always been here
@@ -1366,6 +1411,7 @@ void nameAndReadIniFiles (
 	//moveToSection (SEC_PrimeNet, KEY_ProofPower);				// Cannot move, appears in both main and PrimeNet section
 	//moveToSection (SEC_PrimeNet, KEY_ProofPowerMult);			// Cannot move, appears in both main and PrimeNet section
 	moveToSection (SEC_PrimeNet, KEY_UploadChunkSize);			// Has always been here
+	renameIniKey (NULL, "WorkerThreads", KEY_NumWorkers);			// Renamed in 30.10b5
 
 /* Perform other one-time initializations */
 
@@ -1636,7 +1682,7 @@ int readIniFiles (void)
 	IniGetString (INI_FILE, "ComputerID", COMPID, sizeof (COMPID), NULL);
 	sanitizeString (COMPID);
 	USE_PRIMENET = (int) IniGetInt (INI_FILE, "UsePrimenet", 0);
-	DIAL_UP = (int) IniGetInt (INI_FILE, "DialUp", 0);
+	DIAL_UP = (int) IniSectionGetInt (INI_FILE, SEC_PrimeNet, KEY_DialUp, 0);
 	DAYS_OF_WORK = (unsigned int) IniGetInt (INI_FILE, "DaysOfWork", 3);
 	if (DAYS_OF_WORK > 180) DAYS_OF_WORK = 180;
 
@@ -1689,10 +1735,10 @@ int readIniFiles (void)
 	ERRCHK = (temp != 0);
 	temp = (int) IniGetInt (INI_FILE, "SumInputsErrorCheck", 0);
 	SUM_INPUTS_ERRCHK = (temp != 0);
-	NUM_WORKERS = IniGetInt (INI_FILE, "WorkerThreads", good_default_for_num_workers ());
+	NUM_WORKERS = IniGetInt (INI_FILE, KEY_NumWorkers, good_default_for_num_workers ());
 	if (NUM_WORKERS < 1) NUM_WORKERS = 1;
 	if (NUM_WORKERS > MAX_NUM_WORKERS) NUM_WORKERS = MAX_NUM_WORKERS;
-	IniWriteInt (INI_FILE, "WorkerThreads", NUM_WORKERS); // Write in case future prime95 changes good_default_for_num_workers
+	IniWriteInt (INI_FILE, KEY_NumWorkers, NUM_WORKERS); // Write in case future prime95 changes good_default_for_num_workers
 	PRIORITY = (unsigned int) IniGetInt (INI_FILE, "Priority", 1);
 	if (PRIORITY < 1) PRIORITY = 1;
 	if (PRIORITY > 10) PRIORITY = 10;
@@ -1960,7 +2006,7 @@ retrc:	fclose (fd);
 }
 
 /****************************************************************************/
-/*          Utility routines to work with per-thread options (PTO)          */
+/*          Utility routines to work with per-worker options (PTO)          */
 /****************************************************************************/
 
 void PTOGetAll (
@@ -1990,8 +2036,7 @@ void PTOGetAll (
 void PTOSetAll (
 	const char *ini_filename,	/* Ini file containing the options */
 	const char *keyword,		/* Ini file keyword */
-	const char *shadow_keyword,	/* Ini file keyword for value the */
-					/* server has stored for this option */
+	const char *shadow_keyword,	/* Ini file keyword for value the server has stored for this option */
 	unsigned int *array,		/* Options array */
 	unsigned int new_val)		/* New option value */
 {
@@ -2004,32 +2049,28 @@ void PTOSetAll (
 	for (i = 0; i < MAX_NUM_WORKERS; i++) {
 		array[i] = new_val;
 	}
-	if (shadow_keyword != NULL)
-		IniWriteInt (INI_FILE, shadow_keyword, new_val);
+	if (shadow_keyword != NULL) IniSectionWriteInt (INI_FILE, SEC_Internals, shadow_keyword, new_val);
 
 /* Now clear all section specific overrides */
 
 	for (i = 0; i < MAX_NUM_WORKERS; i++) {
 		sprintf (section_name, "Worker #%d", i+1);
 		IniSectionWriteString (ini_filename, section_name, keyword, NULL);
-		if (shadow_keyword != NULL)
-			IniSectionWriteString (INI_FILE, section_name, shadow_keyword, NULL);
+		if (shadow_keyword != NULL) IniSectionWriteString (INI_FILE, section_name, shadow_keyword, NULL);
 	}
 }
 
 void PTOSetOne (
 	const char *ini_filename,	/* Ini file containing the options */
 	const char *keyword,		/* Ini file keyword */
-	const char *shadow_keyword,	/* Ini file keyword for value the */
-					/* server has stored for this option */
+	const char *shadow_keyword,	/* Ini file keyword for value the server has stored for this option */
 	unsigned int *array,		/* Options array */
-	int	tnum,			/* Thread number */
+	int	tnum,			/* Worker number */
 	unsigned int new_val)		/* New option value */
 {
 	char	section_name[32];
 
-/* Will changing this option cause us to switch from one global setting */
-/* to individual settings on each thread? */
+/* Will changing this option cause us to switch from one global setting to individual settings on each worker? */
 
 	if (PTOIsGlobalOption (array)) {
 		int	i;
@@ -2038,61 +2079,49 @@ void PTOSetOne (
 
 		if (array[tnum] == new_val) return;
 
-/* Delete the global option and set the thread specific option for */
-/* each thread. */
+/* Delete the global option and set the option for each worker. */
 
 		IniWriteString (ini_filename, keyword, NULL);
-		if (shadow_keyword != NULL)
-			IniWriteString (INI_FILE, shadow_keyword, NULL);
+		if (shadow_keyword != NULL) IniSectionWriteString (INI_FILE, SEC_Internals, shadow_keyword, NULL);
 		for (i = 0; i < (int) NUM_WORKERS; i++) {
 			sprintf (section_name, "Worker #%d", i+1);
 			IniSectionWriteInt (ini_filename, section_name, keyword, array[i]);
-			if (shadow_keyword != NULL)
-				IniSectionWriteInt (INI_FILE, section_name, shadow_keyword, array[i]);
+			if (shadow_keyword != NULL) IniSectionWriteInt (INI_FILE, section_name, shadow_keyword, array[i]);
 		}
 	}
 
-/* Set the option for just this one thread */
+/* Set the option for just this one worker */
 
 	array[tnum] = new_val;
 	sprintf (section_name, "Worker #%d", tnum+1);
 	IniSectionWriteInt (ini_filename, section_name, keyword, new_val);
-	if (shadow_keyword != NULL)
-		IniSectionWriteInt (INI_FILE, section_name, shadow_keyword, new_val);
+	if (shadow_keyword != NULL) IniSectionWriteInt (INI_FILE, section_name, shadow_keyword, new_val);
 }
 
 int PTOIsGlobalOption (
 	unsigned int *array)		/* Options array */
 {
-	int	i;
-
-	for (i = 1; i < (int) NUM_WORKERS; i++)
+	for (int i = 1; i < (int) NUM_WORKERS; i++)
 		if (array[i-1] != array[i]) return (FALSE);
 	return (TRUE);
 }
 
 int PTOHasOptionChanged (
-	const char *shadow_keyword,	/* Ini file keyword for value the */
-					/* server has stored for this option */
+	const char *shadow_keyword,	/* Ini file keyword for value the server has stored for this option */
 	unsigned int *array,		/* Options array */
-	int	tnum)			/* Thread number */
+	int	tnum)			/* Worker number */
 {
 	char	section_name[32];
 
-/* If this is the thread number that tells us we are dealing global options */
+/* If this is the worker number that tells us we are dealing global options */
 /* then return TRUE if this is a globally set option and it has changed. */
 
-	if (tnum == -1)
-		return (PTOIsGlobalOption (array) &&
-			array[0] != IniGetInt (INI_FILE, shadow_keyword, -1));
+	if (tnum == -1) return (PTOIsGlobalOption (array) && array[0] != IniSectionGetInt (INI_FILE, SEC_Internals, shadow_keyword, -1));
 
 /* Otherwise, return TRUE if this is not a globally set option and it has changed. */
 
-	else {
-		sprintf (section_name, "Worker #%d", tnum+1);
-		return (!PTOIsGlobalOption (array) &&
-			array[tnum] != IniSectionGetInt (INI_FILE, section_name, shadow_keyword, -1));
-	}
+	sprintf (section_name, "Worker #%d", tnum+1);
+	return (!PTOIsGlobalOption (array) && array[tnum] != IniSectionGetInt (INI_FILE, section_name, shadow_keyword, -1));
 }
 
 
@@ -5534,9 +5563,9 @@ int getProgramOptions (void)
 
 		if (pkt.work_preference != -1) {
 			if (tnum == -1) {
-				PTOSetAll (INI_FILE, "WorkPreference", "SrvrPO1", WORK_PREFERENCE, pkt.work_preference);
+				PTOSetAll (INI_FILE, "WorkPreference", KEY_SrvrPO1, WORK_PREFERENCE, pkt.work_preference);
 			} else {
-				PTOSetOne (INI_FILE, "WorkPreference", "SrvrPO1", WORK_PREFERENCE, tnum, pkt.work_preference);
+				PTOSetOne (INI_FILE, "WorkPreference", KEY_SrvrPO1, WORK_PREFERENCE, tnum, pkt.work_preference);
 			}
 		}
 
@@ -5548,14 +5577,14 @@ int getProgramOptions (void)
 		if (pkt.priority != -1) {
 			PRIORITY = pkt.priority;
 			IniWriteInt (INI_FILE, "Priority", PRIORITY);
-			IniWriteInt (INI_FILE, "SrvrPO2", PRIORITY);
+			IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrPO2, PRIORITY);
 			restart = TRUE;
 		}
 
 		if (pkt.daysOfWork != -1) {
 			DAYS_OF_WORK = pkt.daysOfWork;
 			IniWriteInt (INI_FILE, "DaysOfWork", DAYS_OF_WORK);
-			IniWriteInt (INI_FILE, "SrvrPO3", DAYS_OF_WORK);
+			IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrPO3, DAYS_OF_WORK);
 		}
 
 		if (pkt.dayMemory != -1) {
@@ -5563,7 +5592,7 @@ int getProgramOptions (void)
 				day_memory = pkt.dayMemory;
 				mem_changed = TRUE;
 			}
-			IniWriteInt (INI_FILE, "SrvrPO4", day_memory);
+			IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrPO4, day_memory);
 		}
 
 		if (pkt.nightMemory != -1) {
@@ -5571,7 +5600,7 @@ int getProgramOptions (void)
 				night_memory = pkt.nightMemory;
 				mem_changed = TRUE;
 			}
-			IniWriteInt (INI_FILE, "SrvrPO5", night_memory);
+			IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrPO5, night_memory);
 		}
 
 		if (pkt.dayStartTime != -1) {
@@ -5579,7 +5608,7 @@ int getProgramOptions (void)
 				day_start_time = pkt.dayStartTime;
 				mem_changed = TRUE;
 			}
-			IniWriteInt (INI_FILE, "SrvrPO6", day_start_time);
+			IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrPO6, day_start_time);
 		}
 
 		if (pkt.nightStartTime != -1) {
@@ -5587,20 +5616,20 @@ int getProgramOptions (void)
 				day_end_time = pkt.nightStartTime;
 				mem_changed = TRUE;
 			}
-			IniWriteInt (INI_FILE, "SrvrPO7", day_end_time);
+			IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrPO7, day_end_time);
 		}
 
 		if (pkt.runOnBattery != -1) {
 			RUN_ON_BATTERY = pkt.runOnBattery;
 			IniWriteInt (INI_FILE, "RunOnBattery", RUN_ON_BATTERY);
-			IniWriteInt (INI_FILE, "SrvrPO8", RUN_ON_BATTERY);
+			IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrPO8, RUN_ON_BATTERY);
 		}
 
 		if (pkt.num_workers != -1) {
 			if (pkt.num_workers > (int) (HW_NUM_THREADS)) pkt.num_workers = HW_NUM_THREADS;
 			NUM_WORKERS = pkt.num_workers;
-			IniWriteInt (INI_FILE, "WorkerThreads", NUM_WORKERS);
-			IniWriteInt (INI_FILE, "SrvrPO9", NUM_WORKERS);
+			IniWriteInt (INI_FILE, KEY_NumWorkers, NUM_WORKERS);
+			IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrPO9, NUM_WORKERS);
 			restart = TRUE;
 		}
 		if (mem_readable && mem_changed)
@@ -5614,7 +5643,7 @@ int getProgramOptions (void)
 /* in the INI file.  If it is different we know we need to get the program */
 /* options from the server. */
 
-	IniWriteInt (INI_FILE, "SrvrP00", pkt.options_counter);
+	IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrP00, pkt.options_counter);
 
 /* If memory settings, priority, num_workers, or run-on-battery changed, */
 /* then restart threads that may be affected by the change. */
@@ -5654,7 +5683,7 @@ int sendProgramOptions (
 		options_changed = FALSE;
 
 		pkt.work_preference = -1;
-		if (PTOHasOptionChanged ("SrvrPO1", WORK_PREFERENCE, tnum)) {
+		if (PTOHasOptionChanged (KEY_SrvrPO1, WORK_PREFERENCE, tnum)) {
 			if (tnum == -1)
 				pkt.work_preference = WORK_PREFERENCE[0];
 			else
@@ -5664,57 +5693,49 @@ int sendProgramOptions (
 		}
 
 		pkt.priority = -1;
-		if (tnum == -1 &&
-		    PRIORITY != IniGetInt (INI_FILE, "SrvrPO2", -1)) {
+		if (tnum == -1 && PRIORITY != IniSectionGetInt (INI_FILE, SEC_Internals, KEY_SrvrPO2, -1)) {
 			pkt.priority = PRIORITY;
 			options_changed = TRUE;
 		}
 
 		pkt.daysOfWork = -1;
-		if (tnum == -1 &&
-		    DAYS_OF_WORK != IniGetInt (INI_FILE, "SrvrPO3", -1)) {
+		if (tnum == -1 && DAYS_OF_WORK != IniSectionGetInt (INI_FILE, SEC_Internals, KEY_SrvrPO3, -1)) {
 			pkt.daysOfWork = DAYS_OF_WORK;
 			options_changed = TRUE;
 		}
 
 		pkt.dayMemory = -1;
-		if (tnum == -1 && mem_readable &&
-		    day_memory != IniGetInt (INI_FILE, "SrvrPO4", -1)) {
+		if (tnum == -1 && mem_readable && day_memory != IniSectionGetInt (INI_FILE, SEC_Internals, KEY_SrvrPO4, -1)) {
 			pkt.dayMemory = day_memory;
 			options_changed = TRUE;
 		}
 
 		pkt.nightMemory = -1;
-		if (tnum == -1 && mem_readable &&
-		    night_memory != IniGetInt (INI_FILE, "SrvrPO5", -1)) {
+		if (tnum == -1 && mem_readable && night_memory != IniSectionGetInt (INI_FILE, SEC_Internals, KEY_SrvrPO5, -1)) {
 			pkt.nightMemory = night_memory;
 			options_changed = TRUE;
 		}
 
 		pkt.dayStartTime = -1;
-		if (tnum == -1 && mem_readable &&
-		    day_start_time != IniGetInt (INI_FILE, "SrvrPO6", -1)) {
+		if (tnum == -1 && mem_readable && day_start_time != IniSectionGetInt (INI_FILE, SEC_Internals, KEY_SrvrPO6, -1)) {
 			pkt.dayStartTime = day_start_time;
 			options_changed = TRUE;
 		}
 
 		pkt.nightStartTime = -1;
-		if (tnum == -1 && mem_readable &&
-		    day_end_time != IniGetInt (INI_FILE, "SrvrPO7", -1)) {
+		if (tnum == -1 && mem_readable && day_end_time != IniSectionGetInt (INI_FILE, SEC_Internals, KEY_SrvrPO7, -1)) {
 			pkt.nightStartTime = day_end_time;
 			options_changed = TRUE;
 		}
 
 		pkt.runOnBattery = -1;
-		if (tnum == -1 &&
-		    RUN_ON_BATTERY != IniGetInt (INI_FILE, "SrvrPO8", -1)) {
+		if (tnum == -1 && RUN_ON_BATTERY != IniSectionGetInt (INI_FILE, SEC_Internals, KEY_SrvrPO8, -1)) {
 			pkt.runOnBattery = RUN_ON_BATTERY;
 			options_changed = TRUE;
 		}
 
 		pkt.num_workers = -1;
-		if (tnum == -1 &&
-		    NUM_WORKERS != IniGetInt (INI_FILE, "SrvrPO9", -1)) {
+		if (tnum == -1 && NUM_WORKERS != IniSectionGetInt (INI_FILE, SEC_Internals, KEY_SrvrPO9, -1)) {
 			pkt.num_workers = NUM_WORKERS;
 			options_changed = TRUE;
 		}
@@ -5735,21 +5756,21 @@ int sendProgramOptions (
 
 		if (work_pref_changed) {
 			if (tnum == -1)
-				PTOSetAll (INI_FILE, "WorkPreference", "SrvrPO1", WORK_PREFERENCE, WORK_PREFERENCE[0]);
+				PTOSetAll (INI_FILE, "WorkPreference", KEY_SrvrPO1, WORK_PREFERENCE, WORK_PREFERENCE[0]);
 			else
-				PTOSetOne (INI_FILE, "WorkPreference", "SrvrPO1", WORK_PREFERENCE, tnum, WORK_PREFERENCE[tnum]);
+				PTOSetOne (INI_FILE, "WorkPreference", KEY_SrvrPO1, WORK_PREFERENCE, tnum, WORK_PREFERENCE[tnum]);
 		}
 		if (tnum == -1) {
-			IniWriteInt (INI_FILE, "SrvrPO2", PRIORITY);
-			IniWriteInt (INI_FILE, "SrvrPO3", DAYS_OF_WORK);
+			IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrPO2, PRIORITY);
+			IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrPO3, DAYS_OF_WORK);
 			if (mem_readable) {
-				IniWriteInt (INI_FILE, "SrvrPO4", day_memory);
-				IniWriteInt (INI_FILE, "SrvrPO5", night_memory);
-				IniWriteInt (INI_FILE, "SrvrPO6", day_start_time);
-				IniWriteInt (INI_FILE, "SrvrPO7", day_end_time);
+				IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrPO4, day_memory);
+				IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrPO5, night_memory);
+				IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrPO6, day_start_time);
+				IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrPO7, day_end_time);
 			}
-			IniWriteInt (INI_FILE, "SrvrPO8", RUN_ON_BATTERY);
-			IniWriteInt (INI_FILE, "SrvrPO9", NUM_WORKERS);
+			IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrPO8, RUN_ON_BATTERY);
+			IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrPO9, NUM_WORKERS);
 		}
 
 /* Increment the options counter so that we can detect when the options */
@@ -5764,10 +5785,9 @@ int sendProgramOptions (
 /* protection from the INI file value somehow getting larger than the */
 /* returned od value - causing us to miss future web page updates). */
 
-		local_od = IniGetInt (INI_FILE, "SrvrP00", -1) + 1;
-		if (local_od > pkt.options_counter)
-			local_od = pkt.options_counter;
-		IniWriteInt (INI_FILE, "SrvrP00", local_od);
+		local_od = IniSectionGetInt (INI_FILE, SEC_Internals, KEY_SrvrP00, -1) + 1;
+		if (local_od > pkt.options_counter) local_od = pkt.options_counter;
+		IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrP00, local_od);
 	}
 	return (0);
 }
@@ -5935,24 +5955,22 @@ retry:
 		/* The spec says only send the UserID if it has changed. */
 		/* Rather than store the UID that we last sent to the server */
 		/* we store a hash value so the user is not tempted to hand edit it. */
-		server_uid = IniGetInt (INI_FILE, "SrvrUID", 0);
-		if (string_to_hash (USERID) != server_uid)
-			strcpy (pkt.user_id, USERID);
+		server_uid = IniSectionGetInt (INI_FILE, SEC_Internals, KEY_SrvrUID, 0);
+		if (string_to_hash (USERID) != server_uid) strcpy (pkt.user_id, USERID);
 		/* The spec says only send the computer name if it changed */
 		/* Again store a hash value so the user won't hand edit the value */
-		server_computer_name = IniGetInt (INI_FILE, "SrvrComputerName", 0);
-		if (string_to_hash (COMPID) != server_computer_name)
-			strcpy (pkt.computer_name, COMPID);
+		server_computer_name = IniSectionGetInt (INI_FILE, SEC_Internals, KEY_SrvrComputerName, 0);
+		if (string_to_hash (COMPID) != server_computer_name) strcpy (pkt.computer_name, COMPID);
 		LOCKED_WORK_UNIT = NULL;
 		rc = sendMessage (PRIMENET_UPDATE_COMPUTER_INFO, &pkt);
 		if (rc) goto error_exit;
 		talked_to_server = TRUE;
 		strcpy (USERID, pkt.user_id);
 		IniWriteString (INI_FILE, "V5UserID", USERID);
-		IniWriteInt (INI_FILE, "SrvrUID", string_to_hash (USERID));
+		IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrUID, string_to_hash (USERID));
 		strcpy (COMPID, pkt.computer_name);
 		IniWriteString (INI_FILE, "ComputerID", COMPID);
-		IniWriteInt (INI_FILE, "SrvrComputerName", string_to_hash (COMPID));
+		IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_SrvrComputerName, string_to_hash (COMPID));
 		server_options_counter = pkt.options_counter;
 	}
 
@@ -5963,8 +5981,7 @@ retry:
 //bug - who wins when user has also set some options locally during the
 //startup_in_progress code path?  What about options that came from a
 // copied prime.txt file - which take precedence?
-	if (server_options_counter == 1 &&
-	    server_options_counter > IniGetInt (INI_FILE, "SrvrP00", 0)) {
+	if (server_options_counter == 1 && server_options_counter > IniSectionGetInt (INI_FILE, SEC_Internals, KEY_SrvrP00, 0)) {
 		rc = getProgramOptions ();
 		if (rc) goto error_exit;
 		talked_to_server = TRUE;
@@ -5979,7 +5996,7 @@ retry:
 
 /* Finally get program options if they've been changed on the server. */
 
-	if (server_options_counter > IniGetInt (INI_FILE, "SrvrP00", 0)) {
+	if (server_options_counter > IniSectionGetInt (INI_FILE, SEC_Internals, KEY_SrvrP00, 0)) {
 		rc = getProgramOptions ();
 		if (rc) goto error_exit;
 		talked_to_server = TRUE;
@@ -6610,7 +6627,7 @@ error_exit:
 /* command to get the current userid value from the server. */
 
 	if (rc == PRIMENET_ERROR_INVALID_USER) {
-		IniGetString (INI_FILE, "SrvrUID", USERID, sizeof (USERID), NULL);
+		IniSectionGetString (INI_FILE, SEC_Internals, KEY_SrvrUID, USERID, sizeof (USERID), NULL);
 		spoolMessage (PRIMENET_UPDATE_COMPUTER_INFO, NULL);
 		if (retry_count++ < 10) goto retry;
 		OutputStr (COMM_THREAD_NUM, RETRY_EXCEEDED);

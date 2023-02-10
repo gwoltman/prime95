@@ -230,7 +230,7 @@ void CPrime95Doc::OnPrimenet()
 	}
 	if (dlg.DoModal () == IDOK) {
 		DIAL_UP = dlg.m_dialup;
-		IniWriteInt (INI_FILE, "DialUp", DIAL_UP);
+		IniSectionWriteInt (INI_FILE, SEC_PrimeNet, KEY_DialUp, DIAL_UP);
 		strcpy (szProxyHost, (const char *) dlg.m_proxyhost);
 		if (szProxyHost[0] && dlg.m_proxyport != 8080)
 			sprintf (szProxyHost + strlen (szProxyHost), ":%d", dlg.m_proxyport);
@@ -371,7 +371,7 @@ again:	if (dlg.DoModal () == IDOK) {
 
 		if (dlg.m_num_workers != NUM_WORKERS) {
 			NUM_WORKERS = dlg.m_num_workers;
-			IniWriteInt (INI_FILE, "WorkerThreads", NUM_WORKERS);
+			IniWriteInt (INI_FILE, KEY_NumWorkers, NUM_WORKERS);
 			new_options = TRUE;
 			restart = TRUE;
 		}

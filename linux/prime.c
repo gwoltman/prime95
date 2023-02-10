@@ -522,7 +522,7 @@ void linuxContinue (
 
 	my_pid = getpid ();
 	IniFileReread (INI_FILE);
-	running_pid = IniGetInt (INI_FILE, "Pid", 0);
+	running_pid = IniSectionGetInt (INI_FILE, SEC_Internals, KEY_Pid, 0);
 	if (running_pid == 0 || my_pid == running_pid) goto ok;
 
 #if defined (__APPLE__) || defined (__HAIKU__)
@@ -579,9 +579,9 @@ void linuxContinue (
 
 /* All is OK, save our pid, run, then delete our pid */
 
-ok:	IniWriteInt (INI_FILE, "Pid", my_pid);
+ok:	IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_Pid, my_pid);
 	LaunchWorkers (thread_num, wait_flag);
-	if (wait_flag) IniWriteInt (INI_FILE, "Pid", 0);
+	if (wait_flag) IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_Pid, 0);
 }
 
 /* Implement the rest of the OS-specific routines */

@@ -380,7 +380,7 @@ void test_primenet (void)
 
 done:	if (askOkCancel ()) {
 		DIAL_UP = m_dialup;
-		IniWriteInt (INI_FILE, "DialUp", DIAL_UP);
+		IniSectionWriteInt (INI_FILE, SEC_PrimeNet, KEY_DialUp, DIAL_UP);
 
 		if (m_proxy_host[0] && m_proxy_port != 8080)
 			sprintf (m_proxy_host + strlen (m_proxy_host), ":%lu", m_proxy_port);
@@ -569,7 +569,7 @@ again:	if (max_num_workers () > 1)
 
 		if (m_num_thread != NUM_WORKERS) {
 			NUM_WORKERS = m_num_thread;
-			IniWriteInt (INI_FILE, "WorkerThreads", NUM_WORKERS);
+			IniWriteInt (INI_FILE, KEY_NumWorkers, NUM_WORKERS);
 			new_options = TRUE;
 			restart = TRUE;
 		}
