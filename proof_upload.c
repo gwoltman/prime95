@@ -446,8 +446,8 @@ void ProofUpload (char *filename)
 		item = cJSON_GetObjectItem(json, "FileUploaded");
 		if (item != NULL) {
 			sprintf (buf, "Proof file %s successfully uploaded\n", filename);
-			OutputBoth (COMM_THREAD_NUM, buf);
 			LogMsg (buf);
+			writeResults (buf);
 			archiveOrDelete (&fd, filename, fileMD5);
 			goto end;
 		}
