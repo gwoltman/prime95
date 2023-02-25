@@ -718,9 +718,11 @@ void CPrime95Doc::OnResources()
 
 /* Write bandwidth settings */
 
-		IniSectionWriteFloat (INI_FILE, SEC_PrimeNet, KEY_UploadRateLimit, dlg.m_upload_bandwidth);
-		IniSectionWriteString (INI_FILE, SEC_PrimeNet, KEY_UploadStartTime, (const char *) dlg.m_upload_start);
-		IniSectionWriteString (INI_FILE, SEC_PrimeNet, KEY_UploadEndTime, (const char *) dlg.m_upload_end);
+		if (dlg.m_can_upload) {
+			IniSectionWriteFloat (INI_FILE, SEC_PrimeNet, KEY_UploadRateLimit, dlg.m_upload_bandwidth);
+			IniSectionWriteString (INI_FILE, SEC_PrimeNet, KEY_UploadStartTime, (const char *) dlg.m_upload_start);
+			IniSectionWriteString (INI_FILE, SEC_PrimeNet, KEY_UploadEndTime, (const char *) dlg.m_upload_end);
+		}
 		IniSectionWriteInt (INI_FILE, SEC_PrimeNet, KEY_DownloadDailyLimit, dlg.m_download_mb);
 		gwevent_signal (&PROOF_UPLOAD_EVENT);		/* Trigger proof uploader in case upload start or end time changed */
 	}

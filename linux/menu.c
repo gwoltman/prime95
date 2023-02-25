@@ -990,9 +990,11 @@ void options_resources (void)
 		}
 		CPU_WORKER_DISK_SPACE = m_disk;
 		IniWriteFloat (INI_FILE, "WorkerDiskSpace", CPU_WORKER_DISK_SPACE);
-		IniSectionWriteFloat (INI_FILE, SEC_PrimeNet, KEY_UploadRateLimit, m_upload_bandwidth);
-		IniSectionWriteString (INI_FILE, SEC_PrimeNet, KEY_UploadStartTime, m_upload_start);
-		IniSectionWriteString (INI_FILE, SEC_PrimeNet, KEY_UploadEndTime, m_upload_end);
+		if (can_upload) {
+			IniSectionWriteFloat (INI_FILE, SEC_PrimeNet, KEY_UploadRateLimit, m_upload_bandwidth);
+			IniSectionWriteString (INI_FILE, SEC_PrimeNet, KEY_UploadStartTime, m_upload_start);
+			IniSectionWriteString (INI_FILE, SEC_PrimeNet, KEY_UploadEndTime, m_upload_end);
+		}
 		IniSectionWriteInt (INI_FILE, SEC_PrimeNet, KEY_DownloadDailyLimit, m_download_mb);
 		gwevent_signal (&PROOF_UPLOAD_EVENT);		/* Trigger proof uploader in case upload start or end time changed */
 		IniWriteString (INI_FILE, "ProofResiduesDir", m_temp_dir);
