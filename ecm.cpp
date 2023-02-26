@@ -5064,6 +5064,7 @@ void ecm_helper (
 				options = POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT | POLYMULT_SAVE_PLAN;
 				if (plan3 != NULL) pmdata.plan = plan3, options |= POLYMULT_USE_PLAN;
 				polymult (&pmdata, &polyG[poly_base], 2, &poly3, 1, &polyG[poly_base], 3, options);
+				plan3 = pmdata.plan;
 			} else {
 				int options = POLYMULT_INVEC1_MONIC_NEGATE | POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_NEXTFFT | POLYMULT_SAVE_PLAN;
 				if (plan2 != NULL) pmdata.plan = plan2, options |= POLYMULT_USE_PLAN;
