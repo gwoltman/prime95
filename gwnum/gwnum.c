@@ -9445,8 +9445,8 @@ void asm_mul (
 		d = (gwnum) ((char *) d + (intptr_t) asm_data->DEST2ARG);
 	}
 
-/* Adjust if necessary the SUM(INPUTS) vs. SUM(OUTPUTS).  If unnormalized add count is more than one, then the sums will be */
-/* larger than normal.  This could trigger a spurious MAXDIFF warning.  Shrink the two SUMS to compensate. */
+/* Adjust if necessary the SUM(INPUTS) vs. SUM(OUTPUTS).  If an unnormalized add count is set, then the sums will be larger than normal. */
+/* This could trigger spurious MAXDIFF warnings.  Shrink the two SUMS to compensate. */
 /* 2023: This ancient error check does not work with new gwmuladd4, gwsubmul4, etc.  I'm sure it could be made to work, but is not worth the effort. */
 
 	if (gwdata->sum_inputs_checking && asm_data->mul4_opcode == 0) {
@@ -9455,7 +9455,7 @@ void asm_mul (
 		unnorm_count1 = unnorms (s1);
 		unnorm_count2 = unnorms (s2);
 		if (unnorm_count1 != 0.0f || unnorm_count2 != 0.0f) {
-			double	adjustment = pow (2.0, (double) (unnorm_count1 + unnorm_count2));
+			double	adjustment = pow (0.5, (double) (unnorm_count1 + unnorm_count2));
 			gwsuminp (gwdata, d) *= adjustment;
 			gwsumout (gwdata, d) *= adjustment;
 		}
