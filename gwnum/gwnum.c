@@ -9644,17 +9644,20 @@ void emulate_mod (
 	asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + (gwdata->NORMNUM & 1)];
 	raw_gwmul3 (gwdata, gwdata->GW_MODULUS_FFT, tmp, tmp, GWMUL_PRESERVE_S1);
 
-/* Subtract from the original number to get the remainder. */
-/* Callers of gwmul3 expect results to be fully normalized, especially if they are carefully counting unnormalized adds. */
-/* Thus, it might be prudent to always normalize this next subtraction.  Prior to doing this, our QA was getting asserts in gwaddmul4 */
-/* when all 3 input arguments had a normalization count of two.  However, Pavel Atnashev reports that a normalized subtract greatly slows */
-/* down multi-threaded multiplies.  Next, I tried eliminating the assert by clearing the normalize count.  QA shows the roundoff error */
-/* does not get out of hand. */
+/* Subtract from the original number to get the remainder.  Callers of gwmul3 expect results to be fully normalized, especially if they are carefully */
+/* counting unnormalized adds.  Thus, it might be prudent to always normalize this subtraction.  However, Pavel Atnashev reports that a normalized subtract */
+/* greatly slows down multi-threaded emulate_mod.  So I tried an unnormalized subtract with clearing the unnorm count.  QA shows the roundoff error does */
+/* not get out of hand.  But, with a 2023-02-05 change to AVX normalization emulate_mod fails on tiny FFTs (example was 3*2^305+1).  Thus, I now do */
+/* normalized adds for small FFTs which cannot be multi-threaded anyway. */
 
-	gwsub (gwdata, tmp, s);
-	unnorms (s) = 0.0f;
+	if (gwdata->FFTLEN <= 1024) {
+		gwsub3o (gwdata, s, tmp, s, GWADD_FORCE_NORMALIZE);
+	} else {
+		gwsub3 (gwdata, s, tmp, s);
+		unnorms (s) = 0.0f;
+	}
+	ASSERTG (* addr (gwdata, s, gwdata->FFTLEN/2) == 0.0);
 	ASSERTG (* addr (gwdata, s, gwdata->FFTLEN-1) == 0.0);
-	if (* addr (gwdata, s, gwdata->FFTLEN-1) != 0.0) gwdata->GWERROR = GWERROR_INTERNAL + 12;
 	gwfree (gwdata, tmp);
 }
 
