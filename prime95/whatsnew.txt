@@ -1,5 +1,12 @@
-New features in Version 30.10 of prime95.exe
+New features in Version 30.11 of prime95.exe
 --------------------------------------------
+
+1) Settings are no longer stored in local.txt.  Settings are automatically moved to prime.txt.
+   In addition, settings within prime.txt are now organized into several sections for
+   enhanced readability.
+
+New features in Version 30.9/30.10 of prime95.exe
+-------------------------------------------------
 
 1) ECM stage 2 using fast polynomial multiplication similar to the GMP-ECM program.  If lots
    of memory is available for stage 2 this implementation will be substantially faster.
