@@ -9648,16 +9648,21 @@ void emulate_mod (
 /* Subtract from the original number to get the remainder.  Callers of gwmul3 expect results to be fully normalized, especially if they are carefully */
 /* counting unnormalized adds.  Thus, it might be prudent to always normalize this subtraction.  However, Pavel Atnashev reports that a normalized subtract */
 /* greatly slows down multi-threaded emulate_mod.  So I tried an unnormalized subtract with clearing the unnorm count.  QA shows the roundoff error does */
-/* not get out of hand.  But, with a 2023-02-05 change to AVX normalization emulate_mod fails on tiny FFTs (example was 3*2^305+1).  Thus, I now do */
-/* normalized adds for small FFTs which cannot be multi-threaded anyway. */
+/* not get out of hand. */
+/* NOTE: a 2023-02-05 change to AVX normalization caused emulate_mod failures on tiny FFTs (example: 3*2^305+1).  A 2023-02-27 re-fix seems to have corrected this. */
+/* Thus, the interim fix that does normalized adds for small FFTs which cannot be multi-threaded anyway is commented out. */
 
-	if (gwdata->FFTLEN <= 1024) {
-		gwsub3o (gwdata, s, tmp, s, GWADD_FORCE_NORMALIZE);
-	} else {
+	//	if (gwdata->FFTLEN <= 1024) {
+	//	gwsub3o (gwdata, s, tmp, s, GWADD_FORCE_NORMALIZE);
+	//} else {
 		gwsub3 (gwdata, s, tmp, s);
 		unnorms (s) = 0.0f;
-	}
-	ASSERTG (* addr (gwdata, s, gwdata->FFTLEN/2) == 0.0);
+	//}
+
+// All done.  Cleanup and return.  The upper half of FFT data should now be all zeroes.  Unfortunately, the unnormalized subtract above means there can be
+// pairs of (2^num_b_per_small_word, -1) anywhere in the upper half.  These pairs are harmless, but means the ASSERT below does not work.
+// ASSERTG (* addr (gwdata, s, gwdata->FFTLEN/2) == 0.0);
+
 	ASSERTG (* addr (gwdata, s, gwdata->FFTLEN-1) == 0.0);
 	gwfree (gwdata, tmp);
 }
