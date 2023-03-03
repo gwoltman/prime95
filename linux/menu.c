@@ -867,7 +867,7 @@ void advanced_quit (void)
 		res = askYesNoCancel ('C');
 		if (res == 0) {
 			OutputBoth (MAIN_THREAD_NUM, "Quitting GIMPS after current work completes.\n");
-			IniWriteInt (INI_FILE, "NoMoreWork", 1);
+			IniWriteInt (INI_FILE, KEY_QuitGIMPS, 1);
 			askOK ();
 		}
 		if (res == 1) {
@@ -1075,7 +1075,7 @@ void options_preferences (void)
 	if (USE_PRIMENET)
 		askNum ("Minutes between network retries", &m_retry, 1, 300);
 	if (USE_PRIMENET)
-		askNum ("Days of work to queue up", &m_work, 1, 90);
+		askNum ("Days of work to queue up", &m_work, 0, 90);
 	if (USE_PRIMENET)
 		askFloat ("Days between sending end dates", &m_end_dates, 0.125, 7);
 	askNum ("Number of Backup Files", &m_backup, 1, 3);

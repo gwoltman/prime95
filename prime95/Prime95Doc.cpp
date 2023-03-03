@@ -301,7 +301,7 @@ void CPrime95Doc::OnQuitGimps()
 		res = AfxMessageBox (PRIMENET_QUIT, MB_YESNOCANCEL | MB_ICONQUESTION | MB_DEFBUTTON3);
 		if (res == IDYES) {
 			OutputBoth (MAIN_THREAD_NUM, "Quitting GIMPS after current work completes.\n");
-			IniWriteInt (INI_FILE, "NoMoreWork", 1);
+			IniWriteInt (INI_FILE, KEY_QuitGIMPS, 1);
 		}
 		if (res == IDNO) {
 			OutputBoth (MAIN_THREAD_NUM, "Quitting GIMPS immediately.\n");

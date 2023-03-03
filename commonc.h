@@ -273,6 +273,7 @@ extern struct hw_core_info *HW_CORES;	/* Information on every core */
 /* INI section and keyword strings */
 
 extern const char KEY_NumWorkers[];
+extern const char KEY_QuitGIMPS[];
 
 extern const char SEC_Internals[];
 extern const char KEY_V30OptionsConverted[];

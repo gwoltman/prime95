@@ -121,6 +121,7 @@ struct hw_core_info *HW_CORES = NULL;	/* Information on every core */
 /* INI section and settings strings */
 
 const char KEY_NumWorkers[] = "NumWorkers";
+const char KEY_QuitGIMPS[] = "QuitGIMPS";
 
 const char SEC_Internals[] = "Internals";
 const char KEY_V30OptionsConverted[] = "V30OptionsConverted";
@@ -1398,6 +1399,7 @@ void nameAndReadIniFiles (
 /* In 30.10 build 5, we moved many settings to individual sections of prime.txt */
 
 	renameIniKey (NULL, "WorkerThreads", KEY_NumWorkers);			// Renamed in 30.10b5
+	renameIniKey (NULL, "NoMoreWork", KEY_QuitGIMPS);			// Renamed in 30.11b1
 
 	IniWriteString (INI_FILE, "RollingAverageIsFromV27", NULL);		// Deprecated 30.10b5
 	IniWriteString (INI_FILE, "V24OptionsConverted", NULL);			// Deprecated 30.10b5
@@ -6159,7 +6161,7 @@ retry:
 /* double-checks to process quick work that they believe is not part of GIMPS main purpose).  If the user is doing cofactor work, */
 /* then by all means default to getting cert work on PRP cofactor proofs. */
 
-	can_get_cert_work = (header_words[1] & HEADER_FLAG_WORK_QUEUE) && IniGetInt (INI_FILE, "CertWork", 1) && DAYS_OF_WORK > 0.0;
+	can_get_cert_work = (header_words[1] & HEADER_FLAG_WORK_QUEUE) && IniGetInt (INI_FILE, "CertWork", 1) && DAYS_OF_WORK > 0;
 	if (WELL_BEHAVED_WORK || SEQUENTIAL_WORK == 1) can_get_cert_work = FALSE;
 	if (!WORKERS_ACTIVE || WORKERS_STOPPING) can_get_cert_work = FALSE;
 	if (CPU_HOURS <= 12) can_get_cert_work = FALSE;
@@ -6369,7 +6371,7 @@ retry:
 /* race condition when quitting gimps that makes it possible to get here */
 /* with a request to get exponents and USE_PRIMENET not set. */
 
-	    if (header_words[1] & HEADER_FLAG_QUIT_GIMPS || IniGetInt (INI_FILE, "NoMoreWork", 0) || !USE_PRIMENET) continue;
+	    if (header_words[1] & HEADER_FLAG_QUIT_GIMPS || IniGetInt (INI_FILE, KEY_QuitGIMPS, 0) || !USE_PRIMENET) continue;
 
 /* Occasionally get certification work from the server.  P-1 and ECM stage 2 may have significant costs with an interruption to do priority work. */
 /* Also, lots of work_units is not a typical setup -- may indicate a large worktodo.txt file with high costs reading and writing it.  Also, check */
@@ -6615,10 +6617,10 @@ retry:
 
 	char	proof_files[50][255];		// We can send up to 50 proof files
 	if ((header_words[1] & HEADER_FLAG_QUIT_GIMPS && USE_PRIMENET) ||
-	    (IniGetInt (INI_FILE, "NoMoreWork", 0) && WORKTODO_COUNT == 0 && ProofFileNames (proof_files) == 0)) {
+	    (IniGetInt (INI_FILE, KEY_QuitGIMPS, 0) && WORKTODO_COUNT == 0 && ProofFileNames (proof_files) == 0)) {
 		USE_PRIMENET = 0;
 		IniWriteInt (INI_FILE, "UsePrimenet", 0);
-		IniWriteInt (INI_FILE, "NoMoreWork", 0);
+		IniWriteString (INI_FILE, KEY_QuitGIMPS, NULL);
 		OutputSomewhere (COMM_THREAD_NUM, "Successfully quit GIMPS.\n");
 	}
 
@@ -6633,7 +6635,7 @@ retry:
 			add_timed_event (TE_COMPLETION_DATES, (int) (DAYS_BETWEEN_CHECKINS * 86400.0));
 	}
 
-/* Delete the spool file. However, we don't delete the file if any writes */
+/* Delete the spool file.  However, we don't delete the file if any writes */
 /* took place after we read the header words.  We detect writes by examining */
 /* the first header word. */
 
