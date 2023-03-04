@@ -1660,6 +1660,7 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 	else if ((flags & 0x0000001FF) == 509) gwdata->PASS2_SIZE = 32768;
 	else gwdata->PASS2_SIZE = (flags & 0x0000001FF) << 6;
 	if (gwdata->PASS2_SIZE) gwdata->PASS1_SIZE = gwdata->FFTLEN / gwdata->PASS2_SIZE; /* Real values in a pass1 section */
+	else gwdata->PASS1_SIZE = 0;				/* One-pass FFT */
 	if (gwdata->PASS1_SIZE == 2) gwdata->PASS1_SIZE = 0;	/* Don't treat AVX-512 one-pass wrapper as a true pass 1 */
 
 /* Calculate the scratch area size -- needed by gwmemused without calling gwsetup */
@@ -2397,8 +2398,8 @@ int gwsetup_general_mod_giant (
 /* roundoff errors.  Thus, the caller may need to insist we use an */
 /* irrational FFT on occasion. */
 
-/* Call gwinfo and have it figure out the FFT length we will use.  Since we zero the upper half of FFT input data, the FFT */
-/* outputs will be smaller.  This lets us get about another 0.15 bits per input word (data from Pavel Atnashev's primorial search). */
+/* Call gwinfo and have it figure out the FFT length to use.  Since we zero the upper half of FFT input data, the FFT outputs will be smaller. */
+/* This lets us get about another 0.15 bits per input word (data from Pavel Atnashev's primorial search). */
 
 	gwdata->safety_margin -= 0.15;
 	error_code = gwinfo (gwdata, 1.0, 2, n, -1);
@@ -2408,28 +2409,21 @@ int gwsetup_general_mod_giant (
 	fftlen = info->fftlen;
 	max_exponent = adjusted_max_exponent (gwdata, info);
 
-/* Our FFTs don't handle cases where there are few bits per word because */
-/* carries must be propagated over too many words.  Arbitrarily insist */
-/* that n is at least 12 * fftlen.  */
+/* Our FFTs don't handle cases where there are few bits per word because carries must be */
+/* propagated over too many words.  Arbitrarily insist that n is at least 12 * fftlen. */
 
 	if (n < 12 * fftlen) n = 12 * fftlen;
 
-/* Let the user request rational FFTs as they are a few percent faster */
+/* If the caller requests rational FFTs (the default as they are a few percent faster due to no FFT weights). */
+/* If possible, increase n to the next multiple of FFT length. */
 
 	if (!gwdata->use_irrational_general_mod) {
-
-/* If possible, increase n to the next multiple of FFT length.  This is */
-/* because rational FFTs are faster than irrational FFTs (no FFT weights). */
-
 		desired_n = round_up_to_multiple_of (n, fftlen);
 		if (desired_n < max_exponent) n = desired_n;
 	}
 
-/* If the user requested irrational FFTs, then make sure the bits */
-/* per FFT word will distribute the big and little words of the modulus */
-/* semi-randomly.  For example, in the (10^828809-1)/9 case above, if */
-/* bits-per-word is 18.5 or 18.25 you will still get non-random patterns */
-/* in the FFT words. */
+/* If the caller requests irrational FFTs, then make sure the bits per FFT word will distribute the big and little words of the modulus semi-randomly. */
+/* For example, in the (10^828809-1)/9 case above, if bits-per-word is 18.5 or 18.25 you will still get non-random patterns in the FFT words. */
 
 	else {
 		double	prime_number, bits_per_word;
@@ -2453,13 +2447,16 @@ int gwsetup_general_mod_giant (
 	if (n + fftlen < max_exponent) n = n + fftlen;
 	else if (gwdata->use_irrational_general_mod && n + fftlen / 2 < max_exponent) n = n + fftlen / 2;
 
-/* Now setup the assembly code */
+/* Now setup the assembly code.  Make sure we select the same FFT length chosen above (necessary  */
 
 	gwdata->safety_margin -= 0.15;
-	int saved_larger_fftlen_count = gwdata->larger_fftlen_count;	// though not necessary, remember this so caller knows they set this option
+	int saved_minimum_fftlen = gwdata->minimum_fftlen;		// though not necessary, remember this option
+	int saved_larger_fftlen_count = gwdata->larger_fftlen_count;	// though not necessary, remember this option
+	gwdata->minimum_fftlen = fftlen;				// force use of the already found fft length
 	gwdata->larger_fftlen_count = 0;				// gwinfo above already found the next larger fft length
 	error_code = internal_gwsetup (gwdata, 1.0, 2, n, -1);
-	gwdata->larger_fftlen_count = saved_larger_fftlen_count;	// though not necessary, restore this so caller knows they set this option
+	gwdata->larger_fftlen_count = saved_larger_fftlen_count;	// though not necessary, restore this option to its original setting
+	gwdata->minimum_fftlen = saved_minimum_fftlen;			// though not necessary, restore this option to its original setting
 	gwdata->safety_margin += 0.15;
 	if (error_code) return (error_code);
 
@@ -2468,7 +2465,7 @@ int gwsetup_general_mod_giant (
 // needed bit_lengths.  Also, PFGW should not be reading the bit_length
 // value in integer.cpp.
 //	gwdata->bit_length = bits;
-	
+
 /* Allocate memory for an FFTed copy of the modulus. */
 
 	if (!gwdata->information_only) {
