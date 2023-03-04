@@ -1191,6 +1191,9 @@ again:		gwinit (&gwdata);
 			sprintf (buf, "Trying gwsetup on %s.\n", numstr);
 			OutputBoth (thread_num, buf);
 		}
+//gwdata.force_general_mod = 1;
+//static int junk = 0;
+//gwset_larger_fftlen_count(&gwdata,junk++);
 		gwset_maxmulbyconst (&gwdata, 5);
 		gwset_minimum_fftlen (&gwdata, SPECIFIC_FFTLEN);
 		gwset_num_threads (&gwdata, threads);
