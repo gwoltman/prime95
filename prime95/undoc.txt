@@ -481,7 +481,7 @@ compression gaining about 12%.
 LINUX/FREEBSD ONLY:  When mprime runs out of work to do, it normally loops waiting for the
 server to assign more work.  This prime.txt option can be used to have mprime exit
 when all workers runs out of work.  Note this probably only makes sense when UsePrimenet=0
-or when UsePrimenet=1 and NoMoreWork=1.
+or when UsePrimenet=1 and QuitGIMPS=1.
 	ExitWhenOutOfWork=n
 where n is the number of seconds to wait before exiting.  I recommend setting n to 86400 or
 higher to give mprime time to send the last results and upload proof files to the server.

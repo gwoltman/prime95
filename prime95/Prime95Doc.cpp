@@ -501,7 +501,7 @@ void CPrime95Doc::OnTest()
 		w.b = 2;
 		w.n = dlg.m_p;
 		w.c = -1;
-		addWorkToDoLine (dlg.m_worker - 1, &w);
+		addWorkToDoLine (dlg.m_worker - 1, &w, ADD_TO_FRONT);
 		if (WORKERS_ACTIVE)
 			stop_worker_for_advanced_test (dlg.m_worker - 1);
 		else
@@ -550,7 +550,7 @@ void CPrime95Doc::OnPminus1()
 		w.B1 = dlg.m_bound1;
 		w.B2_start = 0;
 		w.B2 = dlg.m_bound2;
-		addWorkToDoLine (dlg.m_worker - 1, &w);
+		addWorkToDoLine (dlg.m_worker - 1, &w, ADD_TO_LOGICAL_END);
 
 /* If workers are running, adding the work should have restarted threads waiting for work.  Otherwise, start the workers. */
 
@@ -584,7 +584,7 @@ void CPrime95Doc::OnEcm()
 		w.B1 = dlg.m_bound1;
 		w.B2 = dlg.m_bound2;
 		w.curves_to_do = dlg.m_num_curves;
-		addWorkToDoLine (dlg.m_worker - 1, &w);
+		addWorkToDoLine (dlg.m_worker - 1, &w, ADD_TO_LOGICAL_END);
 
 /* If workers are running, adding the work should have restarted threads waiting for work.  Otherwise, start the workers. */
 

@@ -188,6 +188,7 @@ void unlinkSaveFiles (writeSaveFileState *state);
 #define STOP_PRIORITY_WORK	51	/* Priority work, restart thread */
 #define STOP_BATTERY		52	/* On battery - pause */
 #define STOP_AUTOBENCH		53	/* Stop worker for a little while to run auto-benchmarks */
+#define STOP_PREV_WORK_UNIT	54	/* Switch worker to previous work unit, PRP cofactor of a newly found ECM factor */
 #define STOP_REREAD_INI		100	/* Reread prime.ini because a during/else time period has changed */
 #define STOP_RESTART		101	/* Important INI option changed */
 #define STOP_MEM_CHANGED	102	/* Day/night memory change */

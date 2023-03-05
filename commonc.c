@@ -2014,7 +2014,7 @@ static	int	worktodo_add_disabled = FALSE;
 
 /* Grow the work_unit array if necessary and add this entry */
 
-		rc = addToWorkUnitArray (tnum, w, FALSE);
+		rc = addToWorkUnitArray (tnum, w, ADD_TO_END);
 		if (rc) goto retrc;
 	}
 
@@ -2421,9 +2421,10 @@ void auxiliaryWorkUnitInit (
 	if ((w->work_type == WORK_FACTOR || w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK || w->work_type == WORK_PRP) && w->factor_to == 0.0)
 		w->factor_to = factorLimit (w);
 
-/* Initialize the number of PRP tests saved.  For PRP with proof, we choose 1.3 tests saved because we like factors even though the proper value s.b. 1.0. */
+/* Initialize the number of LL tests saved.  LL tests are mostly deprecated thanks to PRP with proofs. */
+/* For PRP work, the worktodo file specifies the number of tests saved -- don't overwrite it. */
 
-	if (w->work_type == WORK_TEST) w->tests_saved = 1.3;
+	if (w->work_type == WORK_TEST) w->tests_saved = 2.0;
 	if (w->work_type == WORK_DBLCHK) w->tests_saved = 1.0;
 
 /* Guard against wild tests_saved values.  Huge values will cause guess_pminus1_bounds to run for a very long time. */
@@ -2515,7 +2516,7 @@ void addKnownFermatFactors (
 	struct work_unit *w)	/* Work unit to modify */
 {
 
-/* If this is ECM or P-1 on a Fermat number, then automatically add known Fermat factors */
+/* If this is ECM, P-1, or P+1 on a Fermat number, then automatically add known Fermat factors */
 
 	if (w->k == 1.0 && w->b == 2 && w->c == 1 &&
 	    (w->work_type == WORK_ECM || w->work_type == WORK_PMINUS1 || w->work_type == WORK_PPLUS1) &&
@@ -2557,53 +2558,54 @@ void addKnownFermatFactors (
 	}
 }	    
 
-/* Add a work_unit to the work_unit array.  Grow the work_unit */
-/* array if necessary */
+/* Add a work_unit to the work_unit array.  Grow the work_unit array if necessary */
 
 int addToWorkUnitArray (
 	unsigned int tnum,	/* Thread number that will run work unit */
 	struct work_unit *w,	/* Work unit to add to array */
-	int	add_to_end)	/* TRUE if we are to add to end of array */
+	int	add_point)	/* Three possible insertion points */
 {
 	struct work_unit *insertion_point;
 
-/* When there are more worker sections than workers (as can happen when the shrinks the */
-/* number of worker windows), redistribute lines from those worker sections to the */
-/* active sections. */
+/* When there are more worker sections than workers (as can happen when the user shrinks the */
+/* number of worker windows), redistribute lines from those worker sections to the active sections. */
 
 	tnum = tnum % NUM_WORKERS;
 
-/* If add_to_end is set, then we are reading the worktodo.txt file. */
-/* Add the entry to the end of the array */
+/* If add_to_end is set, then we are reading the worktodo.txt file.  Add the entry to the end of the array. */
 
-	if (add_to_end)
+	switch (add_point) {
+	case ADD_TO_END:
 		insertion_point = WORK_UNITS[tnum].last;
+		break;
 
-/* Otherwise, add ADVANCEDTEST work units to the front of the array after */
-/* any comment lines. */
+/* If add_to_front is set, add work unit to the front of the array after any comment lines. */
 
-	else if (w->work_type == WORK_ADVANCEDTEST) {
-		if (WORK_UNITS[tnum].first != NULL &&
-		    WORK_UNITS[tnum].first->work_type == WORK_NONE)
-			for (insertion_point = WORK_UNITS[tnum].first;
-			     insertion_point->next != NULL;
-			     insertion_point = insertion_point->next) {
-				if (insertion_point->next->work_type != WORK_NONE)
-					break;
+	case ADD_TO_FRONT:
+		if (WORK_UNITS[tnum].first != NULL && WORK_UNITS[tnum].first->work_type == WORK_NONE)
+			for (insertion_point = WORK_UNITS[tnum].first; insertion_point->next != NULL; insertion_point = insertion_point->next) {
+				if (insertion_point->next->work_type != WORK_NONE) break;
 			}
 		else
 			insertion_point = NULL;
-	}
+		break;
 
-/* Add all other work units before the last blank line. */
+/* If add_to_end, add work unit before the last blank line */
 
-	else {
-		for (insertion_point = WORK_UNITS[tnum].last;
-		     insertion_point != NULL;
-		     insertion_point = insertion_point->prev) {
-			if (insertion_point->work_type != WORK_NONE ||
-			    insertion_point->comment[0]) break;
+	case ADD_TO_LOGICAL_END:
+		for (insertion_point = WORK_UNITS[tnum].last; insertion_point != NULL; insertion_point = insertion_point->prev) {
+			if (insertion_point->work_type != WORK_NONE || insertion_point->comment[0]) break;
 		}
+		break;
+
+/* Otherwise, add work unit before or after a specified work unit */
+
+	case ADD_BEFORE_SPECIFIC:
+		insertion_point = w->next->prev;
+		break;
+	case ADD_AFTER_SPECIFIC:
+		insertion_point = w->next;
+		break;
 	}
 
 /* Now insert the work unit after the insertion point */
@@ -2621,13 +2623,16 @@ int addToWorkUnitArray (
 	else
 		w->next->prev = w;
 
-/* Bump count of valid work lines and wake up thread if it is waiting */
-/* for work to do. */
+/* Bump count of valid work lines and wake up thread if it is waiting for work to do. */
 
 	if (w->work_type != WORK_NONE) {
 		WORKTODO_COUNT++;
 		restart_one_waiting_worker (tnum, RESTART_WORK_AVAILABLE);
 	}
+
+/* Set flag indicating worktodo needs writing */
+
+	WORKTODO_CHANGED = TRUE;
 
 /* Return success */
 
@@ -3154,7 +3159,7 @@ int readWorkToDoFile (void)
 
 /* Grow the work_unit array if necessary and add this entry */
 
-	    rc = addToWorkUnitArray (tnum, w, TRUE);
+	    rc = addToWorkUnitArray (tnum, w, ADD_TO_END);
 	    if (rc) goto retrc;
 	}
 
@@ -3548,7 +3553,8 @@ void decrementWorkUnitUseCount (
 
 int addWorkToDoLine (
 	int	tnum,		/* Worker to process this work unit */
-	struct work_unit *w)	/* Type of work */
+	struct work_unit *w,	/* Type of work */
+	int	add_point)	/* Three possible insertion points */
 {
 	struct work_unit *malloc_w;
 	int	rc;
@@ -3563,7 +3569,7 @@ int addWorkToDoLine (
 	if (malloc_w == NULL) return (OutOfMemory (MAIN_THREAD_NUM));
 	memcpy (malloc_w, w, sizeof (struct work_unit));
 
-/* If this is ECM or P-1 on a Fermat number, then automatically add known Fermat factors */
+/* If this is ECM, P-1, or P+1 on a Fermat number, then automatically add known Fermat factors */
 
 	addKnownFermatFactors (malloc_w);
 
@@ -3572,15 +3578,10 @@ int addWorkToDoLine (
 
 	gwmutex_lock (&WORKTODO_MUTEX);
 
-/* Add the work unit to the end of the array.  Well, actually before the */
-/* last set of blank lines. */
+/* Add the work unit to the start or end of the array.  Well, actually before the last set of blank lines. */
 
-	rc = addToWorkUnitArray (tnum, malloc_w, FALSE);
+	rc = addToWorkUnitArray (tnum, malloc_w, add_point);
 	if (rc) goto retrc;
-
-/* Set flag indicating worktodo needs writing */
-
-	WORKTODO_CHANGED = TRUE;
 
 /* Unlock and write the worktodo.txt file to disk */
 
@@ -3593,8 +3594,7 @@ retrc:	gwmutex_unlock (&WORKTODO_MUTEX);
 	return (rc);
 }
 
-/* Caller has updated a work unit structure such that the work-to-do */
-/* INI file needs to be written.  */
+/* Caller has updated a work unit structure such that the work-to-do INI file needs to be written. */
 
 int updateWorkToDoLine (
 	int	tnum,		/* Worker to process this work unit */
@@ -3626,7 +3626,7 @@ int deleteWorkToDoLine (
 
 	if (w->work_type == WORK_DELETED) return (0);
 
-/* Grab the lock so that comm thread and/or workers do access structure while the other is adding/deleting lines. */
+/* Grab the lock so that comm thread and/or workers don't access structure while the other is adding/deleting lines. */
 
 	gwmutex_lock (&WORKTODO_MUTEX);
 
@@ -6423,7 +6423,7 @@ retry:
 
 /* Write the exponent to our worktodo file */
 
-			stop_reason = addWorkToDoLine (tnum, &w);
+			stop_reason = addWorkToDoLine (tnum, &w, ADD_TO_FRONT);
 			if (stop_reason) goto error_exit;
 
 /* Update the daily cert quotas */
@@ -6575,10 +6575,9 @@ retry:
 			strcpy (w.known_factors, pkt1.known_factors);
 		}
 
-/* Write the exponent to our worktodo file, before acknowledging the */
-/* assignment with a projected completion date. */
+/* Write the exponent to our worktodo file, before acknowledging the assignment with a projected completion date. */
 
-		stop_reason = addWorkToDoLine (tnum, &w);
+		stop_reason = addWorkToDoLine (tnum, &w, ADD_TO_LOGICAL_END);
 		if (stop_reason) goto error_exit;
 
 //bug Can we somehow verify that the worktodo.txt line got written???

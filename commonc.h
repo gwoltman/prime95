@@ -459,7 +459,12 @@ int writeWorkToDoFile (int);
 #define LONG_TERM_USE		1
 struct work_unit *getNextWorkToDoLine (int, struct work_unit *, int);
 void decrementWorkUnitUseCount (struct work_unit *, int);
-int addWorkToDoLine (int, struct work_unit *);
+#define ADD_TO_FRONT		1
+#define ADD_TO_LOGICAL_END	2		// Add after last non-blank line
+#define ADD_TO_END		3
+#define ADD_BEFORE_SPECIFIC	4		// Add before w->next
+#define ADD_AFTER_SPECIFIC	5		// Add after w->next
+int addWorkToDoLine (int, struct work_unit *, int);
 int updateWorkToDoLine (int, struct work_unit *);
 int deleteWorkToDoLine (int, struct work_unit *, int);
 int isWorkUnitActive (struct work_unit *);

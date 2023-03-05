@@ -687,7 +687,7 @@ loop:	m_p = 0;
 		w.b = 2;
 		w.n = m_p;
 		w.c = -1;
-		addWorkToDoLine (m_thread - 1, &w);
+		addWorkToDoLine (m_thread - 1, &w, ADD_TO_FRONT);
 		if (WORKERS_ACTIVE)
 			stop_worker_for_advanced_test (m_thread - 1);
 		else
@@ -751,7 +751,7 @@ void advanced_pminus1 (void)
 		w.B1 = m_bound1;
 		w.B2_start = 0;
 		w.B2 = m_bound2;
-		addWorkToDoLine (m_thread - 1, &w);
+		addWorkToDoLine (m_thread - 1, &w, ADD_TO_LOGICAL_END);
 		if (!WORKERS_ACTIVE)
 			linuxContinue ("\nWork added to worktodo.txt file.  Another mprime is running.\n", ALL_WORKERS, FALSE);
 		askOK ();
@@ -800,7 +800,7 @@ void advanced_ecm (void)
 		w.B2 = m_bound2;
 		w.curves_to_do = m_num_curves;
 		w.curve = 0.0;
-		addWorkToDoLine (m_thread - 1, &w);
+		addWorkToDoLine (m_thread - 1, &w, ADD_TO_LOGICAL_END);
 		if (!WORKERS_ACTIVE)
 			linuxContinue ("\nWork added to worktodo.txt file.  Another mprime is running.\n", ALL_WORKERS, FALSE);
 		askOK ();

@@ -1215,6 +1215,49 @@ int testFactor (
 	return (TRUE);
 }
 
+/* Add a factor to to the known factors list */
+
+char *addNewKnownFactor (
+	struct work_unit *w,		/* ECM, P-1, or P+1 work unit that found a factor */
+	const char *fac)		/* Newly found factor (or NULL to simply copy known factors) */
+{
+	char	*new_known_factors;
+	if (fac == NULL) {		/* Simply copy known factors (ECM with ContinueECM option set needs this) */
+		new_known_factors = (char *) malloc (strlen (w->known_factors) + 1);
+		strcpy (new_known_factors, w->known_factors);
+	} else if (w->known_factors == NULL) {
+		new_known_factors = (char *) malloc (strlen (fac) + 1);
+		strcpy (new_known_factors, fac);
+	} else {
+		new_known_factors = (char *) malloc (strlen (w->known_factors) + 1 + strlen (fac) + 1);
+		sprintf (new_known_factors, "%s,%s", w->known_factors, fac);
+	}
+	return (new_known_factors);
+}
+
+/* Generate a PRP-CF work unit after a new factor is found */
+
+void generatePRPWorkUnit (
+	struct work_unit *oldw,		/* ECM, P-1, or P+1 work unit that found a factor */
+	const char *fac,		/* Newly found factor, or NULL if factor has already been added to known factors list */
+	struct work_unit *neww)		/* Generated PRP work unit */
+{
+	// Copy work unit, much of the data will be the same
+	*neww = *oldw;
+	// Change fields that need changing
+	neww->work_type = WORK_PRP;
+	neww->assignment_uid[0] = 0;
+	neww->prp_base = 3;
+	neww->prp_residue_type = 5;
+	neww->prp_dblchk = FALSE;
+	neww->sieve_depth = 99;
+	neww->tests_saved = 0;
+	neww->known_factors = addNewKnownFactor (oldw, fac);
+	neww->stage[0] = 0;
+	neww->pct_complete = 0.0;
+	neww->ra_failed = FALSE;
+}
+
 /* Do a GCD of the input value and N to see if a factor was found. */
 /* The GCD is returned in factor iff a factor is found. */
 /* This routine used to be interruptible and thus returns a stop_reason. */
@@ -8108,7 +8151,8 @@ bingo:	stage = (ecmdata.state > ECM_STATE_MIDSTAGE) ? 2 : (ecmdata.state > ECM_S
 /* See if the cofactor is prime and set flag if we will be continuing ECM */
 
 	continueECM = IniGetInt (INI_FILE, "ContinueECM", 0);
-	prpAfterEcmFactor = IniGetInt (INI_FILE, "PRPAfterECMFactor", bitlen (ecmdata.N) < 100000);
+	if (ecmdata.curve == w->curves_to_do) continueECM = FALSE;
+	prpAfterEcmFactor = IniGetInt (INI_FILE, "PRPAfterECMFactor", bitlen (ecmdata.N) < 100000 && (w->k != 1.0 || w->b != 2 || w->c != -1));
 	if (prpAfterEcmFactor || continueECM) divg (ecmdata.factor, ecmdata.N);
 	if (prpAfterEcmFactor && isProbablePrime (&ecmdata.gwdata, ecmdata.N)) {
 		OutputBoth (thread_num, "Cofactor is a probable prime!\n");
@@ -8143,13 +8187,40 @@ bingo:	stage = (ecmdata.state > ECM_STATE_MIDSTAGE) ? 2 : (ecmdata.state > ECM_S
 /* for this number from the worktodo file. */
 
 		if (continueECM) {
-			unlinkSaveFiles (&ecmdata.write_save_file_state);
 			w->curves_to_do -= ecmdata.curve;
 			stop_reason = updateWorkToDoLine (thread_num, w);
-			if (stop_reason) return (stop_reason);
+			if (stop_reason) goto exit;
+			unlinkSaveFiles (&ecmdata.write_save_file_state);
 			ecmdata.curve = 0;
+			ecmdata.average_B2 = 0;
 		} else {
 //bug - how to update worktodo such that all ECM's of this number are deleted???
+		}
+	}
+
+/* If continuting ECM, add the new factor to the known factors list.  Write the new data to worktodo file. */
+
+	if (continueECM) {
+		char *new_known_factors = addNewKnownFactor (w, str);
+		free (w->known_factors);
+		w->known_factors = new_known_factors;
+		stop_reason = updateWorkToDoLine (thread_num, w);
+		if (stop_reason) goto exit;
+	}
+
+/* Create a PRP work unit to immediately test the Mersenne cofactor */
+
+	if (USE_PRIMENET && w->k == 1.0 && w->b == 2 && w->c == -1 && (int) w->n < IniGetInt (INI_FILE, "MaxAutoPRPExponent", 5000000)) {
+		struct work_unit w_prp;
+		generatePRPWorkUnit (w, continueECM ? NULL : str, &w_prp);
+		// Add work unit before or after this work unit
+		w_prp.next = w;
+		stop_reason = addWorkToDoLine (thread_num, &w_prp, continueECM ? ADD_BEFORE_SPECIFIC : ADD_AFTER_SPECIFIC);
+		if (stop_reason) goto exit;
+		// Return to do the PRP on the cofactor before continuing with more ECM
+		if (continueECM) {
+			stop_reason = STOP_PREV_WORK_UNIT;
+			goto exit;
 		}
 	}
 
@@ -8161,8 +8232,7 @@ bingo:	stage = (ecmdata.state > ECM_STATE_MIDSTAGE) ? 2 : (ecmdata.state > ECM_S
 
 	clear_timer (timers, 0);
 
-/* Since we found a factor, then we likely performed much fewer curves than expected.  Make sure we do not update the rolling average with */
-/* this inaccurate data. */
+/* Since we found a factor, we likely performed much fewer curves than expected.  Make sure we do not update the rolling average with this inaccurate data. */
 
 	if (!continueECM) {
 		unlinkSaveFiles (&ecmdata.write_save_file_state);
@@ -11812,6 +11882,17 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 
 	invalidateNextRollingAverageUpdate ();
 
+/* Create a PRP work unit to immediately test the Mersenne cofactor */
+
+	if (USE_PRIMENET && w->k == 1.0 && w->b == 2 && w->c == -1 && (int) w->n < IniGetInt (INI_FILE, "MaxAutoPRPExponent", 5000000)) {
+		struct work_unit w_prp;
+		generatePRPWorkUnit (w, str, &w_prp);
+		// Add work unit before or after this work unit
+		w_prp.next = w;
+		stop_reason = addWorkToDoLine (thread_num, &w_prp, ADD_AFTER_SPECIFIC);
+		if (stop_reason) goto exit;
+	}
+
 /* Remove the exponent from the worktodo.ini file */
 
 	stop_reason = STOP_WORK_UNIT_COMPLETE;
@@ -14547,6 +14628,17 @@ bingo:	if (pp1data.state < PP1_STATE_MIDSTAGE)
 /* this inaccurate data. */
 
 	invalidateNextRollingAverageUpdate ();
+
+/* Create a PRP work unit to immediately test the Mersenne cofactor */
+
+	if (USE_PRIMENET && w->k == 1.0 && w->b == 2 && w->c == -1 && (int) w->n < IniGetInt (INI_FILE, "MaxAutoPRPExponent", 5000000)) {
+		struct work_unit w_prp;
+		generatePRPWorkUnit (w, str, &w_prp);
+		// Add work unit before or after this work unit
+		w_prp.next = w;
+		stop_reason = addWorkToDoLine (thread_num, &w_prp, ADD_AFTER_SPECIFIC);
+		if (stop_reason) goto exit;
+	}
 
 /* Remove the exponent from the worktodo.ini file */
 
