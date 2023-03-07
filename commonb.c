@@ -7319,6 +7319,7 @@ static const char SELFFAIL3[] = "FATAL ERROR: Rounding was %.10g, expected less 
 static const char SELFFAIL4[] = "Possible hardware failure, consult readme.txt file, restarting test.\n";
 static const char SELFFAIL5[] = "Hardware failure detected running %lu%s FFT size, consult stress.txt file.\n";
 static const char SELFFAIL6[] = "Maximum number of warnings exceeded.\n";
+static const char SELFFAIL7[] = "TORTURE TEST FAILED on worker #%d.\n";
 
 static const char SELFPASS[] = "Self-test %i%s%s passed!\n";
 //static const char SelfTestIniMask[] = "SelfTest%iPassed";
@@ -7819,6 +7820,8 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 /* If the sum of the output values is an error (such as infinity) then raise an error. */
 
 			if (gw_test_illegal_sumout (&lldata.gwdata)) {
+				sprintf (buf, SELFFAIL7, thread_num+1);
+				OutputStr (MAIN_THREAD_NUM, buf);
 				OutputBoth (thread_num, SELFFAIL1);
 				flashWindowAndBeep ();
 				(*warnings)++;
@@ -7836,6 +7839,9 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 /* Check that the sum of the input numbers squared is approximately equal to the sum of unfft results. */
 
 			if (gw_test_mismatched_sums (&lldata.gwdata)) {
+				sprintf (buf, SELFFAIL7, thread_num+1);
+				OutputStr (MAIN_THREAD_NUM, buf);
+				OutputBoth (thread_num, buf);
 				sprintf (buf, SELFFAIL2, gwsumout (&lldata.gwdata, g), gwsuminp (&lldata.gwdata, g));
 				OutputBoth (thread_num, buf);
 				sprintf (buf, SELFFAIL5, (fftlen % 1024 == 0) ? fftlen >> 10 : fftlen, (fftlen % 1024 == 0) ? "K" : "");
@@ -7850,6 +7856,8 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 /* Make sure round off error is tolerable */
 
 			if (gw_get_maxerr (&lldata.gwdata) > 0.45) {
+				sprintf (buf, SELFFAIL7, thread_num+1);
+				OutputStr (MAIN_THREAD_NUM, buf);
 				sprintf (buf, SELFFAIL3, gw_get_maxerr (&lldata.gwdata));
 				OutputBoth (thread_num, buf);
 				sprintf (buf, SELFFAIL5, (fftlen % 1024 == 0) ? fftlen >> 10 : fftlen, (fftlen % 1024 == 0) ? "K" : "");
@@ -7889,6 +7897,8 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 		free (gwarray);
 		(*completed)++;
 		if (reshi != test_data[i].reshi) {
+			sprintf (buf, SELFFAIL7, thread_num+1);
+			OutputStr (MAIN_THREAD_NUM, buf);
 			sprintf (buf, SELFFAIL, reshi, test_data[i].reshi);
 			OutputBoth (thread_num, buf);
 			sprintf (buf, SELFFAIL5, (fftlen % 1024 == 0) ? fftlen >> 10 : fftlen, (fftlen % 1024 == 0) ? "K" : "");
