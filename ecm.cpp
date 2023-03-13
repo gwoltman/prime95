@@ -8911,7 +8911,7 @@ int pm1_restore (			/* For version 30.4 and later save files */
 			pm1data->x_binary = allocgiant (((int) pm1data->gwdata.bit_length >> 5) + 10);
 			if (pm1data->x_binary == NULL) goto readerr;
 			if (! read_giant (fd, pm1data->x_binary, &sum)) goto readerr;
-			if (pm1data->state < PM1_STATE_MIDSTAGE) {
+			if (pm1data->state < PM1_STATE_MIDSTAGE || pm1data->state == PM1_STATE_DONE) {
 				pm1data->x = gwalloc (&pm1data->gwdata);
 				if (pm1data->x == NULL) goto readerr;
 				gianttogw (&pm1data->gwdata, pm1data->x_binary, pm1data->x);
