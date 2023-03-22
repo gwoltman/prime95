@@ -55,9 +55,9 @@ typedef gwnum *gwarray;
 /* are new prime95 versions without any changes in the gwnum code.  This version number is also embedded in the assembly code and */
 /* gwsetup verifies that the version numbers match.  This prevents bugs from accidentally linking in the wrong gwnum library. */
 
-#define GWNUM_VERSION		"30.11"
+#define GWNUM_VERSION		"30.12"
 #define GWNUM_MAJOR_VERSION	30
-#define GWNUM_MINOR_VERSION	11
+#define GWNUM_MINOR_VERSION	12
 
 /* Error codes returned by the three gwsetup routines */
 
@@ -166,10 +166,9 @@ void gwdone (
 /* routine if you are having roundoff errors using the normal FFT length. */
 #define gwset_larger_fftlen_count(h,n)	((h)->larger_fftlen_count = n)
 
-/* Force selection of the smallest FFT length equal to or greater than the specified FFT length.  You might use this routine to */
-/* select a larger FFT if you are having roundoff errors using the normal FFT length (or use gwset_larger_fftlen_count).  The library */
-/* will use the first FFT meeting the minimum_fftlen criteria -- EVEN IF IT WOULD NOT ORDINARILY DO SO!!!  Set the FFT length below */
-/* the default FFT length only if you know what you are doing!! */
+/* Select the smallest valid FFT length equal to or greater than the specified FFT length.  You might use this routine to select a larger FFT if you are */
+/* having roundoff errors using the normal FFT length (or use gwset_larger_fftlen_count).  To select a smaller FFT length than normal (NOT RECOMMENDED!) you */
+/* must use gwset_safety_margin with a negative value.  NOTE: Prior to version 30.12 setting minimum fftlen would select a smaller FFT length than normal. */
 #define gwset_minimum_fftlen(h,n)	((h)->minimum_fftlen = n)
 
 /* Set this if FFTs will use hyperthreading. This may affect selection of fastest FFT implementation.  By default, */
@@ -851,7 +850,7 @@ int gwtogiant (gwhandle *, gwnum, giant);
 /* DEPRECATED.  Replaced by better named gwsetaddinatpowerofb */
 #define gwsetaddinatbit(h,v,b)	gwsetaddinatpowerofb(h,v,b)
 
-/* Deprecated -- replaced by more appropriately named macro */
+/* DEPRECATED -- replaced by more appropriately named macro */
 #define norm_count(h)	unnorms(h)
 
 /* Convert a binary value (array of 32-bit or 64-bit values) to a gwnum.  Check your C compiler specs to see if a long is 32 or 64 bits. */
