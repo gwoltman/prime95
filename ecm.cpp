@@ -12401,11 +12401,6 @@ int pfactor (
 	char	buf[120], testnum[120];
 	int	stop_reason;
 
-/* Choose the best FFT size */
-
-	stop_reason = pick_fft_size (thread_num, w);
-	if (stop_reason) return (stop_reason);
-
 /* Set flag indicating we need to restart if the maximum amount of memory changes (as opposed to currently available memory!) */
 /* If maximum memory changes we want to recompute the P-1 bounds. */
 

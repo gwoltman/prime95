@@ -1510,7 +1510,7 @@ int avail_mem (
 /* If any workers have not yet set their memory usage, then wait for them */
 /* to do so.  This allows us to accurately gauge how much fixed memory */
 /* is consumed and how many variable usage workers there are. */
-/* Just in case we wake up from the timeout (should rarely happen), we try*/
+/* Just in case we wake up from the timeout (should rarely happen), we try */
 /* to stagger the timeouts by adding the thread number. */
 
 	for (i = 0; i < (int) NUM_WORKERS; i++) {
@@ -6237,126 +6237,6 @@ void generateRandomData (
 	}
 }
 
-/* For exponents that are near an FFT limit, do 1000 sample iterations */
-/* to see if we should use the smaller or larger FFT size.  We examine */
-/* the average roundoff error to determine which FFT size to use. */
-
-int pick_fft_size (
-	int	thread_num,
-	struct work_unit *w)
-{
-	llhandle lldata;
-	char	buf[120];
-	double	softpct, total_error, avg_error, max_avg_error;
-	unsigned long small_fftlen, large_fftlen;
-	int	i, stop_reason;
-
-/* We only do this for Mersenne numbers */
-
-	if (w->k != 1.0 || w->b != 2 || w->c != -1) return (0);
-
-/* We don't do this for small exponents.  We've not studied the average */
-/* error enough on smaller FFT sizes to intelligently pick the FFT size. */
-/* Also, for really large exponents there is no larger FFT size to use! */
-
-	if (w->n <= 5000000) return (0);
-
-/* If we've already calculated the best FFT size, then return */
-
-	if (w->minimum_fftlen) return (0);
-
-/* Starting in version 29.5, we created a spreadsheet to calculate FFT crossovers based on average roundoff error */
-/* of sample exponents (previously it was based on volatile maximum roundoff error, which led to inconsistent crossovers). */
-/* We're discontinuing running the code below by default and relying on gwnum having set crossovers properly. */
-/* Users can use the ExtraSafetyMargin INI setting to shift the crossovers up or down a little bit. */
-
-	if (!IniGetInt (INI_FILE, "OldStyleSoftCrossover", 0)) return (0);
-
-/* Get info on what percentage of exponents on either side of */
-/* an FFT crossover we will do this 1000 iteration test. */
-
-	softpct = IniGetFloat (INI_FILE, "SoftCrossover", (float) 0.2) / 100.0;
-
-/* If this exponent is not close to an FFT crossover, then we are done */
-
-	small_fftlen = gwmap_to_fftlen (1.0, 2, (unsigned long) ((1.0 - softpct) * w->n), -1);
-	large_fftlen = gwmap_to_fftlen (1.0, 2, (unsigned long) ((1.0 + softpct) * w->n), -1);
-	if (small_fftlen == large_fftlen || large_fftlen == 0) return (0);
-
-/* Let the user be more conservative or more aggressive in picking the acceptable average error. */
-/* By default, we accept an average error between 0.241 and 0.243 depending on the FFT size. */
-/* NOTE: This code was written when the maximum FFT length was 4M.  The code below now allows an */
-/* average error of almost 0.245 for the largest FFT legngths.  I think that will be OK. */
-
-	max_avg_error = 0.241 + 0.002 *
-		(log ((double) small_fftlen) - log ((double) 262144.0)) /
-		(log ((double) 4194304.0) - log ((double) 262144.0));
-	max_avg_error += IniGetFloat (INI_FILE, "SoftCrossoverAdjust", 0.0);
-
-/* Print message to let user know what is going on */
-
-	sprintf (buf,
-		 "Trying 1000 iterations for exponent %ld using %luK FFT.\n",
-		 w->n, small_fftlen / 1024);
-	OutputBoth (thread_num, buf);
-	sprintf (buf,
-		 "If average roundoff error is above %.5g, then a larger FFT will be used.\n",
-		 max_avg_error);
-	OutputBoth (thread_num, buf);
-
-/* Init the FFT code using the smaller FFT size */
-
-	gwinit (&lldata.gwdata);
-	gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
-	stop_reason = lucasSetup (thread_num, w->n, small_fftlen, &lldata);
-	if (stop_reason) return (stop_reason);
-
-/* Fill data space with random values then do one squaring to make */
-/* the data truly random. */
-
-	generateRandomData (&lldata);
-	gwsetnormroutine (&lldata.gwdata, 0, TRUE, 0);
-	gwstartnextfft (&lldata.gwdata, TRUE);
-	gwsquare (&lldata.gwdata, lldata.lldata);
-
-/* Average the roundoff error over a 1000 iterations. */
-
-	for (i = 0, total_error = 0.0; ; ) {
-		gw_clear_maxerr (&lldata.gwdata);
-		gwsquare (&lldata.gwdata, lldata.lldata);
-		total_error += gw_get_maxerr (&lldata.gwdata);
-		stop_reason = stopCheck (thread_num);
-		if (stop_reason) {
-			lucasDone (&lldata);
-			return (stop_reason);
-		}
-		if (++i == 1000) break;
-		if (i % 100 == 0) {
-			sprintf (buf,
-				 "After %d iterations average roundoff error is %.5g.\n",
-				 i, total_error / (double) i);
-			OutputStr (thread_num, buf);
-		}
-	}
-	avg_error = total_error / 1000.0;
-	lucasDone (&lldata);
-
-/* Now decide which FFT size to use based on the average error. */
-/* Save this info in worktodo.ini so that we don't need to do this again. */
-
-	w->minimum_fftlen = (avg_error <= max_avg_error) ? small_fftlen : large_fftlen;
-	stop_reason = updateWorkToDoLine (thread_num, w);
-	if (stop_reason) return (stop_reason);
-
-/* Output message to user informing him of the outcome. */
-
-	sprintf (buf,
-		 "Final average roundoff error is %.5g, using %luK FFT for exponent %ld.\n",
-		 avg_error, w->minimum_fftlen / 1024, w->n);
-	OutputBoth (thread_num, buf);
-	return (0);
-}
-
 /* Test if we are near the maximum exponent this fft length can test */
 /* We only support this (careful iterations when near fft limit) for */
 /* Mersenne numbers. */
@@ -6623,11 +6503,6 @@ int prime (
 /* Done with pass 1 priority work.  Return to do other priority work. */
 
 	if (pass == 1 && w->work_type != WORK_ADVANCEDTEST) return (0);
-
-/* Figure out which FFT size we should use */
-
-	stop_reason = pick_fft_size (thread_num, w);
-	if (stop_reason) return (stop_reason);
 
 /* Make sure the first-time user runs a successful self-test. */
 /* The one-hour self-test may have been useful when it was first introduced */
@@ -9934,11 +9809,6 @@ void autoBench (void)
 		if (w->work_type == WORK_FACTOR) continue;
 		if (w->work_type == WORK_CERT) continue;
 
-/* If this is an LL or PRP test determine the FFT size that will actually be used */
-
-		if (w->work_type == WORK_TEST || w->work_type == WORK_DBLCHK || w->work_type == WORK_ADVANCEDTEST || w->work_type == WORK_PRP)
-			pick_fft_size (MAIN_THREAD_NUM, w);
-
 /* Ask gwnum how many relevant benchmarks are in its database */
 /* If we have enough benchmarks, skip this worktodo entry */
 
@@ -11768,11 +11638,6 @@ int prp (
 /* Done with pass 1 priority work.  Return to do other priority work. */
 
 	if (pass == 1) return (0);
-
-/* Figure out which FFT size we should use */
-
-	stop_reason = pick_fft_size (thread_num, w);
-	if (stop_reason) return (stop_reason);
 
 /* Make sure the first-time user runs a successful self-test. */
 /* The one-hour self-test may have been useful when it was first introduced */

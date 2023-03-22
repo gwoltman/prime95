@@ -512,30 +512,6 @@ reduces round off errors.  If n is a negative number, the maximum bits per FFT w
 increased, which increases round off errors.  Values of n below -0.025 could be pretty
 dangerous.
 
-The program used to have soft FFT crossover points.  This feature has been disabled by
-default as the pre-computed hard FFT crossover points have improved.  You can re-enable
-soft crossovers by setting in prime.txt:
-	OldStyleSoftCrossover=1
-The soft crossovers have two adjustments in prime.txt:
-	SoftCrossover=n
-	SoftCrossoverAdjust=n
-The first setting controls which exponents are examined.  The default value
-is 0.2.  This means that an exponent that is 0.2% above or below an FFT
-crossover point are tested for the best FFT size to use.  A value of 0.0
-will turn off this soft FFT crossovers feature.  The second setting
-defaults to 0.000.  This controls how aggressive or conservative the program
-is in selecting the best FFT size.  The program normally uses the smaller
-FFT size if the average roundoff error is below a value in 0.241 to 0.243
-range.  If you set SoftCrossoverAdjust to say 0.003 then the program will
-use the smaller FFT size if the average roundoff error is below a value
-in 0.244 to 0.246 range.  This will generate more iterations that generate
-roundoff error above 0.40 warnings and a time loss returning to the previous
-save file.  It also increases the chance that a deadly roundoff error
-above 0.6 will occur.  On the plus side, using the smaller FFT size each
-iteration will be a bit quicker.  I wouldn't set this adjustment to more
-than 0.006. If you set SoftCrossoverAdjust to say -0.002, then the program
-will be more conservative and use the larger FFT size more often.
-
 Alexander Kruppa wrote some code that allows the output of ECM stage 1 to
 be passed to Paul Zimmermann's more efficient GMP-ECM stage 2.  This program
 is usually faster in stage 1.  You can activate this feature by entering
