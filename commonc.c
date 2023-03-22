@@ -1407,6 +1407,9 @@ void nameAndReadIniFiles (
 	IniWriteString (INI_FILE, "Advanced", NULL);				// Deprecated long before 30.10b5
 	IniWriteString (INI_FILE, "Affinity", NULL);				// Deprecated well before 30.10b5
 	IniWriteString (INI_FILE, "W0", NULL);					// Deprecated 30.10b5, I don't believe this Windows-only setting was ever used
+	IniWriteString (INI_FILE, "OldStyleSoftCrossover", NULL);		// Deprecated 30.12
+	IniWriteString (INI_FILE, "SoftCrossover", NULL);			// Deprecated 30.12
+	IniWriteString (INI_FILE, "SoftCrossoverAdjust", NULL);			// Deprecated 30.12
 
 	moveToSection (SEC_Internals, KEY_V30OptionsConverted);			// Moved here 30.10b5
 	moveToSection (SEC_Internals, KEY_OldCpuSpeed);				// Moved here 30.10b5
@@ -7126,7 +7129,7 @@ void proofUploader (void *arg)
 
 /* Loop forever, waking up once an hour */
 
-	for ( ; ; gwevent_wait (&PROOF_UPLOAD_EVENT, minutes_to_wait * 60 * 1000)) {
+	for ( ; ; gwevent_wait (&PROOF_UPLOAD_EVENT, minutes_to_wait * 60)) {
 
 /* Default is to check for proof files once an hour */
 
@@ -7140,6 +7143,7 @@ void proofUploader (void *arg)
 /* If we are not in the upload time window, pause until we are (or one hour, in case user changes time window from dialog box) */
 
 		if (!inUploadWindow (&minutes_to_start)) {
+			ASSERTG (minutes_to_start >= 0);
 			if (minutes_to_start < 60) minutes_to_wait = minutes_to_start;
 			continue;
 		}
@@ -7156,7 +7160,7 @@ void proofUploader (void *arg)
 		// There is a race condition where this proof uploading thread could attempt to send the proof file
 		// before the results reporting thread has submitted the results of the PRP test.  This results in a
 		// harmless "Unauthorized" error message.  Here is a rather low-tech "solution" to make this less likely.
-		if (num_proof_files) Sleep (1 * 60 * 1000);	// Sleep 1 more minute
+		if (num_proof_files) Sleep (60 * 1000);		// Sleep 1 more minute
 
 		// Send each file
 		for (i = 0; i < num_proof_files && inUploadWindow (NULL); i++) {
