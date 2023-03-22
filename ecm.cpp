@@ -918,6 +918,8 @@ double best_stage2_impl (
 		if (max_pairmap_size > 2000) max_pairmap_size = 2000;
 		if (max_pairmap_size < 1) max_pairmap_size = 1;
 		c->max_pairmap_size = (double) max_pairmap_size * 1000000.0;
+		// Don't let the pairmap consume more than half the numvals (this may not be optimal).  Not worth investigating as polymult is the optimal choice.
+		if (c->max_pairmap_size > (double) numvals / 2 * c->fftlen * sizeof (double)) c->max_pairmap_size = (double) numvals / 2 * c->fftlen * sizeof (double);
 	}
 
 /* Estimate the number of primes between B1 and B2 */
