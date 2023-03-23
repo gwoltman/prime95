@@ -1027,16 +1027,19 @@ struct gwhandle_struct {
 	char	sum_inputs_checking;	/* If possible, pick an FFT implementation that supports the SUM(INPUTS) != SUM(OUTPUTS) error check. */
 	char	force_general_mod;	/* Forces gwsetup_general_mod to not check for a k*2^n+c reduction */
 	char	use_irrational_general_mod; /* Force using an irrational FFT when doing a general mod. */
-					/* This is slower, but more immune to round off errors from pathological bit patterns in the modulus. */
+					/* This is slower but more immune to round off errors from pathological bit patterns in the modulus. */
 	char	use_large_pages;	/* Try to use 2MB/4MB pages */
 	char	use_benchmarks;		/* Use benchmark data in gwnum.txt to select fastest FFT implementations */
 	char	will_hyperthread;	/* Set if FFTs will use hyperthreading (affects select of fastest FFT implementation from gwnum.txt) */
 	char	will_error_check;	/* Set if FFTs will error check (affects select of fastest FFT implementation from gwnum.txt) */
 	char	information_only;	/* Set if doing a faster partial setup */
-	char	use_spin_wait;		/* FALSE = use mutex, TRUE = spin wait.  Linus Torvalds hates spinning, see https://www.realworldtech.com/forum/?threadid=189711&curpostid=189723 */
-					/* GWNUM does use a spin lock, rather it can spin waiting for an atomic counter of active threads to reach zero. */
+	char	use_spin_wait;		/* 0 = use mutex, 1 = spin wait, 2 = ???.  Linus Torvalds hates spinning, see https://www.realworldtech.com/forum/?threadid=189711&curpostid=189723 */
+					/* GWNUM doesn't use a spin lock, rather it can spin wait for an atomic counter of active threads to reach zero. */
 					/* There is likely negligible difference between mutex wait and spin wait. */
 	char	scramble_arrays;	/* TRUE (the default) if gwalloc_array scrambles allocated gwnums in memory.  Polymult is often faster with scrambled set. */
+	char	radix_convert;		/* This gwdata will be used internally for radix conversion.  Radix conversion uses less carry propagation which allows */
+					/* us to sometimes choose a smaller FFT length. */
+	char	unused_char[3];
 	int	bench_num_cores;	/* Set to expected number of cores that will FFT (affects select fastest FFT implementation) */
 	int	bench_num_workers;	/* Set to expected number of workers that will FFT (affects select fastest FFT implementation) */
 	/* End of variables affecting gwsetup */

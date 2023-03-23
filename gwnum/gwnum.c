@@ -1382,13 +1382,12 @@ next1:			zpad_jmptab = NEXT_SET_OF_JMPTABS (zpad_jmptab);
 			else						// Two pass AVX-512/AVX/SSE2 FFTs
 				carries_spread_over = 6.0;
 
-/* Because carries are spread over 4 words, there is a minimum value for the bits */
-/* per FFT word.  An FFT result word must fit in the floor(bits-per-input-word) stored */
-/* in the current word plus ceil (4 * bits-per-input-word) for the carries to */
-/* propagate into.  The mul-by-const during the normalization process adds to */
-/* the size of the result word. */
+/* Because carries are spread over 4 words, there is a minimum value for the bits per FFT word.  An FFT result word must fit in the */
+/* floor(bits-per-input-word) stored in the current word plus ceil (4 * bits-per-input-word) for the carries to  propagate into. */
+/* The mul-by-const during the normalization process adds to the size of the result word. */
 
-			if (bits_per_output_word + log2maxmulbyconst > (floor (b_per_input_word) + ceil (carries_spread_over * b_per_input_word)) * log2b) {
+			if (!gwdata->radix_convert &&			// Radix conversion code has no trouble spreading carries (we think)
+			    bits_per_output_word + log2maxmulbyconst > (floor (b_per_input_word) + ceil (carries_spread_over * b_per_input_word)) * log2b) {
 // This assert was designed to find any cases where using more carry words
 // would use a shorter FFT than using a zero-padded FFT.  There are many such
 // cases, especially with larger bases.  One example is 5001*500^100000-1.

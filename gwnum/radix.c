@@ -87,6 +87,8 @@ int nonbase2_gianttogw (	/* Returns an error code or zero for success */
 			int	option;
 
 			gwinit (work_gwdata);
+			work_gwdata->radix_convert = TRUE;
+			gwset_maxmulbyconst (work_gwdata, 1);
 			gwset_safety_margin (work_gwdata, -0.15);  // More zeroes in radix-conversion multiplies than in random data, 0.15 value may not be correct -- needs fine tuning?
 			gwset_minimum_fftlen (work_gwdata, fftlen);
 			err_code = gwinfo (work_gwdata, 1.0, gwdata->b, exp = num_pairs * b_per_mult, -1);
@@ -117,7 +119,10 @@ int nonbase2_gianttogw (	/* Returns an error code or zero for success */
 				if (newwpm > newbpm) newwpm = newbpm;		// When base is large, use rational FFT one b per FFT word
 				if (fftlen >= num_pairs * newwpm) {
 					gwinit (work_gwdata);
+					work_gwdata->radix_convert = TRUE;
+					gwset_maxmulbyconst (work_gwdata, 1);
 					gwset_safety_margin (work_gwdata, -0.15);  // More zeroes in radix-conversion multiplies than in random data
+					gwset_minimum_fftlen (work_gwdata, fftlen);
 					err_code = gwinfo (work_gwdata, 1.0, gwdata->b, exp = newbpm * fftlen / newwpm, -1);
 					if (err_code == 0 && fftlen >= (int) work_gwdata->FFTLEN) option = 99;	// Winner!
 				}
@@ -127,9 +132,11 @@ int nonbase2_gianttogw (	/* Returns an error code or zero for success */
 			// Option 3: Try a larger FFT length
 		}
 		gwinit (work_gwdata);
+		work_gwdata->radix_convert = TRUE;
+		gwset_maxmulbyconst (work_gwdata, 1);
 		gwset_safety_margin (work_gwdata, -0.15);  // More zeroes in radix-conversion multiplies than in random data
+		gwset_minimum_fftlen (work_gwdata, fftlen);
 		if (gwdata->num_threads > 1) gwset_num_threads (work_gwdata, gwdata->num_threads);
-		gwset_specific_fftlen (work_gwdata, fftlen);
 		err_code = gwsetup (work_gwdata, 1.0, gwdata->b, exp, -1);
 		if (err_code != 0) goto err;
 		// Cache the work_gwdata for repeated use
@@ -617,6 +624,8 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 			int	option;
 
 			gwinit (work_gwdata);
+			work_gwdata->radix_convert = TRUE;
+			gwset_maxmulbyconst (work_gwdata, 1);
 			gwset_minimum_fftlen (work_gwdata, fftlen);
 			err_code = gwinfo (work_gwdata, 1.0, 2, exp = num_pairs * bits_per_mult, -1);
 			if (err_code) goto err;		// On error, try for a small rational FFT
@@ -640,6 +649,9 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 				int newbpm = round_up_to_multiple_of (bits_per_mult, newwpm / (int) intgcd (fftlen, newwpm));
 				if (fftlen >= num_pairs * newwpm) {
 					gwinit (work_gwdata);
+					work_gwdata->radix_convert = TRUE;
+					gwset_maxmulbyconst (work_gwdata, 1);
+					gwset_minimum_fftlen (work_gwdata, fftlen);
 					err_code = gwinfo (work_gwdata, 1.0, 2, exp = newbpm * fftlen / newwpm, -1);
 					if (err_code == 0 && fftlen >= (int) work_gwdata->FFTLEN) option = 99;	// Winner!
 				}
@@ -649,8 +661,10 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 			// Option 3: Try a larger FFT length
 		}
 		gwinit (work_gwdata);
+		work_gwdata->radix_convert = TRUE;
+		gwset_maxmulbyconst (work_gwdata, 1);
+		gwset_minimum_fftlen (work_gwdata, fftlen);
 		if (gwdata->num_threads > 1) gwset_num_threads (work_gwdata, gwdata->num_threads);
-		gwset_specific_fftlen (work_gwdata, fftlen);
 		err_code = gwsetup (work_gwdata, 1.0, 2, exp, -1);
 		if (err_code) goto err;
 		// Cache the work_gwdata for repeated use
