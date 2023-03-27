@@ -1305,6 +1305,7 @@ next1:			zpad_jmptab = NEXT_SET_OF_JMPTABS (zpad_jmptab);
 		num_b_in_big_word = (int) ceil (b_per_input_word);
 		num_small_words = (int) ((num_b_in_big_word - b_per_input_word) * jmptab->fftlen);
 		num_big_words = jmptab->fftlen - num_small_words;
+		if (gwdata->radix_bigwords && num_big_words > gwdata->radix_bigwords) num_big_words = gwdata->radix_bigwords;
 		if (k == 1.0 && n % jmptab->fftlen == 0)
 			bits_per_output_word = 
 				2.0 * (num_b_in_big_word * log2b - 1.0) +
@@ -1386,7 +1387,7 @@ next1:			zpad_jmptab = NEXT_SET_OF_JMPTABS (zpad_jmptab);
 /* floor(bits-per-input-word) stored in the current word plus ceil (4 * bits-per-input-word) for the carries to  propagate into. */
 /* The mul-by-const during the normalization process adds to the size of the result word. */
 
-			if (!gwdata->radix_convert &&			// Radix conversion code has no trouble spreading carries (we think)
+			if (!gwdata->radix_bigwords &&			// Radix conversion code has no trouble spreading carries (we think)
 			    bits_per_output_word + log2maxmulbyconst > (floor (b_per_input_word) + ceil (carries_spread_over * b_per_input_word)) * log2b) {
 // This assert was designed to find any cases where using more carry words
 // would use a shorter FFT than using a zero-padded FFT.  There are many such

@@ -1037,11 +1037,10 @@ struct gwhandle_struct {
 					/* GWNUM doesn't use a spin lock, rather it can spin wait for an atomic counter of active threads to reach zero. */
 					/* There is likely negligible difference between mutex wait and spin wait. */
 	char	scramble_arrays;	/* TRUE (the default) if gwalloc_array scrambles allocated gwnums in memory.  Polymult is often faster with scrambled set. */
-	char	radix_convert;		/* This gwdata will be used internally for radix conversion.  Radix conversion uses less carry propagation which allows */
-					/* us to sometimes choose a smaller FFT length. */
-	char	unused_char[3];
 	int	bench_num_cores;	/* Set to expected number of cores that will FFT (affects select fastest FFT implementation) */
 	int	bench_num_workers;	/* Set to expected number of workers that will FFT (affects select fastest FFT implementation) */
+	int	radix_bigwords;		/* Internally used for radix conversion indicating expected number of non-zero big words.  Radix conversion has lots of */
+					/* zero data and has less carry propagation issues which allows us to choose a smaller FFT length. */
 	/* End of variables affecting gwsetup */
 
 	double	k;			/* K in K*B^N+C */
