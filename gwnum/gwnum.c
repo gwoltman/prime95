@@ -7004,11 +7004,20 @@ gwarray gwalloc_array (		/* Pointer to an array of gwnums */
 	}
 
 	// Clearly we do not fully understand memory accessing.  The above code that makes sure polymult strided accesses have a minimum number of 4KB strides is
-	// often slower than simply randomly placing the gwnum pointers in the gwnum array.  Until we can improve the above code, we default to scrambled addresses.
+	// often slower than simply randomly placing the gwnum pointers in the gwnum array according to our Advanced/Time 8900 synthetic benchmark.  Until we can
+	// improve the above code, we default to scrambled addresses.  Unfortunately, real world ECM results show that full scrambling is slower.  Instead, I now
+	// scrambling blocks of 64 so that data addresses aren't moved very far.  Real world ECM results show this may be a little faster than no scrambling.
 	if (gwdata->scramble_arrays) {
-		for (int i = 0; i < n; i++) {
-			int j = rand () % n;
-			gwswap (array[i], array[j]);
+		// Blocks of 64 scramble.  For a full scramble set max_block_size to n.
+		uint64_t max_block_size = 64;
+		if (gwdata->scramble_arrays == 2) max_block_size = n;					// Hack to allow timing full scrambles
+		else if (gwdata->scramble_arrays > 2) max_block_size = gwdata->scramble_arrays;		// Hack to allow timing different block sizes
+		for (uint64_t i = 0; i < n; i += max_block_size) {
+			uint64_t block_size = (n - i < max_block_size) ? n - i : max_block_size;
+			for (uint64_t j = 0; j < block_size; j++) {
+				int k = rand () % block_size;
+				gwswap (array[i+j], array[i+k]);
+			}
 		}
 	}
 

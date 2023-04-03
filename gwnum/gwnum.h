@@ -1033,10 +1033,11 @@ struct gwhandle_struct {
 	char	will_hyperthread;	/* Set if FFTs will use hyperthreading (affects select of fastest FFT implementation from gwnum.txt) */
 	char	will_error_check;	/* Set if FFTs will error check (affects select of fastest FFT implementation from gwnum.txt) */
 	char	information_only;	/* Set if doing a faster partial setup */
-	char	use_spin_wait;		/* 0 = use mutex, 1 = spin wait, 2 = ???.  Linus Torvalds hates spinning, see https://www.realworldtech.com/forum/?threadid=189711&curpostid=189723 */
+	char	use_spin_wait;		/* 0 = use mutex, 1 = spin wait, 2+ = ???.  Linus Torvalds hates spinning, see https://www.realworldtech.com/forum/?threadid=189711&curpostid=189723 */
 					/* GWNUM doesn't use a spin lock, rather it can spin wait for an atomic counter of active threads to reach zero. */
 					/* There is likely negligible difference between mutex wait and spin wait. */
-	char	scramble_arrays;	/* TRUE (the default) if gwalloc_array scrambles allocated gwnums in memory.  Polymult is often faster with scrambled set. */
+	unsigned char scramble_arrays;	/* 0 = no scramble (linear addresses), 1 = light scramble (the default), 2 = full scramble, 3+ = custom (see gwnum.c code) */
+					/* gwalloc_array can scramble allocated gwnums in memory.  Polymult on large polys may be faster with scrambling on. */
 	int	bench_num_cores;	/* Set to expected number of cores that will FFT (affects select fastest FFT implementation) */
 	int	bench_num_workers;	/* Set to expected number of workers that will FFT (affects select fastest FFT implementation) */
 	int	radix_bigwords;		/* Internally used for radix conversion indicating expected number of non-zero big words.  Radix conversion has lots of */
