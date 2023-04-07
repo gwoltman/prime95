@@ -2068,11 +2068,13 @@ void PTOGetAll (
 	unsigned int def_val)		/* Default value */
 {
 	int	i, global_val;
+	unsigned int seconds;
 	char	section_name[32];
 
-/* Copy the global option setting to the entire array */
+/* Copy the global option setting to the entire array.  Used timed INI routines starting in 30.12 to allow for timed CoresPerTest at James' request. */
 
-	global_val = IniGetInt (ini_filename, keyword, def_val);
+	global_val = IniGetTimedInt (ini_filename, keyword, def_val, &seconds);
+	if (seconds) add_timed_event (TE_READ_INI_FILE, seconds);
 	for (i = 0; i < MAX_NUM_WORKERS; i++) {
 		array[i] = global_val;
 	}
@@ -2081,7 +2083,8 @@ void PTOGetAll (
 
 	for (i = 0; i < MAX_NUM_WORKERS; i++) {
 		sprintf (section_name, "Worker #%d", i+1);
-		array[i] = IniSectionGetInt (ini_filename, section_name, keyword, array[i]);
+		array[i] = IniSectionGetTimedInt (ini_filename, section_name, keyword, array[i], &seconds);
+		if (seconds) add_timed_event (TE_READ_INI_FILE, seconds);
 	}
 }
 
@@ -6905,8 +6908,10 @@ void add_timed_event (
 	gwmutex_lock (&TIMED_EVENTS_MUTEX);
 
 	time (&this_time);
-	timed_events[event_number].active = TRUE;
-	timed_events[event_number].time_to_fire = this_time + time_to_fire;
+	if (!timed_events[event_number].active || this_time + time_to_fire < timed_events[event_number].time_to_fire) {
+		timed_events[event_number].active = TRUE;
+		timed_events[event_number].time_to_fire = this_time + time_to_fire;
+	}
 
 	if (!TIMED_EVENTS_THREAD)
 		gwthread_create (&TIMED_EVENTS_THREAD, &timed_events_scheduler, NULL);
