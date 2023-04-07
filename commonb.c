@@ -3416,8 +3416,7 @@ check_stop_code:
 /* Common save file code */
 /*************************/
 
-/* Internal routine to atomicly test for a unique file name.  If it is */
-/* unique it is added to the list of save file names in use. */
+/* Internal routine to atomicly test for a unique file name.  If it is unique it is added to the list of save file names in use. */
 
 int testUniqueFileName (
 	int	thread_num,
@@ -3436,12 +3435,11 @@ static	char	USED_FILENAMES[MAX_NUM_WORKERS][32];
 		for (i = 0; i < MAX_NUM_WORKERS; i++) USED_FILENAMES[i][0] = 0;
 	}
 
-/* Scan array to see if the save file name is in use by another thread. */
+/* Scan array to see if the save file name is in use by another worker. */
 
 	gwmutex_lock (&USED_FILENAMES_MUTEX);
 	for (i = 0; i < MAX_NUM_WORKERS; i++) {
-		if (i != thread_num &&
-		    strcmp (filename, USED_FILENAMES[i]) == 0) {
+		if (i != thread_num && strcmp (filename, USED_FILENAMES[i]) == 0) {
 			gwmutex_unlock (&USED_FILENAMES_MUTEX);
 			return (FALSE);
 		}
@@ -3455,7 +3453,7 @@ static	char	USED_FILENAMES[MAX_NUM_WORKERS][32];
 }
 
 /* Multiple workers can do ECM on the same number.  This causes problems */
-/* because the two threads try to use the same save file.  We work around */
+/* because the two workers may try to use the same save file.  We work around */
 /* the problem here, by making sure each worker has a unique save file name. */
 
 void uniquifySaveFile (
@@ -3469,8 +3467,7 @@ void uniquifySaveFile (
 
 	strcpy (original_filename, filename);
 
-/* Our first preference is to use an existing save file with an extension */
-/* consisting of this thread number */
+/* Our first preference is to use an existing save file with an extension consisting of this worker number */
 
 	sprintf (filename, "%s_%d", original_filename, thread_num+1);
 	if (fileExists (filename) && testUniqueFileName (thread_num, filename)) return;
@@ -3492,12 +3489,12 @@ void uniquifySaveFile (
 	strcpy (filename, original_filename);
 	if (testUniqueFileName (thread_num, filename)) return;
 
-/* Our fifth preference is to use an extension consisting of this thread number */
+/* Our fifth preference is to use an extension consisting of this worker number */
 
 	sprintf (filename, "%s_%d", original_filename, thread_num+1);
 	if (testUniqueFileName (thread_num, filename)) return;
 
-/* Our final preference is to use any thread number as an extension */
+/* Our final preference is to use any worker number as an extension */
 
 	for (i = 0; i < MAX_NUM_WORKERS; i++) {
 		sprintf (filename, "%s_%d", original_filename, i+1);
