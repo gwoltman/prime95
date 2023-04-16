@@ -8226,7 +8226,7 @@ bingo:	stage = (ecmdata.state > ECM_STATE_MIDSTAGE) ? 2 : (ecmdata.state > ECM_S
 
 /* Create a PRP work unit to immediately test the Mersenne cofactor */
 
-	if (USE_PRIMENET && w->k == 1.0 && w->b == 2 && w->c == -1 && (int) w->n < IniGetInt (INI_FILE, "MaxAutoPRPExponent", 5000000)) {
+	if (USE_PRIMENET && w->k == 1.0 && w->b == 2 && w->c == -1 && strlen (str) >= 21 && (int) w->n < IniGetInt (INI_FILE, "MaxAutoPRPExponent", 5000000)) {
 		struct work_unit w_prp;
 		generatePRPWorkUnit (w, continueECM ? NULL : str, &w_prp);
 		// Add work unit before or after this work unit
@@ -11916,7 +11916,7 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 
 /* Create a PRP work unit to immediately test the Mersenne cofactor */
 
-	if (USE_PRIMENET && w->k == 1.0 && w->b == 2 && w->c == -1 && (int) w->n < IniGetInt (INI_FILE, "MaxAutoPRPExponent", 5000000)) {
+	if (USE_PRIMENET && w->k == 1.0 && w->b == 2 && w->c == -1 && strlen (str) >= 21 && (int) w->n < IniGetInt (INI_FILE, "MaxAutoPRPExponent", 5000000)) {
 		struct work_unit w_prp;
 		generatePRPWorkUnit (w, str, &w_prp);
 		// Add work unit before or after this work unit
