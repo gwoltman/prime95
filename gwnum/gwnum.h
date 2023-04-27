@@ -835,15 +835,14 @@ int gwtogiant (gwhandle *, gwnum, giant);
 /* These are global settings.  The c argument can be overridden in each each multiply call with GWMUL_NOMULBYCONST or GWMUL_MULBYCONST */
 #define gwsetnormroutine(h,z,e,c) {(h)->NORMNUM=((c)?2:0)+((e)?1:0);}
 
-/* DEPRECATED.  Use GWMUL_NOSTARTNEXTFFT, GWMUL_STARTNEXTFFT, GWMUL_STARTNEXTFFT1 options instead. */
+/* DEPRECATED.  Use GWMUL_STARTNEXTFFT options instead. */
 /* If you know the result of a multiplication will be the input to another multiplication (but not gwmul_carefully), */
 /* then a small performance gain can be had in larger FFTs by doing some of the next forward FFT at the end of the multiplication. */
 /* Use this routine to tell the multiplication code whether or not it can start the forward FFT on the result. */
 /* NOTE:  The STARTNEXTFFT option is not supported for generic modular reduction and one-pass FFTs. */
 #define gwstartnextfft(h,state)	{(h)->GLOBAL_POSTFFT = (state);}
 
-/* DEPRECATED!!! These routines were deprecated because unlike all other gwnum routines */
-/* the destination argument appeared before the source argument. */
+/* DEPRECATED!!! These routines were deprecated because unlike all other gwnum routines the destination argument appeared before the source argument. */
 #define gwaddsmall(h,g,a) gwsmalladd(h,a,g)	
 #define gwmulsmall(h,g,m) gwsmallmul(h,m,g)
 
