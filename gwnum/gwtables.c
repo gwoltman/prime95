@@ -1315,11 +1315,17 @@ double *zr4dwpn_build_norm_table (
 
 				grp = i + j + k + avx512_word;
 				if (gwdata->PASS1_SIZE && gwdata->ALL_COMPLEX_FFT) {
+					/* Handle case where we use FMA to save multiplies by pre-dividing group multipliers */
+					if ((delay_count == 8 && k != 0 && j <= 3 * (gwdata->FFTLEN / 2 / delay_count)) ||
+					    (delay_count == 12 && k != 0 && j <= 5 * (gwdata->FFTLEN / 2 / delay_count)))
+						ttp = gwfft_weight_over_weight (gwdata->dd_data, grp, grp - k);
 					/* Compute the roots-of-minus-one premultiplier.  The root-of-minus-one */
 					/* premultiplier is for 2N, and a root-of-minus-one-of-2N is the same as */
 					/* a root unity for 4N (where N is the number of complex values = FFTLEN/2). */
-					sine_word = i + j + avx512_word;
-					gwfft_weights_times_sine (gwdata->dd_data, grp, sine_word, gwdata->FFTLEN * 2, &ttp, NULL);
+					else {
+						sine_word = i + j + avx512_word;
+						gwfft_weights_times_sine (gwdata->dd_data, grp, sine_word, gwdata->FFTLEN * 2, &ttp, NULL);
+					}
 				}
 				else if ((delay_count == 8 && k != 0 && j != 0 && j <= 3 * (gwdata->FFTLEN / 2 / delay_count)) ||
 					 (delay_count == 12 && k != 0 && j != 0 && j <= 5 * (gwdata->FFTLEN / 2 / delay_count)))
