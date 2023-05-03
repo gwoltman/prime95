@@ -3382,16 +3382,16 @@ void curve_start_msg (
 	char	buf[120];
 
 	if (ecmdata->curve != 1) OutputStr (ecmdata->thread_num, "\n");
-	sprintf (buf, "%s ECM curve #%ld", gwmodulo_as_string (&ecmdata->gwdata), ecmdata->curve);
+	sprintf (buf, "%s ECM curve #%" PRIu32, gwmodulo_as_string (&ecmdata->gwdata), ecmdata->curve);
 	title (ecmdata->thread_num, buf);
 
 	if (!ecmdata->optimal_B2 || ecmdata->state >= ECM_STATE_STAGE2)
 		sprintf (buf,
-			 "ECM on %s: curve #%ld with s=%.0f, B1=%" PRIu64 ", B2=%" PRIu64 "\n",
+			 "ECM on %s: curve #%" PRIu32 " with s=%.0f, B1=%" PRIu64 ", B2=%" PRIu64 "\n",
 			 gwmodulo_as_string (&ecmdata->gwdata), ecmdata->curve, ecmdata->sigma, ecmdata->B, ecmdata->C);
 	else
 		sprintf (buf,
-			 "ECM on %s: curve #%ld with s=%.0f, B1=%" PRIu64 ", B2=TBD\n",
+			 "ECM on %s: curve #%" PRIu32 " with s=%.0f, B1=%" PRIu64 ", B2=TBD\n",
 			 gwmodulo_as_string (&ecmdata->gwdata), ecmdata->curve, ecmdata->sigma, ecmdata->B);
 	OutputStr (ecmdata->thread_num, buf);
 }
