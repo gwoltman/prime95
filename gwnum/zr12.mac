@@ -512,7 +512,7 @@ zr12_csc_wpn_twelve_complex_first_djbfft MACRO srcreg,srcinc,d1,d2,d4,screg,scin
 	vmulpd	zmm20{k2}, zmm20, zmm29		;; apply fudges to I8					; 17-20		n 29
 
 	mov	bl, [maskreg+2*1]		;; Load index into compressed fudges
-	mov	r14, [r13+1*8]			;; Load the xor mask
+	mov	r14, [r13+2*8]			;; Load the xor mask
 	xor	r14, [r12+rbx*8]		;; Apply the xor mask to 64 bits of fudge flags
 
 	kmovw	k1, r14d			;; Load R9 and I9 fudge factor mask			; 17
