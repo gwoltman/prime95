@@ -1257,7 +1257,7 @@ void generatePRPWorkUnit (
 	neww->known_factors = addNewKnownFactor (oldw, fac);
 	neww->stage[0] = 0;
 	neww->pct_complete = 0.0;
-	neww->ra_failed = FALSE;
+	neww->ra_failed = !IniGetInt (INI_FILE, "RegisterPrpAssignment", 0);		// By default do not register assignment
 }
 
 /* Do a GCD of the input value and N to see if a factor was found. */
