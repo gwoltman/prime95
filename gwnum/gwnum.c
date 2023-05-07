@@ -11714,12 +11714,14 @@ void gwsmallmul (
 	ASSERTG (unnorms (g) >= 0.0f);
 	ASSERTG (FFT_state (g) == NOT_FFTed);
 
-/* The x87 assembly version won't spread carries over multiple words.  Also, the x87 assembly version won't guard against */
-/* carries out of the critical top words in a zero-padded number.  Also, SSE2 has trouble with sparse FFTs where there are not */
-/* enough FFT words to spread the wraparound carry to (example: 31*28619^8930+1).  Use a simple brute-force implementation instead. */
+/* The x87 assembly version won't spread carries over multiple words.  Also, the x87 assembly version won't guard against carries out of the critical */
+/* top words in a zero-padded number.  Also, SSE2 has trouble with sparse FFTs where there are not enough FFT words to spread the wraparound carry to */
+/* (example: 31*28619^8930+1).  Also, guard against a multiplication that generates a carry out of the top 4 words of a zero padded FFT (AVX example: */
+/* 158389*40^158389+1 with a larger_fft_count of 7).  Use a simple brute-force implementation instead. */
 
 	if ((! (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX | CPU_SSE2)) && (mult > 1024.0 || gwdata->ZERO_PADDED_FFT)) ||
-	    (! (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX)) && gwdata->avg_num_b_per_word < 0.5 && mult > gwdata->b)) {
+	    (! (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX)) && gwdata->avg_num_b_per_word < 0.5 && mult > gwdata->b) ||
+	    (gwdata->ZERO_PADDED_FFT && gwdata->k * mult > pow (gwdata->b, floor (4 * gwdata->avg_num_b_per_word)) / 2.0)) {
 		gwnum	tmp;
 		tmp = gwalloc (gwdata);
 		if (mult == 1.0);
