@@ -569,7 +569,10 @@ int gwnear_fft_limit (gwhandle *gwdata, double pct);
 
 /* Returns true if the current FFT length satisfies the given safety margin (such as the value returned by polymult_safety_margin) */
 /* NOTE: gwdata->safety_margin is already factored into the calculation of EXTRA_BITS */
-#define gw_passes_safety_margin(h,safetyval)	((h)->EXTRA_BITS/2.0 > (safetyval))
+#define gw_passes_safety_margin(h,safetyval)	((h)->EXTRA_BITS/2.0f > (safetyval))
+
+/* Increase the safety margin of the current FFT length (such as the value returned by polymult_safety_margin) */
+#define gwset_additional_safety_margin(h,safetyval)	((h)->EXTRA_BITS -= (safetyval) * 2.0f)
 
 /*---------------------------------------------------------------------+
 |                    GWNUM MISC. INFORMATION ROUTINES                  |

@@ -3021,7 +3021,7 @@ int internal_gwsetup (
 
 /* Compute extra bits in FFT output words.  The maximum exponent for an FFT size is computed based on gwsquare operations. */
 /* Gwmul operations generate less roundoff error, giving us approximately 0.527 more bits in the FFT output words. */
-/* Coincedentally, an unnormalized add as input to gwmul will cost about 0.509 more bits in the FFT output words.  This lead to the */
+/* Coincedentally, an unnormalized add as input to gwmul will cost about 0.509 more bits in the FFT output words.  This led to the */
 /* advice that one unnormalized add can be an input to a multiply operation.  EXTRA_BITS allow us to take this a step further. */
 /* When testing exponents below the FFT limit, we may be able to do even more unnormalized adds prior to a gwsquare or gwmul operation. */
 /* We'll automatically convert some gwadd and gwsub operations into unnormalized gwaddquick and gwsubquick operations. */

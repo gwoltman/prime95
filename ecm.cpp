@@ -6006,7 +6006,7 @@ replan:	unsigned long original_fftlen, best_fftlen;
 
 			cost = ecm_stage2_impl (&ecmdata, memory, found_best ? best_stage2_type : best_fftlen ? 1 : forced_stage2_type, msgbuf + strlen (msgbuf));
 			cost *= (double) gwfftlen (&ecmdata.gwdata) / (double) original_fftlen;
-
+//BUG BUG BUG stage 1 cost not factored in (P-1 too, with extra complication of Pfactor?)
 			// If using pairmap from a save file, don't cost any other options
 			if (ecmdata.pairmap != NULL) break;
 
@@ -6932,6 +6932,10 @@ int foobar; foobar = ecmdata.gwdata.num_threads;
 	sprintf (buf, "Using %uMB of memory.  D: %d, degree-%" PRIu64 " polynomials.  Ftree polys in memory: %d\n",
 		 memused, ecmdata.D, ecmdata.poly_size, ecmdata.Ftree_polys_in_mem);
 	OutputStr (thread_num, buf);
+
+// Increase safety margin for proper polymult operation
+
+	gwset_additional_safety_margin (&ecmdata.gwdata, polymult_safety_margin (ecmdata.poly_size, ecmdata.poly_size));
 
 // We must outer loop at least twice, otherwise H(X) will be monic -- the current descent of Ftree code can't handle that.
 //GW:  Someday allow ecmdata.numDsections to be ecmdata.poly_size -- dont alloc mem for H(X)
@@ -11136,6 +11140,10 @@ pm1_polymult:
 
 	sprintf (buf, "Using %uMB of memory.  D: %d, %" PRIu64 "x%" PRIu64 " polynomial multiplication.\n", memused, pm1data.D, pm1data.poly1_size, pm1data.poly2_size);
 	OutputStr (thread_num, buf);
+
+// Increase safety margin for proper polymult operation
+
+	gwset_additional_safety_margin (&pm1data.gwdata, polymult_safety_margin (pm1data.poly1_size, pm1data.poly2_size));
 
 /* Allocate array of pointers to gwnums.  This will be the coefficients of our input and output polynomials. */
 

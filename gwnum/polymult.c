@@ -389,7 +389,7 @@ typedef struct {
 #if !defined (SSE2) && !defined (AVX) && !defined (FMA) && !defined (AVX512)
 
 // Get the needed safety_margin required for an invec1_size by invec2_size polymult
-double polymult_safety_margin (uint64_t invec1_size, uint64_t invec2_size) {
+float polymult_safety_margin (uint64_t invec1_size, uint64_t invec2_size) {
 	// The smaller poly determines the number of partial products that are added together
 	uint64_t n = (invec1_size < invec2_size) ? invec1_size : invec2_size;
 	// The larger poly approximates the FFT size of the polymult (assumes POLYMULT_CIRCULAR)
@@ -402,7 +402,7 @@ double polymult_safety_margin (uint64_t invec1_size, uint64_t invec2_size) {
 	// be the target maximum acceptable error -- that's log2(0.49/0.4)=0.3 extra output bits), adjust the needed expected bits by 0.3*log2(FFTsize)/log2(1.3M).
 	// 2022-02-05: AVX-512 FFT size 4608 on M76333 fails with poly1-size:322560, poly2-size:1339033.  Increasing to 0.4.
 	// 2022-03-02: FMA FFT size 640 on M10303 fails with poly1-size:9123840, poly2-size:37280030, roundoff: 0.4453.  Increasing to 0.45.
-	return ((log2 ((double) n) / 2.0 + 0.45 * log2 ((double) fft_size) / log2 (1300000.0)) / 2.0);
+	return ((float) (log2 ((double) n) / 2.0 + 0.45 * log2 ((double) fft_size) / log2 (1300000.0)) / 2.0f);
 }
 
 // Get the FFT size that will be used for an n = invec1_size + invec2_size polymult
@@ -5576,6 +5576,9 @@ void polymult_post_unfft (
 				uint64_t invec2_size = pmdata->other_polys[i].invec2_size;
 				float unnorms1 = is_preprocessed_poly(invec1) ? preprocessed_top_unnorms (invec1) : unnorms (invec1[invec1_size-1]);
 				float unnorms2 = is_preprocessed_poly(invec2) ? preprocessed_top_unnorms (invec2) : unnorms (invec2[invec2_size-1]);
+				// This optimization requires gwset_safety_margin or gwset_additional_safety_margin was called with the
+				// output of polymult_safety_margin.  This ASSERT attempts to detect a failure to set safety margin.
+				ASSERTG (gwdata->EXTRA_BITS > EB_GWMUL_SAVINGS);
 				if (! (options & POLYMULT_INVEC2_MONIC))			// Invec1 monic, returning 1 * invec2's top
 					unnorms (outvec[j]) = unnorms2;
 				else if (! (options & POLYMULT_INVEC1_MONIC))			// Invec2 monic, returning 1 * invec1's top
