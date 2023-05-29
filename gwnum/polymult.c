@@ -121,13 +121,13 @@ typedef struct {
 } preprocess_plan;
 
 // Internal description of the plan to multiply two or more polys
-// Internal description of the plan to multiply two or more polys
 typedef struct {
 	bool	mt_polymult_line;	// TRUE if polymult_line is multi-threaded and read_line, fft_line_pass, write_line are single-threaded
 	uint64_t alloc_invec1_size;	// Pre-calculated allocation size for invec1
 	uint64_t alloc_invec2_size;	// Pre-calculated allocation size for invec2
 	uint64_t alloc_outvec_size;	// Pre-calculated allocation size for outvec
 	uint64_t alloc_tmpvec_size;	// Pre-calculated allocation size for tmpvec
+	float	unnorms1;		// Unnormalized add count of top invec1 coefficient
 #ifdef GDEBUG
 	uint64_t hash;
 #endif
@@ -153,6 +153,7 @@ typedef struct {
 		int64_t subout;			// Outvec location where 1*1 value may need to be subtracted at the very end of the polymult process
 		int	adjusted_shift;		// Number of coefficients to shift left the initial partial poly multiplication to reach true_outvec_size
 		int	adjusted_pad;		// Number of coefficients to pad on the left of the initial partial poly multiplication to reach true_outvec_size
+		float	unnorms2;		// Unnormalized add count of top invec2 coefficient
 	} planpart[1];
 } polymult_plan;
 
@@ -5088,7 +5089,10 @@ void polymult_several (		// Multiply one poly with several polys
 		    // NOTE: No studies have been done regarding a close-to-optimal definition of "very small".  Brute force handles addins directly.
 		    bool	will_brute_force;		// TRUE if we're going to choose a brute force implementation
 		    will_brute_force = !must_fft && (true_invec1_size < pmdata->KARAT_BREAK || true_invec2_size < pmdata->KARAT_BREAK);
-		    if (will_brute_force) addin1 = addin2 = addin3 = addin4 = -1;
+		    // Having brute force add in the 1*1 values is very dangerous.  This led to P-1 problems in versions 30.10 to 30.12 on large exponents
+		    // when bits-per-word > 16.1.  We could allow this optimization when EXTRA_BITS is big enough, but we'd need to be very careful in
+		    // future top coefficient optimizations of unfft.
+		    // if (will_brute_force) addin1 = addin2 = addin3 = addin4 = -1;
 
 		    // Save addins and skipped outputs in the plan
 		    plan->planpart[i].addin[0] = addin1;
@@ -5107,7 +5111,7 @@ void polymult_several (		// Multiply one poly with several polys
 		    bool invec2_can_be_stripped_cheaply;	// TRUE if invec1 can have its ones stripped without requiring monic post processing
 		    bool strip_monic_from_invec1, strip_monic_from_invec2, post_monic_addin_invec1, post_monic_addin_invec2;
 
-		    // If any 1*1 calculations land in a returned coefficient and we're not using brute force, then one of the monics must have its ones stripped.
+		    // If any 1*1 calculations land in a returned coefficient, then one of the monics must have its ones stripped.
 		    must_strip_a_monic = (addin1 >= 0 || addin2 >= 0 || addin3 >= 0 || addin4 >= 0);
 
 		    // Stripping the ones from a monic normally requires post processing that adds the other invec to the result.  However, if all the non-one
@@ -5455,8 +5459,17 @@ use_it:		    ASSERTG (best_choice != 0);
 	pmdata->helper_opcode = HELPER_POLYMULT_LINE;	// The helpers are doing polymult work
 	polymult_launch_helpers (pmdata);
 
+	// For the no-unfft optimization of top output coefficient remember the unnormalized add count of top invec coefficients (before polymult_post_unfft
+	// might overwrite the value during an in-place polymult).
+	plan->unnorms1 = is_preprocessed_poly (invec1) ? preprocessed_top_unnorms (invec1) : unnorms (invec1[invec1_size-1]);
+	for (int i = 0; i < num_other_polys; i++) {
+		gwnum *invec2 = other_polys[i].invec2;			// Second input poly
+		uint64_t invec2_size = other_polys[i].invec2_size;	// Size of the second input polynomial
+		plan->planpart[i].unnorms2 = is_preprocessed_poly (invec2) ? preprocessed_top_unnorms (invec2) : unnorms (invec2[invec2_size-1]);
+	}
+
 	// unFFT all the outputs (unless requested not to)
-//GW: We would LIKELY be better off using no helpers if POLYMULT_UNFFT is set and there are any post-addins required.  Thus way the 1 or 2 gwunfft2s required
+//GW: We would LIKELY be better off using no helpers if POLYMULT_UNFFT is set and there are any post-addins required.  This way the 1 or 2 gwunfft2s required
 // for addin would use gwnum multi-threading (rather than a clone gwnum with a single thread).  Also if NO_UNFFT is set it might be faster to loop through all
 // the coefficients without the overhead invoking all the launch and sync machinery.
 	pmdata->helper_opcode = HELPER_POST_UNFFT;	// The helpers are doing post-unFFT polymult work
@@ -5525,9 +5538,9 @@ void polymult_post_unfft (
 	pmhandle *pmdata,		// Handle for polymult library
 	gwhandle *gwdata)		// Potentially cloned gwdata
 {
-	uint64_t j, atomic_val;		// Index of gwnum to work on
-	uint64_t atomics_processed = 0;	// Total atomic_vals processed in earlier sections
-	polymult_plan *plan = pmdata->plan; // Plan for implementing the multiplication of invec1 and several invec2s
+	uint64_t j, atomic_val;			// Index of gwnum to work on
+	uint64_t atomics_processed = 0;		// Total atomic_vals processed in earlier sections
+	polymult_plan *plan = pmdata->plan;	// Plan for implementing the multiplication of invec1 and several invec2s
 
 	// Get the next index to work on
 	atomic_val = atomic_fetch_incr (pmdata->helper_counter);
@@ -5570,15 +5583,11 @@ void polymult_post_unfft (
 			     (!(options & POLYMULT_INVEC1_MONIC) != !(options & POLYMULT_INVEC2_MONIC) && // Monic * non-monic (or vice-versa)
 			      plan->planpart[i].circular_size == plan->planpart[i].true_outvec_size &&	// Not doing a circular multiply
 			      plan->planpart[i].MSWs_skipped == 0))) {					// Top coefficient of monic * non-monic is output
-				gwnum *invec1 = pmdata->invec1;
-				gwnum *invec2 = pmdata->other_polys[i].invec2;
-				uint64_t invec1_size = pmdata->invec1_size;
-				uint64_t invec2_size = pmdata->other_polys[i].invec2_size;
-				float unnorms1 = is_preprocessed_poly(invec1) ? preprocessed_top_unnorms (invec1) : unnorms (invec1[invec1_size-1]);
-				float unnorms2 = is_preprocessed_poly(invec2) ? preprocessed_top_unnorms (invec2) : unnorms (invec2[invec2_size-1]);
+				float	unnorms1 = plan->unnorms1;		// Unnormalized add count of top invec1 coefficient
+				float	unnorms2 = plan->planpart[i].unnorms2;	// Unnormalized add count of top invec2 coefficient
 				// This optimization requires gwset_safety_margin or gwset_additional_safety_margin was called with the
 				// output of polymult_safety_margin.  This ASSERT attempts to detect a failure to set safety margin.
-				ASSERTG (gwdata->EXTRA_BITS > EB_GWMUL_SAVINGS);
+//GW:does not work use virtual_bpw calc				ASSERTG (gwdata->EXTRA_BITS > EB_GWMUL_SAVINGS);
 				if (! (options & POLYMULT_INVEC2_MONIC))			// Invec1 monic, returning 1 * invec2's top
 					unnorms (outvec[j]) = unnorms2;
 				else if (! (options & POLYMULT_INVEC1_MONIC))			// Invec2 monic, returning 1 * invec1's top
