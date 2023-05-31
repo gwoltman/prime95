@@ -147,7 +147,7 @@ void gwdone (
 /* If you set the safety margin to 0.5 then the code will only allow 21.45 bits per double, or a maximum of 21965 bits in a 1024 length FFT. */
 /* You can also use this option to "live dangerously" by increasing the maximum allowable bits per FFT data word - just set the */
 /* safety margin to a negative value. */
-#define gwset_safety_margin(h,m)	((h)->safety_margin = m)
+#define gwset_safety_margin(h,m)	((h)->safety_margin = (float) (m))
 
 /* The gwsetup routines need to know the maximum value that will be used in a call to gwsetmulbyconst.  By default this value is */
 /* assumed to be 3, which is what you would use in a base-3 Fermat PRP test.  Gwsetup must switch to a generic modular reduction */
@@ -568,11 +568,10 @@ void gw_clear_maxerr (gwhandle *gwdata);
 int gwnear_fft_limit (gwhandle *gwdata, double pct);
 
 /* Returns true if the current FFT length satisfies the given safety margin (such as the value returned by polymult_safety_margin) */
-/* NOTE: gwdata->safety_margin is already factored into the calculation of EXTRA_BITS */
-#define gw_passes_safety_margin(h,safetyval)	((h)->EXTRA_BITS/2.0f > (safetyval))
+#define gw_passes_safety_margin(h,safetyval)		((h)->EXTRA_BITS/2.0f > (safetyval))
 
-/* Increase the safety margin of the current FFT length (such as the value returned by polymult_safety_margin) */
-#define gwset_additional_safety_margin(h,safetyval)	((h)->EXTRA_BITS -= (safetyval) * 2.0f)
+/* Set the safety margin for upcoming polymult operations */
+void gwset_polymult_safety_margin (gwhandle *gwdata, float safetyval);
 
 /*---------------------------------------------------------------------+
 |                    GWNUM MISC. INFORMATION ROUTINES                  |
@@ -1018,7 +1017,8 @@ struct pass1_carry_sections {
 /* The gwhandle structure containing all of gwnum's "global" data. */
 struct gwhandle_struct {
 	/* Variables which affect gwsetup.  These are usually set by macros above. */
-	double	safety_margin;		/* Reduce maximum allowable bits per FFT data word by this amount. */
+	float	safety_margin;		/* Reduce maximum allowable bits per FFT data word by this amount. */
+	float	polymult_safety_margin;	/* Extra safety margin required for polymult operations. */
 	long	maxmulbyconst;		/* Gwsetup needs to know the maximum value the caller will use in gwsetmulbyconst. */
 					/* The default value is 3, commonly used in a base-3 Fermat PRP test. */
 	unsigned long minimum_fftlen;	/* Minimum fft length for gwsetup to use. */

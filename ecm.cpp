@@ -6933,10 +6933,6 @@ int foobar; foobar = ecmdata.gwdata.num_threads;
 		 memused, ecmdata.D, ecmdata.poly_size, ecmdata.Ftree_polys_in_mem);
 	OutputStr (thread_num, buf);
 
-// Increase safety margin for proper polymult operation
-
-	gwset_additional_safety_margin (&ecmdata.gwdata, polymult_safety_margin (ecmdata.poly_size, ecmdata.poly_size));
-
 // We must outer loop at least twice, otherwise H(X) will be monic -- the current descent of Ftree code can't handle that.
 //GW:  Someday allow ecmdata.numDsections to be ecmdata.poly_size -- dont alloc mem for H(X)
 
@@ -7227,6 +7223,9 @@ start_timer_from_zero (timers, 0);
 
 	ecmdata.polyF = gwalloc_array (&ecmdata.gwdata, ecmdata.poly_size);
 	if (ecmdata.polyF == NULL) goto lowmem;
+
+	// Increase safety margin for proper polymult operation
+	gwset_polymult_safety_margin (&ecmdata.gwdata, polymult_safety_margin (ecmdata.poly_size, ecmdata.poly_size));
 
 	// Work our way up the poly F tree combining size 1 polys, then size 2, then size 4, until there is only one big poly
 	// To handle non-power-of-2 poly sizes, we need to uniformly space "odd-sized" polys over 2^log2_num_polys
@@ -11141,10 +11140,6 @@ pm1_polymult:
 	sprintf (buf, "Using %uMB of memory.  D: %d, %" PRIu64 "x%" PRIu64 " polynomial multiplication.\n", memused, pm1data.D, pm1data.poly1_size, pm1data.poly2_size);
 	OutputStr (thread_num, buf);
 
-// Increase safety margin for proper polymult operation
-
-	gwset_additional_safety_margin (&pm1data.gwdata, polymult_safety_margin (pm1data.poly1_size, pm1data.poly2_size));
-
 /* Allocate array of pointers to gwnums.  This will be the coefficients of our input and output polynomials. */
 
 	poly1 = gwalloc_array (&pm1data.gwdata, pm1data.poly1_size);	// Poly #1, a monic RLP of size numrels
@@ -11260,6 +11255,10 @@ pm1_polymult:
 		pm1data.helper_count = pm1data.polydata.num_threads;
 //	} else
 //		pm1data.helper_count = 1;
+
+// Increase safety margin for proper polymult operation
+
+	gwset_polymult_safety_margin (&pm1data.gwdata, polymult_safety_margin (pm1data.poly1_size, pm1data.poly2_size));
 
 // Multiply monic RLPs into one big monic RLP.  This is done in-place.
 

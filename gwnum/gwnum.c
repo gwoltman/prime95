@@ -990,6 +990,7 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 	int	larger_fftlen_count, qa_nth_fft, desired_bif;
 	void	*prev_proc_ptrs[5];
 	uint32_t flags;
+	float	safety_margin;
 	struct gwasm_data *asm_data;
 
 /* Get pointer to 8 assembly jmptables and the version number */
@@ -1010,6 +1011,7 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 	logbk = log2k / log2b;
 	log2c = log2 (labs (c));
 	log2maxmulbyconst = log2 (gwdata->maxmulbyconst);
+	safety_margin = gwdata->safety_margin + gwdata->polymult_safety_margin;
 
 /* The smallest AVX-512F FFT is length 1K.  Limited testing has indicated that less than 5 bits per FFT word */
 /* can result in carry propagation errors.  For small k*b^n+c values switch to not using AVX-512 instructions. */
@@ -1071,7 +1073,7 @@ again:	zpad_jmptab = NULL;
 /* Compare the maximum number of bits allowed in the FFT input word with the number of bits we would use.  Break when we find an acceptable FFT length. */
 //  This is the old code which only supported b == 2
 //			max_bits_per_word = (double) max_exp / zpad_jmptab->fftlen;
-//			max_bits_per_word -= gwdata->safety_margin;
+//			max_bits_per_word -= safety_margin;
 //			bits_per_word = (double) (n + n) * log2b / zpad_jmptab->fftlen;
 //			if (bits_per_word < max_bits_per_word + 0.3) {
 //				break;
@@ -1083,7 +1085,7 @@ again:	zpad_jmptab = NULL;
 /* Compute the maximum number of bits allowed in the FFT input word */
 
 			max_bits_per_input_word = (double) max_exp / zpad_jmptab->fftlen;
-			max_bits_per_input_word -= gwdata->safety_margin;
+			max_bits_per_input_word -= safety_margin;
 
 /* Apply our new formula (described later) to the maximum Mersenne exponent for this FFT length. */
 
@@ -1226,7 +1228,7 @@ next1:			zpad_jmptab = NEXT_SET_OF_JMPTABS (zpad_jmptab);
 /* Compute the maximum number of bits allowed in the FFT input word */
 //
 //		max_bits_per_word = (double) max_exp / jmptab->fftlen;
-//		max_bits_per_word -= gwdata->safety_margin;
+//		max_bits_per_word -= safety_margin;
 //
 /* For historical reasons, the jmptable computes maximum exponent based on */
 /* a Mersenne-mod FFT (i.e k=1.0, c=-1).  Handle more complex cases here. */
@@ -1283,7 +1285,7 @@ next1:			zpad_jmptab = NEXT_SET_OF_JMPTABS (zpad_jmptab);
 /* Compute the maximum number of bits allowed in the FFT input word */
 
 		max_bits_per_input_word = (double) max_exp / jmptab->fftlen;
-		max_bits_per_input_word -= gwdata->safety_margin;
+		max_bits_per_input_word -= safety_margin;
 
 /* Apply our new formula above to the maximum Mersenne exponent for this FFT length. */
 
@@ -2079,7 +2081,7 @@ void gwinit2 (
 /* Initialize gwhandle structure with the default values */
 
 	memset (gwdata, 0, sizeof (gwhandle));
-	gwdata->safety_margin = 0.0;
+	gwdata->safety_margin = 0.0f;
 	gwdata->maxmulbyconst = 3;
 	gwdata->minimum_fftlen = 0;
 	gwdata->larger_fftlen_count = 0;
@@ -2396,9 +2398,9 @@ int gwsetup_general_mod_giant (
 /* Call gwinfo and have it figure out the FFT length to use.  Since we zero the upper half of FFT input data, the FFT outputs will be smaller. */
 /* This lets us get about another 0.15 bits per input word (data from Pavel Atnashev's primorial search). */
 
-	gwdata->safety_margin -= 0.15;
+	gwdata->safety_margin -= 0.15f;
 	error_code = gwinfo (gwdata, 1.0, 2, n, -1);
-	gwdata->safety_margin += 0.15;
+	gwdata->safety_margin += 0.15f;
 	if (error_code) return (error_code);
 	info = gwdata->jmptab;
 	fftlen = info->fftlen;
@@ -2444,7 +2446,7 @@ int gwsetup_general_mod_giant (
 
 /* Now setup the assembly code.  Make sure we select the same FFT length chosen above (necessary  */
 
-	gwdata->safety_margin -= 0.15;
+	gwdata->safety_margin -= 0.15f;
 	int saved_minimum_fftlen = gwdata->minimum_fftlen;		// though not necessary, remember this option
 	int saved_larger_fftlen_count = gwdata->larger_fftlen_count;	// though not necessary, remember this option
 	gwdata->minimum_fftlen = fftlen;				// force use of the already found fft length
@@ -2452,7 +2454,7 @@ int gwsetup_general_mod_giant (
 	error_code = internal_gwsetup (gwdata, 1.0, 2, n, -1);
 	gwdata->larger_fftlen_count = saved_larger_fftlen_count;	// though not necessary, restore this option to its original setting
 	gwdata->minimum_fftlen = saved_minimum_fftlen;			// though not necessary, restore this option to its original setting
-	gwdata->safety_margin += 0.15;
+	gwdata->safety_margin += 0.15f;
 	if (error_code) return (error_code);
 
 // BUG - setting the bit_length to the modulus size will break gwtogiant.
@@ -2570,9 +2572,9 @@ int gwsetup_without_mod (
 /* Call gwinfo and have it figure out the FFT length we will use.  Since the user must zero the upper half of FFT input data, the FFT */
 /* outputs will be smaller.  This lets us get about another 0.15 bits per input word (data from Pavel Atnashev's primorial search). */
 
-	gwdata->safety_margin -= 0.15;
+	gwdata->safety_margin -= 0.15f;
 	error_code = gwinfo (gwdata, 1.0, 2, n, -1);
-	gwdata->safety_margin += 0.15;
+	gwdata->safety_margin += 0.15f;
 	info = gwdata->jmptab;
 	if (error_code) return (error_code);
 
@@ -2591,9 +2593,9 @@ int gwsetup_without_mod (
 
 /* Now setup the assembly code */
 
-	gwdata->safety_margin -= 0.15;
+	gwdata->safety_margin -= 0.15f;
 	error_code = internal_gwsetup (gwdata, 1.0, 2, n, -1);
-	gwdata->safety_margin += 0.15;
+	gwdata->safety_margin += 0.15f;
 	if (error_code) return (error_code);
 
 /* Set flag indicating general-purpose modulo operations are not in force */
@@ -3028,7 +3030,7 @@ int internal_gwsetup (
 /* EXTRA_BITS measures the number of extra bits available in FFT output words for a gwmul operation.  NOTE: Under normal circumstances, */
 /* max_bits will be greater than virtual bits, but playing with the safety margin or forcing use of a specific FFT length could change that. */
 
-	gwdata->EXTRA_BITS = (float) ((gwdata->fft_max_bits_per_word - gwdata->safety_margin - virtual_bits_per_word (gwdata)) * 2.0);
+	gwdata->EXTRA_BITS = (float) ((gwdata->fft_max_bits_per_word - gwdata->safety_margin - gwdata->polymult_safety_margin - virtual_bits_per_word (gwdata)) * 2.0);
 	if (gwdata->EXTRA_BITS < 0.0f) gwdata->EXTRA_BITS = 0.0f;
 	gwdata->EXTRA_BITS += EB_GWMUL_SAVINGS;
 
@@ -7803,6 +7805,17 @@ double virtual_bits_per_word (
 /* Now generate a value that can compared to gwdata->fft_max_bits_per_word */
 
 	return (gwdata->fft_max_bits_per_word - (max_weighted_bits_per_output_word - weighted_bits_per_output_word) / 2.0);
+}
+
+/* Set the safety margin for upcoming polymult operations */
+void gwset_polymult_safety_margin (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	float	safetyval)	/* Safety margin required for polymult operations */
+{
+	gwdata->polymult_safety_margin = safetyval;
+	gwdata->EXTRA_BITS = (float) ((gwdata->fft_max_bits_per_word - gwdata->safety_margin - gwdata->polymult_safety_margin - virtual_bits_per_word (gwdata)) * 2.0);
+	if (gwdata->EXTRA_BITS < 0.0f) gwdata->EXTRA_BITS = 0.0f;
+	gwdata->EXTRA_BITS += EB_GWMUL_SAVINGS;
 }
 
 /* Given k,b,n,c determine the fft length.  If k,b,n,c is not supported */

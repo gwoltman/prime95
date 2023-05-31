@@ -5585,9 +5585,8 @@ void polymult_post_unfft (
 			      plan->planpart[i].MSWs_skipped == 0))) {					// Top coefficient of monic * non-monic is output
 				float	unnorms1 = plan->unnorms1;		// Unnormalized add count of top invec1 coefficient
 				float	unnorms2 = plan->planpart[i].unnorms2;	// Unnormalized add count of top invec2 coefficient
-				// This optimization requires gwset_safety_margin or gwset_additional_safety_margin was called with the
-				// output of polymult_safety_margin.  This ASSERT attempts to detect a failure to set safety margin.
-//GW:does not work use virtual_bpw calc				ASSERTG (gwdata->EXTRA_BITS > EB_GWMUL_SAVINGS);
+				// This optimization requires gwset_polymult_safety_margin was called with the output of polymult_safety_margin.
+				ASSERTG (gwdata->polymult_safety_margin > 0.0);
 				if (! (options & POLYMULT_INVEC2_MONIC))			// Invec1 monic, returning 1 * invec2's top
 					unnorms (outvec[j]) = unnorms2;
 				else if (! (options & POLYMULT_INVEC1_MONIC))			// Invec2 monic, returning 1 * invec1's top
