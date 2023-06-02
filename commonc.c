@@ -3688,8 +3688,7 @@ double work_estimate (
 	int	can_use_multiple_threads;
 	unsigned int i, total_cores;
 
-/* I suppose there are race conditions where a deleted work unit could */
-/* get here.  Return an estimate of 0.0. */
+/* I suppose there are race conditions where a deleted work unit could get here.  Return an estimate of 0.0. */
 
 	est = 0.0;
 
@@ -3700,9 +3699,9 @@ double work_estimate (
 	if (pct_complete < 0.0) pct_complete = 0.0;
 	if (pct_complete > 1.0) pct_complete = 1.0;
 
-/* Only large SSE2 FFTs can use multiple threads. */
+/* Only large FFTs can use multiple threads. */
 
-	can_use_multiple_threads = (CPU_FLAGS & CPU_SSE2 && w->n > 172700);
+	can_use_multiple_threads = (CPU_FLAGS & CPU_SSE2 && w->n > 172800) || (CPU_FLAGS & CPU_AVX && w->n > 130000) || (CPU_FLAGS & CPU_AVX512F && w->n > 172100);
 
 /* For ECM, estimating time is very difficult because it depends on how */
 /* much memory is available for temporaries in stage 2.  There are also */
@@ -3757,30 +3756,28 @@ double work_estimate (
 		est *= IniGetInt (INI_FILE, "ECMBoundsMultiplier", 1);
 	}
 
-/* For P-1, estimate about 1.4545 * B1 squarings in stage 1.  Estimate stage 2 will take as long as stage 1.  The stage 2 estimate */
-/* is a very rough guess but the polymlut stage 2 makes it extremely difficult to make an accurate estimate. */ 
+/* For P-1, estimate about 1.4545 * B1 squarings in stage 1.  Estimate stage 2 will take half as long as stage 1.  The stage 2 estimate */
+/* is a very rough guess but polymult stage 2 makes it extremely difficult to make an accurate estimate. */
 
 	if (w->work_type == WORK_PMINUS1 || w->work_type == WORK_PFACTOR) {
-		int	stage;
-		uint64_t B1, B2;
 		double	stage1_time, stage2_time;
 
+		timing = gwmap_to_timing (w->k, w->b, w->n, w->c);
+
 		if (w->work_type == WORK_PFACTOR) {
-			uint64_t squarings;
-			double	prob;
-			guess_pminus1_bounds (thread_num, w->k, w->b, w->n, w->c, w->sieve_depth, w->tests_saved, &B1, &B2, &squarings, &prob);
+			// guess_pminus1_bounds is costly, especially if there are many pfactor assignments in worktodo.txt.  Since time estimates are
+			// not essential and not very accurate anyways, assume pfactor time is 1.75% of a PRP test (from Skylake-X on 118M assignments).
+			// uint64_t squarings;
+			// double prob;
+			// guess_pminus1_bounds (thread_num, w->k, w->b, w->n, w->c, w->sieve_depth, w->tests_saved, &B1, &B2, &squarings, &prob);
+			stage1_time = 0.0117 * w->n * timing;
+			stage2_time = 0.0058 * w->n * timing;
 		} else {
-			B1 = w->B1;
-			B2 = w->B2 ? w->B2 : 40 * w->B1;
+			stage1_time = timing * (1.4545 * (double) w->B1);
+			stage2_time = 0.5 * stage1_time;
 		}
 
-		if (w->stage[0]) stage = atoi (&w->stage[1]);
-		else stage = 0;
-
-		timing = gwmap_to_timing (w->k, w->b, w->n, w->c);
-		stage1_time = timing * (1.4545 * (double) B1);
-		stage2_time = stage1_time;
-
+		int stage = w->stage[0] ? atoi (&w->stage[1]) : 0;
 		if (stage == 0) est = stage1_time + stage2_time;
 		if (stage == 1) est = stage1_time * (1.0 - pct_complete) + stage2_time;
 		if (stage == 2) est = stage2_time * (1.0 - pct_complete);
