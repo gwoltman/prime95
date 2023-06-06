@@ -958,16 +958,15 @@ unsigned long adjusted_max_exponent (
 	max_exp = jmptab->max_exp;
 	if (max_exp == 0) return (0);
 	if (!(gwdata->cpu_flags & CPU_AVX512F) && gwdata->cpu_flags & CPU_FMA3) {
-		if (jmptab->fftlen >= 8192) max_exp += (int) (0.035635 * (double) jmptab->fftlen);
-		else if (jmptab->fftlen >= 2048) max_exp += (int) (0.017656 * (double) jmptab->fftlen);
+		if (jmptab->fftlen >= 1048576) max_exp += (int) (0.035635 * (double) jmptab->fftlen);
+		else if (jmptab->fftlen >= 32768) max_exp += (int) (0.017656 * (double) jmptab->fftlen);
 	}
 	return (max_exp);
 }
 
 /* This routine used to be in assembly language.  It scans the assembly */
 /* code arrays looking for the best FFT size to implement our k*b^n+c FFT. */
-/* Returns 0 for IBDWT FFTs, 1 for zero padded FFTs, or a gwsetup error */
-/* code. */
+/* Returns 0 for IBDWT FFTs, 1 for zero padded FFTs, or a gwsetup error code. */
 
 int gwinfo (			/* Return zero-padded fft flag or error code */
 	gwhandle *gwdata,	/* Gwnum global data */
