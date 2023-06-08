@@ -2815,7 +2815,7 @@ int parseWorkToDoLine (
 	}
 
 /* Handle ECM= and ECM2= lines.  Note we've deprecated the old (2002ish) ECM= syntax and now treat ECM= and ECM2= the same. */
-/*	ECM2=k,b,n,c,B1,B2,curves_to_do[,specific_sigma,B2_start][,"factors"] */
+/*	ECM2=k,b,n,c,B1,B2,curves_to_do[,specific_sigma][,B2_start][,"factors"] */
 
 	else if (_stricmp (keyword, "ECM") == 0 || _stricmp (keyword, "ECM2") == 0) {
 		int	i;
