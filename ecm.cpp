@@ -12087,6 +12087,7 @@ struct global_pm1_savings_data {
 struct pm1_savings_data {
 	uint64_t B1;
 	uint64_t B2;
+	uint64_t actual_B2;
 	double	prob;
 	double	total_cost;
 	double	savings;
@@ -12106,6 +12107,7 @@ void pm1_savings (
 	if (B2 <= B1) {
 		c->prob = pm1prob (g->cost_data.takeAwayBits, g->cost_data.sieve_depth, B1, B1);
 		c->total_cost = g->cost_data.c.stage1_cost + g->cost_data.c.gcd_cost;
+		c->actual_B2 = B2;
 	}
 
 /* Compute how many transforms will be required in the best implementation of pass 2 given V,Vn,Vn1,gg gwnum temporaries will be needed. */
@@ -12122,6 +12124,7 @@ void pm1_savings (
 			if (efficiency > 0.0) {
 				c->prob = g->cost_data.factor_probability;
 				c->total_cost = g->cost_data.c.total_cost;
+				c->actual_B2 = g->cost_data.c.B2_start + g->cost_data.c.numDsections *  g->cost_data.c.D;
 			}
 		}
 		// Cost polymult stage 2 unless there aren't many temporaries
@@ -12136,14 +12139,15 @@ void pm1_savings (
 				efficiency = poly_efficiency;
 				c->prob = g->cost_data.factor_probability;
 				c->total_cost = g->cost_data.c.total_cost;
+				c->actual_B2 = g->cost_data.c.B2_start + g->cost_data.c.numDsections *  g->cost_data.c.D;
 			}
 		}
 		// Handle case where neither a pairing or poly stage 2 is possible
 		if (efficiency == 0.0) {
 			c->prob = 0.0;
 			c->total_cost = g->cost_data.c.stage1_cost + g->cost_data.c.gcd_cost;
+			c->actual_B2 = B2;
 		}
-//GW: remember actual B2 = numDsecions * D + B2start for binary search / return value?  How does above dovetail into actual P-1 run with a non-estimated FFT size
 	}
 
 /* Calculate our savings using this B1/B2.  Savings is success_probability * cost_of_LL_tests - cost_of_Pminus1. */
@@ -12170,10 +12174,10 @@ void pminus1_choose_B2 (
 	best[0].B2 = c->B1 * PFACTOR_BOUND1_ROUNDING / PFACTOR_BOUND2_ROUNDING;
 	pm1_savings (g, &best[0]);
 	best[1] = *c;
-	best[1].B2 = 50*c->B1 * PFACTOR_BOUND1_ROUNDING / PFACTOR_BOUND2_ROUNDING;
+	best[1].B2 = best[0].actual_B2 * 5 / PFACTOR_BOUND2_ROUNDING;
 	pm1_savings (g, &best[1]);
 	best[2] = *c;
-	best[2].B2 = 100*c->B1 * PFACTOR_BOUND1_ROUNDING / PFACTOR_BOUND2_ROUNDING;
+	best[2].B2 = best[1].actual_B2 * 5 / PFACTOR_BOUND2_ROUNDING;
 	pm1_savings (g, &best[2]);
 
 /* Handle case where midpoint has worse savings than the start point */
@@ -12188,7 +12192,7 @@ void pminus1_choose_B2 (
 /* Handle case where midpoint has worse savings than the end point */
 /* The search code requires best[1] is better than best[0] and best[2] */
 
-	uint64_t max_B2 = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", 10000) * c->B1;
+	uint64_t max_B2 = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", 10000) * c->B1 / PFACTOR_BOUND2_ROUNDING;
 	while (best[2].savings > best[1].savings) {
 		if (best[2].B2 == max_B2) {
 			best[0] = best[2];
@@ -12197,7 +12201,7 @@ void pminus1_choose_B2 (
 		}
 		best[0] = best[1];
 		best[1] = best[2];
-		best[2].B2 = best[1].B2 * 2;
+		best[2].B2 = best[1].actual_B2 * 5 / PFACTOR_BOUND2_ROUNDING;
 		if (best[2].B2 > max_B2) best[2].B2 = max_B2;
 		pm1_savings (g, &best[2]);
 	}
