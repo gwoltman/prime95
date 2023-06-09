@@ -1449,7 +1449,7 @@ typedef struct {
 	struct work_unit *w;	/* Worktodo.txt entry */
 	uint32_t curve;		/* Curve # starting with 1 */
 	uint32_t state;		/* Curve state defined above */
-	double	sigma;		/* Sigma for the current curve */
+	uint64_t sigma;		/* Sigma for the current curve */
 	uint64_t B;		/* Bound #1 (a.k.a. B1) */
 	uint64_t C;		/* Bound #2 (a.k.a. B2) */
 	giant	N;		/* Number being factored */
@@ -3357,7 +3357,7 @@ int choose12 (
 	t3 = ecmdata->Ad4 = gwalloc (&ecmdata->gwdata);
 	if (ecmdata->Ad4 == NULL) goto oom;
 
-	dbltogw (&ecmdata->gwdata, ecmdata->sigma, zs);
+	u64togw (&ecmdata->gwdata, ecmdata->sigma, zs);
 	gwsquare2 (&ecmdata->gwdata, zs, xs, 0);	/* s^2 */
 	gwsmalladd (&ecmdata->gwdata, -5.0, xs);	/* u = s^2 - 5 */
 	gwsmallmul (&ecmdata->gwdata, 4.0, zs);		/* v = 4*s */
@@ -3416,11 +3416,11 @@ void curve_start_msg (
 
 	if (!ecmdata->optimal_B2 || ecmdata->state >= ECM_STATE_STAGE2)
 		sprintf (buf,
-			 "ECM on %s: curve #%" PRIu32 " with s=%.0f, B1=%" PRIu64 ", B2=%" PRIu64 "\n",
+			 "ECM on %s: curve #%" PRIu32 " with s=%" PRIu64 ", B1=%" PRIu64 ", B2=%" PRIu64 "\n",
 			 gwmodulo_as_string (&ecmdata->gwdata), ecmdata->curve, ecmdata->sigma, ecmdata->B, ecmdata->C);
 	else
 		sprintf (buf,
-			 "ECM on %s: curve #%" PRIu32 " with s=%.0f, B1=%" PRIu64 ", B2=TBD\n",
+			 "ECM on %s: curve #%" PRIu32 " with s=%" PRIu64 ", B1=%" PRIu64 ", B2=TBD\n",
 			 gwmodulo_as_string (&ecmdata->gwdata), ecmdata->curve, ecmdata->sigma, ecmdata->B);
 	OutputStr (ecmdata->thread_num, buf);
 }
@@ -4676,7 +4676,8 @@ double ecm_stage2_impl (
 #define ECM_MAGICNUM	0x1725bcd9
 //#define ECM_VERSION	2			// Version 30.4.  Better pairing using relative primes above D/2. */
 //#define ECM_VERSION	3			// Version 30.7.  Better pairing with relp_sets, compressed pairing map. */
-#define ECM_VERSION	4			// Version 30.10.  Polymult. */
+//#define ECM_VERSION	4			// Version 30.10.  Polymult. */
+#define ECM_VERSION	5			// Version 30.13.  Sigma uint64_t. */
 
 void ecm_save (
 	ecmhandle *ecmdata)
@@ -4699,7 +4700,7 @@ void ecm_save (
 	if (! write_uint32 (fd, ecmdata->curve, &sum)) goto writeerr;
 	if (! write_uint64 (fd, ecmdata->average_B2, NULL)) goto writeerr;
 	if (! write_uint32 (fd, ecmdata->state, &sum)) goto writeerr;
-	if (! write_double (fd, ecmdata->sigma, NULL)) goto writeerr;
+	if (! write_uint64 (fd, ecmdata->sigma, NULL)) goto writeerr;
 	if (! write_uint64 (fd, ecmdata->B, &sum)) goto writeerr;
 	if (! write_uint64 (fd, ecmdata->C, &sum)) goto writeerr;
 
@@ -4788,6 +4789,7 @@ int ecm_old_restore (			/* For version 25 save files */
 	int	fd,
 	uint32_t filesum)
 {
+	double	sigma;
 	uint32_t state, sum = 0;
 	uint64_t savefile_B, unused64;
 
@@ -4795,7 +4797,8 @@ int ecm_old_restore (			/* For version 25 save files */
 
 	if (! read_uint32 (fd, &state, &sum)) goto readerr;
 	if (! read_uint32 (fd, &ecmdata->curve, &sum)) goto readerr;
-	if (! read_double (fd, &ecmdata->sigma, NULL)) goto readerr;
+	if (! read_double (fd, &sigma, NULL)) goto readerr;
+	ecmdata->sigma = (uint64_t) sigma;
 	if (! read_uint64 (fd, &savefile_B, &sum)) goto readerr;
 	if (! read_uint64 (fd, &ecmdata->stage1_prime, &sum)) goto readerr;
 	if (! read_uint64 (fd, &unused64, &sum)) goto readerr;	// C_processed
@@ -4870,7 +4873,13 @@ int ecm_restore (			/* For version 30.4 and later save files */
 	if (! read_uint32 (fd, &ecmdata->curve, &sum)) goto readerr;
 	if (! read_uint64 (fd, &ecmdata->average_B2, NULL)) goto readerr;
 	if (! read_uint32 (fd, &ecmdata->state, &sum)) goto readerr;
-	if (! read_double (fd, &ecmdata->sigma, NULL)) goto readerr;
+	if (version < 5) {
+		double	sigma;
+		if (! read_double (fd, &sigma, NULL)) goto readerr;
+		ecmdata->sigma = (uint64_t) sigma;
+	} else {
+		if (! read_uint64 (fd, &ecmdata->sigma, NULL)) goto readerr;
+	}
 	if (! read_uint64 (fd, &savefile_B, &sum)) goto readerr;
 	if (! read_uint64 (fd, &ecmdata->C, &sum)) goto readerr;
 
@@ -5687,12 +5696,12 @@ restart0:
 
 	do {
 		uint32_t hi, lo;
-		ecmdata.sigma = (rand () & 0x1F) * 65536.0 * 65536.0 * 65536.0;
-		ecmdata.sigma += (rand () & 0xFFFF) * 65536.0 * 65536.0;
+		ecmdata.sigma = ((uint64_t) (rand () & 0x1F)) << 48;
+		ecmdata.sigma += ((uint64_t) (rand () & 0xFFFF)) << 32;
 		if (CPU_FLAGS & CPU_RDTSC) rdtsc (&hi, &lo);
-		ecmdata.sigma += lo ^ hi ^ ((unsigned long) rand () << 16);
-	} while (ecmdata.sigma <= 5.0);
-	if (w->curve > 5.0 && w->curve < 9007199254740992.0) {
+		ecmdata.sigma += lo ^ hi ^ ((uint32_t) rand () << 16);
+	} while (ecmdata.sigma <= 5);
+	if (w->curve > 5) {
 		ecmdata.sigma = w->curve;
 		w->curves_to_do = 1;
 	}
@@ -5873,7 +5882,7 @@ skip_stage_2:	start_timer_from_zero (timers, 0);
 			}
 			strcpy (msg, "; SIGMA=");
 			msg = msg + strlen (msg);
-			sprintf (msg, "%.0f\n", ecmdata.sigma);
+			sprintf (msg, "%" PRIu64 "\n", ecmdata.sigma);
 			writeResults (buf);
 			free (buf);
 			pushg (&ecmdata.gwdata.gdata, 1);
@@ -8118,7 +8127,7 @@ oom:	stop_reason = OutOfMemory (thread_num);
 bingo:	stage = (ecmdata.state > ECM_STATE_MIDSTAGE) ? 2 : (ecmdata.state > ECM_STATE_STAGE1_INIT) ? 1 : 0;
 	sprintf (buf, "ECM found a factor in curve #%" PRIu32 ", stage #%d\n", ecmdata.curve, stage);
 	writeResults (buf);
-	sprintf (buf, "Sigma=%.0f, B1=%" PRIu64 ", B2=%" PRIu64 ".\n", ecmdata.sigma, ecmdata.B, ecmdata.C);
+	sprintf (buf, "Sigma=%" PRIu64 ", B1=%" PRIu64 ", B2=%" PRIu64 ".\n", ecmdata.sigma, ecmdata.B, ecmdata.C);
 	writeResults (buf);
 
 /* Allocate memory for the string representation of the factor and for */
@@ -8162,7 +8171,7 @@ bingo:	stage = (ecmdata.state > ECM_STATE_MIDSTAGE) ? 2 : (ecmdata.state > ECM_S
 	strcat (JSONbuf, ", \"worktype\":\"ECM\"");
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"factors\":[\"%s\"]", str);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"b1\":%" PRIu64 ", \"b2\":%" PRIu64, ecmdata.B, ecmdata.C);
-	sprintf (JSONbuf+strlen(JSONbuf), ", \"sigma\":%.0f", ecmdata.sigma);
+	sprintf (JSONbuf+strlen(JSONbuf), ", \"sigma\":%" PRIu64, ecmdata.sigma);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"stage\":%d", stage);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"curves\":%" PRIu32, ecmdata.curve);
 	if (ecmdata.optimal_B2 && ecmdata.average_B2 != ecmdata.C) sprintf (JSONbuf+strlen(JSONbuf), ", \"average-b2\":%" PRIu64, ecmdata.average_B2);
@@ -8315,13 +8324,13 @@ int ecm_QA (
 		unsigned long b, n, B1, B2_start, B2_end;
 		signed long c;
 		char	fac_str[80];
-		double	sigma;
+		uint64_t sigma;
 		int	stop_reason;
 
 /* Read a line from the file */
 
 		n = 0;
-		(void) fscanf (fd, "%lf,%lu,%lu,%ld,%lf,%lu,%lu,%lu,%s\n", &k, &b, &n, &c, &sigma, &B1, &B2_start, &B2_end, fac_str);
+		(void) fscanf (fd, "%lf,%lu,%lu,%ld,%" PRIu64 ",%lu,%lu,%lu,%s\n", &k, &b, &n, &c, &sigma, &B1, &B2_start, &B2_end, fac_str);
 		if (n == 0) break;
 
 /* If b is 1, set QA_TYPE */

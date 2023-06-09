@@ -2833,7 +2833,7 @@ int parseWorkToDoLine (
 		q = strchr (q+1, ',');
 		w->curve = 0;
 		if (q != NULL && q[1] != '"') {
-			w->curve = atof (q+1);
+			w->curve = atoll (q+1);
 			q = strchr (q+1, ',');
 		}
 		w->B2_start = w->B1;
@@ -3410,8 +3410,8 @@ int writeWorkToDoFile (
 
 		case WORK_ECM:
 			sprintf (buf, "ECM2=%s%.0f,%lu,%lu,%ld,%" PRIu64 ",%" PRIu64 ",%u", idbuf, w->k, w->b, w->n, w->c, w->B1, w->B2, w->curves_to_do);
-			if (w->B2_start > w->B1) sprintf (buf + strlen (buf), ",%.0f,%" PRIu64, w->curve, w->B2_start);
-			else if (w->curve) sprintf (buf + strlen (buf), ",%.0f", w->curve);
+			if (w->B2_start > w->B1) sprintf (buf + strlen (buf), ",%" PRIu64 ",%" PRIu64, w->curve, w->B2_start);
+			else if (w->curve) sprintf (buf + strlen (buf), ",%" PRIu64, w->curve);
 			if (w->known_factors != NULL) sprintf (buf + strlen (buf), ",\"%s\"", w->known_factors);
 			break;
 
