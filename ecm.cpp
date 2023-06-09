@@ -4458,6 +4458,7 @@ void ecm_choose_B2 (
 	struct ecm_stage2_cost_data cost_data;	/* Extra data passed to ECM costing function */
 	struct ecm_stage2_efficiency {
 		int	i;
+		int	actual_i;
 		double	efficiency;
 	} best[3];
 
@@ -4467,14 +4468,15 @@ void ecm_choose_B2 (
 #define kruppa(x,B2mult)	x.i = B2mult; \
 				if (x.i > max_B2mult) x.i = max_B2mult; \
 				ecmdata->C = x.i * ecmdata->B; \
-				x.efficiency = ecm_stage2_impl_given_numvals (ecmdata, numvals, forced_stage2_type, &cost_data);
+				x.efficiency = ecm_stage2_impl_given_numvals (ecmdata, numvals, forced_stage2_type, &cost_data); \
+				x.actual_i = (int) ((cost_data.c.B2_start + cost_data.c.numDsections * cost_data.c.D) / ecmdata->B);
 
 /* Look for the best B2 which is likely between 50 * B1 and 150 * B1 when prime pairing.  With polymult best B2 is apt to be much larger. */
 /* If optimal is not between these bounds, don't worry we'll locate the optimal spot anyway. */
 
 	kruppa (best[0], 50);
-	kruppa (best[1], 250);
-	kruppa (best[2], 1250);
+	kruppa (best[1], best[0].actual_i * 5);
+	kruppa (best[2], best[1].actual_i * 5);
 
 /* Handle case where midpoint has worse efficiency than the start point.  The search code requires best[1] is better than best[0] and best[2]. */
 /* There is an edge case where max_safe_poly_size returns a very small value and there is no case where best[1] is better than best[0]. */
@@ -4503,6 +4505,9 @@ void ecm_choose_B2 (
 		ASSERTG (best[1].efficiency >= best[0].efficiency);
 		ASSERTG (best[1].efficiency >= best[2].efficiency);
 
+		// Polymult can have a wide variety of i values choose the same D value and thus the same efficiency
+		if (best[0].actual_i == best[1].actual_i && best[1].actual_i == best[2].actual_i) break;
+
 		// Work on the bigger of the lower section and upper section
 		if (best[1].i - best[0].i > best[2].i - best[1].i) {		// Work on lower section
 			kruppa (midpoint, (best[0].i + best[1].i) / 2);
@@ -4525,8 +4530,8 @@ void ecm_choose_B2 (
 
 /* Return the best B2 */
 
-	ecmdata->C = best[1].i * ecmdata->B;
-	sprintf (optimal_B2_msg, "Optimal B2 is %d*B1 = %" PRIu64 ".  ", best[1].i, ecmdata->C);
+	ecmdata->C = best[1].actual_i * ecmdata->B;
+	sprintf (optimal_B2_msg, "Optimal B2 is %d*B1 = %" PRIu64 ".  ", best[1].actual_i, ecmdata->C);
 }
 
 /* Choose the best implementation of ECM stage 2 given the current memory settings.  We choose the best values for D, 2 or 4 FFT stage 2, and best */
@@ -9306,7 +9311,8 @@ void pm1_choose_B2 (
 	struct pm1_stage2_cost_data cost_data;	/* Extra data passed to P-1 costing function */
 	struct pm1_stage2_efficiency {
 		int	i;
-		uint64_t B2;			/* Actual B2 */
+		int	actual_i;
+		uint64_t B2;			/* Actual B2 -- polymult often chooses much larger B2 value */
 		double	B2_cost;		/* Cost of stage 2 in transforms */
 		double	fac_pct;		/* Percentage chance of finding a factor */
 	} best[3];
@@ -9320,6 +9326,7 @@ void pm1_choose_B2 (
 				pm1data->C = x.i * pm1data->B; \
 				pm1_stage2_impl_given_numvals (pm1data, numvals, forced_stage2_type, &cost_data); \
 				x.B2 = cost_data.c.B2_start + cost_data.c.numDsections * cost_data.c.D; \
+				x.actual_i = (int) (x.B2 / pm1data->B); \
 				x.B2_cost = cost_data.c.stage2_cost; \
 				x.fac_pct = cost_data.factor_probability;
 
@@ -9334,8 +9341,8 @@ void pm1_choose_B2 (
 		       isGeneralizedFermat (pm1data->w->k, pm1data->w->b, pm1data->w->n, pm1data->w->c) ? log2 (pm1data->w->n) : 0.0;
 	sieve_depth = pm1data->w->sieve_depth;
 	p1eval (best[0], 5);
-	p1eval (best[1], 100);
-	p1eval (best[2], 1000);
+	p1eval (best[1], best[0].actual_i * 5);
+	p1eval (best[2], best[1].actual_i * 5);
 
 /* Handle case where midpoint is worse than the start point.  The search code requires best[1] is better than best[0] and best[2]. */
 /* To be safe, like ECM catch cases where no suitable best[1] exists. */
@@ -9359,6 +9366,9 @@ void pm1_choose_B2 (
 	while (best[0].i + 2 != best[2].i && best[0].i > 1) {
 		struct pm1_stage2_efficiency midpoint;
 
+		// Polymult can have a wide variety of i values choose the same D value and thus the same efficiency
+		if (best[0].actual_i == best[1].actual_i && best[1].actual_i == best[2].actual_i) break;
+
 		// Work on the bigger of the lower section and upper section
 		if (best[1].i - best[0].i > best[2].i - best[1].i) {		// Work on lower section
 			p1eval (midpoint, (best[0].i + best[1].i) / 2);
@@ -9381,8 +9391,8 @@ void pm1_choose_B2 (
 
 /* Return the best B2 and message to output */
 
-	pm1data->C = best[1].i * pm1data->B;
-	sprintf (optimal_B2_msg, "With trial factoring done to 2^%f, optimal B2 is %d*B1 = %" PRIu64 ".\n", sieve_depth, best[1].i, pm1data->C);
+	pm1data->C = best[1].actual_i * pm1data->B;
+	sprintf (optimal_B2_msg, "With trial factoring done to 2^%f, optimal B2 is %d*B1 = %" PRIu64 ".\n", sieve_depth, best[1].actual_i, pm1data->C);
 	sprintf (optimal_B2_msg + strlen (optimal_B2_msg), "If no prior P-1, chance of a new factor is %.3g%%\n", best[1].fac_pct * 100.0);
 }
 #undef p1eval
