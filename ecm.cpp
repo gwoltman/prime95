@@ -12194,14 +12194,14 @@ void pminus1_choose_B2 (
 
 	while (best[0].savings > best[1].savings) {
 		best[2] = best[1];
-		best[1].B2 = (best[0].B1 + best[2].B1) / 2;
+		best[1].B2 = (best[0].B2 + best[2].B2) / 2;
 		pm1_savings (g, &best[1]);
 	}
 
 /* Handle case where midpoint has worse savings than the end point */
 /* The search code requires best[1] is better than best[0] and best[2] */
 
-	uint64_t max_B2 = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", 10000) * c->B1 / PFACTOR_BOUND2_ROUNDING;
+	uint64_t max_B2 = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", 10000) * c->B1 * PFACTOR_BOUND1_ROUNDING / PFACTOR_BOUND2_ROUNDING;
 	while (best[2].savings > best[1].savings) {
 		if (best[2].B2 == max_B2) {
 			best[0] = best[2];
