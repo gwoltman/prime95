@@ -7801,7 +7801,7 @@ double virtual_bits_per_word (
 						  2.0 + (log2b - 6.0) / 6.0);
 	}
 
-/* Now generate a value that can compared to gwdata->fft_max_bits_per_word */
+/* Now generate a value that can be compared to gwdata->fft_max_bits_per_word */
 
 	return (gwdata->fft_max_bits_per_word - (max_weighted_bits_per_output_word - weighted_bits_per_output_word) / 2.0);
 }
@@ -8624,6 +8624,19 @@ void dbltogw (
 	gianttogw (gwdata, tmp, g);
 }
 
+/* Convert a uint64_t to a gwnum */
+
+void u64togw (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	uint64_t d,		/* Input number */
+	gwnum	g)		/* Gwnum value to set */
+{
+	stackgiant(tmp, 2);
+
+	ulltog (d, tmp);
+	gianttogw (gwdata, tmp, g);
+}
+
 /* Convert a binary value to a gwnum */
 
 void binarytogw (
@@ -8687,15 +8700,15 @@ void gianttogw (
 /* Small numbers can also be optimized for many moduli by zeroing all the */
 /* FFT data using memset and then setting only the affected FFT elements. */
 
-	else if (a->sign == 1 && (gwdata->k == 1.0 || labs (gwdata->c) == 1)) {
-		double	value_to_convert;
-		uint32_t low_addin;
+	else if ((a->sign == 1 || a->sign == 2) && (gwdata->k == 1.0 || labs (gwdata->c) == 1)) {
+		uint64_t value_to_convert, low_addin;
 		int	i;
 
 /* Zero the FFT data, init the small value to convert to a gwnum */
 
 		memset (g, 0, gwnum_datasize (gwdata));
-		value_to_convert = (double) a->n[0];
+		value_to_convert = a->n[0];
+		if (a->sign == 2) value_to_convert += ((uint64_t) a->n[1]) << 32;
 
 /* To make the mod k*b^n+c step faster, gwnum's are pre-multiplied by 1/k. */
 /* Case 1 (k*b^n-1): Inverse of k is b^n.  Case 2 (k*b^n+1): Inverse of k is -b^n. */
@@ -8704,50 +8717,50 @@ void gianttogw (
 /* lowest FFT words.  The remainder gets added to (or subtracted from) the upper FFT words. */
 
 		if (gwdata->k > 1.0) {
-			double	quotient, remainder, high_addin;
+			uint64_t quotient, remainder, high_addin;
 			unsigned long word, bit_in_word;
 
-			quotient = floor (value_to_convert / gwdata->k);
-			remainder = value_to_convert - quotient * gwdata->k;
+			quotient = value_to_convert / (uint64_t) gwdata->k;
+			remainder = value_to_convert - quotient * (uint64_t) gwdata->k;
 			if (gwdata->c == -1) {
-				low_addin = (uint32_t) quotient;
+				low_addin = quotient;
 				high_addin = remainder;
 			} else {
-				low_addin = (uint32_t) quotient + 1;
-				high_addin = gwdata->k - remainder;
+				low_addin = quotient + 1;
+				high_addin = (uint64_t) gwdata->k - remainder;
 			}
 
 /* Add the high_addin value across the top FFT words */
 
 			bitaddr (gwdata, gwdata->n, &word, &bit_in_word);
-			for (i = word; high_addin != 0.0; i++, bit_in_word = 0) {
-				long	value, maxval;
+			for (i = word; high_addin; i++, bit_in_word = 0) {
+				long	value;
 
-				maxval = intpow (gwdata->b, gwdata->NUM_B_PER_SMALL_WORD);
+				uint64_t maxval = intpow (gwdata->b, gwdata->NUM_B_PER_SMALL_WORD);
 				if (is_big_word (gwdata, i)) maxval *= gwdata->b;
 
 				if (bit_in_word == 0) {
-					quotient = floor (high_addin / (double) maxval);
-					remainder = high_addin - quotient * (double) maxval;
+					quotient = high_addin / maxval;
+					remainder = high_addin - quotient * maxval;
 					value = (long) remainder;
 					high_addin = quotient;
 				} else {
-					long	pow_fudge, fudged_maxval;
+					uint64_t pow_fudge, fudged_maxval;
 					pow_fudge = intpow (gwdata->b, bit_in_word);
 					fudged_maxval = maxval / pow_fudge;
-					quotient = floor (high_addin / (double) fudged_maxval);
-					remainder = high_addin - quotient * (double) fudged_maxval;
-					value = (long) remainder * pow_fudge;
+					quotient = high_addin / fudged_maxval;
+					remainder = high_addin - quotient * fudged_maxval;
+					value = (long) (remainder * pow_fudge);
 					high_addin = quotient;
 				}
 
-				if (value > (maxval >> 1)) {
-					value = value - maxval;
-					high_addin += 1.0;
+				if ((uint64_t) value > (maxval >> 1)) {
+					value = value - (long) maxval;
+					high_addin += 1;
 				}
 				if (i == gwdata->FFTLEN - 1) {
-					value = value + (long) high_addin * maxval;
-					high_addin = 0.0;
+					value = value + (long) high_addin * (long) maxval;
+					high_addin = 0;
 				}
 				set_fft_value (gwdata, g, i, value);
 			}
@@ -8756,20 +8769,20 @@ void gianttogw (
 /* If k is 1, simply copy the giant value to the low FFT words */
 
 		else
-			low_addin = (uint32_t) value_to_convert;
+			low_addin = value_to_convert;
 
 /* Spread the low_addin value across the lowest FFT words as necessary */
 
 		for (i = 0; low_addin; i++) {
-			long	value, maxval;
+			long	value;
 
-			maxval = intpow (gwdata->b, gwdata->NUM_B_PER_SMALL_WORD);
+			uint64_t maxval = intpow (gwdata->b, gwdata->NUM_B_PER_SMALL_WORD);
 			if (is_big_word (gwdata, i)) maxval *= gwdata->b;
 
 			value = (long) (low_addin % maxval);
 			low_addin = low_addin / maxval;
-			if (value > (maxval >> 1)) {
-				value = value - maxval;
+			if (value > (long) (maxval >> 1)) {
+				value = value - (long) maxval;
 				low_addin++;
 			}
 			set_fft_value (gwdata, g, i, value);
