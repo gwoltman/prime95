@@ -2724,14 +2724,6 @@ int gwclone (
 		init_asm_info_carries (gwdata, cloned_asm_data);
 	}
 
-/* Each clone must have their own dd_data structure (there are cached values in there not accessed in a thread safe manor) */
-
-	cloned_gwdata->dd_data = gwdbldbl_data_clone (gwdata->dd_data);
-	if (cloned_gwdata->dd_data == NULL) {
-		gwdone (cloned_gwdata);
-		return (GWERROR_MALLOC);
-	}
-
 /* Clear counters and caches.  Each handle will keep there own counts to later be merged back into the parent gwdata. */
 
 	cloned_gwdata->GWERROR = 0;
@@ -6617,11 +6609,11 @@ void gwdone (
 
 	// Free structures that are allocated for both original and cloned gwdatas
 	term_ghandle (&gwdata->gdata);
-	free (gwdata->dd_data); gwdata->dd_data = NULL;
 
 	// Free items that are shared with cloned gwdatas (only free when parent is freed)
 	if (gwdata->clone_of == NULL) {
 		free (gwdata->GW_MODULUS); gwdata->GW_MODULUS = NULL;
+		free (gwdata->dd_data); gwdata->dd_data = NULL;
 		gwmutex_destroy (&gwdata->alloc_lock);
 	}
 
@@ -9032,10 +9024,8 @@ long gwtobinarylongs (
 	return (tmp->sign);
 }
 
-/* Convert a gwnum to a giant.  WARNING: Caller must allocate an array that */
-/* is several words larger than the maximum result that can be returned. */
-/* This is a gross kludge that lets gwtogiant use the giant for intermediate */
-/* calculations. */
+/* Convert a gwnum to a giant.  WARNING: Caller must allocate an array that is several words larger than the maximum result that can be returned. */
+/* This is a gross kludge that lets gwtogiant use the giant for intermediate calculations. */
 
 int gwtogiant (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -9044,6 +9034,10 @@ int gwtogiant (
 {
 	int	err_code;
 	unsigned long limit;
+
+/* Make sure we're passed a large enough buffer.  We need at least 50 more bits for a mul-by-k plus a few more in case there are unnormalized adds. */
+
+	ASSERTG (v->maxsize * 32 > gwdata->bit_length + 100.0);
 
 /* Make sure data is not FFTed.  Caller should really try to avoid this scenario. */
 
