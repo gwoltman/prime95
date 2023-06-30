@@ -9231,7 +9231,7 @@ double pm1_stage2_cost (
 							 cost_data->c.B2_start + cost_data->c.numDsections * cost_data->c.D);
 		cost_data->c.efficiency = cost_data->factor_probability;
 	} else {
-		cost_data->factor_probability = 0.0;		// We cannot accurately compute factor probability
+		cost_data->factor_probability =	0.0;		// We cannot accurately compute factor probability without a sieve depth
 		cost_data->c.efficiency = (double) kruppa_adjust (cost_data->c.B2_start + cost_data->c.numDsections * cost_data->c.D, cost_data->c.B1);
 	}
 	cost_data->c.efficiency /= cost_data->c.total_cost;
@@ -9325,8 +9325,13 @@ void pm1_choose_B2 (
 		double	B2_cost;		/* Cost of stage 2 in transforms */
 		double	fac_pct;		/* Percentage chance of finding a factor */
 	} best[3];
-	double	sieve_depth;
+	double	saved_sieve_depth;
 	double	takeAwayBits;			/* Bits we get for free in smoothness of P-1 factor */
+
+// Since Kruppa_adjust cannot be used to compare "curves" with different B1 values, we'll just optimize based on an assumed TF level of 67 bits
+
+	saved_sieve_depth = pm1data->w->sieve_depth;
+	if (saved_sieve_depth == 0.0) pm1data->w->sieve_depth = 67.0;
 
 // Cost out a B2 value
 	max_B2mult = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", (int) (numvals < 100000 ? numvals * 100 : 10000000));
@@ -9342,13 +9347,12 @@ void pm1_choose_B2 (
 // Return TRUE if x is better than y.  Determined by seeing if taking the increased cost of y's higher B2 and investing it in increasing x's bounds
 // results in a higher chance of finding a factor.
 #define B1increase(x,y)	(uint64_t) ((y.B2_cost - x.B2_cost) / (1.44 * 2.0))			// Each B1 increase costs 1.44 squarings
-#define p1compare(x,y)	(pm1prob (takeAwayBits, sieve_depth, pm1data->B + B1increase(x,y), x.B2 + B1increase(x,y)) > y.fac_pct)
+#define p1compare(x,y)	(pm1prob (takeAwayBits, pm1data->w->sieve_depth, pm1data->B + B1increase(x,y), x.B2 + B1increase(x,y)) > y.fac_pct)
 
 /* Look for the best B2 which is likely between 5*B1 and 1000*B1.  If optimal is not between these bounds, don't worry we'll locate the optimal spot anyway. */
 
 	takeAwayBits = isMersenne (pm1data->w->k, pm1data->w->b, pm1data->w->n, pm1data->w->c) ? log2 (pm1data->w->n) + 1.0 :
 		       isGeneralizedFermat (pm1data->w->k, pm1data->w->b, pm1data->w->n, pm1data->w->c) ? log2 (pm1data->w->n) : 0.0;
-	sieve_depth = pm1data->w->sieve_depth;
 	p1eval (best[0], 5);
 	p1eval (best[1], best[0].actual_i * 5);
 	p1eval (best[2], best[1].actual_i * 5);
@@ -9356,7 +9360,7 @@ void pm1_choose_B2 (
 /* Handle case where midpoint is worse than the start point.  The search code requires best[1] is better than best[0] and best[2]. */
 /* To be safe, like ECM catch cases where no suitable best[1] exists. */
 
-	while (p1compare (best[0], best[1]) && best[0].i > 1) {
+	while (p1compare (best[0], best[1]) && best[0].i + 2 != best[2].i) {
 		best[2] = best[1];
 		p1eval (best[1], (best[0].i + best[2].i) / 2);
 	}
@@ -9401,8 +9405,16 @@ void pm1_choose_B2 (
 /* Return the best B2 and message to output */
 
 	pm1data->C = best[1].actual_i * pm1data->B;
-	sprintf (optimal_B2_msg, "With trial factoring done to 2^%f, optimal B2 is %d*B1 = %" PRIu64 ".\n", sieve_depth, best[1].actual_i, pm1data->C);
-	sprintf (optimal_B2_msg + strlen (optimal_B2_msg), "If no prior P-1, chance of a new factor is %.3g%%\n", best[1].fac_pct * 100.0);
+	if (saved_sieve_depth == 0.0) {
+		sprintf (optimal_B2_msg, "With unknown amount of trial factoring done, guessing optimal B2 is %d*B1 = %" PRIu64 ".\n", best[1].actual_i, pm1data->C);
+	} else {
+		sprintf (optimal_B2_msg, "With trial factoring done to 2^%g, optimal B2 is %d*B1 = %" PRIu64 ".\n", saved_sieve_depth, best[1].actual_i, pm1data->C);
+		sprintf (optimal_B2_msg + strlen (optimal_B2_msg), "If no prior P-1, chance of a new factor is %.3g%%\n", best[1].fac_pct * 100.0);
+	}
+
+/* Restore the sieve depth */
+
+	pm1data->w->sieve_depth = saved_sieve_depth;
 }
 #undef p1eval
 #undef B1increase
@@ -9772,11 +9784,12 @@ int pminus1 (
 	if (pm1data.first_C_start < pm1data.B) pm1data.first_C_start = pm1data.B;
 	pm1data.pct_mem_to_use = 1.0;				// Use as much memory as we can unless we get allocation errors
 
-/* Decide if we will calculate an optimal B2 when stage 2 begins.  We do this by default for P-1 work where we know how much TF has been done. */
-/* You might think WORK_PFACTOR should also set optimal_B2, but PFACTOR optimizes PRP test time saved whereas optimal_B2 maximizes factor found over time. */
+/* Decide if we will calculate an optimal B2 when stage 2 begins.  We do this by default for P-1 work where we know how much TF has been done and like ECM */
+/* we do this for P-1 work where TF is not known and B2 = 100*B1.  You might think WORK_PFACTOR should also set optimal_B2, but PFACTOR optimizes PRP test */
+/* time saved whereas optimal_B2 maximizes factors found over time. */
 
-	pm1data.optimal_B2 = (!QA_IN_PROGRESS &&
-			      w->work_type == WORK_PMINUS1 && pm1data.first_C_start == pm1data.B && w->sieve_depth > 50 && IniGetInt (INI_FILE, "Pminus1BestB2", 1));
+	pm1data.optimal_B2 = (!QA_IN_PROGRESS && w->work_type == WORK_PMINUS1 && pm1data.first_C_start == pm1data.B && IniGetInt (INI_FILE, "Pminus1BestB2", 1) &&
+			      (w->sieve_depth > 50 || (w->sieve_depth == 0 && pm1data.C == 100 * pm1data.B)));
 	if (pm1data.optimal_B2 && pm1data.C <= pm1data.B) pm1data.C = 100 * pm1data.B;	// A guess to use for calling start_sieve_with_limit
 
 /* Compute the number we are factoring */
