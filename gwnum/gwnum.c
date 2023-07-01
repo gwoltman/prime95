@@ -8837,13 +8837,12 @@ void gianttogw (
 			a = newg;
 		}
 
-/* Now convert the giant to gwnum format.  For base 2 we simply copy bits.  */
+/* Now convert the giant to gwnum format.  For base 2 we simply copy bits. */
 
 		if (gwdata->b == 2) {
-			unsigned long i, limit, carry;
-			unsigned long mask1, mask2, e1len;
-			int	bits1, bits2, bits_in_next_binval;
-			unsigned long binval;
+			unsigned long i, limit;
+			int	bits, bits1, bits2, e1len, accumbits;
+			int64_t	accum, value;
 			uint32_t *e1;
 
 			// Figure out how many FFT words we will need to set
@@ -8856,52 +8855,29 @@ void gianttogw (
 
 			bits1 = gwdata->NUM_B_PER_SMALL_WORD;
 			bits2 = bits1 + 1;
-			mask1 = (1L << bits1) - 1;
-			mask2 = (1L << bits2) - 1;
-			if (e1len) {binval = *e1++; e1len--; bits_in_next_binval = 32;}
-			else binval = 0;
-			carry = 0;
+
+			accum = 0;
+			accumbits = 0;
+
 			for (i = 0; i < limit; i++) {
-				int	big_word, bits;
-				long	value, mask;
-				big_word = is_big_word (gwdata, i);
-				bits = big_word ? bits2 : bits1;
-				mask = big_word ? mask2 : mask1;
-				if (i == limit - 1) value = binval;
-				else value = binval & mask;
-				value = value + carry;
-				if (value > (mask >> 1) && bits > 1 && i != limit - 1) {
-					value = value - (mask + 1);
-					carry = 1;
-				} else {
-					carry = 0;
-				}
-				set_fft_value (gwdata, g, i, value);
 
-				binval >>= bits;
-				if (e1len == 0) continue;
-				if (bits_in_next_binval < bits) {
-					if (bits_in_next_binval)
-						binval |= (*e1 >> (32 - bits_in_next_binval)) << (32 - bits);
-					bits -= bits_in_next_binval;
-					e1++; e1len--; bits_in_next_binval = 32;
-					if (e1len == 0) continue;
+				// If needed, add another 32 input bits to accumulator
+				if (accumbits < 28) {
+					if (e1len > 0) accum += ((uint64_t) *e1++) << accumbits, e1len--;
+					accumbits += 32;
 				}
-				if (bits) {
-					binval |= (*e1 >> (32 - bits_in_next_binval)) << (32 - bits);
-					bits_in_next_binval -= bits;
-				}
+
+				// Process top word without sign extension, otherwise grab bits with sign extension.
+				// Special case zero bits as shift left 64 may be undefined.
+				bits = (i == limit - 1) ? 32 : is_big_word (gwdata, i) ? bits2 : bits1;
+				value = bits ? (accum << (64 - bits)) >> (64 - bits) : 0;
+				set_fft_value (gwdata, g, i, (long) value);
+				accum = (accum - value) >> bits;
+				accumbits -= bits;
 			}
 
-/* Write carry, if any, to FFT data */
-
-			if (carry) set_fft_value (gwdata, g, i++, carry);
-
-/* Clear the upper words */
-
-			for ( ; i < gwdata->FFTLEN; i++) {
-				set_fft_value (gwdata, g, i, 0);
-			}
+			// Clear the upper words
+			for ( ; i < gwdata->FFTLEN; i++) set_fft_value (gwdata, g, i, 0);
 		}
 
 /* Otherwise (non-base 2), we do a recursive divide and conquer radix conversion. */
