@@ -9037,7 +9037,7 @@ int gwtogiant (
 
 /* Make sure we're passed a large enough buffer.  We need at least 50 more bits for a mul-by-k plus a few more in case there are unnormalized adds. */
 
-	ASSERTG (v->maxsize * 32 > gwdata->bit_length + 100.0);
+	ASSERTG (v->maxsize * 32 > gwdata->bit_length + 64.0);
 
 /* Make sure data is not FFTed.  Caller should really try to avoid this scenario. */
 
@@ -9084,52 +9084,84 @@ int gwtogiant (
 
 	if (gwdata->b == 2) {
 		long	val;
-		int	j, bits, bitsout, carry;
+		int64_t accum;
+		int	j, bits, accumbits;
 		unsigned long i;
-		uint32_t *outptr;
+		uint32_t *outptr, khi, klo, outval;
+		uint64_t outcarry;
+		bool	negative_gwnum, k_is_one, k_is_small;
+
+/* Detect if gwnum is negative.  At least most of the time: say maximum FFT value is 100, then top words of (0, -25) is negative and properly detected, */
+/* but top words of (1, -125) wouldn't be properly detected as negative.  Handling negative values in the main loop is faster than a postprocessing */
+/* pass that negates the result. */
+
+		for ( ; limit > 0; limit--) {		/* Find top word */
+			err_code = get_fft_value (gwdata, gg, limit-1, &val);
+			if (err_code) return (err_code);
+			if (val != 0) break;
+		}
+		negative_gwnum = (val < 0);
+
+/* Rather than a separate not-multithreaded giants call to mul-by-k, prepare to mul-by-k as we go. */
+
+		khi = (uint32_t) (((uint64_t) gwdata->k) >> 32);
+		klo = (uint32_t)  ((uint64_t) gwdata->k);
+		k_is_small = (khi == 0);
+		k_is_one = (k_is_small && klo == 1);
+		outcarry = 0;
 
 /* Collect bits until we have all of them */
 
-		carry = 0;
-		bitsout = 0;
+		accum = 0;
+		accumbits = 0;
 		outptr = v->n;
-		*outptr = 0;
-		for (i = 0; i < limit; i++) {
-			err_code = get_fft_value (gwdata, gg, i, &val);
-			if (err_code) return (err_code);
-			bits = gwdata->NUM_B_PER_SMALL_WORD;
-			if (is_big_word (gwdata, i)) bits++;
-			val += carry;
-
-			carry = (val >> bits);
-			val -= (carry << bits);
-			*outptr += (val << bitsout);
-			bitsout += bits;
-			if (bitsout >= 32) {
-				bitsout -= 32;
-				*++outptr = (val >> (bits - bitsout));
+		for (i = 0; ; i++) {
+			// Process next FFT word
+			if (i < limit) {
+				err_code = get_fft_value (gwdata, gg, i, &val);
+				if (err_code) return (err_code);
+				if (negative_gwnum) val = -val;
+				bits = gwdata->NUM_B_PER_SMALL_WORD;
+				if (is_big_word (gwdata, i)) bits++;
+				accum += ((int64_t) val) << accumbits;
+				accumbits += bits;
+				// See if we have 32-bits to output
+				if (accumbits < 32) continue;
 			}
-		}
 
-/* Finish outputting the last word and any carry data */
+			// Extract the 32 output bits
+			outval = (uint32_t) accum;
+			accum >>= 32;
+			accumbits -= 32;
 
-		if (bitsout) {
-			*outptr++ += (carry << bitsout);
-			carry >>= (32 - bitsout);
-		}
-		if (carry != -1 && carry != 0) {
-			*outptr++ = carry;
-			carry >>= 31;
+			// Now mul by k
+			if (k_is_one)
+				*outptr++ = outval;
+			else if (k_is_small) {
+				uint64_t tmp = (uint64_t) outval * (uint64_t) klo + outcarry;
+				*outptr++ = (uint32_t) tmp;
+				outcarry = tmp >> 32;
+			} else {
+				uint64_t tmp = (uint64_t) outval * (uint64_t) klo;
+				uint64_t next_outcarry = tmp >> 32;
+				tmp = (tmp & 0xFFFFFFFFULL) + outcarry;
+				*outptr++ = (uint32_t) tmp;
+				outcarry = next_outcarry + (tmp >> 32) + (uint64_t) outval * (uint64_t) khi;
+			}
+
+			// Are we done?  We need to process limit FFT words plus up to three more words (31 bits in accum times 50 bits in k).
+			if (i >= limit && ((accum == 0 && outcarry == 0) || (accum == -1 && accumbits < -96))) break;
 		}
 
 /* Set the length */
 
 		v->sign = (long) (outptr - v->n);
 		while (v->sign && v->n[v->sign-1] == 0) v->sign--;
+		if (negative_gwnum) v->sign = -v->sign;
 
-/* If carry is -1, the gwnum is negative.  Ugh.  Flip the bits and sign. */
+/* If accumulator is -1, the gwnum is negative.  Ugh.  Flip the bits and sign.   This should be exceedingly rare as we detected most negative gwnums earlier. */
 
-		if (carry == -1) {
+		if (accum == -1) {
 			for (j = 0; j < v->sign; j++) v->n[j] = ~v->n[j];
 			while (v->sign && v->n[v->sign-1] == 0) v->sign--;
 			iaddg (1, v);
@@ -9142,18 +9174,17 @@ int gwtogiant (
 	else {
 		err_code = nonbase2_gwtogiant (gwdata, gg, v);
 		if (err_code) return (err_code);
-	}
 
 /* Since all gwnums are premultiplied by the inverse of k, we must now multiply by k to get the true result. */
 
-	if (gwdata->k > 1.0) {
-		stackgiant(k,2);
-		dbltog (gwdata->k, k);
-		mulgi (&gwdata->gdata, k, v);
+		if (gwdata->k > 1.0) {
+			stackgiant(k,2);
+			dbltog (gwdata->k, k);
+			mulgi (&gwdata->gdata, k, v);
+		}
 	}
 
-/* The gwnum is not guaranteed to be smaller than k*b^n+c.  Handle this */
-/* possibility.  This also converts negative values to positive. */
+/* The gwnum is not guaranteed to be smaller than k*b^n+c.  Handle this possibility.  This also converts negative values to positive. */
 
 	specialmodg (gwdata, v);
 
