@@ -8904,10 +8904,8 @@ void gianttogw (
 	gwdata->write_count += 1;
 }
 
-/* Convert a gwnum to a binary value.  Returns the number of 32-bit values */
-/* written to the array.  The array is NOT zero-padded.  Returns a */
-/* negative number if an error occurs during the conversion.  An error */
-/* can happen if the FFT data contains a NaN or infinity value. */
+/* Convert a gwnum to a binary value.  Returns the number of 32-bit values written to the array.  The array is NOT zero-padded.  Returns a */
+/* negative number if an error occurs during the conversion.  An error can happen if the FFT data contains a NaN or infinity value. */
 
 long gwtobinary (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -8915,61 +8913,63 @@ long gwtobinary (
 	uint32_t *array,	/* Array to contain the binary value */
 	uint32_t arraylen)	/* Maximum size of the array */
 {
-	giant	tmp;
 	int	err_code;
+
+	ASSERTG (arraylen * 32 > gwdata->bit_length);
 
 /* Make sure data is not FFTed.  Caller should really try to avoid this scenario. */
 
 	if (FFT_state (n) != NOT_FFTed) gwunfft (gwdata, n, n);
 
-/* Convert the number */
+/* Convert the number in-place if we can.  gwtogiant has two sources of possibly needing a bigger buffer.  One is the mul-by-k, the other is possible. */
+/* It is also true that gwnum multiplications do not guarantee perfectly normalized gwnums, so the top FFT word could have an extra bit. */
 
-	tmp = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 5);
-	err_code = gwtogiant (gwdata, n, tmp);
-	if (err_code < 0) return (err_code);
-	ASSERTG ((unsigned long) tmp->sign <= arraylen);
-	memcpy (array, tmp->n, tmp->sign * sizeof (uint32_t));
-	pushg (&gwdata->gdata, 1);
-	gwdata->read_count += 1;
-	return (tmp->sign);
+	if (arraylen * 32 >= gwdata->bit_length + log2 (gwdata->k) + unnorms (n) + 1.0) {
+		giantstruct tmp;
+		tmp.n = (uint32_t *) array;
+		setmaxsize (&tmp, arraylen);
+		err_code = gwtogiant (gwdata, n, &tmp);
+		if (err_code < 0) return (err_code);
+		gwdata->read_count += 1;
+		return (tmp.sign);
+	}
+	
+/* Convert the number using a bigger buffer */
+
+	else {
+		giant tmp = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 5);
+		err_code = gwtogiant (gwdata, n, tmp);
+		if (err_code < 0) { pushg (&gwdata->gdata, 1); return (err_code); }
+		memcpy (array, tmp->n, tmp->sign * sizeof (uint32_t));
+		pushg (&gwdata->gdata, 1);
+		gwdata->read_count += 1;
+		return (tmp->sign);
+	}
 }
 
-/* Convert a gwnum to a binary value.  Returns the number of 64-bit values */
-/* written to the array.  The array is NOT zero-padded.  Returns a */
-/* negative number if an error occurs during the conversion.  An error */
-/* can happen if the FFT data contains a NaN or infinity value. */
+/* Convert a gwnum to a binary value.  Returns the number of 64-bit values written to the array.  The array is NOT zero-padded.  Returns a */
+/* negative number if an error occurs during the conversion.  An error can happen if the FFT data contains a NaN or infinity value. */
 
 long gwtobinary64 (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	n,		/* Source gwnum */
 	uint64_t *array,	/* Array to contain the binary value */
-	uint64_t arraylen)	/* Maximum size of the array */
+	uint32_t arraylen)	/* Maximum size of the array */
 {
-	giant	tmp;
-	int	err_code;
 
-/* Make sure data is not FFTed.  Caller should really try to avoid this scenario. */
+// Intel's Endian-ness allows us to use 32-bit gwtobinary with a little work if gwtobinary writes an odd number of 32-bit values
 
-	if (FFT_state (n) != NOT_FFTed) gwunfft (gwdata, n, n);
-
-/* Convert the number */
-
-	tmp = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 5);
-	err_code = gwtogiant (gwdata, n, tmp);
-	if (err_code < 0) return (err_code);
-	tmp->n[tmp->sign] = 0;
-	tmp->sign = (tmp->sign + 1) / 2;
-	ASSERTG ((unsigned long) tmp->sign <= arraylen);
-	memcpy (array, tmp->n, tmp->sign * sizeof (uint64_t));
-	pushg (&gwdata->gdata, 1);
-	gwdata->read_count += 1;
-	return (tmp->sign);
+	long count = gwtobinary (gwdata, n, (uint32_t *) array, arraylen * 2);
+	if (count > 0) {
+		bool count_is_odd = (count & 1);			// Detect an odd count of elements written
+		count = (count + 1) / 2;				// Halve the count of elements written
+		if (count_is_odd) array[count-1] &= 0xFFFFFFFFULL;	// Clear top half of top element
+	}
+	return (count);
 }
 
-/* Convert a gwnum to a binary value.  Returns the number of longs */
-/* written to the array.  The array is NOT zero-padded.  Returns a */
-/* negative number if an error occurs during the conversion.  An error */
-/* can happen if the FFT data contains a NaN or infinity value. */
+/* Convert a gwnum to a binary value.  Returns the number of longs written to the array.  The array is NOT zero-padded.  Returns a */
+/* negative number if an error occurs during the conversion.  An error can happen if the FFT data contains a NaN or infinity value. */
 
 long gwtobinarylongs (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -8977,27 +8977,8 @@ long gwtobinarylongs (
 	unsigned long *array,	/* Array to contain the binary value */
 	unsigned long arraylen)	/* Maximum size of the array */
 {
-	giant	tmp;
-	int	err_code;
-
-/* Make sure data is not FFTed.  Caller should really try to avoid this scenario. */
-
-	if (FFT_state (n) != NOT_FFTed) gwunfft (gwdata, n, n);
-
-/* Convert the number */
-
-	tmp = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 5);
-	err_code = gwtogiant (gwdata, n, tmp);
-	if (err_code < 0) return (err_code);
-	if (sizeof (unsigned long) > sizeof (uint32_t)) {
-		tmp->n[tmp->sign] = 0;
-		tmp->sign = (tmp->sign + 1) / 2;
-	}
-	ASSERTG ((unsigned long) tmp->sign <= arraylen);
-	memcpy (array, tmp->n, tmp->sign * sizeof (unsigned long));
-	pushg (&gwdata->gdata, 1);
-	gwdata->read_count += 1;
-	return (tmp->sign);
+	if (sizeof (unsigned long) == sizeof (uint32_t)) return gwtobinary (gwdata, n, (uint32_t *) array, arraylen);
+	else return gwtobinary64 (gwdata, n, (uint64_t *) array, arraylen);
 }
 
 /* Convert a gwnum to a giant.  WARNING: Caller must allocate an array that is several words larger than the maximum result that can be returned. */

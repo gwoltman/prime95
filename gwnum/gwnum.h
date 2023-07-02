@@ -304,7 +304,8 @@ void binary64togw (
 
 /* Convert a gwnum to a binary value (array of 32-bit values).  Returns the number of 32-bit values written to the array.  The array is NOT zero-padded. */
 /* Returns a negative number if an error occurs during the conversion.  An error can happen if the FFT data contains a NaN or infinity value. */
-/* WARNING: uses gwtogiant which requires a buffer several words larger than the maximum possible returned value. */
+/* NOTE: uses gwtogiant which requires a buffer a few words larger than the maximum possible returned value.  Calling this routine with a buffer */
+/* large enough for gwtogiant to use will save allocating the bigger buffer and a memcpy. */
 long gwtobinary (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	n,		/* Source gwnum */
@@ -313,12 +314,13 @@ long gwtobinary (
 
 /* Convert a gwnum to a binary value (array of 64-bit values).  Returns the number of 64-bit values written to the array.  The array is NOT zero-padded. */
 /* Returns a negative number if an error occurs during the conversion.  An error can happen if the FFT data contains a NaN or infinity value. */
-/* WARNING: uses gwtogiant which requires a buffer several words larger than the maximum possible returned value. */
+/* NOTE: uses gwtogiant which requires a buffer a few words larger than the maximum possible returned value.  Calling this routine with a buffer */
+/* large enough for gwtogiant to use will save allocating the bigger buffer and a memcpy. */
 long gwtobinary64 (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwnum	n,		/* Source gwnum */
 	uint64_t *array,	/* Array to contain the binary value */
-	uint64_t arraylen);	/* Maximum size of the array */
+	uint32_t arraylen);	/* Maximum size of the array */
 
 /* Generate a random number.  Can be useful for QA purposes. */
 void gw_random_number (
