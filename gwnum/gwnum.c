@@ -8921,10 +8921,11 @@ long gwtobinary (
 
 	if (FFT_state (n) != NOT_FFTed) gwunfft (gwdata, n, n);
 
-/* Convert the number in-place if we can.  gwtogiant has two sources of possibly needing a bigger buffer.  One is the mul-by-k, the other is possible. */
+/* Convert the number in-place if we can.  gwtogiant has two sources of possibly needing a bigger buffer.  One is the mul-by-k, the other is unnormalized adds. */
 /* It is also true that gwnum multiplications do not guarantee perfectly normalized gwnums, so the top FFT word could have an extra bit. */
+/* We want to be extra safe, so instead on at least a full extra word. */
 
-	if (arraylen * 32 >= gwdata->bit_length + log2 (gwdata->k) + unnorms (n) + 1.0) {
+	if (arraylen * 32 >= gwdata->bit_length + log2 (gwdata->k) + unnorms (n) + 32.0) {
 		giantstruct tmp;
 		tmp.n = (uint32_t *) array;
 		setmaxsize (&tmp, arraylen);
@@ -8940,6 +8941,7 @@ long gwtobinary (
 		giant tmp = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 5);
 		err_code = gwtogiant (gwdata, n, tmp);
 		if (err_code < 0) { pushg (&gwdata->gdata, 1); return (err_code); }
+		if ((uint32_t) tmp->sign > arraylen) tmp->sign = arraylen;			// Truncate result if necessary
 		memcpy (array, tmp->n, tmp->sign * sizeof (uint32_t));
 		pushg (&gwdata->gdata, 1);
 		gwdata->read_count += 1;
@@ -8957,7 +8959,7 @@ long gwtobinary64 (
 	uint32_t arraylen)	/* Maximum size of the array */
 {
 
-// Intel's Endian-ness allows us to use 32-bit gwtobinary with a little work if gwtobinary writes an odd number of 32-bit values
+// Intel's Endian-ness allows us to use 32-bit gwtobinary with a little extra work if gwtobinary writes an odd number of 32-bit values
 
 	long count = gwtobinary (gwdata, n, (uint32_t *) array, arraylen * 2);
 	if (count > 0) {
@@ -9045,7 +9047,7 @@ int gwtogiant (
 		int	j, bits, accumbits;
 		unsigned long i;
 		uint32_t *outptr, khi, klo, outval;
-		uint64_t outcarry;
+		uint64_t k, outcarry;
 		bool	negative_gwnum, k_is_one, k_is_small;
 
 /* Detect if gwnum is negative.  At least most of the time: say maximum FFT value is 100, then top words of (0, -25) is negative and properly detected, */
@@ -9061,8 +9063,9 @@ int gwtogiant (
 
 /* Rather than a separate not-multithreaded giants call to mul-by-k, prepare to mul-by-k as we go. */
 
-		khi = (uint32_t) (((uint64_t) gwdata->k) >> 32);
-		klo = (uint32_t)  ((uint64_t) gwdata->k);
+		k = (uint64_t) gwdata->k;
+		khi = (uint32_t) (k >> 32);
+		klo = (uint32_t) k;
 		k_is_small = (khi == 0);
 		k_is_one = (k_is_small && klo == 1);
 		outcarry = 0;
@@ -9106,8 +9109,8 @@ int gwtogiant (
 				outcarry = next_outcarry + (tmp >> 32) + (uint64_t) outval * (uint64_t) khi;
 			}
 
-			// Are we done?  We need to process limit FFT words plus up to three more words (31 bits in accum times 50 bits in k).
-			if (i >= limit && ((accum == 0 && outcarry == 0) || (accum == -1 && accumbits < -96))) break;
+			// Are we done?  We need to process limit FFT words plus the outcarry.
+			if (i >= limit && ((accum == 0 && outcarry == 0) || (accum == -1 && outcarry == k - 1))) break;
 		}
 
 /* Set the length */
@@ -9144,6 +9147,7 @@ int gwtogiant (
 /* The gwnum is not guaranteed to be smaller than k*b^n+c.  Handle this possibility.  This also converts negative values to positive. */
 
 	specialmodg (gwdata, v);
+	ASSERTG (v->sign >= 0);
 
 /* Return success */
 
@@ -11163,7 +11167,6 @@ void do_multithread_op_work (
 			call_op (data->asm_proc, asm_data);
 		}
 	}
-
 
 /* Loop processing AVX blocks */
 
