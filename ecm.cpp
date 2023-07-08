@@ -4492,7 +4492,7 @@ void ecm_choose_B2 (
 
 /* Find the best B2.  We use a binary-like search to speed things up (new in version 30.3b3). */
 
-	while (best[0].i + 2 != best[2].i && best[0].i > 1) {
+	while (best[2].i - best[0].i > 2 && best[0].i > 1) {
 		struct ecm_stage2_efficiency midpoint;
 
 		ASSERTG (best[1].efficiency >= best[0].efficiency);
@@ -9368,7 +9368,7 @@ void pm1_choose_B2 (
 
 /* Find the best B2.  We use a binary-like search to speed things up (new in version 30.3b3). */
 
-	while (best[0].i + 2 != best[2].i && best[0].i > 1) {
+	while (best[2].i - best[0].i > 2 && best[0].i > 1) {
 		struct pm1_stage2_efficiency midpoint;
 
 		// Polymult can have a wide variety of i values choose the same D value and thus the same efficiency
@@ -12222,7 +12222,7 @@ void pminus1_choose_B2 (
 
 /* Find the best B2.  We use a binary-like search to speed things up (new in version 30.3b3). */
 
-	while (best[0].B2 != best[2].B2) {
+	while (best[2].B2 - best[0].B2 > 2) {
 		struct pm1_savings_data midpoint;
 
 		ASSERTG (best[1].savings >= best[0].savings);
@@ -12233,7 +12233,7 @@ void pminus1_choose_B2 (
 		if (best[1].B2 - best[0].B2 > best[2].B2 - best[1].B2) {	// Work on lower section
 			// If the savings difference is real small, then we've searched this section enough
 			if (best[1].savings - best[0].savings < 100.0) {
-				best[0] = best[1];
+				best[0] = best[1], best[0].B2--;
 				continue;
 			}
 			midpoint = *c;
@@ -12248,7 +12248,7 @@ void pminus1_choose_B2 (
 		} else {							// Work on upper section
 			// If the savings difference is real small, then we've searched this section enough
 			if (best[1].savings - best[2].savings < 100.0) {
-				best[2] = best[1];
+				best[2] = best[1], best[2].B2++;
 				continue;
 			}
 			midpoint = *c;
@@ -12364,7 +12364,7 @@ void guess_pminus1_bounds (
 
 /* Find the best B1.  We use a binary-like search to speed things up (new in version 30.3b3). */
 
-	while (best[0].B1 != best[2].B1) {
+	while (best[2].B1 - best[0].B1 > 2) {
 		struct pm1_savings_data midpoint;
 
 		ASSERTG (best[1].savings >= best[0].savings);
@@ -12375,7 +12375,7 @@ void guess_pminus1_bounds (
 		if (best[1].B1 - best[0].B1 > best[2].B1 - best[1].B1) {	// Work on lower section
 			// If the savings difference is real small, then we've searched this section enough
 			if (best[1].savings - best[0].savings < 100.0) {
-				best[0] = best[1];
+				best[0] = best[1], best[0].B1--;
 				continue;
 			}
 			midpoint.B1 = (best[0].B1 + best[1].B1) / 2;
@@ -12389,7 +12389,7 @@ void guess_pminus1_bounds (
 		} else {							// Work on upper section
 			// If the savings difference is real small, then we've searched this section enough
 			if (best[1].savings - best[2].savings < 100.0) {
-				best[2] = best[1];
+				best[2] = best[1], best[2].B1++;
 				continue;
 			}
 			midpoint.B1 = (best[1].B1 + best[2].B1) / 2;
@@ -12942,7 +12942,7 @@ void pp1_choose_B2 (
 
 /* Find the best B2.  We use a binary-like search to speed things up. */
 
-	while (best[0].i + 2 != best[2].i) {
+	while (best[2].i - best[0].i > 2) {
 		struct pp1_stage2_efficiency midpoint;
 
 		// Work on the bigger of the lower section and upper section
