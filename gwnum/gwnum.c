@@ -7550,9 +7550,15 @@ void bitaddr (
 	*word = (unsigned long) ((double) bit / gwdata->avg_num_b_per_word);
 	if (*word >= gwdata->FFTLEN) *word = gwdata->FFTLEN - 1;
 
+/* Catch an extreme edge case.  For example: n = 333043493, FFTlen = 18874368 has avg_num_b_per_word of 17.645279195573593.  Bit = 312719184 needs */
+/* more than 53 bits of precision to conclude that *word of 17722540.999999996997389166825727 must be rounded down to 17722540. */
+
+	unsigned long base = gwfft_base (gwdata->dd_data, *word);
+	if (base > bit) *word -= 1, base = gwfft_base (gwdata->dd_data, *word);
+
 /* Compute the bit within the word. */
 
-	*bit_in_word = bit - gwfft_base (gwdata->dd_data, *word);
+	*bit_in_word = bit - base;
 }
 
 /* Map a gwerror code into human readable text */
