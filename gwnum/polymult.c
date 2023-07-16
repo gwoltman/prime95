@@ -544,8 +544,10 @@ void polymult_init (
 	polymult_default_tuning (pmdata, 256, 6144);
 
 	// Init FFT(1) if needed
-	if (pmdata->gwdata->k != 1.0) gwuser_init_FFT1 (pmdata->gwdata);
-	if (pmdata->gwdata->ZERO_PADDED_FFT) zpad7_fft (pmdata->gwdata, pmdata->gwdata->GW_FFT1);
+	if (!pmdata->gwdata->information_only) {
+		if (pmdata->gwdata->k != 1.0) gwuser_init_FFT1 (pmdata->gwdata);
+		if (pmdata->gwdata->ZERO_PADDED_FFT) zpad7_fft (pmdata->gwdata, pmdata->gwdata->GW_FFT1);
+	}
 }
 
 // Set default polymult tuning using CPU cache sizes.  If this routine is not called, default tuning parameters are set using L2 cache of 256KB, and
