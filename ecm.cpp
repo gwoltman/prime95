@@ -5967,6 +5967,7 @@ replan:	unsigned long best_fftlen;
 		ecmdata.gwdata.scramble_arrays = (char) IniGetInt (INI_FILE, "PolymultScramble", ecmdata.gwdata.scramble_arrays);
 		ecmdata.polydata.strided_writes_end = IniGetInt64 (INI_FILE, "PolymultStridedWritesEnd", ecmdata.polydata.strided_writes_end);
 		ecmdata.polydata.streamed_stores_start = IniGetInt64 (INI_FILE, "PolymultStreamStores", 0); // Default is always stream stores because of POLYMULT_NOUNFFT
+		gwset_polymult_safety_margin (&ecmdata.gwdata, 0.0);		// If needed, reset polymult safety margin while calculating new poly size
 
 /* When recovering from a roundoff error, only cost FFT lengths larger than the FFT length that generated the roundoff error. */
 
@@ -10443,6 +10444,7 @@ replan:	unsigned long best_fftlen;
 		pm1data.gwdata.scramble_arrays = (char) IniGetInt (INI_FILE, "PolymultScramble", pm1data.gwdata.scramble_arrays);
 		pm1data.polydata.strided_writes_end = IniGetInt64 (INI_FILE, "PolymultStridedWritesEnd", pm1data.polydata.strided_writes_end);
 		pm1data.polydata.streamed_stores_start = IniGetInt64 (INI_FILE, "PolymultStreamStores", 0); // Default is always stream stores because of POLYMULT_NOUNFFT
+		gwset_polymult_safety_margin (&pm1data.gwdata, 0.0);		// If needed, reset polymult safety margin while calculating new poly size
 
 /* When recovering from a roundoff error, only cost FFT lengths larger than the FFT length that generated the roundoff error. */
 
