@@ -5608,6 +5608,7 @@ void polymult_post_unfft (
 
 			// Do the unfft as well as any addin adjustments
 //GW: use gwsetaddin rather than gwaddsmall?  We'd need to save/restore the existing addin.  Only affect RLP * RLP, don't bother?
+//GW: if k!=1 gwaddsmall of one is not cheap.  It does a dbltogw.  We should cache a gwnum containing 1.0.
 			gwunfft2 (gwdata, outvec[j], outvec[j],
 				  ((options & (POLYMULT_STARTNEXTFFT | POLYMULT_NEXTFFT)) && !j_affected_by_addin) ? GWMUL_STARTNEXTFFT : 0);
 			if (j_affected_by_addin) {
