@@ -2690,7 +2690,6 @@ int gwclone (
 /* Clear pointers we're about to overwrite in case an error occurs and gwdone is called */
 
 	cloned_gwdata->asm_data = NULL;
-	cloned_gwdata->dd_data = NULL;
 
 /* Each cloned handle must have their own asm_data structure */
 
