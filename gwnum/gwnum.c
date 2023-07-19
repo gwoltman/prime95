@@ -411,13 +411,28 @@ void *x87_prctab[] = { x87_explode(array_entry) NULL };
 
 /* Helper macros */
 
-#ifndef isinf
-#define isinf(x)		((x) != 0.0 && (x) == 2.0*(x))
-#endif
-#ifndef isnan
-#define isnan(x)		((x) != (x))
-#endif
-#define is_valid_double(x)	(! isnan (x) && ! isinf (x))
+// These macros were required before the C99 standard
+//#ifndef isinf
+//#define isinf(x)		((x) != 0.0 && (x) == 2.0*(x))
+//#endif
+//#ifndef isnan
+//#define isnan(x)		((x) != (x))
+//#endif
+//#define is_valid_double(x)	(! isnan (x) && ! isinf (x))
+
+// Instead, I'm using a home grown solution that seems to be faster using isfinite macro.
+// From the internet describing layout of a double:
+// If sign = 0 && exponent == 11111111111 && mantissa == 0   =>   +Infinity
+// If sign = 1 && exponent == 11111111111 && mantissa == 0   =>   -Infinity
+// If             exponent == 11111111111 && mantissa != 0   =>   NaN
+// If             exponent != 11111111111                    =>   Finite
+inline int is_valid_double (double x) {
+	union uint64_double { uint64_t x64; double xdbl; } xcast;
+	xcast.xdbl = x;
+	return ((xcast.x64 & 0x7ff0000000000000ULL) != 0x7ff000000000000);
+}
+#define is_valid_double_addr(x)	(((* (uint64_t *) x) & 0x7ff0000000000000ULL) != 0x7ff000000000000)
+
 
 /* More #defines */
 
@@ -7453,7 +7468,7 @@ int get_fft_value (
 	unsigned long i,
 	long	*retval)
 {
-	double	val;
+	double	val, *valaddr;
 
 /* Make sure data is not FFTed.  Caller should really try to avoid this scenario. */
 
@@ -7461,8 +7476,9 @@ int get_fft_value (
 
 /* Get the FFT data and validate it */
 
-	val = * addr (gwdata, g, i);
-	if (! is_valid_double (val)) return (GWERROR_BAD_FFT_DATA);
+	valaddr = addr (gwdata, g, i);
+	if (! is_valid_double_addr (valaddr)) return (GWERROR_BAD_FFT_DATA);
+	val = *valaddr;
 
 /* Rational and AVX-512 FFTs are not weighted */
 
@@ -9316,10 +9332,9 @@ int gwiszero (
 #define	MAX_NZ_COUNT 16
 	count = 0;
 	for (j = 0; j < gwdata->FFTLEN; j++) {
-		double	val;
-		val = * addr (gwdata, gg, j);
-		if (! is_valid_double (val)) return (GWERROR_BAD_FFT_DATA);
-		if (val == 0.0) continue;
+		double	*valaddr = addr (gwdata, gg, j);
+		if (! is_valid_double_addr (valaddr)) return (GWERROR_BAD_FFT_DATA);
+		if (*valaddr == 0.0) continue;
 		if (++count > MAX_NZ_COUNT) return (FALSE);	// Too many non zero words, the gwnum is not zero.
 	}
 	if (count) {			// The gwnum may be zero but needs a more accurate test...
@@ -9452,7 +9467,7 @@ void asm_mul (
 	gw_fft (gwdata, asm_data);
 //if (rand() % 100 < 1) *d += 1.0;			// Generate random errors (for caller to test error recovery)
 //if (rand() % 1000 < 2) *d += 1.0E200 * 1.0E200;
-	if (! is_valid_double (gwsumout (gwdata, d))) gwdata->GWERROR |= 1;
+	if (! is_valid_double_addr (&gwsumout (gwdata, d))) gwdata->GWERROR |= 1;
 	gwdata->fft_count += (asm_data->ffttype <= 3) ? 2.0 : 1.0;
 
 /* For the two destination case, mark the source fully FFTed and calculate the address for the multiplication destination */
