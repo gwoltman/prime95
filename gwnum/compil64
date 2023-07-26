@@ -149,10 +149,10 @@ amd64\release\cpuid.obj: cpuid.c cpuid.h
 amd64\debug\cpuid.obj: cpuid.c cpuid.h
     $(cl64d) /Foamd64\debug\cpuid.obj cpuid.c
 
-amd64\release\gwnum.obj: gwnum.c gwnum.h
+amd64\release\gwnum.obj: gwnum.c gwnum.h gwdbldbl.h
     $(cl64) /Foamd64\release\gwnum.obj gwnum.c
 
-amd64\debug\gwnum.obj: gwnum.c gwnum.h
+amd64\debug\gwnum.obj: gwnum.c gwnum.h gwdbldbl.h
     $(cl64d) /Foamd64\debug\gwnum.obj gwnum.c
 
 amd64\release\gwtables.obj: gwtables.c gwnum.h
