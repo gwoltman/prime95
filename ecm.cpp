@@ -10159,10 +10159,14 @@ restart1:
 	stop_reason = start_sieve_with_limit (thread_num, pm1data.stage1_prime, (uint32_t) sqrt((double) pm1data.B), &pm1data.sieve_info);
 	if (stop_reason) goto exit;
 
-/* Loop doing small batches of primes until interim_B is finished.  Default batch size is based on FFT length (on my aging Broadwell CPUs I get */
-/* about 200000 squarings for a single core in 3 seconds on a 4K FFT, since exponentiation also does some multiplies I chose 150000 bits as the default). */
+/* Loop doing small batches of primes until interim_B is finished.  The batch size needs to be limited in size as exponentiate is uninterruptible. */
+/* Default batch size is based on FFT length (on my aging Broadwell CPUs I get about 200000 squarings for a single core in 3 seconds on a 4K FFT, */
+/* since exponentiation also does some multiplies I chose 150000 4K FFT squarings as the default).  For efficiency, a minimum batch size of 40 is */
+/* the default (if that's too slow one might should consider different work!).  A default of 40 should give calc_exp2 room to generate a temp that is */
+/* less than 64 bits which exponentiate can handle without any temporaries. */
 
-	stage1_batch_size = (int) ((double) IniGetInt (INI_FILE, "Stage1BatchSize", 150000) / ((double) pm1data.gwdata.FFTLEN / 4096.0));
+	stage1_batch_size = (int) ((double) IniGetInt (INI_FILE, "Stage1Batch4KMults", 150000) * pm1data.gwdata.num_threads / (pm1data.gwdata.FFTLEN / 4096.0));
+	if (stage1_batch_size < IniGetInt (INI_FILE, "Stage1BatchSizeMin", 40)) stage1_batch_size = IniGetInt (INI_FILE, "Stage1BatchSizeMin", 40);
 
 /* Most likely we are working on small exponents where 100MB of memory gives us all the temporaries we could possibly want. */
 
