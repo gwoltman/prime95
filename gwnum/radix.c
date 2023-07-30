@@ -4,7 +4,7 @@
 | This file contains the C routines for radix conversion when required
 | by gianttogw or gwtogiant.
 | 
-|  Copyright 2020-2021 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2020-2023 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 /* Include files */
@@ -843,7 +843,6 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 
 		g->sign = (long) (outptr - g->n);
 		while (g->sign && g->n[g->sign-1] == 0) g->sign--;
-		if (negative_gwnum) g->sign = -g->sign;
 
 /* If accumulator is -1, the gwnum is negative.  Ugh.  Flip the bits and sign.   This should be exceedingly rare as we detected most negative gwnums earlier. */
 
@@ -853,6 +852,8 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 			iaddg (1, g);
 			g->sign = -g->sign;
 		}
+
+		if (negative_gwnum) g->sign = -g->sign;
 	}
 
 /* Finish cleanup */
