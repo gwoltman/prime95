@@ -794,27 +794,16 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 	gwfree (work_gwdata, t3);
 
 /* Finally, write the converted result (t1) to a giant.  We cannot simply call gwtogiant as that may write to too many words in the */
-/* giant (work_gwdata->bit_length may be significantly larger than gwdata->bit_length).  So, we copied much of the gwtogiant code which */
+/* giant (work_gwdata->bit_length may be significantly larger than gwdata->bit_length).  So, we copied much of the k=1, b=2, c=-1 gwtogiant code which */
 /* also lets us perform a few optimizations. */
 
 	{
+		gwiter	iter;
 		long	val;
 		int64_t accum;
 		int	bits, accumbits;
-		unsigned long i, limit;
+		unsigned long limit;
 		uint32_t *outptr;
-		bool	negative_gwnum;
-
-/* Detect if gwnum is negative.  At least most of the time: say maximum FFT value is 100, then top words of (0, -25) is negative and properly detected, */
-/* but top words of (1, -125) wouldn't be properly detected as negative.  Handling negative values in the main loop is faster than a postprocessing */
-/* pass that negates the result. */
-
-		for (limit = work_gwdata->FFTLEN; limit > 0; limit--) {		/* Find top word */
-			err_code = get_fft_value (work_gwdata, t1, limit-1, &val);
-			if (err_code) return (err_code);
-			if (val != 0) break;
-		}
-		negative_gwnum = (val < 0);
 
 /* Collect bits until we have all of them */
 
@@ -822,12 +811,12 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 		accumbits = 0;
 		outptr = g->n;
 		limit = divide_rounding_up ((int) ceil (gwdata->bit_length), 32) + 1;
-		for (i = 0; ; i++) {
-			if (i < (int) work_gwdata->FFTLEN) {
-				err_code = get_fft_value (work_gwdata, t1, i, &val);
+		for (gwiter_init_zero (work_gwdata, &iter); ; gwiter_next (work_gwdata, &iter)) {
+			if (gwiter_index (work_gwdata, &iter) < (int) work_gwdata->FFTLEN) {
+				err_code = gwiter_get_fft_value (work_gwdata, &iter, t1, &val);
 				if (err_code) goto err;
-				if (negative_gwnum) val = -val;
-				bits = work_gwdata->NUM_B_PER_SMALL_WORD + ((big_word_flags >> (i % num_big_word_flags)) & 1);
+				bits = work_gwdata->NUM_B_PER_SMALL_WORD;
+				if (gwiter_is_big_word (work_gwdata, &iter)) bits++;
 				accum += ((int64_t) val) << accumbits;
 				accumbits += bits;
 				if (accumbits < 32) continue;
@@ -844,16 +833,11 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 		g->sign = (long) (outptr - g->n);
 		while (g->sign && g->n[g->sign-1] == 0) g->sign--;
 
-/* If accumulator is -1, the gwnum is negative.  Ugh.  Flip the bits and sign.   This should be exceedingly rare as we detected most negative gwnums earlier. */
+/* Divide the upper bits by k, leave the remainder in the upper bits and multiply the quotient by c and subtract that from the lower bits. */
 
-		if (accum == -1) {
-			for (int j = 0; j < g->sign; j++) g->n[j] = ~g->n[j];
-			while (g->sign && g->n[g->sign-1] == 0) g->sign--;
-			iaddg (1, g);
-			g->sign = -g->sign;
-		}
-
-		if (negative_gwnum) g->sign = -g->sign;
+		stackgiant(upper,5);					// Upper bits shouldn't be much more than k^2 (100 bits)
+		gtogshiftrightsplit (work_gwdata->n, g, upper, accum);	// Split v at bit n into two giants optionally negating upper bits
+		if (!isZero (upper)) addg (upper, g);			// Lower bits minus upper bits * c
 	}
 
 /* Finish cleanup */

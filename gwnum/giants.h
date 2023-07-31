@@ -188,6 +188,13 @@ void 	gshiftleft(int bits, giant g);
 #define	gshiftright(n,g)	{if (n) gtogshiftright (n, g, g);}
 void 	gtogshiftright (int bits, giant src, giant dest);
 
+// Highly specialized routine for gwnum's gwtogiant.  Like gtogshiftright extract top bits of src and copy them to dest.
+// However if accum == -1 then flip dest bits and make dest negative.  Also clear src bits that were copied to dest.
+void gtogshiftrightsplit (int bits, giant src, giant dest, int64_t accum);
+
+// Highly specialized routine for gwnum's gwtogiant, sets top bits of dest.  dest = (dest % 2^bits) + (src * 2^bits)
+void gtogshiftleftunsplit (int bits, giant src, giant dest);
+
 /* If 1/x exists (mod n), then x := 1/x.  If
  * inverse does not exist, then x := - GCD(n, x). */
 int 	invg(giant n, giant x);

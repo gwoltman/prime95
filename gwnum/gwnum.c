@@ -8,7 +8,7 @@
 |  Copyright 2002-2023 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
-/* Include files */
+/* Include files and a forward declaration! */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,6 +22,8 @@
 #include "gwtables.h"
 #include "gwini.h"
 #include "gwutil.h"
+unsigned long dwpn_col (gwhandle *gwdata, unsigned long word);
+#define DBLDBL_INLINES
 #include "gwdbldbl.h"
 #include "gwbench.h"
 #include "radix.h"
@@ -4912,6 +4914,28 @@ int internal_gwsetup (
 		if (retcode) { gwdone (gwdata); return (retcode); }
 	}
 
+/* Test new gwiter routines */
+
+#ifdef GDEBUG
+	gwiter iter;
+	gwiter_init_zero (gwdata, &iter);
+	gwnum g = gwalloc (gwdata);
+	for (unsigned long i = 0; i < gwdata->FFTLEN; i++, gwiter_next (gwdata, &iter)) {
+		long val;
+		ASSERTG (gwiter_index (gwdata, &iter) == i);
+		ASSERTG (gwiter_addr_offset (gwdata, &iter) == addr_offset (gwdata, i));
+		ASSERTG (gwiter_addr (gwdata, &iter, g) == addr (gwdata, g, i));
+		ASSERTG (gwiter_is_big_word (gwdata, &iter) == is_big_word (gwdata, i));
+		set_fft_value (gwdata, g, i, 987654321);
+		gwiter_get_fft_value (gwdata, &iter, g, &val);
+		ASSERTG (val == 987654321);
+		gwiter_set_fft_value (gwdata, &iter, g, -123456789);
+		gwiter_get_fft_value (gwdata, &iter, g, &val);
+		ASSERTG (val == -123456789);
+	}
+	gwfree (gwdata, g);
+#endif
+
 /* Success */
 
 	return (0);
@@ -7441,6 +7465,69 @@ double *addr (
 	return ((double *) ((char *) g + addr_offset (gwdata, i)));
 }
 
+/* An iterator can be used for faster incrementing through FFT data elements */
+
+void gwiter_init_zero (		/* Init iterator to element zero */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwiter	*iter)		/* Iterator to initialize */
+{
+/*GW: Need flag or separate routine indicating accessing unFFTed data or FFTed data -- saves repeated checking of FFT_state in get_value */
+	iter->index = 0;
+	gwcached_init_zero (gwdata, iter->cached_data);
+	iter->addr_offset = 0;
+	iter->big_word = ((double) gwdata->NUM_B_PER_SMALL_WORD != gwdata->avg_num_b_per_word);
+}
+
+void gwiter_init (		/* Init iterator to given element (typically zero) */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwiter	*iter,		/* Iterator to initialize */
+	unsigned long n)
+{
+/*GW: Need flag or separate routine indicating accessing unFFTed data or FFTed data -- saves repeated checking of FFT_state in get_value */
+	iter->index = n;
+	gwcached_init (gwdata, iter->cached_data, n);
+	iter->addr_offset = addr_offset (gwdata, n);
+	iter->big_word = gwcached_is_big_word (gwdata->dd_data, iter->cached_data);
+}
+
+void gwiter_next (		/* Position to next element */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwiter	*iter)		/* Iterator to initialize */
+{
+	iter->index++;
+
+//GW: eliminate the if statement by calling addr_offset and is_big_word only when necessary?
+//GW: Add asserts in gwnum.h macros that index < FFTLEN
+	if (iter->index < gwdata->FFTLEN) {
+		gwcached_next (gwdata, iter->cached_data, iter->index);
+		iter->addr_offset = addr_offset (gwdata, iter->index);
+		iter->big_word = gwcached_is_big_word (gwdata->dd_data, iter->cached_data);
+//#define foof	((struct gwdbldbl_constants_partial *) gwdata->dd_data)
+//uint64_t tmp0, tmp1, tmp2, tmp3;
+//	tmp0 = iter->index * foof->int_bpw;					// X.
+//	tmp1 = (uint64_t) iter->index * (uint64_t) foof->frac_bpw1;		// A.B
+//	tmp2 = (uint64_t) iter->index * (uint64_t) foof->frac_bpw2;		// 0.CD
+//	tmp3 = (uint64_t) iter->index * (uint64_t) foof->frac_bpw3;		// 0.0EF
+//	ASSERTG ((uint32_t) tmp3-1 == (uint32_t) iter->base[0]);
+//	tmp2 += (tmp3 >> 32);						// Cannot overflow
+//	ASSERTG ((uint32_t) tmp2 == (uint32_t) (iter->base[0] >> 32));
+//	tmp1 += (tmp2 >> 32);						// Cannot overflow
+//	ASSERTG ((uint32_t) tmp1 == (uint32_t) iter->base[1]);
+//	tmp0 += (uint32_t) (tmp1 >> 32);				// Cannot overflow
+//	ASSERTG ((uint32_t) tmp0+1 == (uint32_t) (iter->base[1] >> 32));
+	}
+}
+void gwiter_prev (		/* Position to previous element */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwiter	*iter)		/* Iterator to initialize */
+{
+	ASSERTG (iter->index != 0);
+	iter->index--;
+	iter->addr_offset = addr_offset (gwdata, iter->index);
+	iter->big_word = is_big_word (gwdata, iter->index);
+//GW BUG - need to maintain cached data: base, dwpncol
+}
+
 /* Return the amount of data allocated by gwsetup */
 
 unsigned long gwmemused (
@@ -7458,9 +7545,7 @@ unsigned long gwnum_size (
 	return (gwnum_datasize (gwdata) + GW_HEADER_SIZE (gwdata) + sizeof (void *) + gwdata->GW_ALIGNMENT + 2 * sizeof (void *));
 }
 
-/* Each FFT word is multiplied by a two-to-phi value.  These */
-/* routines set and get the FFT value without the two-to-phi */
-/* multiplier. */
+/* Each FFT word is multiplied by a two-to-phi value.  These routines set and get the FFT value without the two-to-phi multiplier. */
 
 int get_fft_value (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -7497,10 +7582,48 @@ int get_fft_value (
 
 /* Round the value to the nearest integer */
 
-	if (val < -0.5)
-		*retval = (long) (val - 0.5);
-	else
-		*retval = (long) (val + 0.5);
+	round_double_to_int32 (val, *retval);
+
+/* Return success */
+
+	return (0);
+}
+
+int gwiter_get_fft_value (			/* Return unweighted value of FFT data element */
+	gwhandle *gwdata,			/* Handle initialized by gwsetup */
+	gwiter	*iter,
+	gwnum	g,
+	long	*retval)
+{
+	double	val, *valaddr;
+
+	ASSERTG (FFT_state (g) == NOT_FFTed);
+	ASSERTG (iter->index < gwdata->FFTLEN);
+
+/* Get the FFT data and validate it */
+
+	valaddr = gwiter_addr (gwdata, iter, g);
+	if (! is_valid_double_addr (valaddr)) return (GWERROR_BAD_FFT_DATA);
+	val = *valaddr;
+
+/* Rational and AVX-512 FFTs are not weighted */
+
+	if (!gwdata->RATIONAL_FFT && !(gwdata->cpu_flags & CPU_AVX512F)) {
+
+/* Handle r4dwpn FFTs which are only partially normalized */
+
+		if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN)
+			val = val * gwcached_partial_weight_inverse_sloppy (gwdata->dd_data, iter->cached_data, iter->index);
+
+/* Multiply by two-to-minus-phi to generate an integer. */
+
+		else
+			val = val * gwcached_weight_inverse_sloppy (gwdata->dd_data, iter->cached_data, iter->index);
+	}
+
+/* Round the value to the nearest integer */
+
+	round_double_to_int32 (val, *retval);
 
 /* Return success */
 
@@ -7533,6 +7656,32 @@ void set_fft_value (
 	* addr (gwdata, g, i) = val * gwfft_weight_sloppy (gwdata->dd_data, i);
 }
 
+void gwiter_set_fft_value (		/* Weight and set FFT data element */
+	gwhandle *gwdata,		/* Handle initialized by gwsetup */
+	gwiter	*iter,
+	gwnum	g,
+	long	val)
+{
+	double *valaddr = gwiter_addr (gwdata, iter, g);
+
+	ASSERTG (iter->index < gwdata->FFTLEN);
+
+/* Handle the rational and AVX-512 FFT case quickly (not weighted) */
+
+	if (gwdata->RATIONAL_FFT || (gwdata->cpu_flags & CPU_AVX512F) || val == 0)
+		*valaddr = val;
+
+/* Handle r4dwpn FFTs which are only partially weighted */
+
+	else if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN)
+		*valaddr = val * gwcached_partial_weight_sloppy (gwdata->dd_data, iter->cached_data, iter->index);
+
+/* Multiply by two-to-phi to generate the proper double */
+
+	else
+		*valaddr = gwcached_weight_sloppy (gwdata->dd_data, iter->cached_data, iter->index, val);
+}
+
 /* Some words in the FFT data contain floor(p/N), some words contain */
 /* floor(p/N)+1 bits.  This function returns TRUE in the latter case. */
 
@@ -7542,8 +7691,7 @@ int is_big_word (
 {
 	unsigned long base, next_base;
 
-/* Compute the number of b in this word.  It is a big word if */
-/* the number of b is more than NUM_B_PER_SMALL_WORD. */
+/* Compute the number of b in this word.  It is a big word if the number of b is more than NUM_B_PER_SMALL_WORD. */
 
 	base = gwfft_base (gwdata->dd_data, i);
 	next_base = gwfft_base (gwdata->dd_data, i+1);
@@ -8861,7 +9009,7 @@ void gianttogw (
 /* Now convert the giant to gwnum format.  For base 2 we simply copy bits. */
 
 		if (gwdata->b == 2) {
-			unsigned long i, limit;
+			unsigned long limit;
 			int	bits, bits1, bits2, e1len, accumbits;
 			int64_t	accum, value;
 			uint32_t *e1;
@@ -8880,7 +9028,8 @@ void gianttogw (
 			accum = 0;
 			accumbits = 0;
 
-			for (i = 0; i < limit; i++) {
+			gwiter iter;
+			for (gwiter_init_zero (gwdata, &iter); gwiter_index (gwdata, &iter) < limit; gwiter_next (gwdata, &iter)) {
 
 				// If needed, add another 32 input bits to accumulator
 				if (accumbits < 28) {
@@ -8890,15 +9039,15 @@ void gianttogw (
 
 				// Process top word without sign extension, otherwise grab bits with sign extension.
 				// Special case zero bits as shift left 64 may be undefined.
-				bits = (i == limit - 1) ? 32 : is_big_word (gwdata, i) ? bits2 : bits1;
+				bits = (gwiter_index (gwdata, &iter) == limit - 1) ? 32 : gwiter_is_big_word (gwdata, &iter) ? bits2 : bits1;
 				value = bits ? (accum << (64 - bits)) >> (64 - bits) : 0;
-				set_fft_value (gwdata, g, i, (long) value);
+				gwiter_set_fft_value (gwdata, &iter, g, (long) value);
 				accum = (accum - value) >> bits;
 				accumbits -= bits;
 			}
 
 			// Clear the upper words
-			for ( ; i < gwdata->FFTLEN; i++) set_fft_value (gwdata, g, i, 0);
+			for ( ; gwiter_index (gwdata, &iter) < gwdata->FFTLEN; gwiter_next (gwdata, &iter)) gwiter_set_fft_value (gwdata, &iter, g, 0);
 		}
 
 /* Otherwise (non-base 2), we do a recursive divide and conquer radix conversion. */
@@ -9012,6 +9161,7 @@ int gwtogiant (
 	gwnum	gg,
 	giant	v)
 {
+	stackgiant(k,2);
 	int	err_code;
 	unsigned long limit;
 
@@ -9027,6 +9177,16 @@ int gwtogiant (
 /* a result value of zero is less likely to cause problems/crashes. */
 
 	v->sign = 0;
+
+/* Rather than a separate never-will-be-multithreaded giants call to mul-by-k, prepare to mul-by-k as we go (at least in the b=2 case). */
+
+	dbltog (gwdata->k, k);
+	bool k_is_small = (k->sign <= 1);
+	bool k_is_one = (k_is_small && k->n[0] == 1);
+#define klo	(k->n[0])
+#define khi	(k->n[1])
+#define k64	(*(uint64_t *)k->n)
+	if (k_is_small) khi = 0;	// Needed for k64 to work
 
 /* If this is a general-purpose mod, then only convert the needed words */
 /* which will be less than half the FFT length.  If this is a zero padded */
@@ -9063,47 +9223,26 @@ int gwtogiant (
 /* If base is 2 we can simply copy the bits out of each FFT word */
 
 	if (gwdata->b == 2) {
+		gwiter	iter;
 		long	val;
 		int64_t accum;
-		int	j, bits, accumbits;
-		unsigned long i;
-		uint32_t *outptr, khi, klo, outval;
-		uint64_t k, outcarry;
-		bool	negative_gwnum, k_is_one, k_is_small;
-
-/* Detect if gwnum is negative.  At least most of the time: say maximum FFT value is 100, then top words of (0, -25) is negative and properly detected, */
-/* but top words of (1, -125) wouldn't be properly detected as negative.  Handling negative values in the main loop is faster than a postprocessing */
-/* pass that negates the result. */
-
-		for ( ; limit > 0; limit--) {		/* Find top word */
-			err_code = get_fft_value (gwdata, gg, limit-1, &val);
-			if (err_code) return (err_code);
-			if (val != 0) break;
-		}
-		negative_gwnum = (val < 0);
-
-/* Rather than a separate not-multithreaded giants call to mul-by-k, prepare to mul-by-k as we go. */
-
-		k = (uint64_t) gwdata->k;
-		khi = (uint32_t) (k >> 32);
-		klo = (uint32_t) k;
-		k_is_small = (khi == 0);
-		k_is_one = (k_is_small && klo == 1);
-		outcarry = 0;
+		int	bits, accumbits;
+		uint32_t *outptr, outval;
+		uint64_t outcarry;
 
 /* Collect bits until we have all of them */
 
 		accum = 0;
 		accumbits = 0;
 		outptr = v->n;
-		for (i = 0; ; i++) {
+		outcarry = 0;
+		for (gwiter_init_zero (gwdata, &iter); ; gwiter_next (gwdata, &iter)) {
 			// Process next FFT word
-			if (i < limit) {
-				err_code = get_fft_value (gwdata, gg, i, &val);
+			if (gwiter_index (gwdata, &iter) < limit) {
+				err_code = gwiter_get_fft_value (gwdata, &iter, gg, &val);
 				if (err_code) return (err_code);
-				if (negative_gwnum) val = -val;
 				bits = gwdata->NUM_B_PER_SMALL_WORD;
-				if (is_big_word (gwdata, i)) bits++;
+				if (gwiter_is_big_word (gwdata, &iter)) bits++;
 				accum += ((int64_t) val) << accumbits;
 				accumbits += bits;
 				// See if we have 32-bits to output
@@ -9131,22 +9270,35 @@ int gwtogiant (
 			}
 
 			// Are we done?  We need to process limit FFT words plus the outcarry.
-			if (i >= limit && ((accum == 0 && outcarry == 0) || (accum == -1 && outcarry == k - 1))) break;
+			if (gwiter_index (gwdata, &iter) >= limit && ((accum == 0 && outcarry == 0) || (accum == -1 && outcarry == k64 - 1))) break;
 		}
 
 /* Set the length */
 
-		v->sign = (long) (outptr - v->n);
+		v->sign = (int) (outptr - v->n);
 		while (v->sign && v->n[v->sign-1] == 0) v->sign--;
-		if (negative_gwnum) v->sign = -v->sign;
 
-/* If accumulator is -1, the gwnum is negative.  Ugh.  Flip the bits and sign.   This should be exceedingly rare as we detected most negative gwnums earlier. */
+/* Divide the upper bits by k, leave the remainder in the upper bits and multiply the quotient by c and subtract that from the lower bits. */
 
-		if (accum == -1) {
-			for (j = 0; j < v->sign; j++) v->n[j] = ~v->n[j];
-			while (v->sign && v->n[v->sign-1] == 0) v->sign--;
-			iaddg (1, v);
-			v->sign = -v->sign;
+		stackgiant(upper,5);					// Upper bits shouldn't be much more than k^2 (100 bits)
+		gtogshiftrightsplit (gwdata->n, v, upper, accum);	// Split v at bit n into two giants optionally negating upper bits
+		if (!isZero (upper)) {
+			if (k_is_one) {
+				imulg (gwdata->c, upper);	// Upper bits times c
+				subg (upper, v);		// Lower bits minus upper bits * c
+			} else {
+				stackgiant(quot,5);
+				gtog (upper, quot);
+				divg (k, quot);			// Upper bits over k
+				stackgiant(tmp,5);
+				gtog (k, tmp);
+				mulg (quot, tmp);
+				subg (tmp, upper);		// Upper bits mod k
+				if (upper->sign < 0) iaddg (-1, quot), addg (k, upper); // Make negative remainder positive
+				gtogshiftleftunsplit (gwdata->n, upper, v);	// Copy remainder to high bits of v
+				imulg (gwdata->c, quot);	// Upper bits over k times c
+				subg (quot, v);
+			}
 		}
 	}
 
@@ -9158,12 +9310,12 @@ int gwtogiant (
 
 /* Since all gwnums are premultiplied by the inverse of k, we must now multiply by k to get the true result. */
 
-		if (gwdata->k > 1.0) {
-			stackgiant(k,2);
-			dbltog (gwdata->k, k);
-			mulgi (&gwdata->gdata, k, v);
-		}
+		if (!k_is_one) mulgi (&gwdata->gdata, k, v);
 	}
+
+#undef klo
+#undef khi
+#undef k64
 
 /* The gwnum is not guaranteed to be smaller than k*b^n+c.  Handle this possibility.  This also converts negative values to positive. */
 
