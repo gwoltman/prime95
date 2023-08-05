@@ -171,7 +171,6 @@ void gwfft_colweights (void *, void *, int);
 #define last_inv_weight_j	((uint32_t *) &cached_data[9])[1]	/* Last non-partial sloppy inv weight index */
 #define last_inv_weight_sloppy	(* (double *) &cached_data[10])		/* Last non-partial sloppy inv weight */
 #define inv_weight_sloppy_muls	((uint32_t *) &cached_data[11])[0]	/* Count of multiplies used in creating last_inv_weight_sloppy */
-#define gwnum_ao_values		((uint32_t *) &cached_data[12])		/* Nine 32-bit values gwnum can use to accelerate next addr_offset calculation */
 
 // Extract middle 64 bits of base 128 (the fractional part).  Three methods provided below.  On my Windows laptop, the unaligned load was the slowest.
 //#define base128middle		(* (uint64_t *) ((char *) base128 + sizeof (uint32_t)))
@@ -190,7 +189,7 @@ struct gwdbldbl_constants_partial {
 // Faster routines for sequential access with an iterator
 
 // Init FFT base counter for element zero
-void inline gwcached_init_zero (gwhandle *gwdata, uint64_t *cached_data) {
+void inline gwcached_init_zero (uint64_t *cached_data) {
 	base128[0] = 0xFFFFFFFFFFFFFFFFULL;	// Faster is_big_word & weight calculations if counter starts at just under 1.0 rather than the more logical 0.0
 	base128[1] = 0xFFFFFFFFULL;
 	partial_weight[0] = 0.0;		// Flag that cached partial weights are not set
@@ -200,8 +199,8 @@ void inline gwcached_init_zero (gwhandle *gwdata, uint64_t *cached_data) {
 }
 
 // Init FFT base counter to arbitary element
-void inline gwcached_init (gwhandle *gwdata, uint64_t *cached_data, unsigned long n) {
-	struct gwdbldbl_constants_partial *dd_data = (struct gwdbldbl_constants_partial *) gwdata->dd_data;
+void inline gwcached_init (void *dd_data_arg, uint64_t *cached_data, unsigned long n) {
+	struct gwdbldbl_constants_partial *dd_data = (struct gwdbldbl_constants_partial *) dd_data_arg;
 
 	base128[0] = 0xFFFFFFFFFFFFFFFFULL;	// Faster is_big_word & weight calculations if counter starts at just under 1.0 rather than the more logical 0.0
 	base128[1] = 0xFFFFFFFFULL;
@@ -224,8 +223,8 @@ void inline gwcached_init (gwhandle *gwdata, uint64_t *cached_data, unsigned lon
 }
 
 // Update cached data for next FFT element
-void inline gwcached_next (gwhandle *gwdata, uint64_t *cached_data, unsigned long n) {
-	struct gwdbldbl_constants_partial *dd_data = (struct gwdbldbl_constants_partial *) gwdata->dd_data;
+void inline gwcached_next (void *dd_data_arg, uint64_t *cached_data, unsigned long n) {
+	struct gwdbldbl_constants_partial *dd_data = (struct gwdbldbl_constants_partial *) dd_data_arg;
 
 	// Maintain cached data for calculating FFT base (index * n / FFTLEN)
 #ifdef USE_INTRINSICS
@@ -263,7 +262,6 @@ inline uint32_t get_cached_dwpncol_value (uint64_t *cached_data) { return (dwpnc
 inline void inc_cached_dwpncol_value (uint64_t *cached_data) { dwpncol_value++; }
 inline void set_cached_dwpncol_value (uint64_t *cached_data, uint32_t val) { dwpncol_value = val; }
 inline void clear_cached_partial_weights (uint64_t *cached_data) { partial_weight[0] = partial_inv_weight[0] = 0.0; }
-inline uint32_t *get_cached_ao_values (uint64_t *cached_data) { return (gwnum_ao_values); }
 
 double gwcached_weight_sloppy (void *, uint64_t *, unsigned long, long);
 double gwcached_weight_inverse_sloppy (void *, uint64_t *, unsigned long);

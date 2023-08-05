@@ -1244,20 +1244,24 @@ void init_FFT1 (gwhandle *);
 
 /* Use this iterator for faster incrementing through FFT data elements */
 typedef struct gwiter_struct {
-	unsigned long index;		/* Element the iterator is currently positioned on */
-	unsigned long addr_offset;	/* Offset to address of the FFT data */
+	gwhandle *gwdata;		/* Saved gwhandle */
+	gwnum	g;			/* Saved pointer to gwnum to iterate through */
+	uint32_t index;			/* Element the iterator is currently positioned on */
+	intptr_t addr_offset;		/* Offset to address of the FFT data */
 	bool	big_word;		/* TRUE if element is a big word */
-	uint64_t cached_data[20];	/* Cached data to accelerate sequential access to a gwnum */
+	uint32_t switcher;		/* Combination of CPU_FLAGS, one vs. two pass, FFT type */
+	uint32_t ao_values[9];		/* Nine values used to accelerate next addr_offset calculations */
+	uint64_t cached_data[12];	/* Cached data to accelerate sequential access to a gwnum */
 } gwiter;
-void gwiter_init_zero (gwhandle *h, gwiter *iter);						/* Init iterator to element zero */
-void gwiter_init (gwhandle *h, gwiter *iter, unsigned long);					/* Init iterator to given element */
-void gwiter_next (gwhandle *h, gwiter *iter);							/* Position to next element */
-#define gwiter_index(h, iter)		((iter)->index)						/* Return element iterator is positioned on */
-#define gwiter_addr_offset(h, iter)	((iter)->addr_offset)					/* Return byte offset to address of the FFT data element */
-#define gwiter_addr(h, iter, g)		((double *)((char *)(g) + (iter)->addr_offset))		/* Return pointer to FFT data element */
-#define gwiter_is_big_word(h, iter)	((iter)->big_word)					/* Return TRUE if FFT data element is a big word */
-int gwiter_get_fft_value (gwhandle *h, gwiter *iter, gwnum g, long *);				/* Return unweighted value of FFT data element */
-void gwiter_set_fft_value (gwhandle *h, gwiter *iter, gwnum g, long);				/* Weight and set FFT data element */
+void gwiter_init_zero (gwhandle *h, gwiter *iter, gwnum g);					/* Init iterator to gwnum g element zero */
+void gwiter_init (gwhandle *h, gwiter *iter, gwnum g, uint32_t);				/* Init iterator to gwnum g and given element */
+void gwiter_next (gwiter *iter);								/* Position to next element */
+#define gwiter_index(iter)		((iter)->index)						/* Return element iterator is positioned on */
+#define gwiter_addr_offset(iter)	((iter)->addr_offset)					/* Return byte offset to address of the FFT data element */
+#define gwiter_addr(iter)		((double *)((char *)((iter)->g) + (iter)->addr_offset))	/* Return pointer to FFT data element */
+#define gwiter_is_big_word(iter)	((iter)->big_word)					/* Return TRUE if FFT data element is a big word */
+int gwiter_get_fft_value (gwiter *iter, int32_t *);						/* Return unweighted value of FFT data element */
+void gwiter_set_fft_value (gwiter *iter, int32_t);						/* Weight and set FFT data element */
 
 /* Specialized routines that let the internal giants code share the free memory pool used by gwnums. */
 // void gwfree_temporarily (gwhandle *, gwnum);		DEPRECATED

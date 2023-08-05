@@ -4915,38 +4915,40 @@ int internal_gwsetup (
 /* Test new gwiter routines */
 
 #ifdef GDEBUG
+	if (!gwdata->information_only) {
 	gwiter iter;
-	gwiter_init_zero (gwdata, &iter);
 	gwnum g = gwalloc (gwdata);
-	for (unsigned long i = 0; i < gwdata->FFTLEN; i++, gwiter_next (gwdata, &iter)) {
-		long val;
-		ASSERTG (gwiter_index (gwdata, &iter) == i);
-		ASSERTG (gwiter_addr_offset (gwdata, &iter) == addr_offset (gwdata, i));
-		ASSERTG (gwiter_addr (gwdata, &iter, g) == addr (gwdata, g, i));
-		ASSERTG (gwiter_is_big_word (gwdata, &iter) == is_big_word (gwdata, i));
+	long val;
+	int32_t val2;
+	gwiter_init_zero (gwdata, &iter, g);
+	for (unsigned long i = 0; i < gwdata->FFTLEN; i++, gwiter_next (&iter)) {
+		ASSERTG (gwiter_index (&iter) == i);
+		ASSERTG (gwiter_addr_offset (&iter) == addr_offset (gwdata, i));
+		ASSERTG (gwiter_addr (&iter) == addr (gwdata, g, i));
+		ASSERTG (gwiter_is_big_word (&iter) == is_big_word (gwdata, i));
 		set_fft_value (gwdata, g, i, 987654321);
-		gwiter_get_fft_value (gwdata, &iter, g, &val);
-		ASSERTG (val == 987654321);
-		gwiter_set_fft_value (gwdata, &iter, g, -123456789);
-		gwiter_get_fft_value (gwdata, &iter, g, &val);
+		gwiter_get_fft_value (&iter, &val2);
+		ASSERTG (val2 == 987654321);
+		gwiter_set_fft_value (&iter, -123456789);
+		gwiter_get_fft_value (&iter, &val);
 		ASSERTG (val == -123456789);
 	}
 	unsigned long rand_start = ((rand () << 16) + rand ()) % gwdata->FFTLEN;
-	gwiter_init (gwdata, &iter, rand_start);
-	for (unsigned long i = rand_start; i < gwdata->FFTLEN; i++, gwiter_next (gwdata, &iter)) {
-		long val;
-		ASSERTG (gwiter_index (gwdata, &iter) == i);
-		ASSERTG (gwiter_addr_offset (gwdata, &iter) == addr_offset (gwdata, i));
-		ASSERTG (gwiter_addr (gwdata, &iter, g) == addr (gwdata, g, i));
-		ASSERTG (gwiter_is_big_word (gwdata, &iter) == is_big_word (gwdata, i));
+	gwiter_init (gwdata, &iter, g, rand_start);
+	for (unsigned long i = rand_start; i < gwdata->FFTLEN; i++, gwiter_next (&iter)) {
+		ASSERTG (gwiter_index (&iter) == i);
+		ASSERTG (gwiter_addr_offset (&iter) == addr_offset (gwdata, i));
+		ASSERTG (gwiter_addr (&iter) == addr (gwdata, g, i));
+		ASSERTG (gwiter_is_big_word (&iter) == is_big_word (gwdata, i));
 		set_fft_value (gwdata, g, i, 987654321);
-		gwiter_get_fft_value (gwdata, &iter, g, &val);
-		ASSERTG (val == 987654321);
-		gwiter_set_fft_value (gwdata, &iter, g, -123456789);
-		gwiter_get_fft_value (gwdata, &iter, g, &val);
+		gwiter_get_fft_value (&iter, &val2);
+		ASSERTG (val2 == 987654321);
+		gwiter_set_fft_value (&iter, -123456789);
+		gwiter_get_fft_value (&iter, &val);
 		ASSERTG (val == -123456789);
 	}
 	gwfree (gwdata, g);
+	}
 #endif
 
 /* Success */
@@ -7478,17 +7480,35 @@ double *addr (
 	return ((double *) ((char *) g + addr_offset (gwdata, i)));
 }
 
+// gwiter_next switching constants
+
+#define AVX512_ONE_PASS		0
+#define AVX512_TWO_PASS		1
+#define AVX_ONE_PASS		2
+#define AVX_TWO_PASS		3
+#define	SSE2_ONE_PASS		4
+#define SSE2_HG_TWO_PASS	5
+#define SSE2_TWO_PASS		6
+#define X87_ONE_OR_TWO_PASS	7
+
 /* An iterator can be used for faster incrementing through FFT data elements */
 
 void gwiter_init_zero (		/* Init iterator to element zero */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwiter	*iter)		/* Iterator to initialize */
+	gwiter	*iter,		/* Iterator to initialize */
+	gwnum	g)		/* gwnum to iterate through */	  
 {
-/*GW: Need flag or separate routine indicating accessing unFFTed data or FFTed data -- saves repeated checking of FFT_state in get_value */
-/*GW: Saving gwdata and gwnum in gwiter struct saves pushing those arguments calling gwiter_next */
-/*GW: Saving gwnum means we can avoid adding addr_offset to gwnum every time (maintain the gwnum pointer instead and calc addr_offset if asked) */
+
+/* Make sure data is not FFTed.  Caller should really try to avoid this scenario. */
+
+	if (FFT_state (g) != NOT_FFTed) gwunfft (gwdata, g, g);
+
+/* Initialize iterator state */
+
+	iter->gwdata = gwdata;
+	iter->g = g;
 	iter->index = 0;
-	gwcached_init_zero (gwdata, iter->cached_data);
+	gwcached_init_zero (iter->cached_data);
 	iter->addr_offset = 0;
 	iter->big_word = ((double) gwdata->NUM_B_PER_SMALL_WORD != gwdata->avg_num_b_per_word);
 
@@ -7496,159 +7516,165 @@ void gwiter_init_zero (		/* Init iterator to element zero */
 	set_cached_dwpncol_value (iter->cached_data, 0);
 	clear_cached_partial_weights (iter->cached_data);		// Flag that cached partial weights are not set
 
+	// Create an index to quickly switch to the appropriate code in gwiter_next
+	if (gwdata->cpu_flags & CPU_AVX512F) {
+		if (gwdata->PASS1_SIZE == 0) iter->switcher = AVX512_ONE_PASS;
+		else iter->switcher = AVX512_TWO_PASS;
+	} else if (gwdata->cpu_flags & CPU_AVX) {
+		if (gwdata->PASS1_SIZE == 0) iter->switcher = AVX_ONE_PASS;
+		else iter->switcher = AVX_TWO_PASS;
+	} else if (gwdata->cpu_flags & CPU_SSE2) {
+		if (gwdata->PASS2_SIZE == 0) iter->switcher = SSE2_ONE_PASS;
+		else if (gwdata->FFT_TYPE == FFT_TYPE_HOME_GROWN) iter->switcher = SSE2_HG_TWO_PASS;
+		else iter->switcher = SSE2_TWO_PASS;
+	} else 
+		iter->switcher = X87_ONE_OR_TWO_PASS;
+
 	// Init constants and counters for next addr_offset calculations
-	uint32_t *ao_values = get_cached_ao_values (iter->cached_data);
+	uint32_t *ao_values = iter->ao_values;
 	memset (ao_values, 0, 9 * sizeof (uint32_t));
-	if (gwdata->cpu_flags & CPU_AVX512F && gwdata->PASS1_SIZE != 0) {
+	switch (iter->switcher) {
+	case AVX512_TWO_PASS:
 		// Distance one is (usually) PASS2_SIZE/8 128-byte cache lines + pads
 		ao_values[0] = gwdata->PASS2_SIZE*16 + (gwdata->PASS2_SIZE >> 8) * gwdata->FOURKBGAPSIZE + gwdata->PASS2GAPSIZE;
-	}
-	else if (gwdata->cpu_flags & CPU_AVX) {
-		if (gwdata->PASS2_SIZE == 0)
-			ao_values[4] = gwdata->FOURKBGAPSIZE ? gwdata->FOURKBGAPSIZE : gwdata->FFTLEN/2/4/4;
-		else
-			// Distance one is (usually) PASS2_SIZE/4 64-byte cache lines + pads
-			ao_values[0] = gwdata->PASS2_SIZE*16 + (gwdata->PASS2_SIZE >> 8) * gwdata->FOURKBGAPSIZE + gwdata->PASS2GAPSIZE;
-	}
-	else if (gwdata->cpu_flags & CPU_SSE2) {
-		if (gwdata->PASS2_SIZE == 0) {
-			uint32_t num_cache_lines = gwdata->FFTLEN/8;
-			uint32_t pfa;
-			for (pfa = num_cache_lines; pfa >= 8; pfa >>= 1);	// Top 3 bits gives us the pfa
-			if (pfa == 4 || pfa == 6) ao_values[4] = 1, ao_values[5] = num_cache_lines;
-			if (pfa == 5) ao_values[4] = 2, ao_values[5] = num_cache_lines/5, ao_values[6] = 4*num_cache_lines/5;
-			if (pfa == 7) ao_values[4] = 3, ao_values[5] = num_cache_lines/7, ao_values[6] = 2*num_cache_lines/7, ao_values[7] = 4*num_cache_lines/7;
-		} else if (gwdata->FFT_TYPE == FFT_TYPE_HOME_GROWN) {
-			uint32_t num_cache_lines = gwdata->FFTLEN/gwdata->PASS2_SIZE/4;
-			uint32_t pfa;
-			for (pfa = num_cache_lines; pfa >= 8; pfa >>= 1);	// Top 3 bits gives us the pfa
-			if (pfa == 4 || pfa == 6) ao_values[5] = 1, ao_values[6] = num_cache_lines;
-			if (pfa == 5) ao_values[5] = 2, ao_values[6] = num_cache_lines/5, ao_values[7] = 4*num_cache_lines/5;
-			if (pfa == 7) ao_values[5] = 3, ao_values[6] = num_cache_lines/7, ao_values[7] = 2*num_cache_lines/7, ao_values[8] = 4*num_cache_lines/7;
-		}
-	} else {
-			// need code here
+		break;
+	case AVX_ONE_PASS:
+		ao_values[4] = gwdata->FOURKBGAPSIZE ? gwdata->FOURKBGAPSIZE : gwdata->FFTLEN/2/4/4;
+		break;
+	case AVX_TWO_PASS:
+		// Distance one is (usually) PASS2_SIZE/4 64-byte cache lines + pads
+		ao_values[0] = gwdata->PASS2_SIZE*16 + (gwdata->PASS2_SIZE >> 8) * gwdata->FOURKBGAPSIZE + gwdata->PASS2GAPSIZE;
+		break;
+	case SSE2_ONE_PASS: {
+		uint32_t num_cache_lines = gwdata->FFTLEN/8;
+		uint32_t pfa;
+		for (pfa = num_cache_lines; pfa >= 8; pfa >>= 1);	// Top 3 bits gives us the pfa
+		if (pfa == 4 || pfa == 6) ao_values[4] = 1, ao_values[5] = num_cache_lines;
+		if (pfa == 5) ao_values[4] = 2, ao_values[5] = num_cache_lines/5, ao_values[6] = 4*num_cache_lines/5;
+		if (pfa == 7) ao_values[4] = 3, ao_values[5] = num_cache_lines/7, ao_values[6] = 2*num_cache_lines/7, ao_values[7] = 4*num_cache_lines/7;
+		break; }
+	case SSE2_HG_TWO_PASS: {
+		uint32_t num_cache_lines = gwdata->FFTLEN/gwdata->PASS2_SIZE/4;
+		uint32_t pfa;
+		for (pfa = num_cache_lines; pfa >= 8; pfa >>= 1);	// Top 3 bits gives us the pfa
+		if (pfa == 4 || pfa == 6) ao_values[5] = 1, ao_values[6] = num_cache_lines;
+		if (pfa == 5) ao_values[5] = 2, ao_values[6] = num_cache_lines/5, ao_values[7] = 4*num_cache_lines/5;
+		if (pfa == 7) ao_values[5] = 3, ao_values[6] = num_cache_lines/7, ao_values[7] = 2*num_cache_lines/7, ao_values[8] = 4*num_cache_lines/7;
+		break; }
 	}
 }
 
 void gwiter_init (		/* Init iterator to given element (typically zero) */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwiter	*iter,		/* Iterator to initialize */
-	unsigned long n)
+	gwnum	g,		/* gwnum to iterate through */	  
+	uint32_t n)		/* Initial position for the iterator */
 {
-/*GW: Need flag or separate routine indicating accessing unFFTed data or FFTed data -- saves repeated checking of FFT_state in get_value */
-/* DOes it make sense to iterate through FFTed data? */
+	// Init many of the constants by positioning to element zero
+	gwiter_init_zero (gwdata, iter, g); 
+
+	// Init iterator to specified element
 	iter->index = n;
-	gwcached_init (gwdata, iter->cached_data, n);
+	gwcached_init (gwdata->dd_data, iter->cached_data, n);
 	iter->addr_offset = addr_offset (gwdata, n);
 	iter->big_word = gwcached_is_big_word (gwdata->dd_data, iter->cached_data);
 
 	// Init constants and counters for next addr_offset calculations
-	uint32_t *ao_values = get_cached_ao_values (iter->cached_data);
-	memset (ao_values, 0, 9 * sizeof (uint32_t));
+	uint32_t *ao_values = iter->ao_values;
 	uint32_t ntmp = n;
-	if (gwdata->cpu_flags & CPU_AVX512F) {
-		// Init next addr_offset counters
-		if (gwdata->PASS1_SIZE == 0) {
-			ao_values[0] = ntmp % 8; ntmp /= 8;
-			ao_values[1] = ntmp % 8; ntmp /= 8;
-			ao_values[2] = ntmp % (gwdata->FFTLEN/2/8/8);
-		} else {
-			ao_values[0] = gwdata->PASS2_SIZE*16 + (gwdata->PASS2_SIZE >> 8) * gwdata->FOURKBGAPSIZE + gwdata->PASS2GAPSIZE;
-			ao_values[1] = ntmp % 8; ntmp /= 8;
-			ao_values[2] = ntmp % (gwdata->PASS2_SIZE/8); ntmp /= (gwdata->PASS2_SIZE/8);
-			ao_values[3] = ntmp % 8; ntmp /= 8;
-			ao_values[4] = ntmp % (gwdata->FFTLEN/2/(gwdata->PASS2_SIZE*8));
+	switch (iter->switcher) {
+	case AVX512_ONE_PASS:
+		ao_values[0] = ntmp % 8; ntmp /= 8;
+		ao_values[1] = ntmp % 8; ntmp /= 8;
+		ao_values[2] = ntmp % (gwdata->FFTLEN/2/8/8);
+		break;
+	case AVX512_TWO_PASS:
+		ao_values[1] = ntmp % 8; ntmp /= 8;
+		ao_values[2] = ntmp % (gwdata->PASS2_SIZE/8); ntmp /= (gwdata->PASS2_SIZE/8);
+		ao_values[3] = ntmp % 8; ntmp /= 8;
+		ao_values[4] = ntmp % (gwdata->FFTLEN/2/(gwdata->PASS2_SIZE*8));
+		break;
+	case AVX_ONE_PASS:
+		ao_values[0] = ntmp % ao_values[4]; ntmp /= ao_values[4];
+		ao_values[1] = ntmp % (gwdata->FFTLEN/2/4/4/ao_values[4]); ntmp /= (gwdata->FFTLEN/2/4/4/ao_values[4]);
+		ao_values[2] = ntmp % 4; ntmp /= 4;
+		ao_values[3] = ntmp % 4;
+		break;
+	case AVX_TWO_PASS:
+		if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+			set_cached_dwpncol_counter (iter->cached_data, n % gwdata->PASS2_SIZE);
+			set_cached_dwpncol_value (iter->cached_data, dwpn_col (gwdata, n));
+			clear_cached_partial_weights (iter->cached_data);		// Flag that cached partial weights are not set
 		}
-	} else if (gwdata->cpu_flags & CPU_AVX) {
-		if (gwdata->PASS2_SIZE == 0) {
-			ao_values[4] = gwdata->FOURKBGAPSIZE ? gwdata->FOURKBGAPSIZE : gwdata->FFTLEN/2/4/4;
-			ao_values[0] = ntmp % ao_values[4]; ntmp /= ao_values[4];
-			ao_values[1] = ntmp % (gwdata->FFTLEN/2/4/4/ao_values[4]); ntmp /= (gwdata->FFTLEN/2/4/4/ao_values[4]);
-			ao_values[2] = ntmp % 4; ntmp /= 4;
-			ao_values[3] = ntmp % 4;
+		ao_values[1] = ntmp % 4; ntmp /= 4;
+		ao_values[2] = ntmp % (gwdata->PASS2_SIZE/4); ntmp /= (gwdata->PASS2_SIZE/4);
+		ao_values[3] = ntmp % 4; ntmp /= 4;
+		ao_values[4] = ntmp % (gwdata->FFTLEN/2/(gwdata->PASS2_SIZE*4));
+		break;
+	case SSE2_ONE_PASS:
+		ntmp = ntmp % (gwdata->FFTLEN/2);
+		ao_values[0] = ntmp % 2; ntmp /= 2;
+		if (ntmp < 2*ao_values[5]) {		// section 0
+			ao_values[1] = ntmp % ao_values[5]; ntmp = ntmp / ao_values[5];
+			ao_values[3] = 0;
 		} else {
-			if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-				set_cached_dwpncol_counter (iter->cached_data, n % gwdata->PASS2_SIZE);
-				set_cached_dwpncol_value (iter->cached_data, dwpn_col (gwdata, n));
-				clear_cached_partial_weights (iter->cached_data);		// Flag that cached partial weights are not set
-			}
-			ao_values[0] = gwdata->PASS2_SIZE*16 + (gwdata->PASS2_SIZE >> 8) * gwdata->FOURKBGAPSIZE + gwdata->PASS2GAPSIZE;
-			ao_values[1] = ntmp % 4; ntmp /= 4;
-			ao_values[2] = ntmp % (gwdata->PASS2_SIZE/4); ntmp /= (gwdata->PASS2_SIZE/4);
-			ao_values[3] = ntmp % 4; ntmp /= 4;
-			ao_values[4] = ntmp % (gwdata->FFTLEN/2/(gwdata->PASS2_SIZE*4));
-		}
-	} else if (gwdata->cpu_flags & CPU_SSE2) {
-		if (gwdata->PASS2_SIZE == 0) {
-			uint32_t num_cache_lines = gwdata->FFTLEN/8;
-			uint32_t pfa;
-			for (pfa = num_cache_lines; pfa >= 8; pfa >>= 1);	// Top 3 bits gives us the pfa
-			if (pfa == 4 || pfa == 6) ao_values[4] = 1, ao_values[5] = num_cache_lines;
-			if (pfa == 5) ao_values[4] = 2, ao_values[5] = num_cache_lines/5, ao_values[6] = 4*num_cache_lines/5;
-			if (pfa == 7) ao_values[4] = 3, ao_values[5] = num_cache_lines/7, ao_values[6] = 2*num_cache_lines/7, ao_values[7] = 4*num_cache_lines/7;
-			ntmp = ntmp % (gwdata->FFTLEN/2);
-			ao_values[0] = ntmp % 2; ntmp /= 2;
-			if (ntmp < 2*ao_values[5]) {		// section 0
-				ao_values[1] = ntmp % ao_values[5]; ntmp = ntmp / ao_values[5];
-				ao_values[3] = 0;
-			} else {
-				ntmp -= 2*ao_values[5];
-				if (ntmp < 2*ao_values[6]) {	// section 1
-					ao_values[1] = ntmp % ao_values[6]; ntmp = ntmp / ao_values[6];
-					ao_values[3] = 1;
-				} else {			// section 2
-					ntmp -= 2*ao_values[6];
-					ao_values[1] = ntmp % ao_values[7]; ntmp = ntmp / ao_values[7];
-					ao_values[3] = 2;
-				}
-			}
-			ao_values[2] = ntmp;
-		} else if (gwdata->FFT_TYPE == FFT_TYPE_HOME_GROWN) {
-			uint32_t num_cache_lines = gwdata->FFTLEN/gwdata->PASS2_SIZE/4;
-			uint32_t pfa;
-			for (pfa = num_cache_lines; pfa >= 8; pfa >>= 1);	// Top 3 bits gives us the pfa
-			if (pfa == 4 || pfa == 6) ao_values[5] = 1, ao_values[6] = num_cache_lines;
-			if (pfa == 5) ao_values[5] = 2, ao_values[6] = num_cache_lines/5, ao_values[7] = 4*num_cache_lines/5;
-			if (pfa == 7) ao_values[5] = 3, ao_values[6] = num_cache_lines/7, ao_values[7] = 2*num_cache_lines/7, ao_values[8] = 4*num_cache_lines/7;
-			ntmp = ntmp % (gwdata->FFTLEN/2);
-			ao_values[0] = ntmp % (gwdata->PASS2_SIZE/2); ntmp /= (gwdata->PASS2_SIZE/2);
-			ao_values[1] = ntmp % 2; ntmp /= 2;
-			if (ntmp < 2*ao_values[6]) {		// section 0
-				ao_values[2] = ntmp % ao_values[6]; ntmp = ntmp / ao_values[6];
-				ao_values[4] = 0;
-			} else {
+			ntmp -= 2*ao_values[5];
+			if (ntmp < 2*ao_values[6]) {	// section 1
+				ao_values[1] = ntmp % ao_values[6]; ntmp = ntmp / ao_values[6];
+				ao_values[3] = 1;
+			} else {			// section 2
 				ntmp -= 2*ao_values[6];
-				if (ntmp < 2*ao_values[7]) {	// section 1
-					ao_values[2] = ntmp % ao_values[7]; ntmp = ntmp / ao_values[7];
-					ao_values[4] = 1;
-				} else {			// section 2
-					ntmp -= 2*ao_values[7];
-					ao_values[2] = ntmp % ao_values[8]; ntmp = ntmp / ao_values[8];
-					ao_values[4] = 2;
-				}
+				ao_values[1] = ntmp % ao_values[7]; ntmp = ntmp / ao_values[7];
+				ao_values[3] = 2;
 			}
-			ao_values[3] = ntmp;
-		} else {
-			if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-				set_cached_dwpncol_counter (iter->cached_data, n % (gwdata->PASS2_SIZE/2));
-				set_cached_dwpncol_value (iter->cached_data, dwpn_col (gwdata, n));
-				clear_cached_partial_weights (iter->cached_data);		// Flag that cached partial weights are not set
-			}
-			ao_values[0] = ntmp % 128; ntmp /= 128;
-			ao_values[1] = ntmp % (gwdata->PASS2_SIZE/2/128); ntmp /= (gwdata->PASS2_SIZE/2/128);
-			ao_values[2] = ntmp % 2; ntmp /= 2;
-			ao_values[3] = ntmp % (gwdata->FFTLEN/4/gwdata->PASS2_SIZE);
 		}
-	} else {
-			//GW need code here
+		ao_values[2] = ntmp;
+		break;
+	case SSE2_HG_TWO_PASS: {
+		uint32_t num_cache_lines = gwdata->FFTLEN/gwdata->PASS2_SIZE/4;
+		uint32_t pfa;
+		for (pfa = num_cache_lines; pfa >= 8; pfa >>= 1);	// Top 3 bits gives us the pfa
+		if (pfa == 4 || pfa == 6) ao_values[5] = 1, ao_values[6] = num_cache_lines;
+		if (pfa == 5) ao_values[5] = 2, ao_values[6] = num_cache_lines/5, ao_values[7] = 4*num_cache_lines/5;
+		if (pfa == 7) ao_values[5] = 3, ao_values[6] = num_cache_lines/7, ao_values[7] = 2*num_cache_lines/7, ao_values[8] = 4*num_cache_lines/7;
+		ntmp = ntmp % (gwdata->FFTLEN/2);
+		ao_values[0] = ntmp % (gwdata->PASS2_SIZE/2); ntmp /= (gwdata->PASS2_SIZE/2);
+		ao_values[1] = ntmp % 2; ntmp /= 2;
+		if (ntmp < 2*ao_values[6]) {		// section 0
+			ao_values[2] = ntmp % ao_values[6]; ntmp = ntmp / ao_values[6];
+			ao_values[4] = 0;
+		} else {
+			ntmp -= 2*ao_values[6];
+			if (ntmp < 2*ao_values[7]) {	// section 1
+				ao_values[2] = ntmp % ao_values[7]; ntmp = ntmp / ao_values[7];
+				ao_values[4] = 1;
+			} else {			// section 2
+				ntmp -= 2*ao_values[7];
+				ao_values[2] = ntmp % ao_values[8]; ntmp = ntmp / ao_values[8];
+				ao_values[4] = 2;
+			}
+		}
+		ao_values[3] = ntmp;
+		break; }
+	case SSE2_TWO_PASS:
+		if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+			set_cached_dwpncol_counter (iter->cached_data, n % (gwdata->PASS2_SIZE/2));
+			set_cached_dwpncol_value (iter->cached_data, dwpn_col (gwdata, n));
+			clear_cached_partial_weights (iter->cached_data);		// Flag that cached partial weights are not set
+		}
+		ao_values[0] = ntmp % 128; ntmp /= 128;
+		ao_values[1] = ntmp % (gwdata->PASS2_SIZE/2/128); ntmp /= (gwdata->PASS2_SIZE/2/128);
+		ao_values[2] = ntmp % 2; ntmp /= 2;
+		ao_values[3] = ntmp % (gwdata->FFTLEN/4/gwdata->PASS2_SIZE);
+		break;
 	}
 }
 
 void gwiter_next (		/* Position to next element */
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwiter	*iter)		/* Iterator to initialize */
 {
+	gwhandle *gwdata = iter->gwdata;	/* Handle initialized by gwsetup */
+
 	iter->index++;
 
 //GW: eliminate the if statement by calling addr_offset and is_big_word only when necessary?
@@ -7656,128 +7682,124 @@ void gwiter_next (		/* Position to next element */
 	if (iter->index < gwdata->FFTLEN) {
 
 		// Update cached values used in optimizing big/little and weight calculations
-		gwcached_next (gwdata, iter->cached_data, iter->index);
+		gwcached_next (gwdata->dd_data, iter->cached_data, iter->index);
 		iter->big_word = gwcached_is_big_word (gwdata->dd_data, iter->cached_data);
 
 		// Determine the next addr_offset from the last addr_offset.  This should be much faster than a call to addr_offset.
-		uint32_t *ao_values = get_cached_ao_values (iter->cached_data);
-		if (gwdata->cpu_flags & CPU_AVX512F) {
-			if (gwdata->PASS1_SIZE == 0) {
-				iter->addr_offset += 128;
-				if (++ao_values[0] == 8) { ao_values[0] = 0; iter->addr_offset -= 8*128;
-				iter->addr_offset += 8;
-				if (++ao_values[1] == 8) { ao_values[1] = 0; iter->addr_offset -= 8*8;
-				iter->addr_offset += 1024 + ((++ao_values[2] & 3) == 0 ? gwdata->FOURKBGAPSIZE : 0);
-				if (ao_values[2] == gwdata->FFTLEN/2/8/8) { ao_values[2] = 0; iter->addr_offset = 64;}}}
-			} else {
-				uint32_t dist1 = ao_values[0];			// PASS2_SIZE/8 128-byte cache lines + pads
-				iter->addr_offset += dist1;
-				if (++ao_values[1] == 8) { ao_values[1] = 0; iter->addr_offset -= 8*dist1;
-				iter->addr_offset += 128 + ((++ao_values[2] & 31) == 0 ? gwdata->FOURKBGAPSIZE : 0);
-				if (ao_values[2] == gwdata->PASS2_SIZE/8) { ao_values[2] = 0; iter->addr_offset -= gwdata->PASS2_SIZE/8*128 + gwdata->PASS2_SIZE/8/32*gwdata->FOURKBGAPSIZE;
-				iter->addr_offset += 8;
-				if (++ao_values[3] == 8) { ao_values[3] = 0; iter->addr_offset -= 8*8;
-				iter->addr_offset += 8*dist1;
-				if (++ao_values[4] == gwdata->FFTLEN/2/(gwdata->PASS2_SIZE*8)) { ao_values[4] = 0; iter->addr_offset = 64;}}}}
-			}
-		}
-
-		// Non-AVX-512 FFTs may have dwpncol calculations as well as next addr_offset calculations
-		else if (gwdata->cpu_flags & CPU_AVX) {
-			if (gwdata->PASS2_SIZE == 0) {
-				uint32_t count1 = ao_values[4];			// gwdata->FOURKBGAPSIZE ? gwdata->FOURKBGAPSIZE : gwdata->FFTLEN/2/4/4;
-				iter->addr_offset += 64;
-				if (++ao_values[0] == count1) { ao_values[0] = 0;
-				iter->addr_offset += 64;			// pad every 1KB, 2KB, or 4KB
-				uint32_t count2 = gwdata->FOURKBGAPSIZE ? gwdata->FFTLEN/2/4/4/count1 : 1;
-				if (++ao_values[1] == count2) { ao_values[1] = 0; iter->addr_offset -= gwdata->FFTLEN/2/4/4*64 + count2*64;
-				iter->addr_offset += 8;
-				if (++ao_values[2] == 4) { ao_values[2] = 0; iter->addr_offset -= 4*8;
-				iter->addr_offset += gwdata->FFTLEN/2/4/4*64 + (gwdata->FOURKBGAPSIZE ? gwdata->FFTLEN/2/4/4/gwdata->FOURKBGAPSIZE*64 : 0);
-				if (++ao_values[3] == 4) { ao_values[2] = 0; iter->addr_offset = 32;}}}}
-			} else {
-				// Calculate next dwpncol value used in partial weights
-				if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-					inc_cached_dwpncol_counter (iter->cached_data);
-					inc_cached_dwpncol_value (iter->cached_data);
-					if (get_cached_dwpncol_counter (iter->cached_data) == gwdata->PASS2_SIZE) {
-						set_cached_dwpncol_counter (iter->cached_data, 0);
-						set_cached_dwpncol_value (iter->cached_data, dwpn_col (gwdata, iter->index));
-						clear_cached_partial_weights (iter->cached_data);		// Flag that cached partial weights are not set
-					}
+		uint32_t *ao_values = iter->ao_values;
+		switch (iter->switcher) {
+		case AVX512_ONE_PASS:
+			iter->addr_offset += 128;
+			if (++ao_values[0] == 8) { ao_values[0] = 0; iter->addr_offset -= 8*128;
+			iter->addr_offset += 8;
+			if (++ao_values[1] == 8) { ao_values[1] = 0; iter->addr_offset -= 8*8;
+			iter->addr_offset += 1024 + ((++ao_values[2] & 3) == 0 ? gwdata->FOURKBGAPSIZE : 0);
+			if (ao_values[2] == gwdata->FFTLEN/2/8/8) { ao_values[2] = 0; iter->addr_offset = 64;}}}
+			break;
+		case AVX512_TWO_PASS: {
+			uint32_t dist1 = ao_values[0];			// PASS2_SIZE/8 128-byte cache lines + pads
+			iter->addr_offset += dist1;
+			if (++ao_values[1] == 8) { ao_values[1] = 0; iter->addr_offset -= 8*dist1;
+			iter->addr_offset += 128 + ((++ao_values[2] & 31) == 0 ? gwdata->FOURKBGAPSIZE : 0);
+			if (ao_values[2] == gwdata->PASS2_SIZE/8) { ao_values[2] = 0; iter->addr_offset -= gwdata->PASS2_SIZE/8*128 + gwdata->PASS2_SIZE/8/32*gwdata->FOURKBGAPSIZE;
+			iter->addr_offset += 8;
+			if (++ao_values[3] == 8) { ao_values[3] = 0; iter->addr_offset -= 8*8;
+			iter->addr_offset += 8*dist1;
+			if (++ao_values[4] == gwdata->FFTLEN/2/(gwdata->PASS2_SIZE*8)) { ao_values[4] = 0; iter->addr_offset = 64;}}}}
+			break; }
+		case AVX_ONE_PASS: {
+			uint32_t count1 = ao_values[4];			// gwdata->FOURKBGAPSIZE ? gwdata->FOURKBGAPSIZE : gwdata->FFTLEN/2/4/4;
+			iter->addr_offset += 64;
+			if (++ao_values[0] == count1) { ao_values[0] = 0;
+			iter->addr_offset += 64;			// pad every 1KB, 2KB, or 4KB
+			uint32_t count2 = gwdata->FOURKBGAPSIZE ? gwdata->FFTLEN/2/4/4/count1 : 1;
+			if (++ao_values[1] == count2) { ao_values[1] = 0; iter->addr_offset -= gwdata->FFTLEN/2/4/4*64 + count2*64;
+			iter->addr_offset += 8;
+			if (++ao_values[2] == 4) { ao_values[2] = 0; iter->addr_offset -= 4*8;
+			iter->addr_offset += gwdata->FFTLEN/2/4/4*64 + (gwdata->FOURKBGAPSIZE ? gwdata->FFTLEN/2/4/4/gwdata->FOURKBGAPSIZE*64 : 0);
+			if (++ao_values[3] == 4) { ao_values[2] = 0; iter->addr_offset = 32;}}}}
+			break; }
+		case AVX_TWO_PASS: {
+			// Calculate next dwpncol value used in partial weights
+			if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+				inc_cached_dwpncol_counter (iter->cached_data);
+				inc_cached_dwpncol_value (iter->cached_data);
+				if (get_cached_dwpncol_counter (iter->cached_data) == gwdata->PASS2_SIZE) {
+					set_cached_dwpncol_counter (iter->cached_data, 0);
+					set_cached_dwpncol_value (iter->cached_data, dwpn_col (gwdata, iter->index));
+					clear_cached_partial_weights (iter->cached_data);		// Flag that cached partial weights are not set
 				}
-				// Now the next addr_offset calculations
-				uint32_t dist1 = ao_values[0];			// PASS2_SIZE/4 64-byte cache lines + pads
-				iter->addr_offset += dist1;
-				if (++ao_values[1] == 4) { ao_values[1] = 0; iter->addr_offset -= 4*dist1;
-				iter->addr_offset += 64 + ((++ao_values[2] & 63) == 0 ? gwdata->FOURKBGAPSIZE : 0);
-				if (ao_values[2] == gwdata->PASS2_SIZE/4) { ao_values[2] = 0; iter->addr_offset -= gwdata->PASS2_SIZE/4*64 + gwdata->PASS2_SIZE/4/64*gwdata->FOURKBGAPSIZE;
-				iter->addr_offset += 8;
-				if (++ao_values[3] == 4) { ao_values[3] = 0; iter->addr_offset -= 4*8;
-				iter->addr_offset += 4*dist1;
-				if (++ao_values[4] == gwdata->FFTLEN/2/(gwdata->PASS2_SIZE*4)) { ao_values[4] = 0; iter->addr_offset = 32;}}}}
 			}
-		}
-
-		else if (gwdata->cpu_flags & CPU_SSE2) {
-			if (gwdata->PASS2_SIZE == 0) {
-				iter->addr_offset += 16;
-				if (++ao_values[0] == 2) { ao_values[0] = 0; iter->addr_offset -= 2*16;
-				iter->addr_offset += 64;
-				uint32_t pfa_section_number = ao_values[3];
-				uint32_t count = ao_values[5+pfa_section_number];
-				if (++ao_values[1] == count) { ao_values[1] = 0; iter->addr_offset -= count*64;
-				iter->addr_offset += 8;
-				if (++ao_values[2] == 2) { ao_values[2] = 0; iter->addr_offset -= 2*8;
-				iter->addr_offset += count*64;
-				uint32_t num_pfa_sections = ao_values[4];
-				if (++ao_values[3] == num_pfa_sections) { ao_values[3] = 0; iter->addr_offset = 32;}}}}
-			} else if (gwdata->FFT_TYPE == FFT_TYPE_HOME_GROWN) {				// Extremely rare?  s.b. eliminated?
-				iter->addr_offset += 64 + ((++ao_values[0] & 127) == 0 ? 128 : 0);	// Pad 128 every 8KB
-				if (ao_values[0] == gwdata->PASS2_SIZE/2) { ao_values[0] = 0; iter->addr_offset -= gwdata->PASS2_SIZE/2*64 + gwdata->PASS2_SIZE/2/128*128;
-				iter->addr_offset += 8;
-				if (++ao_values[1] == 2) { ao_values[1] = 0; iter->addr_offset -= 2*8;
-				uint32_t dist = gwdata->PASS2_SIZE/2*64 + gwdata->PASS2_SIZE/2/128*128 + gwdata->PASS2GAPSIZE;
-				iter->addr_offset += dist;
-				uint32_t pfa_section_number = ao_values[4];
-				uint32_t count = ao_values[6+pfa_section_number];
-				if (++ao_values[2] == count) { ao_values[2] = 0; iter->addr_offset -= count*dist;
-				iter->addr_offset += 16;
-				if (++ao_values[3] == 2) { ao_values[3] = 0; iter->addr_offset -= 2*16;
-				iter->addr_offset += count*dist;
-				uint32_t num_pfa_sections = ao_values[5];
-				if (++ao_values[4] == num_pfa_sections) { ao_values[4] = 0; iter->addr_offset = 32;}}}}}
-			} else {
-				// Calculate next dwpncol value used in partial weights
-				if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-					inc_cached_dwpncol_counter (iter->cached_data);
-					inc_cached_dwpncol_value (iter->cached_data);
-					if (get_cached_dwpncol_counter (iter->cached_data) == gwdata->PASS2_SIZE / 2) {
-						set_cached_dwpncol_counter (iter->cached_data, 0);
-						set_cached_dwpncol_value (iter->cached_data, dwpn_col (gwdata, iter->index));
-						clear_cached_partial_weights (iter->cached_data);		// Flag that cached partial weights are not set
-					}
+			// Now the next addr_offset calculations
+			uint32_t dist1 = ao_values[0];			// PASS2_SIZE/4 64-byte cache lines + pads
+			iter->addr_offset += dist1;
+			if (++ao_values[1] == 4) { ao_values[1] = 0; iter->addr_offset -= 4*dist1;
+			iter->addr_offset += 64 + ((++ao_values[2] & 63) == 0 ? gwdata->FOURKBGAPSIZE : 0);
+			if (ao_values[2] == gwdata->PASS2_SIZE/4) { ao_values[2] = 0; iter->addr_offset -= gwdata->PASS2_SIZE/4*64 + gwdata->PASS2_SIZE/4/64*gwdata->FOURKBGAPSIZE;
+			iter->addr_offset += 8;
+			if (++ao_values[3] == 4) { ao_values[3] = 0; iter->addr_offset -= 4*8;
+			iter->addr_offset += 4*dist1;
+			if (++ao_values[4] == gwdata->FFTLEN/2/(gwdata->PASS2_SIZE*4)) { ao_values[4] = 0; iter->addr_offset = 32;}}}}
+			break; }
+		case SSE2_ONE_PASS: {
+			iter->addr_offset += 16;
+			if (++ao_values[0] == 2) { ao_values[0] = 0; iter->addr_offset -= 2*16;
+			iter->addr_offset += 64;
+			uint32_t pfa_section_number = ao_values[3];
+			uint32_t count = ao_values[5+pfa_section_number];
+			if (++ao_values[1] == count) { ao_values[1] = 0; iter->addr_offset -= count*64;
+			iter->addr_offset += 8;
+			if (++ao_values[2] == 2) { ao_values[2] = 0; iter->addr_offset -= 2*8;
+			iter->addr_offset += count*64;
+			uint32_t num_pfa_sections = ao_values[4];
+			if (++ao_values[3] == num_pfa_sections) { ao_values[3] = 0; iter->addr_offset = 32;}}}}
+			break; }
+		case SSE2_HG_TWO_PASS: {					// Extremely rare?  s.b. eliminated?
+			iter->addr_offset += 64 + ((++ao_values[0] & 127) == 0 ? 128 : 0);	// Pad 128 every 8KB
+			if (ao_values[0] == gwdata->PASS2_SIZE/2) { ao_values[0] = 0; iter->addr_offset -= gwdata->PASS2_SIZE/2*64 + gwdata->PASS2_SIZE/2/128*128;
+			iter->addr_offset += 8;
+			if (++ao_values[1] == 2) { ao_values[1] = 0; iter->addr_offset -= 2*8;
+			uint32_t dist = gwdata->PASS2_SIZE/2*64 + gwdata->PASS2_SIZE/2/128*128 + gwdata->PASS2GAPSIZE;
+			iter->addr_offset += dist;
+			uint32_t pfa_section_number = ao_values[4];
+			uint32_t count = ao_values[6+pfa_section_number];
+			if (++ao_values[2] == count) { ao_values[2] = 0; iter->addr_offset -= count*dist;
+			iter->addr_offset += 16;
+			if (++ao_values[3] == 2) { ao_values[3] = 0; iter->addr_offset -= 2*16;
+			iter->addr_offset += count*dist;
+			uint32_t num_pfa_sections = ao_values[5];
+			if (++ao_values[4] == num_pfa_sections) { ao_values[4] = 0; iter->addr_offset = 32;}}}}}
+			break; }
+		case SSE2_TWO_PASS: {
+			// Calculate next dwpncol value used in partial weights
+			if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+				inc_cached_dwpncol_counter (iter->cached_data);
+				inc_cached_dwpncol_value (iter->cached_data);
+				if (get_cached_dwpncol_counter (iter->cached_data) == gwdata->PASS2_SIZE / 2) {
+					set_cached_dwpncol_counter (iter->cached_data, 0);
+					set_cached_dwpncol_value (iter->cached_data, dwpn_col (gwdata, iter->index));
+					clear_cached_partial_weights (iter->cached_data);		// Flag that cached partial weights are not set
 				}
-				// Now the next addr_offset calculations
-				ASSERTG ((gwdata->PASS2_SIZE/2) % 128 == 0);
-				iter->addr_offset += 64;
-				if (++ao_values[0] == 128) { ao_values[0] = 0;
-				iter->addr_offset += 128;						// Pad 128 every 8KB
-				uint32_t count1 = gwdata->PASS2_SIZE/2/128;
-				if (++ao_values[1] == count1) { ao_values[1] = 0; iter->addr_offset -= gwdata->PASS2_SIZE/2*64 + count1*128;
-				iter->addr_offset += 8;
-				if (++ao_values[2] == 2) { ao_values[2] = 0; iter->addr_offset -= 2*8;
-				uint32_t dist = gwdata->PASS2_SIZE/2*64 + gwdata->PASS2_SIZE/2/128*128 + gwdata->PASS2GAPSIZE;
-				iter->addr_offset += dist;
-				uint32_t count3 = gwdata->FFTLEN/4/gwdata->PASS2_SIZE;
-				if (++ao_values[3] == count3) { ao_values[3] = 0; iter->addr_offset -= count3*dist;
-				iter->addr_offset += 16;}}}}
 			}
-		}
-
-		// Not bothering to optimize x87 FFTs.  Fall back to a function call.
-		else {
+			// Now the next addr_offset calculations
+			ASSERTG ((gwdata->PASS2_SIZE/2) % 128 == 0);
+			iter->addr_offset += 64;
+			if (++ao_values[0] == 128) { ao_values[0] = 0;
+			iter->addr_offset += 128;						// Pad 128 every 8KB
+			uint32_t count1 = gwdata->PASS2_SIZE/2/128;
+			if (++ao_values[1] == count1) { ao_values[1] = 0; iter->addr_offset -= gwdata->PASS2_SIZE/2*64 + count1*128;
+			iter->addr_offset += 8;
+			if (++ao_values[2] == 2) { ao_values[2] = 0; iter->addr_offset -= 2*8;
+			uint32_t dist = gwdata->PASS2_SIZE/2*64 + gwdata->PASS2_SIZE/2/128*128 + gwdata->PASS2GAPSIZE;
+			iter->addr_offset += dist;
+			uint32_t count3 = gwdata->FFTLEN/4/gwdata->PASS2_SIZE;
+			if (++ao_values[3] == count3) { ao_values[3] = 0; iter->addr_offset -= count3*dist;
+			iter->addr_offset += 16;}}}}
+			break; }
+		case X87_ONE_OR_TWO_PASS:
+			// Not bothering to optimize x87 FFTs.  Fall back to a function call.
 			iter->addr_offset = addr_offset (gwdata, iter->index);
+			break;
 		}
 	}
 }
@@ -7844,11 +7866,11 @@ int get_fft_value (
 }
 
 int gwiter_get_fft_value (			/* Return unweighted value of FFT data element */
-	gwhandle *gwdata,			/* Handle initialized by gwsetup */
 	gwiter	*iter,
-	gwnum	g,
-	long	*retval)
+	int32_t	*retval)
 {
+	gwhandle *gwdata = iter->gwdata;	/* Handle initialized by gwsetup */
+	gwnum	g = iter->g;
 	double	val, *valaddr;
 
 	ASSERTG (FFT_state (g) == NOT_FFTed);
@@ -7856,7 +7878,7 @@ int gwiter_get_fft_value (			/* Return unweighted value of FFT data element */
 
 /* Get the FFT data and validate it */
 
-	valaddr = gwiter_addr (gwdata, iter, g);
+	valaddr = gwiter_addr (iter);
 	if (! is_valid_double_addr (valaddr)) return (GWERROR_BAD_FFT_DATA);
 	val = *valaddr;
 
@@ -7911,12 +7933,12 @@ void set_fft_value (
 }
 
 void gwiter_set_fft_value (		/* Weight and set FFT data element */
-	gwhandle *gwdata,		/* Handle initialized by gwsetup */
 	gwiter	*iter,
-	gwnum	g,
-	long	val)
+	int32_t	val)
 {
-	double *valaddr = gwiter_addr (gwdata, iter, g);
+	gwhandle *gwdata = iter->gwdata;
+	gwnum	g = iter->g;
+	double *valaddr = gwiter_addr (iter);
 
 	ASSERTG (iter->index < gwdata->FFTLEN);
 
@@ -9283,7 +9305,7 @@ void gianttogw (
 			accumbits = 0;
 
 			gwiter iter;
-			for (gwiter_init_zero (gwdata, &iter); gwiter_index (gwdata, &iter) < limit; gwiter_next (gwdata, &iter)) {
+			for (gwiter_init_zero (gwdata, &iter, g); gwiter_index (&iter) < limit; gwiter_next (&iter)) {
 
 				// If needed, add another 32 input bits to accumulator
 				if (accumbits < 28) {
@@ -9293,15 +9315,15 @@ void gianttogw (
 
 				// Process top word without sign extension, otherwise grab bits with sign extension.
 				// Special case zero bits as shift left 64 may be undefined.
-				bits = (gwiter_index (gwdata, &iter) == limit - 1) ? 32 : gwiter_is_big_word (gwdata, &iter) ? bits2 : bits1;
+				bits = (gwiter_index (&iter) == limit - 1) ? 32 : gwiter_is_big_word (&iter) ? bits2 : bits1;
 				value = bits ? (accum << (64 - bits)) >> (64 - bits) : 0;
-				gwiter_set_fft_value (gwdata, &iter, g, (long) value);
+				gwiter_set_fft_value (&iter, (int32_t) value);
 				accum = (accum - value) >> bits;
 				accumbits -= bits;
 			}
 
 			// Clear the upper words
-			for ( ; gwiter_index (gwdata, &iter) < gwdata->FFTLEN; gwiter_next (gwdata, &iter)) gwiter_set_fft_value (gwdata, &iter, g, 0);
+			for ( ; gwiter_index (&iter) < gwdata->FFTLEN; gwiter_next (&iter)) gwiter_set_fft_value (&iter, 0);
 		}
 
 /* Otherwise (non-base 2), we do a recursive divide and conquer radix conversion. */
@@ -9478,7 +9500,7 @@ int gwtogiant (
 
 	if (gwdata->b == 2) {
 		gwiter	iter;
-		long	val;
+		int32_t	val;
 		int64_t accum;
 		int	bits, accumbits;
 		uint32_t *outptr, outval;
@@ -9490,13 +9512,13 @@ int gwtogiant (
 		accumbits = 0;
 		outptr = v->n;
 		outcarry = 0;
-		for (gwiter_init_zero (gwdata, &iter); ; gwiter_next (gwdata, &iter)) {
+		for (gwiter_init_zero (gwdata, &iter, gg); ; gwiter_next (&iter)) {
 			// Process next FFT word
-			if (gwiter_index (gwdata, &iter) < limit) {
-				err_code = gwiter_get_fft_value (gwdata, &iter, gg, &val);
+			if (gwiter_index (&iter) < limit) {
+				err_code = gwiter_get_fft_value (&iter, &val);
 				if (err_code) return (err_code);
 				bits = gwdata->NUM_B_PER_SMALL_WORD;
-				if (gwiter_is_big_word (gwdata, &iter)) bits++;
+				if (gwiter_is_big_word (&iter)) bits++;
 				accum += ((int64_t) val) << accumbits;
 				accumbits += bits;
 				// See if we have 32-bits to output
@@ -9524,7 +9546,7 @@ int gwtogiant (
 			}
 
 			// Are we done?  We need to process limit FFT words plus the outcarry.
-			if (gwiter_index (gwdata, &iter) >= limit && ((accum == 0 && outcarry == 0) || (accum == -1 && outcarry == k64 - 1))) break;
+			if (gwiter_index (&iter) >= limit && ((accum == 0 && outcarry == 0) || (accum == -1 && outcarry == k64 - 1))) break;
 		}
 
 /* Set the length */

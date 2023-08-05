@@ -799,7 +799,7 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 
 	{
 		gwiter	iter;
-		long	val;
+		int32_t	val;
 		int64_t accum;
 		int	bits, accumbits;
 		unsigned long limit;
@@ -811,12 +811,12 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 		accumbits = 0;
 		outptr = g->n;
 		limit = divide_rounding_up ((int) ceil (gwdata->bit_length), 32) + 1;
-		for (gwiter_init_zero (work_gwdata, &iter); ; gwiter_next (work_gwdata, &iter)) {
-			if (gwiter_index (work_gwdata, &iter) < (int) work_gwdata->FFTLEN) {
-				err_code = gwiter_get_fft_value (work_gwdata, &iter, t1, &val);
+		for (gwiter_init_zero (work_gwdata, &iter, t1); ; gwiter_next (&iter)) {
+			if (gwiter_index (&iter) < (int) work_gwdata->FFTLEN) {
+				err_code = gwiter_get_fft_value (&iter, &val);
 				if (err_code) goto err;
 				bits = work_gwdata->NUM_B_PER_SMALL_WORD;
-				if (gwiter_is_big_word (work_gwdata, &iter)) bits++;
+				if (gwiter_is_big_word (&iter)) bits++;
 				accum += ((int64_t) val) << accumbits;
 				accumbits += bits;
 				if (accumbits < 32) continue;
