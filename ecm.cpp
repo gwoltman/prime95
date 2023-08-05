@@ -4305,8 +4305,8 @@ if (cost_data->c.numvals < 6*32) return (-1.0);
 
 /* Rebuilding F(X) tree requires up to (log2(poly_size) - 2) polymults on poly_size coefficients. */
 /* If excess memory is available, it can be used to save Ftree polys.  This will save on the costs of rebuilding F(X). */
-/* Saving (and restoring) two Ftree rows to/from disk requires gwtobinary and binarytogw on two polys.  This timed as equal to 74 transforms */
-/* on a single-threaded FMA machine.  For lack of a better place to record this cost, add it to cost_modinv. */
+/* Saving (and restoring) two Ftree rows to/from disk requires gwtobinary and binarytogw on two polys.  This timed as equal to 13.2 transforms per gwnum (b=2) */
+/* and 687 transforms (b!=2) on a single-threaded FMA machine (ignoring disk read/write time).  For lack of a better place to record this cost, add it to cost_modinv. */
 
 		int	num_Ftree_polys, Ftree_polys_in_mem, more_Ftree_polys_in_mem, total_Ftree_polys_in_mem, needing_rebuild;
 		num_Ftree_polys = (int) ceil (log2 ((double) poly_size));
@@ -4318,7 +4318,7 @@ if (Ftree_polys_in_mem + more_Ftree_polys_in_mem > num_Ftree_polys - 1) more_Ftr
 		total_Ftree_polys_in_mem = Ftree_polys_in_mem + more_Ftree_polys_in_mem;
 		cost_data->Ftree_polys_in_mem = total_Ftree_polys_in_mem;
 		cost_data->c.stage2_numvals += more_Ftree_polys_in_mem * poly_size;
-		if (total_Ftree_polys_in_mem < 2) cost_modinv += 74.0 * cost_data->c.threads * (2 - total_Ftree_polys_in_mem) * poly_size;
+		if (total_Ftree_polys_in_mem < 2) cost_modinv += (cost_data->c.gwdata->b == 2 ? 13.2 : 687.0) * cost_data->c.threads * (2 - total_Ftree_polys_in_mem) * poly_size;
 
 /* Rebuilding F(X) tree requires (log2(poly_size) - Ftree_polys_in_mem_or_on_disk) polymults on poly_size coefficients */
 
