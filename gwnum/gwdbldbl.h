@@ -171,6 +171,12 @@ void gwfft_colweights (void *, void *, int);
 #define last_inv_weight_j	((uint32_t *) &cached_data[9])[1]	/* Last non-partial sloppy inv weight index */
 #define last_inv_weight_sloppy	(* (double *) &cached_data[10])		/* Last non-partial sloppy inv weight */
 #define inv_weight_sloppy_muls	((uint32_t *) &cached_data[11])[0]	/* Count of multiplies used in creating last_inv_weight_sloppy */
+#define gwnum_ao_values		((uint32_t *) &cached_data[12])		/* Nine 32-bit values gwnum can use to accelerate next addr_offset calculation */
+
+// Extract middle 64 bits of base 128 (the fractional part).  Three methods provided below.  On my Windows laptop, the unaligned load was the slowest.
+//#define base128middle		(* (uint64_t *) ((char *) base128 + sizeof (uint32_t)))
+//#define base128middle		((base128[1] << 32) + (base128[0] >> 32))
+#define base128middle		((base128[1] << 32) + ((uint32_t *)base128)[1])
 
 #ifdef DBLDBL_INLINES
 
@@ -187,8 +193,6 @@ struct gwdbldbl_constants_partial {
 void inline gwcached_init_zero (gwhandle *gwdata, uint64_t *cached_data) {
 	base128[0] = 0xFFFFFFFFFFFFFFFFULL;	// Faster is_big_word & weight calculations if counter starts at just under 1.0 rather than the more logical 0.0
 	base128[1] = 0xFFFFFFFFULL;
-	dwpncol_counter = 0;			// First partial column is zero
-	dwpncol_value = 0;
 	partial_weight[0] = 0.0;		// Flag that cached partial weights are not set
 	partial_inv_weight[0] = 0.0;
 	last_weight_j = 0xFFFFFFF0;		// Init weight_sloppy cache
@@ -215,14 +219,6 @@ void inline gwcached_init (gwhandle *gwdata, uint64_t *cached_data, unsigned lon
 	tmp = (uint64_t) n * (* ((uint64_t *) &dd_data->frac_bpw1));
 	base128[1] += tmp;
 
-	// Init cached data for partial weights
-	if (! (gwdata->cpu_flags & CPU_AVX512F) && gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-		dwpncol_counter = n % ((gwdata->cpu_flags & CPU_AVX) ? gwdata->PASS2_SIZE : gwdata->PASS2_SIZE / 2);
-		dwpncol_value = dwpn_col (gwdata, n);
-		partial_weight[0] = 0.0;		// Flag that cached partial weights are not set
-		partial_inv_weight[0] = 0.0;
-	}
-
 	last_weight_j = 0xFFFFFFF0;		// Init weight_sloppy cache
 	last_inv_weight_j = 0xFFFFFFF0;		// Init inv_weight_sloppy cache
 }
@@ -242,18 +238,6 @@ void inline gwcached_next (gwhandle *gwdata, uint64_t *cached_data, unsigned lon
 	base128[1] = base128[1] + * ((uint64_t *) &dd_data->frac_bpw1) + carry;
 #endif
 
-	// Maintain cached data for partial weights
-	if (! (gwdata->cpu_flags & CPU_AVX512F) && gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-		dwpncol_counter++;
-		if (dwpncol_counter < ((gwdata->cpu_flags & CPU_AVX) ? gwdata->PASS2_SIZE : gwdata->PASS2_SIZE / 2))
-			dwpncol_value++;
-		else {
-			dwpncol_counter = 0;
-			dwpncol_value = dwpn_col (gwdata, n);
-			partial_weight[0] = 0.0;		// Flag that cached partial weights are not set
-			partial_inv_weight[0] = 0.0;
-		}
-	}
 }
 
 // Is this a big word?  Yes if adding fractional bpw to current base will cause a carry into integer part of base.
@@ -271,6 +255,15 @@ int inline gwcached_is_big_word (void *dd_data_arg, uint64_t *cached_data) {
 #endif
 	return (next_base128[1] >> 32);
 }
+
+inline uint32_t get_cached_dwpncol_counter (uint64_t *cached_data) { return (dwpncol_counter); }
+inline void inc_cached_dwpncol_counter (uint64_t *cached_data) { dwpncol_counter++; }
+inline void set_cached_dwpncol_counter (uint64_t *cached_data, uint32_t val) { dwpncol_counter = val; }
+inline uint32_t get_cached_dwpncol_value (uint64_t *cached_data) { return (dwpncol_value); }
+inline void inc_cached_dwpncol_value (uint64_t *cached_data) { dwpncol_value++; }
+inline void set_cached_dwpncol_value (uint64_t *cached_data, uint32_t val) { dwpncol_value = val; }
+inline void clear_cached_partial_weights (uint64_t *cached_data) { partial_weight[0] = partial_inv_weight[0] = 0.0; }
+inline uint32_t *get_cached_ao_values (uint64_t *cached_data) { return (gwnum_ao_values); }
 
 double gwcached_weight_sloppy (void *, uint64_t *, unsigned long, long);
 double gwcached_weight_inverse_sloppy (void *, uint64_t *, unsigned long);

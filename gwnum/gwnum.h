@@ -1252,7 +1252,6 @@ typedef struct gwiter_struct {
 void gwiter_init_zero (gwhandle *h, gwiter *iter);						/* Init iterator to element zero */
 void gwiter_init (gwhandle *h, gwiter *iter, unsigned long);					/* Init iterator to given element */
 void gwiter_next (gwhandle *h, gwiter *iter);							/* Position to next element */
-//void gwiter_prev (gwhandle *h, gwiter *iter);							/* Position to previous element */
 #define gwiter_index(h, iter)		((iter)->index)						/* Return element iterator is positioned on */
 #define gwiter_addr_offset(h, iter)	((iter)->addr_offset)					/* Return byte offset to address of the FFT data element */
 #define gwiter_addr(h, iter, g)		((double *)((char *)(g) + (iter)->addr_offset))		/* Return pointer to FFT data element */

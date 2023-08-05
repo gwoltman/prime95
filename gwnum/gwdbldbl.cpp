@@ -1474,8 +1474,8 @@ double inline cached_map_to_weight_power_sloppy (
 	uint64_t *cached_data,
 	unsigned long j)
 {
-	// Use middle 64-bits of cached 128-bit FFT base counter to calculate the weight power
-	uint64_t tmp2 = * (uint64_t *) ((char *) base128 + sizeof (uint32_t));
+	// Use middle 64-bits (the fractional part) of cached 128-bit FFT base counter to calculate the weight power
+	uint64_t tmp2 = base128middle;
 	tmp2 = ~tmp2;							// Simulate a ceil(tmp2) - tmp2 operation
 	double result = (double) (int64_t) (tmp2 >> 1);			// I think Intel can convert int64 to double easier than uint64
 	result *= 1.0842021724855044340074528008699e-19;		// Times 2^-63
@@ -1616,8 +1616,8 @@ double cached_partial_weight_init (
 	// Calculate the weight power partial weights (group multipliers).  Each group multiplier will need two weights cached (bpower and bpower-1).
 	// Cache data needed for quickly deciding which of the two weights to use in future partial weight calls.
 
-	// Use middle 64-bits of cached 128-bit FFT base counter to calculate j's weight power
-	uint64_t jtmp2 = * (uint64_t *) ((char *) base128 + sizeof (uint32_t));
+	// Use middle 64-bits (the fractional part) of cached 128-bit FFT base counter to calculate j's weight power
+	uint64_t jtmp2 = base128middle;
 	jtmp2 = ~jtmp2;								// Simulate a ceil(jtmp2) - jtmp2 operation
 
 	// Calculate col's weight power from scratch.
@@ -1655,8 +1655,8 @@ int inline cached_partial_which_weight (
 	uint64_t *cached_data)
 {
 	// See cached_partial_init for example on how we determine if col_bpower >= j_bpower.
-	uint64_t jtmp2 = * (uint64_t *) ((char *) base128 + sizeof (uint32_t));
-	return (jtmp2 < partial_transition);
+	// Compare middle 64 bits of base 128 (the fractional part) to precomputed transition point.
+	return (base128middle < partial_transition);
 }
 
 extern "C"
