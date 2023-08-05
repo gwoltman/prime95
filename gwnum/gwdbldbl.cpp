@@ -1488,11 +1488,11 @@ double gwcached_weight_sloppy (
 	void	*dd_data_arg,
 	uint64_t *cached_data,
 	unsigned long j,
-	long	val)
+	int32_t	val)
 {
 	double	bpower, weight;
 
-// Sequential sloppy optimizations won't work if abs(c) is not one.  This is because the result is not in the range 1.0 to b.
+// Sloppy optimizations won't work if abs(c) is not one.  This is because the result is not in the range 1.0 to b.
 
 	if (! dd_data->gw__c_is_one) {
 		bpower = cached_map_to_weight_power_sloppy (dd_data_arg, cached_data, j);

@@ -263,7 +263,7 @@ inline void inc_cached_dwpncol_value (uint64_t *cached_data) { dwpncol_value++; 
 inline void set_cached_dwpncol_value (uint64_t *cached_data, uint32_t val) { dwpncol_value = val; }
 inline void clear_cached_partial_weights (uint64_t *cached_data) { partial_weight[0] = partial_inv_weight[0] = 0.0; }
 
-double gwcached_weight_sloppy (void *, uint64_t *, unsigned long, long);
+double gwcached_weight_sloppy (void *, uint64_t *, unsigned long, int32_t);
 double gwcached_weight_inverse_sloppy (void *, uint64_t *, unsigned long);
 double gwcached_partial_weight_sloppy (void *, uint64_t *, unsigned long);
 double gwcached_partial_weight_inverse_sloppy (void *, uint64_t *, unsigned long);

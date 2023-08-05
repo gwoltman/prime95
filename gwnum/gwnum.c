@@ -7675,11 +7675,7 @@ void gwiter_next (		/* Position to next element */
 {
 	gwhandle *gwdata = iter->gwdata;	/* Handle initialized by gwsetup */
 
-	iter->index++;
-
-//GW: eliminate the if statement by calling addr_offset and is_big_word only when necessary?
-//GW: Add asserts in gwnum.h macros that index < FFTLEN
-	if (iter->index < gwdata->FFTLEN) {
+	if (++iter->index < gwdata->FFTLEN) {
 
 		// Update cached values used in optimizing big/little and weight calculations
 		gwcached_next (gwdata->dd_data, iter->cached_data, iter->index);
