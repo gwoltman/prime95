@@ -5550,7 +5550,6 @@ if (w->n == 604) {
 /* Setup the gwnum assembly code */
 
 	gwinit (&ecmdata.gwdata);
-	gwset_sum_inputs_checking (&ecmdata.gwdata, SUM_INPUTS_ERRCHK);
 	if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&ecmdata.gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&ecmdata.gwdata, 2);
@@ -6071,7 +6070,6 @@ OutputStr (thread_num, buf); }
 			// Re-init gwnum with a larger FFT
 			gwinit (&ecmdata.gwdata);
 			if (next_fftlen != best_fftlen) gwset_information_only (&ecmdata.gwdata);
-			gwset_sum_inputs_checking (&ecmdata.gwdata, SUM_INPUTS_ERRCHK);
 			if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
 			if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&ecmdata.gwdata);
 			if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&ecmdata.gwdata, 2);
@@ -8004,7 +8002,6 @@ more_curves:
 			char	fft_desc[200];
 			gwdone (&ecmdata.gwdata);
 			gwinit (&ecmdata.gwdata);
-			gwset_sum_inputs_checking (&ecmdata.gwdata, SUM_INPUTS_ERRCHK);
 			if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
 			if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&ecmdata.gwdata);
 			if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&ecmdata.gwdata, 2);
@@ -9822,7 +9819,6 @@ restart:
 /* Setup the assembly code */
 
 	gwinit (&pm1data.gwdata);
-	gwset_sum_inputs_checking (&pm1data.gwdata, SUM_INPUTS_ERRCHK);
 	if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pm1data.gwdata);
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pm1data.gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&pm1data.gwdata, 2);
@@ -10007,7 +10003,8 @@ restart:
 		goto done;
 	}
 
-/* Start this P-1 run from scratch starting with x = 3 */
+/* Start this P-1 run from scratch starting with x = 3.  Batalov reported P-1 issues doing P-1 on 3^524288+1.  The final result of stage 1 is one */
+/* because 3^(2^20) mod 3^524288+1 is one.  So, for base 3 numbers we will start with x = 5. */
 
 	strcpy (w->stage, "S1");
 	w->pct_complete = 0.0;
@@ -10016,7 +10013,9 @@ restart:
 	pm1data.stage0_bitnum = 0;
 	pm1data.x = gwalloc (&pm1data.gwdata);
 	if (pm1data.x == NULL) goto oom;
-	dbltogw (&pm1data.gwdata, 3.0, pm1data.x);
+	int pminus1_base;
+	pminus1_base = (w->b != 3 ? 3 : 5);
+	dbltogw (&pm1data.gwdata, pminus1_base, pm1data.x);
 
 /* Stage 0 pre-calculates an exponent that is the product of small primes.  Our default uses only small */
 /* primes below 250,000,000 (roughly 375 million bits).  This is configurable starting in version 29.8 build 8. */
@@ -10052,7 +10051,7 @@ restart0:
 
 /* Now take the exponent and raise x to that power */
 
-	gwsetmulbyconst (&pm1data.gwdata, 3);
+	gwsetmulbyconst (&pm1data.gwdata, pminus1_base);
 	while (pm1data.stage0_bitnum < len) {
 
 /* Set various flags.  They control whether error-checking or the next FFT can be started. */
@@ -10548,7 +10547,6 @@ OutputStr (thread_num, buf); }
 			// Re-init gwnum with a larger FFT
 			gwinit (&pm1data.gwdata);
 			if (next_fftlen != best_fftlen) gwset_information_only (&pm1data.gwdata);
-			gwset_sum_inputs_checking (&pm1data.gwdata, SUM_INPUTS_ERRCHK);
 			if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pm1data.gwdata);
 			if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pm1data.gwdata);
 			if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&pm1data.gwdata, 2);
@@ -13569,7 +13567,6 @@ restart:
 /* Setup the assembly code */
 
 	gwinit (&pp1data.gwdata);
-	gwset_sum_inputs_checking (&pp1data.gwdata, SUM_INPUTS_ERRCHK);
 	if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pp1data.gwdata);
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pp1data.gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&pp1data.gwdata, 2);
