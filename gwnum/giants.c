@@ -7,7 +7,7 @@
  *  Massive rewrite by G. Woltman for 32-bit support
  *
  *  c. 1997,1998 Perfectly Scientific, Inc.
- *  c. 1998-2015 Mersenne Research, Inc.
+ *  c. 1998-2023 Mersenne Research, Inc.
  *  All Rights Reserved.
  *
  **************************************************************/
