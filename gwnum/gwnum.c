@@ -617,7 +617,8 @@ int is_pathological_distribution (
 
 int calculate_bif (
 	gwhandle *gwdata,	/* Gwnum global data */
-	unsigned long fftlen)
+	unsigned long fftlen,
+	int	all_complex)
 {
 	int	cpu_arch, retval;
 
@@ -741,8 +742,8 @@ int calculate_bif (
 		retval = BIF_K10;	/* K8s have best FFT implementations up to 6M */
 	if (fftlen > 4194304 && retval == BIF_CORE2_512)
 		retval = BIF_CORE2;	/* Small cache Core 2 Celerons have best FFT implementations up to 4M */
-	if (fftlen > 19660800 && (retval == BIF_CORE2 || retval == BIF_K10))
-		retval = BIF_I7;	/* Core 2 and K10 have best FFT implementations up to 19200K */
+	if (fftlen > 7864320 && (all_complex || fftlen < 18874368 || fftlen > 19660800) && (retval == BIF_CORE2 || retval == BIF_K10))
+		retval = BIF_I7;	/* Core 2 and K10 have best FFT implementations up to 7680K and negacyclic FFTs 18M to 19200K */
 
 /* Return the result */
 
@@ -804,7 +805,7 @@ int is_fft_implemented (
 /* the CPU_ARCHITECTURE.  However, for some CPU architectures, like Pentium M and Core Solo, we */
 /* don't have jmptable entries detailing the fastest FFT implementations for those architectures. */
 
-	desired_bif = calculate_bif (gwdata, jmptab->fftlen);
+	desired_bif = calculate_bif (gwdata, jmptab->fftlen, all_complex);
 
 /* Assume we will use the old school method (no benchmark database) where the */
 /* best FFT implementation is hardwired into the mult.asm jmptable. */
@@ -915,7 +916,8 @@ int is_fft_implemented (
 
 const struct gwasm_jmptab *choose_one_pass_or_two_pass_impl (
 	gwhandle *gwdata,	/* Gwnum global data */
-	const struct gwasm_jmptab *jmptab)
+	const struct gwasm_jmptab *jmptab,
+	int	all_complex)
 {
 	const struct gwasm_jmptab *orig_jmptab;	
 	int	desired_bif;		/* The "best implementation for" value we will look for. */
@@ -943,7 +945,7 @@ const struct gwasm_jmptab *choose_one_pass_or_two_pass_impl (
 /* the CPU_ARCHITECTURE.  However, for some CPU architectures, like Pentium M and Core Solo, we */
 /* don't have jmptable entries detailing the fastest FFT implementations for those architectures. */
 
-	desired_bif = calculate_bif (gwdata, jmptab->fftlen);
+	desired_bif = calculate_bif (gwdata, jmptab->fftlen, all_complex);
 
 /* Loop through the FFT implementations to see if we find a one-pass implementation */
 /* that matches our desired "bif" value.  Otherwise, return first two-pass implementation. */
@@ -1230,7 +1232,7 @@ next1:			zpad_jmptab = NEXT_SET_OF_JMPTABS (zpad_jmptab);
 /* However, some FFTs have both a one-pass and two-pass implementation.  In such cases, */
 /* we must make sure that jmptab points to the implementation that we will actually use. */
 
-		impl_jmptab = choose_one_pass_or_two_pass_impl (gwdata, jmptab);
+		impl_jmptab = choose_one_pass_or_two_pass_impl (gwdata, jmptab, c > 0);
 
 /* Check if this FFT length will work with this k,n,c combo */
 
@@ -1483,11 +1485,10 @@ next2:		jmptab = NEXT_SET_OF_JMPTABS (jmptab);
 /* Decide which implementation of this FFT length is best for this CPU. */
 /************************************************************************/
 
-/* Loop through all the implementations for this FFT length until we find */
-/* the one best suited to this CPU. */
+/* Loop through all the implementations for this FFT length until we find the one best suited to this CPU. */
 
 	qa_nth_fft = gwdata->ZERO_PADDED_FFT ? 100 : 1000;
-	desired_bif = calculate_bif (gwdata, gwdata->FFTLEN);
+	desired_bif = calculate_bif (gwdata, gwdata->FFTLEN, gwdata->ALL_COMPLEX_FFT);
 	prev_proc_ptrs[0] = NULL;
 	prev_proc_ptrs[1] = NULL;
 	prev_proc_ptrs[2] = NULL;
