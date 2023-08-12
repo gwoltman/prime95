@@ -9733,7 +9733,7 @@ int pminus1 (
 	int	maxerr_restart_count = 0;
 	unsigned long maxerr_fftlen = 0;
 	char	filename[32], buf[255], JSONbuf[4000], testnum[100];
-	int	res, stop_reason, saving, near_fft_limit, echk;
+	int	pminus1_base, res, stop_reason, saving, near_fft_limit, echk;
 	double	one_over_len, one_over_B, base_pct_complete, one_relp_pct;
 	double	last_output, last_output_t, last_output_r;
 	double	allowable_maxerr, output_frequency, output_title_frequency;
@@ -9759,6 +9759,7 @@ int pminus1 (
 /* Begin initializing P-1 data structure */
 /* Choose a default value for the second bound if none was specified */
 
+	pminus1_base = (w->b != 3 ? 3 : 5);
 	memset (&pm1data, 0, sizeof (pm1handle));
 	pm1data.thread_num = thread_num;
 	pm1data.w = w;
@@ -9819,6 +9820,7 @@ restart:
 /* Setup the assembly code */
 
 	gwinit (&pm1data.gwdata);
+	gwset_maxmulbyconst (&pm1data.gwdata, pminus1_base);
 	if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pm1data.gwdata);
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pm1data.gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&pm1data.gwdata, 2);
@@ -10013,8 +10015,6 @@ restart:
 	pm1data.stage0_bitnum = 0;
 	pm1data.x = gwalloc (&pm1data.gwdata);
 	if (pm1data.x == NULL) goto oom;
-	int pminus1_base;
-	pminus1_base = (w->b != 3 ? 3 : 5);
 	dbltogw (&pm1data.gwdata, pminus1_base, pm1data.x);
 
 /* Stage 0 pre-calculates an exponent that is the product of small primes.  Our default uses only small */
