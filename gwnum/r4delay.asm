@@ -69,7 +69,7 @@ buildfor                                        ,	r4delay_pass1sc1024 256K, 8, 4
 
 	; The 10 levels variants (768, 1024, 1280)
 
-buildfor                 + P4TP                 ,	r4delay_pass1sc128 96K, 768, 4
+buildfor                                        ,	r4delay_pass1sc128 96K, 768, 4
 buildfor                                        ,	r4delay_pass1sc128 96K, 768, 2
 buildfor                                        ,	r4delay_pass1sc128 96K, 768, 1
 buildfor                 + P4TP                 ,	r4delay_pass1sc128 128K, 10, 4
@@ -113,7 +113,7 @@ buildfor                                        ,	r4delay_pass1sc448 336K, 768, 
 buildfor                                        ,	r4delay_pass1sc448 336K, 768, 2
 buildfor                                        ,	r4delay_pass1sc448 336K, 768, 1
 buildfor                                        ,	r4delay_pass1sc448 448K, 10, 4
-buildfor                 + P4TP                 ,	r4delay_pass1sc448 448K, 10, 2
+buildfor                                        ,	r4delay_pass1sc448 448K, 10, 2
 buildfor                                        ,	r4delay_pass1sc448 448K, 10, 1
 buildfor                                        ,	r4delay_pass1sc448 560K, 1280, 4
 buildfor                                        ,	r4delay_pass1sc448 560K, 1280, 2
@@ -262,8 +262,8 @@ buildfor                                        ,	r4delay_pass1sc1280ac 320K, 8,
 
 	; The all-complex 10 levels variants (768, 1024, 1280)
 
-buildfor                 + P4TP                 ,	r4delay_pass1sc128ac 96K, 768, 4
-buildfor                 + P4TP                 ,	r4delay_pass1sc128ac 128K, 10, 4
+buildfor                                        ,	r4delay_pass1sc128ac 96K, 768, 4
+buildfor                                        ,	r4delay_pass1sc128ac 128K, 10, 4
 buildfor                                        ,	r4delay_pass1sc128ac 160K, 1280, 4
 
 buildfor                                        ,	r4delay_pass1sc256ac 192K, 768, 4

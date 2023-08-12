@@ -731,8 +731,8 @@ int calculate_bif (
 /* For slower CPU architectures we didn't bother to find the best FFT implementation for the larger FFTs.  This was done to reduce the size of the executable. */
 /* If we are asked to run one of these large FFTs, select an FFT optimized for a different CPU architecture.  GW 2023-08-05: More FFTs removed for old CPUs. */
 
-	if (fftlen > 1572864 && retval == BIF_P4TP_256)
-		retval = BIF_P4_1024;	/* Tiny cache P4s have best FFT implementations up to 1536K */
+	if (retval == BIF_P4TP_256)
+		retval = BIF_P4TP_512;	/* Tiny cache P4s (Willamette) now default to FFTs optimized for larger cache Pentium 4s */
 	if (fftlen > 4194304 && retval == BIF_P4TP_512)
 		retval = BIF_P4_1024;	/* Small cache P4s have best FFT implementations up to 4M */
 	if (fftlen > 6291456 && retval == BIF_P4_1024)

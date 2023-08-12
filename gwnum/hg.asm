@@ -102,11 +102,11 @@ buildfor                 + P4TP              ,	xpass2gen 13
 
 buildfor CORE    + P4    + P4TP + K8    + K10,	hg_pass1levels6pfa5 10K, 8, 4
 buildfor CORE    + P4    + P4TP + K8    + K10,	hg_pass1levels6pfa6 12K, 8, 4
-buildfor CORE_64 + P4    + P4TP + K8_32      ,	hg_pass1levels6pfa7 14K, 8, 4
+buildfor CORE_64 + P4           + K8_32      ,	hg_pass1levels6pfa7 14K, 8, 4
 buildfor         + P4_32                     ,	hg_pass1levels6pfa8 16K, 8, 4
 buildfor         + P4_32                     ,	hg_pass1levels7pfa5 20K, 8, 4
 buildfor         + P4    + P4TP              ,	hg_pass1levels7pfa6 24K, 8, 4
-buildfor CORE    + P4_32 + P4TP              ,	hg_pass1levels7pfa7 28K, 8, 4
+buildfor CORE    + P4_32                     ,	hg_pass1levels7pfa7 28K, 8, 4
 buildfor         + P4                        ,	hg_pass1levels7pfa8 32K, 8, 4
 
 buildfor CORE_64 + P4    + P4TP + K8    + K10,	hg_pass1levels6complex3	12K, 8, 4
@@ -120,7 +120,7 @@ buildfor                 + P4TP              ,	hg_pass1sclevels8pfa6 192K, 10, 4
 buildfor                                     ,	hg_pass1sclevels8pfa6 192K, 10, 2
 buildfor                                     ,	hg_pass1sclevels8pfa6 192K, 10, 1
 buildfor                 + P4TP              ,	hg_pass1sclevels8pfa7 224K, 10, 4
-buildfor                 + P4TP              ,	hg_pass1sclevels8pfa7 224K, 10, 2
+buildfor                                     ,	hg_pass1sclevels8pfa7 224K, 10, 2
 buildfor                 + P4TP              ,	hg_pass1sclevels8pfa8 256K, 10, 4
 buildfor                                     ,	hg_pass1sclevels8pfa8 256K, 10, 2
 buildfor         + P4_32 + P4TP              ,	hg_pass1sclevels9pfa5 320K, 10, 4

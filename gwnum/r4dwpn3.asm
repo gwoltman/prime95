@@ -30,7 +30,7 @@ _TEXT SEGMENT
 
 ;; Generate pass 2 routines optimized for this architecture
 
-buildfor CORE    + P4    + P4TP + K8    + K10   ,	xpass2gen 2304
+buildfor CORE    + P4           + K8    + K10   ,	xpass2gen 2304
 buildfor CORE    + P4    + P4TP + K8    + K10   ,	xpass2gen 3072
 buildfor CORE    + P4_64        + K8    + K10   ,	xpass2gen 3840
 buildfor CORE    + P4    + P4TP + K8    + K10   ,	xpass2gen 12
@@ -45,7 +45,7 @@ buildfor CORE_64                + K8_64         ,	r4dwpn_pass1sc256 576K, 2304, 
 buildfor                        + K8_32         ,	r4dwpn_pass1sc256 576K, 2304, 2
 buildfor                                        ,	r4dwpn_pass1sc256 576K, 2304, 1
 buildfor CORE_64                                ,	r4dwpn_pass1sc256 768K, 3072, 4
-buildfor CORE            + P4TP                 ,	r4dwpn_pass1sc256 768K, 3072, 2
+buildfor CORE                                   ,	r4dwpn_pass1sc256 768K, 3072, 2
 buildfor                        + K8            ,	r4dwpn_pass1sc256 768K, 3072, 1
 buildfor CORE_64                                ,	r4dwpn_pass1sc256 960K, 3840, 4
 buildfor CORE                   + K8_64         ,	r4dwpn_pass1sc256 960K, 3840, 2
@@ -59,7 +59,7 @@ buildfor                                        ,	r4dwpn_pass1sc256 1280K, 5120,
 buildfor                                        ,	r4dwpn_pass1sc256 1600K, 6400, 4
 
 buildfor CORE_64 + P4_64                + K10_64,	r4dwpn_pass1sc320 720K, 2304, 4
-buildfor                 + P4TP                 ,	r4dwpn_pass1sc320 720K, 2304, 2
+buildfor                                        ,	r4dwpn_pass1sc320 720K, 2304, 2
 buildfor                                        ,	r4dwpn_pass1sc320 720K, 2304, 1
 buildfor                                        ,	r4dwpn_pass1sc320 960K, 3072, 4
 buildfor                 + P4TP                 ,	r4dwpn_pass1sc320 960K, 3072, 2
@@ -78,7 +78,7 @@ buildfor                                + K10   ,	r4dwpn_pass1sc384 864K, 2304, 
 buildfor                        + K8            ,	r4dwpn_pass1sc384 864K, 2304, 2
 buildfor                                        ,	r4dwpn_pass1sc384 864K, 2304, 1
 buildfor CORE_64                        + K10   ,	r4dwpn_pass1sc384 1152K, 3072, 4
-buildfor CORE            + P4TP                 ,	r4dwpn_pass1sc384 1152K, 3072, 2
+buildfor CORE                                   ,	r4dwpn_pass1sc384 1152K, 3072, 2
 buildfor CORE_32                + K8            ,	r4dwpn_pass1sc384 1152K, 3072, 1
 buildfor                                + K10_64,	r4dwpn_pass1sc384 1440K, 3840, 4
 buildfor CORE_64                + K8_64         ,	r4dwpn_pass1sc384 1440K, 3840, 2
@@ -111,7 +111,7 @@ buildfor                                        ,	r4dwpn_pass1sc512 1152K, 2304,
 buildfor                                        ,	r4dwpn_pass1sc512 1152K, 2304, 2
 buildfor                                        ,	r4dwpn_pass1sc512 1152K, 2304, 1
 buildfor CORE_64                                ,	r4dwpn_pass1sc512 1536K, 3072, 4
-buildfor                 + P4TP                 ,	r4dwpn_pass1sc512 1536K, 3072, 2
+buildfor                                        ,	r4dwpn_pass1sc512 1536K, 3072, 2
 buildfor                                        ,	r4dwpn_pass1sc512 1920K, 3840, 4
 buildfor                                        ,	r4dwpn_pass1sc512 1920K, 3840, 2
 buildfor                                        ,	r4dwpn_pass1sc512 1920K, 3840, 1
@@ -253,10 +253,10 @@ buildfor CORE                   + K8_64         ,	r4dwpn_pass1sc256ac 1600K, 640
 buildfor                        + K8_32         ,	r4dwpn_pass1sc256ac 1600K, 6400, 1
 
 buildfor CORE    + P4           + K8    + K10   ,	r4dwpn_pass1sc384ac 864K, 2304, 4
-buildfor                 + P4TP                 ,	r4dwpn_pass1sc384ac 864K, 2304, 2
+buildfor                                        ,	r4dwpn_pass1sc384ac 864K, 2304, 2
 buildfor                                        ,	r4dwpn_pass1sc384ac 864K, 2304, 1
 buildfor CORE_64                        + K10_32,	r4dwpn_pass1sc384ac 1152K, 3072, 4
-buildfor CORE            + P4TP + K8_64         ,	r4dwpn_pass1sc384ac 1152K, 3072, 2
+buildfor CORE                   + K8_64         ,	r4dwpn_pass1sc384ac 1152K, 3072, 2
 buildfor                        + K8_32         ,	r4dwpn_pass1sc384ac 1152K, 3072, 1
 buildfor CORE_64 + P4_64                + K10_64,	r4dwpn_pass1sc384ac 1440K, 3840, 4
 buildfor CORE                   + K8            ,	r4dwpn_pass1sc384ac 1440K, 3840, 2
@@ -273,7 +273,7 @@ buildfor                        + K8_32         ,	r4dwpn_pass1sc384ac 2400K, 640
 
 buildfor                                        ,	r4dwpn_pass1sc512ac 1152K, 2304, 4
 buildfor CORE_64                                ,	r4dwpn_pass1sc512ac 1536K, 3072, 4
-buildfor                 + P4TP                 ,	r4dwpn_pass1sc512ac 1536K, 3072, 2
+buildfor                                        ,	r4dwpn_pass1sc512ac 1536K, 3072, 2
 buildfor                                + K10_32,	r4dwpn_pass1sc512ac 1920K, 3840, 4
 buildfor CORE                   + K8    + K10   ,	r4dwpn_pass1sc512ac 2M, 12, 4
 buildfor CORE                                   ,	r4dwpn_pass1sc512ac 2M, 12, 2
