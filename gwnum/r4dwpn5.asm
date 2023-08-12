@@ -1,4 +1,4 @@
-; Copyright 2010-2012 Mersenne Research, Inc.  All rights reserved
+; Copyright 2010-2023 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -140,20 +140,20 @@ buildfor                                        ,	r4dwpn_pass1sc2048 16M, 13, 4
 buildfor                                + K10   ,	r4dwpn_pass1sc2048 16M, 13, 2
 buildfor                                        ,	r4dwpn_pass1sc2048 16M, 13, 1
 buildfor                                        ,	r4dwpn_pass1sc2048 20M, 10240, 4
-buildfor                                + K10   ,	r4dwpn_pass1sc2048 20M, 10240, 2
+buildfor                                        ,	r4dwpn_pass1sc2048 20M, 10240, 2
 buildfor                                        ,	r4dwpn_pass1sc2048 25M, 12800, 4
 
 buildfor CORE                                   ,	r4dwpn_pass1sc2560 11520K, 4608, 4
 buildfor                                        ,	r4dwpn_pass1sc2560 15M, 6144, 4
 buildfor                                        ,	r4dwpn_pass1sc2560 19200K, 7680, 4
 buildfor CORE_32                                ,	r4dwpn_pass1sc2560 20M, 13, 4
-buildfor CORE                                   ,	r4dwpn_pass1sc2560 25M, 10240, 4
+buildfor                                        ,	r4dwpn_pass1sc2560 25M, 10240, 4
 buildfor                                        ,	r4dwpn_pass1sc2560 32000K, 12800, 4
 
 buildfor CORE_64                                ,	r4dwpn_pass1sc3072 13824K, 4608, 4
 buildfor                                        ,	r4dwpn_pass1sc3072 18M, 6144, 4
 buildfor                                        ,	r4dwpn_pass1sc3072 23040K, 7680, 4
-buildfor CORE                                   ,	r4dwpn_pass1sc3072 24M, 13, 4
+buildfor                                        ,	r4dwpn_pass1sc3072 24M, 13, 4
 buildfor                                        ,	r4dwpn_pass1sc3072 30M, 10240, 4
 ;buildfor                                       ,	r4dwpn_pass1sc3072 38400K, 12800, 4
 
@@ -244,7 +244,7 @@ buildfor                                        ,	r4dwpn_pass1sc2048ac 16M, 13, 
 buildfor                                + K10_32,	r4dwpn_pass1sc2048ac 16M, 13, 2
 buildfor                                        ,	r4dwpn_pass1sc2048ac 16M, 13, 1
 buildfor                                        ,	r4dwpn_pass1sc2048ac 20M, 10240, 4
-buildfor                                + K10_32,	r4dwpn_pass1sc2048ac 20M, 10240, 2
+buildfor                                        ,	r4dwpn_pass1sc2048ac 20M, 10240, 2
 buildfor                                        ,	r4dwpn_pass1sc2048ac 25M, 12800, 4
 
 buildfor                                        ,	r4dwpn_pass1sc2560ac 11520K, 4608, 4
@@ -258,7 +258,7 @@ buildfor CORE                                   ,	r4dwpn_pass1sc3072ac 13824K, 4
 buildfor                                        ,	r4dwpn_pass1sc3072ac 18M, 6144, 4
 buildfor                                        ,	r4dwpn_pass1sc3072ac 23040K, 7680, 4
 buildfor                                        ,	r4dwpn_pass1sc3072ac 24M, 13, 4
-buildfor CORE_64                                ,	r4dwpn_pass1sc3072ac 30M, 10240, 4
+buildfor                                        ,	r4dwpn_pass1sc3072ac 30M, 10240, 4
 ;buildfor                                       ,	r4dwpn_pass1sc3072ac 38400K, 12800, 4
 
 buildfor CORE                                   ,	r4dwpn_pass1sc4096ac 18M, 4608, 4
@@ -282,9 +282,9 @@ buildfor CORE                                   ,	r4dwpn_pass1sc5120ac 30M, 6144
 buildfor CORE    + P4           + K8    + K10   ,	xpass2gen 9216
 buildfor CORE                   + K8_64 + K10   ,	xpass2gen 12288
 buildfor CORE                           + K10   ,	xpass2gen 15360
-buildfor CORE                           + K10   ,	xpass2gen 14
-buildfor CORE_32                        + K10   ,	xpass2gen 20480
-buildfor CORE                           + K10   ,	xpass2gen 25600
+buildfor CORE                           + K10_64,	xpass2gen 14
+buildfor                                        ,	xpass2gen 20480
+buildfor CORE                           + K10_32,	xpass2gen 25600
 
 ;; Routines for many FFT sizes
 
@@ -346,56 +346,57 @@ buildfor                                + K10   ,	r4dwpn_pass1sc896 10752K, 1228
 buildfor CORE_32                        + K10   ,	r4dwpn_pass1sc896 13440K, 15360, 4
 buildfor                                        ,	r4dwpn_pass1sc896 14M, 14, 4
 buildfor                                        ,	r4dwpn_pass1sc896 17920K, 20480, 4
-buildfor CORE                           + K10   ,	r4dwpn_pass1sc896 22400K, 25600, 4
+buildfor CORE                                   ,	r4dwpn_pass1sc896 22400K, 25600, 4
 
 buildfor CORE                                   ,	r4dwpn_pass1sc1024 9M, 9216, 4
 buildfor CORE_32                        + K10   ,	r4dwpn_pass1sc1024 12M, 12288, 4
 buildfor CORE                                   ,	r4dwpn_pass1sc1024 15M, 15360, 4
 buildfor CORE                                   ,	r4dwpn_pass1sc1024 16M, 14, 4
 buildfor                                        ,	r4dwpn_pass1sc1024 20M, 20480, 4
-buildfor CORE                           + K10   ,	r4dwpn_pass1sc1024 25M, 25600, 4
+buildfor CORE                                   ,	r4dwpn_pass1sc1024 25M, 25600, 4
 
 buildfor CORE_64                        + K10   ,	r4dwpn_pass1sc1280 11520K, 9216, 4
 buildfor CORE_32                        + K10   ,	r4dwpn_pass1sc1280 15M, 12288, 4
 buildfor                                + K10   ,	r4dwpn_pass1sc1280 19200K, 15360, 4
-buildfor CORE_64                                ,	r4dwpn_pass1sc1280 20M, 14, 4
+buildfor                                        ,	r4dwpn_pass1sc1280 20M, 14, 4
 buildfor                                        ,	r4dwpn_pass1sc1280 25M, 20480, 4
-buildfor CORE_64                        + K10   ,	r4dwpn_pass1sc1280 32000K, 25600, 4
+buildfor CORE_64                                ,	r4dwpn_pass1sc1280 32000K, 25600, 4
 
 buildfor                                + K10   ,	r4dwpn_pass1sc1536 13824K, 9216, 4
 buildfor                                + K10   ,	r4dwpn_pass1sc1536 18M, 12288, 4
-buildfor CORE_64                        + K10   ,	r4dwpn_pass1sc1536 23040K, 15360, 4
+buildfor CORE_64                                ,	r4dwpn_pass1sc1536 23040K, 15360, 4
 buildfor                                        ,	r4dwpn_pass1sc1536 24M, 14, 4
 buildfor                                        ,	r4dwpn_pass1sc1536 30M, 20480, 4
 ;buildfor                                       ,	r4dwpn_pass1sc1536 38400K, 25600, 4
 
 buildfor                                        ,	r4dwpn_pass1sc1792 16128K, 9216, 4
-buildfor CORE                           + K10   ,	r4dwpn_pass1sc1792 21M, 12288, 4
-buildfor                                + K10   ,	r4dwpn_pass1sc1792 26880K, 15360, 4
-buildfor CORE                           + K10   ,	r4dwpn_pass1sc1792 28M, 14, 4
+buildfor                                        ,	r4dwpn_pass1sc1792 21M, 12288, 4
+buildfor                                        ,	r4dwpn_pass1sc1792 26880K, 15360, 4
+buildfor                                        ,	r4dwpn_pass1sc1792 28M, 14, 4
 ;buildfor                                       ,	r4dwpn_pass1sc1792 35840K, 20480, 4
 ;buildfor                                       ,	r4dwpn_pass1sc1792 44800K, 25600, 4
 
 buildfor CORE                                   ,	r4dwpn_pass1sc2048 18M, 9216, 4
-buildfor                                + K10   ,	r4dwpn_pass1sc2048 24M, 12288, 4
-buildfor                                + K10_64,	r4dwpn_pass1sc2048 30M, 15360, 4
-buildfor CORE                           + K10   ,	r4dwpn_pass1sc2048 32M, 14, 4
+buildfor                                        ,	r4dwpn_pass1sc2048 24M, 12288, 4
+buildfor                                        ,	r4dwpn_pass1sc2048 30M, 15360, 4
+buildfor                                        ,	r4dwpn_pass1sc2048 32M, 14, 4
 ;buildfor                                       ,	r4dwpn_pass1sc2048 40M, 20480, 4
 ;buildfor                                       ,	r4dwpn_pass1sc2048 50M, 25600, 4
 
-buildfor CORE                                   ,	r4dwpn_pass1sc2560 23040K, 9216, 4
-buildfor CORE                           + K10_32,	r4dwpn_pass1sc2560 30M, 12288, 4
+buildfor CORE_32                                ,	r4dwpn_pass1sc2560 23040K, 9216, 4
+buildfor CORE_32                                ,	r4dwpn_pass1sc2560 30M, 12288, 4
 ;buildfor                                       ,	r4dwpn_pass1sc2560 38400K, 15360, 4
 ;buildfor                                       ,	r4dwpn_pass1sc2560 40M, 14, 4
 ;buildfor                                       ,	r4dwpn_pass1sc2560 50M, 20480, 4
 ;buildfor                                       ,	r4dwpn_pass1sc2560 64000K, 25600, 4
 
-buildfor CORE                           + K10   ,	r4dwpn_pass1sc3072 27M, 9216, 4
+buildfor CORE                                   ,	r4dwpn_pass1sc3072 27M, 9216, 4
 ;buildfor                                       ,	r4dwpn_pass1sc3072 36M, 12288, 4
 ;buildfor                                       ,	r4dwpn_pass1sc3072 45M, 15360, 4
 ;buildfor                                       ,	r4dwpn_pass1sc3072 48M, 14, 4
 ;buildfor                                       ,	r4dwpn_pass1sc3072 60M, 20480, 4
-;buildfor                                       ,	r4dwpn_pass1sc3072 75M, 25600, 4
+;; Only include this FFT for the server_proof_processor.  See also mult.asm
+;buildfor CORE                                   ,	r4dwpn_pass1sc3072 75M, 25600, 4
 
 buildfor                                        ,	r4dwpn_pass1sc3584 32256K, 9216, 4
 ;buildfor                                       ,	r4dwpn_pass1sc3584 42M, 12288, 4
@@ -454,38 +455,38 @@ buildfor CORE                                   ,	r4dwpn_pass1sc1024ac 9M, 9216,
 buildfor CORE_32                        + K10   ,	r4dwpn_pass1sc1024ac 12M, 12288, 4
 buildfor CORE                                   ,	r4dwpn_pass1sc1024ac 15M, 15360, 4
 buildfor CORE                           + K10_64,	r4dwpn_pass1sc1024ac 16M, 14, 4
-buildfor                                + K10_64,	r4dwpn_pass1sc1024ac 20M, 20480, 4
-buildfor CORE                           + K10   ,	r4dwpn_pass1sc1024ac 25M, 25600, 4
+buildfor                                        ,	r4dwpn_pass1sc1024ac 20M, 20480, 4
+buildfor CORE                                   ,	r4dwpn_pass1sc1024ac 25M, 25600, 4
 
 buildfor                                + K10_64,	r4dwpn_pass1sc1280ac 11520K, 9216, 4
 buildfor                                + K10   ,	r4dwpn_pass1sc1280ac 15M, 12288, 4
 buildfor                                + K10_64,	r4dwpn_pass1sc1280ac 19200K, 15360, 4
-buildfor CORE_64                                ,	r4dwpn_pass1sc1280ac 20M, 14, 4
-buildfor CORE_32                                ,	r4dwpn_pass1sc1280ac 25M, 20480, 4
-buildfor CORE_64                        + K10   ,	r4dwpn_pass1sc1280ac 32000K, 25600, 4
+buildfor                                        ,	r4dwpn_pass1sc1280ac 20M, 14, 4
+buildfor                                        ,	r4dwpn_pass1sc1280ac 25M, 20480, 4
+buildfor CORE_64                                ,	r4dwpn_pass1sc1280ac 32000K, 25600, 4
 
 buildfor CORE                           + K10   ,	r4dwpn_pass1sc1536ac 13824K, 9216, 4
 buildfor                                + K10   ,	r4dwpn_pass1sc1536ac 18M, 12288, 4
-buildfor                                + K10   ,	r4dwpn_pass1sc1536ac 23040K, 15360, 4
-buildfor CORE                                   ,	r4dwpn_pass1sc1536ac 24M, 14, 4
-buildfor                                + K10_32,	r4dwpn_pass1sc1536ac 30M, 20480, 4
+buildfor                                        ,	r4dwpn_pass1sc1536ac 23040K, 15360, 4
+buildfor CORE_64                                ,	r4dwpn_pass1sc1536ac 24M, 14, 4
+buildfor                                        ,	r4dwpn_pass1sc1536ac 30M, 20480, 4
 ;buildfor                                       ,	r4dwpn_pass1sc1536ac 38400K, 25600, 4
 
 buildfor CORE                                   ,	r4dwpn_pass1sc2048ac 18M, 9216, 4
-buildfor                                + K10   ,	r4dwpn_pass1sc2048ac 24M, 12288, 4
-buildfor                                + K10_64,	r4dwpn_pass1sc2048ac 30M, 15360, 4
-buildfor CORE                           + K10   ,	r4dwpn_pass1sc2048ac 32M, 14, 4
+buildfor                                        ,	r4dwpn_pass1sc2048ac 24M, 12288, 4
+buildfor                                        ,	r4dwpn_pass1sc2048ac 30M, 15360, 4
+buildfor                                        ,	r4dwpn_pass1sc2048ac 32M, 14, 4
 ;buildfor                                       ,	r4dwpn_pass1sc2048ac 40M, 20480, 4
 ;buildfor                                       ,	r4dwpn_pass1sc2048ac 50M, 25600, 4
 
-buildfor CORE                                   ,	r4dwpn_pass1sc2560ac 23040K, 9216, 4
-buildfor CORE_32                                ,	r4dwpn_pass1sc2560ac 30M, 12288, 4
+buildfor                                        ,	r4dwpn_pass1sc2560ac 23040K, 9216, 4
+buildfor                                        ,	r4dwpn_pass1sc2560ac 30M, 12288, 4
 ;buildfor                                       ,	r4dwpn_pass1sc2560ac 38400K, 15360, 4
 ;buildfor                                       ,	r4dwpn_pass1sc2560ac 40M, 14, 4
 ;buildfor                                       ,	r4dwpn_pass1sc2560ac 50M, 20480, 4
 ;buildfor                                       ,	r4dwpn_pass1sc2560ac 64000K, 25600, 4
 
-buildfor CORE                           + K10   ,	r4dwpn_pass1sc3072ac 27M, 9216, 4
+buildfor CORE                                   ,	r4dwpn_pass1sc3072ac 27M, 9216, 4
 ;buildfor                                       ,	r4dwpn_pass1sc3072ac 36M, 12288, 4
 ;buildfor                                       ,	r4dwpn_pass1sc3072ac 45M, 15360, 4
 ;buildfor                                       ,	r4dwpn_pass1sc3072ac 48M, 14, 4

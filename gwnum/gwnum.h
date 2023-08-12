@@ -55,9 +55,9 @@ typedef gwnum *gwarray;
 /* are new prime95 versions without any changes in the gwnum code.  This version number is also embedded in the assembly code and */
 /* gwsetup verifies that the version numbers match.  This prevents bugs from accidentally linking in the wrong gwnum library. */
 
-#define GWNUM_VERSION		"30.15"
+#define GWNUM_VERSION		"30.16"
 #define GWNUM_MAJOR_VERSION	30
-#define GWNUM_MINOR_VERSION	15
+#define GWNUM_MINOR_VERSION	16
 
 /* Error codes returned by the three gwsetup routines */
 
@@ -204,12 +204,6 @@ void gwdone (
 #define gwclear_use_large_pages(h)	((h)->use_large_pages = 0)
 #define gwget_use_large_pages(h)	((h)->use_large_pages)
 #define gw_using_large_pages(h)		((h)->large_pages_ptr != NULL)
-
-/* The gwsetup routines pick the fastest FFT implementation by default.  Setting this option will cause gwsetup to give preference */
-/* to FFT implementations that support the SUM(INPUTS) != SUM(OUTPUTS) error check. */
-/* NOTE:  This error check is not available for k*b^n+c IBDWT FFTs when c is positive.  Setting this option will have no effect. */
-/* NOTE: sum_inputs checking is only available in SSE2 FFTs and earlier.  Thus, using this option is not recommended. */
-#define gwset_sum_inputs_checking(h,b)	((h)->sum_inputs_checking = (char) (b))
 
 /* By default gwnum uses mutexes rather than spin waits to implement multithreading.  This macro lets you try spin waits to see if they are faster. */
 /* A setting of one tells the main thread to spin wait on helper threads to finish up.  A setting above one tells the main thread to spin wait plus */
@@ -831,6 +825,12 @@ int gwtogiant (gwhandle *, gwnum, giant);
 #define gwaddsub4quick(h,s1,s2,d1,d2)	gwaddsub4o (h,s1,s2,d1,d2,GWADD_DELAY_NORMALIZE)
 #define force_normalize(x)		DEPRECATED - use GWADD_FORCE_NORMALIZE
 
+/* DEPRECATED.  The gwsetup routines pick the fastest FFT implementation by default.  Setting this option will cause gwsetup to give preference */
+/* to FFT implementations that support the SUM(INPUTS) != SUM(OUTPUTS) error check.  GEC makes this option obsolete. */
+/* NOTE: This error check is not available for k*b^n+c IBDWT FFTs when c is positive.  Setting this option will have no effect. */
+/* NOTE: sum_inputs checking is only available in SSE2 FFTs and earlier.  Thus, using this option is not recommended. */
+#define gwset_sum_inputs_checking(h,b)
+
 /* DEPRECATED.  Using gwerror_checking macro and the GWMUL_MULBYCONST option is preferred. */
 /* The multiplication code has two options that you can set using this macro.  The e argument tells the multiplication */
 /* code whether or not it should perform round-off error checking - returning the maximum difference from an integer result */
@@ -1027,7 +1027,6 @@ struct gwhandle_struct {
 	char	hyperthread_prefetching; /* Set to true to launch a separate thread for prefetching.  Caller must set */
 					/* affinity to make sure hyperthread and compute thread share the same physical core */
 	char	larger_fftlen_count;	/* Force using larger FFT sizes.  This is a count of how many FFT sizes to "skip over". */
-	char	sum_inputs_checking;	/* If possible, pick an FFT implementation that supports the SUM(INPUTS) != SUM(OUTPUTS) error check. */
 	char	force_general_mod;	/* Forces gwsetup_general_mod to not check for a k*2^n+c reduction */
 	char	use_irrational_general_mod; /* Force using an irrational FFT when doing a general mod. */
 					/* This is slower but more immune to round off errors from pathological bit patterns in the modulus. */

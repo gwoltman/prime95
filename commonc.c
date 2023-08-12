@@ -33,7 +33,6 @@ int	DIAL_UP = 0;
 unsigned int DAYS_OF_WORK = 5;
 int	STRESS_TESTER = 0;
 int volatile ERRCHK = 0;
-int volatile SUM_INPUTS_ERRCHK = 0;	/* 1 to turn on sum(inputs) != sum(outputs) error checking */
 unsigned int PRIORITY = 1;
 unsigned int NUM_WORKERS = 1;		/* Number of workers to launch */
 unsigned int WORK_PREFERENCE[MAX_NUM_WORKERS] = {0};
@@ -1785,8 +1784,6 @@ int readIniFiles (void)
 	STRESS_TESTER = (int) IniGetInt (INI_FILE, "StressTester", 99);
 	temp = (int) IniGetInt (INI_FILE, "ErrorCheck", 0);
 	ERRCHK = (temp != 0);
-	temp = (int) IniGetInt (INI_FILE, "SumInputsErrorCheck", 0);
-	SUM_INPUTS_ERRCHK = (temp != 0);
 	NUM_WORKERS = IniGetInt (INI_FILE, KEY_NumWorkers, good_default_for_num_workers ());
 	if (NUM_WORKERS < 1) NUM_WORKERS = 1;
 	if (NUM_WORKERS > MAX_NUM_WORKERS) NUM_WORKERS = MAX_NUM_WORKERS;

@@ -6524,7 +6524,6 @@ int prime (
 begin:	gwinit (&lldata.gwdata);
 	if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&lldata.gwdata);
 	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&lldata.gwdata);
-	gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&lldata.gwdata, 2);
 	gwset_bench_cores (&lldata.gwdata, HW_NUM_CORES);
 	gwset_bench_workers (&lldata.gwdata, NUM_WORKERS);
@@ -7624,7 +7623,6 @@ int selfTestInternal (
 			gwinit (&lldata.gwdata);
 		lldata.gwdata.cpu_flags &= ~disabled_cpu_flags;
 		gwclear_use_benchmarks (&lldata.gwdata);
-		gwset_sum_inputs_checking (&lldata.gwdata, iter & 1);
 		gwset_num_threads (&lldata.gwdata, num_threads);
 		gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 		gwset_thread_callback_data (&lldata.gwdata, sp_info);
@@ -8294,7 +8292,6 @@ int lucas_QA (
 /* Now run a replica of lucasSetup but able to handle any k,b,n,c */
 
 		gwinit (&lldata.gwdata);
-		gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 		gwset_minimum_fftlen (&lldata.gwdata, fftlen);
 		if (gwsetup (&lldata.gwdata, (double) k, b, p, c)) goto not_impl;
 
@@ -8879,7 +8876,6 @@ static	int	time_all_complex = 0;	/* TRUE if we should time all-complex FFTs */
 /* Init the FFT code */
 
 			gwinit (&lldata.gwdata);
-			gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 			gwset_bench_cores (&lldata.gwdata, HW_NUM_COMPUTE_CORES);	// We're most likely to have bench data for this case
 			gwset_bench_workers (&lldata.gwdata, NUM_WORKERS);	// We're most likely to have bench data for this case
 			if (ERRCHK) gwset_will_error_check (&lldata.gwdata);
@@ -9217,7 +9213,6 @@ void primeBenchOneWorker (void *arg)
 /* Initialize this FFT length */
 
 	gwinit (&lldata.gwdata);
-	gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 	gwset_num_threads (&lldata.gwdata, get_ranked_num_threads (info->core_num, info->core_count, info->hyperthreading));
 	gwset_thread_callback (&lldata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&lldata.gwdata, &sp_info);
@@ -9323,7 +9318,6 @@ int primeBenchMultipleWorkersInternal (
 /* Initialize this FFT length */
 
 	    gwinit (&lldata.gwdata);
-	    gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 	    if (all_bench) lldata.gwdata.bench_pick_nth_fft = 1;
 	    stop_reason = lucasSetup (thread_num, fftlen * 17 + 1, fftlen + plus1, &lldata);
 	    if (stop_reason) {
@@ -9363,7 +9357,6 @@ int primeBenchMultipleWorkersInternal (
 		if (impl > 1) {
 			if (!all_bench) break;
 			gwinit (&lldata.gwdata);
-			gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 			lldata.gwdata.bench_pick_nth_fft = impl;
 			stop_reason = lucasSetup (thread_num, fftlen * 17 + 1, fftlen + plus1, &lldata);
 			if (stop_reason) break;	// Assume stop_reason set because there are no more implementations for this FFT
@@ -10074,7 +10067,6 @@ int primeBench (
 /* my 1400 MHz P4 to run 10 iterations of a 1792K FFT. */
 
 		  gwinit (&lldata.gwdata);
-		  gwset_sum_inputs_checking (&lldata.gwdata, SUM_INPUTS_ERRCHK);
 		  if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&lldata.gwdata);
 		  if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&lldata.gwdata);
 		  gwset_num_threads (&lldata.gwdata, get_ranked_num_threads (0, cores, hypercpu > 1));

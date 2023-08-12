@@ -1,4 +1,4 @@
-; Copyright 2010-2012 Mersenne Research, Inc.  All rights reserved
+; Copyright 2010-2023 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -170,7 +170,7 @@ buildfor                                        ,	r4dwpn_pass1sc1024 3840K, 3840
 buildfor CORE_32                                ,	r4dwpn_pass1sc1024 3840K, 3840, 1
 buildfor CORE    + P4_64                + K10   ,	r4dwpn_pass1sc1024 4M, 12, 4
 buildfor                        + K8            ,	r4dwpn_pass1sc1024 4M, 12, 2
-buildfor CORE_32                                ,	r4dwpn_pass1sc1024 4M, 12, 1
+buildfor CORE                                   ,	r4dwpn_pass1sc1024 4M, 12, 1
 buildfor CORE                   + K8            ,	r4dwpn_pass1sc1024 5M, 5120, 4
 buildfor CORE                                   ,	r4dwpn_pass1sc1024 6400K, 6400, 4
 
@@ -222,7 +222,7 @@ buildfor CORE                                   ,	r4dwpn_pass1sc3584 10752K, 307
 buildfor CORE                                   ,	r4dwpn_pass1sc3584 13440K, 3840, 4
 buildfor CORE                                   ,	r4dwpn_pass1sc3584 14M, 12, 4
 buildfor CORE                                   ,	r4dwpn_pass1sc3584 17920K, 5120, 4
-buildfor CORE                                   ,	r4dwpn_pass1sc3584 22400K, 6400, 4
+buildfor                                        ,	r4dwpn_pass1sc3584 22400K, 6400, 4
 
 buildfor                                        ,	r4dwpn_pass1sc4096 9M, 2304, 4
 buildfor                                        ,	r4dwpn_pass1sc4096 12M, 3072, 4
@@ -367,7 +367,7 @@ buildfor                                        ,	r4dwpn_pass1sc4096ac 25M, 6400
 buildfor                                        ,	r4dwpn_pass1sc5120ac 11520K, 2304, 4
 buildfor                                        ,	r4dwpn_pass1sc5120ac 15M, 3072, 4
 buildfor                                        ,	r4dwpn_pass1sc5120ac 19200K, 3840, 4
-buildfor CORE                                   ,	r4dwpn_pass1sc5120ac 20M, 12, 4
+buildfor CORE_64                                ,	r4dwpn_pass1sc5120ac 20M, 12, 4
 buildfor                                        ,	r4dwpn_pass1sc5120ac 25M, 5120, 4
 buildfor                                        ,	r4dwpn_pass1sc5120ac 32000K, 6400, 4
 

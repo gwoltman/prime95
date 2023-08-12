@@ -728,10 +728,8 @@ int calculate_bif (
 	if (retval == BIF_FMA3 || retval == BIF_RYZEN) retval = BIF_I7;
 #endif
 
-/* For slower CPU architectures we didn't bother to find the best FFT implementation */
-/* for the larger FFTs.  This was done to reduce the size of the executable.  If we */
-/* are asked to run one of these large FFTs, select an FFT optimized for a different */
-/* CPU architecture. */
+/* For slower CPU architectures we didn't bother to find the best FFT implementation for the larger FFTs.  This was done to reduce the size of the executable. */
+/* If we are asked to run one of these large FFTs, select an FFT optimized for a different CPU architecture.  GW 2023-08-05: More FFTs removed for old CPUs. */
 
 	if (fftlen > 1572864 && retval == BIF_P4TP_256)
 		retval = BIF_P4_1024;	/* Tiny cache P4s have best FFT implementations up to 1536K */
@@ -743,6 +741,8 @@ int calculate_bif (
 		retval = BIF_K10;	/* K8s have best FFT implementations up to 6M */
 	if (fftlen > 4194304 && retval == BIF_CORE2_512)
 		retval = BIF_CORE2;	/* Small cache Core 2 Celerons have best FFT implementations up to 4M */
+	if (fftlen > 19660800 && (retval == BIF_CORE2 || retval == BIF_K10))
+		retval = BIF_I7;	/* Core 2 and K10 have best FFT implementations up to 19200K */
 
 /* Return the result */
 
@@ -873,15 +873,14 @@ int is_fft_implemented (
 
 		for (i = 0; i <= 1; i++) {
 			const struct gwasm_jmptab *next_jmptab;
-			int	error_check, no_r4dwpn, impl, next_impl;
+			int	error_check, impl, next_impl;
 			double	throughput, next_throughput;
 
 			if (gwdata->will_error_check == 0) error_check = i;	/* Look for no-error-checking benchmarks first */
 			if (gwdata->will_error_check == 1) error_check = !i;	/* Look for error-checking benchmarks first */
 			if (gwdata->will_error_check == 2) error_check = i;	/* Need a more sophisticated approach in this case */
-			no_r4dwpn = (gwdata->sum_inputs_checking && ! gwdata->ALL_COMPLEX_FFT && ! (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX)));
 			gwbench_get_max_throughput (jmptab->fftlen, arch, num_cores, num_workers, num_hyperthreads,
-						    all_complex, error_check, no_r4dwpn, &impl, &throughput);
+						    all_complex, error_check, &impl, &throughput);
 			if (throughput <= 0.0) continue;
 
 			for (next_jmptab = NEXT_SET_OF_JMPTABS(jmptab); ; next_jmptab = NEXT_SET_OF_JMPTABS(next_jmptab)) {
@@ -891,7 +890,7 @@ int is_fft_implemented (
 					return (TRUE);
 				}
 				gwbench_get_max_throughput (next_jmptab->fftlen, arch, num_cores, num_workers, num_hyperthreads,
-							    all_complex, error_check, no_r4dwpn, &next_impl, &next_throughput);
+							    all_complex, error_check, &next_impl, &next_throughput);
 				if (next_throughput <= 0.0) continue;			/* No bench data, assume larger FFT will be slower */
 				if (next_throughput > throughput) return (FALSE);	/* Larger FFT length is faster */
 			}
@@ -1583,23 +1582,10 @@ next2:		jmptab = NEXT_SET_OF_JMPTABS (jmptab);
 				break;
 		}
 
-/* The Radix-4/8 DJB FFT with partial normalization saves a few multiplies by doing part */
-/* of the normalization during the forward and inverse FFT.  Unfortunately, this optimization */
-/* makes the SUM(INPUTS) != SUM(OUTPUTS) error check impossible.  If the user prefers */
-/* SUM(INPUTS) != SUM(OUTPUTS) error checking, then skip r4dwpn FFT type (except all-complex */
-/* FFTs which never could support SUM(INPUTS) != SUM(OUTPUTS) error checking. */
-/* Ignore this preference for AVX-512/AVX FFTs as we do not support two-pass FFTs with this error check. */
-
-		fft_type = (jmptab->flags >> 21) & 0xF;
-		if (gwdata->sum_inputs_checking &&
-		    ! gwdata->ALL_COMPLEX_FFT &&
-		    ! (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX)) &&
-		    fft_type == FFT_TYPE_RADIX_4_DWPN)
-			goto next3;
-
 /* If we got a best_impl_id using the benchmark_database, then see if this jmptable matches the best_impl_id */
 /* Unfortunately, this duplicates much of the flags parsing found later on in this routine. */
 
+		fft_type = (jmptab->flags >> 21) & 0xF;
 		if (best_impl_id != -1) {
 			int	flags, fft_type, arch, clm, p2size, no_prefetch, in_place;
 			flags = jmptab->flags;
@@ -2088,10 +2074,6 @@ void gwinit2 (
 		return;
 	}
 
-/* Read the gwnum.txt INI file */
-
-	gwbench_read_data ();
-
 /* Initialize gwhandle structure with the default values */
 
 	memset (gwdata, 0, sizeof (gwhandle));
@@ -2145,6 +2127,10 @@ void gwinit2 (
 
 	if (CPU_ARCHITECTURE == CPU_ARCHITECTURE_AMD_BULLDOZER && ((CPU_SIGNATURE >> 16) & 0xF) < 3)
 		gwdata->cpu_flags &= ~(CPU_AVX512F | CPU_AVX | CPU_FMA3);
+
+/* Read the benchmark data from gwnum.txt INI file.  Pass in cpu_flags to aid in determining which bench data to ignore from older gwnum versions. */
+
+	gwbench_read_data (gwdata->cpu_flags);
 }
 
 /* Allocate memory and initialize assembly code for arithmetic */
@@ -9901,26 +9887,6 @@ void asm_mul (
 		d = (gwnum) ((char *) d + (intptr_t) asm_data->DEST2ARG);
 	}
 
-/* Adjust if necessary the SUM(INPUTS) vs. SUM(OUTPUTS).  If an unnormalized add count is set, then the sums will be larger than normal. */
-/* This could trigger spurious MAXDIFF warnings.  Shrink the two SUMS to compensate. */
-/* 2023: This ancient error check does not work with new gwmuladd4, gwsubmul4, etc.  I'm sure it could be made to work, but is not worth the effort. */
-
-	if (gwdata->sum_inputs_checking && asm_data->mul4_opcode == 0) {
-		float	unnorm_count1, unnorm_count2;
-
-		unnorm_count1 = unnorms (s1);
-		unnorm_count2 = unnorms (s2);
-		if (unnorm_count1 != 0.0f || unnorm_count2 != 0.0f) {
-			double	adjustment = pow (0.5, (double) (unnorm_count1 + unnorm_count2));
-			gwsuminp (gwdata, d) *= adjustment;
-			gwsumout (gwdata, d) *= adjustment;
-		}
-
-/* Test SUM(INPUTS) vs. SUM(OUTPUTS) */
-
-		if (fabs (gwsuminp (gwdata, d) - gwsumout (gwdata, d)) > gwdata->MAXDIFF) gwdata->GWERROR |= 2;
-	}
-
 /* Reset the unnormalized add count, set the FFT state */
 
 	unnorms (d) = 0.0f;
@@ -10135,7 +10101,6 @@ void gwunfft2 (
 	int	options)	/* Any of GWMUL_ADDINCONST, GWMUL_MULBYCONST, GWMUL_STARTNEXTFFT */
 {
 	int	save_count;
-	char	save_sum_inputs_checking;
 
 	ASSERTG (unnorms (s) >= 0.0f);
 
@@ -10152,11 +10117,8 @@ void gwunfft2 (
 	save_count = gwdata->careful_count;
 	gwdata->careful_count = 0;
 
-/* Turn off sum(inputs) checking.  Polymult produces results where the sum(inputs) value is not valid.  Polymult then unffts these results. */
-/* Also clear unnorms so if we call gwmul3 it won't assert when polymult has set unnorms very high. */
+/* Clear unnorms so if we call gwmul3 it won't assert when polymult has set unnorms very high. */
 
-	save_sum_inputs_checking = gwdata->sum_inputs_checking;
-	gwdata->sum_inputs_checking = 0;
 	unnorms (s) = 0.0f;
 
 /* For partially or fully FFTed data, multiply source by 1.0 */
@@ -10245,7 +10207,6 @@ void gwunfft2 (
 
 /* Restore state */
 
-	gwdata->sum_inputs_checking = save_sum_inputs_checking;
 	gwdata->careful_count = save_count;
 }
 
