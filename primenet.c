@@ -384,7 +384,7 @@ int pnHttpServerCURL (char *pbuf, unsigned cbuf, char* postargs)
 
 /* armor parameter control chars as hex codes for transport */
 
-#define ARMOR_CHARS		"&+%\r\n"
+#define ARMOR_CHARS		"&+%<>#\"\r\n"
 
 char *armor (char *d, char *s)
 {
