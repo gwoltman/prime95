@@ -5988,7 +5988,7 @@ retry:
 		if (CPU_FLAGS & CPU_SSE41) strcat (pkt.cpu_features, "SSE4,");
 		if (CPU_FLAGS & CPU_AVX) strcat (pkt.cpu_features, "AVX,");
 		if (CPU_FLAGS & CPU_AVX2) strcat (pkt.cpu_features, "AVX2,");
-		if (CPU_FLAGS & (CPU_FMA3 | CPU_FMA4)) strcat (pkt.cpu_features, "FMA, ");
+		if (CPU_FLAGS & (CPU_FMA3 | CPU_FMA4)) strcat (pkt.cpu_features, "FMA,");
 		if (CPU_FLAGS & CPU_AVX512F) strcat (pkt.cpu_features, "AVX512F,");
 		if (pkt.cpu_features[0])
 			pkt.cpu_features[strlen (pkt.cpu_features) - 1] = 0;
