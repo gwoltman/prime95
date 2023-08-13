@@ -5571,10 +5571,6 @@ if (w->n == 604) {
 	}
 	ecmdata.stage1_fftlen = gwfftlen (&ecmdata.gwdata);
 
-/* A kludge so that the error checking code is not as strict. */
-
-	ecmdata.gwdata.MAXDIFF *= IniGetInt (INI_FILE, "MaxDiffMultiplier", 1);
-
 /* More random initializations */
 
 	last_output = last_output_t = ecmdata.modinv_count = 0;
@@ -6094,7 +6090,6 @@ OutputStr (thread_num, buf); }
 				stop_reason = STOP_FATAL_ERROR;
 				goto exit;
 			}
-			ecmdata.gwdata.MAXDIFF *= IniGetInt (INI_FILE, "MaxDiffMultiplier", 1);
 			gwerror_checking (&ecmdata.gwdata, ERRCHK || near_fft_limit);
 			if (gwfftlen (&ecmdata.gwdata) != ecmdata.stage1_fftlen) {
 				char	fft_desc[200];
@@ -8022,7 +8017,6 @@ more_curves:
 				stop_reason = STOP_FATAL_ERROR;
 				goto exit;
 			}
-			ecmdata.gwdata.MAXDIFF *= IniGetInt (INI_FILE, "MaxDiffMultiplier", 1);
 			gwerror_checking (&ecmdata.gwdata, ERRCHK || near_fft_limit);
 			gwfft_description (&ecmdata.gwdata, fft_desc);
 			sprintf (msgbuf, "Switching back to %s\n", fft_desc);
@@ -9844,10 +9838,6 @@ restart:
 	}
 	pm1data.stage1_fftlen = gwfftlen (&pm1data.gwdata);
 
-/* A kludge so that the error checking code is not as strict. */
-
-	pm1data.gwdata.MAXDIFF *= IniGetInt (INI_FILE, "MaxDiffMultiplier", 1);
-
 /* More miscellaneous initializations */
 
 	last_output = last_output_t = last_output_r = 0;
@@ -10571,7 +10561,6 @@ OutputStr (thread_num, buf); }
 				stop_reason = STOP_FATAL_ERROR;
 				goto exit;
 			}
-			pm1data.gwdata.MAXDIFF *= IniGetInt (INI_FILE, "MaxDiffMultiplier", 1);
 			gwerror_checking (&pm1data.gwdata, ERRCHK || near_fft_limit);
 			if (gwfftlen (&pm1data.gwdata) != pm1data.stage1_fftlen) {
 				char	fft_desc[200];
@@ -13589,10 +13578,6 @@ restart:
 	}
 	pp1data.stage1_fftlen = gwfftlen (&pp1data.gwdata);
 	gwsetaddin (&pp1data.gwdata, -2);
-
-/* A kludge so that the error checking code is not as strict. */
-
-	pp1data.gwdata.MAXDIFF *= IniGetInt (INI_FILE, "MaxDiffMultiplier", 1);
 
 /* Allocate gwnums for computing Lucas sequences */
 

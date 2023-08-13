@@ -18,7 +18,6 @@
 
 static const char ERRMSG0[] = "Iteration: %ld/%ld, %s";
 static const char ERRMSG1A[] = "ERROR: ILLEGAL SUMOUT\n";
-static const char ERRMSG1B[] = "ERROR: SUM(INPUTS) != SUM(OUTPUTS), %.16g != %.16g\n";
 static const char ERRMSG1C[] = "Possible error: round off (%.10g) > %.5g\n";
 static const char ERRMSG1D[] = "ERROR: Shift counter corrupt.\n";
 static const char ERRMSG1E[] = "ERROR: Illegal double encountered.\n";
@@ -6054,6 +6053,7 @@ err:	_close (fd);
 /* NOTE:  The server considers an LL run clean if the error code is XXaaYY00 and XX = YY and aa is ignored.  That is, repeatable */
 /* round off errors and all ILLEGAL SUMOUTS are ignored. */
 /* In version 29.3, a.k.a. Wf in result lines, the 32-bit field changed.  See comments in the code below. */
+/* In version 30.16, SUMINP != SUMOUT was deprecated in gwnum freeing the bottom 4 bits of the 32-bit value */
 
 void inc_error_count (
 	int	type,
@@ -6062,8 +6062,7 @@ void inc_error_count (
 	unsigned long addin, orin, maxval;
 
 	addin = orin = 0;
-	if (type == 0) addin = 1, maxval = 0xF;				// SUMINP != SUMOUT
-	else if (type == 4) addin = 1 << 4, maxval = 0x0F << 4;		// Jacobi error check
+	if (type == 4) addin = 1 << 4, maxval = 0x0F << 4;		// Jacobi error check
 	else if (type == 1) addin = 1 << 8, maxval = 0x3F << 8;		// Roundoff > 0.4
 	else if (type == 5) orin = 1 << 14;				// Zeroed FFT data
 	else if (type == 6) orin = 1 << 15;				// Units bit, counter, or other value corrupted
@@ -6440,8 +6439,6 @@ int prime (
 	double	best_iteration_time;
 	unsigned long last_counter = 0xFFFFFFFF;	/* Iteration of last error */
 	int	maxerr_recovery_mode = 0;		/* Big roundoff err rerun */
-	double	last_suminp = 0.0;
-	double	last_sumout = 0.0;
 	double	last_maxerr = 0.0;
 	double	allowable_maxerr, output_frequency, output_title_frequency;
 	int	error_count_messages;
@@ -6772,33 +6769,6 @@ begin:	gwinit (&lldata.gwdata);
 			inc_error_count (2, &error_count);
 			sleep5 = TRUE;
 			goto restart;
-		}
-
-/* Check that the sum of the input numbers squared is approximately */
-/* equal to the sum of unfft results.  Since this check may not */
-/* be perfect, check for identical results after a restart. */
-
-		if (gw_test_mismatched_sums (&lldata.gwdata)) {
-			if (counter == last_counter &&
-			    gwsuminp (&lldata.gwdata, lldata.lldata) == last_suminp &&
-			    gwsumout (&lldata.gwdata, lldata.lldata) == last_sumout) {
-				OutputBoth (thread_num, ERROK);
-				inc_error_count (3, &error_count);
-				gw_clear_error (&lldata.gwdata);
-			} else {
-				char	msg[100];
-				sprintf (msg, ERRMSG1B,
-					 gwsuminp (&lldata.gwdata, lldata.lldata),
-					 gwsumout (&lldata.gwdata, lldata.lldata));
-				sprintf (buf, ERRMSG0, counter, p, msg);
-				OutputBoth (thread_num, buf);
-				last_counter = counter;
-				last_suminp = gwsuminp (&lldata.gwdata, lldata.lldata);
-				last_sumout = gwsumout (&lldata.gwdata, lldata.lldata);
-				inc_error_count (0, &error_count);
-				sleep5 = TRUE;
-				goto restart;
-			}
 		}
 
 /* Check for excessive roundoff error.  If round off is too large, repeat */
@@ -7185,7 +7155,6 @@ static const char TORTURE2[] = "Please read stress.txt.  Choose Test/Stop to end
 static const char SELF1[] = "Test %i%s, %i Lucas-Lehmer %siterations of M%ld using %s.\n";
 static const char SELFFAIL[] = "FATAL ERROR: Final result was %08lX, expected: %08lX.\n";
 static const char SELFFAIL1[] = "ERROR: ILLEGAL SUMOUT\n";
-static const char SELFFAIL2[] = "FATAL ERROR: Resulting sum was %.16g, expected: %.16g\n";
 static const char SELFFAIL3[] = "FATAL ERROR: Rounding was %.10g, expected less than 0.4\n";
 static const char SELFFAIL4[] = "Possible hardware failure, consult readme.txt file, restarting test.\n";
 static const char SELFFAIL5[] = "Hardware failure detected running %lu%s FFT size, consult stress.txt file.\n";
@@ -7608,10 +7577,7 @@ int selfTestInternal (
 			break;
 		}
 
-/* Now run Lucas setup, for extra safety double the maximum allowable */
-/* sum(inputs) vs. sum(outputs) difference.  For faster detection of unstable */
-/* systems, enable SUM(INPUTS) != SUM(OUTPUTS) checking on the first test. */
-/* For a better variety of tests, enable SUM(INPUTS) != SUM(OUTPUTS) checking half the time. */
+/* Now run Lucas setup */
 
 		// Gwinit normally does not allow Bulldozer to run AVX or FMA3 FFTs.  For torture
 		// testing purposes we will allow running these FFTs.
@@ -7630,7 +7596,6 @@ int selfTestInternal (
 		lldata.gwdata.GW_BIGBUF_SIZE = (bigbuf != NULL) ? (intptr_t) memory * (intptr_t) 1048576 : 0;
 		stop_reason = lucasSetup (thread_num, p, fftlen, &lldata);
 		if (stop_reason) return (stop_reason);
-		lldata.gwdata.MAXDIFF *= 2.0;
 
 /* Determine how many gwnums we can allocate in the memory we are given */
 
@@ -7704,23 +7669,6 @@ restart_test:	dbltogw (&lldata.gwdata, 4.0, lldata.lldata);
 					free (gwarray);
 					return (STOP_FATAL_ERROR);
 				}
-			}
-
-/* Check that the sum of the input numbers squared is approximately equal to the sum of unfft results. */
-
-			if (gw_test_mismatched_sums (&lldata.gwdata)) {
-				sprintf (buf, SELFFAIL7, thread_num+1);
-				OutputStr (MAIN_THREAD_NUM, buf);
-				OutputBoth (thread_num, buf);
-				sprintf (buf, SELFFAIL2, gwsumout (&lldata.gwdata, g), gwsuminp (&lldata.gwdata, g));
-				OutputBoth (thread_num, buf);
-				sprintf (buf, SELFFAIL5, (fftlen % 1024 == 0) ? fftlen >> 10 : fftlen, (fftlen % 1024 == 0) ? "K" : "");
-				OutputBoth (thread_num, buf);
-				flashWindowAndBeep ();
-				(*errors)++;
-				lucasDone (&lldata);
-				free (gwarray);
-				return (STOP_FATAL_ERROR);
 			}
 
 /* Make sure round off error is tolerable */
@@ -8273,7 +8221,7 @@ int lucas_QA (
 		int	c;
 		char	buf[500], res[80];
 		unsigned long units_bit, i, maxerrcnt;
-		double	maxsumdiff, maxerr, toterr, M, S;
+		double	maxerr, toterr, M, S;
 		unsigned long ge_300, ge_325, ge_350, ge_375, ge_400;
 		unsigned int iters_unchecked, M_count;
 
@@ -8325,7 +8273,6 @@ int lucas_QA (
 
 /* Do Lucas-Lehmer iterations maintaining roundoff stats */
 
-		maxsumdiff = 0.0;
 		ge_300 = ge_325 = ge_350 = ge_375 = ge_400 = 0;
 		maxerr = 0.0; maxerrcnt = 0; toterr = 0.0;
 		iters_unchecked = (type > 3) ? 2 : 40;
@@ -8364,12 +8311,6 @@ int lucas_QA (
 				else if (gw_get_maxerr (&lldata.gwdata) == maxerr) maxerrcnt++;
 			}
 			gw_clear_maxerr (&lldata.gwdata);
-
-/* Maintain maximum suminp/sumout difference */
-
-			if (fabs (gwsuminp (&lldata.gwdata, lldata.lldata) - gwsumout (&lldata.gwdata, lldata.lldata)) > maxsumdiff) {
-				maxsumdiff = fabs (gwsuminp (&lldata.gwdata, lldata.lldata) - gwsumout (&lldata.gwdata, lldata.lldata));
-			}
 
 /* If the sum of the output values is an error (such as infinity) */
 /* then raise an error.  For some reason these bad values are treated */
@@ -8419,8 +8360,7 @@ int lucas_QA (
 		sprintf (buf, "avg: %6.6f, stddev: %6.6f, #stdev to 0.5: %6.6f\n", toterr, S, (0.50 - toterr) / S);
 		OutputBoth (thread_num, buf);
 
-		sprintf (buf, "Exp/iters: %lu/%lu, maxerr: %6.6f/%lu, %lu/%lu/%lu/%lu/%lu, maxdiff: %9.9f/%9.9f\n",
-			 p, iters, maxerr, maxerrcnt, ge_300, ge_325, ge_350, ge_375, ge_400, maxsumdiff, lldata.gwdata.MAXDIFF);
+		sprintf (buf, "Exp/iters: %lu/%lu, maxerr: %6.6f/%lu, %lu/%lu/%lu/%lu/%lu\n", p, iters, maxerr, maxerrcnt, ge_300, ge_325, ge_350, ge_375, ge_400);
 		OutputBoth (thread_num, buf);
 
 /* Cleanup */
@@ -11569,8 +11509,6 @@ int prp (
 	char	buf[1000], JSONbuf[4000], fft_desc[200];
 	unsigned long last_counter = 0xFFFFFFFF;/* Iteration of last error */
 	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
-	double	last_suminp = 0.0;
-	double	last_sumout = 0.0;
 	double	last_maxerr = 0.0;
 	double	allowable_maxerr, output_frequency, output_title_frequency;
 	char	string_rep[80];
@@ -12428,34 +12366,6 @@ OutputStr (thread_num, "Iteration failed.\n");
 			restart_counter = -1;			/* rollback to any save file */
 			sleep5 = TRUE;
 			goto restart;
-		}
-
-/* Check that the sum of the input numbers squared is approximately equal to the sum of unfft results. */
-/* Since checking floats for equality is imperfect, check for identical results after a restart. */
-/* Note that if the SUMOUT value is extremely large the result is surely corrupt and we must rollback. */
-
-		if (gw_test_mismatched_sums (&gwdata)) {
-			if (ps.counter == last_counter &&
-			    gwsuminp (&gwdata, x) == last_suminp &&
-			    gwsumout (&gwdata, x) == last_sumout) {
-				OutputBoth (thread_num, ERROK);
-				inc_error_count (3, &ps.error_count);
-				gw_clear_error (&gwdata);
-			} else {
-				char	msg[100];
-				sprintf (msg, ERRMSG1B, gwsuminp (&gwdata, x), gwsumout (&gwdata, x));
-				sprintf (buf, ERRMSG0, ps.counter+1, final_counter, msg);
-				OutputBoth (thread_num, buf);
-				inc_error_count (0, &ps.error_count);
-				if (ps.error_check_type == PRP_ERRCHK_NONE || fabs (gwsumout (&gwdata, x)) > 1.0e40) {
-					last_counter = ps.counter;
-					last_suminp = gwsuminp (&gwdata, x);
-					last_sumout = gwsumout (&gwdata, x);
-					restart_counter = ps.counter;		/* rollback to this iteration or earlier */
-					sleep5 = TRUE;
-					goto restart;
-				}
-			}
 		}
 
 /* Check for excessive roundoff error.  If round off is too large, repeat the iteration to see if this was */

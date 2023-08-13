@@ -2531,14 +2531,6 @@ int gwsetup_general_mod_giant (
 /* Set flag indicating general-purpose modulo operations are in force */
 
 		gwdata->GENERAL_MOD = TRUE;
-
-/* Reciprocals in generic modular reduction may well have a nasty bit pattern. */
-/* Two test cases that brought this to light are 3*2^77574+3, and 3*8^86103+1 */
-/* (when forced to use generic reduction).  These nasty patterns can trigger */
-/* spurious SUM(INPUTS) != SUM(OUTPUTS) errors.  To counter this we increase */
-/* the MAXDIFF setting. */
-	
-		gwdata->MAXDIFF *= 1000.0;
 	}
 
 /* Create dummy string representation. Calling gtoc to get the first */
@@ -4839,32 +4831,6 @@ int internal_gwsetup (
 #else
 	gwdata->FFT1_state = 2;
 #endif
-
-/* Compute maximum allowable difference for error checking */
-/* This error check is disabled for mod B^N+1 arithmetic */
-/* and for radix-4 delay with partial normalization FFTs. */
-
-	if (gwdata->ALL_COMPLEX_FFT || gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN)
-		gwdata->MAXDIFF = 1.0E80;
-
-/* We have observed that the difference seems to vary based on the size */
-/* the FFT result word.  This is two times the number of bits per double. */
-/* Subtract 1 from bits per double because one bit is the sign bit. */
-/* Add log2(b) for the FFT weight that range from 1 to b. */
-/* Add in a percentage of the log(FFTLEN) to account for carries. */
-/* We use a different threshold for AVX-512/AVX/SSE2 which uses 64-bit instead of */
-/* 80-bit doubles during the FFT */
-
-	else {
-		double bits_per_double, total_bits, loglen;
-		bits_per_double = gwdata->avg_num_b_per_word * log2 (b) - 1.0;
-		if (!gwdata->RATIONAL_FFT) bits_per_double += log2 (b);
-		if (!gwdata->ZERO_PADDED_FFT) bits_per_double += log2 (-c);
-		loglen = log2 (gwdata->FFTLEN);
-		loglen *= 0.69;
-		total_bits = bits_per_double * 2.0 + loglen * 2.0;
-		gwdata->MAXDIFF = pow ((double) 2.0, total_bits - ((gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX | CPU_SSE2)) ? 49.08 : 49.65));
-	}
 
 /* Clear counters, init internal timers */
 

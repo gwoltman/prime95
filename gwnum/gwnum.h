@@ -547,9 +547,6 @@ void gwunfft2 (gwhandle *, gwnum s, gwnum d, int options);
 
 #define gw_test_for_error(h)		((h)->GWERROR)
 #define gw_test_illegal_sumout(h)	((h)->GWERROR & 1)
-#define gw_test_mismatched_sums(h)	((h)->GWERROR & 2)
-#define gwsuminp(h,g)			((g)[-2])
-#define gwsumout(h,g)			((g)[-3])
 #define gw_clear_error(h)		((h)->GWERROR = 0)
 
 /* Get or clear the roundoff error.  Remember that if the roundoff error exceeds 0.5 then the FFT results will be wrong. */
@@ -825,11 +822,14 @@ int gwtogiant (gwhandle *, gwnum, giant);
 #define gwaddsub4quick(h,s1,s2,d1,d2)	gwaddsub4o (h,s1,s2,d1,d2,GWADD_DELAY_NORMALIZE)
 #define force_normalize(x)		DEPRECATED - use GWADD_FORCE_NORMALIZE
 
-/* DEPRECATED.  The gwsetup routines pick the fastest FFT implementation by default.  Setting this option will cause gwsetup to give preference */
-/* to FFT implementations that support the SUM(INPUTS) != SUM(OUTPUTS) error check.  GEC makes this option obsolete. */
-/* NOTE: This error check is not available for k*b^n+c IBDWT FFTs when c is positive.  Setting this option will have no effect. */
-/* NOTE: sum_inputs checking is only available in SSE2 FFTs and earlier.  Thus, using this option is not recommended. */
+/* DEPRECATED.  The gwsetup routines pick the fastest FFT implementation by default.  Setting this option will cause gwsetup to give */
+/* preference to FFT implementations that support the SUM(INPUTS) != SUM(OUTPUTS) error check.  GEC makes this option obsolete. */
+/* NOTE: This error check was not available for k*b^n+c IBDWT FFTs when c is positive.  Setting this option had no effect. */
+/* NOTE: sum_inputs checking was only available in SSE2 FFTs and earlier. */
 #define gwset_sum_inputs_checking(h,b)
+#define gw_test_mismatched_sums(h)	FALSE
+#define gwsuminp(h,g)			((g)[-2])
+#define gwsumout(h,g)			((g)[-3])
 
 /* DEPRECATED.  Using gwerror_checking macro and the GWMUL_MULBYCONST option is preferred. */
 /* The multiplication code has two options that you can set using this macro.  The e argument tells the multiplication */
@@ -1103,7 +1103,6 @@ struct gwhandle_struct {
 	unsigned int NORMNUM;		/* The post-multiply normalize routine index */
 	int	GWERROR;		/* Set if an error is detected */
 	int	mulbyconst;		/* Current mul-by-const value */
-	double	MAXDIFF;		/* Maximum allowable difference between sum of inputs and outputs */
 	double	fft_count;		/* Count of forward and inverse FFTs */
 	uint64_t read_count;		/* For memory bandwidth optimizing, a count of gwnums read (ex. a gwsquare without startnext FFT does 2 read/writes) */
 	uint64_t write_count;		/* For memory bandwidth optimizing, a count of gwnums written (ex. a gwadd3 does 2 reads and one write) */
