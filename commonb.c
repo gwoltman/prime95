@@ -5652,7 +5652,7 @@ begin:	factor_found = 0;
 			sprintf (JSONbuf+strlen(JSONbuf), ", \"bithi\":%d, \"rangecomplete\":false", end_bits);
 			JSONaddProgramTimestamp (JSONbuf);
 			JSONaddUserComputerAID (JSONbuf, w);
-			strcat (JSONbuf, "}\n");
+			strcat (JSONbuf, "}");
 			if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* Send assignment result to the server.  To avoid flooding the server */
@@ -5735,7 +5735,7 @@ nextpass:	;
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC3 (p));
 		JSONaddProgramTimestamp (JSONbuf);
 		JSONaddUserComputerAID (JSONbuf, w);
-		strcat (JSONbuf, "}\n");
+		strcat (JSONbuf, "}");
 		if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* Send no factor found message to the server for each bit */
@@ -7076,7 +7076,7 @@ begin:	gwinit (&lldata.gwdata);
 		strcat (JSONbuf, "}");
 	}
 	JSONaddUserComputerAID (JSONbuf, w);
-	strcat (JSONbuf, "}\n");
+	strcat (JSONbuf, "}");
 	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* Send results to the server if they might possibly be of interest */
@@ -12981,7 +12981,7 @@ pushg(&gwdata.gdata, 2);}
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"hashsize\":%d, \"md5\":\"%s\"}", ps.hashlen, proof_hash);
 	}
 	JSONaddUserComputerAID (JSONbuf, w);
-	strcat (JSONbuf, "}\n");
+	strcat (JSONbuf, "}");
 	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* Output results to the server */

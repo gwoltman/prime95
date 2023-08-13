@@ -4760,10 +4760,11 @@ void formatMsgForResultsFile (
 /* Open a results file and write a line to the end of it. */
 
 int writeResultsInternal (
-	int	which_results_file,	/* 0 = results.txt, 1 = results.bench.txt */
-	const char *msg)
+	int	which_results_file,	/* 0 = results.txt, 1 = results.bench.txt, 2 = results.json.txt */
+	const char *msg,
+	int	output_nl)
 {
-static	time_t	last_time[2] = {0};
+static	time_t	last_time[3] = {0};
 	time_t	this_time;
 	int	fd;
 	int	write_interval;
@@ -4787,8 +4788,7 @@ static	time_t	last_time[2] = {0};
 		return (FALSE);
 	}
 
-/* If it has been at least 5 minutes (a user-adjustable value) since the last time stamp */
-/* was output, then output a new timestamp */
+/* If it has been at least 5 minutes (a user-adjustable value) since the last time stamp was output, then output a new timestamp */
 
 	time (&this_time);
 	if (write_interval && this_time - last_time[which_results_file] > (time_t) write_interval) {
@@ -4804,6 +4804,7 @@ static	time_t	last_time[2] = {0};
 /* Output the message */
 
 	if (_write (fd, msg, (unsigned int) strlen (msg)) < 0) goto fail;
+	if (output_nl && _write (fd, "\n", 1) < 0) goto fail;
 	_close (fd);
 	gwmutex_unlock (&OUTPUT_MUTEX);
 	return (TRUE);
@@ -4822,7 +4823,7 @@ fail:	_close (fd);
 int writeResults (
 	const char *msg)
 {
-	return (writeResultsInternal (0, msg));
+	return (writeResultsInternal (0, msg, FALSE));
 }
 
 /* Open the results.bench file and write a line to the end of it. */
@@ -4830,7 +4831,7 @@ int writeResults (
 int writeResultsBench (
 	const char *msg)
 {
-	return (writeResultsInternal (1, msg));
+	return (writeResultsInternal (1, msg, FALSE));
 }
 
 /* Open the results.json file and write a line to the end of it. */
@@ -4838,7 +4839,7 @@ int writeResultsBench (
 int writeResultsJSON (
 	const char *msg)
 {
-	return (writeResultsInternal (2, msg));
+	return (writeResultsInternal (2, msg, TRUE));
 }
 
 

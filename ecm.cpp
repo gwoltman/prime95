@@ -8050,7 +8050,7 @@ more_curves:
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, ecmdata.B, ecmdata.average_B2));
 	JSONaddProgramTimestamp (JSONbuf);
 	JSONaddUserComputerAID (JSONbuf, w);
-	strcat (JSONbuf, "}\n");
+	strcat (JSONbuf, "}");
 	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* Send ECM completed message to the server.  Although don't do it for puny B1 values. */
@@ -8164,7 +8164,7 @@ bingo:	stage = (ecmdata.state > ECM_STATE_MIDSTAGE) ? 2 : (ecmdata.state > ECM_S
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, ecmdata.B, ecmdata.C));
 	JSONaddProgramTimestamp (JSONbuf);
 	JSONaddUserComputerAID (JSONbuf, w);
-	strcat (JSONbuf, "}\n");
+	strcat (JSONbuf, "}");
 	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* See if the cofactor is prime and set flag if we will be continuing ECM */
@@ -11759,7 +11759,7 @@ msg_and_exit:
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, pm1data.B, pm1data.C > pm1data.B ? pm1data.C : pm1data.B));
 	JSONaddProgramTimestamp (JSONbuf);
 	JSONaddUserComputerAID (JSONbuf, w);
-	strcat (JSONbuf, "}\n");
+	strcat (JSONbuf, "}");
 	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* Send P-1 completed message to the server.  Although don't do it for puny B1 values as this is just the user tinkering with P-1 factoring. */
@@ -11905,7 +11905,7 @@ bingo:	if (pm1data.state < PM1_STATE_MIDSTAGE)
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, pm1data.B, pm1data.state > PM1_STATE_MIDSTAGE ? pm1data.C : pm1data.B));
 	JSONaddProgramTimestamp (JSONbuf);
 	JSONaddUserComputerAID (JSONbuf, w);
-	strcat (JSONbuf, "}\n");
+	strcat (JSONbuf, "}");
 	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* Send assignment result to the server.  To avoid flooding the server with small factors from users needlessly redoing */
@@ -14513,7 +14513,7 @@ msg_and_exit:
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, pp1data.B, pp1data.C > pp1data.B ? pp1data.C : pp1data.B));
 	JSONaddProgramTimestamp (JSONbuf);
 	JSONaddUserComputerAID (JSONbuf, w);
-	strcat (JSONbuf, "}\n");
+	strcat (JSONbuf, "}");
 	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* Send P+1 completed message to the server.  Although don't do it for puny B1 values as this is just the user tinkering with P+1 factoring. */
@@ -14647,7 +14647,7 @@ bingo:	if (pp1data.state < PP1_STATE_MIDSTAGE)
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, pp1data.B, pp1data.state > PP1_STATE_MIDSTAGE ? pp1data.C : pp1data.B));
 	JSONaddProgramTimestamp (JSONbuf);
 	JSONaddUserComputerAID (JSONbuf, w);
-	strcat (JSONbuf, "}\n");
+	strcat (JSONbuf, "}");
 	if (IniGetInt (INI_FILE, "OutputJSON", 1)) writeResultsJSON (JSONbuf);
 
 /* Send assignment result to the server.  To avoid flooding the server with small factors from users needlessly redoing */
