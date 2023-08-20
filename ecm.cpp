@@ -4591,7 +4591,7 @@ double ecm_stage2_impl (
 
 	cost_data.c.total_cost = 0.0;						// Special value indicating no workable plan found
 	ecm_stage2_impl_given_numvals (ecmdata, numvals, forced_stage2_type, &cost_data);
-	sprintf (msgbuf + strlen (msgbuf), "Actual B2 will be %" PRIu64 ".  Curve is worth %.2g B2=B1*100 curves.\n",
+	sprintf (msgbuf + strlen (msgbuf), "Actual B2 will be %" PRIu64 ".  Curve is worth %.2f B2=B1*100 curves.\n",
 		 cost_data.c.B2_start + cost_data.c.numDsections * cost_data.c.D,
 		 kruppa_adjust (cost_data.c.B2_start + cost_data.c.numDsections * cost_data.c.D, ecmdata->B));
 
