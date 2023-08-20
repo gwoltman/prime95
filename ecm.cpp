@@ -4220,6 +4220,11 @@ double ecm_stage2_cost (
 		poly_size = cost_data->c.numrels;
 		if (max_safe_poly2_size (cost_data->c.gwdata, poly_size, poly_size) < poly_size) return (-1.0);
 
+		// A small optimization to reduce time spent evaluating cost of different poly sizes.  If poly_size < 8, assume old pairing code will be faster.
+		// If doubling the poly size is safe and 16 polys will fit in memory, then assume some bigger poly will be better.  Return negative cost.
+		if (poly_size < 8) return (-1.0);
+		if (16 * 2*poly_size < cost_data->c.numvals && max_safe_poly2_size (cost_data->c.gwdata, 2*poly_size, 2*poly_size) >= 2*poly_size) return (-1.0);
+
 //GW: this minimum may or may not be right, we do require at least 4 polyFtree levels
 if (cost_data->c.numvals < 6*32) return (-1.0);
 
@@ -4586,7 +4591,9 @@ double ecm_stage2_impl (
 
 	cost_data.c.total_cost = 0.0;						// Special value indicating no workable plan found
 	ecm_stage2_impl_given_numvals (ecmdata, numvals, forced_stage2_type, &cost_data);
-	sprintf (msgbuf + strlen (msgbuf), "Actual B2 will be %" PRIu64 ".\n", cost_data.c.B2_start + cost_data.c.numDsections * cost_data.c.D);
+	sprintf (msgbuf + strlen (msgbuf), "Actual B2 will be %" PRIu64 ".  Curve is worth %.2g B2=B1*100 curves.\n",
+		 cost_data.c.B2_start + cost_data.c.numDsections * cost_data.c.D,
+		 kruppa_adjust (cost_data.c.B2_start + cost_data.c.numDsections * cost_data.c.D, ecmdata->B));
 
 /* If are continuing from a save file that was in stage 2 and the new plan doesn't look significant better than the old plan, then */
 /* we use the old plan and its partially completed pairmap. */
