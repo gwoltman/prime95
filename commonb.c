@@ -6703,7 +6703,7 @@ begin:	gwinit (&lldata.gwdata);
 
 /* Check if we should send residue to server, output residue to screen, or create an interediate save file */
 
-		sending_residue = ((counter+1) == 500002 || ((counter+1) % 5000000 == 2 && IniGetInt (INI_FILE, "SendInterimResidues", 1)));
+		sending_residue = ((counter+1) == 500002 || ((counter+1) % 5000000 == 2)) && IniGetInt (INI_FILE, "SendInterimResidues", 0);
 		interim_residue = (INTERIM_RESIDUES && (counter+1) % INTERIM_RESIDUES <= 2);
 		interim_file = (INTERIM_FILES && (counter+1) % INTERIM_FILES == 0);
 
