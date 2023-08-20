@@ -3,7 +3,7 @@ New features in Version 30.16 of prime95.exe
 
 1) Smaller executable.  Many SSE2 FFTs optimized for CPUs made before 2010 were removed.
    These CPUs will still be able to run all FFT sizes, but 30.15 might have a more efficient
-   version available.
+   implementation available.
 
 New features in Version 30.11 - 30.15 of prime95.exe
 ----------------------------------------------------
