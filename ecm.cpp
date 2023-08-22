@@ -9064,7 +9064,7 @@ double pm1_stage2_cost (
 /* Estimate stage 2 costs using polymult and all available numvals */
 
 	else {
-		uint64_t poly1_size, poly2_size, min_poly2_size, max_poly2_size;
+		uint64_t poly1_size, poly2_size, min_poly2_size, max_poly2_size, acceptable_poly2_size, unacceptable_poly2_size;
 		double	mem_used_by_a_gwnum, mem_saved_by_compression, mem_used_by_polymult;
 
 /* No pairing costs when using polymult */
@@ -9081,21 +9081,23 @@ double pm1_stage2_cost (
 			mem_used_by_a_gwnum = (double) cost_data->c.stage2_fftlen * sizeof (double) * 1.016;
 			max_poly2_size = cost_data->c.numvals;
 		}
-		mem_saved_by_compression = (double) poly1_size * mem_used_by_a_gwnum * (1.0 - cost_data->c.poly_compression);
+		min_poly2_size = 2*poly1_size;
+		if (min_poly2_size > max_poly2_size) return (-1.0);
 
 		// Binary search for largest poly2_size that does not use too much memory
-		min_poly2_size = 2*poly1_size;
-		if (max_poly2_size < min_poly2_size) return (-1.0);
-//		cpu_flags = (cost_data->c.gwdata != NULL ? cost_data->c.gwdata->cpu_flags : CPU_FLAGS);
-		while (max_poly2_size - min_poly2_size >= 2) {
-			uint64_t midpoint = (min_poly2_size + max_poly2_size) / 2;
+		mem_saved_by_compression = (double) poly1_size * mem_used_by_a_gwnum * (1.0 - cost_data->c.poly_compression);
+		acceptable_poly2_size = min_poly2_size - 1;
+		unacceptable_poly2_size = max_poly2_size + 1;
+		while (unacceptable_poly2_size - acceptable_poly2_size >= 2) {
+			uint64_t midpoint = (acceptable_poly2_size + unacceptable_poly2_size) / 2;
 			mem_used_by_polymult = (double) polymult_mem_required (cost_data->c.polydata, poly1_size, midpoint, POLYMULT_INVEC1_MONIC_RLP | POLYMULT_CIRCULAR);
 			if (poly1_size + midpoint + floor ((mem_used_by_polymult - mem_saved_by_compression) / mem_used_by_a_gwnum + 0.5) <= cost_data->c.numvals)
-				min_poly2_size = midpoint;		// Acceptable poly2 size
+				acceptable_poly2_size = midpoint;		// Acceptable poly2 size
 			else
-				max_poly2_size = midpoint;		// Unacceptable poly2 size
+				unacceptable_poly2_size = midpoint;		// Unacceptable poly2 size
 		}
-		poly2_size = min_poly2_size;
+		if (acceptable_poly2_size < min_poly2_size) return (-1.0); 
+		poly2_size = acceptable_poly2_size;
 		mem_used_by_polymult = (double) polymult_mem_required (cost_data->c.polydata, poly1_size, poly2_size, POLYMULT_INVEC1_MONIC_RLP | POLYMULT_CIRCULAR);
 
 		// Calc num poly1 points evaluated by each poly2
