@@ -404,7 +404,7 @@ BEGIN
     LTEXT           "Ma&ximum FFT size (in K):",IDC_MAXFFT_TEXT,135,53,80,10
     EDITTEXT        IDC_MAXFFT,218,51,32,12
     CONTROL         "Benchmark with &round-off checking enabled",IDC_ERRCHK, "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,66,234,10
-    CONTROL         "Benchmark &all-complex FFTs (for LLR,PFGW,PRP users)",IDC_ALL_COMPLEX, "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,79,234,10
+    CONTROL         "Benchmark ne&gacyclic FFTs (for LLR,PFGW users)",IDC_NEGACYCLIC, "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,79,234,10
     CONTROL         "&Limit FFT sizes (mimic older benchmarking code)",IDC_LIMIT_FFT_SIZES, "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,92,234,10
     GROUPBOX        "CPU cores to benchmark",IDC_STATIC,7,116,249,42
     LTEXT           "Number of CPU &cores to benchmark¹:",IDC_CORES_TEXT,15,128,120,10

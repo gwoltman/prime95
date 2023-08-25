@@ -618,7 +618,7 @@ int is_pathological_distribution (
 int calculate_bif (
 	gwhandle *gwdata,	/* Gwnum global data */
 	unsigned long fftlen,
-	int	all_complex)
+	int	negacyclic)
 {
 	int	cpu_arch, retval;
 
@@ -742,8 +742,8 @@ int calculate_bif (
 		retval = BIF_K10;	/* K8s have best FFT implementations up to 6M */
 	if (fftlen > 4194304 && retval == BIF_CORE2_512)
 		retval = BIF_CORE2;	/* Small cache Core 2 Celerons have best FFT implementations up to 4M */
-	if (fftlen > 7864320 && (all_complex || fftlen < 18874368 || fftlen > 19660800) && (retval == BIF_CORE2 || retval == BIF_K10))
-		retval = BIF_I7;	/* Core 2 and K10 have best FFT implementations up to 7680K and negacyclic FFTs 18M to 19200K */
+	if (fftlen > 7864320 && (negacyclic || fftlen < 18874368 || fftlen > 19660800) && (retval == BIF_CORE2 || retval == BIF_K10))
+		retval = BIF_I7;	/* Core 2 and K10 have best FFT implementations up to 7680K and cyclic FFTs 18M to 19200K */
 
 /* Return the result */
 
@@ -783,7 +783,7 @@ static __inline const struct gwasm_jmptab *NEXT_SET_OF_JMPTABS (const struct gwa
 
 int is_fft_implemented (
 	gwhandle *gwdata,		/* Gwnum global data */
-	int	all_complex,		/* TRUE if this jmptab entry if from the all-complex FFT table */
+	int	negacyclic,		/* TRUE if this jmptab entry if from the negacyclic FFT table */
 	const struct gwasm_jmptab *jmptab, /* Jmptable entry from mult.asm to examine */
 	int	*best_impl_id)		/* Returned ID of the best FFT implementation as determined by the benchmark database */
 {
@@ -805,7 +805,7 @@ int is_fft_implemented (
 /* the CPU_ARCHITECTURE.  However, for some CPU architectures, like Pentium M and Core Solo, we */
 /* don't have jmptable entries detailing the fastest FFT implementations for those architectures. */
 
-	desired_bif = calculate_bif (gwdata, jmptab->fftlen, all_complex);
+	desired_bif = calculate_bif (gwdata, jmptab->fftlen, negacyclic);
 
 /* Assume we will use the old school method (no benchmark database) where the */
 /* best FFT implementation is hardwired into the mult.asm jmptable. */
@@ -881,7 +881,7 @@ int is_fft_implemented (
 			if (gwdata->will_error_check == 1) error_check = !i;	/* Look for error-checking benchmarks first */
 			if (gwdata->will_error_check == 2) error_check = i;	/* Need a more sophisticated approach in this case */
 			gwbench_get_max_throughput (jmptab->fftlen, arch, num_cores, num_workers, num_hyperthreads,
-						    all_complex, error_check, &impl, &throughput);
+						    negacyclic, error_check, &impl, &throughput);
 			if (throughput <= 0.0) continue;
 
 			for (next_jmptab = NEXT_SET_OF_JMPTABS(jmptab); ; next_jmptab = NEXT_SET_OF_JMPTABS(next_jmptab)) {
@@ -891,7 +891,7 @@ int is_fft_implemented (
 					return (TRUE);
 				}
 				gwbench_get_max_throughput (next_jmptab->fftlen, arch, num_cores, num_workers, num_hyperthreads,
-							    all_complex, error_check, &next_impl, &next_throughput);
+							    negacyclic, error_check, &next_impl, &next_throughput);
 				if (next_throughput <= 0.0) continue;			/* No bench data, assume larger FFT will be slower */
 				if (next_throughput > throughput) return (FALSE);	/* Larger FFT length is faster */
 			}
@@ -917,7 +917,7 @@ int is_fft_implemented (
 const struct gwasm_jmptab *choose_one_pass_or_two_pass_impl (
 	gwhandle *gwdata,	/* Gwnum global data */
 	const struct gwasm_jmptab *jmptab,
-	int	all_complex)
+	int	negacyclic)
 {
 	const struct gwasm_jmptab *orig_jmptab;	
 	int	desired_bif;		/* The "best implementation for" value we will look for. */
@@ -945,7 +945,7 @@ const struct gwasm_jmptab *choose_one_pass_or_two_pass_impl (
 /* the CPU_ARCHITECTURE.  However, for some CPU architectures, like Pentium M and Core Solo, we */
 /* don't have jmptable entries detailing the fastest FFT implementations for those architectures. */
 
-	desired_bif = calculate_bif (gwdata, jmptab->fftlen, all_complex);
+	desired_bif = calculate_bif (gwdata, jmptab->fftlen, negacyclic);
 
 /* Loop through the FFT implementations to see if we find a one-pass implementation */
 /* that matches our desired "bif" value.  Otherwise, return first two-pass implementation. */
@@ -1459,7 +1459,7 @@ next2:		jmptab = NEXT_SET_OF_JMPTABS (jmptab);
 	if (zpad_jmptab != NULL && zpad_jmptab->max_exp &&
 	    (jmptab->max_exp == 0 || zpad_jmptab->fftlen < jmptab->fftlen || gwdata->qa_pick_nth_fft)) {
 		gwdata->ZERO_PADDED_FFT = TRUE;
-		gwdata->ALL_COMPLEX_FFT = FALSE;
+		gwdata->NEGACYCLIC_FFT = FALSE;
 		jmptab = zpad_jmptab;
 		best_impl_id = zpad_best_impl_id;
 	}
@@ -1468,7 +1468,7 @@ next2:		jmptab = NEXT_SET_OF_JMPTABS (jmptab);
 
 	else if (jmptab->max_exp) {
 		gwdata->ZERO_PADDED_FFT = FALSE;
-		gwdata->ALL_COMPLEX_FFT = (c > 0);
+		gwdata->NEGACYCLIC_FFT = (c > 0);
 	}
 
 /* Error - neither method could handle this huge number */
@@ -1488,7 +1488,7 @@ next2:		jmptab = NEXT_SET_OF_JMPTABS (jmptab);
 /* Loop through all the implementations for this FFT length until we find the one best suited to this CPU. */
 
 	qa_nth_fft = gwdata->ZERO_PADDED_FFT ? 100 : 1000;
-	desired_bif = calculate_bif (gwdata, gwdata->FFTLEN, gwdata->ALL_COMPLEX_FFT);
+	desired_bif = calculate_bif (gwdata, gwdata->FFTLEN, gwdata->NEGACYCLIC_FFT);
 	prev_proc_ptrs[0] = NULL;
 	prev_proc_ptrs[1] = NULL;
 	prev_proc_ptrs[2] = NULL;
@@ -1692,9 +1692,9 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 			// chunk, and -64 bytes every 8 chunks.
 			pass1_size = gwdata->PASS1_SIZE;
 			pass1_chunks = pass1_size >> 3;
-			if ((pass1_size == 384 && gwdata->ALL_COMPLEX_FFT) ||
-			    (pass1_size == 640 && gwdata->ALL_COMPLEX_FFT) ||
-			    (pass1_size == 1536 && gwdata->ALL_COMPLEX_FFT)) { // Oddball pass 1 sizes
+			if ((pass1_size == 384 && gwdata->NEGACYCLIC_FFT) ||
+			    (pass1_size == 640 && gwdata->NEGACYCLIC_FFT) ||
+			    (pass1_size == 1536 && gwdata->NEGACYCLIC_FFT)) { // Oddball pass 1 sizes
 				gwdata->SCRATCH_SIZE = pass1_chunks * (gwdata->PASS1_CACHE_LINES * 64 + 64) - 64;
 			} else if (gwdata->PASS1_CACHE_LINES == 4) {	// clm=1
 				gaps = pass1_chunks / 8 - 1;
@@ -1840,7 +1840,7 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 				int	pfa, pfa_shift;
 				/* Count of pass 2 sections */
 				asm_data->addcount1 = gwdata->PASS1_SIZE / 4;
-				/* Count of all-complex pass 2 sections */
+				/* Count of complex pass 2 sections */
 				asm_data->count1 = asm_data->addcount1;
 				if (gwdata->ZERO_PADDED_FFT || c < 0) asm_data->count1--;
 				/* Up to three section counts for gw_carries.  Examples: */
@@ -1860,7 +1860,7 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 			} else {
 				/* Count of pass 2 sections */
 				asm_data->addcount1 = gwdata->PASS1_SIZE / 4;
-				/* Count of all-complex pass 2 sections */
+				/* Count of complex pass 2 sections */
 				asm_data->count1 = asm_data->addcount1;
 				if (gwdata->ZERO_PADDED_FFT || c < 0) asm_data->count1--;
 				/* Only one section counts for gw_carries */
@@ -1877,7 +1877,7 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 			} else {
 				/* Count of pass 2 sections */
 				asm_data->addcount1 = gwdata->PASS1_SIZE / 2;
-				/* Count of all-complex pass 2 sections */
+				/* Count of complex pass 2 sections */
 				asm_data->count1 = asm_data->addcount1;
 				if (gwdata->ZERO_PADDED_FFT || c < 0) asm_data->count1--;
 			}
@@ -2961,7 +2961,7 @@ int internal_gwsetup (
 
 	asm_data->FFTLEN = gwdata->FFTLEN;
 	asm_data->ZERO_PADDED_FFT = gwdata->ZERO_PADDED_FFT;
-	asm_data->ALL_COMPLEX_FFT = gwdata->ALL_COMPLEX_FFT;
+	asm_data->NEGACYCLIC_FFT = gwdata->NEGACYCLIC_FFT;
 	asm_data->B_IS_2 = (b == 2);
 
 /* Initialize the extended precision code that computes the FFT weights */
@@ -3505,7 +3505,7 @@ int internal_gwsetup (
 				asm_data->xsincos_complex = tables;
 				tables = hg_build_sin_cos_table (tables, gwdata->PASS2_SIZE/2, 0, 1);
 
-				if (!gwdata->ALL_COMPLEX_FFT) {
+				if (!gwdata->NEGACYCLIC_FFT) {
 					ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 					asm_data->u.xmm.sincos6 = tables;
 					tables = hg_build_sin_cos_table (tables, gwdata->PASS2_SIZE * 4, 1, 2);
@@ -3539,10 +3539,9 @@ int internal_gwsetup (
 			tables = hg_build_norm_table (gwdata, tables, 0);
 
 /* Build the plus1-pre-multiplier table (complex weights applied when c > 0 */
-/* and we are doing a all-complex FFT rather than emulating it with a */
-/* zero-padded FFT. */
+/* and we are doing a negacyclic FFT rather than emulating it with a zero-padded FFT. */
 
-			if (gwdata->ALL_COMPLEX_FFT) {
+			if (gwdata->NEGACYCLIC_FFT) {
 				ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 				asm_data->plus1_premults = tables;
 				tables = hg_build_plus1_table (gwdata, tables);
@@ -3561,13 +3560,13 @@ int internal_gwsetup (
 
 			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 			asm_data->sincos1 = tables;
-			tables = hg_build_sin_cos_table (tables, pass1_size, !gwdata->ALL_COMPLEX_FFT, gwdata->PASS2_SIZE == 0 ? 2 : 1);
+			tables = hg_build_sin_cos_table (tables, pass1_size, !gwdata->NEGACYCLIC_FFT, gwdata->PASS2_SIZE == 0 ? 2 : 1);
 
 			if (gwdata->PASS2_SIZE && pass1_size == pow_two_above_or_equal (pass1_size))
 				asm_data->sincos2 = asm_data->sincos1;
 			else {
 				asm_data->sincos2 = tables;
-				tables = hg_build_sin_cos_table (tables, pass1_size/4, !gwdata->ALL_COMPLEX_FFT, 1);
+				tables = hg_build_sin_cos_table (tables, pass1_size/4, !gwdata->NEGACYCLIC_FFT, 1);
 			}
 
 			if (pass1_size == pow_two_above_or_equal (pass1_size)) {
@@ -3576,11 +3575,11 @@ int internal_gwsetup (
 				asm_data->sincos5 = asm_data->sincos2;
 			} else {
 				asm_data->sincos3 = tables;
-				tables = hg_build_sin_cos_table (tables, pass1_size/16, !gwdata->ALL_COMPLEX_FFT, 1);
+				tables = hg_build_sin_cos_table (tables, pass1_size/16, !gwdata->NEGACYCLIC_FFT, 1);
 				asm_data->sincos4 = tables;
-				tables = hg_build_sin_cos_table (tables, pass1_size/64, !gwdata->ALL_COMPLEX_FFT, 1);
+				tables = hg_build_sin_cos_table (tables, pass1_size/64, !gwdata->NEGACYCLIC_FFT, 1);
 				asm_data->sincos5 = tables;
-				tables = hg_build_sin_cos_table (tables, pass1_size/256, !gwdata->ALL_COMPLEX_FFT, 1);
+				tables = hg_build_sin_cos_table (tables, pass1_size/256, !gwdata->NEGACYCLIC_FFT, 1);
 			}
 			tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 
@@ -3631,7 +3630,7 @@ int internal_gwsetup (
 /* many of the sin/cos tables can be shared. */
 
 		asm_data->sincos1 = tables;
-		tables = x87_build_sin_cos_table (tables, pass1_size, !gwdata->ALL_COMPLEX_FFT);
+		tables = x87_build_sin_cos_table (tables, pass1_size, !gwdata->NEGACYCLIC_FFT);
 
 		if (pass1_size == pow_two_above_or_equal (pass1_size)) {
 			asm_data->sincos2 = asm_data->sincos1;
@@ -3640,13 +3639,13 @@ int internal_gwsetup (
 			asm_data->sincos5 = asm_data->sincos1;
 		} else {
 			asm_data->sincos2 = tables;
-			tables = x87_build_sin_cos_table (tables, pass1_size/4, !gwdata->ALL_COMPLEX_FFT);
+			tables = x87_build_sin_cos_table (tables, pass1_size/4, !gwdata->NEGACYCLIC_FFT);
 			asm_data->sincos3 = tables;
-			tables = x87_build_sin_cos_table (tables, pass1_size/16, !gwdata->ALL_COMPLEX_FFT);
+			tables = x87_build_sin_cos_table (tables, pass1_size/16, !gwdata->NEGACYCLIC_FFT);
 			asm_data->sincos4 = tables;
-			tables = x87_build_sin_cos_table (tables, pass1_size/64, !gwdata->ALL_COMPLEX_FFT);
+			tables = x87_build_sin_cos_table (tables, pass1_size/64, !gwdata->NEGACYCLIC_FFT);
 			asm_data->sincos5 = tables;
-			tables = x87_build_sin_cos_table (tables, pass1_size/256, !gwdata->ALL_COMPLEX_FFT);
+			tables = x87_build_sin_cos_table (tables, pass1_size/256, !gwdata->NEGACYCLIC_FFT);
 		}
 
 /* Build sin/cos and premultiplier tables used in pass 2 of two pass FFTs */
@@ -3659,7 +3658,7 @@ int internal_gwsetup (
 			asm_data->xsincos_complex = tables;
 			tables = x87_build_sin_cos_table (tables, gwdata->PASS2_SIZE*2, 0);
 
-			if (!gwdata->ALL_COMPLEX_FFT) {
+			if (!gwdata->NEGACYCLIC_FFT) {
 				asm_data->u.x87.sincos6 = tables;
 				tables = x87_build_sin_cos_table (tables, gwdata->PASS2_SIZE*2, 1);
 				asm_data->u.x87.sincos7 = asm_data->u.x87.sincos6;
@@ -3670,10 +3669,9 @@ int internal_gwsetup (
 		}
 
 /* Build the plus1-pre-multiplier table (complex weights applied when c > 0 */
-/* and we are doing a all-complex FFT rather than emulating it with a */
-/* zero-padded FFT. */
+/* and we are doing a negacyclic FFT rather than emulating it with a zero-padded FFT. */
 
-		if (gwdata->ALL_COMPLEX_FFT) {
+		if (gwdata->NEGACYCLIC_FFT) {
 			asm_data->plus1_premults = tables;
 			tables = x87_build_plus1_table (gwdata, tables);
 		}
@@ -4349,9 +4347,9 @@ int internal_gwsetup (
 
 			/* Calculate normblk distances used in normalizing two-pass FFTs */
 			pass1_size = gwdata->PASS1_SIZE;
-			if ((pass1_size == 384 && gwdata->ALL_COMPLEX_FFT) ||
-			    (pass1_size == 640 && gwdata->ALL_COMPLEX_FFT) ||
-			    (pass1_size == 1536 && gwdata->ALL_COMPLEX_FFT)) {
+			if ((pass1_size == 384 && gwdata->NEGACYCLIC_FFT) ||
+			    (pass1_size == 640 && gwdata->NEGACYCLIC_FFT) ||
+			    (pass1_size == 1536 && gwdata->NEGACYCLIC_FFT)) {
 				asm_data->normblkdst = 64;		/* Small pass 1's with PFA have no padding every 8 clmblkdsts */
 				asm_data->normblkdst8 = 0;
 			} else if (gwdata->PASS1_CACHE_LINES == 4) {	/* If clm=1 */
@@ -6307,7 +6305,7 @@ int multithread_init (
 /* This only happens for our home-grown FFTs.  Non-power-of-2 pass 2 */
 /* sizes are not supported. */
 /* We calculate an adjusted starting address of the premultiplier data */
-/* so that both real and all-complex FFTs can use the same formula to */
+/* so that both real and negacyclic FFTs can use the same formula to */
 /* calculate the proper address given a block number. */
 
 	if (gwdata->FFT_TYPE == FFT_TYPE_HOME_GROWN) {
@@ -6317,7 +6315,7 @@ int multithread_init (
 			(gwdata->PASS2_SIZE == 2048) ? 96 * 128 :
 			(gwdata->PASS2_SIZE == 4096) ? 128 * 128 :
 			(gwdata->PASS2_SIZE == 8192) ? 192 * 128 : 0;
-		if (gwdata->ALL_COMPLEX_FFT)
+		if (gwdata->NEGACYCLIC_FFT)
 			gwdata->adjusted_pass2_premults = asm_data->u.xmm.pass2_premults;
 		else
 			gwdata->adjusted_pass2_premults = (char *) asm_data->u.xmm.pass2_premults - gwdata->pass2_premult_block_size;
@@ -8039,7 +8037,7 @@ void gwfft_description (
 	}
 
 	sprintf (buf, "%s%s%s%sFFT length %lu%s",
-		 gwdata->ALL_COMPLEX_FFT ? "all-complex " :
+		 gwdata->NEGACYCLIC_FFT ? "negacyclic " :
 		 gwdata->ZERO_PADDED_FFT ? "zero-padded " :
 		 gwdata->GENERAL_MOD ? "generic reduction " : "",
 		 (gwdata->ARCH == ARCH_FMA3) ? "FMA3 " :
@@ -8941,14 +8939,14 @@ void raw_gwsetaddin (
 	if (gwdata->cpu_flags & CPU_AVX512F) {
 
 /* Rational FFTs are not normalized, don't need to apply a weight to the addin value. */
-/* Exceptions are two-pass all-complex FFTs which have a sine component as part of the inverse group multiplier. */
+/* Exceptions are two-pass negacyclic FFTs which have a sine component as part of the inverse group multiplier. */
 
-		if (gwdata->RATIONAL_FFT && !(gwdata->PASS1_SIZE && gwdata->ALL_COMPLEX_FFT)) {
+		if (gwdata->RATIONAL_FFT && !(gwdata->PASS1_SIZE && gwdata->NEGACYCLIC_FFT)) {
 			gwdata->asm_addin_value = val;
 		}
 
 /* AVX-512 FFT's ADDIN_VALUE is partially normalized (since we moved the weighting from the last_unfft macro to the normalize */
-/* code to take advantage of an FMA opportunity.  Apply a partial weight to the addin value.  Also, if it's an all-complex */
+/* code to take advantage of an FMA opportunity.  Apply a partial weight to the addin value.  Also, if it's a negacyclic */
 /* FFT then we need to adjust for the roots-of-minus-one sine optimization too. */
 
 		else {
@@ -8957,7 +8955,7 @@ void raw_gwsetaddin (
 			// Mimic code from building inverse multipliers in zr4dwpn_build_norm_table
 			upper_avx512_word = (gwdata->PASS1_SIZE == 0) ? 8 : gwdata->PASS2_SIZE;
 			grp = word - word % upper_avx512_word;
-			if (gwdata->PASS1_SIZE && gwdata->ALL_COMPLEX_FFT) {
+			if (gwdata->PASS1_SIZE && gwdata->NEGACYCLIC_FFT) {
 				unsigned long sine_word;
 				sine_word = grp % (gwdata->FFTLEN / 2);
 				gwfft_weights_times_sine (gwdata->dd_data, grp, sine_word, gwdata->FFTLEN * 2, NULL, &ttmp);
@@ -10778,7 +10776,7 @@ void gwfft_for_fma (		/* Forward FFT with post-processing for use in FMA */
 				double	imag1 = d[k + doubles_per_vector];
 				double	real2 = gwdata->GW_FFT1[k];
 				double	imag2 = gwdata->GW_FFT1[k + doubles_per_vector];
-				if (k == 0 && !gwdata->ALL_COMPLEX_FFT) {
+				if (k == 0 && !gwdata->NEGACYCLIC_FFT) {
 					d[0] = real1 * real2;
 					d[doubles_per_vector] = imag1 * imag2;
 				} else {
@@ -10795,7 +10793,7 @@ void gwfft_for_fma (		/* Forward FFT with post-processing for use in FMA */
 				double	imag1 = d[i + j + doubles_per_vector];
 				double	real2 = gwdata->GW_FFT1[i + j];
 				double	imag2 = gwdata->GW_FFT1[i + j + doubles_per_vector];
-				if (i == 0 && j == 0 && !gwdata->ALL_COMPLEX_FFT) {
+				if (i == 0 && j == 0 && !gwdata->NEGACYCLIC_FFT) {
 					d[0] = real1 * real2;
 					d[doubles_per_vector] = imag1 * imag2;
 				} else {

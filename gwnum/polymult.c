@@ -522,7 +522,7 @@ void polymult_init (
 
 	// Calculate how many "lines" or "work units" polymult threads will work on
 	int num_doubles = gwfftlen (pmdata->gwdata);					// Number of doubles in a gwnum
-	if (!pmdata->gwdata->ALL_COMPLEX_FFT) num_doubles += 2;				// Two FFT reals are converted to two complex values
+	if (!pmdata->gwdata->NEGACYCLIC_FFT) num_doubles += 2;				// Two FFT reals are converted to two complex values
 	if (pmdata->gwdata->ZERO_PADDED_FFT) num_doubles += 14;				// Seven real ZPAD values treated as seven complex values
 	pmdata->num_lines = divide_rounding_up (num_doubles, complex_vector_size);	// Number of doubles / doubles in a complex vector
 
@@ -1235,14 +1235,14 @@ void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd)
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust line number to handle the extra data point that must be returned for transformed real data.
 	int index = line;
-	if (!gwdata->ALL_COMPLEX_FFT) index--;
+	if (!gwdata->NEGACYCLIC_FFT) index--;
 
 	// Check if we've read all the gwnum data
 	ASSERTG (index * 16 < (int) gwdata->FFTLEN);
 
 	// Get cache line offset
 	unsigned long offset;
-	if (index >= 1 || (index == 0 && gwdata->ALL_COMPLEX_FFT)) offset = cache_line_offset (gwdata, index * 2) / sizeof (VDT);
+	if (index >= 1 || (index == 0 && gwdata->NEGACYCLIC_FFT)) offset = cache_line_offset (gwdata, index * 2) / sizeof (VDT);
 
 	// Save for later
 	rwlsd->lsd.line = line;
@@ -1318,7 +1318,7 @@ void read_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rwlsd)
 				}
 			}
 		}
-		else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {	// Second real-only value and 7 complex values
+		else if (index == 0 && !gwdata->NEGACYCLIC_FFT) {	// Second real-only value and 7 complex values
 			for (uint64_t j = slice_start; j < slice_end; j++) {
 				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 				vec[j].real = _mm512_set_pd (data[j][7], data[j][6], data[j][5], data[j][4], data[j][3], data[j][2], data[j][1], data[j][8]);
@@ -1439,7 +1439,7 @@ void write_line_slice_strided_avx512 (pmhandle *pmdata, read_write_line_slice_da
 			}
 		}
 	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {	// Second real-only value and 7 complex values
+	else if (index == 0 && !gwdata->NEGACYCLIC_FFT) {	// Second real-only value and 7 complex values
 		for ( ; j_out < slice_end; j_out += stride, j_in++) {
 			if (data[j_out] == NULL) continue;
 			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
@@ -1537,7 +1537,7 @@ void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd)
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust line number to handle the extra data point that must be returned for transformed real data.
 	int index = line;
-	if (!gwdata->ALL_COMPLEX_FFT) index--;
+	if (!gwdata->NEGACYCLIC_FFT) index--;
 
 	// Zero padded FFTs return another cache line for processing the 7 real values stored in the header
 	if (gwdata->ZERO_PADDED_FFT) index--;
@@ -1547,7 +1547,7 @@ void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd)
 
 	// Get cache line offset
 	unsigned long offset;
-	if (index >= 1 || (index == 0 && gwdata->ALL_COMPLEX_FFT)) offset = cache_line_offset (gwdata, index) / sizeof (VDT);
+	if (index >= 1 || (index == 0 && gwdata->NEGACYCLIC_FFT)) offset = cache_line_offset (gwdata, index) / sizeof (VDT);
 
 	// Save for later
 	rwlsd->lsd.line = line;
@@ -1629,7 +1629,7 @@ void read_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd)
 				}
 			}
 		}
-		else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {	// Second real-only value and 3 complex values
+		else if (index == 0 && !gwdata->NEGACYCLIC_FFT) {	// Second real-only value and 3 complex values
 			for (uint64_t j = slice_start; j < slice_end; j++) {
 				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 				vec[j].real = _mm256_set_pd (data[j][3], data[j][2], data[j][1], data[j][4]);
@@ -1768,7 +1768,7 @@ void write_line_slice_strided_avx (pmhandle *pmdata, read_write_line_slice_data 
 			}
 		}
 	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
+	else if (index == 0 && !gwdata->NEGACYCLIC_FFT) {			// Second real-only value
 		for ( ; j_out < slice_end; j_out += stride, j_in++) {
 			if (data[j_out] == NULL) continue;
 			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
@@ -1858,7 +1858,7 @@ void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd)
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust index to handle the extra data point that must be returned for transformed real data.
 	int index = line;
-	if (!gwdata->ALL_COMPLEX_FFT) index--;
+	if (!gwdata->NEGACYCLIC_FFT) index--;
 
 	// Zero padded FFTs return another 3 cache lines for processing the 7 real values stored in the header
 	if (gwdata->ZERO_PADDED_FFT) index -= 3;
@@ -1872,14 +1872,14 @@ void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd)
 	    (gwdata->PASS2_SIZE == 1536 || gwdata->PASS2_SIZE == 2048 || gwdata->PASS2_SIZE == 2560 ||
 	     gwdata->PASS2_SIZE == 4608 || gwdata->PASS2_SIZE == 6144 || gwdata->PASS2_SIZE == 7680 ||
 	     gwdata->PASS2_SIZE == 8192 || gwdata->PASS2_SIZE == 10240 || gwdata->PASS2_SIZE == 12800)) imag_dist = 32;
-	else if (gwdata->ALL_COMPLEX_FFT) imag_dist = 16;
+	else if (gwdata->NEGACYCLIC_FFT) imag_dist = 16;
 	else if (gwdata->PASS2_SIZE == 0 && index < 4) imag_dist = 8;
 	else if (gwdata->PASS2_SIZE != 0 && gwdata->FFT_TYPE == 0 && (index <= 1 || index == 4 || index == 5)) imag_dist = 8;	// hg ffts
 	else imag_dist = 16;
 
 	// Get cache line offset
 	unsigned long offset;
-	if (index >= 1 || (index == 0 && gwdata->ALL_COMPLEX_FFT)) offset = cache_line_offset (gwdata, index / 2) / sizeof (VDT);
+	if (index >= 1 || (index == 0 && gwdata->NEGACYCLIC_FFT)) offset = cache_line_offset (gwdata, index / 2) / sizeof (VDT);
 
 	// Save for later
 	rwlsd->lsd.line = line;
@@ -1963,7 +1963,7 @@ void read_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rwlsd)
 				}
 			}
 		}
-		else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {	// Second real-only value and one complex value
+		else if (index == 0 && !gwdata->NEGACYCLIC_FFT) {	// Second real-only value and one complex value
 			for (uint64_t j = slice_start; j < slice_end; j++) {
 				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 				if (imag_dist == 8) {
@@ -2104,7 +2104,7 @@ void write_line_slice_strided_sse2 (pmhandle *pmdata, read_write_line_slice_data
 			if (gwdata->ZERO_PADDED_FFT) data[j_out][-12] = x.b[1];
 		}
 	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {		// Second real-only value
+	else if (index == 0 && !gwdata->NEGACYCLIC_FFT) {		// Second real-only value
 		for ( ; j_out < slice_end; j_out += stride, j_in++) {
 			if (data[j_out] == NULL) continue;
 			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
@@ -2232,7 +2232,7 @@ void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd)
 	// Transformed real data ends up with 2 real values and FFTLEN/2-1 complex values.  Transformed complex data has FFTLEN/2 complex values.
 	// Adjust line number to handle the extra data point that must be returned for transformed real data.
 	int index = line;
-	if (!gwdata->ALL_COMPLEX_FFT) index--;
+	if (!gwdata->NEGACYCLIC_FFT) index--;
 
 	// Zero padded FFTs must also return for processing the 7 real values stored in the header
 	if (gwdata->ZERO_PADDED_FFT) index -= 7;
@@ -2242,7 +2242,7 @@ void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd)
 
 	// Get cache line offset
 	unsigned long offset;
-	if (index >= 1 || (index == 0 && gwdata->ALL_COMPLEX_FFT)) offset = cache_line_offset (gwdata, index / 4) / sizeof (VDT);
+	if (index >= 1 || (index == 0 && gwdata->NEGACYCLIC_FFT)) offset = cache_line_offset (gwdata, index / 4) / sizeof (VDT);
 
 	// Save for later
 	rwlsd->lsd.line = line;
@@ -2316,7 +2316,7 @@ void read_line_slice_dbl (int helper_num, pmhandle *pmdata, void *rwlsd)
 				vec[j].imag = 0.0;
 			}
 		}
-		else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {			// Second real-only value
+		else if (index == 0 && !gwdata->NEGACYCLIC_FFT) {			// Second real-only value
 			for (uint64_t j = slice_start; j < slice_end; j++) {
 				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 				if (gwdata->PASS2_SIZE == 0) vec[j].real = data[j][1];
@@ -2329,7 +2329,7 @@ void read_line_slice_dbl (int helper_num, pmhandle *pmdata, void *rwlsd)
 			for (uint64_t j = slice_start; j < slice_end; j++) {
 				if (data[j] == NULL) { memset (&vec[j], 0, sizeof (CVDT)); continue; }
 				ASSERTG (FFT_state (data[j]) == FULLY_FFTed);
-				if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT) {
+				if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->NEGACYCLIC_FFT) {
 					vec[j].real = data[j][offset+(index&3)*2];
 					vec[j].imag = data[j][offset+(index&3)*2+1];
 				} else {
@@ -2429,7 +2429,7 @@ void write_line_slice_strided_dbl (pmhandle *pmdata, read_write_line_slice_data 
 			data[j_out][0] = vec[j_in].real;
 		}
 	}
-	else if (index == 0 && !gwdata->ALL_COMPLEX_FFT) {		// Second real-only value
+	else if (index == 0 && !gwdata->NEGACYCLIC_FFT) {		// Second real-only value
 		for ( ; j_out < slice_end; j_out += stride, j_in++) {
 			if (data[j_out] == NULL) continue;
 			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
@@ -2454,12 +2454,12 @@ void write_line_slice_strided_dbl (pmhandle *pmdata, read_write_line_slice_data 
 			if (data[j_out] == NULL) continue;
 			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
 				if (fma_data == NULL || fma_data[j_out] == NULL) fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
-				else if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT)
+				else if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->NEGACYCLIC_FFT)
 					fmaval.real = fma_data[j_out][offset+(index&3)*2], fmaval.imag = fma_data[j_out][offset+(index&3)*2+1];
 				else
 					fmaval.real = fma_data[j_out][offset+(index&2)*2+(index&1)], fmaval.imag = fma_data[j_out][offset+(index&2)*2+(index&1)+2];
 				if (gwdata->k != 1.0) {
-					if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT)
+					if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->NEGACYCLIC_FFT)
 						oneval.real = gwdata->GW_FFT1[offset+(index&3)*2], oneval.imag = gwdata->GW_FFT1[offset+(index&3)*2+1];
 					else
 						oneval.real = gwdata->GW_FFT1[offset+(index&2)*2+(index&1)], oneval.imag = gwdata->GW_FFT1[offset+(index&2)*2+(index&1)+2];
@@ -2469,7 +2469,7 @@ void write_line_slice_strided_dbl (pmhandle *pmdata, read_write_line_slice_data 
 				else if (options & POLYMULT_FMSUB) cvsub (vec[j_in], vec[j_in], fmaval);
 				else cvsub (vec[j_in], fmaval, vec[j_in]);
 			}
-			if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->ALL_COMPLEX_FFT) {
+			if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->NEGACYCLIC_FFT) {
 				data[j_out][offset+(index&3)*2] = vec[j_in].real;
 				data[j_out][offset+(index&3)*2+1] = vec[j_in].imag;
 			} else {
@@ -2679,10 +2679,10 @@ void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rwlsd)
 	hdr = (preprocessed_poly_header *) ((char *) data - sizeof (gwarray_header));
 	first_element = (CVDT *) round_up_to_multiple_of ((intptr_t) hdr + sizeof (preprocessed_poly_header), 64);
 
-	// Compute index into the preprocessed data.  If we've delayed splitting the two real values in !ALL_COMPLEX_FFT then read the first array entry
+	// Compute index into the preprocessed data.  If we've delayed splitting the two real values in !NEGACYCLIC_FFT then read the first array entry
 	// for the first two indexes.  Finally, get pointer to the first byte to read.
 	int index_to_read = line;
-	if (!(hdr->options & POLYMULT_PRE_FFT) && !gwdata->ALL_COMPLEX_FFT && !gwdata->ZERO_PADDED_FFT) {
+	if (!(hdr->options & POLYMULT_PRE_FFT) && !gwdata->NEGACYCLIC_FFT && !gwdata->ZERO_PADDED_FFT) {
 		index_to_read--;
 		if (index_to_read < 0) index_to_read = 0;
 	}
@@ -2755,8 +2755,8 @@ void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rwlsd)
 		if (!(hdr->options & POLYMULT_PRE_COMPRESS)) memcpy (&vec[slice_start], &element[slice_start], (size_t) (slice_end - slice_start) * sizeof (CVDT));
 		else decompress_line_slice ((char *) element, (char *) &vec[slice_start], hdr, slice_start, slice_end, sizeof (CVDT));
 
-		// If we've delayed splitting the two real values in !ALL_COMPLEX_FFT turn the two reals into two complex values here
-		if (!gwdata->ALL_COMPLEX_FFT && !gwdata->ZERO_PADDED_FFT && index_to_read == 0) {
+		// If we've delayed splitting the two real values in !NEGACYCLIC_FFT turn the two reals into two complex values here
+		if (!gwdata->NEGACYCLIC_FFT && !gwdata->ZERO_PADDED_FFT && index_to_read == 0) {
 			for (uint64_t j = slice_start; j < slice_end; j++) {
 				union { VDT a; double b[VLEN / sizeof(double)]; } r, i;
 				r.a = vec[j].real;
@@ -4630,7 +4630,7 @@ gwarray polymult_preprocess (		// Returns a plug-in replacement for the input po
 	element_size = complex_vector_size * (uint64_t) ((options & POLYMULT_PRE_FFT) ? plan.fft_size : invec1_size);
 
 	// Allocate and init the preprocessed output
-	plan.combine_two_lines = !pmdata->gwdata->ALL_COMPLEX_FFT && !pmdata->gwdata->ZERO_PADDED_FFT && !(options & POLYMULT_PRE_FFT);
+	plan.combine_two_lines = !pmdata->gwdata->NEGACYCLIC_FFT && !pmdata->gwdata->ZERO_PADDED_FFT && !(options & POLYMULT_PRE_FFT);
 	num_elements = plan.combine_two_lines ? pmdata->num_lines - 1 : pmdata->num_lines;
 	plan.hdr = (preprocessed_poly_header *) malloc ((size_t) (sizeof (preprocessed_poly_header) + 64 + num_elements * element_size));
 	if (plan.hdr == NULL) return (NULL);

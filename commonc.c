@@ -1399,6 +1399,7 @@ void nameAndReadIniFiles (
 
 	renameIniKey (NULL, "WorkerThreads", KEY_NumWorkers);			// Renamed in 30.10b5
 	renameIniKey (NULL, "NoMoreWork", KEY_QuitGIMPS);			// Renamed in 30.11b1
+	renameIniKey (NULL, "BenchAllComplex", "BenchNegacyclic");		// Renamed in 30.16b2
 
 	IniWriteString (INI_FILE, "RollingAverageIsFromV27", NULL);		// Deprecated 30.10b5
 	IniWriteString (INI_FILE, "V24OptionsConverted", NULL);			// Deprecated 30.10b5

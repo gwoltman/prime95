@@ -1,8 +1,7 @@
 /*----------------------------------------------------------------------
-| This file contains various utility routines that may be used by gwnum
-| setup.
+| This file contains various utility routines that may be used by gwnum setup.
 |
-|  Copyright 2011-2022 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2011-2023 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 #ifndef _GWTABLES_H
@@ -53,7 +52,7 @@ struct gwasm_data {
 	uint32_t NUMARG;		/* Gwcopyzero assembly arg */
 	uint32_t FFTLEN;		/* The FFT size we are using */
 	double	MAXERR;			/* Convolution error in a multiplication */
-	char	ALL_COMPLEX_FFT;	/* True if doing an all-complex FFT */
+	char	NEGACYCLIC_FFT;		/* True if doing a negacyclic FFT */
 	char	B_IS_2;			/* True is doing a base-2 FFT */
 	char	RATIONAL_FFT;		/* True if bits per FFT word is integer */
 	char	ZERO_PADDED_FFT;	/* True if doing a zero pad FFT */
@@ -310,7 +309,7 @@ struct gwasm_data {
 		double	UNUSED_YMM_DOUBLES2[4];
 		double	YMM_P924_P383[4]; /* Used in FMA versions of 16-reals macros */
 
-		double	YMM_P383[4];	/* Used in one-pass all-complex premultipliers */
+		double	YMM_P383[4];	/* Used in one-pass negacyclic premultipliers */
 		double	YMM_P924[4];	/* and in the sixteen reals macros. */
 
 		double	YMM_P866[4];	/* Used in three-complex building blocks */

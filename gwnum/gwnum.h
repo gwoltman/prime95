@@ -276,7 +276,7 @@ void gwuser_init_FFT1 (		/* Calculate GW_FFT1 at user's request */
 |                        GWNUM CONVERSION ROUTINES                     |
 +---------------------------------------------------------------------*/
 
-/* Convert a double (must be an integer) to a gwnum */
+/* Convert a double (must be a positive integer) to a gwnum */
 void dbltogw (gwhandle *, double, gwnum);
 
 /* Convert a uint64_t to a gwnum */
@@ -855,6 +855,9 @@ int gwtogiant (gwhandle *, gwnum, giant);
 /* DEPRECATED -- replaced by more appropriately named macro */
 #define norm_count(h)	unnorms(h)
 
+/* DEPRECATED -- replaced by more appropriately named structure member */
+#define ALL_COMPLEX_FFT	NEGACYCLIC_FFT
+
 /* Convert a binary value (array of 32-bit or 64-bit values) to a gwnum.  Check your C compiler specs to see if a long is 32 or 64 bits. */
 /* Use of this routine is HIGHLY DISCOURAGED.  It can lead to portability problems between Linux and Windows. */
 void binarylongstogw (
@@ -1055,7 +1058,7 @@ struct gwhandle_struct {
 	unsigned long PASS2_SIZE;	/* Number of complex values FFTed in pass 2. */
 	int	cpu_flags;		/* Copy of CPU_FLAGS at time gwinit was called (just in case CPU_FLAGS changes) */
 	char	ZERO_PADDED_FFT;	/* True if doing a zero pad FFT */
-	char	ALL_COMPLEX_FFT;	/* True if using all-complex FFTs */
+	char	NEGACYCLIC_FFT;		/* True if using negacyclic FFTs */
 	char	RATIONAL_FFT;		/* True if bits per FFT word is integer */
 	char	POSTFFT;		/* True if starting forward FFT on a result */
 	char	GENERAL_MOD;		/* True if doing general-purpose mod as defined in gwsetup_general_mod */
