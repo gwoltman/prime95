@@ -87,10 +87,9 @@ void pause_for_count (int count);
 #define gw_addsubq(h,a)	(*(h)->GWPROCPTRS[6])(a)
 #define gw_addsubf(h,a)	(*(h)->GWPROCPTRS[6])(a)
 #define gw_copyzero(h,a) (*(h)->GWPROCPTRS[7])(a)
-#define gw_adds(h,a)	(*(h)->GWPROCPTRS[8])(a)
-#define gw_muls(h,a)	(*(h)->GWPROCPTRS[9])(a)
-#define norm_routines	10
-#define zerohigh_routines 14
+#define gw_muls(h,a)	(*(h)->GWPROCPTRS[8])(a)
+#define norm_routines	9
+#define zerohigh_routines 13
 
 #define addr_gw_fft(h)		((h)->GWPROCPTRS[0])
 #define addr_gw_add(h)		((h)->GWPROCPTRS[1])
@@ -103,8 +102,7 @@ void pause_for_count (int count);
 #define addr_gw_addsubq(h)	((h)->GWPROCPTRS[6])
 #define addr_gw_addsubf(h)	((h)->GWPROCPTRS[6])
 #define addr_gw_copyzero(h)	((h)->GWPROCPTRS[7])
-#define addr_gw_adds(h)		((h)->GWPROCPTRS[8])
-#define addr_gw_muls(h)		((h)->GWPROCPTRS[9])
+#define addr_gw_muls(h)		((h)->GWPROCPTRS[8])
 #define call_op(p,a)		(*p)(a)
 
 /* Macro to aid in build prctabs (a prctab is an array of pointers to assembly routines) */
@@ -126,8 +124,8 @@ aux_decl(gwaddsub)	aux_decl(gwaddsubq)
 aux_decl(gwcopyzero)	aux_decl(gwmuls)
 
 void *x87_aux_prctab[] = {
-	&gwadd1, &gwaddq1, &gwsub1, &gwsubq1, &gwaddsub1, &gwaddsubq1, &gwcopyzero1, NULL, &gwmuls1,
-	&gwadd2, &gwaddq2, &gwsub2, &gwsubq2, &gwaddsub2, &gwaddsubq2, &gwcopyzero2, NULL, &gwmuls2};
+	&gwadd1, &gwaddq1, &gwsub1, &gwsubq1, &gwaddsub1, &gwaddsubq1, &gwcopyzero1, &gwmuls1,
+	&gwadd2, &gwaddq2, &gwsub2, &gwsubq2, &gwaddsub2, &gwaddsubq2, &gwcopyzero2, &gwmuls2};
 #endif
 
 aux_decl3(gwxadd)	aux_decl(gwxaddq)
@@ -136,9 +134,9 @@ aux_decl3(gwxaddsub)	aux_decl(gwxaddsubq)
 aux_decl(gwxcopyzero)	aux_decl3(gwxadds)	aux_decl3(gwxmuls)
 
 void *sse2_aux_prctab[] = {
-	&gwxadd1, &gwxaddq1, &gwxsub1, &gwxsubq1, &gwxaddsub1, &gwxaddsubq1, &gwxcopyzero1, &gwxadds1, &gwxmuls1,
-	&gwxadd2, &gwxaddq2, &gwxsub2, &gwxsubq2, &gwxaddsub2, &gwxaddsubq2, &gwxcopyzero2, &gwxadds2, &gwxmuls2,
-	&gwxadd3, &gwxaddq2, &gwxsub3, &gwxsubq2, &gwxaddsub3, &gwxaddsubq2, &gwxcopyzero2, &gwxadds3, &gwxmuls3};
+	&gwxadd1, &gwxaddq1, &gwxsub1, &gwxsubq1, &gwxaddsub1, &gwxaddsubq1, &gwxcopyzero1, &gwxmuls1,
+	&gwxadd2, &gwxaddq2, &gwxsub2, &gwxsubq2, &gwxaddsub2, &gwxaddsubq2, &gwxcopyzero2, &gwxmuls2,
+	&gwxadd3, &gwxaddq2, &gwxsub3, &gwxsubq2, &gwxaddsub3, &gwxaddsubq2, &gwxcopyzero2, &gwxmuls3};
 
 aux_decl3y(gwyadd)	aux_decl3(gwyaddq)
 aux_decl3y(gwysub)	aux_decl3(gwysubq)
@@ -147,24 +145,24 @@ aux_decl3(gwycopyzero)	aux_decl3y(gwyadds)	aux_decl3y(gwymuls)
 
 void *avx_aux_prctab[] = {
 	&gwyaddq1, &gwysubq1, &gwyaddsubq1, &gwycopyzero1,
-	&gwyadd1, &gwysub1, &gwyaddsub1, &gwyadds1, &gwymuls1,
-	&gwyaddr1, &gwysubr1, &gwyaddsubr1, &gwyadds1, &gwymulsr1,
-	&gwyaddzp1, &gwysubzp1, &gwyaddsubzp1, &gwyadds1, &gwymulszp1,
-	&gwyaddrzp1, &gwysubrzp1, &gwyaddsubrzp1, &gwyadds1, &gwymulsrzp1,
-	&gwyaddn1, &gwysubn1, &gwyaddsubn1, &gwyaddsn1, &gwymulsn1,
-	&gwyaddnr1, &gwysubnr1, &gwyaddsubnr1, &gwyaddsn1, &gwymulsnr1,
-	&gwyaddnzp1, &gwysubnzp1, &gwyaddsubnzp1, &gwyaddsn1, &gwymulsnzp1,
-	&gwyaddnrzp1, &gwysubnrzp1, &gwyaddsubnrzp1, &gwyaddsn1, &gwymulsnrzp1,
+	&gwyadd1, &gwysub1, &gwyaddsub1, &gwymuls1,
+	&gwyaddr1, &gwysubr1, &gwyaddsubr1, &gwymulsr1,
+	&gwyaddzp1, &gwysubzp1, &gwyaddsubzp1, &gwymulszp1,
+	&gwyaddrzp1, &gwysubrzp1, &gwyaddsubrzp1, &gwymulsrzp1,
+	&gwyaddn1, &gwysubn1, &gwyaddsubn1, &gwymulsn1,
+	&gwyaddnr1, &gwysubnr1, &gwyaddsubnr1, &gwymulsnr1,
+	&gwyaddnzp1, &gwysubnzp1, &gwyaddsubnzp1, &gwymulsnzp1,
+	&gwyaddnrzp1, &gwysubnrzp1, &gwyaddsubnrzp1, &gwymulsnrzp1,
 
 	&gwyaddq3, &gwysubq3, &gwyaddsubq3, &gwycopyzero3,
-	&gwyadd3, &gwysub3, &gwyaddsub3, &gwyadds3, &gwymuls3,
-	&gwyaddr3, &gwysubr3, &gwyaddsubr3, &gwyaddsr3, &gwymulsr3,
-	&gwyaddzp3, &gwysubzp3, &gwyaddsubzp3, &gwyadds3, &gwymulszp3,
-	&gwyaddrzp3, &gwysubrzp3, &gwyaddsubrzp3, &gwyaddsr3, &gwymulsrzp3,
-	&gwyaddn3, &gwysubn3, &gwyaddsubn3, &gwyaddsn3, &gwymulsn3,
-	&gwyaddnr3, &gwysubnr3, &gwyaddsubnr3, &gwyaddsnr3, &gwymulsnr3,
-	&gwyaddnzp3, &gwysubnzp3, &gwyaddsubnzp3, &gwyaddsn3, &gwymulsnzp3,
-	&gwyaddnrzp3, &gwysubnrzp3, &gwyaddsubnrzp3, &gwyaddsnr3, &gwymulsnrzp3};
+	&gwyadd3, &gwysub3, &gwyaddsub3, &gwymuls3,
+	&gwyaddr3, &gwysubr3, &gwyaddsubr3, &gwymulsr3,
+	&gwyaddzp3, &gwysubzp3, &gwyaddsubzp3, &gwymulszp3,
+	&gwyaddrzp3, &gwysubrzp3, &gwyaddsubrzp3, &gwymulsrzp3,
+	&gwyaddn3, &gwysubn3, &gwyaddsubn3, &gwymulsn3,
+	&gwyaddnr3, &gwysubnr3, &gwyaddsubnr3, &gwymulsnr3,
+	&gwyaddnzp3, &gwysubnzp3, &gwyaddsubnzp3, &gwymulsnzp3,
+	&gwyaddnrzp3, &gwysubnrzp3, &gwyaddsubnrzp3, &gwymulsnrzp3};
 
 aux_decl3y(ygw_carries_wpn)
 void gwy3_apply_carries (void *);
@@ -181,10 +179,10 @@ aux_decl3(gwzcopyzero)	aux_decl3y(gwzadds)	aux_decl3y(gwzmuls)
 
 void *avx512_aux_prctab[] = {
 	&gwzaddq3, &gwzsubq3, &gwzaddsubq3, &gwzcopyzero3,
-	&gwzadd3, &gwzsub3, &gwzaddsub3, &gwzadds3, &gwzmuls3,
-	&gwzaddr3, &gwzsubr3, &gwzaddsubr3, &gwzaddsr3, &gwzmulsr3,
-	&gwzaddzp3, &gwzsubzp3, &gwzaddsubzp3, &gwzadds3, &gwzmulszp3,
-	&gwzaddrzp3, &gwzsubrzp3, &gwzaddsubrzp3, &gwzaddsr3, &gwzmulsrzp3};
+	&gwzadd3, &gwzsub3, &gwzaddsub3, &gwzmuls3,
+	&gwzaddr3, &gwzsubr3, &gwzaddsubr3, &gwzmulsr3,
+	&gwzaddzp3, &gwzsubzp3, &gwzaddsubzp3, &gwzmulszp3,
+	&gwzaddrzp3, &gwzsubrzp3, &gwzaddsubrzp3, &gwzmulsrzp3};
 
 aux_decl3z(zgw_carries_wpn)
 extern_decl(zgw_carries_op_wpnzp3)
@@ -4735,7 +4733,7 @@ int internal_gwsetup (
 		if (gwdata->RATIONAL_FFT) index += 1;
 		asm_data->u.zmm.ZMM_CARRIES_ROUTINE = avx512_carries_prctab[index]; // Two-pass square/multiply carry propagation routine
 		asm_data->u.zmm.ZMM_OP_CARRIES_ROUTINE = avx512_carries_prctab[gwdata->ZERO_PADDED_FFT ? index + 2 : index]; // Two-pass add/sub/smallmul carry propagation routine
-		index = 4 + 5 * index;
+		index = 4 + 4 * index;
 		gwdata->GWPROCPTRS[1] = avx512_aux_prctab[index];	// Add
 		gwdata->GWPROCPTRS[2] = avx512_aux_prctab[0];		// Add quick
 		gwdata->GWPROCPTRS[3] = avx512_aux_prctab[index+1];	// Subtract
@@ -4743,8 +4741,7 @@ int internal_gwsetup (
 		gwdata->GWPROCPTRS[5] = avx512_aux_prctab[index+2];	// AddSub
 		gwdata->GWPROCPTRS[6] = avx512_aux_prctab[2];		// AddSub quick
 		gwdata->GWPROCPTRS[7] = avx512_aux_prctab[3];		// Copyzero
-		gwdata->GWPROCPTRS[8] = avx512_aux_prctab[index+3];	// Add small
-		gwdata->GWPROCPTRS[9] = avx512_aux_prctab[index+4];	// Mul small
+		gwdata->GWPROCPTRS[8] = avx512_aux_prctab[index+3];	// Mul small
 		gwdata->GWPROCPTRS[norm_routines] = avx512_prctab[avx512_prctab_index (gwdata, 0, 0, 0)];  // No error, no mulbyconst
 		gwdata->GWPROCPTRS[norm_routines+1] = avx512_prctab[avx512_prctab_index (gwdata, 0, 1, 0)];  // Error, no mulbyconst
 		gwdata->GWPROCPTRS[norm_routines+2] = avx512_prctab[avx512_prctab_index (gwdata, 0, 0, 1)];  // No error, mulbyconst
@@ -4760,8 +4757,8 @@ int internal_gwsetup (
 		if (gwdata->ZERO_PADDED_FFT) index += 2;
 		if (gwdata->RATIONAL_FFT) index += 1;
 		asm_data->u.ymm.YMM_CARRIES_ROUTINE = avx_carries_prctab[index]; // Two-pass carry propagation routine
-		aux_base = (gwdata->PASS2_SIZE == 0) ? 0 : 44;
-		index = aux_base + 4 + 5 * index;
+		aux_base = (gwdata->PASS2_SIZE == 0) ? 0 : 36;
+		index = aux_base + 4 + 4 * index;
 		gwdata->GWPROCPTRS[1] = avx_aux_prctab[index];		// Add
 		gwdata->GWPROCPTRS[2] = avx_aux_prctab[aux_base];	// Add quick
 		gwdata->GWPROCPTRS[3] = avx_aux_prctab[index+1];	// Subtract
@@ -4769,8 +4766,7 @@ int internal_gwsetup (
 		gwdata->GWPROCPTRS[5] = avx_aux_prctab[index+2];	// AddSub
 		gwdata->GWPROCPTRS[6] = avx_aux_prctab[aux_base+2];	// AddSub quick
 		gwdata->GWPROCPTRS[7] = avx_aux_prctab[aux_base+3];	// Copyzero
-		gwdata->GWPROCPTRS[8] = avx_aux_prctab[index+3];	// Add small
-		gwdata->GWPROCPTRS[9] = avx_aux_prctab[index+4];	// Mul small
+		gwdata->GWPROCPTRS[8] = avx_aux_prctab[index+3];	// Mul small
 		gwdata->GWPROCPTRS[norm_routines] = avx_prctab[avx_prctab_index (gwdata, 0, 0, 0)];  // No error, no mulbyconst
 		gwdata->GWPROCPTRS[norm_routines+1] = avx_prctab[avx_prctab_index (gwdata, 0, 1, 0)];  // Error, no mulbyconst
 		gwdata->GWPROCPTRS[norm_routines+2] = avx_prctab[avx_prctab_index (gwdata, 0, 0, 1)];  // No error, mulbyconst
@@ -4779,7 +4775,7 @@ int internal_gwsetup (
 		gwdata->GWPROCPTRS[zerohigh_routines+1] = avx_prctab[avx_prctab_index (gwdata, 1, 1, 0)];  // Zero, error
 	    }
 	    else if (gwdata->cpu_flags & CPU_SSE2) {
-		memcpy (gwdata->GWPROCPTRS+1, &sse2_aux_prctab[gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN ? 18 : gwdata->PASS2_SIZE ? 9 : 0], 9 * sizeof (void *));
+		memcpy (gwdata->GWPROCPTRS+1, &sse2_aux_prctab[gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN ? 16 : gwdata->PASS2_SIZE ? 8 : 0], 8 * sizeof (void *));
 		gwdata->GWPROCPTRS[norm_routines] = sse2_prctab[sse2_prctab_index (gwdata, 0, 0, 0)];  // No error, no mulbyconst
 		gwdata->GWPROCPTRS[norm_routines+1] = sse2_prctab[sse2_prctab_index (gwdata, 0, 1, 0)];  // Error, no mulbyconst
 		gwdata->GWPROCPTRS[norm_routines+2] = sse2_prctab[sse2_prctab_index (gwdata, 0, 0, 1)];  // No error, mulbyconst
@@ -4789,7 +4785,7 @@ int internal_gwsetup (
 	    }
 #ifndef X86_64
 	    else {
-		memcpy (gwdata->GWPROCPTRS+1, &x87_aux_prctab[gwdata->PASS2_SIZE ? 9 : 0], 9 * sizeof (void *));
+		memcpy (gwdata->GWPROCPTRS+1, &x87_aux_prctab[gwdata->PASS2_SIZE ? 8 : 0], 8 * sizeof (void *));
 		gwdata->GWPROCPTRS[norm_routines] = x87_prctab[x87_prctab_index (gwdata, 0, 0, 0)];  // No error, no mulbyconst
 		gwdata->GWPROCPTRS[norm_routines+1] = x87_prctab[x87_prctab_index (gwdata, 0, 1, 0)];  // Error, no mulbyconst
 		gwdata->GWPROCPTRS[norm_routines+2] = x87_prctab[x87_prctab_index (gwdata, 0, 0, 1)];  // No error, mulbyconst
@@ -12030,52 +12026,126 @@ void gwaddsub4o (		/* Add & sub two nums normalizing if needed */
 
 void gwsmalladd (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	double	addin,		/* Small value to add to g */
+	int64_t	addin,		/* Small value to add to g */
 	gwnum	g)		/* Gwnum to add a value into */
 {
-	int	cant_handle;
 
 /* Assert unnormalized add count valid, input not completely/partially FFTed. */
 
 	ASSERTG (unnorms (g) >= 0.0f);
 	ASSERTG (FFT_state (g) == NOT_FFTed);
 
-/* AVX-512 one-pass implementation spreads carry over four words.  If there aren't many */
-/* bits-per-word (e.g. M388 in a 128 word FFT) then you can end up with a giant carry */
-/* into the last FFT word.  We may want to update this code for other FFT implementations. */
+/* Small numbers adds can be optimized for many moduli only adding into a few FFT words */
 
-	cant_handle = (addin > 32768.0 || addin < -32768.0) &&
-		      log2 (fabs (addin)) > 5.0 * log2 (gwdata->b) * gwdata->avg_num_b_per_word;
+	if (gwdata->k == 1.0 || labs (gwdata->c) == 1) {
+		int64_t	low_addin;
+		gwiter iter;
+		int32_t maxval1 = intpow (gwdata->b, gwdata->NUM_B_PER_SMALL_WORD);
+		int32_t maxval2 = maxval1 * gwdata->b;
 
-/* A simple brute-force implementation.  We put k > 1 numbers through */
-/* here because multiplying the addin value by 1/k complicates matters. */
-/* If this routine is ever used much, we can try to optimize this. */
-/* We also make sure there is at least one b value per FFT word, so */
-/* that any carry can successfully spread over 3 FFT words. */
+/* To make the mod k*b^n+c step faster, gwnum's are pre-multiplied by 1/k.  Case 1 (k*b^n-1): Inverse of k is b^n.  Case 2 (k*b^n+1): Inverse of k is -b^n. */
+/* Since the value we are adding to the top FFT words can be greater than k we must divide value by k, adding the quotient to the lowest FFT words. */
+/* The remainder gets added to the upper FFT words. */
 
-	if (gwdata->GWPROCPTRS[8] == NULL || gwdata->k > 1.0 || gwdata->NUM_B_PER_SMALL_WORD < 1 || cant_handle) {
-		float	norm_count = unnorms (g);
-		int	add_options = (gwdata->k > 1.0 && labs(gwdata->c) > 1) ? GWADD_FORCE_NORMALIZE : GWADD_DELAY_NORMALIZE; 
-		gwnum	tmp = gwalloc (gwdata);
-		if (addin >= 0.0) {
-			dbltogw (gwdata, addin, tmp);
-			gwadd3o (gwdata, g, tmp, g, add_options);
-		} else {
-			dbltogw (gwdata, -addin, tmp);
-			gwsub3o (gwdata, g, tmp, g, add_options);
+		if (gwdata->k > 1.0) {
+			int64_t quotient, remainder, high_addin;
+
+			quotient = addin / (int64_t) gwdata->k;
+			remainder = addin - quotient * (int64_t) gwdata->k;
+			low_addin = quotient;
+			high_addin = (gwdata->c == -1) ? remainder : -remainder;
+
+/* Add the high_addin value across the top FFT words */
+
+			unsigned long word, bit_in_word;
+			bitaddr (gwdata, gwdata->n, &word, &bit_in_word);
+			for (gwiter_init (gwdata, &iter, g, word); high_addin && gwiter_index (&iter) < gwdata->FFTLEN; gwiter_next (&iter), bit_in_word = 0) {
+
+				// In rare cases there is no data stored in an FFT word (NUM_B_PER_SMALL_WORD = 0)
+				int32_t maxval = gwiter_is_big_word (&iter) ? maxval2 : maxval1;
+				if (maxval == 1) continue;
+
+				// Get the value to add into
+				int32_t	value;
+				gwiter_get_fft_value (&iter, &value);
+
+				// Add part or all of high_addin to the FFT word
+				int32_t scale = bit_in_word ? intpow (gwdata->b, bit_in_word) : 1;
+				int32_t scaledmaxval = maxval / scale;
+				quotient = high_addin / scaledmaxval;
+				value += (int32_t) (high_addin - quotient * scaledmaxval) * scale;
+				high_addin = quotient;
+
+				// FFT words use balanced representation
+				if (gwiter_index (&iter) != gwdata->FFTLEN - 1) {
+					if (value > (maxval >> 1)) {
+						value = value - maxval;
+						high_addin++;
+					}
+					if (value < -(maxval >> 1)) {
+						value = value + maxval;
+						high_addin--;
+					}
+				}
+
+				gwiter_set_fft_value (&iter, value);
+			}
 		}
-		gwfree (gwdata, tmp);
-		// When k=1 or abs(c)=1 only a few words in the tmp addin value were non-zero so do not change the unnormalized add count
-		if (add_options == GWADD_DELAY_NORMALIZE) unnorms (g) = norm_count;
+
+/* If k is 1, apply the entire addin to the low FFT words */
+
+		else
+			low_addin = addin;
+
+/* Spread the low_addin value across the lowest FFT words as necessary */
+
+		for (gwiter_init_zero (gwdata, &iter, g); low_addin; gwiter_next (&iter)) {
+
+			// In rare cases there is no data stored in an FFT word (NUM_B_PER_SMALL_WORD = 0)
+			int32_t maxval = gwiter_is_big_word (&iter) ? maxval2 : maxval1;
+			if (maxval1 == 1) continue;
+
+			// Get the value to add into
+			int32_t	value;
+			gwiter_get_fft_value (&iter, &value);
+
+			// If addin/carry is tiny, just add it in without carry propagation
+			if (low_addin >= -7 && low_addin <= 7) {
+				gwiter_set_fft_value (&iter, value + (int32_t) low_addin);
+				break;
+			}
+
+			// Carefully apply low_addin to not overflow int64_t data type
+			int64_t quotient = low_addin / maxval;
+			value += (int32_t) (low_addin - quotient * maxval);
+			low_addin = quotient;
+
+			// FFT words use balanced representation
+			if (value > (maxval >> 1)) {
+				value = value - maxval;
+				low_addin++;
+			}
+			if (value < -(maxval >> 1)) {
+				value = value + maxval;
+				low_addin--;
+			}
+
+			gwiter_set_fft_value (&iter, value);
+		}
 	}
 
-/* The assembler optimized version */
+/* Hard cases, emulate the addin */
 
 	else {
-		struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
-		asm_data->DESTARG = g;
-		asm_data->DBLARG = addin;
-		gw_adds (gwdata, asm_data);
+		gwnum tmp = gwalloc (gwdata);
+		if (addin >= 0) {
+			u64togw (gwdata, addin, tmp);
+			gwadd3o (gwdata, g, tmp, g, GWADD_FORCE_NORMALIZE);
+		} else {
+			u64togw (gwdata, -addin, tmp);
+			gwsub3o (gwdata, g, tmp, g, GWADD_FORCE_NORMALIZE);
+		}
+		gwfree (gwdata, tmp);
 	}
 }
 

@@ -523,8 +523,7 @@ void gwsetaddin (gwhandle *, long);
 void gwsetaddinatpowerofb (gwhandle *, long, unsigned long);
 
 /* This routine adds a small value to a gwnum.  This lets us apply some optimizations that cannot be performed by general purpose gwadd. */
-#define GWSMALLADD_MAX		1125899906842624.0	/* 2^50 */
-void gwsmalladd (gwhandle *gwdata, double addin, gwnum g);
+void gwsmalladd (gwhandle *gwdata, int64_t addin, gwnum g);
 
 /* This routine multiplies a gwnum by a small positive value.  This lets us apply some */
 /* optimizations that cannot be performed by a full FFT multiplication. */
@@ -848,6 +847,7 @@ int gwtogiant (gwhandle *, gwnum, giant);
 /* DEPRECATED!!! These routines were deprecated because unlike all other gwnum routines the destination argument appeared before the source argument. */
 #define gwaddsmall(h,g,a) gwsmalladd(h,a,g)	
 #define gwmulsmall(h,g,m) gwsmallmul(h,m,g)
+#define GWSMALLADD_MAX		1125899906842624	/* 2^50 -- gwsmalladd now takes a int64_t and acceptss all values */
 
 /* DEPRECATED.  Replaced by better named gwsetaddinatpowerofb */
 #define gwsetaddinatbit(h,v,b)	gwsetaddinatpowerofb(h,v,b)
@@ -1067,7 +1067,7 @@ struct gwhandle_struct {
 	char	GLOBAL_POSTFFT;		/* True if multiplies should start forward FFT on results unless overridden by gwmul options */ 
 	int	FFT_TYPE;		/* Home-grown, Radix-4, etc. */
 	int	ARCH;			/* Architecture.  Which CPU type the FFT is optimized for. */
-	void	(*GWPROCPTRS[16])(void*); /* Ptrs to assembly routines */
+	void	(*GWPROCPTRS[15])(void*); /* Ptrs to assembly routines */
 	giant	GW_MODULUS;		/* In the general purpose mod case, this is the number operations are modulo */
 	gwnum	GW_MODULUS_FFT;		/* In the general purpose mod case, this is  the FFT of GW_MODULUS */
 	gwnum	GW_RECIP_FFT;		/* FFT of shifted reciprocal of GW_MODULUS */

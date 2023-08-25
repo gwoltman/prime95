@@ -1,4 +1,4 @@
-; Copyright 2011-2017 Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2023 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -1278,28 +1278,6 @@ cz1:	ycopyzero			; Copy/zero 8 values
 	jnz	cz2			; Loop if necessary
 	ad_epilog 0,0,rsi,rdi
 gwycopyzero1 ENDP
-
-;;
-;; Add in a small number with carry propagation (two different versions)
-;;
-
-	; Base-2 version
-PROCFL	gwyadds1
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,xmm6,xmm7
-	mov	rsi, DESTARG		; Address of destination
-	vmovsd	xmm7, DBLARG		; Small addin value
-	ynorm_smalladd_1d exec
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,xmm6,xmm7
-gwyadds1 ENDP
-
-	; Non base-2 version
-PROCFL	gwyaddsn1
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,xmm6,xmm7
-	mov	rsi, DESTARG		; Address of destination
-	vmovsd	xmm7, DBLARG		; Small addin value
-	ynorm_smalladd_1d noexec
-	ad_epilog 0,0,rbx,rbp,rsi,rdi,xmm6,xmm7
-gwyaddsn1 ENDP
 
 ;;
 ;; Multiply a number by a small value (eight versions)

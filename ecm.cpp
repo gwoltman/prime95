@@ -3360,7 +3360,7 @@ int choose12 (
 
 	u64togw (&ecmdata->gwdata, ecmdata->sigma, zs);
 	gwsquare2 (&ecmdata->gwdata, zs, xs, 0);	/* s^2 */
-	gwsmalladd (&ecmdata->gwdata, -5.0, xs);	/* u = s^2 - 5 */
+	gwsmalladd (&ecmdata->gwdata, -5, xs);		/* u = s^2 - 5 */
 	gwsmallmul (&ecmdata->gwdata, 4.0, zs);		/* v = 4*s */
 	if (xz != NULL) {
 		gwsquare2 (&ecmdata->gwdata, xs, xz->x, GWMUL_STARTNEXTFFT);
@@ -4591,7 +4591,7 @@ double ecm_stage2_impl (
 
 	cost_data.c.total_cost = 0.0;						// Special value indicating no workable plan found
 	ecm_stage2_impl_given_numvals (ecmdata, numvals, forced_stage2_type, &cost_data);
-	sprintf (msgbuf + strlen (msgbuf), "Actual B2 will be %" PRIu64 ".  Curve is worth %.2f B2=B1*100 curves.\n",
+	sprintf (msgbuf + strlen (msgbuf), "Actual B2 will be %" PRIu64 ".  Curve is worth %.2f B2=100*B1 curves.\n",
 		 cost_data.c.B2_start + cost_data.c.numDsections * cost_data.c.D,
 		 kruppa_adjust (cost_data.c.B2_start + cost_data.c.numDsections * cost_data.c.D, ecmdata->B));
 
