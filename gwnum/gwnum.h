@@ -55,9 +55,9 @@ typedef gwnum *gwarray;
 /* are new prime95 versions without any changes in the gwnum code.  This version number is also embedded in the assembly code and */
 /* gwsetup verifies that the version numbers match.  This prevents bugs from accidentally linking in the wrong gwnum library. */
 
-#define GWNUM_VERSION		"30.16"
+#define GWNUM_VERSION		"30.17"
 #define GWNUM_MAJOR_VERSION	30
-#define GWNUM_MINOR_VERSION	16
+#define GWNUM_MINOR_VERSION	17
 
 /* Error codes returned by the three gwsetup routines */
 
@@ -519,8 +519,13 @@ void gwset_carefully_count (
 void gwsetaddin (gwhandle *, long);
 /* Returns TRUE if gwsetaddin and GWMUL_ADDINCONST must be emulated with a gwmuladd4.  Caller may have a faster alternative if this is the case. */
 #define is_gwsetaddin_emulated(h)	((h)->k != 1.0 && labs ((h)->c) != 1)
-/* Prime95 uses the the specialized gwsetaddinatpowerofb.  k must be 1 and abs(c) must be 1.  This is not emulated. */
+/* Prime95 uses this specialized gwsetaddinatpowerofb.  k must be 1 and abs(c) must be 1.  This is not emulated. */
 void gwsetaddinatpowerofb (gwhandle *, long, unsigned long);
+/* Similar to gwsetaddin, this routine adds a very small constant to the result of a multiplication at virtually no cost.  This routine is only useful */
+/* if you need to use both GWMUL_ADDINCONST and GWMUL_MULBYCONST.  The addin is done after the mul-by-const operation.  WARNING: The addition is done */
+/* after carry propagation has occurred.  Furthermore, for numbers of the k*b^n+/-1 the addin may not be applied to the least significant bits of the */
+/* FFT word.  If the addin value exceeds the "b" in k*b^n+c, then you risk dangerous round off errors. */
+void gwsetpostmulbyconstaddin (gwhandle *, int);
 
 /* This routine adds a small value to a gwnum.  This lets us apply some optimizations that cannot be performed by general purpose gwadd. */
 void gwsmalladd (gwhandle *gwdata, int64_t addin, gwnum g);
@@ -1094,8 +1099,11 @@ struct gwhandle_struct {
 	gwnum	GW_RANDOM_FFT;		/* Cached FFT of the random number used in gwmul3_carefully. */
 	gwnum	GW_FFT1;		/* The number 1 FFTed.  Sometimes need by gwmuladd4, gwmulsub4, and gwunfft. */
 	gwnum	GW_ADDIN;		/* Cached gwsetaddin value when we need to emulate GWMUL_ADDINCONST. */
+	gwnum	GW_POSTADDIN;		/* Cached gwsetpostmulbyconstaddin value when we need to emulate GWMUL_ADDINCONST. */
 	long	emulate_addin_value;	/* When emulating GWMUL_ADDINCONST, this is a copy of the last value sent to gwsetaddin. */
+	long	emulate_postaddin_value;/* When emulating GWMUL_ADDINCONST, this is a copy of the last value sent to gwsetpostmulbyconstaddin. */
 	double	asm_addin_value;	/* Value to copy to asm_data->ADDIN_VALUE when GWMUL_ADDINCONST is set. */
+	double	asm_postaddin_value;	/* Value to copy to asm_data->ADDIN_POSTVALUE when GWMUL_ADDINCONST is set. */
 	char	FFT1_state;		/* 0 = FFT(1) needed for FMA but not yet allocated, 1 = FFT(1) needed for FMA and allocated, */
 					/* 2 = FFT(1) is not needed for FMA. */
 	char	FFT1_user_allocated;	/* TRUE if FFT(1) was allocated at user's request */
@@ -1255,6 +1263,7 @@ typedef struct gwiter_struct {
 	uint64_t cached_data[12];	/* Cached data to accelerate sequential access to a gwnum */
 } gwiter;
 void gwiter_init_zero (gwhandle *h, gwiter *iter, gwnum g);					/* Init iterator to gwnum g element zero */
+void gwiter_init_write_only (gwhandle *h, gwiter *iter, gwnum g);				/* Init iterator to gwnum g element zero for writing */
 void gwiter_init (gwhandle *h, gwiter *iter, gwnum g, uint32_t);				/* Init iterator to gwnum g and given element */
 void gwiter_next (gwiter *iter);								/* Position to next element */
 #define gwiter_index(iter)		((iter)->index)						/* Return element iterator is positioned on */

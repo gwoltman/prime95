@@ -455,7 +455,7 @@ int internal_gwsetup (
 	unsigned long b,	/* B in K*B^N+C. */
 	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
 	signed long c);		/* C in K*B^N+C. Must be rel. prime to K. */
-void raw_gwsetaddin (gwhandle *gwdata, unsigned long word, double val);
+void raw_gwsetaddin (gwhandle *gwdata, unsigned long word, double *ptr, double val);
 int multithread_init (gwhandle *gwdata);
 void multithread_term (gwhandle *gwdata);
 void do_multithread_op_work (gwhandle *gwdata, struct gwasm_data *asm_data);
@@ -2678,6 +2678,7 @@ int gwclone (
 /* Can't share cached GW_ADDIN.  We could if GW_ADDIN was read-only, but future calls to gwsetaddin would erroneously change/delete the shared GW_ADDIN. */
 
 	cloned_gwdata->GW_ADDIN = NULL;
+	cloned_gwdata->GW_POSTADDIN = NULL;
 
 /* Clear pointers we're about to overwrite in case an error occurs and gwdone is called */
 
@@ -4576,11 +4577,11 @@ int internal_gwsetup (
 		asm_data->HIGH_WORD2_OFFSET = addr_offset (gwdata, gwdata->FFTLEN-2);
 		asm_data->HIGH_WORD3_OFFSET = addr_offset (gwdata, gwdata->FFTLEN-3);
 
-		raw_gwsetaddin (gwdata, gwdata->FFTLEN-1, 0.0);
+		raw_gwsetaddin (gwdata, gwdata->FFTLEN-1, NULL, 0.0);
 		asm_data->HIGH_SCRATCH1_OFFSET = asm_data->ADDIN_OFFSET;
-		raw_gwsetaddin (gwdata, gwdata->FFTLEN-2, 0.0);
+		raw_gwsetaddin (gwdata, gwdata->FFTLEN-2, NULL, 0.0);
 		asm_data->HIGH_SCRATCH2_OFFSET = asm_data->ADDIN_OFFSET;
-		raw_gwsetaddin (gwdata, gwdata->FFTLEN-3, 0.0);
+		raw_gwsetaddin (gwdata, gwdata->FFTLEN-3, NULL, 0.0);
 		asm_data->HIGH_SCRATCH3_OFFSET = asm_data->ADDIN_OFFSET;
 	    }
 
@@ -4611,11 +4612,11 @@ int internal_gwsetup (
 		asm_data->HIGH_WORD2_OFFSET = addr_offset (gwdata, gwdata->FFTLEN/2-2);
 		asm_data->HIGH_WORD3_OFFSET = addr_offset (gwdata, gwdata->FFTLEN/2-3);
 
-		raw_gwsetaddin (gwdata, gwdata->FFTLEN/2-1, 0.0);
+		raw_gwsetaddin (gwdata, gwdata->FFTLEN/2-1, NULL, 0.0);
 		asm_data->HIGH_SCRATCH1_OFFSET = asm_data->ADDIN_OFFSET;
-		raw_gwsetaddin (gwdata, gwdata->FFTLEN/2-2, 0.0);
+		raw_gwsetaddin (gwdata, gwdata->FFTLEN/2-2, NULL, 0.0);
 		asm_data->HIGH_SCRATCH2_OFFSET = asm_data->ADDIN_OFFSET;
-		raw_gwsetaddin (gwdata, gwdata->FFTLEN/2-3, 0.0);
+		raw_gwsetaddin (gwdata, gwdata->FFTLEN/2-3, NULL, 0.0);
 		asm_data->HIGH_SCRATCH3_OFFSET = asm_data->ADDIN_OFFSET;
 
 		num_b_in_k = (unsigned long) ceil (log (k) / log (b));
@@ -4799,7 +4800,8 @@ int internal_gwsetup (
 
 	    gwsetnormroutine (gwdata, 0, 0, 0);
 	    gwstartnextfft (gwdata, 0);
-	    raw_gwsetaddin (gwdata, 0, 0.0);
+	    gwdata->asm_addin_value = 0.0;
+	    gwdata->asm_postaddin_value = 0.0;
 	    if (gwdata->careful_count == -1) gwset_carefully_count (gwdata, -1);
 	}
 
@@ -4812,6 +4814,7 @@ int internal_gwsetup (
 	gwdata->GW_RANDOM_SQUARED = NULL;
 	gwdata->GW_RANDOM_FFT = NULL;
 	gwdata->GW_ADDIN = NULL;
+	gwdata->GW_POSTADDIN = NULL;
 
 /* Init FFT1 state for possible future gwmuladd4, gwmulsub4, and gwunfft2 calls */
 /* For AVX-512, FMA3 and AVX FFTs, k == 1 FFTs can skip FFT(1) */
@@ -4867,7 +4870,7 @@ int internal_gwsetup (
 	gwnum g = gwalloc (gwdata);
 	long val;
 	int32_t val2;
-	gwiter_init_zero (gwdata, &iter, g);
+	gwiter_init_write_only (gwdata, &iter, g);
 	for (unsigned long i = 0; i < gwdata->FFTLEN; i++, gwiter_next (&iter)) {
 		ASSERTG (gwiter_index (&iter) == i);
 		ASSERTG (gwiter_addr_offset (&iter) == addr_offset (gwdata, i));
@@ -5550,6 +5553,7 @@ void auxiliary_thread (void *arg)
 			asm_data->ADDIN_ROW = main_thread_asm_data->ADDIN_ROW;
 			asm_data->ADDIN_OFFSET = main_thread_asm_data->ADDIN_OFFSET;
 			asm_data->ADDIN_VALUE = main_thread_asm_data->ADDIN_VALUE;
+			asm_data->POSTADDIN_VALUE = main_thread_asm_data->POSTADDIN_VALUE;
 			if (gwdata->cpu_flags & CPU_AVX512F) {
 				asm_data->u.zmm.ZMM_MULCONST = main_thread_asm_data->u.zmm.ZMM_MULCONST;
 				asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE = main_thread_asm_data->u.zmm.ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE;
@@ -5701,25 +5705,29 @@ void pass1_wake_up_threads (
 }
 
 /* This routine is called before normalizing a block of data. */
-/* This gives us an opportunity to make some adjustments for zero-padded FFTs. */
+/* This gives us an opportunity to make some adjustments for addin values and zero-padded FFTs. */
 
 void pass1_pre_carries (
 	struct gwasm_data *asm_data)
 {
 	gwhandle *gwdata = asm_data->gwdata;
 
+/* For non-zero-padded FFTs, handle the pre-mul-by-const ADDIN_VALUE here */
+
+	if (asm_data->ADDIN_VALUE != 0.0 && !gwdata->ZERO_PADDED_FFT && asm_data->this_block == asm_data->ADDIN_ROW) {
+		double *fft_data = gwdata->SCRATCH_SIZE ? (double *) asm_data->scratch_area : (double *) asm_data->data_addr;
+		fft_data = (double *) ((char *) fft_data + asm_data->ADDIN_OFFSET);
+		*fft_data += asm_data->ADDIN_VALUE;
+	}
+
 /* In zero-padded FFTs, we must subtract ZPAD0-6 from the first seven result words. */
-/* In the radix-4 delay with partial normalization also apply the partial */
-/* normalization multipliers to ZPAD0-6. */
+/* In the radix-4 delay with partial normalization also apply the partial normalization multipliers to ZPAD0-6. */
 
 	if (gwdata->ZERO_PADDED_FFT && asm_data->this_block <= 6) {
 		struct gwasm_data *main_thread_asm_data = (struct gwasm_data *) gwdata->asm_data;
-		unsigned int i;
-		double	*fft_data;
 
-		if (gwdata->SCRATCH_SIZE) fft_data = (double *) asm_data->scratch_area;
-		else fft_data = (double *) asm_data->DESTARG;
-		for (i = asm_data->this_block; i <= 6 && i < asm_data->this_block + asm_data->cache_line_multiplier; i++) {
+		double *fft_data = gwdata->SCRATCH_SIZE ? (double *) asm_data->scratch_area : (double *) asm_data->DESTARG;
+		for (unsigned int i = asm_data->this_block; i <= 6 && i < asm_data->this_block + asm_data->cache_line_multiplier; i++) {
 			if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
 				main_thread_asm_data->ZPAD0_6[i] *= gwdata->ZPAD_0_6_ADJUST[i];
 				*fft_data -= main_thread_asm_data->ZPAD0_6[i];
@@ -5735,8 +5743,7 @@ void pass1_pre_carries (
 	}
 }
 
-/* This routine is called by the pass 1 threads when they are done */
-/* with the normalization code. */
+/* This routine is called by the pass 1 threads when they've completed normalization */
 
 #define PASS1_CARRIES_NO_FORWARD_FFT	0
 #define PASS1_CARRIES_FORWARD_FFT	1
@@ -5746,6 +5753,14 @@ int pass1_post_carries (
 {
 	gwhandle *gwdata = asm_data->gwdata;
 	int	i;
+
+/* For non-zero-padded FFTs, handle the post-mul-by-const ADDIN_VALUE here */
+
+	if (asm_data->POSTADDIN_VALUE != 0.0 && !gwdata->ZERO_PADDED_FFT && asm_data->this_block == asm_data->ADDIN_ROW) {
+		double *fft_data = gwdata->SCRATCH_SIZE ? (double *) asm_data->scratch_area : (double *) asm_data->data_addr;
+		fft_data = (double *) ((char *) fft_data + asm_data->ADDIN_OFFSET);
+		*fft_data += asm_data->POSTADDIN_VALUE;
+	}
 
 /* If postfft is not set, then do not perform forward FFT on the result */
 
@@ -6675,6 +6690,11 @@ gwnum real_gwalloc (
 		if (gwdata->gwnum_free_count) {
 			gwnum r = gwdata->gwnum_free[--gwdata->gwnum_free_count];
 			gwmutex_unlock (&gwdata->alloc_lock);
+			// For consistency with freshly allocated gwnums, clear header words
+			* (uint32_t *) ((char *) r - 28) = 0;		/* Has-been-pre-ffted flag */
+			* (double *) ((char *) r - 16) = 0.0;		/* SUM(INPUTS) */
+			* (double *) ((char *) r - 24) = 0.0;		/* SUM(OUTPUTS) */
+			unnorms (r) = 0.0f;				/* Unnormalized adds count */
 			return (r);
 		}
 		gwmutex_unlock (&gwdata->alloc_lock);
@@ -7440,10 +7460,19 @@ double *addr (
 
 /* An iterator can be used for faster incrementing through FFT data elements */
 
+void gwiter_init_write_only (	/* Init iterator to gwnum g element zero for writing */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwiter	*iter,		/* Iterator to initialize */
+	gwnum	g)		/* gwnum to iterate through */
+{
+	FFT_state (g) = NOT_FFTed;	// Prevent unfft of g.  We may be recycling a freed gwnum that was FFTed.  Or user may be recycling an FFTed gwnum.
+	gwiter_init_zero (gwdata, iter, g);
+}
+
 void gwiter_init_zero (		/* Init iterator to element zero */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	gwiter	*iter,		/* Iterator to initialize */
-	gwnum	g)		/* gwnum to iterate through */	  
+	gwnum	g)		/* gwnum to iterate through */
 {
 
 /* Make sure data is not FFTed.  Caller should really try to avoid this scenario. */
@@ -8696,17 +8725,17 @@ void gwsetaddinatpowerofb (
 /* Handle value of zero */
 
 	if (value == 0) {
-		raw_gwsetaddin (gwdata, 0, 0.0);
+		gwdata->asm_addin_value = 0.0;
 		return;
 	}
 
 /* Tell assembly code to add the shifted value to the multiplication result. */
 
 	bitaddr (gwdata, power_of_b, &word, &b_in_word);
-	raw_gwsetaddin (gwdata, word, value * pow ((double) gwdata->b, b_in_word));
+	raw_gwsetaddin (gwdata, word, &gwdata->asm_addin_value, value * pow ((double) gwdata->b, b_in_word));
 }
 
-/* Routine that tells the assembly code to add a small value to the results of each multiply. */
+/* Routine that tells the assembly code to add a small value (prior to any mul-by-const) to the results of each multiply. */
 
 void gwsetaddin (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -8747,7 +8776,7 @@ void gwsetaddin (
 /* If k is 1, add the value into the first FFT word */
 
 	if (gwdata->k == 1.0) {
-		raw_gwsetaddin (gwdata, 0, value);
+		raw_gwsetaddin (gwdata, 0, &gwdata->asm_addin_value, value);
 		return;
 	}
 
@@ -8770,7 +8799,76 @@ void gwsetaddin (
 
 /* Tell assembly code to add the shifted value to the multiplication result. */
 
-	raw_gwsetaddin (gwdata, word, value * pow ((double) gwdata->b, b_in_word));
+	raw_gwsetaddin (gwdata, word, &gwdata->asm_addin_value, value * pow ((double) gwdata->b, b_in_word));
+}
+
+/* Similar to gwsetaddin, this routine adds a very small constant to the result of a multiplication at virtually no cost.  This routine is only useful */
+/* if you need to use both GWMUL_ADDINCONST and GWMUL_MULBYCONST.  The addin is done after the mul-by-const operation.  WARNING: The addition is done */
+/* after carry propagation has occurred.  Furthermore, for numbers of the k*b^n+/-1 the addin may not be applied to the least significant bits of the */
+/* FFT word.  If the adding value exceeds the "b" in k*b^n+c, then you risk dangerous round off errors. */
+
+void gwsetpostmulbyconstaddin (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	int	value)
+{
+	ASSERTG (gwdata->k == 1.0 || abs(value) <= (int) (2*gwdata->b));	// Sensible(?) limit on add-in value
+
+/* If this is a case we must emulate, deallocate cached GW_ADDIN, remember addin value */
+
+	if (gwdata->k != 1.0 && labs (gwdata->c) != 1) {
+		if (value == gwdata->emulate_postaddin_value) return;
+		gwdata->emulate_postaddin_value = value;
+		gwfree (gwdata, gwdata->GW_POSTADDIN);
+		gwdata->GW_POSTADDIN = NULL;
+		return;
+	}
+
+/* Handle value of zero */
+
+	if (value == 0) {
+		gwdata->asm_postaddin_value = 0.0;
+		return;
+	}
+
+/* In a zero-padded FFT, the value is added into ZPAD0 */
+
+	if (gwdata->ZERO_PADDED_FFT) {
+		// when c = -1, 1 = b^n
+		// when c = 1, -1 = b^n, 1 = -b^n
+		// when c = -3, 3 = b^n, 1 = b^n - 2
+		// when c = 3, -3 = b^n, 3 = -b^n, 1 = -b^n - 2
+		gwdata->asm_postaddin_value = (double) (gwdata->c < 0 ? value : -value);
+		return;
+	}
+
+/* If k is 1, add the value into the first FFT word */
+
+	if (gwdata->k == 1.0) {
+		raw_gwsetaddin (gwdata, 0, &gwdata->asm_postaddin_value, value);
+	}
+
+/* If value is a multiple of b, "shift" it right and increment b count.  This will ensure that we modify the proper FFT word. */
+
+	else {
+		unsigned long word, b_in_word;
+		for (b_in_word = 0; value && value % (long) gwdata->b == 0; value = value / (long) gwdata->b)
+			b_in_word++;
+
+/* Convert the input value to 1/k format.  Case 1 (k*b^n-1): Inverse of k is b^n. */
+/* Case 3 (k*b^n+1): Inverse of k is -b^n.  No other cases can be handled. */
+
+		if (gwdata->c == -1) {
+			bitaddr (gwdata, gwdata->n + b_in_word, &word, &b_in_word);
+		}
+		else if (gwdata->c == 1) {
+			bitaddr (gwdata, gwdata->n + b_in_word, &word, &b_in_word);
+			value = -value;
+		}
+
+/* Tell assembly code to add the shifted value to the multiplication result. */
+
+		raw_gwsetaddin (gwdata, word, &gwdata->asm_postaddin_value, value * pow ((double) gwdata->b, b_in_word));
+	}
 }
 
 /* Routine that tells the assembly code to add a small value to the results of each multiply */
@@ -8778,6 +8876,7 @@ void gwsetaddin (
 void raw_gwsetaddin (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
 	unsigned long word,
+	double	*ptr,	     
 	double	val)
 {
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
@@ -8849,8 +8948,7 @@ void raw_gwsetaddin (
 		asm_data->ADDIN_OFFSET = addr_offset (gwdata, word);
 
 /* If this is a one-pass SSE2 FFT, then we need to tell the assembly code */
-/* the affected "row", that is which set of data the add-in will */
-/* take place */
+/* the affected "row", that is which set of data the add-in will take place. */
 
 		if (gwdata->PASS2_SIZE == 0) {
 			row = asm_data->ADDIN_OFFSET & 31;
@@ -8930,15 +9028,19 @@ void raw_gwsetaddin (
 		}
 	}
 
+/* Caller may only be interested in ADDIN_OFFSET */
+
+	if (ptr == NULL) return;
+
 /* Handle AVX-512 FFTs.  They are normalized differently than FMA3 and earlier FFTs */
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
 
-/* Rational FFTs are not normalized, don't need to apply a weight to the addin value. */
+/* Post addins do not need a weight.  Rational FFTs are not normalized, don't need to apply a weight to the addin value. */
 /* Exceptions are two-pass negacyclic FFTs which have a sine component as part of the inverse group multiplier. */
 
-		if (gwdata->RATIONAL_FFT && !(gwdata->PASS1_SIZE && gwdata->NEGACYCLIC_FFT)) {
-			gwdata->asm_addin_value = val;
+		if (ptr == &gwdata->asm_postaddin_value || (gwdata->RATIONAL_FFT && !(gwdata->PASS1_SIZE && gwdata->NEGACYCLIC_FFT))) {
+			*ptr = val;
 		}
 
 /* AVX-512 FFT's ADDIN_VALUE is partially normalized (since we moved the weighting from the last_unfft macro to the normalize */
@@ -8957,20 +9059,22 @@ void raw_gwsetaddin (
 				gwfft_weights_times_sine (gwdata->dd_data, grp, sine_word, gwdata->FFTLEN * 2, NULL, &ttmp);
 			} else
 				ttmp = gwfft_weight_inverse (gwdata->dd_data, grp);
-			gwdata->asm_addin_value = val / ttmp;
+			*ptr = val / ttmp;
 		}
 	}
 
 /* Handle r4dwpn FFTs which are only partially normalized */
 
 	else if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-		gwdata->asm_addin_value = val * gwfft_partial_weight_sloppy (gwdata->dd_data, word, dwpn_col (gwdata, word));
+		*ptr = val * gwfft_partial_weight_sloppy (gwdata->dd_data, word, dwpn_col (gwdata, word));
 	}
 
 /* Set the addin value - multiply it by two-to-phi and FFTLEN/2/k. */
 
-	else
-		gwdata->asm_addin_value = val * gwfft_weight_sloppy (gwdata->dd_data, word) * gwdata->FFTLEN * 0.5 / gwdata->k;
+	else {
+		*ptr = val * gwfft_weight_sloppy (gwdata->dd_data, word);
+		if (ptr == &gwdata->asm_addin_value) *ptr *= gwdata->FFTLEN * 0.5 / gwdata->k;
+	}
 
 /* Release clone lock now that ADDIN_ROW, ADDIN_OFFSET, and asm_addin_value have all been changed */
 
@@ -8982,9 +9086,14 @@ void raw_gwsetaddin (
 void init_GW_ADDIN (
 	gwhandle *gwdata)	/* Handle initialized by gwsetup */
 {
-	if (gwdata->GW_ADDIN != NULL) return;
-	gwdata->GW_ADDIN = gwalloc_internal (gwdata);
-	dbltogw (gwdata, (double) gwdata->emulate_addin_value, gwdata->GW_ADDIN);
+	if (gwdata->GW_ADDIN == NULL && gwdata->emulate_addin_value) {
+		gwdata->GW_ADDIN = gwalloc_internal (gwdata);
+		dbltogw (gwdata, (double) gwdata->emulate_addin_value, gwdata->GW_ADDIN);
+	}
+	if (gwdata->GW_POSTADDIN == NULL && gwdata->emulate_postaddin_value) {
+		gwdata->GW_POSTADDIN = gwalloc_internal (gwdata);
+		dbltogw (gwdata, (double) gwdata->emulate_postaddin_value, gwdata->GW_POSTADDIN);
+	}
 }
 
 /********************************************************/
@@ -9248,7 +9357,7 @@ void gianttogw (
 			accumbits = 0;
 
 			gwiter iter;
-			for (gwiter_init_zero (gwdata, &iter, g); gwiter_index (&iter) < limit; gwiter_next (&iter)) {
+			for (gwiter_init_write_only (gwdata, &iter, g); gwiter_index (&iter) < limit; gwiter_next (&iter)) {
 
 				// If needed, add another 32 input bits to accumulator
 				if (accumbits < 28) {
@@ -9823,6 +9932,7 @@ void asm_mul (
 /* Set/clear the addin value depending on GWMUL_ADDINCONST option */
 
 	asm_data->ADDIN_VALUE = (options & GWMUL_ADDINCONST) ? gwdata->asm_addin_value : 0.0;
+	asm_data->POSTADDIN_VALUE = (options & GWMUL_ADDINCONST) ? gwdata->asm_postaddin_value : 0.0;
 
 /* Call the assembly code */
 
@@ -10230,11 +10340,12 @@ void cmn_gwopmul4 (		/* Calculate (s1 op s2) * s3 */
 
 /* See if GWMUL_ADDINCONST must be emulated */
 
-	else if ((options & GWMUL_ADDINCONST) && gwdata->emulate_addin_value != 0) {
+	else if ((options & GWMUL_ADDINCONST) && (gwdata->emulate_addin_value != 0 || gwdata->emulate_postaddin_value != 0)) {
 		cmn_gwopmul4 (gwdata, s1, s2, s3, d, options & ~(GWMUL_MULBYCONST | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT), opcode);
 		init_GW_ADDIN (gwdata);
-		gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
+		if (gwdata->GW_ADDIN != NULL) gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
 		if (options & GWMUL_MULBYCONST) gwsmallmul (gwdata, gwdata->mulbyconst, d);
+		if (gwdata->GW_POSTADDIN != NULL) gwadd3o (gwdata, d, gwdata->GW_POSTADDIN, d, GWADD_FORCE_NORMALIZE);
 	}
 
 /* Let assembly code do the work */
@@ -10319,12 +10430,22 @@ void cmn_gwmulop4 (		/* Calculate (s1 * s2) op s3 */
 	if (s2 == d) options &= ~(GWMUL_FFT_S2 | GWMUL_PRESERVE_S2);
 	if (s3 == d) options &= ~(GWMUL_FFT_S3 | GWMUL_PRESERVE_S3);
 
-/* If asm code cannot handle this feature, or the multiply carefully count is active, then emulate this feature */
+/* See if GWMUL_ADDINCONST must be emulated */
+
+	if ((options & GWMUL_ADDINCONST) && (gwdata->emulate_addin_value != 0 || gwdata->emulate_postaddin_value != 0)) {
+		cmn_gwmulop4 (gwdata, s1, s2, s3, d, options & ~(GWMUL_MULBYCONST | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT), opcode);
+		init_GW_ADDIN (gwdata);
+		if (gwdata->GW_ADDIN != NULL) gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
+		if (options & GWMUL_MULBYCONST) gwsmallmul (gwdata, gwdata->mulbyconst, d);
+		if (gwdata->GW_POSTADDIN != NULL) gwadd3o (gwdata, d, gwdata->GW_POSTADDIN, d, GWADD_FORCE_NORMALIZE);
+	}
+
+/* If asm code cannot handle this feature (SSE2 and 32-bit), or the multiply carefully count is active, then emulate this feature. */
 
 #ifdef X86_64
-	if (!(gwdata->cpu_flags & (CPU_AVX512F | CPU_FMA3 | CPU_AVX)) || gwdata->careful_count > 0) {
+	else if (!(gwdata->cpu_flags & (CPU_AVX512F | CPU_FMA3 | CPU_AVX)) || gwdata->careful_count > 0) {
 #else
-	if (1) {
+	else if (1) {
 #endif
 
 /* Make sure s3 is not FFTed */
@@ -10337,24 +10458,32 @@ void cmn_gwmulop4 (		/* Calculate (s1 * s2) op s3 */
 
 /* Now emulate.  Be sure to do the optional mul-by-const after the FMA. */
 
-		gwmul3 (gwdata, s1, s2, d, options & ~(GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT));
-		if (options & GWMUL_MULBYCONST) {
+		if ((options & GWMUL_MULBYCONST) && (options & GWMUL_ADDINCONST) && gwdata->asm_postaddin_value != 0.0) {
+			// Multiply without the post addin value
+			double saved_postaddin_value = gwdata->asm_postaddin_value;
+			gwdata->asm_postaddin_value = 0.0;
+			gwmul3 (gwdata, s1, s2, d, options & ~(GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT));
+			gwdata->asm_postaddin_value = saved_postaddin_value;
+			// Add/sub the FMA addin value
+			if (opcode == 3) gwadd3o (gwdata, d, s3, d, GWADD_GUARANTEED_OK | GWADD_DELAY_NORMALIZE);
+			else gwsub3o (gwdata, d, s3, d, GWADD_GUARANTEED_OK | GWADD_DELAY_NORMALIZE);
+			// Mul by const and apply only the post addin value
+			tmp1 = gwalloc (gwdata);
+			dbltogw (gwdata, gwdata->mulbyconst, tmp1);
+			double saved_addin_value = gwdata->asm_addin_value;
+			gwdata->asm_addin_value = 0.0;
+			gwmul3 (gwdata, d, tmp1, d, options & ~GWMUL_MULBYCONST);
+			gwdata->asm_addin_value = saved_addin_value;
+		} else if (options & GWMUL_MULBYCONST) {
+			gwmul3 (gwdata, s1, s2, d, options & ~(GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT));
 			if (opcode == 3) gwadd3o (gwdata, d, s3, d, GWADD_GUARANTEED_OK | GWADD_DELAY_NORMALIZE);
 			else gwsub3o (gwdata, d, s3, d, GWADD_GUARANTEED_OK | GWADD_DELAY_NORMALIZE);
 			gwsmallmul (gwdata, gwdata->mulbyconst, d);
 		} else {
+			gwmul3 (gwdata, s1, s2, d, options & ~GWMUL_STARTNEXTFFT);
 			if (opcode == 3) gwadd3o (gwdata, d, s3, d, GWADD_FORCE_NORMALIZE);
 			else gwsub3o (gwdata, d, s3, d, GWADD_FORCE_NORMALIZE);
 		}
-	}
-
-/* See if GWMUL_ADDINCONST must be emulated */
-
-	else if ((options & GWMUL_ADDINCONST) && gwdata->emulate_addin_value != 0) {
-		cmn_gwmulop4 (gwdata, s1, s2, s3, d, options & ~(GWMUL_MULBYCONST | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT), opcode);
-		init_GW_ADDIN (gwdata);
-		gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
-		if (options & GWMUL_MULBYCONST) gwsmallmul (gwdata, gwdata->mulbyconst, d);
 	}
 
 /* Let assembly code do the work */
@@ -10512,36 +10641,53 @@ void cmn_gwmulmulop5 (		/* Calculate (s1 * s2) op (s3 * s4) */
 		else gwfft (gwdata, s4, s4);
 	}
 
-/* If asm code cannot handle this feature, or the multiply carefully count is active, then emulate this feature */
+/* See if GWMUL_ADDINCONST must be emulated */
+
+	if ((options & GWMUL_ADDINCONST) && (gwdata->emulate_addin_value != 0 || gwdata->emulate_postaddin_value != 0)) {
+		cmn_gwmulmulop5 (gwdata, s1, s2, s3, s4, d, options & ~(GWMUL_MULBYCONST | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT), opcode);
+		init_GW_ADDIN (gwdata);
+		if (gwdata->GW_ADDIN != NULL) gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
+		if (options & GWMUL_MULBYCONST) gwsmallmul (gwdata, gwdata->mulbyconst, d);
+		if (gwdata->GW_POSTADDIN != NULL) gwadd3o (gwdata, d, gwdata->GW_POSTADDIN, d, GWADD_FORCE_NORMALIZE);
+	}
+
+/* If asm code cannot handle this feature (SSE2 and 32-bit), or the multiply carefully count is active, then emulate this feature */
 
 #ifdef X86_64
-	if (!(gwdata->cpu_flags & (CPU_AVX512F | CPU_FMA3 | CPU_AVX)) || gwdata->careful_count > 0) {
+	else if (!(gwdata->cpu_flags & (CPU_AVX512F | CPU_FMA3 | CPU_AVX)) || gwdata->careful_count > 0) {
 #else
-	if (1) {
+	else if (1) {
 #endif
 
 /* Now emulate.  Be sure to do the optional mul-by-const after the FMA. */
 
 		tmp1 = gwalloc (gwdata);
 		gwmul3 (gwdata, s3, s4, tmp1, 0);
-		gwmul3 (gwdata, s1, s2, d, options & ~(GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT));
-		if (options & GWMUL_MULBYCONST) {
+		if ((options & GWMUL_MULBYCONST) && (options & GWMUL_ADDINCONST) && gwdata->asm_postaddin_value != 0.0) {
+			// Multiply without the post addin value
+			double saved_postaddin_value = gwdata->asm_postaddin_value;
+			gwdata->asm_postaddin_value = 0.0;
+			gwmul3 (gwdata, s1, s2, d, options & ~(GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT));
+			gwdata->asm_postaddin_value = saved_postaddin_value;
+			// Add/sub the s3*s4 addin value
+			if (opcode == 3) gwadd3o (gwdata, d, tmp1, d, GWADD_GUARANTEED_OK | GWADD_DELAY_NORMALIZE);
+			else gwsub3o (gwdata, d, tmp1, d, GWADD_GUARANTEED_OK | GWADD_DELAY_NORMALIZE);
+			// Mul by const and apply only the post addin value
+			dbltogw (gwdata, gwdata->mulbyconst, tmp1);
+			double saved_addin_value = gwdata->asm_addin_value;
+			gwdata->asm_addin_value = 0.0;
+			gwmul3 (gwdata, d, tmp1, d, options & ~GWMUL_MULBYCONST);
+			gwdata->asm_addin_value = saved_addin_value;
+		} else if (options & GWMUL_MULBYCONST) {
+			gwmul3 (gwdata, s1, s2, d, options & ~(GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT));
 			if (opcode == 3) gwadd3o (gwdata, d, tmp1, d, GWADD_GUARANTEED_OK | GWADD_DELAY_NORMALIZE);
 			else gwsub3o (gwdata, d, tmp1, d, GWADD_GUARANTEED_OK | GWADD_DELAY_NORMALIZE);
 			gwsmallmul (gwdata, gwdata->mulbyconst, d);
 		} else {
+			gwmul3 (gwdata, s1, s2, d, options & ~GWMUL_STARTNEXTFFT);
 			if (opcode == 3) gwadd3o (gwdata, d, tmp1, d, GWADD_FORCE_NORMALIZE);
 			else gwsub3o (gwdata, d, tmp1, d, GWADD_FORCE_NORMALIZE);
 		}
-	}
-
-/* See if GWMUL_ADDINCONST must be emulated */
-
-	else if ((options & GWMUL_ADDINCONST) && gwdata->emulate_addin_value != 0) {
-		cmn_gwmulmulop5 (gwdata, s1, s2, s3, s4, d, options & ~(GWMUL_MULBYCONST | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT), opcode);
-		init_GW_ADDIN (gwdata);
-		gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
-		if (options & GWMUL_MULBYCONST) gwsmallmul (gwdata, gwdata->mulbyconst, d);
 	}
 
 /* Let assembly code do the work */
@@ -10886,11 +11032,12 @@ void gwmul3 (			/* Multiply two gwnums */
 
 /* See if GWMUL_ADDINCONST must be emulated */
 
-	if ((options & GWMUL_ADDINCONST) && gwdata->emulate_addin_value != 0) {
+	if ((options & GWMUL_ADDINCONST) && (gwdata->emulate_addin_value != 0 || gwdata->emulate_postaddin_value != 0)) {
 		gwmul3 (gwdata, s1, s2, d, options & ~(GWMUL_MULBYCONST | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT));
 		init_GW_ADDIN (gwdata);
-		gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
+		if (gwdata->GW_ADDIN != NULL) gwadd3o (gwdata, d, gwdata->GW_ADDIN, d, GWADD_GUARANTEED_OK);
 		if (options & GWMUL_MULBYCONST) gwsmallmul (gwdata, gwdata->mulbyconst, d);
+		if (gwdata->GW_POSTADDIN != NULL) gwadd3o (gwdata, d, gwdata->GW_POSTADDIN, d, GWADD_FORCE_NORMALIZE);
 		return;
 	}
 
@@ -10983,14 +11130,14 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 			}
 		}
 
-		/* Generate desired result, d = ((s1+r)*(s1-r) + r^2 + addin) * mulbyconst */
+		/* Generate desired result, d = ((s1+r)*(s1-r) + r^2 + addin) * mulbyconst + postaddin */
 		gwmuladd4 (gwdata, tmp, d, gwdata->GW_RANDOM_SQUARED, d, options & (GWMUL_ADDINCONST | GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT));
 
 		gwfree (gwdata, tmp);
 	}
 
 /* Handle a multiply operation.  A more complex method is required using two multiplies and several adds. */
-/* ((s1+r)*(s2-r)+addin)*mulbyconst = (s1s2 + addin) * mulbyconst - (r * (s1 + r - s2)) * mulbyconst */
+/* ((s1+r)*(s2-r)+addin)*mulbyconst+postaddin = (s1s2 + addin) * mulbyconst + postaddin - (r * (s1 + r - s2)) * mulbyconst */
 
 	else {
 		gwnum	tmp1, tmp2, tmp3;
@@ -11026,7 +11173,7 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 			}
 		}
 		
-		/* Generate desired result, d = ((s1+r)*(s2-r) + r*(s1+r-s2) + addin) * mulbyconst */
+		/* Generate desired result, d = ((s1+r)*(s2-r) + r*(s1+r-s2) + addin) * mulbyconst + postaddin */
 		if (!gwdata->paranoid_mul_careful || mulsquareadd_safe (gwdata, 0, 0, 0, 0)) {
 			gwmulmuladd5 (gwdata, tmp1, tmp3, gwdata->GW_RANDOM_FFT, d, d, options & (GWMUL_ADDINCONST | GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT));
 		} else {

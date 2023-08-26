@@ -145,7 +145,7 @@ done:	zfft_footer
 	ENDM
 
 
-;; Perform an negacyclic pass 1 FFT of length 2 reals.  Basically, this is a wrapper that lets
+;; Perform a negacyclic pass 1 FFT of length 2 reals.  Basically, this is a wrapper that lets
 ;; us provide small FFT sizes -- one for each 2nd pass FFT size.   This wrapper applies
 ;; weights and does swizzling to compensate for the different memory layouts required by
 ;; the normalization code and the 2nd pass FFT code.

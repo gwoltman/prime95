@@ -1680,6 +1680,11 @@ ttp	mov	rbp, saved_reg3		;; Restore ttp pointer
 	sub	loopcount1, 1		;; Test section counter
 	jnz	ilp0
 echk	ystore	YMM_MAXERR, ymm6	;; Save maximum error
+no zero mov	rsi, DESTARG		;; Addr of multiplied number
+no zero	mov	edi, ADDIN_OFFSET	;; Get address to add value into
+no zero	vmovsd	xmm0, POSTADDIN_VALUE	;; Get the addin value
+no zero	vaddsd	xmm0, xmm0, Q [rsi][rdi] ;; Add in the FFT value
+no zero	vmovsd	Q [rsi][rdi], xmm0	;; Save the new value
 zero ttp		jmp	zdn	;; Go to zero upper half irrational end code
 zero no ttp		jmp	zrdn	;; Go to zero upper half rational end code
 no base2 ttp		jmp	nb2dn	;; Go to non-base2 irrational end code

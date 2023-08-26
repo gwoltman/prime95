@@ -58,8 +58,7 @@ struct gwasm_data {
 	char	ZERO_PADDED_FFT;	/* True if doing a zero pad FFT */
 	char	ZPAD_TYPE;		/* 1,2,or 3 words in k (used by zero pad) */
 	char	ffttype;		/* Type of fft (1, 2=square, 3, or 4) */
-	char	TOP_CARRY_NEEDS_ADJUSTING; /* True when carry out of top word */
-					/* needs adjusting */
+	char	TOP_CARRY_NEEDS_ADJUSTING; /* True when carry out of top word needs adjusting */
 	char	SPREAD_CARRY_OVER_EXTRA_WORDS; /* AVX: True when carries must be spread over more than 4 words. */
 					/* X87,SSE2: True when carries must be spread over more than 2 words. */
 	char	zero_fft;		/* TRUE if zero upper half in normalize */
@@ -69,8 +68,8 @@ struct gwasm_data {
 	char	UNUSED_CHARS[4];
 	uint32_t ADDIN_ROW;		/* For adding a constant after multiply */
 	uint32_t ADDIN_OFFSET;
-	double	ADDIN_VALUE;		/* Value to add in after a multiply */
-	double	ttmp_ff_inv;		/* Inverse FFT adjust (2/FFTLEN) */
+	double	ADDIN_VALUE;		/* Value to add in after a multiply and before a mul-by-const */
+	double	POSTADDIN_VALUE;	/* Value to add in after a multiply and after a mul-by-const */
 
 	int32_t	thread_num;		/* Thread num - to differentiate main thread from auxiliary threads */
 	uint32_t this_block;		/* Block currently being processed */
@@ -182,6 +181,9 @@ struct gwasm_data {
 
 	double	ZPAD0_6[7];		/* 7 ZPAD doubles */
 	double	ZPAD_LSW_ADJUST;	/* Multiplier for ADDIN_VALUE when ZERO_PADDED k=1, abs(c)!=1 */
+
+	double	ttmp_ff_inv;		/* Inverse FFT adjust (2/FFTLEN) */
+	double	UNUSED_DOUBLES[7];
 
 	union {
 	    struct zmm_data {

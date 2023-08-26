@@ -512,6 +512,11 @@ ttp	mov	rbp, saved_reg1		;; Restore ttp pointer
 
 	shr	edx, 11			;; Get next loop amount
 	jnz	ilp0
+no zero	mov	rsi, DESTARG		;; Addr of multiplied number
+no zero	mov	edi, ADDIN_OFFSET	;; Get address to add value into
+no zero	movsd	xmm0, Q [rsi][rdi]	;; Get the value
+no zero	addsd	xmm0, POSTADDIN_VALUE	;; Add in the requested value
+no zero	movsd	Q [rsi][rdi], xmm0	;; Save the new value
 no base2 jmp	non2dn			;; Go to non-base2 end code
 zero	jmp	zdn			;; Go to zero upper half end code
 base2 no zero jmp idn			;; Go to normal end code
