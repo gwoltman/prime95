@@ -760,6 +760,10 @@ void modgi (		/* n becomes n%d. n is arbitrary, but the
 	ASSERTG (d->n[d->sign-1] != 0);
 	ASSERTG (n->sign == 0 || n->n[abs(n->sign)-1] != 0);
 
+/* Quick check for n already less than d */
+
+	if (n->sign >= 0 && (n->sign < d->sign || (n->sign == d->sign && gcompg (n, d) < 0))) return;
+
 /* Use divg to compute the mod */
 
 	tmp = popg (gdata, abs(n->sign));
