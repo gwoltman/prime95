@@ -9806,7 +9806,7 @@ int pminus1 (
 		OutputStr (thread_num, buf);
 		if (w->sieve_depth > 0.0 && !pm1data.optimal_B2) {
 			double prob = guess_pminus1_probability (w);
-			sprintf (buf, "Chance of finding a factor is an estimated %.3g%%\n", prob * 100.0);
+			sprintf (buf, "Chance of finding a new factor is an estimated %.3g%%\n", prob * 100.0);
 			OutputStr (thread_num, buf);
 		}
 	}
@@ -12454,8 +12454,13 @@ int pfactor (
 	gw_as_string (testnum, w->k, w->b, w->n, w->c);
 	sprintf (buf, "Optimal P-1 factoring of %s using up to %luMB of memory.\n", testnum, max_mem (thread_num));
 	OutputStr (thread_num, buf);
-	sprintf (buf, "Assuming no factors below 2^%.2g and %.2g primality test%s saved if a factor is found.\n",
-		 w->sieve_depth, w->tests_saved, w->tests_saved == 1.0 ? "" : "s");
+	if (w->known_factors != NULL) {
+		OutputStr (thread_num, "Skipping known factors: ");
+		OutputStr (thread_num, w->known_factors);
+		OutputStr (thread_num, "\n");
+	}
+	sprintf (buf, "Assuming no%s factors below 2^%.2g and %.2g primality test%s saved if a factor is found.\n",
+		 w->known_factors != NULL ? " other" : "", w->sieve_depth, w->tests_saved, w->tests_saved == 1.0 ? "" : "s");
 	OutputStr (thread_num, buf);
 
 /* Deduce the proper P-1 bounds */
@@ -12482,7 +12487,7 @@ int pfactor (
 
 	sprintf (buf, "Optimal bounds are B1=%" PRIu64 ", B2=%" PRIu64 "\n", bound1, bound2);
 	OutputStr (thread_num, buf);
-	sprintf (buf, "Chance of finding a factor is an estimated %.3g%%\n", prob * 100.0);
+	sprintf (buf, "Chance of finding a new factor is an estimated %.3g%%\n", prob * 100.0);
 	OutputStr (thread_num, buf);
 
 /* Call the P-1 factoring code */
@@ -12972,7 +12977,7 @@ void pp1_choose_B2 (
 	pp1data->C = best[1].i * pp1data->B;
 	sprintf (buf, "With trial factoring done to 2^%d, optimal B2 is %d*B1 = %" PRIu64 ".\n", sieve_depth, best[1].i, pp1data->C);
 	OutputStr (pp1data->thread_num, buf);
-	sprintf (buf, "Chance of a new factor assuming no ECM has been done is %.3g%%\n", best[1].fac_pct * 100.0);
+	sprintf (buf, "Chance of finding a new factor assuming no ECM has been done is %.3g%%\n", best[1].fac_pct * 100.0);
 	OutputStr (pp1data->thread_num, buf);
 }
 #undef p1eval
@@ -13550,7 +13555,7 @@ int pplus1 (
 	OutputStr (thread_num, buf);
 	if (w->sieve_depth > 0.0 && !pp1data.optimal_B2) {
 		double prob = pm1prob (pp1data.takeAwayBits, (unsigned int) w->sieve_depth, pp1data.B, pp1data.C) * pp1data.success_rate;
-		sprintf (buf, "Chance of finding a factor assuming no ECM has been done is an estimated %.3g%%\n", prob * 100.0);
+		sprintf (buf, "Chance of finding a new factor assuming no ECM has been done is an estimated %.3g%%\n", prob * 100.0);
 		OutputStr (thread_num, buf);
 	}
 

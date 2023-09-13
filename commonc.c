@@ -2344,6 +2344,20 @@ void JSONaddExponent (
 {
 	if (w->k == 1.0 && w->b == 2 && w->c == -1) sprintf (JSONbuf+strlen(JSONbuf), ", \"exponent\":%lu", w->n);
 	else sprintf (JSONbuf+strlen(JSONbuf), ", \"k\":%.0f, \"b\":%lu, \"n\":%lu, \"c\":%ld", w->k, w->b, w->n, w->c);
+	if (w->known_factors != NULL) {
+		strcat (JSONbuf, ", \"known-factors\":[");
+		char *factors = w->known_factors;
+		char *p = JSONbuf + strlen (JSONbuf);
+		for ( ; ; ) {
+			*p++ = '"';
+			while (*factors >= '0' && *factors <= '9') *p++ = *factors++;
+			*p++ = '"';
+			if (*factors == 0) break;
+			factors++;
+		}
+		*p++ = ']';
+		*p = 0;
+	}
 }
 
 /* Append program and timestamp to JSON message */
