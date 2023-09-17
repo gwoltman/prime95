@@ -522,6 +522,7 @@ void polymult_init (
 
 	// Calculate how many "lines" or "work units" polymult threads will work on
 	int num_doubles = gwfftlen (pmdata->gwdata);					// Number of doubles in a gwnum
+	if (pmdata->gwdata->GENERAL_MMGW_MOD) num_doubles *= 2;				// MMGW has a cyclic and negacyclic FFT to work on
 	if (!pmdata->gwdata->NEGACYCLIC_FFT) num_doubles += 2;				// Two FFT reals are converted to two complex values
 	if (pmdata->gwdata->ZERO_PADDED_FFT) num_doubles += 14;				// Seven real ZPAD values treated as seven complex values
 	pmdata->num_lines = divide_rounding_up (num_doubles, complex_vector_size);	// Number of doubles / doubles in a complex vector
@@ -545,7 +546,7 @@ void polymult_init (
 
 	// Init FFT(1) if needed
 	if (!pmdata->gwdata->information_only) {
-		if (pmdata->gwdata->k != 1.0) gwuser_init_FFT1 (pmdata->gwdata);
+		if (pmdata->gwdata->GENERAL_MMGW_MOD || pmdata->gwdata->k != 1.0) gwuser_init_FFT1 (pmdata->gwdata);
 		if (pmdata->gwdata->ZERO_PADDED_FFT) zpad7_fft (pmdata->gwdata, pmdata->gwdata->GW_FFT1);
 	}
 }
@@ -1217,7 +1218,7 @@ typedef struct {
 	} lsd;
 } read_write_line_slice_data;
 
-void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd);
+void prep_line (gwhandle *gwdata, int line, read_write_line_slice_data *rwlsd);
 void read_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd);
 void write_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd);
 void write_line_slice_strided (pmhandle *pmdata, read_write_line_slice_data *rwlsd, CVDT *vec, uint64_t slice_start, uint64_t slice_end, uint64_t stride_offset, uint64_t stride);
@@ -1226,9 +1227,20 @@ void fft_line_pass (int helper_num, pmhandle *pmdata, void *pdarg);
 #if defined (AVX512)
 
 // When multiplying small polys (a few gwnums), the overhead in prepping read_line and write_line is measurable.  This routine aims to reduce that overhead.
-void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd)
+void prep_line (gwhandle *gwdata, int line, read_write_line_slice_data *rwlsd)
 {
-	gwhandle *gwdata = pmdata->gwdata;
+	// General MMGW mod requires special handling
+	if (gwdata->GENERAL_MMGW_MOD) {
+		int cyclic_lines = gwdata->FFTLEN * sizeof (double) / sizeof (CVDT) + 1;
+		if (line < cyclic_lines) prep_line (gwdata->cyclic_gwdata, line, rwlsd);
+		else {
+			prep_line (gwdata->negacyclic_gwdata, line - cyclic_lines, rwlsd);
+			rwlsd->lsd.line += cyclic_lines;
+			rwlsd->lsd.index += cyclic_lines;
+			rwlsd->lsd.offset += round_up_to_multiple_of (gwnum_datasize(gwdata->cyclic_gwdata) + GW_HEADER_SIZE(gwdata->negacyclic_gwdata), 128) / sizeof (VDT);
+		}
+		return;
+	}
 
 	// Pre-massage the line number and pre-calculate the cache line offset
 
@@ -1281,7 +1293,7 @@ void read_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rwlsd)
 		// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
 			if (slice_start == 0) {
-				if (gwdata->k == 1.0) {
+				if (!gwdata->GENERAL_MMGW_MOD && gwdata->k == 1.0) {
 					vec[0].real = broadcastsd (1.0);
 					vec[0].imag = broadcastsd (0.0);
 				} else {
@@ -1352,7 +1364,7 @@ void read_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rwlsd)
 		// If not post-processing monics and the input is monic, then output a 1+0i
 		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
 			if (slice_start == 0) {
-				if (gwdata->k == 1.0) {
+				if (!gwdata->GENERAL_MMGW_MOD && gwdata->k == 1.0) {
 					vec[size].real = broadcastsd (1.0);
 					vec[size].imag = broadcastsd (0.0);
 				} else {
@@ -1406,7 +1418,7 @@ void write_line_slice_strided_avx512 (pmhandle *pmdata, read_write_line_slice_da
 								     fma_data[j_out][-14], fma_data[j_out][-13], fma_data[j_out][-12], fma_data[j_out][0]),
 					fmaval.imag = _mm512_set_pd (fma_data[j_out][-24], fma_data[j_out][-23], fma_data[j_out][-22], fma_data[j_out][-21],
 								     fma_data[j_out][-20], fma_data[j_out][-19], 0.0, 0.0);
-				if (gwdata->k != 1.0) {
+				if (gwdata->GENERAL_MMGW_MOD || gwdata->k != 1.0) {
 					oneval.real = _mm512_set_pd (gwdata->GW_FFT1[-18], gwdata->GW_FFT1[-17], gwdata->GW_FFT1[-16], gwdata->GW_FFT1[-15],
 								     gwdata->GW_FFT1[-14], gwdata->GW_FFT1[-13], gwdata->GW_FFT1[-12], gwdata->GW_FFT1[0]);
 					oneval.imag = _mm512_set_pd (gwdata->GW_FFT1[-24], gwdata->GW_FFT1[-23], gwdata->GW_FFT1[-22], gwdata->GW_FFT1[-21],
@@ -1450,7 +1462,7 @@ void write_line_slice_strided_avx512 (pmhandle *pmdata, read_write_line_slice_da
 								     fma_data[j_out][3], fma_data[j_out][2], fma_data[j_out][1], fma_data[j_out][8]),
 					fmaval.imag = _mm512_set_pd (fma_data[j_out][15], fma_data[j_out][14], fma_data[j_out][13], fma_data[j_out][12],
 								     fma_data[j_out][11], fma_data[j_out][10], fma_data[j_out][9], 0.0);
-				if (gwdata->k != 1.0) {
+				if (gwdata->GENERAL_MMGW_MOD || gwdata->k != 1.0) {
 					oneval.real = _mm512_set_pd (gwdata->GW_FFT1[7], gwdata->GW_FFT1[6], gwdata->GW_FFT1[5], gwdata->GW_FFT1[4],
 								     gwdata->GW_FFT1[3], gwdata->GW_FFT1[2], gwdata->GW_FFT1[1], gwdata->GW_FFT1[8]);
 					oneval.imag = _mm512_set_pd (gwdata->GW_FFT1[15], gwdata->GW_FFT1[14], gwdata->GW_FFT1[13], gwdata->GW_FFT1[12],
@@ -1474,7 +1486,7 @@ void write_line_slice_strided_avx512 (pmhandle *pmdata, read_write_line_slice_da
 			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
 				if (fma_data == NULL || fma_data[j_out] == NULL) fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
 				else fmaval.real = ((VDT *) fma_data[j_out])[offset], fmaval.imag = ((VDT *) fma_data[j_out])[offset+1];
-				if (gwdata->k != 1.0) {
+				if (gwdata->GENERAL_MMGW_MOD || gwdata->k != 1.0) {
 					oneval.real = ((VDT *) gwdata->GW_FFT1)[offset], oneval.imag = ((VDT *) gwdata->GW_FFT1)[offset+1];
 					cvmul (fmaval, fmaval, oneval);
 				}
@@ -1528,9 +1540,20 @@ void write_line_slice_avx512 (int helper_num, pmhandle *pmdata, void *rwlsd)
 #elif defined (AVX)
 
 // When multiplying small polys (a few gwnums), the overhead in prepping read_line and write_line is measurable.  This routine aims to reduce that overhead.
-void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd)
+void prep_line (gwhandle *gwdata, int line, read_write_line_slice_data *rwlsd)
 {
-	gwhandle *gwdata = pmdata->gwdata;
+	// General MMGW mod requires special handling
+	if (gwdata->GENERAL_MMGW_MOD) {
+		int cyclic_lines = gwdata->FFTLEN * sizeof (double) / sizeof (CVDT) + 1;
+		if (line < cyclic_lines) prep_line (gwdata->cyclic_gwdata, line, rwlsd);
+		else {
+			prep_line (gwdata->negacyclic_gwdata, line - cyclic_lines, rwlsd);
+			rwlsd->lsd.line += cyclic_lines;
+			rwlsd->lsd.index += cyclic_lines;
+			rwlsd->lsd.offset += round_up_to_multiple_of (gwnum_datasize(gwdata->cyclic_gwdata) + GW_HEADER_SIZE(gwdata->negacyclic_gwdata), 128) / sizeof (VDT);
+		}
+		return;
+	}
 
 	// Pre-massage the line number and pre-calculate the cache line offset
 
@@ -1586,7 +1609,7 @@ void read_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd)
 		// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
 			if (slice_start == 0) {
-				if (gwdata->k == 1.0) {
+				if (!gwdata->GENERAL_MMGW_MOD && gwdata->k == 1.0) {
 					vec[0].real = broadcastsd (1.0);
 					vec[0].imag = broadcastsd (0.0);
 				} else {
@@ -1663,7 +1686,7 @@ void read_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd)
 		// If not post-processing monics and the input is monic, then output a 1+0i
 		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
 			if (slice_start == 0) {
-				if (gwdata->k == 1.0) {
+				if (!gwdata->GENERAL_MMGW_MOD && gwdata->k == 1.0) {
 					vec[size].real = broadcastsd (1.0);
 					vec[size].imag = broadcastsd (0.0);
 				} else {
@@ -1715,7 +1738,7 @@ void write_line_slice_strided_avx (pmhandle *pmdata, read_write_line_slice_data 
 				else
 					fmaval.real = _mm256_set_pd (fma_data[j_out][-18], fma_data[j_out][-17], fma_data[j_out][-16], fma_data[j_out][-15]),
 					fmaval.imag = _mm256_set_pd (fma_data[j_out][-24], fma_data[j_out][-23], fma_data[j_out][-22], fma_data[j_out][-21]);
-				if (gwdata->k != 1.0) {
+				if (gwdata->GENERAL_MMGW_MOD || gwdata->k != 1.0) {
 					oneval.real = _mm256_set_pd (gwdata->GW_FFT1[-18], gwdata->GW_FFT1[-17], gwdata->GW_FFT1[-16], gwdata->GW_FFT1[-15]),
 					oneval.imag = _mm256_set_pd (gwdata->GW_FFT1[-24], gwdata->GW_FFT1[-23], gwdata->GW_FFT1[-22], gwdata->GW_FFT1[-21]);
 					cvmul (fmaval, fmaval, oneval);
@@ -1745,7 +1768,7 @@ void write_line_slice_strided_avx (pmhandle *pmdata, read_write_line_slice_data 
 				else
 					fmaval.real = _mm256_set_pd (fma_data[j_out][-14], fma_data[j_out][-13], fma_data[j_out][-12], fma_data[j_out][0]),
 					fmaval.imag = _mm256_set_pd (fma_data[j_out][-20], fma_data[j_out][-19], 0.0, 0.0);
-				if (gwdata->k != 1.0) {
+				if (gwdata->GENERAL_MMGW_MOD || gwdata->k != 1.0) {
 					oneval.real = _mm256_set_pd (gwdata->GW_FFT1[-14], gwdata->GW_FFT1[-13], gwdata->GW_FFT1[-12], gwdata->GW_FFT1[0]),
 					oneval.imag = _mm256_set_pd (gwdata->GW_FFT1[-20], gwdata->GW_FFT1[-19], 0.0, 0.0);
 					cvmul (fmaval, fmaval, oneval);
@@ -1777,7 +1800,7 @@ void write_line_slice_strided_avx (pmhandle *pmdata, read_write_line_slice_data 
 				else
 					fmaval.real = _mm256_set_pd (fma_data[j_out][3], fma_data[j_out][2], fma_data[j_out][1], fma_data[j_out][4]),
 					fmaval.imag = _mm256_set_pd (fma_data[j_out][7], fma_data[j_out][6], fma_data[j_out][5], 0.0);
-				if (gwdata->k != 1.0) {
+				if (gwdata->GENERAL_MMGW_MOD || gwdata->k != 1.0) {
 					oneval.real = _mm256_set_pd (gwdata->GW_FFT1[3], gwdata->GW_FFT1[2], gwdata->GW_FFT1[1], gwdata->GW_FFT1[4]),
 					oneval.imag = _mm256_set_pd (gwdata->GW_FFT1[7], gwdata->GW_FFT1[6], gwdata->GW_FFT1[5], 0.0);
 					cvmul (fmaval, fmaval, oneval);
@@ -1797,7 +1820,7 @@ void write_line_slice_strided_avx (pmhandle *pmdata, read_write_line_slice_data 
 			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
 				if (fma_data == NULL || fma_data[j_out] == NULL) fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
 				else fmaval.real = ((VDT *) fma_data[j_out])[offset], fmaval.imag = ((VDT *) fma_data[j_out])[offset+1];
-				if (gwdata->k != 1.0) {
+				if (gwdata->GENERAL_MMGW_MOD || gwdata->k != 1.0) {
 					oneval.real = ((VDT *) gwdata->GW_FFT1)[offset], oneval.imag = ((VDT *) gwdata->GW_FFT1)[offset+1];
 					cvmul (fmaval, fmaval, oneval);
 				}
@@ -1849,9 +1872,20 @@ void write_line_slice_avx (int helper_num, pmhandle *pmdata, void *rwlsd)
 #elif defined (SSE2)
 
 // When multiplying small polys (a few gwnums), the overhead in prepping read_line and write_line is measurable.  This routine aims to reduce that overhead.
-void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd)
+void prep_line (gwhandle *gwdata, int line, read_write_line_slice_data *rwlsd)
 {
-	gwhandle *gwdata = pmdata->gwdata;
+	// General MMGW mod requires special handling
+	if (gwdata->GENERAL_MMGW_MOD) {
+		int cyclic_lines = gwdata->FFTLEN * sizeof (double) / sizeof (CVDT) + 1;
+		if (line < cyclic_lines) prep_line (gwdata->cyclic_gwdata, line, rwlsd);
+		else {
+			prep_line (gwdata->negacyclic_gwdata, line - cyclic_lines, rwlsd);
+			rwlsd->lsd.line += cyclic_lines;
+			rwlsd->lsd.index += cyclic_lines;
+			rwlsd->lsd.offset += round_up_to_multiple_of (gwnum_datasize(gwdata->cyclic_gwdata) + GW_HEADER_SIZE(gwdata->negacyclic_gwdata), 128) / sizeof (VDT);
+		}
+		return;
+	}
 
 	// Pre-massage the index and pre-calculate the cache line offset
 
@@ -1920,7 +1954,7 @@ void read_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rwlsd)
 		// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
 			if (slice_start == 0) {
-				if (gwdata->k == 1.0) {
+				if (!gwdata->GENERAL_MMGW_MOD && gwdata->k == 1.0) {
 					vec[0].real = broadcastsd (1.0);
 					vec[0].imag = broadcastsd (0.0);
 				} else {
@@ -2013,7 +2047,7 @@ void read_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rwlsd)
 		// If not post-processing monics and the input is monic, then output a 1+0i
 		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
 			if (slice_start == 0) {
-				if (gwdata->k == 1.0) {
+				if (!gwdata->GENERAL_MMGW_MOD && gwdata->k == 1.0) {
 					vec[size].real = broadcastsd (1.0);
 					vec[size].imag = broadcastsd (0.0);
 				} else {
@@ -2066,7 +2100,7 @@ void write_line_slice_strided_sse2 (pmhandle *pmdata, read_write_line_slice_data
 				else
 					fmaval.real = _mm_set_pd (fma_data[j_out][index*2-10], fma_data[j_out][index*2-9]),
 					fmaval.imag = _mm_set_pd (fma_data[j_out][index*2-16], fma_data[j_out][index*2-15]);
-				if (gwdata->k != 1.0) {
+				if (gwdata->GENERAL_MMGW_MOD || gwdata->k != 1.0) {
 					oneval.real = _mm_set_pd (gwdata->GW_FFT1[index*2-10], gwdata->GW_FFT1[index*2-9]),
 					oneval.imag = _mm_set_pd (gwdata->GW_FFT1[index*2-16], gwdata->GW_FFT1[index*2-15]);
 					cvmul (fmaval, fmaval, oneval);
@@ -2089,7 +2123,7 @@ void write_line_slice_strided_sse2 (pmhandle *pmdata, read_write_line_slice_data
 			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
 				if (fma_data == NULL || fma_data[j_out] == NULL) fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
 				else fmaval.real = _mm_set_pd (fma_data[j_out][-12], fma_data[j_out][0]);
-				if (gwdata->k != 1.0) {
+				if (gwdata->GENERAL_MMGW_MOD || gwdata->k != 1.0) {
 					oneval.real = _mm_set_pd (gwdata->GW_FFT1[-12], gwdata->GW_FFT1[0]);
 					fmaval.real = mulpd (fmaval.real, oneval.real);
 				}
@@ -2116,7 +2150,7 @@ void write_line_slice_strided_sse2 (pmhandle *pmdata, read_write_line_slice_data
 					fmaval.real = _mm_set_pd (fma_data[j_out][1], fma_data[j_out][2]), fmaval.imag = _mm_set_pd (fma_data[j_out][3], 0.0);
 				else
 					fmaval.real = _mm_set_pd (fma_data[j_out][1], fma_data[j_out][4]), fmaval.imag = _mm_set_pd (fma_data[j_out][5], 0.0);
-				if (gwdata->k != 1.0) {
+				if (gwdata->GENERAL_MMGW_MOD || gwdata->k != 1.0) {
 					if (imag_dist == 8)
 						oneval.real = _mm_set_pd (gwdata->GW_FFT1[2], gwdata->GW_FFT1[1]),
 						oneval.imag = _mm_set_pd (gwdata->GW_FFT1[3], 0.0);
@@ -2160,7 +2194,7 @@ void write_line_slice_strided_sse2 (pmhandle *pmdata, read_write_line_slice_data
 				else 
 					fmaval.real = ((VDT *) fma_data[j_out])[offset+(index&1)],
 					fmaval.imag = ((VDT *) fma_data[j_out])[offset+(index&1)+2];
-				if (gwdata->k != 1.0) {
+				if (gwdata->GENERAL_MMGW_MOD || gwdata->k != 1.0) {
 					if (imag_dist == 8)
 						oneval.real = _mm_set_pd (gwdata->GW_FFT1[index*4+2], gwdata->GW_FFT1[index*4]),
 						oneval.imag = _mm_set_pd (gwdata->GW_FFT1[index*4+3], gwdata->GW_FFT1[index*4+1]);
@@ -2223,9 +2257,20 @@ void write_line_slice_sse2 (int helper_num, pmhandle *pmdata, void *rwlsd)
 #elif !defined (X86_64)				// x87 FFTs only supported in 32-bit mode
 
 // When multiplying small polys (a few gwnums), the overhead in prepping read_line and write_line is measurable.  This routine aims to reduce that overhead.
-void prep_line (pmhandle *pmdata, int line, read_write_line_slice_data *rwlsd)
+void prep_line (gwhandle *gwdata, int line, read_write_line_slice_data *rwlsd)
 {
-	gwhandle *gwdata = pmdata->gwdata;
+	// General MMGW mod requires special handling
+	if (gwdata->GENERAL_MMGW_MOD) {
+		int cyclic_lines = gwdata->FFTLEN * sizeof (double) / sizeof (CVDT) + 1;
+		if (line < cyclic_lines) prep_line (gwdata->cyclic_gwdata, line, rwlsd);
+		else {
+			prep_line (gwdata->negacyclic_gwdata, line - cyclic_lines, rwlsd);
+			rwlsd->lsd.line += cyclic_lines;
+			rwlsd->lsd.index += cyclic_lines;
+			rwlsd->lsd.offset += round_up_to_multiple_of (gwnum_datasize(gwdata->cyclic_gwdata) + GW_HEADER_SIZE(gwdata->negacyclic_gwdata), 128) / sizeof (VDT);
+		}
+		return;
+	}
 
 	// Pre-massage the line number and pre-calculate the cache line offset
 
@@ -2281,7 +2326,7 @@ void read_line_slice_dbl (int helper_num, pmhandle *pmdata, void *rwlsd)
 		// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
 			if (slice_start == 0) {
-				if (gwdata->k == 1.0) {
+				if (!gwdata->GENERAL_MMGW_MOD && gwdata->k == 1.0) {
 					vec[0].real = broadcastsd (1.0);
 					vec[0].imag = broadcastsd (0.0);
 				} else {
@@ -2355,7 +2400,7 @@ void read_line_slice_dbl (int helper_num, pmhandle *pmdata, void *rwlsd)
 		// If not post-processing monics and the input is monic, then output a 1+0i
 		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
 			if (slice_start == 0) {
-				if (gwdata->k == 1.0) {
+				if (!gwdata->GENERAL_MMGW_MOD && gwdata->k == 1.0) {
 					vec[size].real = broadcastsd (1.0);
 					vec[size].imag = broadcastsd (0.0);
 				} else {
@@ -2400,7 +2445,7 @@ void write_line_slice_strided_dbl (pmhandle *pmdata, read_write_line_slice_data 
 			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
 				if (fma_data == NULL || fma_data[j_out] == NULL) fmaval.real = broadcastsd (0.0), fmaval.imag = broadcastsd (0.0);
 				else fmaval.real = fma_data[j_out][index-10], fmaval.imag = fma_data[j_out][index-17];
-				if (gwdata->k != 1.0) {
+				if (gwdata->GENERAL_MMGW_MOD || gwdata->k != 1.0) {
 					oneval.real = gwdata->GW_FFT1[index-10], oneval.imag = gwdata->GW_FFT1[index-17];
 					cvmul (fmaval, fmaval, oneval);
 				}
@@ -2418,7 +2463,7 @@ void write_line_slice_strided_dbl (pmhandle *pmdata, read_write_line_slice_data 
 			if (options & (POLYMULT_FMADD | POLYMULT_FMSUB | POLYMULT_FNMADD)) {
 				if (fma_data == NULL || fma_data[j_out] == NULL) fmaval.real = broadcastsd (0.0);
 				else fmaval.real = fma_data[j_out][0];
-				if (gwdata->k != 1.0) {
+				if (gwdata->GENERAL_MMGW_MOD || gwdata->k != 1.0) {
 					oneval.real = gwdata->GW_FFT1[0];
 					fmaval.real = mulpd (fmaval.real, oneval.real);
 				}
@@ -2436,7 +2481,7 @@ void write_line_slice_strided_dbl (pmhandle *pmdata, read_write_line_slice_data 
 				if (fma_data == NULL || fma_data[j_out] == NULL) fmaval.real = broadcastsd (0.0);
 				else if (gwdata->PASS2_SIZE == 0) fmaval.real = fma_data[j_out][1];
 				else fmaval.real = fma_data[j_out][2];
-				if (gwdata->k != 1.0) {
+				if (gwdata->GENERAL_MMGW_MOD || gwdata->k != 1.0) {
 					oneval.real = gwdata->GW_FFT1[2];
 					fmaval.real = mulpd (fmaval.real, oneval.real);
 				}
@@ -2458,7 +2503,7 @@ void write_line_slice_strided_dbl (pmhandle *pmdata, read_write_line_slice_data 
 					fmaval.real = fma_data[j_out][offset+(index&3)*2], fmaval.imag = fma_data[j_out][offset+(index&3)*2+1];
 				else
 					fmaval.real = fma_data[j_out][offset+(index&2)*2+(index&1)], fmaval.imag = fma_data[j_out][offset+(index&2)*2+(index&1)+2];
-				if (gwdata->k != 1.0) {
+				if (gwdata->GENERAL_MMGW_MOD || gwdata->k != 1.0) {
 					if (gwdata->PASS2_SIZE == 0 && index < 8 && !gwdata->NEGACYCLIC_FFT)
 						oneval.real = gwdata->GW_FFT1[offset+(index&3)*2], oneval.imag = gwdata->GW_FFT1[offset+(index&3)*2+1];
 					else
@@ -2730,12 +2775,12 @@ void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rwlsd)
 		// If not post-processing monics and the input is a monic RLP, then output a 1+0i
 		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC)) && (options & (POLYMULT_INVEC1_RLP | POLYMULT_INVEC2_RLP))) {
 			if (slice_start == 0) {
-				if (gwdata->k == 1.0) {
+				if (!gwdata->GENERAL_MMGW_MOD && gwdata->k == 1.0) {
 					vec[0].real = broadcastsd (1.0);
 					vec[0].imag = broadcastsd (0.0);
 				} else {
 					read_write_line_slice_data fft1_rwlsd;
-					prep_line (pmdata, line, &fft1_rwlsd);
+					prep_line (pmdata->gwdata, line, &fft1_rwlsd);
 					fft1_rwlsd.data = &gwdata->GW_FFT1;
 					fft1_rwlsd.size = 1;
 					fft1_rwlsd.vec = vec;
@@ -2781,12 +2826,12 @@ void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rwlsd)
 		// If not post-processing monics and the input is monic, then output a 1+0i
 		if (!post_process_monics && (options & (POLYMULT_INVEC1_MONIC | POLYMULT_INVEC2_MONIC))) {
 			if (slice_start == 0) {
-				if (gwdata->k == 1.0) {
+				if (!gwdata->GENERAL_MMGW_MOD && gwdata->k == 1.0) {
 					vec[size].real = broadcastsd (1.0);
 					vec[size].imag = broadcastsd (0.0);
 				} else {
 					read_write_line_slice_data fft1_rwlsd;
-					prep_line (pmdata, line, &fft1_rwlsd);
+					prep_line (pmdata->gwdata, line, &fft1_rwlsd);
 					fft1_rwlsd.data = &gwdata->GW_FFT1;
 					fft1_rwlsd.size = 1;
 					fft1_rwlsd.vec = &vec[size];
@@ -2804,7 +2849,7 @@ void read_preprocess_line_slice (int helper_num, pmhandle *pmdata, void *rwlsd)
 
 void read_line (pmhandle *pmdata, read_write_line_slice_data *rwlsd)
 {
-	// Launch helpers to do read a line in slices.  This is tricky.  There are two cases.  The most common case is polymult_line is multi-threaded
+	// Launch helpers to read a line in slices.  This is tricky.  There are two cases.  The most common case is polymult_line is multi-threaded
 	// and read_line_slice is single-threaded.  The less common case is polymult_line is single-threaded and read_line_slice is multi-threaded.
 	// If polymult_line is multi-threaded we cannot set pmdata->helper_opcode as all helper threads may not have dispatched based on the opcode,
 	// nor can we have each thread setting pmdata->internal_callback_data.  To handle this we call read_line_slice directly when read_line_slice is
@@ -3946,10 +3991,10 @@ void monic_line_adjustments (
 	if (leading_one && addinvec_monics_stripped) addinvec_size++;			// Increase length to "fake" a leading one
 	if (trailing_one && addinvec_monics_stripped) addinvec--, addinvec_size++;	// Change vector start and increase length to "fake" a trailing one
    
-	// If k != 1, we need to multiply the monic add-ins by FFT(1).
-	if (gwdata->k != 1.0) {
+	// If Montgomery general mod or k != 1, we need to multiply the monic add-ins by FFT(1).
+	if (gwdata->GENERAL_MMGW_MOD || gwdata->k != 1.0) {
 		read_write_line_slice_data rwlsd;
-		prep_line (pmdata, line, &rwlsd);
+		prep_line (pmdata->gwdata, line, &rwlsd);
 		rwlsd.data = &gwdata->GW_FFT1;
 		rwlsd.size = 1;
 		rwlsd.vec = &fft1;
@@ -4023,10 +4068,10 @@ void polymult_line_preprocess (
 		if (line <= 1 && plan->combine_two_lines) {
 			if (line == 1) continue;
 			CVDT *temp = (CVDT *) aligned_malloc ((size_t) plan->adjusted_invec1_size * sizeof (CVDT), 64);
-			prep_line (pmdata, 0, &rwlsd);
+			prep_line (pmdata->gwdata, 0, &rwlsd);
 			rwlsd.vec = temp;
 			read_line (pmdata, &rwlsd);
-			prep_line (pmdata, 1, &rwlsd);
+			prep_line (pmdata->gwdata, 1, &rwlsd);
 			rwlsd.vec = invec1;
 			read_line (pmdata, &rwlsd);
 			for (int j = 0; j < plan->adjusted_invec1_size; j++) {
@@ -4039,7 +4084,7 @@ void polymult_line_preprocess (
 			}
 			aligned_free (temp);
 		} else {
-			prep_line (pmdata, line, &rwlsd);
+			prep_line (pmdata->gwdata, line, &rwlsd);
 			rwlsd.vec = invec1;
 			read_line (pmdata, &rwlsd);
 		}
@@ -4171,7 +4216,7 @@ void polymult_line (
 	    scratch = scratch_buffer;
 
 	    // Prepare for read_line and write_line calls
-	    prep_line (pmdata, line, &rwlsd1);
+	    prep_line (pmdata->gwdata, line, &rwlsd1);
 
 	    // Loop over all the other polys to multiply with the first poly
 	    uint64_t prev_fft_size = 0;
@@ -5573,7 +5618,7 @@ void polymult_post_unfft (
 			// NOTE: We only support this feature for brute force and Karatsuba polymult.  For FFT polymults the least significant bits of the
 			// top coefficient have been degraded by the rounding done in the forward and inverse FFT.  We could fix this by special casing the
 			// top coefficient during the polymult FFT, however the savings will be small.
-			FFT_state (outvec[j]) = (gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
+			FFT_state (outvec[j]) = (!gwdata->GENERAL_MMGW_MOD && gwdata->k == 1.0 ? FULLY_FFTed : FFTed_FOR_FMA);
 			if (j == outvec_size - 1 &&							// Top outvec coefficient
 			    plan->planpart[i].impl != POLYMULT_IMPL_FFT &&				// Not doing a polymult FFT (see comments above)
 			    ! (options & POLYMULT_UNFFT_TOP) &&						// Caller not forcing the unfft on top coefficient

@@ -10867,7 +10867,7 @@ int generateProofFile (
    
 // Reset counters and errors, turn on error checking
 
-		gwdata->fft_count = 0;			// Reset count of FFTs performed
+		gw_clear_fft_count (gwdata);		// Reset count of FFTs performed
 		gw_clear_error (gwdata);
 		gw_clear_maxerr (gwdata);
 		gwsetnormroutine (gwdata, 0, 1, 0);	// Error checking on
@@ -10937,7 +10937,7 @@ int generateProofFile (
 
 // Print message on cost of proof construction
 
-		sprintf (buf, "Proof construction cost %d squarings\n", (int) ceil (gwdata->fft_count / 2.0));
+		sprintf (buf, "Proof construction cost %" PRIu64 " squarings\n", gw_get_fft_count (gwdata) / 2);
 		OutputStr (ps->thread_num, buf);
 
 // Generate an MD5 hash of the bytes just written to the proof file.  This will be a unique identifier to thwart a bad actor from uploading a counterfeit proof file.

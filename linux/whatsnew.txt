@@ -1,5 +1,10 @@
-New features in Version 30.16 of mprime
+New features in Version 30.18 of mprime
 ---------------------------------------
+
+1) Faster generic mod.  This is more useful for programs like PFGW than prime95.
+
+New features in Version 30.16 - 30.17 of mprime
+-----------------------------------------------
 
 1) Smaller executable.  Many SSE2 FFTs optimized for CPUs made before 2010 were removed.
    These CPUs will still be able to run all FFT sizes, but 30.15 might have a more efficient
@@ -12,8 +17,8 @@ New features in Version 30.11 - 30.15 of mprime
    In addition, settings within prime.txt are now organized into several sections for
    enhanced readability.
 
-New features in Version 30.9/30.10 of mprime
---------------------------------------------
+New features in Version 30.9 - 30.10 of mprime
+----------------------------------------------
 
 1) ECM stage 2 using fast polynomial multiplication similar to the GMP-ECM program.  If lots
    of memory is available for stage 2 this implementation will be substantially faster.

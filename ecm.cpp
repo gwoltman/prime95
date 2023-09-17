@@ -5201,10 +5201,9 @@ int ecm (
 	struct work_unit *w)
 {
 	ecmhandle ecmdata;
-	uint64_t sieve_start, next_prime;
+	uint64_t sieve_start, next_prime, last_output, last_output_t;
 	unsigned long SQRT_B;
-	double	last_output, last_output_t, one_over_B;
-	double	output_frequency, output_title_frequency;
+	double	one_over_B, output_frequency, output_title_frequency;
 	double	base_pct_complete, one_relp_pct;
 	int	i;
 	unsigned int memused;
@@ -5809,7 +5808,7 @@ restart1:
 
 	end_timer (timers, 0);
 	end_timer (timers, 1);
-	sprintf (buf, "Stage 1 complete. %.0f transforms, %lu modular inverses. Total time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
+	sprintf (buf, "Stage 1 complete. %" PRIu64 " transforms, %lu modular inverses. Total time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	last_output = last_output_t = ecmdata.modinv_count = 0;
@@ -6739,7 +6738,7 @@ OutputStr (thread_num, buf); }
 	title (thread_num, buf);
 
 	end_timer (timers, 0);
-	sprintf (buf, "Stage 2 init complete. %.0f transforms, %lu modular inverses. Time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
+	sprintf (buf, "Stage 2 init complete. %" PRIu64 " transforms, %lu modular inverses. Time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
 	print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	gw_clear_fft_count (&ecmdata.gwdata);
@@ -7459,7 +7458,7 @@ start_timer_from_zero (timers, 0);
 	title (thread_num, buf);
 
 	end_timer (timers, 1);
-	sprintf (buf, "Stage 2 init complete. %.0f transforms, %lu modular inverses. Time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
+	sprintf (buf, "Stage 2 init complete. %" PRIu64 " transforms, %lu modular inverses. Time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	gw_clear_fft_count (&ecmdata.gwdata);
@@ -7961,7 +7960,7 @@ stage2_done:
 	mallocFreeForOS ();
 	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&ecmdata.gwdata, 1));	// Let other high memory workers resume
 	end_timer (timers, 1);
-	sprintf (buf, "Stage 2 complete. %.0f transforms, %lu modular inverses. Total time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
+	sprintf (buf, "Stage 2 complete. %" PRIu64 " transforms, %lu modular inverses. Total time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	last_output = last_output_t = ecmdata.modinv_count = 0;
@@ -9738,7 +9737,7 @@ int pminus1 (
 	char	filename[32], buf[255], JSONbuf[4000], testnum[100];
 	int	pminus1_base, res, stop_reason, saving, near_fft_limit, echk;
 	double	one_over_len, one_over_B, base_pct_complete, one_relp_pct;
-	double	last_output, last_output_t, last_output_r;
+	uint64_t last_output, last_output_t, last_output_r;
 	double	allowable_maxerr, output_frequency, output_title_frequency;
 	int	first_iter_msg;
 	int	msglen;
@@ -10271,7 +10270,7 @@ more_B:		if (pm1data.x_binary != NULL) {			// pm1_restore can return x as binary
 /* Stage 1 complete, print a message */
 
 	end_timer (timers, 1);
-	sprintf (buf, "%s stage 1 complete. %.0f transforms. Total time: ", gwmodulo_as_string (&pm1data.gwdata), gw_get_fft_count (&pm1data.gwdata));
+	sprintf (buf, "%s stage 1 complete. %" PRIu64 " transforms. Total time: ", gwmodulo_as_string (&pm1data.gwdata), gw_get_fft_count (&pm1data.gwdata));
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	gw_clear_fft_count (&pm1data.gwdata);
@@ -10355,7 +10354,7 @@ restart3a:
 /* Inversion to 1/x format complete */
 
 	end_timer (timers, 0);
-	sprintf (buf, "Inversion of stage 1 result complete. %.0f transforms, 1 modular inverse. Time: ", gw_get_fft_count (&pm1data.gwdata));
+	sprintf (buf, "Inversion of stage 1 result complete. %" PRIu64 " transforms, 1 modular inverse. Time: ", gw_get_fft_count (&pm1data.gwdata));
 	print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	gw_clear_fft_count (&pm1data.gwdata);
@@ -10997,7 +10996,7 @@ OutputStr (thread_num, buf); }
 	title (thread_num, buf);
 
 	end_timer (timers, 0);
-	sprintf (buf, "Stage 2 init complete. %.0f transforms. Time: ", gw_get_fft_count (&pm1data.gwdata));
+	sprintf (buf, "Stage 2 init complete. %" PRIu64 " transforms. Time: ", gw_get_fft_count (&pm1data.gwdata));
 	print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	gw_clear_fft_count (&pm1data.gwdata);
@@ -11471,7 +11470,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 	title (thread_num, buf);
 
 	end_timer (timers, 0);
-	sprintf (buf, "Stage 2 init complete. %.0f transforms. Time: ", gw_get_fft_count (&pm1data.gwdata));
+	sprintf (buf, "Stage 2 init complete. %" PRIu64 " transforms. Time: ", gw_get_fft_count (&pm1data.gwdata));
 	print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	gw_clear_fft_count (&pm1data.gwdata);
@@ -11697,7 +11696,7 @@ stage2_done:
 	mallocFreeForOS ();
 	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pm1data.gwdata, 1));	// Let other high memory workers resume
 	end_timer (timers, 1);
-	sprintf (buf, "%s stage 2 complete. %.0f transforms. Total time: ", gwmodulo_as_string (&pm1data.gwdata), gw_get_fft_count (&pm1data.gwdata));
+	sprintf (buf, "%s stage 2 complete. %" PRIu64 " transforms. Total time: ", gwmodulo_as_string (&pm1data.gwdata), gw_get_fft_count (&pm1data.gwdata));
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 
@@ -13465,7 +13464,7 @@ int pplus1 (
 	char	filename[32], buf[255], JSONbuf[4000], testnum[100];
 	uint64_t sieve_start, next_prime;
 	double	one_over_B, base_pct_complete, one_relp_pct;
-	double	last_output, last_output_t, last_output_r;
+	uint64_t last_output, last_output_t, last_output_r;
 	double	allowable_maxerr, output_frequency, output_title_frequency;
 	int	maxerr_restart_count = 0;
 	char	*str, *msg;
@@ -13882,7 +13881,7 @@ more_B:		pp1data.interim_B = pp1data.B;
 
 /* Stage 1 complete, print a message */
 
-	sprintf (buf, "%s stage 1 complete. %.0f transforms. Total time: ", gwmodulo_as_string (&pp1data.gwdata), gw_get_fft_count (&pp1data.gwdata));
+	sprintf (buf, "%s stage 1 complete. %" PRIu64 " transforms. Total time: ", gwmodulo_as_string (&pp1data.gwdata), gw_get_fft_count (&pp1data.gwdata));
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	gw_clear_fft_count (&pp1data.gwdata);
@@ -14332,7 +14331,7 @@ replan:	{
 	title (thread_num, buf);
 
 	end_timer (timers, 0);
-	sprintf (buf, "Stage 2 init complete. %.0f transforms. Time: ", gw_get_fft_count (&pp1data.gwdata));
+	sprintf (buf, "Stage 2 init complete. %" PRIu64 " transforms. Time: ", gw_get_fft_count (&pp1data.gwdata));
 	print_timer (timers, 0, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	gw_clear_fft_count (&pp1data.gwdata);
@@ -14470,7 +14469,7 @@ replan:	{
 /* Stage 2 is complete */
 
 	end_timer (timers, 1);
-	sprintf (buf, "%s stage 2 complete. %.0f transforms. Total time: ", gwmodulo_as_string (&pp1data.gwdata), gw_get_fft_count (&pp1data.gwdata));
+	sprintf (buf, "%s stage 2 complete. %" PRIu64 " transforms. Total time: ", gwmodulo_as_string (&pp1data.gwdata), gw_get_fft_count (&pp1data.gwdata));
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 

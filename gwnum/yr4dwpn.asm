@@ -584,6 +584,10 @@ build421 ,			,			,			yr4dwpn_pass1sc1024 192K, 192
 build421 ,			,			,			yr4dwpn_pass1sc1024 256K, 8
 build421 ,			,			,			yr4dwpn_pass1sc1024 320K, 320
 
+build421 ,			,			,			yr4dwpn_pass1sc1280 240K, 192
+build421 ,			,			,			yr4dwpn_pass1sc1280 320K, 8
+build421 ,			,			,			yr4dwpn_pass1sc1280 400K, 320
+
 	; The 10 levels variants (768, 1024, 1280)
 
 build421 ,			,			,			yr4dwpn_pass1sc128 96K, 768

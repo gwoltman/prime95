@@ -105,7 +105,7 @@ buildfor                                        ,	r4dwpn_pass1sc384 288K, 768, 1
 buildfor                                + K10   ,	r4dwpn_pass1sc384 384K, 10, 4
 buildfor CORE_64                + K8_64         ,	r4dwpn_pass1sc384 384K, 10, 2
 buildfor         + P4_32        + K8_32         ,	r4dwpn_pass1sc384 384K, 10, 1
-buildfor                                + K10_64,	r4dwpn_pass1sc384 480K, 1280, 4
+buildfor CORE                           + K10_64,	r4dwpn_pass1sc384 480K, 1280, 4
 buildfor                        + K8_64         ,	r4dwpn_pass1sc384 480K, 1280, 2
 buildfor CORE_32                + K8_32         ,	r4dwpn_pass1sc384 480K, 1280, 1
 
@@ -179,7 +179,7 @@ buildfor                                        ,	r4dwpn_pass1sc4096 4M, 10, 2
 
 buildfor CORE    + P4                           ,	r4dwpn_pass1sc256 384K, 1536, 4
 buildfor CORE    + P4                           ,	r4dwpn_pass1sc256 512K, 11, 4
-buildfor                                        ,	r4dwpn_pass1sc256 640K, 2560, 4
+buildfor CORE                                   ,	r4dwpn_pass1sc256 640K, 2560, 4
 
 buildfor CORE                                   ,	r4dwpn_pass1sc320 480K, 1536, 4
 buildfor CORE_64         + P4TP         + K10_32,	r4dwpn_pass1sc320 480K, 1536, 2
@@ -214,7 +214,7 @@ buildfor CORE_64                                ,	r4dwpn_pass1sc640 1280K, 11, 2
 buildfor CORE_32 + P4_64                        ,	r4dwpn_pass1sc640 1600K, 2560, 4
 
 buildfor                                        ,	r4dwpn_pass1sc768 1152K, 1536, 4
-buildfor CORE_32                        + K10_32,	r4dwpn_pass1sc768 1536K, 11, 4
+buildfor CORE                           + K10_32,	r4dwpn_pass1sc768 1536K, 11, 4
 buildfor                                        ,	r4dwpn_pass1sc768 1536K, 11, 2
 buildfor                                        ,	r4dwpn_pass1sc768 1920K, 2560, 4
 
@@ -227,7 +227,7 @@ buildfor CORE                                   ,	r4dwpn_pass1sc1024 2M, 11, 4
 buildfor                                        ,	r4dwpn_pass1sc1024 2560K, 2560, 4
 
 buildfor                                + K10_32,	r4dwpn_pass1sc1280 1920K, 1536, 4
-buildfor                                        ,	r4dwpn_pass1sc1280 2560K, 11, 4
+buildfor CORE                                   ,	r4dwpn_pass1sc1280 2560K, 11, 4
 buildfor                                        ,	r4dwpn_pass1sc1280 3200K, 2560, 4
 
 buildfor                                        ,	r4dwpn_pass1sc1536 3M, 11, 4
