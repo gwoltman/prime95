@@ -1,4 +1,4 @@
 SECTIONS
 {
-  .data : { . = ALIGN(0x20); *(_GWDATA) }
+  .data : { . = ALIGN(0x80); *(_GWDATA) }
 }
