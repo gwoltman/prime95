@@ -7335,6 +7335,22 @@ zjmptablep DD	0
 	DD	0
 ENDIF
 
+IFNDEF	X86_64
+jmptable_offset		DD	OFFSET jmptable
+jmptablep_offset	DD	OFFSET jmptablep
+xjmptable_offset	DD	OFFSET xjmptable
+xjmptablep_offset	DD	OFFSET xjmptablep
+yjmptable_offset	DD	OFFSET yjmptable
+yjmptablep_offset	DD	OFFSET yjmptablep
+ELSE
+xjmptable_offset	DQ	OFFSET xjmptable
+xjmptablep_offset	DQ	OFFSET xjmptablep
+yjmptable_offset	DQ	OFFSET yjmptable
+yjmptablep_offset	DQ	OFFSET yjmptablep
+zjmptable_offset	DQ	OFFSET zjmptable
+zjmptablep_offset	DQ	OFFSET zjmptablep
+ENDIF
+
 	;; Align so that other GWDATA areas are also aligned on a cache line
 	align 128
 _GWDATA ENDS
@@ -7360,28 +7376,28 @@ PROCL	gwinfo1
 	IFDEF LINUX64
 	mov	rcx, rdi		; Address of data struct to return info
 	ENDIF
-	mov	rax, OFFSET xjmptable	; SSE2 mersenne mod FFTs
+	mov	rax, xjmptable_offset	; SSE2 mersenne mod FFTs
 	mov	[rcx+0*SZPTR], rax
-	mov	rax, OFFSET xjmptablep	; SSE2 2^N+1 mod FFTs
+	mov	rax, xjmptablep_offset	; SSE2 2^N+1 mod FFTs
 	mov	[rcx+1*SZPTR], rax
 	IFNDEF X86_64
-	mov	rax, OFFSET jmptable	; x87 mersenne mod FFTs
+	mov	rax, jmptable_offset	; x87 mersenne mod FFTs
 	mov	[rcx+2*SZPTR], rax
-	mov	rax, OFFSET jmptablep	; x87 2^N+1 mod FFTs
+	mov	rax, jmptablep_offset	; x87 2^N+1 mod FFTs
 	mov	[rcx+3*SZPTR], rax
 	ELSE
 	sub	rax, rax
 	mov	[rcx+2*SZPTR], rax
 	mov	[rcx+3*SZPTR], rax
 	ENDIF
-	mov	rax, OFFSET yjmptable	; AVX mersenne mod FFTs
+	mov	rax, yjmptable_offset	; AVX mersenne mod FFTs
 	mov	[rcx+4*SZPTR], rax
-	mov	rax, OFFSET yjmptablep	; AVX 2^N+1 mod FFTs
+	mov	rax, yjmptablep_offset	; AVX 2^N+1 mod FFTs
 	mov	[rcx+5*SZPTR], rax
 	IFDEF X86_64
-	mov	rax, OFFSET zjmptable	; AVX-512 mersenne mod FFTs
+	mov	rax, zjmptable_offset	; AVX-512 mersenne mod FFTs
 	mov	[rcx+6*SZPTR], rax
-	mov	rax, OFFSET zjmptablep	; AVX-512 2^N+1 mod FFTs
+	mov	rax, zjmptablep_offset	; AVX-512 2^N+1 mod FFTs
 	mov	[rcx+7*SZPTR], rax
 	ELSE
 	sub	rax, rax
