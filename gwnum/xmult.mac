@@ -258,7 +258,7 @@ xfft_footer MACRO
 
 pass1_forward_fft_setup MACRO loopaddr
 	mov	NEXT_BLOCK, 0		;; Flag indicating forward fft setup
-	mov	rax, OFFSET loopaddr	;; Auxiliary thread entry point
+	lea	rax, loopaddr		;; Auxiliary thread entry point
 	mov	THREAD_WORK_ROUTINE, rax ;; save addr for C code to call
 	c_call	PASS1_WAKE_UP_THREADS	;; C callback routine
 	ENDM
@@ -268,7 +268,7 @@ pass1_forward_fft_setup MACRO loopaddr
 pass1_inverse_fft_setup MACRO loopaddr
 	start_timer 1
 	mov	NEXT_BLOCK, 1		;; Flag indicating inverse fft setup
-	mov	rax, OFFSET loopaddr	;; Auxiliary thread entry point
+	lea	rax, loopaddr		;; Auxiliary thread entry point
 	mov	THREAD_WORK_ROUTINE, rax ;; save addr for C code to call
 	c_call	PASS1_WAKE_UP_THREADS	;; C callback routine
 	ENDM
@@ -796,7 +796,7 @@ xpass2gen MACRO levels
 
 ;; Entry point for real FFTs: do one real and count1 complex blocks, also entry point for negacyclic FFTs: do count1 complex blocks
 
-	mov	rax, OFFSET complex_loop ;; Auxiliary thread entry point
+	lea	rax, complex_loop	;; Auxiliary thread entry point
 	mov	THREAD_WORK_ROUTINE, rax ;; Save addr for C code to call
 	c_call	PASS2_WAKE_UP_THREADS	;; C callback routine
 	cmp	NEGACYCLIC_FFT, 1	;; Test if there is a real-data block
