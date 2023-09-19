@@ -2689,7 +2689,9 @@ int gwsetup_general_mod_giant (
 	gwdata->GENERAL_MMGW_MOD = TRUE;		// Set flag indicating general-purpose MMGW modulo operations are in force
 	gwdata->GENERAL_MOD = FALSE;
 	gwdata->FFTLEN = cyclic_gwdata->FFTLEN;
+	gwdata->RATIONAL_FFT = TRUE; ASSERTG (cyclic_gwdata->RATIONAL_FFT && negacyclic_gwdata->RATIONAL_FFT);
 	gwdata->avg_num_b_per_word = cyclic_gwdata->avg_num_b_per_word;
+	gwdata->NUM_B_PER_SMALL_WORD = cyclic_gwdata->NUM_B_PER_SMALL_WORD;
 	gwdata->fft_max_bits_per_word = negacyclic_gwdata->fft_max_bits_per_word;
 	gwdata->EXTRA_BITS = cyclic_gwdata->EXTRA_BITS < negacyclic_gwdata->EXTRA_BITS ? cyclic_gwdata->EXTRA_BITS : negacyclic_gwdata->EXTRA_BITS;
 	cyclic_gwdata->EXTRA_BITS = negacyclic_gwdata->EXTRA_BITS = gwdata->EXTRA_BITS;	// Use common EXTRA_BITS since cyclic results are sent to negacyclic FFTs
@@ -5130,12 +5132,12 @@ int internal_gwsetup (
 		ASSERTG (gwiter_addr_offset (&iter) == addr_offset (gwdata, i));
 		ASSERTG (gwiter_addr (&iter) == addr (gwdata, g, i));
 		ASSERTG (gwiter_is_big_word (&iter) == is_big_word (gwdata, i));
-		set_fft_value (gwdata, g, i, 987654321);
+		set_fft_value (gwdata, g, i, 897654321);
 		gwiter_get_fft_value (&iter, &val2);
-		ASSERTG (val2 == 987654321);
-		gwiter_set_fft_value (&iter, -123456789);
+		ASSERTG (val2 == 897654321);
+		gwiter_set_fft_value (&iter, -213456789);
 		gwiter_get_fft_value (&iter, &val);
-		ASSERTG (val == -123456789);
+		ASSERTG (val == -213456789);
 	}
 	gwfree (gwdata, g);
 	}
@@ -11683,6 +11685,11 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 
 	options &= ~(GWMUL_FFT_S1 | GWMUL_FFT_S2);
 
+/* Save and clear the carefully count (so that we don't recursively call this routine) */
+
+	saved_careful_count = gwdata->careful_count;
+	gwdata->careful_count = 0;
+
 /* Generate a random number, if we have't already done so */
 
 	// If this is a cloned gwdata, see if we can save some memory by using the parent GW_RANDOM
@@ -11698,11 +11705,6 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 		gwdata->GW_RANDOM = random;				// For gwclone's sake, do not set GW_RANDOM until random number is fully initialized
 		ASSERTG (gwdata->GW_RANDOM_SQUARED == NULL && gwdata->GW_RANDOM_FFT == NULL);
 	}
-
-/* Save and clear the carefully count (so that we don't recursively call this routine) */
-
-	saved_careful_count = gwdata->careful_count;
-	gwdata->careful_count = 0;
 
 /* Handle a squaring operation using two multiplies and several adds. */
 /* Make sure we do not do addquick when computing s+random.  If we do not do this, then the non-randomness of s can swamp */
