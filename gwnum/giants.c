@@ -2640,7 +2640,7 @@ int rhgcd (	/* recursive hgcd calls accumulating extended GCD info */
 	A.ur = popg (gdata, (*x)->sign);
 	if (A.ur == NULL) { stop_reason = GIANT_OUT_OF_MEMORY; goto done; }
 	setzero (A.ur);
-	A.lr = popg (gdata, (*x)->sign);
+	A.lr = popg (gdata, (*x)->sign + 1);					// In theory, +1 not needed.  But general mod on 2163*2^1255556+1 will then fail.
 	if (A.lr == NULL) { stop_reason = GIANT_OUT_OF_MEMORY; goto done; }
 	setone (A.lr);
 
