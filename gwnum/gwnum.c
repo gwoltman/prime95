@@ -2630,7 +2630,7 @@ int gwsetup_general_mod_giant (
 		larger_fftlen_count--;
 	}
 
-	// Need the inverse of R mod N, later FFTed for future cyclic multiplications.  Yves calls this Np_R.
+	// Need the inverse of N mod R, later FFTed for future cyclic multiplications.  Yves calls this Np_R.
 	giant R = allocgiant (2 * (n >> 5) + 2);
 	giant Np = allocgiant ((n >> 5) + 2);
 	if (R == NULL || Np == NULL) { gwdone (gwdata); return (GWERROR_MALLOC); }
@@ -2640,6 +2640,7 @@ int gwsetup_general_mod_giant (
 
 	// R and N may not be relatively prime which is a requirement of MMGW algorithm!  Fall back to the older Barrett reduction.
 	if (Np->sign <= 0) {
+		Np->sign = -Np->sign; modg (Np, R); if (!isZero(R)) { gwdone (gwdata); return (GWERROR_INTERNAL+12); } // Sanity check invg's results
 		free (Np); free (R);
 		gwdata->larger_fftlen_count = saved_larger_fftlen_count;	// Restore this option to its original setting
 		gwdata->minimum_fftlen = saved_minimum_fftlen;			// Restore this option to its original setting
@@ -2724,12 +2725,19 @@ int gwsetup_general_mod_giant (
 			return (GWERROR_MALLOC);
 		}
 
-		// Finish the R mod N initialization, FFTed for future cyclic multiplications.  Yves calls this Np_R.
+		// Finish the inverse of N mod R initialization, FFTed for future cyclic multiplications.  Yves calls this Np_R.
 		gianttogw (cyclic_gwdata, Np, gwdata->Np_R);
 		gwfft (cyclic_gwdata, gwdata->Np_R, gwdata->Np_R);
 
 		// Need the modulus FFTed for future negacyclic multiplications.  Yves calls this value N_Q.
 		gianttogw (negacyclic_gwdata, N, gwdata->N_Q);
+		if (1) {						// Sanity check 1/N.  Giants invg has been known to fail.
+			gwnum tmp = gwdata->R2_4;
+			gwmul3_carefully (cyclic_gwdata, gwdata->N_Q, gwdata->Np_R, tmp, GWMUL_PRESERVE_S1);
+			gwtogiant (cyclic_gwdata, tmp, Np);
+			if (!isone (Np)) { gwdone (gwdata); return (GWERROR_INTERNAL+13); }
+			gwfree_internal_memory (cyclic_gwdata);
+		}
 		gwfft (negacyclic_gwdata, gwdata->N_Q, gwdata->N_Q);
 
 		// Need R^2/4 mod N.  This will be used for a fast implementation of gianttogw.
@@ -5110,8 +5118,7 @@ int internal_gwsetup (
 	if (!gwdata->information_only) {
 	gwiter iter;
 	gwnum g = gwalloc (gwdata);
-	long val;
-	int32_t val2;
+	int32_t val, val2;
 	gwiter_init_write_only (gwdata, &iter, g);
 	for (unsigned long i = 0; i < gwdata->FFTLEN; i++, gwiter_next (&iter)) {
 		ASSERTG (gwiter_index (&iter) == i);
@@ -5119,11 +5126,11 @@ int internal_gwsetup (
 		ASSERTG (gwiter_addr (&iter) == addr (gwdata, g, i));
 		ASSERTG (gwiter_is_big_word (&iter) == is_big_word (gwdata, i));
 		set_fft_value (gwdata, g, i, 987654321);
-		gwiter_get_fft_value (&iter, &val2);
-		ASSERTG (val2 == 987654321);
-		gwiter_set_fft_value (&iter, -123456789);
 		gwiter_get_fft_value (&iter, &val);
-		ASSERTG (val == -123456789);
+		ASSERTG (val == 987654321);
+		gwiter_set_fft_value (&iter, -123456789);
+		gwiter_get_fft_value (&iter, &val2);
+		ASSERTG (val2 == -123456789);
 	}
 	unsigned long rand_start = ((rand () << 16) + rand ()) % gwdata->FFTLEN;
 	gwiter_init (gwdata, &iter, g, rand_start);
@@ -5133,11 +5140,11 @@ int internal_gwsetup (
 		ASSERTG (gwiter_addr (&iter) == addr (gwdata, g, i));
 		ASSERTG (gwiter_is_big_word (&iter) == is_big_word (gwdata, i));
 		set_fft_value (gwdata, g, i, 897654321);
-		gwiter_get_fft_value (&iter, &val2);
-		ASSERTG (val2 == 897654321);
-		gwiter_set_fft_value (&iter, -213456789);
 		gwiter_get_fft_value (&iter, &val);
-		ASSERTG (val == -213456789);
+		ASSERTG (val == 897654321);
+		gwiter_set_fft_value (&iter, -213456789);
+		gwiter_get_fft_value (&iter, &val2);
+		ASSERTG (val2 == -213456789);
 	}
 	gwfree (gwdata, g);
 	}
@@ -9857,7 +9864,7 @@ int gwtogiant (
 
 /* Make sure we're passed a large enough buffer.  We need at least 50 more bits for a mul-by-k plus a few more in case there are unnormalized adds. */
 
-	ASSERTG (v->maxsize * 32 > gwdata->bit_length + 64.0);
+	ASSERTG (v->maxsize * 32 >= gwdata->bit_length + 64.0);
 
 /* Make sure data is not FFTed.  Caller should really try to avoid this scenario. */
 
