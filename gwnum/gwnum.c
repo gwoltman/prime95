@@ -8325,7 +8325,7 @@ void gwfft_description (
 		}
 	}
 
-	sprintf (buf, "%s%s%s%sFFT length %lu%s",
+	sprintf (buf, "%s%s%s%sFFT length %s%lu%s",
 		 gwdata->GENERAL_MOD ? "Barrett reduction " :
 		 gwdata->GENERAL_MMGW_MOD ? "Montgomery reduction " : "",
 		 fft_gwdata->NEGACYCLIC_FFT ? "negacyclic " :
@@ -8335,6 +8335,7 @@ void gwfft_description (
 		 (fft_gwdata->cpu_flags & CPU_AVX) ? "AVX " :
 		 (fft_gwdata->cpu_flags & CPU_SSE2) ? "" : "x87 ",
 		 arch, ffttype,
+		 gwdata->GENERAL_MMGW_MOD ? "2x" : "",
 		 fft_gwdata->FFTLEN >= 1048576 && (fft_gwdata->FFTLEN & 0xFFFFF) == 0 ? fft_gwdata->FFTLEN / 1048576 :
 		 fft_gwdata->FFTLEN >= 1024 && (fft_gwdata->FFTLEN & 0x3FF) == 0 ? fft_gwdata->FFTLEN / 1024 : fft_gwdata->FFTLEN,
 		 fft_gwdata->FFTLEN >= 1048576 && (fft_gwdata->FFTLEN & 0xFFFFF) == 0 ? "M" :
