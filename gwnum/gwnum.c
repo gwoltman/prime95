@@ -9863,10 +9863,6 @@ int gwtogiant (
 		return (err_code);
 	}
 
-/* Make sure we're passed a large enough buffer.  We need at least 50 more bits for a mul-by-k plus a few more in case there are unnormalized adds. */
-
-	ASSERTG (v->maxsize * 32 >= gwdata->bit_length + 64.0);
-
 /* Make sure data is not FFTed.  Caller should really try to avoid this scenario. */
 
 	if (FFT_state (gg) != NOT_FFTed) gwunfft (gwdata, gg, gg);
@@ -10013,6 +10009,10 @@ int gwtogiant (
 #undef klo
 #undef khi
 #undef k64
+
+/* Make sure we were passed a large enough buffer */
+
+	ASSERTG (v->maxsize >= labs (v->sign));
 
 /* The gwnum is not guaranteed to be smaller than k*b^n+c.  Handle this possibility.  This also converts negative values to positive. */
 
