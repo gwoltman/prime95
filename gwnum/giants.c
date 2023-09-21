@@ -1605,7 +1605,7 @@ int invg_common (	/* Common invg code */
 	A.ur = popg (gdata, x->sign);
 	if (A.ur == NULL) { stop_reason = GIANT_OUT_OF_MEMORY; goto done; }
 	setzero (A.ur);
-	A.lr = popg (gdata, x->sign);
+	A.lr = popg (gdata, x->sign + 1);			// In theory the +1 not needed.  But https://www.mersenneforum.org/showpost.php?p=638742&postcount=75 fails.
 	if (A.lr == NULL) { stop_reason = GIANT_OUT_OF_MEMORY; goto done; }
 	setone (A.lr);
 	if (y->sign <= GCDLIMIT) {
@@ -2637,7 +2637,7 @@ int rhgcd (	/* recursive hgcd calls accumulating extended GCD info */
 	A.ll = popg (gdata, (*x)->sign);
 	if (A.ll == NULL) { stop_reason = GIANT_OUT_OF_MEMORY; goto done; }
 	setzero (A.ll);
-	A.ur = popg (gdata, (*x)->sign);
+	A.ur = popg (gdata, (*x)->sign + 1);					// In theory, +1 not needed.  But general mod on 27*2^100000-1 will then fail.
 	if (A.ur == NULL) { stop_reason = GIANT_OUT_OF_MEMORY; goto done; }
 	setzero (A.ur);
 	A.lr = popg (gdata, (*x)->sign + 1);					// In theory, +1 not needed.  But general mod on 2163*2^1255556+1 will then fail.
