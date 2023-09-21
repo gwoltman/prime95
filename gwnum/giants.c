@@ -1597,15 +1597,13 @@ int invg_common (	/* Common invg code */
 	while (y->sign < 0) addg (x, y);
 	modgi (gdata, x, y);
 
-/* Compute the GCD and inverse the fastest way possible */
-/* The inverse is computed in the matrix A, and only the */
-/* right side of the matrix is needed.  However, the recursive */
-/* ggcd code needs the left side of the array allocated. */
+/* Compute the GCD and inverse the fastest way possible.  The inverse is computed in the matrix A, and only the */
+/* right side of the matrix is needed.  However, the recursive ggcd code needs the left side of the array allocated. */
 
-	A.ur = popg (gdata, x->sign);
+	A.ur = popg (gdata, x->sign + 1);			// In theory, +1 not needed.  No counter-examples, but mimic the +1 in rhgcd.
 	if (A.ur == NULL) { stop_reason = GIANT_OUT_OF_MEMORY; goto done; }
 	setzero (A.ur);
-	A.lr = popg (gdata, x->sign + 1);			// In theory the +1 not needed.  But https://www.mersenneforum.org/showpost.php?p=638742&postcount=75 fails.
+	A.lr = popg (gdata, x->sign + 1);			// In theory, +1 not needed.  But https://www.mersenneforum.org/showpost.php?p=638742&postcount=75 fails.
 	if (A.lr == NULL) { stop_reason = GIANT_OUT_OF_MEMORY; goto done; }
 	setone (A.lr);
 	if (y->sign <= GCDLIMIT) {
