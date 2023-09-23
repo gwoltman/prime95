@@ -1600,7 +1600,7 @@ int invg_common (	/* Common invg code */
 /* Compute the GCD and inverse the fastest way possible.  The inverse is computed in the matrix A, and only the */
 /* right side of the matrix is needed.  However, the recursive ggcd code needs the left side of the array allocated. */
 
-	A.ur = popg (gdata, x->sign + 1);			// In theory, +1 not needed.  No counter-examples, but mimic the +1 in rhgcd.
+	A.ur = popg (gdata, x->sign + 1);			// In theory, +1 not needed.  See second test_paul.c in mersenne forum thread mentioned below.
 	if (A.ur == NULL) { stop_reason = GIANT_OUT_OF_MEMORY; goto done; }
 	setzero (A.ur);
 	A.lr = popg (gdata, x->sign + 1);			// In theory, +1 not needed.  But https://www.mersenneforum.org/showpost.php?p=638742&postcount=75 fails.
@@ -2612,7 +2612,7 @@ int ggcd (		/* A giant gcd.  Modifies its arguments. */
 	return (cextgcdg (gdata, x, y, NULL, interruptable));
 
 /* Error exit */
-	
+
 done:	pushall (gdata, ss);
 	return (stop_reason);
 }
