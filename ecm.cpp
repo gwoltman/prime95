@@ -1527,6 +1527,7 @@ typedef struct {
 	int	norm_pool_temps_count; /* Number of free gwnums in norm_pool_temps */
 	int	Ftree_polys_in_mem; /* Number of Ftree polys to store in memory rather than on disk or rebuilding */
 	gwarray polyFtree[40];	/* Saved entries from polyF tree.  Needed by scaled remainders to work down the tree. */
+	gwarray	Ftree;		/* Array of gwnums used in Ftree reconstruction */
 
 	/* Helper routine data */
 //	int	num_points;	/* Number of points (multiples of D) that can be evalualted with each polymult. */
@@ -1556,6 +1557,7 @@ void ecm_mini_cleanup (
 	free (ecmdata->nQx), ecmdata->nQx = NULL;
 	free (ecmdata->pairmap), ecmdata->pairmap = NULL;
 	free (ecmdata->factor), ecmdata->factor = NULL;
+	free (ecmdata->Ftree), ecmdata->Ftree = NULL;
 	end_sieve (ecmdata->sieve_info), ecmdata->sieve_info = NULL;
 	polymult_done (&ecmdata->polydata);
 	gwfreeall (&ecmdata->gwdata);
@@ -7676,7 +7678,6 @@ OutputStr (thread_num, buf);
 start_timer_from_zero (timers, 0);
 
 	// Work down the F(X) tree in a memory efficient way.  This involves recomputing the Ftree.
-	gwarray	Ftree;
 
 	// Free up memory.  PolyF and PolyR may have been compressed and thus their gwnums cannot be recycled, they must be freed.
 	// The polyGH and polyGaux arrays have been co-mingled using gwswap.  They must be freed together.  We can't do that as polyH is still in use.
@@ -7690,12 +7691,13 @@ start_timer_from_zero (timers, 0);
 //GW: When we combine a length 0 and length 1 poly (no-op) we copy the gwnum -- we're likely overcounting the needed gwnums in pass 2
 	ecmdata.polyF = gwalloc_array (&ecmdata.gwdata, gwnums_needed - (ecmdata.poly_size + ecmdata.polyGaux_size));
 	if (ecmdata.polyF == NULL) goto lowmem;
-	Ftree = (gwarray) malloc ((size_t) (gwnums_needed * sizeof (gwnum)));
-	if (Ftree == NULL) goto lowmem;
+	ecmdata.Ftree = (gwarray) malloc ((size_t) (gwnums_needed * sizeof (gwnum)));
+	if (ecmdata.Ftree == NULL) goto lowmem;
 //GW: if num_polyGs == 1, polyG and polyH are the same  -- allocate a bigger polyF and don't copy polyG?
-	memcpy (Ftree, polyG, (size_t) (ecmdata.poly_size * sizeof (gwnum)));
-	memcpy (Ftree + ecmdata.poly_size, ecmdata.polyGaux, (size_t) (ecmdata.polyGaux_size * sizeof (gwnum)));
-	memcpy (Ftree + ecmdata.poly_size + ecmdata.polyGaux_size, ecmdata.polyF, (size_t) ((gwnums_needed - (ecmdata.poly_size + ecmdata.polyGaux_size)) * sizeof (gwnum)));
+	memcpy (ecmdata.Ftree, polyG, (size_t) (ecmdata.poly_size * sizeof (gwnum)));
+	memcpy (ecmdata.Ftree + ecmdata.poly_size, ecmdata.polyGaux, (size_t) (ecmdata.polyGaux_size * sizeof (gwnum)));
+	memcpy (ecmdata.Ftree + ecmdata.poly_size + ecmdata.polyGaux_size, ecmdata.polyF,
+		(size_t) ((gwnums_needed - (ecmdata.poly_size + ecmdata.polyGaux_size)) * sizeof (gwnum)));
 
 	// Use two passes.  The first pass does only 3 levels operating on the entire H(X) poly.  The second pass does the remaining levels operating
 	// on 1/8th of H(X) at a time.
@@ -7716,7 +7718,7 @@ start_timer_from_zero (timers, 0);
 		// Re-build this slice of Ftree working up the tree combining polys
 		for (int level = 0; level < num_levels_this_pass; level++) {
 			int	tree_level = level + (pass == 1 ? num_tree_levels - 3 : 0);
-			gwarray polyF = Ftree + level * slice_size;
+			gwarray polyF = ecmdata.Ftree + level * slice_size;
 
 			// Read in polyF from a saved location
 //GW: Problem? the len1-or-len2 Ftree level was not saved
@@ -7803,7 +7805,7 @@ start_timer_from_zero (timers, 0);
 
 		// Now work down this slice of Ftree
 		for (int level = num_levels_this_pass - 1; level >= 0; level--) {
-			gwarray polyF = Ftree + level * slice_size;
+			gwarray polyF = ecmdata.Ftree + level * slice_size;
 			int	log2_num_polys = num_levels_this_pass - level + log2_num_slices;		// Number of polyF polys in this level
 			uint64_t poly_base_calculator;	// Accumulator that lets us calculate floor (i*ecmdata.poly_size/num_polys)
 			int	poly_base = 0;
@@ -7877,7 +7879,7 @@ start_timer_from_zero (timers, 0);
 		_close (fd);
 		_unlink (ftree_filename);
 	}
-	free (Ftree);
+	free (ecmdata.Ftree), ecmdata.Ftree = NULL;
 
 // Multiply the coefficients in polyH together for a later GCD.  We launch single-threaded helpers to do this because the gwnum FFT size may not be
 // large enough to support multi-threading.  The results are stored in the first coefficients of polyG.
