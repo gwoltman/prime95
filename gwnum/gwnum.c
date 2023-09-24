@@ -9530,7 +9530,7 @@ void gianttogw (
 
 	if (gwdata->GENERAL_MMGW_MOD) {
 		gianttogw (gwdata->negacyclic_gwdata, a, g);
-		if (g != gwdata->R2_4) gwmul3 (gwdata, g, gwdata->R2_4, g, 0);
+		if (g != gwdata->R2_4) gwmul3_carefully (gwdata, g, gwdata->R2_4, g, 0);	// General mod numbers are more likely to need careful muls
 		return;
 	}
 
