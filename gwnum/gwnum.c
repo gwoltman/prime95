@@ -9334,11 +9334,11 @@ void raw_gwsetaddin (
 
 /* Caller may only be interested in ADDIN_OFFSET */
 
-	if (ptr == NULL) return;
+	if (ptr != NULL) {
 
 /* Handle AVX-512 FFTs.  They are normalized differently than FMA3 and earlier FFTs */
 
-	if (gwdata->cpu_flags & CPU_AVX512F) {
+	    if (gwdata->cpu_flags & CPU_AVX512F) {
 
 /* Post addins do not need a weight.  Rational FFTs are not normalized, don't need to apply a weight to the addin value. */
 /* Exceptions are two-pass negacyclic FFTs which have a sine component as part of the inverse group multiplier. */
@@ -9365,19 +9365,20 @@ void raw_gwsetaddin (
 				ttmp = gwfft_weight_inverse (gwdata->dd_data, grp);
 			*ptr = val / ttmp;
 		}
-	}
+	    }
 
 /* Handle r4dwpn FFTs which are only partially normalized */
 
-	else if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
+	    else if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
 		*ptr = val * gwfft_partial_weight_sloppy (gwdata->dd_data, word, dwpn_col (gwdata, word));
-	}
+	    }
 
 /* Set the addin value - multiply it by two-to-phi and FFTLEN/2/k. */
 
-	else {
+	    else {
 		*ptr = val * gwfft_weight_sloppy (gwdata->dd_data, word);
 		if (ptr == &gwdata->asm_addin_value) *ptr *= gwdata->FFTLEN * 0.5 / gwdata->k;
+	    }
 	}
 
 /* Release clone lock now that ADDIN_ROW, ADDIN_OFFSET, and asm_addin_value have all been changed */
