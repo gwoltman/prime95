@@ -9531,7 +9531,10 @@ void gianttogw (
 
 	if (gwdata->GENERAL_MMGW_MOD) {
 		gianttogw (gwdata->negacyclic_gwdata, a, g);
-		if (g != gwdata->R2_4) gwmul3_carefully (gwdata, g, gwdata->R2_4, g, 0);	// General mod numbers are more likely to need careful muls
+		if (g != gwdata->R2_4) {
+			if (labs (a->sign) > 4) gwmul3_carefully (gwdata, g, gwdata->R2_4, g, 0); // General mod numbers are more likely to need careful muls
+			else gwmul3 (gwdata, g, gwdata->R2_4, g, 0);				  // Don't careful mul small numbers (avoids infinite recursion)
+		}
 		return;
 	}
 
