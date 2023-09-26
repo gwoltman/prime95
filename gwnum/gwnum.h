@@ -278,7 +278,8 @@ void gwuser_init_FFT1 (		/* Calculate GW_FFT1 at user's request */
 
 /* Convert a double (must be a positive integer) to a gwnum */
 void dbltogw (gwhandle *, double, gwnum);
-
+/* Convert a int64_t to a gwnum */
+void s64togw (gwhandle *, int64_t, gwnum);
 /* Convert a uint64_t to a gwnum */
 void u64togw (gwhandle *, uint64_t, gwnum);
 

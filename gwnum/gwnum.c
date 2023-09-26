@@ -9459,6 +9459,19 @@ void dbltogw (
 	gianttogw (gwdata, tmp, g);
 }
 
+/* Convert a int64_t to a gwnum */
+
+void s64togw (
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	int64_t d,		/* Input number */
+	gwnum	g)		/* Gwnum value to set */
+{
+	stackgiant(tmp, 2);
+
+	slltog (d, tmp);
+	gianttogw (gwdata, tmp, g);
+}
+
 /* Convert a uint64_t to a gwnum */
 
 void u64togw (
@@ -9547,7 +9560,7 @@ void gianttogw (
 /* Small numbers can also be optimized for many moduli by zeroing all the */
 /* FFT data using memset and then setting only the affected FFT elements. */
 
-	else if ((a->sign == 1 || a->sign == 2) && (gwdata->k == 1.0 || labs (gwdata->c) == 1)) {
+	else if (labs (a->sign) <= 2 && (gwdata->k == 1.0 || labs (gwdata->c) == 1)) {
 		uint64_t value_to_convert, low_addin;
 		int	i;
 
@@ -9555,7 +9568,7 @@ void gianttogw (
 
 		memset (g, 0, gwnum_datasize (gwdata));
 		value_to_convert = a->n[0];
-		if (a->sign == 2) value_to_convert += ((uint64_t) a->n[1]) << 32;
+		if (labs (a->sign) == 2) value_to_convert += ((uint64_t) a->n[1]) << 32;
 
 /* To make the mod k*b^n+c step faster, gwnum's are pre-multiplied by 1/k. */
 /* Case 1 (k*b^n-1): Inverse of k is b^n.  Case 2 (k*b^n+1): Inverse of k is -b^n. */
@@ -9563,6 +9576,7 @@ void gianttogw (
 /* greater than k, we must divide value by k and wrap-around to add it in to the */
 /* lowest FFT words.  The remainder gets added to (or subtracted from) the upper FFT words. */
 
+		uint64_t small_maxval = intpow (gwdata->b, gwdata->NUM_B_PER_SMALL_WORD);
 		if (gwdata->k > 1.0) {
 			uint64_t quotient, remainder, high_addin;
 			unsigned long word, bit_in_word;
@@ -9583,7 +9597,7 @@ void gianttogw (
 			for (i = word; high_addin; i++, bit_in_word = 0) {
 				long	value;
 
-				uint64_t maxval = intpow (gwdata->b, gwdata->NUM_B_PER_SMALL_WORD);
+				uint64_t maxval = small_maxval;
 				if (is_big_word (gwdata, i)) maxval *= gwdata->b;
 
 				if (bit_in_word == 0) {
@@ -9609,7 +9623,7 @@ void gianttogw (
 					value = value + (long) high_addin * (long) maxval;
 					high_addin = 0;
 				}
-				set_fft_value (gwdata, g, i, value);
+				set_fft_value (gwdata, g, i, a->sign > 0 ? value : -value);
 			}
 		}
 
@@ -9621,18 +9635,16 @@ void gianttogw (
 /* Spread the low_addin value across the lowest FFT words as necessary */
 
 		for (i = 0; low_addin; i++) {
-			long	value;
-
-			uint64_t maxval = intpow (gwdata->b, gwdata->NUM_B_PER_SMALL_WORD);
+			uint64_t maxval = small_maxval;
 			if (is_big_word (gwdata, i)) maxval *= gwdata->b;
 
-			value = (long) (low_addin % maxval);
+			long value = (long) (low_addin % maxval);
 			low_addin = low_addin / maxval;
 			if (value > (long) (maxval >> 1)) {
 				value = value - (long) maxval;
 				low_addin++;
 			}
-			set_fft_value (gwdata, g, i, value);
+			set_fft_value (gwdata, g, i, a->sign > 0 ? value : -value);
 		}
 	}
 
@@ -12934,13 +12946,8 @@ void gwsmalladd (
 
 	else {
 		gwnum tmp = gwalloc (gwdata);
-		if (addin >= 0) {
-			u64togw (gwdata, addin, tmp);
-			gwadd3o (gwdata, g, tmp, g, GWADD_FORCE_NORMALIZE);
-		} else {
-			u64togw (gwdata, -addin, tmp);
-			gwsub3o (gwdata, g, tmp, g, GWADD_FORCE_NORMALIZE);
-		}
+		s64togw (gwdata, addin, tmp);
+		gwadd3o (gwdata, g, tmp, g, GWADD_FORCE_NORMALIZE);
 		gwfree (gwdata, tmp);
 	}
 }

@@ -150,7 +150,7 @@ giant allocgiant (		/* Create a new giant */
 }
 
 void itog (		/* The giant g becomes set to the integer value i. */
-	int	i,
+	int32_t	i,
 	giant	g)
 {
 	if (i > 0) {
@@ -175,6 +175,18 @@ void ultog (		/* The giant g becomes set to the integer value i. */
 	} else {
 		g->sign = 1;
 		g->n[0] = i;
+	}
+}
+
+void slltog (		/* The giant g becomes set to the integer value i. */
+	int64_t i,
+	giant	g)
+{
+	if (i >= 0) {
+		ulltog (i, g);
+	} else {
+		ulltog (-i, g);
+		g->sign = -g->sign;
 	}
 }
 
