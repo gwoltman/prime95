@@ -12941,24 +12941,6 @@ pushg(&gwdata.gdata, 2);}
 
 	sprintf (JSONbuf, "{\"status\":\"%s\"", ps.isProbablePrime ? "P" : "C");
 	JSONaddExponent (JSONbuf, w);
-	if (w->known_factors != NULL) {
-		char	fac_string[1210];
-		char	*in, *out;
-		fac_string[0] = 0;
-		// Copy known factors changing commas to quote-comma-quote
-		for (in = w->known_factors, out = fac_string; ; in++) {
-			if (*in == ',') {
-				strcpy (out, "\",\"");
-				out += 3;
-			} else if (out - fac_string > 1200) {
-				strcpy (out, "...");
-				break;
-			} else
-				*out++ = *in;
-			if (*in == 0) break;
-		}
-		sprintf (JSONbuf+strlen(JSONbuf), ", \"known-factors\":[\"%s\"]", fac_string);
-	}
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"worktype\":\"PRP-%u\"", ps.prp_base);
 	if (!ps.isProbablePrime) {
 		sprintf (JSONbuf+strlen(JSONbuf), ", \"res64\":\"%s\"", ps.res64);

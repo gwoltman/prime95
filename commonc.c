@@ -2345,17 +2345,22 @@ void JSONaddExponent (
 	if (w->k == 1.0 && w->b == 2 && w->c == -1) sprintf (JSONbuf+strlen(JSONbuf), ", \"exponent\":%lu", w->n);
 	else sprintf (JSONbuf+strlen(JSONbuf), ", \"k\":%.0f, \"b\":%lu, \"n\":%lu, \"c\":%ld", w->k, w->b, w->n, w->c);
 	if (w->known_factors != NULL) {
-		strcat (JSONbuf, ", \"known-factors\":[");
-		char *factors = w->known_factors;
-		char *p = JSONbuf + strlen (JSONbuf);
-		for ( ; ; ) {
-			*p++ = '"';
-			while (*factors >= '0' && *factors <= '9') *p++ = *factors++;
-			*p++ = '"';
-			if (*factors == 0) break;
+		char	fac_string[1210];
+		char	*in, *out;
+		fac_string[0] = 0;
+		// Copy known factors changing commas to quote-comma-quote
+		for (in = w->known_factors, out = fac_string; ; in++) {
+			if (*in == ',') {
+				strcpy (out, "\",\"");
+				out += 3;
+			} else if (out - fac_string > 1200) {
+				strcpy (out, "...");
+				break;
+			} else
+				*out++ = *in;
+			if (*in == 0) break;
 		}
-		*p++ = ']';
-		*p = 0;
+		sprintf (JSONbuf+strlen(JSONbuf), ", \"known-factors\":[\"%s\"]", fac_string);
 	}
 }
 
