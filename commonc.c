@@ -2353,7 +2353,6 @@ void JSONaddExponent (
 			while (*factors >= '0' && *factors <= '9') *p++ = *factors++;
 			*p++ = '"';
 			if (*factors == 0) break;
-			factors++;
 		}
 		*p++ = ']';
 		*p = 0;
