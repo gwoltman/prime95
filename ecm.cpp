@@ -3333,7 +3333,7 @@ oom:	return (OutOfMemory (ecmdata->thread_num));
 }
 
  
-/* From R. P. Brent, priv. comm. 1996:
+/* From R. P. Brent, priv. comm. 1996 and https://eprint.iacr.org/2008/016.pdf section 7.5
 Let s > 5 be a pseudo-random seed (called $\sigma$ in the Tech. Report),
 
 	u/v = (s^2 - 5)/(4s)
@@ -3341,8 +3341,11 @@ Let s > 5 be a pseudo-random seed (called $\sigma$ in the Tech. Report),
 Then starting point is (x_1, y_1) where
 
 	x_1 = (u/v)^3
+	y_1 = (s^2 - 1)(s^2 - 25)(s^4 - 25)/(v^3)
 and
-	a = (v-u)^3(3u+v)/(4u^3 v) - 2
+	A = (v-u)^3(3u+v)/(4u^3 v) - 2
+	B = u/(v^3)
+where Montgomery curve is defined as By^2 = x^3 + Ax^2 + x
 */
 int choose12 (
 	ecmhandle *ecmdata,

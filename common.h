@@ -98,6 +98,7 @@ __inline char *debug_strcpy(char *d, const char *s) {assert((d) >= ((s)+strlen(s
 
 /* Routines missing from GMP */
 
+#define mpz_set_u64(d,s)	{ uint64_t = s; mpz_import (m, 1, -1, sizeof (uint64_t), 0, 0, &t); }
 #define mpz_add_si(d,s,addin)	if (addin >= 0) mpz_add_ui(d,s,(unsigned int)addin); else mpz_sub_ui(d,s,(unsigned int)-addin);
 #define mpz_sub_si(d,s,addin)	if (addin >= 0) mpz_sub_ui(d,s,(unsigned int)addin); else mpz_add_ui(d,s,(unsigned int)-addin);
 #define mpz_mul_d(d,s,flt)	{ mpz_t t; mpz_init_set_d(t,flt); mpz_mul(d,s,t); mpz_clear(t); }
