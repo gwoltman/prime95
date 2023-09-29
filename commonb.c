@@ -6520,7 +6520,6 @@ int prime (
 
 begin:	gwinit (&lldata.gwdata);
 	if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&lldata.gwdata);
-	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&lldata.gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&lldata.gwdata, 2);
 	gwset_bench_cores (&lldata.gwdata, HW_NUM_CORES);
 	gwset_bench_workers (&lldata.gwdata, NUM_WORKERS);
@@ -8821,7 +8820,6 @@ static	int	time_negacyclic = 0;		/* TRUE if we should time negacyclic FFTs */
 			if (ERRCHK) gwset_will_error_check (&lldata.gwdata);
 			else gwset_will_error_check_near_limit (&lldata.gwdata);
 			if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&lldata.gwdata);
-			if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&lldata.gwdata);
 			// Here is a hack to let me time different FFT implementations.
 			// For example, 39000001 times the first 2M FFT implementation,
 			// 39000002 times the second 2M FFT implementation, etc.
@@ -10008,7 +10006,6 @@ int primeBench (
 
 		  gwinit (&lldata.gwdata);
 		  if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&lldata.gwdata);
-		  if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&lldata.gwdata);
 		  gwset_num_threads (&lldata.gwdata, get_ranked_num_threads (0, cores, hypercpu > 1));
 		  sp_info.bench_base_core_num = 0;
 		  sp_info.bench_hyperthreading = (hypercpu > 1);
@@ -11732,7 +11729,6 @@ begin:	N = exp = NULL;
 	gwinit (&gwdata);
 	gwsetmaxmulbyconst (&gwdata, ps.prp_base);
 	if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&gwdata);
-	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&gwdata, 2);
 	gwset_bench_cores (&gwdata, HW_NUM_CORES);
 	gwset_bench_workers (&gwdata, NUM_WORKERS);

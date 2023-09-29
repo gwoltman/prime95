@@ -3387,11 +3387,11 @@ int choose12 (
 	gwmul3 (&ecmdata->gwdata, xs, ecmdata->Ad4, ecmdata->Ad4, 0);			/* u^3 * v */
 	gwsmallmul (&ecmdata->gwdata, 4.0, ecmdata->Ad4);				/* An/Ad is now A + 2 */
 
-	/* Normalize so that An is one */
+	/* Normalize so that An is one, thus Ad4 is 1/(A + 2) */
 	stop_reason = normalize (ecmdata, ecmdata->Ad4, t2);
 	if (stop_reason) return (stop_reason);
-
-	/* For extra speed, precompute Ad * 4 */
+	
+	/* For extra speed, precompute Ad * 4, a.k.a 4/(A + 2) */
 	gwsmallmul (&ecmdata->gwdata, 4.0, ecmdata->Ad4);
 
 	/* Even more speed, save FFT of Ad4 */
@@ -5562,7 +5562,6 @@ if (w->n == 604) {
 
 	gwinit (&ecmdata.gwdata);
 	if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
-	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&ecmdata.gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&ecmdata.gwdata, 2);
 	gwset_bench_cores (&ecmdata.gwdata, HW_NUM_CORES);
 	gwset_bench_workers (&ecmdata.gwdata, NUM_WORKERS);
@@ -6078,7 +6077,6 @@ OutputStr (thread_num, buf); }
 			gwinit (&ecmdata.gwdata);
 			if (next_fftlen != best_fftlen) gwset_information_only (&ecmdata.gwdata);
 			if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
-			if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&ecmdata.gwdata);
 			if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&ecmdata.gwdata, 2);
 			gwset_bench_cores (&ecmdata.gwdata, HW_NUM_CORES);
 			gwset_bench_workers (&ecmdata.gwdata, NUM_WORKERS);
@@ -8009,7 +8007,6 @@ more_curves:
 			gwdone (&ecmdata.gwdata);
 			gwinit (&ecmdata.gwdata);
 			if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
-			if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&ecmdata.gwdata);
 			if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&ecmdata.gwdata, 2);
 			gwset_bench_cores (&ecmdata.gwdata, HW_NUM_CORES);
 			gwset_bench_workers (&ecmdata.gwdata, NUM_WORKERS);
@@ -9829,7 +9826,6 @@ restart:
 	gwinit (&pm1data.gwdata);
 	gwset_maxmulbyconst (&pm1data.gwdata, pminus1_base);
 	if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pm1data.gwdata);
-	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pm1data.gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&pm1data.gwdata, 2);
 	gwset_bench_cores (&pm1data.gwdata, HW_NUM_CORES);
 	gwset_bench_workers (&pm1data.gwdata, NUM_WORKERS);
@@ -10551,7 +10547,6 @@ OutputStr (thread_num, buf); }
 			gwinit (&pm1data.gwdata);
 			if (next_fftlen != best_fftlen) gwset_information_only (&pm1data.gwdata);
 			if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pm1data.gwdata);
-			if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pm1data.gwdata);
 			if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&pm1data.gwdata, 2);
 			gwset_bench_cores (&pm1data.gwdata, HW_NUM_CORES);
 			gwset_bench_workers (&pm1data.gwdata, NUM_WORKERS);
@@ -13575,7 +13570,6 @@ restart:
 
 	gwinit (&pp1data.gwdata);
 	if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&pp1data.gwdata);
-	if (IniGetInt (INI_FILE, "HyperthreadPrefetch", 0)) gwset_hyperthread_prefetch (&pp1data.gwdata);
 	if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&pp1data.gwdata, 2);
 	gwset_bench_cores (&pp1data.gwdata, HW_NUM_CORES);
 	gwset_bench_workers (&pp1data.gwdata, NUM_WORKERS);
