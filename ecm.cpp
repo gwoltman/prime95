@@ -5831,7 +5831,8 @@ restart1:
 
 	if (ecmdata.C <= ecmdata.B) {
 skip_stage_2:	start_timer_from_zero (timers, 0);
-		stop_reason = gcd (&ecmdata.gwdata, thread_num, ecmdata.xz.z, ecmdata.N, &ecmdata.factor);
+		if (ecmdata.xz.z != NULL) stop_reason = gcd (&ecmdata.gwdata, thread_num, ecmdata.xz.z, ecmdata.N, &ecmdata.factor);
+		else stop_reason = gcd (thread_num, ecmdata.Qz_binary, ecmdata.N, &ecmdata.factor);
 		if (stop_reason) {
 			ecm_save (&ecmdata);
 			goto exit;
