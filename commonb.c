@@ -1085,7 +1085,7 @@ void read_mem_info (void)
 /* Read and parse the Memory data from the INI file */
 
 	seconds_until_reread = 0;
-	AVAIL_MEM = IniGetTimedInt (INI_FILE, "Memory", physical_memory () / 16, &seconds);
+	AVAIL_MEM = IniGetTimedInt (INI_FILE, "Memory", 256, &seconds);
 	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread))
 		seconds_until_reread = seconds;
 	for (tnum = 0; tnum < (int) MAX_NUM_WORKERS; tnum++) {
@@ -1096,9 +1096,9 @@ void read_mem_info (void)
 			seconds_until_reread = seconds;
 	}
 
-/* Compute the maximum memory setting.  If not found, assume 8MB. */
+/* Compute the maximum memory setting.  If not found, assume 256MB. */
 
-	MAX_MEM = 8;
+	MAX_MEM = 256;
 	p = IniSectionGetStringRaw (INI_FILE, NULL, "Memory");
 	if (p != NULL) for ( ; ; ) {
 		unsigned long mem = atol (p);
