@@ -223,7 +223,7 @@ unsigned long physical_memory (void)
 		return (value.ui32 >> 20);
 	else
 		return ((unsigned long) (value.ui64 >> 20));
-#elif defined (__HAIKU__)
+#elif defined (__HAIKU__) || defined (__EMX__)
 	long phys_pages;
 	long page_size;
 
