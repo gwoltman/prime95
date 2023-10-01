@@ -65,7 +65,8 @@ struct gwasm_data {
 	char	const_fft;		/* TRUE if mul-by-const in normalize */
 	char	add_sub_smallmul_op;	/* TRUE if we are processing carries from an add/sub/smallmul operation */
 	char	mul4_opcode;		/* 0 for normal gwmul3, 1 for gwaddmul4, 2 for gwsubmul4 */
-	char	UNUSED_CHARS[4];
+	char	aux_initialized;	/* Set to TRUE when an auxiliary thread's asm_data has been initialized */
+	char	UNUSED_CHARS[3];
 	uint32_t ADDIN_ROW;		/* For adding a constant after multiply */
 	uint32_t ADDIN_OFFSET;
 	double	ADDIN_VALUE;		/* Value to add in after a multiply and before a mul-by-const */
@@ -120,8 +121,8 @@ struct gwasm_data {
 	void	*sincos3;
 	void	*sincos4;
 	void	*sincos5;
-	gwthread hyperthread_id;	/* Thread ID of prefetching hyperthread */
-	gwevent hyperthread_work_to_do;	/* Event to signal hyperthread to begin prefetching */
+	gwthread UNUSED_hyperthread_id;	/* Thread ID of prefetching hyperthread */
+	gwevent UNUSED_hyperthread_work_to_do;	/* Event to signal hyperthread to begin prefetching */
 	void	*SRC3ARG;		/* Function argument */
 	uint32_t *ASM_TIMERS;		/* Timers used for optimizing code */
 

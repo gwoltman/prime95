@@ -220,11 +220,11 @@ void gwdone (
 /* operations, but you can call informational routines such as get FFT length, FFT description, gwnum size, etc. */
 #define gwset_information_only(h)	((h)->information_only = TRUE)
 
-/* Prior to calling one of the gwsetup routines, you can tell the library to use a hyperthread for memory prefetching. */
+/* DEPRECATED, Prior to calling one of the gwsetup routines, you can tell the library to use a hyperthread for memory prefetching. */
 /* Only implemented for AVX-512 FFTs.  Caller must ensure the compute thread and prefetching hyperthread are set to use */
 /* the same physical CPU core.  At present there are no known CPUs where this provides a benefit. */
-#define gwset_hyperthread_prefetch(h)	((h)->hyperthread_prefetching = TRUE)
-#define gwclear_hyperthread_prefetch(h)	((h)->hyperthread_prefetching = FALSE)
+#define gwset_hyperthread_prefetch(h)	//((h)->hyperthread_prefetching = TRUE)
+#define gwclear_hyperthread_prefetch(h)	//((h)->hyperthread_prefetching = FALSE)
 
 /* DEPRECATED, use gwset_minimum_fftlen instead. */
 /* Prior to calling one of the gwsetup routines, you can force the library to use a specific fft length.  This should rarely (if ever) be used. */
@@ -1030,12 +1030,10 @@ struct gwhandle_struct {
 	/* Variables which affect gwsetup.  These are usually set by macros above. */
 	float	safety_margin;		/* Reduce maximum allowable bits per FFT data word by this amount. */
 	float	polymult_safety_margin;	/* Extra safety margin required for polymult operations. */
-	long	maxmulbyconst;		/* Gwsetup needs to know the maximum value the caller will use in gwsetmulbyconst. */
-					/* The default value is 3, commonly used in a base-3 Fermat PRP test. */
 	unsigned long minimum_fftlen;	/* Minimum fft length for gwsetup to use. */
-	unsigned long num_threads;	/* Number of compute threads to use in multiply routines.  Default is obviously one. */
-	char	hyperthread_prefetching; /* Set to true to launch a separate thread for prefetching.  Caller must set */
-					/* affinity to make sure hyperthread and compute thread share the same physical core. */
+	int	maxmulbyconst;		/* Gwsetup needs to know the maximum value the caller will use in gwsetmulbyconst. */
+					/* The default value is 3, commonly used in a base-3 Fermat PRP test. */
+	unsigned int num_threads;	/* Number of compute threads to use in multiply routines.  Default is obviously one. */
 	char	larger_fftlen_count;	/* Force using larger FFT sizes.  This is a count of how many FFT sizes to "skip over". */
 	char	force_general_mod;	/* 1 = force Montgomery general mod if possible else Barrett, 2 = force Barrett general mod */
 	char	use_irrational_general_mod; /* Force using an irrational FFT when doing a Barrett general mod. */
@@ -1168,6 +1166,7 @@ struct gwhandle_struct {
 	unsigned long num_pass2_blocks; /* Number of data blocks in pass 2 for threads to process */
 	unsigned long num_postfft_blocks; /* Number of data blocks that must delay forward fft because POSTFFT is set. */
 	gwthread *thread_ids;		/* Array of auxiliary thread ids */
+	void	**thread_allocs;	/* Array of ptrs to memory allocated for each auxiliary thread */
 	struct pass1_carry_sections *pass1_carry_sections; /* Array of pass1 sections for carry propagation */
 	int	pass1_carry_sections_unallocated; /* Count of auxiliary threads that have not yet been assigned block to work on */
 	void	*multithread_op_data;	/* Data shared amongst add/sub/addsub/smallmul compute threads */
@@ -1190,6 +1189,8 @@ struct gwhandle_struct {
 	gwhandle *from_radix_gwdata;	/* FFTs used in converting from base b to binary in nonbase2_gwtogiant */
 	gwhandle *cyclic_gwdata;	/* Cyclic FFT used in GENERAL_MOD */
 	gwhandle *negacyclic_gwdata;	/* Negacyclic FFT used in GENERAL_MOD */
+	gwhandle *active_child_gwdata;	/* The cyclic or negacyclic gwdata that is currently active */
+	gwhandle *parent_gwdata;	/* The parent gwdata of the cyclic and negacyclic gwdata */
 };
 
 /* A psuedo declaration for our big numbers.  The actual pointers to */
