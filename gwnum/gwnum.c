@@ -7649,6 +7649,8 @@ void gwiter_init (		/* Init iterator to given element (typically zero) */
 	gwnum	g,		/* gwnum to iterate through */	  
 	uint32_t n)		/* Initial position for the iterator */
 {
+	ASSERTG (n < gwdata->FFTLEN);
+
 	// Init many of the constants by positioning to element zero
 	gwiter_init_zero (gwdata, iter, g); 
 	gwdata = iter->gwdata;
@@ -7754,6 +7756,7 @@ void gwiter_next (		/* Position to next element */
 	gwiter	*iter)		/* Iterator to initialize */
 {
 	gwhandle *gwdata = iter->gwdata;	/* Handle initialized by gwsetup */
+	ASSERTG (iter->index < gwdata->FFTLEN);
 
 	if (++iter->index < gwdata->FFTLEN) {
 
