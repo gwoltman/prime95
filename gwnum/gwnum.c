@@ -12742,7 +12742,7 @@ void gwsmalladd (
 
 			// In rare cases there is no data stored in an FFT word (NUM_B_PER_SMALL_WORD = 0)
 			int32_t maxval = gwiter_is_big_word (&iter) ? maxval2 : maxval1;
-			if (maxval1 == 1) continue;
+			if (maxval == 1) continue;
 
 			// Get the value to add into
 			int32_t	value;
