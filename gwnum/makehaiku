@@ -1,8 +1,12 @@
 # Makefile for  Haiku 32-bit gwnum library
 #
-# updated for p95v3016b1 by Generic Username 3485
+# updated by Karl L. Brennan, aka Generic Username 3485
 #
-# last updated 2023-08-21
+# last updated 2023-10-02
+
+# REMEMBER: setarch x86
+
+# Only tested with v30.18b2b, later versions may require changes.
 
 # dirty workaround for bug in /boot/system/develop/headers/config/HaikuConfig.h:132 (I think) [as of Haiku R1/beta4]:
 # copy /boot/system/develop/headers/posix/arch/x86/* to ./arch, and add -I. to compiler flags.

@@ -1,15 +1,19 @@
 # Makefile for Haiku 32-bit mprime
 #
-# updated for p95v308b15/p95v3014b1/p95v3016b1 by Generic Username 3485
-# requires curl_x86_devel, hwloc2_x86_devel, gmp_x86_devel, and boost1xx_x86_devel
+# updated by Karl L. Brennan, aka Generic Username 3485
+# requires curl_x86_devel, hwloc2_x86_devel, and gmp_x86_devel
 #
-# last updated 2023-08-21
+# last updated 2023-10-02
+
+# REMEMBER: setarch x86
+
+# Only tested with v30.18b2b, later versions may require changes.
 
 CC = gcc
 CFLAGS = -I.. -I../gwnum -O2 -march=i586 -malign-double -std=gnu99 -Wno-unused-result -DPORT=11
 
 CPP = g++
-CPPFLAGS = -I.. -I../gwnum -O2 -march=i586 -malign-double -std=c++11 -Wno-unused-result -DPORT=11
+CPPFLAGS = -I.. -I../gwnum -I../../boost_1_76_0 -O2 -march=i586 -malign-double -std=c++11 -Wno-unused-result -DPORT=11
 
 LFLAGS = -Wl,-M
 #LIBS = ../gwnum/gwnum.a ../gwnum/polymult.a -lm -lpthread -Wl,-Bstatic -lhwloc -Wl,-Bstatic -lcurl -Wl,-Bdynamic -lrt -lstdc++ -ldl -lgmp
