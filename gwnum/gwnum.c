@@ -2696,6 +2696,7 @@ int gwsetup_general_mod_giant (
 	gwdata->EXTRA_BITS = cyclic_gwdata->EXTRA_BITS < negacyclic_gwdata->EXTRA_BITS ? cyclic_gwdata->EXTRA_BITS : negacyclic_gwdata->EXTRA_BITS;
 	cyclic_gwdata->EXTRA_BITS = negacyclic_gwdata->EXTRA_BITS = gwdata->EXTRA_BITS;	// Use common EXTRA_BITS since cyclic results are sent to negacyclic FFTs
 	gwdata->datasize = round_up_to_multiple_of (cyclic_gwdata->datasize + GW_HEADER_SIZE(negacyclic_gwdata), 128) + negacyclic_gwdata->datasize;
+	gwdata->num_threads = intmin (cyclic_gwdata->num_threads, negacyclic_gwdata->num_threads);
 
 /* Pre-compute constants needed for Montgomery-McLaughlin-Gallot-Woltman style multiplication.  In Yves' notation, R=2^n-1 and Q=2^n+1. */
 /* For details see https://www.mersenneforum.org/showthread.php?p=636944 */
@@ -9830,6 +9831,7 @@ int gwtogiant (
 
 /* Set the length */
 
+		ASSERTG (v->maxsize >= (int) (outptr - v->n));
 		v->sign = (int) (outptr - v->n);
 		while (v->sign && v->n[v->sign-1] == 0) v->sign--;
 
