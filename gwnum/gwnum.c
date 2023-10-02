@@ -9792,7 +9792,7 @@ int gwtogiant (
 		accumbits = 0;
 		outptr = v->n;
 		outcarry = 0;
-		for (gwiter_init_zero (gwdata, &iter, gg); ; gwiter_next (&iter)) {
+		for (gwiter_init_zero (gwdata, &iter, gg); ; ) {
 			// Process next FFT word
 			if (gwiter_index (&iter) < limit) {
 				err_code = gwiter_get_fft_value (&iter, &val);
@@ -9801,6 +9801,7 @@ int gwtogiant (
 				if (gwiter_is_big_word (&iter)) bits++;
 				accum += ((int64_t) val) << accumbits;
 				accumbits += bits;
+				gwiter_next (&iter);
 				// See if we have 32-bits to output
 				if (accumbits < 32) continue;
 			}
