@@ -38,7 +38,7 @@ clean:
 distclean: clean
 	rm -f $(LIB) $(POLYOBJS)
 
-polymult_sse2.o: polymult.c polymult.h # "-DSSE2", not "-Dsse2"
+polymult_sse2.o: polymult.c polymult.h
 	$(CC) $(CFLAGS) -DSSE2 -msse2 -c -o polymult_sse2.o polymult.c
 
 polymult_avx.o: polymult.c polymult.h
