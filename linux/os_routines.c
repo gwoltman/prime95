@@ -426,7 +426,7 @@ int LoadPrimeNet (void)
 		}
 	}
 	fclose(fd);
-#elif defined (__FreeBSD__) || defined (__APPLE__) || defined (__WATCOMC__) || defined (__HAIKU__)
+#elif defined (__FreeBSD__) || defined (__APPLE__) || defined (__WATCOMC__) || defined (__HAIKU__) || defined (__EMX__)
 	/* The /proc/net/route test is only really meaningfulunder linux. */
 	/* For other OSes, there doesn't seem to be any meaningful test to see whether the */
 	/* computer is connected to the Internet at the time using a non- */
