@@ -1651,7 +1651,7 @@ void ws_check (
 	gwfree (&ecmdata->gwdata, t2);
 }
 #else
-#define ws_check()
+#define ws_check(a,b)
 #endif
 
 /* Add two Weierstrass points */
@@ -3617,7 +3617,7 @@ oom:	return (OutOfMemory (ecmdata->thread_num));
 
  
 /**************************************************************
- *	Remaining ECM functions 
+ *	Other ECM functions 
  **************************************************************/
 
 /* From R. P. Brent, priv. comm. 1996 and https://eprint.iacr.org/2008/016.pdf section 7.5
