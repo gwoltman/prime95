@@ -1,0 +1,84 @@
+# Makefile for OS/2 32-bit mprime, aka PrimeOS2
+#
+# Created 2023 by Karl L. Brennan, aka Generic Username 3485
+#
+# Requires OS/2 Warp 4 or later with RPM/YUM unix stuff installed.
+#
+# Last updated 2023-10-03
+
+# Only tested with v30.18b2b, later versions may require changes.
+# https://www.mersenneforum.org/showpost.php?p=639579&postcount=10
+
+# [from linux makefile:]
+# Configure hwloc with --enable-static --disable-shared --disable-io
+#              or with --enable-static --disable-shared --disable-pci --disable-cuda --disable-gl --disable-opencl --disable-rsmi --disable-nvml
+
+# [from "compile"]
+# Uasm is a MASM-compatible assembler that is supported much better than MASM.
+# It can be downloaded at http://www.terraspace.co.uk/uasm.html
+# [notes]
+# George Woltman uses Uasm v2.48 https://www.mersenneforum.org/showpost.php?p=639493&postcount=5
+# Uasm v2.48 source: https://github.com/Terraspace/UASM/tree/v2.48_final
+
+# I use the pentium4 architecture for RPM/YUM, it'll be a pain to switch to i686 if necessary, so I'll keep it like this for now.
+
+CC = gcc
+CFLAGS = -Zomf -I.. -I../gwnum -I/usr/local/include -std=gnu99 -Wno-unused-result -march=pentium4 -malign-double -O2 -DPORT=7
+
+CPP = g++
+CPPFLAGS = -Zomf -I.. -I../gwnum -I../../boost_1_76_0 -std=c++11 -Wno-unused-result -march=pentium4 -malign-double -O2 -DPORT=7
+
+LFLAGS = -Zomf -Wl,-L/usr/local/lib
+LIBS = ../gwnum/gwnum_1.a ../gwnum/gwnum_2.a ../gwnum/gwnum_3.a ../gwnum/gwnum_4.a ../gwnum/gwnum_5.a ../gwnum/gwnum_6.a ../gwnum/polymult.a -lm -lpthread -Wl,-Bstatic -lhwloc -Wl,-Bshared -lcurl -lstdc++ -lcx -ldl -lgmp
+
+# If the linker complains about too many symbols, use EMXOMFLD_TYPE=WLINK EMXOMFLD_LINKER=wl.exe
+
+objconv=../../objconv/objconv.exe
+uasm=../../uasm/uasm248.exe -c -omf
+
+FACTOROBJ = factor32.o
+FACTOROBJOMF = factor32.omf
+OS2OBJS   = prime.o menu.o cJSON.o ecm.o exponentiate.o pair.o pm1prob.o
+EXE      = primeos2.exe
+
+#########################################################################
+
+$(EXE): security $(OS2OBJS) $(FACTOROBJOMF)
+	$(CC) $(LFLAGS) -o $(EXE) $(OS2OBJS) $(FACTOROBJOMF) $(LIBS)
+
+security:
+	[ ! -e ../security.h ] && touch ../security.h || true
+	[ ! -e ../security.c ] && touch ../security.c || true
+	[ ! -e ../secure5.c ] && touch ../secure5.c || true
+
+clean:
+	rm -f $(EXE) $(OS2OBJS) $(FACTOROBJOMF)
+
+cJSON.o:
+	$(CC) $(CFLAGS) -c ../cJSON.c
+
+ecm.o:
+	$(CPP) $(CPPFLAGS) -c ../ecm.cpp
+
+exponentiate.o:
+	$(CC) $(CFLAGS) -c ../exponentiate.c
+
+pair.o:
+	$(CPP) $(CPPFLAGS) -c ../pair.cpp
+
+pm1prob.o:
+	$(CC) $(CFLAGS) -c ../pm1prob.c
+
+.c.o:
+	$(CC) $(CFLAGS) -c $<
+
+.cpp.o:
+	$(CPP) $(CPPFLAGS) -c $<
+
+# Create 32-bit object files (copied from "prime95/compile", kinda)
+# (This is a bit hacky, but I haven't gotten it to assemble from source yet.)
+
+factor32.omf:
+	$(objconv) -fomf32 factor32.o factor32.omf
+	# $(uasm) -I../gwnum -Fofactor32.omf ../prime95/factor32.asm
+	# strip factor32.omf
