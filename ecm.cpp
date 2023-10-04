@@ -46,7 +46,13 @@ std::reverse_iterator<Iterator> make_reverse_iterator(Iterator i)
 }
 }
 
-/* Forward declaration for a structure used to track a Montgomery ECM point -- needed for Dmultiple class */
+/* Forward declarations for structures used to track a Weierstrass, Edwards, and Montgomery ECM point -- needed for Dmultiple class and ecm handle */
+
+struct ws {
+	gwnum	x;		/* x or FFT(x) */
+	gwnum	y;		/* y or FFT(y) */
+	gwnum	z;		/* z or FFT(z) */
+};
 
 struct xz {
 	gwnum	x;		/* x or FFT(x) */
@@ -1574,9 +1580,286 @@ void ecm_cleanup (
 	gwdone (&ecmdata->gwdata);
 }
 
-/**********************************************************************************************************************/
-/*                                Manage buffers for a Montgomery ECM point                                           */
-/**********************************************************************************************************************/
+/**************************************************************
+ *	Weierstrass ECM Functions
+ **************************************************************/
+
+/* This routine initializes an ws struct with three allocated gwnums */
+
+bool ws_alloc (			/* Returns TRUE if successful */
+	ecmhandle *ecmdata,
+	struct ws *arg)
+{
+	arg->x = gwalloc (&ecmdata->gwdata);
+	if (arg->x == NULL) return (FALSE);
+	arg->y = gwalloc (&ecmdata->gwdata);
+	if (arg->y == NULL) return (FALSE);
+	arg->z = gwalloc (&ecmdata->gwdata);
+	if (arg->z == NULL) return (FALSE);
+	return (TRUE);
+}
+
+/* This routine cleans up an xz pair with two allocated gwnums */
+
+void ws_free (
+	ecmhandle *ecmdata,
+	struct ws *arg)
+{
+	gwfree (&ecmdata->gwdata, arg->x); arg->x = NULL;
+	gwfree (&ecmdata->gwdata, arg->y); arg->y = NULL;
+	gwfree (&ecmdata->gwdata, arg->z); arg->z = NULL;
+}
+
+/* Verify a point is on the elliptic curve */
+
+#ifdef GDEBUG
+void ws_check (
+	ecmhandle *ecmdata,
+	struct ws *in)
+{
+	gwnum	t0, t1, t2;
+	int	a = -8;
+	int	b = -32;
+
+	t0 = gwalloc (&ecmdata->gwdata);
+	t1 = gwalloc (&ecmdata->gwdata);
+	t2 = gwalloc (&ecmdata->gwdata);
+
+	// Verify Y^2Z = X^3 + aXZ^2 + bZ^3
+
+	gwmul3 (&ecmdata->gwdata, in->y, in->y, t0, 0);			// t0 = Y * Y
+	gwmul3 (&ecmdata->gwdata, t0, in->z, t0, 0);			// t0 *= Z
+	gwmul3 (&ecmdata->gwdata, in->x, in->x, t1, 0);			// t1 = X * X
+	gwmul3 (&ecmdata->gwdata, t1, in->x, t1, 0);			// t1 *= X
+	gwmul3 (&ecmdata->gwdata, in->x, in->z, t2, 0);			// t2 = X * Z
+	gwmul3 (&ecmdata->gwdata, t2, in->z, t2, 0);			// t2 *= Z
+	gwsmallmul (&ecmdata->gwdata, a, t2);				// t2 *= a
+	gwadd3 (&ecmdata->gwdata, t1, t2, t1);				// t1 = t1 + t2
+	gwmul3 (&ecmdata->gwdata, in->z, in->z, t2, 0);			// t2 = Z * Z
+	gwmul3 (&ecmdata->gwdata, t2, in->z, t2, 0);			// t2 *= Z
+	gwsmallmul (&ecmdata->gwdata, b, t2);				// t2 *= b
+	gwadd3 (&ecmdata->gwdata, t1, t2, t1);				// t1 = t1 + t2
+	gwsub3 (&ecmdata->gwdata, t0, t1, t0);				// t0 = t0 - t1, should be zero
+
+	giant tmp = popg (&ecmdata->gwdata.gdata, ((unsigned long) ecmdata->gwdata.bit_length >> 5) + 5);
+	gwtogiant (&ecmdata->gwdata, t0, tmp);
+	ASSERTG (tmp->sign == 0);
+	pushg (&ecmdata->gwdata.gdata, 1);
+
+	gwfree (&ecmdata->gwdata, t0);
+	gwfree (&ecmdata->gwdata, t1);
+	gwfree (&ecmdata->gwdata, t2);
+}
+#else
+#define ws_check()
+#endif
+
+/* Add two Weierstrass points */
+/* For our purposes, speed is not critical.  This is only used during Atkin-Morain contruction of an Edwards curve. */
+
+void ws_add (
+	ecmhandle *ecmdata,
+	struct ws *in0,
+	struct ws *in1,
+	struct ws *out)
+{
+//	int	a = -8;
+//	int	b = -32;
+
+// From https://www.nayuki.io/page/elliptic-curve-point-addition-in-projective-coordinates
+// Let T0 = Y0Z1
+// Let T1 = Y1Z0
+// Let T = T0−T1
+// Let U0 = X0Z1
+// Let U1 = X1Z0
+// Let U = U0−U1
+// Let U2 = U^2
+// Let V = Z0Z1
+// Let W = T^2V − U2(U0+U1)
+// Let U3 = UU2
+// X2 = UW
+// Y2 = T(U0U2−W)−T0U3
+// Z2 = U3V
+
+	gwnum	T0, T1, T, U0, U1, U, U2, V, W, t0, U3;
+	T0 = gwalloc (&ecmdata->gwdata);
+	T1 = gwalloc (&ecmdata->gwdata);
+	U0 = gwalloc (&ecmdata->gwdata);
+	U1 = gwalloc (&ecmdata->gwdata);
+	U = gwalloc (&ecmdata->gwdata);
+	U2 = gwalloc (&ecmdata->gwdata);
+	V = gwalloc (&ecmdata->gwdata);
+	W = gwalloc (&ecmdata->gwdata);
+	t0 = gwalloc (&ecmdata->gwdata);
+
+	gwmul3 (&ecmdata->gwdata, in0->y, in1->z, T0, 0);		// T0 = Y0 * Z1
+	gwmul3 (&ecmdata->gwdata, in1->y, in0->z, T1, 0);		// T1 = Y1 * Z0
+	gwsub3 (&ecmdata->gwdata, T0, T1, T = T1);			// T = T0 - T1		last use of T1
+
+	gwmul3 (&ecmdata->gwdata, in0->x, in1->z, U0, 0);		// U0 = X0 * Z1
+	gwmul3 (&ecmdata->gwdata, in1->x, in0->z, U1, 0);		// U1 = X1 * Z0
+	gwsub3 (&ecmdata->gwdata, U0, U1, U);				// U = U0 - U1
+
+	gwmul3 (&ecmdata->gwdata, U, U, U2, 0);				// U2 = U^2
+
+	gwmul3 (&ecmdata->gwdata, in0->z, in1->z, V, 0);		// V = Z0 * Z1
+
+	gwmul3 (&ecmdata->gwdata, T, T, W, 0);				// W = T^2
+	gwmul3 (&ecmdata->gwdata, W, V, W, 0);				// W *= V
+	gwadd3 (&ecmdata->gwdata, U0, U1, t0);				// t0 = U0 + U1		last use of U1
+	gwmul3 (&ecmdata->gwdata, U2, t0, t0, 0);			// t0 = U2 * t0
+	gwsub3 (&ecmdata->gwdata, W, t0, W);				// W -= t0
+
+	gwmul3 (&ecmdata->gwdata, U, U2, U3 = U1, 0);			// U3 = U * U2
+
+	gwmul3 (&ecmdata->gwdata, U, W, out->x, 0);			// X2 = U * W
+
+	gwmul3 (&ecmdata->gwdata, T0, U3, out->y, 0);			// Y2 = T0 * U3
+	gwmul3 (&ecmdata->gwdata, U0, U2, t0, 0);			// t0 = U0 * U2
+	gwsub3 (&ecmdata->gwdata, t0, W, t0);				// t0 -= W
+	gwmul3 (&ecmdata->gwdata, T, t0, t0, 0);			// t0 = T * t0
+	gwsub3 (&ecmdata->gwdata, t0, out->y, out->y);			// Y2 = t0 - Y2
+
+	gwmul3 (&ecmdata->gwdata, U3, V, out->z, 0);			// Z2 = U3 * V
+
+	gwfree (&ecmdata->gwdata, T0);
+	gwfree (&ecmdata->gwdata, T1);
+	gwfree (&ecmdata->gwdata, U0);
+	gwfree (&ecmdata->gwdata, U1);
+	gwfree (&ecmdata->gwdata, U);
+	gwfree (&ecmdata->gwdata, U2);
+	gwfree (&ecmdata->gwdata, V);
+	gwfree (&ecmdata->gwdata, W);
+	gwfree (&ecmdata->gwdata, t0);
+
+	ws_check (ecmdata, out);
+}
+
+/* Double a Weierstrass point */
+/* For our purposes, speed is not critical.  This is only used during Atkin-Morain contruction of an Edwards curve. */
+
+void ws_dbl (
+	ecmhandle *ecmdata,
+	struct ws *in,
+	struct ws *out)
+{
+	int	a = -8;
+//	int	b = -32;
+
+// From https://www.nayuki.io/page/elliptic-curve-point-addition-in-projective-coordinates
+// Let T = 3X^2 + aZ^2
+// Let U = 2YZ
+// Let V = 2UXY
+// Let W = T^2 − 2V
+// X2 = UW
+// Y2 = T(V−W)−2(UY)^2
+// Z2 = U^3
+
+	gwnum	T, U, V, W, t0;
+	T = gwalloc (&ecmdata->gwdata);
+	U = gwalloc (&ecmdata->gwdata);
+	V = gwalloc (&ecmdata->gwdata);
+	W = gwalloc (&ecmdata->gwdata);
+	t0 = gwalloc (&ecmdata->gwdata);
+
+	gwsetmulbyconst (&ecmdata->gwdata, 3);
+	gwmul3 (&ecmdata->gwdata, in->x, in->x, T, GWMUL_MULBYCONST);				// T = X^2
+	gwmul3 (&ecmdata->gwdata, in->z, in->z, t0, 0);						// t0 = Z^2
+	gwsmallmul (&ecmdata->gwdata, a, t0);							// t0 *= a
+	gwadd3 (&ecmdata->gwdata, T, t0, T);							// T += t0
+
+	gwsetmulbyconst (&ecmdata->gwdata, 2);
+	gwmul3 (&ecmdata->gwdata, in->y, in->z, U, GWMUL_MULBYCONST);				// U = Y * Z * 2
+
+	gwmul3 (&ecmdata->gwdata, in->x, in->y, V, GWMUL_MULBYCONST);				// V = X * Y * 2
+	gwmul3 (&ecmdata->gwdata, V, U, V, 0);							// V *= U
+
+	gwmul3 (&ecmdata->gwdata, T, T, W, 0);							// W = T^2
+	gwsub3 (&ecmdata->gwdata, W, V, W);							// W -= V
+	gwsub3 (&ecmdata->gwdata, W, V, W);							// W -= V
+
+	gwmul3 (&ecmdata->gwdata, U, W, out->x, 0);						// X2 = U * W
+
+	gwmul3 (&ecmdata->gwdata, U, in->y, out->y, 0);						// Y2 = U * Y
+	gwmul3 (&ecmdata->gwdata, out->y, out->y, out->y, GWMUL_MULBYCONST);			// Y2 = 2(Y2)^2
+	gwsub3 (&ecmdata->gwdata, V, W, t0);							// t0 = V - W
+	gwmul3 (&ecmdata->gwdata, T, t0, t0, 0);						// t0 = T * t0
+	gwsub3 (&ecmdata->gwdata, t0, out->y, out->y);						// Y2 = t0 - Y2
+
+	gwmul3 (&ecmdata->gwdata, U, U, out->z, 0);						// Z2 = U * U
+	gwmul3 (&ecmdata->gwdata, out->z, U, out->z, 0);					// Z2 *= U
+
+	gwfree (&ecmdata->gwdata, T);
+	gwfree (&ecmdata->gwdata, U);
+	gwfree (&ecmdata->gwdata, V);
+	gwfree (&ecmdata->gwdata, W);
+	gwfree (&ecmdata->gwdata, t0);
+
+	ws_check (ecmdata, out);
+}
+
+/* Multiply a Weierstrass point by n */
+
+void ws_mul (
+	ecmhandle *ecmdata,
+	struct ws *arg,
+	uint64_t n)
+{
+	struct ws orig;
+
+	// Copy the input arg for later additions
+	ws_alloc (ecmdata, &orig);
+	gwcopy (&ecmdata->gwdata, arg->x, orig.x);
+	gwcopy (&ecmdata->gwdata, arg->y, orig.y);
+	gwcopy (&ecmdata->gwdata, arg->z, orig.z);
+
+	// Find the topmost bit in power
+	uint64_t current_bit;
+	for (current_bit = 0x8000000000000000ULL; n < current_bit; current_bit >>= 1);
+
+	// Exponentiate
+	for (current_bit >>= 1; current_bit; current_bit >>= 1) {
+		ws_dbl (ecmdata, arg, arg);
+		if (n & current_bit) ws_add (ecmdata, arg, &orig, arg);
+	}
+
+	// Free allocated memory
+	ws_free (ecmdata, &orig);
+}
+
+/**************************************************************
+ *	Edwards ECM Functions
+ **************************************************************/
+
+void choose_atkin_morain (
+	ecmhandle *ecmdata)
+{
+	struct ws w;
+
+	ws_alloc (ecmdata, &w);
+	u64togw (&ecmdata->gwdata, 12, w.x);
+	u64togw (&ecmdata->gwdata, 40, w.y);
+	u64togw (&ecmdata->gwdata, 1, w.z);
+
+	ws_mul (ecmdata, &w, ecmdata->sigma);
+
+#ifdef XXXXX
+	normalize w.x and w.y;
+
+	Define α = ((t + 25)/(s − 9) + 1)−1, β = 2α(4α + 1)/(8α2 − 1),
+c = (2β − 1)(β − 1)/β, and b = βc. 
+Define d = (2(2β − 1)2 − 1)/(2β − 1)4. Then the
+Edwards curve x2 + y2 = 1 + dx2y2 has torsion group isomorphic to Z/2Z × Z/8Z
+and a point (x1, y1) with x1 = (2β − 1)(4β − 3)/(6β − 5) and y1 = (2β − 1)(t2 +
+		50t − 2s3 + 27s2 − 104)/((t + 3s − 2)(t + s + 16)).
+#endif
+
+	ws_free (ecmdata, &w);
+}
+
+/**************************************************************
+ *	Montgomery ECM Functions
+ **************************************************************/
 
 /* This routine initializes an xz pair with two allocated gwnums */
 
@@ -1604,10 +1887,6 @@ __inline void free_xz (
 /* Macro to swap to xz structs */
 
 #define xzswap(a,b)	{ struct xz t; t = a; a = b; b = t; }
-
-/**************************************************************
- *	ECM Functions
- **************************************************************/
 
 /* Computes 2P=(out.x:out.z) from P=(in.x:in.z), uses the global variable Ad4. */
 /* Input arguments may be in FFTed state.  Out argument can be same as input argument. */
@@ -2148,6 +2427,10 @@ int ell_mul (
 	}
 	return (0);
 }
+
+/**************************************************************
+ *	Modular inverse functions 
+ **************************************************************/
 
 /* Computes the modular inverse of a number.  This is done using the */
 /* extended GCD algorithm.  If a factor is accidentally found, it is */
@@ -3333,6 +3616,10 @@ oom:	return (OutOfMemory (ecmdata->thread_num));
 }
 
  
+/**************************************************************
+ *	Remaining ECM functions 
+ **************************************************************/
+
 /* From R. P. Brent, priv. comm. 1996 and https://eprint.iacr.org/2008/016.pdf section 7.5
 Let s > 5 be a pseudo-random seed (called $\sigma$ in the Tech. Report),
 
@@ -11145,7 +11432,7 @@ OutputStr (thread_num, buf); }
 |		Volume 54, number 190
 |		April 1990, pages 839-854
 |	as well as
-|		IMPROVED STAGE 2 TO P�1 FACTORING ALGORITHMS
+|		IMPROVED STAGE 2 TO P±1 FACTORING ALGORITHMS
 |		by Montgomery & Kruppa
 |		2008, inria-00188192v3
 |		https://hal.inria.fr/inria-00188192v3/document
