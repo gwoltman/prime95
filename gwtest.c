@@ -942,14 +942,18 @@ void test_it (
 /* Test gwmul3, gwmul4 where there are 2 destinations */
 
 	gwfft (gwdata, x, x2);
+	ASSERTG (FFT_state(x) != FULLY_FFTed);
 	gwsquare2 (gwdata, x, x3, GWMUL_FFT_S1);
+	ASSERTG (FFT_state(x) == FULLY_FFTed);
 	gwsquare2 (gwdata, x, x, 0);
 	squaregi (&gwdata->gdata, g); specialmodg (gwdata, g);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "gwsquare2 two dest #1");
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x3, g, "gwsquare2 two dest #2");
 
 	gwfft (gwdata, x, x2);
+	ASSERTG (FFT_state(x) != FULLY_FFTed);
 	gwmul3 (gwdata, x, x2, x3, GWMUL_FFT_S1 | GWMUL_FFT_S2);
+	ASSERTG (FFT_state(x) == FULLY_FFTed);
 	gwmul3 (gwdata, x, x, x, 0);
 	squaregi (&gwdata->gdata, g); specialmodg (gwdata, g);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "gwmul3 two dest #1");
