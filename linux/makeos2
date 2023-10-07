@@ -4,10 +4,9 @@
 #
 # Requires OS/2 Warp 4 or later with RPM/YUM unix stuff installed.
 #
-# Last updated 2023-10-03
+# Last updated 2023-10-07
 
-# Only tested with v30.18b2b, later versions may require changes.
-# https://www.mersenneforum.org/showpost.php?p=639579&postcount=10
+# Only tested with v30.18b2, later versions may require changes.
 
 # [from linux makefile:]
 # Configure hwloc with --enable-static --disable-shared --disable-io
@@ -23,12 +22,12 @@
 # I use the pentium4 architecture for RPM/YUM, it'll be a pain to switch to i686 if necessary, so I'll keep it like this for now.
 
 CC = gcc
-CFLAGS = -Zomf -I.. -I../gwnum -I/usr/local/include -std=gnu99 -Wno-unused-result -march=pentium4 -malign-double -O2 -DPORT=7
+CFLAGS = -Zomf -Zbin-files -I.. -I../gwnum -I/usr/local/include -std=gnu99 -Wno-unused-result -march=pentium4 -malign-double -O2 -DPORT=7
 
 CPP = g++
-CPPFLAGS = -Zomf -I.. -I../gwnum -I../../boost_1_76_0 -std=c++11 -Wno-unused-result -march=pentium4 -malign-double -O2 -DPORT=7
+CPPFLAGS = -Zomf -Zbin-files -I.. -I../gwnum -I../../boost_1_76_0 -std=c++11 -Wno-unused-result -march=pentium4 -malign-double -O2 -DPORT=7
 
-LFLAGS = -Zomf -Wl,-L/usr/local/lib
+LFLAGS = -Zomf -Zbin-files -Wl,-L/usr/local/lib
 LIBS = ../gwnum/gwnum_1.a ../gwnum/gwnum_2.a ../gwnum/gwnum_3.a ../gwnum/gwnum_4.a ../gwnum/gwnum_5.a ../gwnum/gwnum_6.a ../gwnum/polymult.a -lm -lpthread -Wl,-Bstatic -lhwloc -Wl,-Bshared -lcurl -lstdc++ -lcx -ldl -lgmp
 
 # If the linker complains about too many symbols, use EMXOMFLD_TYPE=WLINK EMXOMFLD_LINKER=wl.exe
