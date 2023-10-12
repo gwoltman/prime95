@@ -2645,30 +2645,28 @@ int gwsetup_general_mod_giant (
 		return (gwsetup_general_Barrett_mod_giant (gwdata, N, d));
 	}
 
-	// Allocate and init the two internal gwdatas (cyclic and  negacyclic)
-	if (!gwdata->information_only) {
-		gwdata->cyclic_gwdata = cyclic_gwdata = (gwhandle *) malloc (sizeof (gwhandle));
-		gwdata->negacyclic_gwdata = negacyclic_gwdata = (gwhandle *) malloc (sizeof (gwhandle));
-		if (cyclic_gwdata == NULL || negacyclic_gwdata == NULL) {
-			gwdone (gwdata);
-			return (GWERROR_MALLOC);
-		}
-		memcpy (cyclic_gwdata, gwdata, sizeof (gwhandle));
-		memcpy (negacyclic_gwdata, gwdata, sizeof (gwhandle));
-		cyclic_gwdata->GW_MODULUS = negacyclic_gwdata->GW_MODULUS = NULL;
-		cyclic_gwdata->parent_gwdata = negacyclic_gwdata->parent_gwdata = gwdata;
-
-		// Now setup the cyclic and negacyclic FFT assembly code
-		error_code = internal_gwsetup (cyclic_gwdata, 1.0, 2, n, -1);
-		if (error_code) return (error_code);
-		error_code = internal_gwsetup (negacyclic_gwdata, 1.0, 2, n, 1);
-		if (error_code) return (error_code);
-		ASSERTG (cyclic_gwdata->FFTLEN == fftlen && negacyclic_gwdata->FFTLEN == fftlen);
-		ASSERTG (fftlen == 32 || addr_offset (cyclic_gwdata, fftlen/2-17) == addr_offset (negacyclic_gwdata, fftlen/2-17));
-		ASSERTG (addr_offset (cyclic_gwdata, fftlen/2+13) == addr_offset (negacyclic_gwdata, fftlen/2+13));
-		ASSERTG (cyclic_gwdata->PASS2_SIZE == negacyclic_gwdata->PASS2_SIZE);
-		ASSERTG (cyclic_gwdata->num_threads == negacyclic_gwdata->num_threads);
+	// Allocate and init the two internal gwdatas (cyclic and negacyclic).  We must do this even if information_only is set or fft_description won't work.
+	gwdata->cyclic_gwdata = cyclic_gwdata = (gwhandle *) malloc (sizeof (gwhandle));
+	gwdata->negacyclic_gwdata = negacyclic_gwdata = (gwhandle *) malloc (sizeof (gwhandle));
+	if (cyclic_gwdata == NULL || negacyclic_gwdata == NULL) {
+		gwdone (gwdata);
+		return (GWERROR_MALLOC);
 	}
+	memcpy (cyclic_gwdata, gwdata, sizeof (gwhandle));
+	memcpy (negacyclic_gwdata, gwdata, sizeof (gwhandle));
+	cyclic_gwdata->GW_MODULUS = negacyclic_gwdata->GW_MODULUS = NULL;
+	cyclic_gwdata->parent_gwdata = negacyclic_gwdata->parent_gwdata = gwdata;
+
+	// Now setup the cyclic and negacyclic FFT assembly code
+	error_code = internal_gwsetup (cyclic_gwdata, 1.0, 2, n, -1);
+	if (error_code) return (error_code);
+	error_code = internal_gwsetup (negacyclic_gwdata, 1.0, 2, n, 1);
+	if (error_code) return (error_code);
+	ASSERTG (cyclic_gwdata->FFTLEN == fftlen && negacyclic_gwdata->FFTLEN == fftlen);
+	ASSERTG (fftlen == 32 || addr_offset (cyclic_gwdata, fftlen/2-17) == addr_offset (negacyclic_gwdata, fftlen/2-17));
+	ASSERTG (addr_offset (cyclic_gwdata, fftlen/2+13) == addr_offset (negacyclic_gwdata, fftlen/2+13));
+	ASSERTG (cyclic_gwdata->PASS2_SIZE == negacyclic_gwdata->PASS2_SIZE);
+	ASSERTG (cyclic_gwdata->num_threads == negacyclic_gwdata->num_threads);
 
 /* Restore saved settings */
 
@@ -8744,10 +8742,14 @@ void gwsetmulbyconst (
 	struct gwasm_data *asm_data;
 	double	ktimesval, big_word;
 
+/* If mul-by-const is already set, return */
+
+	if (gwdata->mulbyconst == val) return;
+	gwdata->mulbyconst = (int) val;
+
 /* MMGW reduction requires twice the work */
 
 	if (gwdata->GENERAL_MMGW_MOD) {
-		gwdata->mulbyconst = (int) val;
 		gwsetmulbyconst (gwdata->cyclic_gwdata, val);
 		gwsetmulbyconst (gwdata->negacyclic_gwdata, val);
 		return;
@@ -8755,7 +8757,6 @@ void gwsetmulbyconst (
 
 /* Perform common computations */
 
-	gwdata->mulbyconst = (int) val;
 	asm_data = (struct gwasm_data *) gwdata->asm_data;
 	ktimesval = gwdata->k * (double) val;
 	big_word = pow ((double) gwdata->b, gwdata->NUM_B_PER_SMALL_WORD + 1);
