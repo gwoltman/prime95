@@ -765,6 +765,9 @@ void test_it (
 	squaregi (&gwdata->gdata, g);
 	specialmodg (gwdata, g);
 	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "unfft2");
+	gwfft_for_fma (gwdata, x, x);
+	gwunfft (gwdata, x, x);
+	if (CHECK_OFTEN) compare_with_text (thread_num, gwdata, x, g, "unfft3");
 
 /* Test gwaddquick, gwsubquick */
 

@@ -1,4 +1,4 @@
-; Copyright 2011-2022 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2023 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -949,13 +949,13 @@ mulsub:	vsubpd	xmm0, xmm0, xmm7		;; Subtract the addins
 	vsubpd	xmm6, xmm6, xmm13
 	jmp	short done
 
-unfft:	vsubsd	xmm0, xmm0, xmm0		;; Copy the ZPADs (mul by 1)
-	vsubsd	xmm1, xmm1, xmm1
-	vsubsd	xmm2, xmm2, xmm2
-	vsubsd	xmm3, xmm3, xmm3
-	vsubsd	xmm4, xmm4, xmm4
-	vsubsd	xmm5, xmm5, xmm5
-	vsubsd	xmm6, xmm6, xmm6
+unfft:	vmovsd	xmm0, xmm1, xmm1		;; Copy the ZPADs (mul by 1)
+	vmovsd	xmm1, xmm2, xmm2
+	vmovsd	xmm2, xmm3, xmm3
+	vmovsd	xmm3, xmm4, xmm4
+	vmovsd	xmm4, xmm5, xmm5
+	vmovsd	xmm5, xmm6, xmm6
+	vmovsd	xmm6, xmm7, xmm7
 	;;jmp	short done
 
 done:	vmovsd	ZPAD0, xmm0			;; Save the zero-pad adjustments
