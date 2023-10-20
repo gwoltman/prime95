@@ -8862,7 +8862,7 @@ void gwsetmulbyconst (
 }
 
 /* Add a small constant at the specified power of b after the next multiplication. */
-/* That is, value*b^power_of_b is added to the next multiplication result.  This only works if k=1. */
+/* That is, value*b^power_of_b is added to the next multiplication result.  This only works if k=1.  Not compatible with postaddin. */
 
 void gwsetaddinatpowerofb (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -8932,11 +8932,11 @@ void gwsetaddin (
 		return;
 	}
 
-/* If value is a multiple of b, "shift" it right and increment b count.  This */
-/* will ensure that we modify the proper FFT word. */
-
-	for (b_in_word = 0; value && value % (long) gwdata->b == 0; value = value / (long) gwdata->b)
-		b_in_word++;
+/* If value is a multiple of b, "shift" it right and increment b count.  This will ensure that we modify the proper FFT word. */
+// DEPRECATED.  Since addin_value and postaddin_value share the same addin_row and addin_offset, we must make sure that either
+// both are shifted equally.  Example: AVX-512 6583*4^9534-1 fails QA.  The easiest fix is to shift neither value.
+	// for (b_in_word = 0; value && value % (long) gwdata->b == 0; value = value / (long) gwdata->b) b_in_word++;
+	b_in_word = 0;
 
 /* Convert the input value to 1/k format.  Case 1 (k*b^n-1): Inverse of k is b^n. */
 /* Case 3 (k*b^n+1): Inverse of k is -b^n.  No other cases can be handled. */
@@ -9002,9 +9002,11 @@ void gwsetpostmulbyconstaddin (
 /* If value is a multiple of b, "shift" it right and increment b count.  This will ensure that we modify the proper FFT word. */
 
 	else {
-		unsigned long word, b_in_word;
-		for (b_in_word = 0; value && value % (long) gwdata->b == 0; value = value / (long) gwdata->b)
-			b_in_word++;
+		unsigned long word, b_in_word = 0;
+		// DEPRECATED.  Since addin_value and postaddin_value share the same addin_row and addin_offset, we must make sure that either
+		// both are shifted equally.  Example: AVX-512 6583*4^9534-1 fails QA.  The easiest fix is to shift neither value.
+		// for (b_in_word = 0; value && value % (long) gwdata->b == 0; value = value / (long) gwdata->b)
+		//	b_in_word++;
 
 /* Convert the input value to 1/k format.  Case 1 (k*b^n-1): Inverse of k is b^n. */
 /* Case 3 (k*b^n+1): Inverse of k is -b^n.  No other cases can be handled. */
