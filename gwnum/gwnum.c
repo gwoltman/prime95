@@ -10443,6 +10443,7 @@ void gwunfft2 (
 			else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->ERROR_CHECKING];
 			asm_data->mul4_opcode = 5;
 			asm_data->DEST2ARG = 0;
+			asm_data->SRC3ARG = (void *) 1;			// Indicate this gwnum is not FFTed_FOR_FMA
 			if (FFT_state (s) == FULLY_FFTed) asm_data->ffttype = 4;
 			else asm_data->ffttype = 3;
 			asm_mul (gwdata, s, s, d, options);
@@ -10487,6 +10488,7 @@ void gwunfft2 (
 			else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->ERROR_CHECKING];
 			asm_data->mul4_opcode = 5;
 			asm_data->DEST2ARG = 0;
+			asm_data->SRC3ARG = (void *) 2;			// Indicate this gwnum is FFTed_FOR_FMA
 			asm_data->ffttype = 4;
 			asm_mul (gwdata, s, s, d, options);
 			gwdata->read_count += 2, gwdata->write_count += 2;
