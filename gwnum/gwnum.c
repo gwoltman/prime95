@@ -10237,23 +10237,32 @@ void raw_gwmul3 (
 			}
 		}
 
-/* Handle multiplication.  The s2 argument must be FFTed prior to calling the assembly code.  However, the assembly */
-/* code can FFT s1 and save the result while storing the result of the multiply in a different destination. */
-/* Decide which of s1 and s2 is better suited to being s2. */
+/* Handle multiplication.  The s2 argument must be FFTed prior to calling the assembly code.  The assembly code can FFT s1 and save the result while */
+/* storing the result of the multiply in a different destination.  Decide which of s1 and s2 is better suited to being s2.  If GWMUL_FFT_S1 or GWMUL_FFT_S2 */
+/* is set, it is better to make that s2 using gwfft -- that saves one write because asm_mul will not need to write to teo destinations. */
 
 		else {
-			if (FFT_state (s2) == FULLY_FFTed);				// s2 is already a great choice for 2nd argument
-			else if (FFT_state (s1) == FULLY_FFTed) { swaps1s2 (); }	// s1 is the better choice for 2nd arg
-			else if (s1 == d);						// If a not-FFTed-source = d, it's best for s1 to equal d
-			else if (s2 == d) { swaps1s2 (); }				// If a not-FFTed-source = d, it's best for s1 to equal d
-			else if (options & GWMUL_FFT_S1);				// Have asm code FFT s1 and save result
-			else if (options & GWMUL_FFT_S2) { swaps1s2 (); }		// Have asm code FFT s2 and save result
-			// Neither source is already FFTed or must be FFTed.  We have a choice -- next preference is scratch variables
-			else if	(!(options & GWMUL_PRESERVE_S2));			// s2 need not be preserved, overwrite it with FFT
-			else if	(!(options & GWMUL_PRESERVE_S1)) { swaps1s2 (); }	// s1 need not be preserved, overwrite it with FFT
-			// Ugh, both must be preserved, a temporary will be required
+			gwnum	preferred_s1;		// Which source should be src1 in asm_mul, other source will be src2 and FFTed by gwfft
 
-			// Make sure s2 is FFTed.
+			// If a source is already FFTed that makes it perfect for s2
+			if (FFT_state (s2) == FULLY_FFTed) preferred_s1 = s1;
+			else if (FFT_state (s1) == FULLY_FFTed) preferred_s1 = s2;
+			// If a source is also dest, that source must be FFTed by asm_mul.
+			else if (s1 == d) preferred_s1 = s1;
+			else if (s2 == d) preferred_s1 = s2;
+			// If a source must be preserved make that s1 (saves a temporary and maybe a write)
+			else if	(options & GWMUL_PRESERVE_S1) preferred_s1 = s1;
+			else if	(options & GWMUL_PRESERVE_S2) preferred_s1 = s2;
+			// If a source does not need the FFT saved, make that s1 (maybe saves a write)
+			else if (!(options & GWMUL_FFT_S1)) preferred_s1 = s1;
+			else if (!(options & GWMUL_FFT_S2)) preferred_s1 = s2;
+			// No preference which source is s1
+			else preferred_s1 = s1;
+
+			// Swap sources if necessary
+			if (preferred_s1 == s2) swaps1s2 ();
+
+			// Make sure s2 is FFTed
 			if (FFT_state (s2) != FULLY_FFTed) {
 				if (options & GWMUL_PRESERVE_S2) { tmp = gwalloc (gwdata); gwfft (gwdata, s2, tmp); s2 = tmp; }
 				else gwfft (gwdata, s2, s2);
@@ -10909,16 +10918,25 @@ void cmn_gwmulmulop5 (		/* Calculate (s1 * s2) op (s3 * s4) */
 /* Decide which of s1 and s2 is better suited to being s2. */
 
 		else {
-			if (FFT_state (s2) == FULLY_FFTed);				// s2 is already a great choice for 2nd argument
-			else if (FFT_state (s1) == FULLY_FFTed) { swaps1s2 (); }	// s1 is the better choice for 2nd arg
-			else if (s1 == d);						// If a not-FFTed-source = d, it's best for s1 to equal d
-			else if (s2 == d) { swaps1s2 (); }				// If a not-FFTed-source = d, it's best for s1 to equal d
-			else if (options & GWMUL_FFT_S1);				// Have asm code FFT s1 and save result
-			else if (options & GWMUL_FFT_S2) { swaps1s2 (); }		// Have asm code FFT s2 and save result
-			// Neither source is already FFTed or must be FFTed.  We have a choice -- next preference is scratch variables
-			else if	(!(options & GWMUL_PRESERVE_S2));			// s2 need not be preserved, overwrite it with FFT
-			else if	(!(options & GWMUL_PRESERVE_S1)) { swaps1s2 (); }	// s1 need not be preserved, overwrite it with FFT
-			// Ugh, both must be preserved, a temporary will be required
+			gwnum	preferred_s1;		// Which source should be src1 in asm_mul, other source will be src2 and FFTed by gwfft
+
+			// If a source is already FFTed that makes it perfect for s2
+			if (FFT_state (s2) == FULLY_FFTed) preferred_s1 = s1;
+			else if (FFT_state (s1) == FULLY_FFTed) preferred_s1 = s2;
+			// If a source is also dest, that source must be FFTed by asm_mul.
+			else if (s1 == d) preferred_s1 = s1;
+			else if (s2 == d) preferred_s1 = s2;
+			// If a source must be preserved make that s1 (saves a temporary and maybe a write)
+			else if	(options & GWMUL_PRESERVE_S1) preferred_s1 = s1;
+			else if	(options & GWMUL_PRESERVE_S2) preferred_s1 = s2;
+			// If a source does not need the FFT saved, make that s1 (maybe saves a write)
+			else if (!(options & GWMUL_FFT_S1)) preferred_s1 = s1;
+			else if (!(options & GWMUL_FFT_S2)) preferred_s1 = s2;
+			// No preference which source is s1
+			else preferred_s1 = s1;
+
+			// Swap sources if necessary
+			if (preferred_s1 == s2) swaps1s2 ();
 
 			// Make sure s2 is FFTed.
 			if (FFT_state (s2) != FULLY_FFTed) {
@@ -10965,7 +10983,7 @@ void cmn_gwmulmulop5 (		/* Calculate (s1 * s2) op (s3 * s4) */
 
 		if (asm_data->ffttype == 2) gwdata->read_count += 4, gwdata->write_count += 2;
 		else gwdata->read_count += 5, gwdata->write_count += 2;
-		if (s1 == s3 || s1 == s3 || s1 == s4) gwdata->read_count -= 1;
+		if (s1 == s3 || s1 == s4) gwdata->read_count -= 1;
 		if (s2 == s3 || s2 == s4) gwdata->read_count -= 1;
 		if (s3 == s4) gwdata->read_count -= 1;
 		if (asm_data->DEST2ARG) gwdata->write_count += 1;
@@ -11166,16 +11184,25 @@ void cmn_gwmulop4 (		/* Calculate (s1 * s2) op s3 */
 /* Decide which of s1 and s2 is better suited to being s2. */
 
 		else {
-			if (FFT_state (s2) == FULLY_FFTed);				// s2 is already a great choice for 2nd argument
-			else if (FFT_state (s1) == FULLY_FFTed) { swaps1s2 (); }	// s1 is the better choice for 2nd arg
-			else if (s1 == d);						// If a not-FFTed-source = d, it's best for s1 to equal d
-			else if (s2 == d) { swaps1s2 (); }				// If a not-FFTed-source = d, it's best for s1 to equal d
-			else if (options & GWMUL_FFT_S1);				// Have asm code FFT s1 and save result
-			else if (options & GWMUL_FFT_S2) { swaps1s2 (); }		// Have asm code FFT s2 and save result
-			// Neither source is already FFTed or must be FFTed.  We have a choice -- next preference is scratch variables
-			else if	(!(options & GWMUL_PRESERVE_S2));			// s2 need not be preserved, overwrite it with FFT
-			else if	(!(options & GWMUL_PRESERVE_S1)) { swaps1s2 (); }	// s1 need not be preserved, overwrite it with FFT
-			// Ugh, both must be preserved, a temporary will be required
+			gwnum	preferred_s1;		// Which source should be src1 in asm_mul, other source will be src2 and FFTed by gwfft
+
+			// If a source is already FFTed that makes it perfect for s2
+			if (FFT_state (s2) == FULLY_FFTed) preferred_s1 = s1;
+			else if (FFT_state (s1) == FULLY_FFTed) preferred_s1 = s2;
+			// If a source is also dest, that source must be FFTed by asm_mul.
+			else if (s1 == d) preferred_s1 = s1;
+			else if (s2 == d) preferred_s1 = s2;
+			// If a source must be preserved make that s1 (saves a temporary and maybe a write)
+			else if	(options & GWMUL_PRESERVE_S1) preferred_s1 = s1;
+			else if	(options & GWMUL_PRESERVE_S2) preferred_s1 = s2;
+			// If a source does not need the FFT saved, make that s1 (maybe saves a write)
+			else if (!(options & GWMUL_FFT_S1)) preferred_s1 = s1;
+			else if (!(options & GWMUL_FFT_S2)) preferred_s1 = s2;
+			// No preference which source is s1
+			else preferred_s1 = s1;
+
+			// Swap sources if necessary
+			if (preferred_s1 == s2) swaps1s2 ();
 
 			// Make sure s2 is FFTed.
 			if (FFT_state (s2) != FULLY_FFTed) {
