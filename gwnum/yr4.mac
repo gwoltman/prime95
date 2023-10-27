@@ -5144,7 +5144,7 @@ back_to_orig:
 ;; Same as above code between orig and back_to_orig, except we implement mul4_opcode options
 
 yr4_4c_mult_opcode MACRO srcreg,d1,d2
-	LOCAL	fftsave, nofftsave, dispatch, disptab, addmul, submul, muladd, muladdhard, mulsub, mulsubhard, unfft, done
+	LOCAL	mulsave, fftsave, nofftsave, dispatch, disptab, addmul, submul, muladd, muladdhard, mulsub, mulsubhard, unfft, done
 	LOCAL	addmul312, addmul313, addmul132, addmul133, submul312, submul313, submul132, submul133
 
 	movzx	r10, mul4_opcode		;; Load opcode
@@ -5153,7 +5153,55 @@ yr4_4c_mult_opcode MACRO srcreg,d1,d2
 	jb	nofftsave			;; opcode < 0x80, addmul,submul,muladd,mulsub,unfft without FFT save
 						;; opcode == 0x80, plain mul with FFT save, fall through
 
-	vmovapd	ymm9, [srcreg][rbp]		;; MemR1
+	;; Squaring with FFT save is handled here! 
+	test	rbp, rbp			;; If rbp is zero, this is a squaring
+	jnz	mulsave
+
+	ystore	[srcreg], ymm8			;; R1
+	vmulpd	ymm5, ymm8, ymm8		;; R1 * R1			; 12-16
+	vmulpd	ymm8, ymm8, ymm3		;; R1 * I1			; 13-17
+	ystore	[srcreg+32], ymm3		;; I1
+	vmulpd	ymm3, ymm3, ymm3		;; I1 * I1			; 14-18
+
+	vaddpd	ymm9, ymm4, ymm1		;; I3 + R4 (final I3)		; 15-17
+	vsubpd	ymm4, ymm4, ymm1		;; I3 - R4 (final I4)		; 16-18
+
+	ystore	[srcreg+d1], ymm2		;; R2
+	vmulpd	ymm1, ymm2, ymm2		;; R2 * R2			; 16-20
+	vmulpd	ymm2, ymm2, ymm6		;; R2 * I2			; 17-21
+	ystore	[srcreg+d1+32], ymm6		;; I2
+	vmulpd	ymm6, ymm6, ymm6		;; I2 * I2			; 18-22
+
+	vsubpd	ymm5, ymm5, ymm3		;; R1*R1-I1*I1 (new R1)		; 19-21
+	vaddpd	ymm8, ymm8, ymm8		;; 2*R1*I1 (new I1)		; 20-22
+
+	ystore	[srcreg+d2], ymm7		;; R3
+	vmulpd	ymm3, ymm7, ymm7		;; R3 * R3			; 20-24
+	vmulpd	ymm7, ymm7, ymm9		;; R3 * I3			; 21-25
+	ystore	[srcreg+d2+32], ymm9		;; I3
+	vmulpd	ymm9, ymm9, ymm9		;; I3 * I3			; 22-26
+
+	ystore	[srcreg+d2+d1], ymm0		;; R4
+	ystore	[srcreg+d2+d1+32], ymm4		;; I4
+
+	vsubpd	ymm1, ymm1, ymm6		;; R2*R2-I2*I2 (new R2)		; 23-25
+	vaddpd	ymm2, ymm2, ymm2		;; 2*R2*I2 (new I2)		; 24-26
+
+	vmulpd	ymm6, ymm0, ymm0		;; R4 * R4			; 24-28
+	vmulpd	ymm0, ymm0, ymm4		;; R4 * I4			; 25-29
+	vmulpd	ymm4, ymm4, ymm4		;; I4 * I4			; 26-30
+
+	vaddpd	ymm10, ymm5, ymm1		;; R1 + R2 (new R1)		; 26-28
+	vsubpd	ymm5, ymm5, ymm1		;; R1 - R2 (new R2)		; 27-29
+
+	vsubpd	ymm3, ymm3, ymm9		;; R3*R3-I3*I3 (new R3)		; 28-30
+	vaddpd	ymm7, ymm7, ymm7		;; 2*R3*I3 (new I3)		; 29-31
+
+	vsubpd	ymm6, ymm6, ymm4		;; R4*R4-I4*I4 (new R4)		; 31-33
+	vaddpd	ymm0, ymm0, ymm0		;; 2*R4*I4 (new I4)		; 32-34
+	jmp	done
+
+mulsave:vmovapd	ymm9, [srcreg][rbp]		;; MemR1
 	vmovapd	ymm10, [srcreg+32][rbp]		;; MemI1
 	ystore	[srcreg], ymm8			;; R1
 	vmulpd	ymm5, ymm8, ymm9		;; R1 * MemR1			; 12-16
@@ -5574,7 +5622,6 @@ submul132:
 	vsubpd	ymm10, ymm10, ymm3		;; MemI1-I1
 	vmovapd	ymm3, [srcreg+32][r9]		;; I1=MemI1
 	vmulpd	ymm5, ymm8, ymm1		;; R1 * MemR1			; 12-16
-	vsubpd	ymm10, ymm10, ymm3		;; MemI1-I1
 	vmulpd	ymm8, ymm8, ymm10		;; R1 * MemI1			; 13-17
 	vmulpd	ymm11, ymm3, ymm10		;; I1 * MemI1			; 14-18
 	vmulpd	ymm3, ymm3, ymm1		;; I1 * MemR1			; 15-19
@@ -6049,7 +6096,7 @@ back_to_orig:
 ;; Same as above code between orig and back_to_orig, except we implement mul4_opcode options
 
 yr4_4c_mult_opcode MACRO srcreg,d1,d2
-	LOCAL	fftsave, nofftsave, dispatch, disptab, addmul, submul, muladd, muladdhard, mulsub, mulsubhard, unfft, done
+	LOCAL	mulsave, fftsave, nofftsave, dispatch, disptab, addmul, submul, muladd, muladdhard, mulsub, mulsubhard, unfft, done
 	LOCAL	addmul312, addmul313, addmul132, addmul133, submul312, submul313, submul132, submul133
 
 	movzx	r10, mul4_opcode		;; Load opcode
@@ -6058,7 +6105,48 @@ yr4_4c_mult_opcode MACRO srcreg,d1,d2
 	jb	nofftsave			;; opcode < 0x80, addmul,submul,muladd,mulsub,unfft without FFT save
 						;; opcode == 0x80, plain mul with FFT save, fall through
 
-	vmovapd	ymm10, [srcreg][rbp]		;; MemR1
+	;; Squaring with FFT save is handled here! 
+	test	rbp, rbp			;; If rbp is zero, this is a squaring
+	jnz	mulsave
+
+	ystore	[srcreg], ymm8			;; R1
+	vmulpd	ymm5, ymm8, ymm8		;; R1 * R1			; 12-16
+	vmulpd	ymm8, ymm8, ymm3		;; R1 * I1			; 13-17
+
+	ystore	[srcreg+d1], ymm2		;; R2
+	vmulpd	ymm14, ymm2, ymm2		;; R2 * R2			; 14-18
+	vmulpd	ymm2, ymm2, ymm6		;; R2 * I2			; 15-19
+
+	vaddpd	ymm9, ymm4, ymm1		;; I3 + R4 (final I3)		; 15-17
+	vsubpd	ymm4, ymm4, ymm1		;; I3 - R4 (final I4)		; 16-18
+
+	ystore	[srcreg+32], ymm3		;; I1
+	yfnmaddpd ymm5, ymm3, ymm3, ymm5	;; R1*R1-I1*I1 (new R1)		; 17-21
+	vaddpd	ymm8, ymm8, ymm8		;; 2*R1*I1 (new I1)		; 18-22
+
+	ystore	[srcreg+d2], ymm7		;; R3
+	vmulpd	ymm1, ymm7, ymm7		;; R3 * R3			; 16-20
+	vmulpd	ymm7, ymm7, ymm9		;; R3 * I3			; 17-21
+
+	ystore	[srcreg+d1+32], ymm6		;; I2
+	yfnmaddpd ymm14, ymm6, ymm6, ymm14	;; R2*R2-I2*I2 (new R2)		; 19-23
+	vaddpd	ymm2, ymm2, ymm2		;; 2*R2*I2 (new I2)		; 20-24
+
+	ystore	[srcreg+d2+32], ymm9		;; I3
+	ystore	[srcreg+d2+d1], ymm0		;; R4
+	ystore	[srcreg+d2+d1+32], ymm4		;; I4
+
+	vmulpd	ymm3, ymm0, ymm0		;; R4 * R4			; 18-22
+	vmulpd	ymm0, ymm0, ymm4		;; R4 * I4			; 19-23
+
+	yfnmaddpd ymm1, ymm9, ymm9, ymm1	;; R3*R3-I3*I3 (new R3)		; 21-25
+	vaddpd	ymm7, ymm7, ymm7		;; 2*R3*I3 (new I3)		; 22-26
+
+	yfnmaddpd ymm3, ymm4, ymm4, ymm3	;; R4*R4-I4*I4 (new R4)		; 23-27
+	vaddpd	ymm0, ymm0, ymm0		;; 2*R4*I4 (new I4)		; 24-28
+	jmp	done
+
+mulsave:vmovapd	ymm10, [srcreg][rbp]		;; MemR1
 	vmovapd	ymm12, [srcreg+32][rbp]		;; MemI1
 	ystore	[srcreg], ymm8			;; R1
 	vmulpd	ymm5, ymm8, ymm10		;; R1 * MemR1			; 12-16
