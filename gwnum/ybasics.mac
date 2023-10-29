@@ -1059,19 +1059,13 @@ mulsub:	vsubsd	xmm0, xmm7, xmm0		;; Subtract the addins
 	vsubsd	xmm6, xmm13, xmm6
 	jmp	short done
 
-unfft:	vmovsd	xmm0, xmm1, xmm1		;; Copy the ZPADs (mul by 1)
-	vmovsd	xmm1, xmm2, xmm2
-	vmovsd	xmm2, xmm3, xmm3
-	vmovsd	xmm3, xmm4, xmm4
-	vmovsd	xmm4, xmm5, xmm5
-	vmovsd	xmm5, xmm6, xmm6
-	vmovsd	xmm6, xmm7, xmm7
-;;	cmp	SRC3ARG, 2			;; Is this FFTed_FOR_FMA
-;;	jne	short done			;; No, we're done
-	vmovsd	xmm3, Q [src1-64]		;; Yes, the addin values were stored in a different order!
-	vmovsd	xmm4, Q [src1-56]
-	vmovsd	xmm5, Q [src1-48]
-	vmovsd	xmm6, Q [src1-40]
+unfft:	vsubsd	xmm0, xmm0, xmm0		;; No result words just above or below the last FFT word 
+	vsubsd	xmm1, xmm1, xmm1
+	vsubsd	xmm2, xmm2, xmm2
+	vsubsd	xmm3, xmm3, xmm3
+	vsubsd	xmm4, xmm4, xmm4
+	vsubsd	xmm5, xmm5, xmm5
+	vsubsd	xmm6, xmm6, xmm6
 	;;jmp	short done
 
 done:	vmovsd	ZPAD0, xmm0

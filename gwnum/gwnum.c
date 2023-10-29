@@ -10453,7 +10453,6 @@ void gwunfft2 (
 			else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->ERROR_CHECKING];
 			asm_data->mul4_opcode = 5;
 			asm_data->DEST2ARG = 0;
-			asm_data->SRC3ARG = (void *) 1;			// Indicate this gwnum is not FFTed_FOR_FMA
 			if (FFT_state (s) == FULLY_FFTed) asm_data->ffttype = 4;
 			else asm_data->ffttype = 3;
 			asm_mul (gwdata, s, s, d, options);
@@ -10498,7 +10497,6 @@ void gwunfft2 (
 			else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->ERROR_CHECKING];
 			asm_data->mul4_opcode = 5;
 			asm_data->DEST2ARG = 0;
-			asm_data->SRC3ARG = (void *) 2;			// Indicate this gwnum is FFTed_FOR_FMA
 			asm_data->ffttype = 4;
 			asm_mul (gwdata, s, s, d, options);
 			gwdata->read_count += 2, gwdata->write_count += 2;
@@ -12309,7 +12307,11 @@ void gwadd3o (			/* Add two numbers normalizing if needed */
 
 /* If the two FFT states are not the same, make them so */
 
-	if (FFT_state (s1) != FFT_state (s2)) {
+	if (options & GWADD_FORCE_NORMALIZE) {
+		gwunfft (gwdata, s1, s1);
+		gwunfft (gwdata, s2, s2);
+	}
+	else if (FFT_state (s1) != FFT_state (s2)) {
 		gwfft (gwdata, s1, s1);
 		gwfft (gwdata, s2, s2);
 	}
@@ -12366,10 +12368,6 @@ void gwadd3o (			/* Add two numbers normalizing if needed */
 
 		unnorms (d) = new_normcnt;
 		FFT_state (d) = FFT_state (s1);
-
-/* If force normalize requested, do so */
-
-		if (options & GWADD_FORCE_NORMALIZE) gwunfft (gwdata, d, d);
 	}
 
 /* If we can do an addquick, do that - it should be faster. */
@@ -12456,7 +12454,11 @@ void gwsub3o (			/* Compute s1 - s2 normalizing if needed */
 
 /* If the two FFT states are not the same, make them so */
 
-	if (FFT_state (s1) != FFT_state (s2)) {
+	if (options & GWADD_FORCE_NORMALIZE) {
+		gwunfft (gwdata, s1, s1);
+		gwunfft (gwdata, s2, s2);
+	}
+	else if (FFT_state (s1) != FFT_state (s2)) {
 		gwfft (gwdata, s1, s1);
 		gwfft (gwdata, s2, s2);
 	}
@@ -12513,10 +12515,6 @@ void gwsub3o (			/* Compute s1 - s2 normalizing if needed */
 
 		unnorms (d) = new_normcnt;
 		FFT_state (d) = FFT_state (s1);
-
-/* If force normalize requested, do so */
-
-		if (options & GWADD_FORCE_NORMALIZE) gwunfft (gwdata, d, d);
 	}
 
 /* If we can do an subquick, do that - it should be faster. */
@@ -12604,7 +12602,11 @@ void gwaddsub4o (		/* Add & sub two nums normalizing if needed */
 
 /* If the two FFT states are not the same, make them so */
 
-	if (FFT_state (s1) != FFT_state (s2)) {
+	if (options & GWADD_FORCE_NORMALIZE) {
+		gwunfft (gwdata, s1, s1);
+		gwunfft (gwdata, s2, s2);
+	}
+	else if (FFT_state (s1) != FFT_state (s2)) {
 		gwfft (gwdata, s1, s1);
 		gwfft (gwdata, s2, s2);
 	}
@@ -12665,13 +12667,6 @@ void gwaddsub4o (		/* Add & sub two nums normalizing if needed */
 
 		unnorms (d1) = unnorms (d2) = new_normcnt;
 		FFT_state (d1) = FFT_state (d2) = FFT_state (s1);
-
-/* If force normalize requested, do so */
-
-		if (options & GWADD_FORCE_NORMALIZE) {
-			gwunfft (gwdata, d1, d1);
-			gwunfft (gwdata, d2, d2);
-		}
 	}
 
 /* If we can do an addsubquick, do that - it should be faster. */
