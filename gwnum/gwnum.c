@@ -5186,25 +5186,22 @@ void xcopy_7_words (
 	else if (gwdata->cpu_flags & CPU_AVX) {
 		char	*srcp;
 		srcp = (char *) srcarg + 32;
-		destarg[-5] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[3];	/* Copy 1st word above halfway point */
+		destarg[-8] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[3];	/* Copy 1st word above halfway point */
 		srcp += asm_data->u.ymm.YMM_SRC_INCR1;
-		destarg[-6] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[4]; /* Copy 2nd word */
+		destarg[-7] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[4]; /* Copy 2nd word */
 		srcp += asm_data->u.ymm.YMM_SRC_INCR2;
-		destarg[-7] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[5]; /* Copy 3rd word */
+		destarg[-6] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[5]; /* Copy 3rd word */
 		srcp += asm_data->u.ymm.YMM_SRC_INCR3;
-		destarg[-8] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[6]; /* Copy 4th word */
+		destarg[-5] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[6]; /* Copy 4th word */
 	} else {
-		destarg[-5] = srcarg[4] * gwdata->ZPAD_COPY7_ADJUST[3];	/* Copy 1st word above halfway point */
-		destarg[-6] = srcarg[12] * gwdata->ZPAD_COPY7_ADJUST[4]; /* Copy 2nd word */
-		destarg[-7] = srcarg[20] * gwdata->ZPAD_COPY7_ADJUST[5]; /* Copy 3rd word */
-		destarg[-8] = srcarg[28] * gwdata->ZPAD_COPY7_ADJUST[6]; /* Copy 4th word */
+		destarg[-8] = srcarg[4] * gwdata->ZPAD_COPY7_ADJUST[3];	/* Copy 1st word above halfway point */
+		destarg[-7] = srcarg[12] * gwdata->ZPAD_COPY7_ADJUST[4]; /* Copy 2nd word */
+		destarg[-6] = srcarg[20] * gwdata->ZPAD_COPY7_ADJUST[5]; /* Copy 3rd word */
+		destarg[-5] = srcarg[28] * gwdata->ZPAD_COPY7_ADJUST[6]; /* Copy 4th word */
 	}
-	destarg[-9] = * (double *)	/* Copy 1st word below halfway point */
-		((char *) srcarg + asm_data->HIGH_WORD1_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[2];
-	destarg[-10] = * (double *)	/* Copy 2nd word below */
-		((char *) srcarg + asm_data->HIGH_WORD2_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[1];
-	destarg[-11] = * (double *)	/* Copy 3rd word below */
-		((char *) srcarg + asm_data->HIGH_WORD3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];
+	destarg[-9] = * (double *)  ((char *) srcarg + asm_data->HIGH_WORD1_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[2];	/* Copy 1st word below halfway point */
+	destarg[-10] = * (double *) ((char *) srcarg + asm_data->HIGH_WORD2_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[1];	/* Copy 2nd word below */
+	destarg[-11] = * (double *) ((char *) srcarg + asm_data->HIGH_WORD3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];	/* Copy 3rd word below */
 }
 
 /* When POSTFFT is set, we must copy the 7 words at two different spots. */
@@ -5234,18 +5231,18 @@ void xcopy_4_words (
 	else if (gwdata->cpu_flags & CPU_AVX) {
 		char	*srcp;
 		srcp = (char *) srcarg + 32;
-		srcarg[-5] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[3];	/* Copy 1st word above halfway point */
+		srcarg[-8] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[3];	/* Copy 1st word above halfway point */
 		srcp += asm_data->u.ymm.YMM_SRC_INCR1;
-		srcarg[-6] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[4]; /* Copy 2nd word */
+		srcarg[-7] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[4]; /* Copy 2nd word */
 		srcp += asm_data->u.ymm.YMM_SRC_INCR2;
-		srcarg[-7] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[5]; /* Copy 3rd word */
+		srcarg[-6] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[5]; /* Copy 3rd word */
 		srcp += asm_data->u.ymm.YMM_SRC_INCR3;
-		srcarg[-8] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[6]; /* Copy 4th word */
+		srcarg[-5] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[6]; /* Copy 4th word */
 	} else {
-		srcarg[-5] = srcarg[4] * gwdata->ZPAD_COPY7_ADJUST[3]; /* Copy 1st word above halfway point */
-		srcarg[-6] = srcarg[12] * gwdata->ZPAD_COPY7_ADJUST[4]; /* Copy 2nd word */
-		srcarg[-7] = srcarg[20] * gwdata->ZPAD_COPY7_ADJUST[5]; /* Copy 3rd word */
-		srcarg[-8] = srcarg[28] * gwdata->ZPAD_COPY7_ADJUST[6]; /* Copy 4th word */
+		srcarg[-8] = srcarg[4] * gwdata->ZPAD_COPY7_ADJUST[3]; /* Copy 1st word above halfway point */
+		srcarg[-7] = srcarg[12] * gwdata->ZPAD_COPY7_ADJUST[4]; /* Copy 2nd word */
+		srcarg[-6] = srcarg[20] * gwdata->ZPAD_COPY7_ADJUST[5]; /* Copy 3rd word */
+		srcarg[-5] = srcarg[28] * gwdata->ZPAD_COPY7_ADJUST[6]; /* Copy 4th word */
 	}
 }
 
@@ -5264,19 +5261,11 @@ void xcopy_3_words (
 	srcarg = (double *) asm_data->DESTARG;
 	if (asm_data->this_block == asm_data->last_pass1_block) {
 		if (gwdata->SCRATCH_SIZE) {
-			srcarg[-9] = * (double *)
-					((char *) asm_data->scratch_area +
-					 asm_data->HIGH_SCRATCH1_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[2];
-			srcarg[-10] = * (double *)
-					((char *) asm_data->scratch_area +
-					 asm_data->HIGH_SCRATCH2_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[1];
+			srcarg[-9] = * (double *)  ((char *) asm_data->scratch_area + asm_data->HIGH_SCRATCH1_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[2];
+			srcarg[-10] = * (double *) ((char *) asm_data->scratch_area + asm_data->HIGH_SCRATCH2_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[1];
 		} else {
-			srcarg[-9] = * (double *)
-					((char *) srcarg +
-					 asm_data->HIGH_WORD1_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[2];
-			srcarg[-10] = * (double *)
-					((char *) srcarg +
-					 asm_data->HIGH_WORD2_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[1];
+			srcarg[-9] = * (double *)  ((char *) srcarg + asm_data->HIGH_WORD1_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[2];
+			srcarg[-10] = * (double *) ((char *) srcarg + asm_data->HIGH_WORD2_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[1];
 		}
 	}
 
@@ -5285,13 +5274,9 @@ void xcopy_3_words (
 	if (asm_data->this_block <= gwdata->num_pass1_blocks - 3 &&
 	    asm_data->this_block + asm_data->cache_line_multiplier > gwdata->num_pass1_blocks - 3) {
 		if (gwdata->SCRATCH_SIZE) {
-			srcarg[-11] = * (double *)
-					((char *) asm_data->scratch_area +
-					 asm_data->HIGH_SCRATCH3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];
+			srcarg[-11] = * (double *) ((char *) asm_data->scratch_area + asm_data->HIGH_SCRATCH3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];
 		} else {
-			srcarg[-11] = * (double *)
-					((char *) srcarg +
-					 asm_data->HIGH_WORD3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];
+			srcarg[-11] = * (double *) ((char *) srcarg + asm_data->HIGH_WORD3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];
 		}
 	}
 }
@@ -5309,12 +5294,9 @@ void xcopy_3_words_after_gwcarries (
 /* Copy three words below the halfway point from the FFT data */
 
 	srcarg = (double *) asm_data->DESTARG;
-	srcarg[-9] = * (double *)
-			((char *) srcarg + asm_data->HIGH_WORD1_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[2];
-	srcarg[-10] = * (double *)
-			((char *) srcarg + asm_data->HIGH_WORD2_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[1];
-	srcarg[-11] = * (double *)
-			((char *) srcarg + asm_data->HIGH_WORD3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];
+	srcarg[-9] = * (double *)  ((char *) srcarg + asm_data->HIGH_WORD1_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[2];
+	srcarg[-10] = * (double *) ((char *) srcarg + asm_data->HIGH_WORD2_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[1];
+	srcarg[-11] = * (double *) ((char *) srcarg + asm_data->HIGH_WORD3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];
 }
 
 /* Possible states for the (mis-named) gwdata->pass1_state variable */

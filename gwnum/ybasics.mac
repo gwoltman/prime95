@@ -599,28 +599,28 @@ ysquare7 MACRO	src1
 	LOCAL	nozpad
 	cmp	ZERO_PADDED_FFT, 0	;; Is this a zero-padded FFT?
 	je	nozpad			;; No, skip 7 word multiply
-	vmovsd	xmm0, Q [src1-48]	;; Result0 = word1 * word-1
+	vmovsd	xmm0, Q [src1-56]	;; Result0 = word1 * word-1
 	vmulsd	xmm0, xmm0, Q [src1-72]
-	vmovsd	xmm1, Q [src1-56]	;;	   + word2 * word-2
+	vmovsd	xmm1, Q [src1-48]	;;	   + word2 * word-2
 	vmulsd	xmm1, xmm1, Q [src1-80]
 	vaddsd	xmm0, xmm0, xmm1
-	vmovsd	xmm1, Q [src1-64]	;;	   + word3 * word-3
+	vmovsd	xmm1, Q [src1-40]	;;	   + word3 * word-3
 	vmulsd	xmm1, xmm1, Q [src1-88]
 	vaddsd	xmm0, xmm0, xmm1
 	vaddsd	xmm0, xmm0, xmm0	;;	   + word-1 * word1
 					;;	   + word-2 * word2
 					;;	   + word-3 * word3
-	vmovsd	xmm1, Q [src1-40]	;;	   + word0 * word0
+	vmovsd	xmm1, Q [src1-64]	;;	   + word0 * word0
 	vmulsd	xmm1, xmm1, xmm1
 	vaddsd	xmm0, xmm0, xmm1
 	vmovsd	ZPAD0, xmm0
 
-	vmovsd	xmm0, Q [src1-48]	;; Result1 = word1 * word0
-	vmulsd	xmm0, xmm0, Q [src1-40]
-	vmovsd	xmm1, Q [src1-56]	;;	   + word2 * word-1
+	vmovsd	xmm0, Q [src1-56]	;; Result1 = word1 * word0
+	vmulsd	xmm0, xmm0, Q [src1-64]
+	vmovsd	xmm1, Q [src1-48]	;;	   + word2 * word-1
 	vmulsd	xmm1, xmm1, Q [src1-72]
 	vaddsd	xmm0, xmm0, xmm1
-	vmovsd	xmm1, Q [src1-64]	;;	   + word3 * word-2
+	vmovsd	xmm1, Q [src1-40]	;;	   + word3 * word-2
 	vmulsd	xmm1, xmm1, Q [src1-80]
 	vaddsd	xmm0, xmm0, xmm1
 	vaddsd	xmm0, xmm0, xmm0	;;	   + word0 * word1
@@ -628,41 +628,41 @@ ysquare7 MACRO	src1
 					;;	   + word-2 * word3
 	vmovsd	ZPAD1, xmm0
 
-	vmovsd	xmm0, Q [src1-56]	;; Result2 = word2 * word0
-	vmulsd	xmm0, xmm0, Q [src1-40]
-	vmovsd	xmm1, Q [src1-64]	;;	   + word3 * word-1
+	vmovsd	xmm0, Q [src1-48]	;; Result2 = word2 * word0
+	vmulsd	xmm0, xmm0, Q [src1-64]
+	vmovsd	xmm1, Q [src1-40]	;;	   + word3 * word-1
 	vmulsd	xmm1, xmm1, Q [src1-72]
 	vaddsd	xmm0, xmm0, xmm1
 	vaddsd	xmm0, xmm0, xmm0	;;	   + word0 * word2
 					;;	   + word-1 * word3
-	vmovsd	xmm1, Q [src1-48]	;;	   + word1 * word1
+	vmovsd	xmm1, Q [src1-56]	;;	   + word1 * word1
 	vmulsd	xmm1, xmm1, xmm1
 	vaddsd	xmm0, xmm0, xmm1
 	vmovsd	ZPAD2, xmm0
 
-	vmovsd	xmm0, Q [src1-40]	;; Result3 = word0 * word3
-	vmulsd	xmm0, xmm0, Q [src1-64]
-	vmovsd	xmm1, Q [src1-48]	;;	   + word1 * word2
-	vmulsd	xmm1, xmm1, Q [src1-56]
+	vmovsd	xmm0, Q [src1-64]	;; Result3 = word0 * word3
+	vmulsd	xmm0, xmm0, Q [src1-40]
+	vmovsd	xmm1, Q [src1-56]	;;	   + word1 * word2
+	vmulsd	xmm1, xmm1, Q [src1-48]
 	vaddsd	xmm0, xmm0, xmm1
 	vaddsd	xmm0, xmm0, xmm0	;;	   + word2 * word1
 					;;	   + word3 * word0
 	vmovsd	ZPAD3, xmm0
 
-	vmovsd	xmm0, Q [src1-48]	;; Result4 = word1 * word3
-	vmulsd	xmm0, xmm0, Q [src1-64]
+	vmovsd	xmm0, Q [src1-56]	;; Result4 = word1 * word3
+	vmulsd	xmm0, xmm0, Q [src1-40]
 	vaddsd	xmm0, xmm0, xmm0	;;	   + word3 * word1
-	vmovsd	xmm1, Q [src1-56]	;;	   + word2 * word2
+	vmovsd	xmm1, Q [src1-48]	;;	   + word2 * word2
 	vmulsd	xmm1, xmm1, xmm1
 	vaddsd	xmm0, xmm0, xmm1
 	vmovsd	ZPAD4, xmm0
 
-	vmovsd	xmm0, Q [src1-56]	;; Result5 = word2 * word3
-	vmulsd	xmm0, xmm0, Q [src1-64]
+	vmovsd	xmm0, Q [src1-48]	;; Result5 = word2 * word3
+	vmulsd	xmm0, xmm0, Q [src1-40]
 	vaddsd	xmm0, xmm0, xmm0	;;	   + word3 * word2
 	vmovsd	ZPAD5, xmm0
 
-	vmovsd	xmm0, Q [src1-64]	;; Result6 = word3 * word3
+	vmovsd	xmm0, Q [src1-40]	;; Result6 = word3 * word3
 	vmulsd	xmm0, xmm0, xmm0
 	vmovsd	ZPAD6, xmm0
 nozpad:
@@ -672,95 +672,95 @@ ymult7	MACRO	src1, src2
 	LOCAL	nozpad
 	cmp	ZERO_PADDED_FFT, 0	;; Is this a zero-padded FFT?
 	je	nozpad			;; No, skip 7 word multiply
-	vmovsd	xmm0, Q [src1-40]	;; Result0 = word0 * word0
-	vmulsd	xmm0, xmm0, Q [src2-40]
-	vmovsd	xmm1, Q [src1-48]	;;	   + word1 * word-1
+	vmovsd	xmm0, Q [src1-64]	;; Result0 = word0 * word0
+	vmulsd	xmm0, xmm0, Q [src2-64]
+	vmovsd	xmm1, Q [src1-56]	;;	   + word1 * word-1
 	vmulsd	xmm1, xmm1, Q [src2-72]
 	vaddsd	xmm0, xmm0, xmm1
-	vmovsd	xmm2, Q [src1-56]	;;	   + word2 * word-2
+	vmovsd	xmm2, Q [src1-48]	;;	   + word2 * word-2
 	vmulsd	xmm2, xmm2, Q [src2-80]
 	vaddsd	xmm0, xmm0, xmm2
-	vmovsd	xmm3, Q [src1-64]	;;	   + word3 * word-3
+	vmovsd	xmm3, Q [src1-40]	;;	   + word3 * word-3
 	vmulsd	xmm3, xmm3, Q [src2-88]
 	vaddsd	xmm0, xmm0, xmm3
 	vmovsd	xmm1, Q [src1-72]	;;	   + word-1 * word1
-	vmulsd	xmm1, xmm1, Q [src2-48]
+	vmulsd	xmm1, xmm1, Q [src2-56]
 	vaddsd	xmm0, xmm0, xmm1
 	vmovsd	xmm2, Q [src1-80]	;;	   + word-2 * word2
-	vmulsd	xmm2, xmm2, Q [src2-56]
+	vmulsd	xmm2, xmm2, Q [src2-48]
 	vaddsd	xmm0, xmm0, xmm2
 	vmovsd	xmm3, Q [src1-88]	;;	   + word-3 * word3
-	vmulsd	xmm3, xmm3, Q [src2-64]
+	vmulsd	xmm3, xmm3, Q [src2-40]
 	vaddsd	xmm0, xmm0, xmm3
 	vmovsd	ZPAD0, xmm0
 
-	vmovsd	xmm0, Q [src1-40]	;; Result1 = word0 * word1
-	vmulsd	xmm0, xmm0, Q [src2-48]
-	vmovsd	xmm1, Q [src1-48]	;;	   + word1 * word0
-	vmulsd	xmm1, xmm1, Q [src2-40]
+	vmovsd	xmm0, Q [src1-64]	;; Result1 = word0 * word1
+	vmulsd	xmm0, xmm0, Q [src2-56]
+	vmovsd	xmm1, Q [src1-56]	;;	   + word1 * word0
+	vmulsd	xmm1, xmm1, Q [src2-64]
 	vaddsd	xmm0, xmm0, xmm1
-	vmovsd	xmm2, Q [src1-56]	;;	   + word2 * word-1
+	vmovsd	xmm2, Q [src1-48]	;;	   + word2 * word-1
 	vmulsd	xmm2, xmm2, Q [src2-72]
 	vaddsd	xmm0, xmm0, xmm2
-	vmovsd	xmm3, Q [src1-64]	;;	   + word3 * word-2
+	vmovsd	xmm3, Q [src1-40]	;;	   + word3 * word-2
 	vmulsd	xmm3, xmm3, Q [src2-80]
 	vaddsd	xmm0, xmm0, xmm3
 	vmovsd	xmm2, Q [src1-72]	;;	   + word-1 * word2
-	vmulsd	xmm2, xmm2, Q [src2-56]
+	vmulsd	xmm2, xmm2, Q [src2-48]
 	vaddsd	xmm0, xmm0, xmm2
 	vmovsd	xmm3, Q [src1-80]	;;	   + word-2 * word3
-	vmulsd	xmm3, xmm3, Q [src2-64]
+	vmulsd	xmm3, xmm3, Q [src2-40]
 	vaddsd	xmm0, xmm0, xmm3
 	vmovsd	ZPAD1, xmm0
 
-	vmovsd	xmm0, Q [src1-40]	;; Result2 = word0 * word2
-	vmulsd	xmm0, xmm0, Q [src2-56]
-	vmovsd	xmm1, Q [src1-48]	;;	   + word1 * word1
-	vmulsd	xmm1, xmm1, Q [src2-48]
+	vmovsd	xmm0, Q [src1-64]	;; Result2 = word0 * word2
+	vmulsd	xmm0, xmm0, Q [src2-48]
+	vmovsd	xmm1, Q [src1-56]	;;	   + word1 * word1
+	vmulsd	xmm1, xmm1, Q [src2-56]
 	vaddsd	xmm0, xmm0, xmm1
-	vmovsd	xmm2, Q [src1-56]	;;	   + word2 * word0
-	vmulsd	xmm2, xmm2, Q [src2-40]
+	vmovsd	xmm2, Q [src1-48]	;;	   + word2 * word0
+	vmulsd	xmm2, xmm2, Q [src2-64]
 	vaddsd	xmm0, xmm0, xmm2
-	vmovsd	xmm3, Q [src1-64]	;;	   + word3 * word-1
+	vmovsd	xmm3, Q [src1-40]	;;	   + word3 * word-1
 	vmulsd	xmm3, xmm3, Q [src2-72]
 	vaddsd	xmm0, xmm0, xmm3
 	vmovsd	xmm3, Q [src1-72]	;;	   + word-1 * word3
-	vmulsd	xmm3, xmm3, Q [src2-64]
+	vmulsd	xmm3, xmm3, Q [src2-40]
 	vaddsd	xmm0, xmm0, xmm3
 	vmovsd	ZPAD2, xmm0
 
-	vmovsd	xmm0, Q [src1-40]	;; Result3 = word0 * word3
-	vmulsd	xmm0, xmm0, Q [src2-64]
-	vmovsd	xmm1, Q [src1-48]	;;	   + word1 * word2
-	vmulsd	xmm1, xmm1, Q [src2-56]
+	vmovsd	xmm0, Q [src1-64]	;; Result3 = word0 * word3
+	vmulsd	xmm0, xmm0, Q [src2-40]
+	vmovsd	xmm1, Q [src1-56]	;;	   + word1 * word2
+	vmulsd	xmm1, xmm1, Q [src2-48]
 	vaddsd	xmm0, xmm0, xmm1
-	vmovsd	xmm2, Q [src1-56]	;;	   + word2 * word1
-	vmulsd	xmm2, xmm2, Q [src2-48]
+	vmovsd	xmm2, Q [src1-48]	;;	   + word2 * word1
+	vmulsd	xmm2, xmm2, Q [src2-56]
 	vaddsd	xmm0, xmm0, xmm2
-	vmovsd	xmm3, Q [src1-64]	;;	   + word3 * word0
-	vmulsd	xmm3, xmm3, Q [src2-40]
+	vmovsd	xmm3, Q [src1-40]	;;	   + word3 * word0
+	vmulsd	xmm3, xmm3, Q [src2-64]
 	vaddsd	xmm0, xmm0, xmm3
 	vmovsd	ZPAD3, xmm0
 
-	vmovsd	xmm0, Q [src1-48]	;; Result4 = word1 * word3
-	vmulsd	xmm0, xmm0, Q [src2-64]
-	vmovsd	xmm1, Q [src1-56]	;;	   + word2 * word2
-	vmulsd	xmm1, xmm1, Q [src2-56]
+	vmovsd	xmm0, Q [src1-56]	;; Result4 = word1 * word3
+	vmulsd	xmm0, xmm0, Q [src2-40]
+	vmovsd	xmm1, Q [src1-48]	;;	   + word2 * word2
+	vmulsd	xmm1, xmm1, Q [src2-48]
 	vaddsd	xmm0, xmm0, xmm1
-	vmovsd	xmm2, Q [src1-64]	;;	   + word3 * word1
-	vmulsd	xmm2, xmm2, Q [src2-48]
+	vmovsd	xmm2, Q [src1-40]	;;	   + word3 * word1
+	vmulsd	xmm2, xmm2, Q [src2-56]
 	vaddsd	xmm0, xmm0, xmm2
 	vmovsd	ZPAD4, xmm0
 
-	vmovsd	xmm0, Q [src1-56]	;; Result5 = word2 * word3
-	vmulsd	xmm0, xmm0, Q [src2-64]
-	vmovsd	xmm1, Q [src1-64]	;;	   + word3 * word2
-	vmulsd	xmm1, xmm1, Q [src2-56]
+	vmovsd	xmm0, Q [src1-48]	;; Result5 = word2 * word3
+	vmulsd	xmm0, xmm0, Q [src2-40]
+	vmovsd	xmm1, Q [src1-40]	;;	   + word3 * word2
+	vmulsd	xmm1, xmm1, Q [src2-48]
 	vaddsd	xmm0, xmm0, xmm1
 	vmovsd	ZPAD5, xmm0
 
-	vmovsd	xmm0, Q [src1-64]	;; Result6 = word3 * word3
-	vmulsd	xmm0, xmm0, Q [src2-64]
+	vmovsd	xmm0, Q [src1-40]	;; Result6 = word3 * word3
+	vmulsd	xmm0, xmm0, Q [src2-40]
 	vmovsd	ZPAD6, xmm0
 
 nozpad:
@@ -789,10 +789,10 @@ ymult7	MACRO	src1, src2
 	vmovsd	xmm1, Q [src1-88]	;; Load copy of input FFT word at halfway - 3
 	vmovsd	xmm2, Q [src1-80]	;; Load copy of input FFT word at halfway - 2
 	vmovsd	xmm3, Q [src1-72]	;; Load copy of input FFT word at halfway - 1
-	vmovsd	xmm4, Q [src1-40]	;; Load copy of input FFT word at halfway + 0
-	vmovsd	xmm5, Q [src1-48]	;; Load copy of input FFT word at halfway + 1
-	vmovsd	xmm6, Q [src1-56]	;; Load copy of input FFT word at halfway + 2
-	vmovsd	xmm7, Q [src1-64]	;; Load copy of input FFT word at halfway + 3
+	vmovsd	xmm4, Q [src1-64]	;; Load copy of input FFT word at halfway + 0
+	vmovsd	xmm5, Q [src1-56]	;; Load copy of input FFT word at halfway + 1
+	vmovsd	xmm6, Q [src1-48]	;; Load copy of input FFT word at halfway + 2
+	vmovsd	xmm7, Q [src1-40]	;; Load copy of input FFT word at halfway + 3
 
 	mov	al, mul4_opcode		;; Load gwmul4 opcode
 	cmp	al, 5			;; 5 = unfft
@@ -801,10 +801,10 @@ ymult7	MACRO	src1, src2
 	vmovsd	xmm8, Q [src2-88]	;; Load copy of input FFT word at halfway - 3
 	vmovsd	xmm9, Q [src2-80]	;; Load copy of input FFT word at halfway - 2
 	vmovsd	xmm10, Q [src2-72]	;; Load copy of input FFT word at halfway - 1
-	vmovsd	xmm11, Q [src2-40]	;; Load copy of input FFT word at halfway + 0
-	vmovsd	xmm12, Q [src2-48]	;; Load copy of input FFT word at halfway + 1
-	vmovsd	xmm13, Q [src2-56]	;; Load copy of input FFT word at halfway + 2
-	vmovsd	xmm14, Q [src2-64]	;; Load copy of input FFT word at halfway + 3
+	vmovsd	xmm11, Q [src2-64]	;; Load copy of input FFT word at halfway + 0
+	vmovsd	xmm12, Q [src2-56]	;; Load copy of input FFT word at halfway + 1
+	vmovsd	xmm13, Q [src2-48]	;; Load copy of input FFT word at halfway + 2
+	vmovsd	xmm14, Q [src2-40]	;; Load copy of input FFT word at halfway + 3
 
 	and	rax, 7fh			;; Strip the fft save bit from mul4_opcode
 	mov	r9, OFFSET disptab		;; Jump table address
@@ -830,10 +830,10 @@ disptab:
 addmul:	vaddsd	xmm8, xmm8, Q [rsi+r9-88]	;; Add copy of input FFT word at halfway - 3
 	vaddsd	xmm9, xmm9, Q [rsi+r9-80]	;; Add copy of input FFT word at halfway - 2
 	vaddsd	xmm10, xmm10, Q [rsi+r9-72]	;; Add copy of input FFT word at halfway - 1
-	vaddsd	xmm11, xmm11, Q [rsi+r9-40]	;; Add copy of input FFT word at halfway + 0
-	vaddsd	xmm12, xmm12, Q [rsi+r9-48]	;; Add copy of input FFT word at halfway + 1
-	vaddsd	xmm13, xmm13, Q [rsi+r9-56]	;; Add copy of input FFT word at halfway + 2
-	vaddsd	xmm14, xmm14, Q [rsi+r9-64]	;; Add copy of input FFT word at halfway + 3
+	vaddsd	xmm11, xmm11, Q [rsi+r9-64]	;; Add copy of input FFT word at halfway + 0
+	vaddsd	xmm12, xmm12, Q [rsi+r9-56]	;; Add copy of input FFT word at halfway + 1
+	vaddsd	xmm13, xmm13, Q [rsi+r9-48]	;; Add copy of input FFT word at halfway + 2
+	vaddsd	xmm14, xmm14, Q [rsi+r9-40]	;; Add copy of input FFT word at halfway + 3
 	jmp	orig
 
 addmul132:
@@ -861,10 +861,10 @@ addmul313:
 submul:	vsubsd	xmm8, xmm8, Q [rsi+r9-88]	;; Sub copy of input FFT word at halfway - 3
 	vsubsd	xmm9, xmm9, Q [rsi+r9-80]	;; Sub copy of input FFT word at halfway - 2
 	vsubsd	xmm10, xmm10, Q [rsi+r9-72]	;; Sub copy of input FFT word at halfway - 1
-	vsubsd	xmm11, xmm11, Q [rsi+r9-40]	;; Sub copy of input FFT word at halfway + 0
-	vsubsd	xmm12, xmm12, Q [rsi+r9-48]	;; Sub copy of input FFT word at halfway + 1
-	vsubsd	xmm13, xmm13, Q [rsi+r9-56]	;; Sub copy of input FFT word at halfway + 2
-	vsubsd	xmm14, xmm14, Q [rsi+r9-64]	;; Sub copy of input FFT word at halfway + 3
+	vsubsd	xmm11, xmm11, Q [rsi+r9-64]	;; Sub copy of input FFT word at halfway + 0
+	vsubsd	xmm12, xmm12, Q [rsi+r9-56]	;; Sub copy of input FFT word at halfway + 1
+	vsubsd	xmm13, xmm13, Q [rsi+r9-48]	;; Sub copy of input FFT word at halfway + 2
+	vsubsd	xmm14, xmm14, Q [rsi+r9-40]	;; Sub copy of input FFT word at halfway + 3
 	jmp	orig
 
 submul132:
@@ -888,10 +888,10 @@ submul312:
 load2:	vmovsd	xmm1, Q [rsi+r9-88]		;; Load input FFT word at halfway - 3
 	vmovsd	xmm2, Q [rsi+r9-80]		;; Load input FFT word at halfway - 2
 	vmovsd	xmm3, Q [rsi+r9-72]		;; Load input FFT word at halfway - 1
-	vmovsd	xmm4, Q [rsi+r9-40]		;; Load input FFT word at halfway + 0
-	vmovsd	xmm5, Q [rsi+r9-48]		;; Load input FFT word at halfway + 1
-	vmovsd	xmm6, Q [rsi+r9-56]		;; Load input FFT word at halfway + 2
-	vmovsd	xmm7, Q [rsi+r9-64]		;; Load input FFT word at halfway + 3
+	vmovsd	xmm4, Q [rsi+r9-64]		;; Load input FFT word at halfway + 0
+	vmovsd	xmm5, Q [rsi+r9-56]		;; Load input FFT word at halfway + 1
+	vmovsd	xmm6, Q [rsi+r9-48]		;; Load input FFT word at halfway + 2
+	vmovsd	xmm7, Q [rsi+r9-40]		;; Load input FFT word at halfway + 3
 	jmp	orig
 
 submul133:
@@ -981,17 +981,17 @@ orig:	vmulsd	xmm0, xmm1, xmm14	;; Result0 = word-3 * word3
 hard:	vmovsd	xmm1, Q [rsi+r9-88]	;; Load copy of add-in FFT word at halfway - 3
 	vmovsd	xmm2, Q [rsi+r9-80]	;; Load copy of add-in FFT word at halfway - 2
 	vmovsd	xmm3, Q [rsi+r9-72]	;; Load copy of add-in FFT word at halfway - 1
-	vmovsd	xmm4, Q [rsi+r9-40]	;; Load copy of add-in FFT word at halfway + 0
-	vmovsd	xmm5, Q [rsi+r9-48]	;; Load copy of add-in FFT word at halfway + 1
-	vmovsd	xmm6, Q [rsi+r9-56]	;; Load copy of add-in FFT word at halfway + 2
-	vmovsd	xmm7, Q [rsi+r9-64]	;; Load copy of add-in FFT word at halfway + 3
+	vmovsd	xmm4, Q [rsi+r9-64]	;; Load copy of add-in FFT word at halfway + 0
+	vmovsd	xmm5, Q [rsi+r9-56]	;; Load copy of add-in FFT word at halfway + 1
+	vmovsd	xmm6, Q [rsi+r9-48]	;; Load copy of add-in FFT word at halfway + 2
+	vmovsd	xmm7, Q [rsi+r9-40]	;; Load copy of add-in FFT word at halfway + 3
 	vmovsd	xmm8, Q [rsi+r10-88]	;; Load copy of FFT(1) word at halfway - 3
 	vmovsd	xmm9, Q [rsi+r10-80]	;; Load copy of FFT(1) word at halfway - 2
 	vmovsd	xmm10, Q [rsi+r10-72]	;; Load copy of FFT(1) word at halfway - 1
-	vmovsd	xmm11, Q [rsi+r10-40]	;; Load copy of FFT(1) word at halfway + 0
-	vmovsd	xmm12, Q [rsi+r10-48]	;; Load copy of FFT(1) word at halfway + 1
-	vmovsd	xmm13, Q [rsi+r10-56]	;; Load copy of FFT(1) word at halfway + 2
-	vmovsd	xmm14, Q [rsi+r10-64]	;; Load copy of FFT(1) word at halfway + 3
+	vmovsd	xmm11, Q [rsi+r10-64]	;; Load copy of FFT(1) word at halfway + 0
+	vmovsd	xmm12, Q [rsi+r10-56]	;; Load copy of FFT(1) word at halfway + 1
+	vmovsd	xmm13, Q [rsi+r10-48]	;; Load copy of FFT(1) word at halfway + 2
+	vmovsd	xmm14, Q [rsi+r10-40]	;; Load copy of FFT(1) word at halfway + 3
 
 	vmulsd	xmm0, xmm1, xmm14	;; Result0 = word-3 * word3
 	ym7fma	xmm0, xmm2, xmm13	;;	   + word-2 * word2
