@@ -10434,6 +10434,7 @@ void gwunfft2 (
 			if (options & GWMUL_MULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + 2 + gwdata->ERROR_CHECKING];
 			else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->ERROR_CHECKING];
 			asm_data->mul4_opcode = 5;
+			asm_data->SRC3ARG = (void *) 1;			// Indicate this gwnum is not FFTed_FOR_FMA and FFT(1) is one
 			asm_data->DEST2ARG = 0;
 			if (FFT_state (s) == FULLY_FFTed) asm_data->ffttype = 4;
 			else asm_data->ffttype = 3;
@@ -10478,6 +10479,7 @@ void gwunfft2 (
 			if (options & GWMUL_MULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + 2 + gwdata->ERROR_CHECKING];
 			else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->ERROR_CHECKING];
 			asm_data->mul4_opcode = 5;
+			asm_data->SRC3ARG = (void *) 2;			// Indicate this gwnum is FFTed_FOR_FMA and FFT(1) is not one
 			asm_data->DEST2ARG = 0;
 			asm_data->ffttype = 4;
 			asm_mul (gwdata, s, s, d, options);
@@ -11428,25 +11430,14 @@ void gwfft_for_fma (		/* Forward FFT with post-processing for use in FMA */
 			xm3 = gwdata->GW_FFT1[-11];	// Load copy of FFT(1) word at halfway - 3
 			xm2 = gwdata->GW_FFT1[-10];	// Load copy of FFT(1) word at halfway - 2
 			xm1 = gwdata->GW_FFT1[-9];	// Load copy of FFT(1) word at halfway - 1
-			if (gwdata->cpu_flags & CPU_AVX512F) {
-				w0 = d[-8];			// Load copy of add-in FFT word at halfway + 0
-				w1 = d[-7];			// Load copy of add-in FFT word at halfway + 1
-				w2 = d[-6];			// Load copy of add-in FFT word at halfway + 2
-				w3 = d[-5];			// Load copy of add-in FFT word at halfway + 3
-				x0 = gwdata->GW_FFT1[-8];	// Load copy of add-in FFT word at halfway + 0
-				x1 = gwdata->GW_FFT1[-7];	// Load copy of add-in FFT word at halfway + 1
-				x2 = gwdata->GW_FFT1[-6];	// Load copy of add-in FFT word at halfway + 2
-				x3 = gwdata->GW_FFT1[-5];	// Load copy of add-in FFT word at halfway + 3
-			} else {
-				w0 = d[-5];			// Load copy of add-in FFT word at halfway + 0
-				w1 = d[-6];			// Load copy of add-in FFT word at halfway + 1
-				w2 = d[-7];			// Load copy of add-in FFT word at halfway + 2
-				w3 = d[-8];			// Load copy of add-in FFT word at halfway + 3
-				x0 = gwdata->GW_FFT1[-5];	// Load copy of add-in FFT word at halfway + 0
-				x1 = gwdata->GW_FFT1[-6];	// Load copy of add-in FFT word at halfway + 1
-				x2 = gwdata->GW_FFT1[-7];	// Load copy of add-in FFT word at halfway + 2
-				x3 = gwdata->GW_FFT1[-8];	// Load copy of add-in FFT word at halfway + 3
-			}
+			w0 = d[-8];			// Load copy of add-in FFT word at halfway + 0
+			w1 = d[-7];			// Load copy of add-in FFT word at halfway + 1
+			w2 = d[-6];			// Load copy of add-in FFT word at halfway + 2
+			w3 = d[-5];			// Load copy of add-in FFT word at halfway + 3
+			x0 = gwdata->GW_FFT1[-8];	// Load copy of add-in FFT word at halfway + 0
+			x1 = gwdata->GW_FFT1[-7];	// Load copy of add-in FFT word at halfway + 1
+			x2 = gwdata->GW_FFT1[-6];	// Load copy of add-in FFT word at halfway + 2
+			x3 = gwdata->GW_FFT1[-5];	// Load copy of add-in FFT word at halfway + 3
 			d[-11] = wm3 * x3 + wm2 * x2 + wm1 * x1 +		// Addin0 = word-3 * word3 + word-2 * word2 + word-1 * word1 +
 				 w0 * x0 + w1 * xm1 + w2 * xm2 + w3 * xm3;	//	    word0 * word0 + word1 * word-1 + word2 * word-2 + word3 * word-3
 			d[-10] = wm2 * x3 + wm1 * x2 + w0 * x1 +		// Addin1 = word-2 * word3 + word-1 * word2 + word0 * word1 +

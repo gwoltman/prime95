@@ -780,7 +780,7 @@ ENDIF
 	ENDM
 
 ymult7	MACRO	src1, src2
-	LOCAL	nozpad, orig, addmul, submul, muladd, mulsub, hard, nothard, unfft, done
+	LOCAL	nozpad, orig, addmul, submul, muladd, mulsub, hard, nothard, unfft, unfft_for_fma, done
 	LOCAL	disptab, addmul312, addmul313, addmul132, addmul133, submul312, submul313, submul132, submul133, load2
 
 	cmp	ZERO_PADDED_FFT, 0	;; Is this a zero-padded FFT?
@@ -1057,15 +1057,27 @@ mulsub:	vsubsd	xmm0, xmm7, xmm0		;; Subtract the addins
 	vsubsd	xmm4, xmm11, xmm4
 	vsubsd	xmm5, xmm12, xmm5
 	vsubsd	xmm6, xmm13, xmm6
-	jmp	short done
+	jmp	done
 
-unfft:	vsubsd	xmm0, xmm0, xmm0		;; No result words just above or below the last FFT word 
+unfft:	cmp	SRC3ARG, 2			;; Test for unfft of an ffted_for_fma value
+	je	short unfft_for_fma
+	vsubsd	xmm0, xmm0, xmm0		;; Simple unfft - no result words just above or below the last FFT word
 	vsubsd	xmm1, xmm1, xmm1
 	vsubsd	xmm2, xmm2, xmm2
 	vsubsd	xmm3, xmm3, xmm3
 	vsubsd	xmm4, xmm4, xmm4
 	vsubsd	xmm5, xmm5, xmm5
 	vsubsd	xmm6, xmm6, xmm6
+	jmp	short done
+
+unfft_for_fma:
+	vmovsd	xmm0, xmm1, xmm1		;; Unffted value was gwffted_for_fma (already multiplied by FFT(1)).  Copy 7 values from header to ZPAD0-6.
+	vmovsd	xmm1, xmm2, xmm2
+	vmovsd	xmm2, xmm3, xmm3
+	vmovsd	xmm3, xmm4, xmm4
+	vmovsd	xmm4, xmm5, xmm5
+	vmovsd	xmm5, xmm6, xmm6
+	vmovsd	xmm6, xmm7, xmm7
 	;;jmp	short done
 
 done:	vmovsd	ZPAD0, xmm0
