@@ -10748,6 +10748,13 @@ void cmn_gwmulmulop5 (		/* Calculate (s1 * s2) op (s3 * s4) */
 	if (s3 == d) options &= ~(GWMUL_FFT_S3 | GWMUL_PRESERVE_S3);
 	if (s4 == d) options &= ~(GWMUL_FFT_S4 | GWMUL_PRESERVE_S4);
 
+/* We may be able to save a read if adding and s1,s2 are fully FFTed and one of s3,s4 is not */
+
+	if (opcode == 3 && FFT_state (s1) == FULLY_FFTed && FFT_state (s2) == FULLY_FFTed) {
+		gwswap (s1, s3);
+		gwswap (s2, s4);
+	}
+
 /* Make sure s3 and s4 are FFTed */
 
 	if (FFT_state (s3) != FULLY_FFTed) {
