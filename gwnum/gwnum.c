@@ -1584,10 +1584,10 @@ next2:		jmptab = NEXT_SET_OF_JMPTABS (jmptab);
 				break;
 		}
 
-/* If Montgomery reduction requires us to pick a specific pass2 size then handle that here */
+/* If Montgomery reduction requires us to pick a specific pass2 size then handle that here.  Also match ARCH so that we don't pair AVX with FMA3 FFTs. */
 
 		if (gwdata->required_pass2_size) {
-			int	flags, p2size;
+			int	flags, p2size, arch;
 			flags = jmptab->flags;
 			if ((flags & 0x0000001FF) == 511)
 				p2size = 48;
@@ -1597,7 +1597,8 @@ next2:		jmptab = NEXT_SET_OF_JMPTABS (jmptab);
 				p2size = 32768;
 			else
 				p2size = (flags & 0x0000001FF) << 6;
-			if (p2size == gwdata->required_pass2_size) break;
+			arch = (flags >> 17) & 0x0000000F;
+			if (p2size + arch == gwdata->required_pass2_size) break;
 			goto next3;
 		}
 
@@ -2612,13 +2613,13 @@ int gwsetup_general_mod_giant (
 		if (n > max_exponent) continue;
 
 		// Verify that cyclic and negacyclic FFTs are available for this (n, fftlen) combination
-		gwdata->minimum_fftlen = fftlen;			// Force selection of the already found fft length
-		gwdata->required_pass2_size = gwdata->PASS2_SIZE;	// Force negacyclic and cyclic FFTs to use the same pass 2 size
+		gwdata->minimum_fftlen = fftlen;					// Force selection of the already found fft length
+		gwdata->required_pass2_size = gwdata->PASS2_SIZE + gwdata->ARCH;	// Force negacyclic and cyclic FFTs to use same pass 2 size & architecture
 		error_code = gwinfo (gwdata, 1.0, 2, n, 1);
 		if (error_code) return (error_code);
 		if (gwdata->jmptab->fftlen != fftlen) continue;
 		error_code = gwinfo (gwdata, 1.0, 2, n, -1);
-		if (error_code == GWERROR_TOO_LARGE) continue;		// This happens when no matching pass 2 size found
+		if (error_code == GWERROR_TOO_LARGE) continue;				// This happens when no matching pass 2 size found
 		if (error_code) return (error_code);
 		if (gwdata->jmptab->fftlen != fftlen) continue;
 
@@ -8157,8 +8158,8 @@ void gwfft_description (
 		 gwdata->GENERAL_MMGW_MOD ? "Montgomery reduction " : "",
 		 fft_gwdata->NEGACYCLIC_FFT ? "negacyclic " :
 		 fft_gwdata->ZERO_PADDED_FFT ? "zero-padded " : "",
-		 (fft_gwdata->ARCH == ARCH_FMA3) ? "FMA3 " :
 		 (fft_gwdata->cpu_flags & CPU_AVX512F) ? "AVX-512 " :
+		 (fft_gwdata->ARCH == ARCH_FMA3) ? "FMA3 " :
 		 (fft_gwdata->cpu_flags & CPU_AVX) ? "AVX " :
 		 (fft_gwdata->cpu_flags & CPU_SSE2) ? "" : "x87 ",
 		 arch, ffttype,
