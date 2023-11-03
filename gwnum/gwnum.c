@@ -2571,9 +2571,10 @@ int gwsetup_general_mod_giant (
 		return (0);
 	}
 
-/* Force Barrett reduction if so requested or N is even (can't later do divide by 2) */
+/* Force Barrett reduction if so requested or N is even (can't later do divide by 2) or N is small (308 bits) as Barrett */
+/* using a length 32 FFT should be faster than Montgomery using 2 length 32 FFTs. */
 
-	if (gwdata->force_general_mod == 2 || (N->n[0] & 1) == 0)
+	if (gwdata->force_general_mod == 2 || (N->n[0] & 1) == 0 || bitlen (N) <= 308)
 		return (gwsetup_general_Barrett_mod_giant (gwdata, N, d));
 
 /* Setup the FFT code in much the same way that gwsetup_without_mod does.  Unless the user insists, we try for an integral number of bits per word. */
@@ -11561,7 +11562,7 @@ void gwmul3 (			/* Multiply two gwnums */
 			}
 		}
 
-		// Compute T_Q = s1Q * s1Q mod Q
+		// Compute T_Q = s1Q * s2Q mod Q
 		if (!mulmulsub5able) gwmul3 (gwdata->negacyclic_gwdata, s1Q, s2Q, T_Q, options & ~GWMUL_STARTNEXTFFT);
 
 		// T_R = s1R * s2R mod R
