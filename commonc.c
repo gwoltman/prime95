@@ -4947,10 +4947,7 @@ void set_comm_timers (void)
 	    current_time > (time_t)(last_time + DAYS_BETWEEN_CHECKINS * 86400.0))
 		UpdateEndDates ();
 	else
-		add_timed_event (TE_COMPLETION_DATES,
-				 (int) (last_time +
-					DAYS_BETWEEN_CHECKINS * 86400.0 -
-					current_time));
+		add_timed_event (TE_COMPLETION_DATES, (int) (last_time + DAYS_BETWEEN_CHECKINS * 86400.0 - current_time));
 
 /* Add the event that checks for CERT work and if the work queue has enough work.  As a side effect, this will */
 /* also start the comm thread in case there is an old spool file hanging around. */
@@ -4964,9 +4961,7 @@ void set_comm_timers (void)
 void do_manual_comm_now (void)
 {
 	gwmutex_lock (&SPOOL_FILE_MUTEX);
-	if (!COMMUNICATION_THREAD)
-		gwthread_create (&COMMUNICATION_THREAD,
-				 &communicateWithServer, NULL);
+	if (!COMMUNICATION_THREAD) gwthread_create (&COMMUNICATION_THREAD, &communicateWithServer, NULL);
 	gwmutex_unlock (&SPOOL_FILE_MUTEX);
 }
 
@@ -6650,8 +6645,8 @@ retry:
 		time_t current_time;
 		time (&current_time);
 		IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_LastEndDatesSent, (long) current_time);
-		if (!MANUAL_COMM)
-			add_timed_event (TE_COMPLETION_DATES, (int) (DAYS_BETWEEN_CHECKINS * 86400.0));
+		if (MANUAL_COMM) delete_timed_event (TE_COMPLETION_DATES);
+		add_timed_event (TE_COMPLETION_DATES, (int) (DAYS_BETWEEN_CHECKINS * 86400.0));
 	}
 
 /* Delete the spool file.  However, we don't delete the file if any writes */
