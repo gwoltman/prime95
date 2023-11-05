@@ -4795,6 +4795,7 @@ static	time_t	last_time[3] = {0};
 /* Get the interval user-settable parameter for seconds that must have elapsed since the last time the date was output */
 
 	write_interval = IniGetInt (INI_FILE, "ResultsFileTimestampInterval", 300);
+	if (which_results_file == 2) write_interval = 2000000000;			// JSON output contains a timestamp
 
 /* Open file, position to end */
 
