@@ -12444,7 +12444,7 @@ void gwadd3o (			/* Add two numbers normalizing if needed */
 
 /* Update counters */
 
-	gwdata->read_count += 2;
+	gwdata->read_count += (s1 == s2) ? 1 : 2;
 	gwdata->write_count += 1;
 }
 
