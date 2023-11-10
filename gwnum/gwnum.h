@@ -649,16 +649,14 @@ unsigned long gwmemused (gwhandle *);
 #define squareadd_safe(h,numadds1,numadds2,numadds3)	(FFT1_is_simple(h) ? square_safe(h,numadds1) : squaremuladd_safe(h,numadds1,numadds2,0,numadds3))
 #define FFT1_is_simple(h)				(!(h)->GENERAL_MMGW_MOD && ((h)->k == 1.0 || labs((h)->c) == 1))
 
-/* These macros are for gwmulmuladd safety calculations.  If s1 == s2 or s3 == s4, then the gwmulmuladd is doing squarings which behaves very */
-/* differently in safety calculations.  Thus, there are four macros to handle the different gwmulmuladd possibilities.  WARNING: the impact of */
-/* unnormalized adds before a squaring is poorly understood. */
+/* These macros are for gwmulmuladd safety calculations.  If s1 == s2 or s3 == s4, then the gwmulmuladd is doing squarings which behaves */
+/* differently in safety calculations.  Thus, there are four macros to handle the different gwmulmuladd possibilities. */
 
-#define mulmuladd_safe(h,adds1,adds2,adds3,adds4)	((h)->EXTRA_BITS >= numadds_to_eb(mma5_mul_pair(adds1,adds2)+mma5_mul_pair(adds3,adds4)+1))
-#define squaremuladd_safe(h,adds1,adds2,adds3,adds4)	((h)->EXTRA_BITS >= mma5_sqr_penalty+numadds_to_eb(mma5_sqr_pair(adds1)+mma5_mul_pair(adds3,adds4)+2))
-#define mulsquareadd_safe(h,adds1,adds2,adds3,adds4)	squaremuladd_safe(h,adds3,adds4,adds1,adds2)
-#define squaresquareadd_safe(h,adds1,adds2,adds3,adds4)	((h)->EXTRA_BITS >= mma5_sqr_penalty+numadds_to_eb(mma5_sqr_pair(adds1)+mma5_sqr_pair(adds3)+3))
-#define mma5_mul_pair(adds1,adds2)			(((adds1) + (adds2) + ((adds1) != 0 && (adds2) != 0)) ? 1 : 0)	/* helper macro */
-#define mma5_sqr_pair(adds1)				((adds1) * 4)							/* helper macro */
+#define mulmuladd_safe(h,adds1,adds2,adds3,adds4)	((h)->EXTRA_BITS >= mma5_pairs_eb((adds1)+(adds2),(adds3)+(adds4)))
+#define squaremuladd_safe(h,adds1,adds2,adds3,adds4)	((h)->EXTRA_BITS >= mma5_sqr_penalty+mma5_pairs_eb(2*(adds1)+1,2*(adds3)))
+#define mulsquareadd_safe(h,adds1,adds2,adds3,adds4)	((h)->EXTRA_BITS >= mma5_sqr_penalty+mma5_pairs_eb(2*(adds1),2*(adds3)+1))
+#define squaresquareadd_safe(h,adds1,adds2,adds3,adds4)	((h)->EXTRA_BITS >= 2*mma5_sqr_penalty+mma5_pairs_eb(2*(adds1)+1,2*(adds3)+1))
+#define mma5_pairs_eb(sum1,sum2)			((sum1)<(sum2)?numadds_to_eb(sum1)+numadds_to_eb((sum2)+1):numadds_to_eb((sum1)+1)+numadds_to_eb(sum2))	// Add one to larger pair
 #define mma5_sqr_penalty				(EB_GWMUL_SAVINGS - EB_FIRST_ADD)
 
 /*-----------------------------------------------------------------+
