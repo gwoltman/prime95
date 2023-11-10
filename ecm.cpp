@@ -1889,11 +1889,12 @@ void ed_free (
 
 /* Verify a point is on the Edwards elliptic curve */
 
-void ed_check (
+bool ed_check (				/* Returns TRUE if point is on the Edwards curve */
 	ecmhandle *ecmdata,
 	struct ed *in)
 {
 	gwnum	t0, t1, t2, t3;
+	bool	result;
 
 	t0 = gwalloc (&ecmdata->gwdata);
 	t1 = gwalloc (&ecmdata->gwdata);
@@ -1917,13 +1918,15 @@ void ed_check (
 	giant tmp = popg (&ecmdata->gwdata.gdata, ((unsigned long) ecmdata->gwdata.bit_length >> 5) + 5);
 	gwtogiant (&ecmdata->gwdata, t0, tmp);
 	modg (ecmdata->N, tmp);
-	ASSERTG (tmp->sign == 0);
+	result = (tmp->sign == 0);
 	pushg (&ecmdata->gwdata.gdata, 1);
 
 	gwfree (&ecmdata->gwdata, t0);
 	gwfree (&ecmdata->gwdata, t1);
 	gwfree (&ecmdata->gwdata, t2);
 	gwfree (&ecmdata->gwdata, t3);
+
+	return (result);
 }
 
 /* Options for ed_add, ed_dbl, and even ed_extend */
@@ -4070,7 +4073,7 @@ int choose12 (
 		gwmul3 (&ecmdata->gwdata, e->y, twoV1, e->y, GWMUL_STARTNEXTFFT);	/* y *= 2V1 */
 		gwmul3 (&ecmdata->gwdata, twoV1, yz, e->z, GWMUL_STARTNEXTFFT);		/* z = 2V1 * (u^3+v^3) */
 
-		ed_check (ecmdata, e);
+		ASSERTG (ed_check (ecmdata, e));
 	}
 
 /* Return Montgomery starting point */
@@ -4190,7 +4193,7 @@ int choose_atkin_morain (
 		gwmul3 (&ecmdata->gwdata, e->z, z2, e->z, 0);
 		ed_extend (ecmdata, e, 0);
 
-		ed_check (ecmdata, e);
+		ASSERTG (ed_check (ecmdata, e));
 	}
 
 	// Cleanup
@@ -4314,7 +4317,7 @@ int choose_atkin_morain (
 		gwmul3 (&ecmdata->gwdata, b2m1N, e->y, e->y, 0);
 		gwmul3 (&ecmdata->gwdata, b2m1D, e->z, e->z, 0);
 		// Sanity check
-		ed_check (ecmdata, e);
+		ASSERTG (ed_check (ecmdata, e));
 	}
 
 	// Cleanup
@@ -6974,6 +6977,10 @@ if (w->n == 604) {
 		if (ecmdata.state == ECM_STATE_STAGE1) {
 			stop_reason = init_curve (&ecmdata);
 			if (stop_reason) goto exit;
+			if (!ecmdata.montg_stage1 && !ed_check (&ecmdata, &ecmdata.e)) {
+				saveFileBad (&ecmdata.read_save_file_state);		/* Close and rename the bad save file */
+				goto ed_err;
+			}
 			goto restart1;
 		}
 
@@ -7266,6 +7273,7 @@ restart1:
 /* Write a save file when the user interrupts the calculation and every DISK_WRITE_TIME minutes. */
 
 				if (stop_reason || saving) {
+					if (!ed_check (&ecmdata, &ecmdata.e)) goto ed_err;
 					ecm_save (&ecmdata);
 					if (stop_reason) goto exit;
 				}
@@ -7282,6 +7290,10 @@ restart1:
 			ed_swap (ecmdata.e, ecmdata.dict_start);
 		}
 		mpz_clear (ecmdata.stage1_exp), ecmdata.stage1_exp_initialized = FALSE;
+
+/* Validate the final point */
+
+		if (!ed_check (&ecmdata, &ecmdata.e)) goto ed_err;
 
 /* Convert stage 1 end point to Montgomery for stage 2 */
 
@@ -9747,9 +9759,13 @@ bingo:	stage = (ecmdata.state > ECM_STATE_MIDSTAGE) ? 2 : (ecmdata.state > ECM_S
 
 	goto more_curves;
 
-/* Output an error message saying we are restarting. */
-/* Sleep five minutes before restarting from last save file. */
+/* Output an error message saying we are restarting.  Sleep five minutes before restarting from last save file. */
 
+	// Edwards error (failed ed_check).
+ed_err:	OutputBoth (thread_num, "Hardware error?  Point no longer on the Edwards curve.  Restarting from last save file.\n");
+	goto error_restart;
+
+	// GWNUM error
 err:	if (gw_get_maxerr (&ecmdata.gwdata) > allowable_maxerr) {
 		sprintf (buf, "Possible roundoff error (%.8g), backtracking to last save file and using larger FFT.\n", gw_get_maxerr (&ecmdata.gwdata));
 		OutputStr (thread_num, buf);
@@ -9760,6 +9776,8 @@ err:	if (gw_get_maxerr (&ecmdata.gwdata) > allowable_maxerr) {
 		stop_reason = SleepFive (thread_num);
 		if (stop_reason) goto exit;
 	}
+
+	// Restart
 error_restart:
 	Dmultiple_map.clear ();
 	relp_set_map.clear ();
