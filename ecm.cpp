@@ -1468,31 +1468,32 @@ typedef struct {
 	uint64_t C;		/* Bound #2 (a.k.a. B2) */
 	giant	N;		/* Number being factored */
 	giant	factor;		/* Factor found, if any */
-	bool	sigma_montg;	/* TRUE for old-style Suyama sigma (choose12 for Montgomery curves), FALSE for new-style Atkin-Morain Edward curves */
-	bool	stage1_montg;	/* TRUE for old-style Montgomery stage 1, FALSE for new-style Edward curves */
+	bool	montg_sigma;	/* TRUE for old-style Suyama sigma (choose12 for Montgomery curves), FALSE for new-style Atkin-Morain Edwards curves */
+	bool	montg_stage1;	/* TRUE for old-style Montgomery stage 1, FALSE for new-style Edward curves */
 	bool	optimal_B2;	/* TRUE if we calculate optimal bound #2 given currently available memory.  FALSE for a fixed bound #2. */
 	uint64_t average_B2;	/* Average Kruppa-adjusted bound #2 work done on ECM curves thusfar */
 	unsigned long stage1_fftlen; /* FFT length used in stage 1 */
 
 	gwnum	Ad4;		/* Pre-computed value used for Montgomery doubling */
 	gwnum	ed_a;		/* "a" value in a twisted Edwards curve: ax^2 + y^2 = 1 + dx^2y^2 */
-	gwnum	ed_d;		/* "d" value in a non-twisted or twisted Edwards curve */
+	gwnum	ed_d;		/* "d" value in a non-twisted or twisted Edwards curve (only used by ed_check) */
 
 	readSaveFileState read_save_file_state;	/* Manage savefile names during reading */
 	writeSaveFileState write_save_file_state; /* Manage savefile names during writing */
 	void	*sieve_info;	/* Prime number sieve */
 	uint64_t stage1_prime;	/* Prime number being processed */
 
-	mpz_t	stage1_exp;	/* Edwards stage 1 exponent */
-	char	*NAF_codes;	/* NAF indexes extracted from stage 1 exponent stored in a bit array */
+	mpz_t	stage1_exp;	/* Edwards stage 1 exponent chunk (later converted to bit array indicating when to ed_dbl vs. ed_dbl and ed_add) */
+	char	*NAF_codes;	/* Edwards stage 1 NAF indexes extracted from exponent chunk and stored in a bit array */
 	bool	stage1_exp_initialized;/* Edwards stage 1 exponent initialized with mpz_init */
-	uint64_t stage1_start_prime; /* First prime in the Edwards stage 1 exponent */
-	uint64_t stage1_exp_buffer_size; /* Buffer size (in bytes) used to build stage 1 exponent */
-	uint64_t stage1_bitnum;	/* Edwards stage 1 bit number being processed in the stage 1 exponent */
-	uint32_t NAF_dictionary_size; /* Number of gwnums in the NAF dictionary */
-	struct ed *NAF_dictionary; /* Array of gwnums that will be used in ed_add calls during NAF exponentiation */
+	uint64_t stage1_start_prime; /* Edwards stage 1 first prime in the current exponent chunk */
+	uint32_t stage1_exp_buffer_size; /* Edwards stage 1 buffer size (in bytes) used to build stage 1 exponent chunk */
+	uint32_t stage1_bitnum;	/* Edwards stage 1 bit number being processed in the exponent chunk */
+	uint32_t NAF_dictionary_size; /* Edwards stage 1 number of gwnums in the NAF dictionary */
+	struct ed *NAF_dictionary; /* Edwards stage 1 array of points used in ed_add calls during NAF exponentiation */
 
 	struct xz xz;		/* The stage 1 Montgomery value being computed */
+	struct ed dict_start;	/* The stage 1 Edwards value used to build the dictionary */
 	struct ed e;		/* The stage 1 Edwards value being computed */
 	gwnum	gg;		/* The stage 2 accumulated value */
 
@@ -2024,7 +2025,8 @@ void ed_add (
 	if (!extended) {
 		gwmul3 (&ecmdata->gwdata, tmp2, tmp1, tmp2, GWMUL_FFT_S2 | mul_options);			// X3 = E * F
 		gwmul3 (&ecmdata->gwdata, tmp1, out->y, tmp1, GWMUL_FFT_S2 | mul_options);			// Z3 = F * G
-		gwmul3 (&ecmdata->gwdata, out->y, out->z, out->y, mul_options);					// Y3 = G * H
+		gwmul3 (&ecmdata->gwdata, out->y, out->z, out->z, mul_options);					// Y3 = G * H  (better to overwrite arg being FFTed)
+		gwswap (out->z, out->y);
 		gwswap (tmp2, out->x);
 		gwswap (tmp1, out->z);
 		out->t = NULL;
@@ -2060,7 +2062,9 @@ void ed_dbl (
 
 	// Get algorithm preference
 	static int pref_algo5 = 2;		// FALSE = prefer algorithm 4, TRUE = prefer algorithm 5, 2 = not yet initialized
-	if (pref_algo5 == 2) pref_algo5 = IniGetInt (INI_FILE, "EdDblAlgo5", 0); // Default is prefer algorithm 4, even though algorithm 5 does fewer read/writes
+	if (pref_algo5 == 2) pref_algo5 = IniGetInt (INI_FILE, "EdDblAlgo5", 0); // Default is prefer algorithm 6, even though algorithm 5 does fewer read/writes
+	static int pref_algo6 = 2;		// FALSE = prefer algorithm 6, TRUE = prefer algorithm 6, 2 = not yet initialized
+	if (pref_algo6 == 2) pref_algo6 = IniGetInt (INI_FILE, "EdDblAlgo6", 1); // Default is prefer algorithm 6, even though algorithm 5 does fewer read/writes
 
 	// Allocate temporaries and out->z (also used as a temporary)
 	gwnum inz = in->z;						// Remember in case allocating out->z clobbers this value
@@ -2088,9 +2092,10 @@ void ed_dbl (
 	    if (!extended) {
 		gwsubmul4 (&ecmdata->gwdata, out->y, tmp2, out->y, tmp2, GWMUL_FFT_S1 | GWMUL_FFT_S3 | mul_options);	// Y3 = (H=G-(G-H)) * G
 		gwsubmul4 (&ecmdata->gwdata, out->z, out->y, out->y, out->x, GWMUL_FFT_S1 | mul_options);		// Z3 = (F=C-G) * G
-		gwsubmul4 (&ecmdata->gwdata, out->z, out->y, tmp1, out->z, mul_options);				// X3 = (F=C-G) * E
+		gwsubmul4 (&ecmdata->gwdata, out->z, out->y, tmp1, tmp1, mul_options);					// X3 = (F=C-G) * E  (better to write result to argument that needs FFTing)
 		gwswap (tmp2, out->y);
 		gwswap (out->x, out->z);
+		gwswap (tmp1, out->x);
 	    } else {
 		gwsubmul4 (&ecmdata->gwdata, out->y, tmp2, out->y, out->x, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_FFT_S3 | mul_options); // Y3 = (H=G-(G-H)) * G
 		gwsubmul4 (&ecmdata->gwdata, out->y, tmp2, tmp1, tmp2, GWMUL_FFT_S3 | mul_options);			// T3 = (H=G-(G-H)) * E
@@ -2099,6 +2104,31 @@ void ed_dbl (
 		gwswap (out->x, out->y);
 		gwswap (tmp2, out->t);
 		gwswap (tmp1, out->x);
+	    }
+	}
+	else if (pref_algo6 && mul_safe (&ecmdata->gwdata, 2, 0)) {							// Algorithm 6 (new)
+	    if (ecmdata->ed_a == NULL) {			// Not a twisted Edwards curve
+		gwsquare2 (&ecmdata->gwdata, in->x, tmp2, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);				// A = X^2, two-dest squaring
+	    } else {						// Twisted Edwards curve
+		gwsquare2 (&ecmdata->gwdata, in->x, tmp2, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);				// A = X^2, two-dest squaring
+		gwmul3 (&ecmdata->gwdata, ecmdata->ed_a, tmp2, tmp2, GWMUL_STARTNEXTFFT);				// A = aX^2
+	    }
+	    gwmul3 (&ecmdata->gwdata, in->x, in->y, out->x, GWMUL_FFT_S2 | GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT);	// E = 2XY
+	    gwmuladd4 (&ecmdata->gwdata, in->y, in->y, tmp2, out->y, GWMUL_FFT_S3 | GWMUL_STARTNEXTFFT);		// G = Y^2 + A (improved asm code could save a read here)
+	    gwadd3o (&ecmdata->gwdata, tmp2, tmp2, tmp2, GWADD_DELAY_NORMALIZE);					// 2A = A + A
+	    if (!extended) {
+		gwsubmul4 (&ecmdata->gwdata, out->y, tmp2, out->y, tmp2, GWMUL_FFT_S1 | GWMUL_FFT_S3 | mul_options);	// Y3 = (H=G-2A) * G
+		gwsubmul4 (&ecmdata->gwdata, out->z, out->y, out->y, tmp1, GWMUL_FFT_S1 | mul_options);			// Z3 = (F=C-G) * G
+		gwsubmul4 (&ecmdata->gwdata, out->z, out->y, out->x, out->x, mul_options);				// X3 = (F=C-G) * E  (better to write result to argument that needs FFTing)
+		gwswap (tmp2, out->y);
+		gwswap (tmp1, out->z);
+	    } else {
+		gwsubmul4 (&ecmdata->gwdata, out->y, tmp2, out->y, tmp1, GWMUL_FFT_S1 | GWMUL_FFT_S3 | mul_options);	// Y3 = (H=G-2A) * G
+		gwsubmul4 (&ecmdata->gwdata, out->y, tmp2, out->x, tmp2, GWMUL_FFT_S3 | mul_options);			// T3 = (H=G-2A) * E
+		gwsubmul4 (&ecmdata->gwdata, out->z, out->y, out->x, out->x, GWMUL_FFT_S1 | mul_options);		// X3 = (F=C-G) * E
+		gwsubmul4 (&ecmdata->gwdata, out->z, out->y, out->y, out->z, mul_options);				// Z3 = (F=C-G) * G
+		gwswap (tmp1, out->y);
+		gwswap (tmp2, out->t);
 	    }
 	} else {													// Algorithm 4
 	    bool safe21 = mul_safe (&ecmdata->gwdata, 2, 1);								// Z3 will be safe if G & H are unnormalized
@@ -3942,13 +3972,12 @@ where Montgomery curve is defined as By^2 = x^3 + Ax^2 + x
 */
 int choose12 (
 	ecmhandle *ecmdata,
-	bool	gen_edwards,	/* TRUE if twisted Edward curve should also be generated */
 	struct xz *xz,		/* Return the curve's Montgomery starting point here */
 	struct ed *e)		/* Return the curve's Edward starting point here */
 {
 	int	stop_reason;
-
-	ASSERTG (gen_edwards || e == NULL);	// Don't generate Edwards start point if not generating Edwards curve
+	bool	gen_edwards = !ecmdata->montg_stage1;	// TRUE if twisted Edwards curve should also be generated
+	ASSERTG (gen_edwards || e == NULL);		// Can't generate Edwards start point without generating Edwards curve
 
 	/* Compute u,v (sometimes called alpha,beta in the literature) */
 	gwnum u, v, vPu, vMu, u2, vP3u, vM3u, u3, v3, An, Ad;
@@ -4047,6 +4076,7 @@ int choose12 (
 /* Return Montgomery starting point */
 
 	if (xz != NULL) {
+		ASSERTG (xz->x == NULL && xz->z == NULL);
 		gwswap (xz->x, u3);	/* x = u^3 */
 		gwswap (xz->z, v3);	/* z = v^3 */
 	}
@@ -4298,12 +4328,10 @@ int choose_atkin_morain (
 	return (0);
 }
 
-/* Convert from Edwards to Montgomery */
+/* Convert from Edwards to Montgomery.  Edwards memory is freed. */
 
 void ed_to_Montgomery (
-	ecmhandle *ecmdata,
-	struct ed *e,
-	struct xz *xz)
+	ecmhandle *ecmdata)
 {
 
 /* If the Montgomery A value has not been computed, do so now.  See section 3 of https://eprint.iacr.org/2008/013.pdf and */
@@ -4336,8 +4364,46 @@ void ed_to_Montgomery (
 /* Convert the Edwards point.  From wikipedia: Montgomery x coordinate, u, equals (1+y)/(1-y).  But Edwards coordinates are in projective format, thus */
 /* u = (1+y/z)/(1-y/z) = ((z+y)/z)/((z-y)/z) = (z+y)/(z-y).  Or in our Montgomery xz format, x = z+y, z = z-y. */
 
-	if (xz->x == NULL) alloc_xz (ecmdata, xz);
-	gwaddsub4 (&ecmdata->gwdata, e->z, e->y, xz->x, xz->z);
+	if (ecmdata->e.x != NULL) {			// Resuming from a save file in stage 2 does not have a point to convert, fall through to freeing memory
+		ASSERTG (ecmdata->xz.x == NULL);	// Something is wrong if overwriting xz
+		alloc_xz (ecmdata, &ecmdata->xz);
+		gwaddsub4 (&ecmdata->gwdata, ecmdata->e.z, ecmdata->e.y, ecmdata->xz.x, ecmdata->xz.z);
+	}
+
+/* Free edwards memory */
+
+	ed_free (ecmdata, &ecmdata->dict_start);
+	ed_free (ecmdata, &ecmdata->e);
+	gwfree (&ecmdata->gwdata, ecmdata->ed_a), ecmdata->ed_a = NULL;
+	gwfree (&ecmdata->gwdata, ecmdata->ed_d), ecmdata->ed_d = NULL;
+}
+
+// Compute curve parameters for a Montgomery or Edwards curve
+
+int init_curve (
+	ecmhandle *ecmdata)
+{
+	int	stop_reason;
+
+	// Montgomery curve
+	if (ecmdata->montg_sigma) {
+		if (ecmdata->state != ECM_STATE_STAGE1_INIT)		// Resuming from a save file
+			stop_reason = choose12 (ecmdata, NULL, NULL);
+		else if (ecmdata->montg_stage1)				// New Montgomery curve with Montgomery stage 1
+			stop_reason = choose12 (ecmdata, &ecmdata->xz, NULL);
+		else							// New Montgomery curve, twisted Edwards stage 1
+			stop_reason = choose12 (ecmdata, NULL, &ecmdata->dict_start);
+	}
+	// Edwards curve
+	else {
+		if (ecmdata->state == ECM_STATE_STAGE1_INIT)		// Starting a new curve
+			stop_reason = choose_atkin_morain (ecmdata, &ecmdata->dict_start);
+		else							// Resuming curve from a save file
+			stop_reason = choose_atkin_morain (ecmdata, NULL);
+		if (ecmdata->montg_stage1)
+			ed_to_Montgomery (ecmdata);			// Montgomery stage 1 or 2, convert start point (if any) and free Edwards memory
+	}
+	return (stop_reason);
 }
 
 /* Recursively compute big exponent used in Edwards stage 1.  Include an extra 12 or 16 for Suyama or Atkin-Morain constructed curves. */
@@ -4415,7 +4481,9 @@ bool dict_normalize (
 	uint32_t first_index,		// Index of first dictionary entry to normalize
 	uint32_t last_index)		// Index of last dictionary entry to normalize
 {
-if (!IniGetInt(INI_FILE, "DictNorm", 1)) return(1);
+	// Resuming from a save file will give us a first dictionary entry that is already normalized.  Adjust for that.
+	if (first_index == 0 && ecmdata->NAF_dictionary[0].z == NULL) first_index = 1;
+
 	// Allocate a temporary for each number to be normalized
 	gwarray temps = gwalloc_array (&ecmdata->gwdata, last_index - first_index + 1);
 	if (temps == NULL) return (FALSE);
@@ -4469,7 +4537,7 @@ bool NAF_dictionary_init (
 // Build the dictionary
 
 	// Move start point to first dictionary entry
-	ed_swap (ecmdata->e, ecmdata->NAF_dictionary[0]);
+	ed_swap (ecmdata->dict_start, ecmdata->NAF_dictionary[0]);
 
 	// Double first entry (use last dictionary entry as a temporary)
 	if (!ed_alloc (ecmdata, &ecmdata->NAF_dictionary[ecmdata->NAF_dictionary_size-1])) return (FALSE);
@@ -4639,14 +4707,10 @@ void curve_start_msg (
 	sprintf (buf, "%s ECM curve #%" PRIu32, gwmodulo_as_string (&ecmdata->gwdata), ecmdata->curve);
 	title (ecmdata->thread_num, buf);
 
-	if (!ecmdata->optimal_B2 || ecmdata->state >= ECM_STATE_STAGE2)
-		sprintf (buf,
-			 "ECM on %s: curve #%" PRIu32 " with s=%" PRIu64 ", B1=%" PRIu64 ", B2=%" PRIu64 "\n",
-			 gwmodulo_as_string (&ecmdata->gwdata), ecmdata->curve, ecmdata->sigma, ecmdata->B, ecmdata->C);
-	else
-		sprintf (buf,
-			 "ECM on %s: curve #%" PRIu32 " with s=%" PRIu64 ", B1=%" PRIu64 ", B2=TBD\n",
-			 gwmodulo_as_string (&ecmdata->gwdata), ecmdata->curve, ecmdata->sigma, ecmdata->B);
+	sprintf (buf, "ECM on %s: %s curve #%" PRIu32 " with s=%" PRIu64 ", B1=%" PRIu64 ", ",
+		 gwmodulo_as_string (&ecmdata->gwdata), ecmdata->montg_sigma ? "Montgomery" : "Edwards", ecmdata->curve, ecmdata->sigma, ecmdata->B);
+	if (!ecmdata->optimal_B2 || ecmdata->state >= ECM_STATE_STAGE2) sprintf (buf + strlen (buf), "B2=%" PRIu64 "\n", ecmdata->C);
+	else sprintf (buf + strlen (buf), "B2=TBD\n");
 	OutputStr (ecmdata->thread_num, buf);
 }
 
@@ -5130,7 +5194,8 @@ void ecm_stage1_memory_usage (
 	int	thread_num,
 	ecmhandle *ecmdata)
 {
-	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&ecmdata->gwdata, 9));
+	if (ecmdata->montg_stage1) set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&ecmdata->gwdata, 9));
+	else set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&ecmdata->gwdata, ecmdata->NAF_dictionary_size * 3 + 8));
 }
 
 /* Figure out the maximum safe poly2 size, where "safe" means "safe from gwnum roundoff errors" */
@@ -5599,9 +5664,10 @@ double ecm_stage2_impl_given_numvals (
 	double	efficiency, best_efficiency;	/* Best efficiency for each of the 16 possible stage 2 implementations */
 	struct ecm_stage2_cost_data cost_data;	/* Extra data passed to and returned from ECM costing function */
 
-// The cost of stage 1 (in FFTs) is about 25.48 * B1 (measured at 25.42 for B1=50000, 25.53 for B1=250000).
+// The cost of stage 1 (in FFTs) is about 25.55 * B1 (measured at 25.55 for B1=250000 for Montgomery and 21.95 for Edwards with dictionary size 512).
 
-	cost_data.c.stage1_cost = 25.48 * (double) ecmdata->B;
+	if (ecmdata->montg_sigma) cost_data.c.stage1_cost = 25.55 * (double) ecmdata->B;
+	else cost_data.c.stage1_cost = 21.95 * (double) ecmdata->B;
 
 /* Compute the expected compression of poly1 using polymult_preprocess.  Default compression is usually 1.6%.  Some FFT sizes may have more padding */
 /* and thus more compression.  If poly compression option is set we'll get another 12.5%. */
@@ -5901,7 +5967,8 @@ double ecm_stage2_impl (
 //#define ECM_VERSION	2			// Version 30.4.  Better pairing using relative primes above D/2. */
 //#define ECM_VERSION	3			// Version 30.7.  Better pairing with relp_sets, compressed pairing map. */
 //#define ECM_VERSION	4			// Version 30.10.  Polymult. */
-#define ECM_VERSION	5			// Version 30.13.  Sigma uint64_t. */
+//#define ECM_VERSION	5			// Version 30.13.  Sigma uint64_t. */
+#define ECM_VERSION	6			// Version 30.19.  Edwards curves. */
 
 void ecm_save (
 	ecmhandle *ecmdata)
@@ -5927,13 +5994,27 @@ void ecm_save (
 	if (! write_uint64 (fd, ecmdata->sigma, NULL)) goto writeerr;
 	if (! write_uint64 (fd, ecmdata->B, &sum)) goto writeerr;
 	if (! write_uint64 (fd, ecmdata->C, &sum)) goto writeerr;
+	if (! write_uint32 (fd, ecmdata->montg_sigma, &sum)) goto writeerr;
+	if (! write_uint32 (fd, ecmdata->montg_stage1, &sum)) goto writeerr;
 
 /* Write the stage-specific data */
 
 	if (ecmdata->state == ECM_STATE_STAGE1) {
-		if (! write_uint64 (fd, ecmdata->stage1_prime, &sum)) goto writeerr;
-		if (! write_gwnum (fd, &ecmdata->gwdata, ecmdata->xz.x, &sum)) goto writeerr;
-		if (! write_gwnum (fd, &ecmdata->gwdata, ecmdata->xz.z, &sum)) goto writeerr;
+		if (ecmdata->montg_stage1) {
+			if (! write_uint64 (fd, ecmdata->stage1_prime, &sum)) goto writeerr;
+			if (! write_gwnum (fd, &ecmdata->gwdata, ecmdata->xz.x, &sum)) goto writeerr;
+			if (! write_gwnum (fd, &ecmdata->gwdata, ecmdata->xz.z, &sum)) goto writeerr;
+		} else {
+			if (! write_uint64 (fd, ecmdata->stage1_start_prime, &sum)) goto writeerr;
+			if (! write_uint32 (fd, ecmdata->stage1_exp_buffer_size, &sum)) goto writeerr;
+			if (! write_uint32 (fd, ecmdata->stage1_bitnum, &sum)) goto writeerr;
+			if (! write_uint32 (fd, ecmdata->NAF_dictionary_size, &sum)) goto writeerr;
+			if (! write_gwnum (fd, &ecmdata->gwdata, ecmdata->NAF_dictionary[0].x, &sum)) goto writeerr;
+			if (! write_gwnum (fd, &ecmdata->gwdata, ecmdata->NAF_dictionary[0].y, &sum)) goto writeerr;
+			if (! write_gwnum (fd, &ecmdata->gwdata, ecmdata->e.x, &sum)) goto writeerr;
+			if (! write_gwnum (fd, &ecmdata->gwdata, ecmdata->e.y, &sum)) goto writeerr;
+			if (! write_gwnum (fd, &ecmdata->gwdata, ecmdata->e.z, &sum)) goto writeerr;
+		}
 	}
 
 	else if (ecmdata->state == ECM_STATE_MIDSTAGE) {
@@ -6106,7 +6187,17 @@ int ecm_restore (			/* For version 30.4 and later save files */
 	}
 	if (! read_uint64 (fd, &savefile_B, &sum)) goto readerr;
 	if (! read_uint64 (fd, &ecmdata->C, &sum)) goto readerr;
-
+	if (version < 6) {
+		ecmdata->montg_sigma = TRUE;
+		ecmdata->montg_stage1 = TRUE;
+	} else {
+		uint32_t tmp;
+		if (! read_uint32 (fd, &tmp, &sum)) goto readerr;
+		ecmdata->montg_sigma = tmp;
+		if (! read_uint32 (fd, &tmp, &sum)) goto readerr;
+		ecmdata->montg_stage1 = tmp;
+	}
+		
 /* Handle the case where we have a save file with a smaller bound #1 than the bound #1 we are presently working on. */
 /* Restart the curve (and curve counts) from scratch. */
 
@@ -6125,10 +6216,25 @@ int ecm_restore (			/* For version 30.4 and later save files */
 /* Read state dependent data */
 
 	if (ecmdata->state == ECM_STATE_STAGE1) {
-		if (! read_uint64 (fd, &ecmdata->stage1_prime, &sum)) goto readerr;
-		if (! alloc_xz (ecmdata, &ecmdata->xz)) goto readerr;
-		if (! read_gwnum (fd, &ecmdata->gwdata, ecmdata->xz.x, &sum)) goto readerr;
-		if (! read_gwnum (fd, &ecmdata->gwdata, ecmdata->xz.z, &sum)) goto readerr;
+		if (ecmdata->montg_stage1) {
+			if (! read_uint64 (fd, &ecmdata->stage1_prime, &sum)) goto readerr;
+			if (! alloc_xz (ecmdata, &ecmdata->xz)) goto readerr;
+			if (! read_gwnum (fd, &ecmdata->gwdata, ecmdata->xz.x, &sum)) goto readerr;
+			if (! read_gwnum (fd, &ecmdata->gwdata, ecmdata->xz.z, &sum)) goto readerr;
+		} else {
+			if (! read_uint64 (fd, &ecmdata->stage1_start_prime, &sum)) goto readerr;
+			if (! read_uint32 (fd, &ecmdata->stage1_exp_buffer_size, &sum)) goto readerr;
+			if (! read_uint32 (fd, &ecmdata->stage1_bitnum, &sum)) goto readerr;
+			if (! read_uint32 (fd, &ecmdata->NAF_dictionary_size, &sum)) goto readerr;
+			if (! ed_alloc (ecmdata, &ecmdata->dict_start)) goto readerr;
+			if (! read_gwnum (fd, &ecmdata->gwdata, ecmdata->dict_start.x, &sum)) goto readerr;
+			if (! read_gwnum (fd, &ecmdata->gwdata, ecmdata->dict_start.y, &sum)) goto readerr;
+			gwfree (&ecmdata->gwdata, ecmdata->dict_start.z), ecmdata->dict_start.z = NULL;
+			if (! ed_alloc (ecmdata, &ecmdata->e)) goto readerr;
+			if (! read_gwnum (fd, &ecmdata->gwdata, ecmdata->e.x, &sum)) goto readerr;
+			if (! read_gwnum (fd, &ecmdata->gwdata, ecmdata->e.y, &sum)) goto readerr;
+			if (! read_gwnum (fd, &ecmdata->gwdata, ecmdata->e.z, &sum)) goto readerr;
+		}
 	}
 
 	else if (ecmdata->state == ECM_STATE_MIDSTAGE) {
@@ -6425,7 +6531,7 @@ int ecm (
 	struct work_unit *w)
 {
 	ecmhandle ecmdata;
-	uint64_t sieve_start, next_prime, last_output, last_output_t;
+	uint64_t next_prime, last_output, last_output_t, dictionary_memory;
 	double	one_over_B, output_frequency, output_title_frequency;
 	double	base_pct_complete, one_relp_pct;
 	int	i;
@@ -6435,7 +6541,7 @@ int ecm (
 	int	msglen, continueECM, prpAfterEcmFactor;
 	char	*str, *msg;
 	double	timers[10];
-	bool	near_fft_limit, saving;
+	bool	near_fft_limit, saving, montg_default;
 	double	allowable_maxerr;
 	int	maxerr_restart_count = 0;
 	unsigned long maxerr_fftlen = 0;
@@ -6806,6 +6912,7 @@ if (w->n == 604) {
 	gw_clear_fft_count (&ecmdata.gwdata);
 	first_iter_msg = TRUE;
 	calc_output_frequencies (&ecmdata.gwdata, &output_frequency, &output_title_frequency);
+	dictionary_memory = IniGetInt (INI_FILE, "DictionaryMemory", 256) << 20;	// Default to 256MB dictionary memory
 
 /* Optionally do a probable prime test */
 
@@ -6865,8 +6972,7 @@ if (w->n == 604) {
 /* Continue in the middle of stage 1 */
 
 		if (ecmdata.state == ECM_STATE_STAGE1) {
-			sieve_start = ecmdata.stage1_prime + 1;
-			stop_reason = choose12 (&ecmdata, FALSE, NULL, NULL);	/* Compute Ad4 from sigma while ignoring the x,z starting point */
+			stop_reason = init_curve (&ecmdata);
 			if (stop_reason) goto exit;
 			goto restart1;
 		}
@@ -6903,11 +7009,9 @@ restart0:
 	ecm_stage1_memory_usage (thread_num, &ecmdata);
 	last_output = last_output_t = ecmdata.modinv_count = 0;
 	gw_clear_fft_count (&ecmdata.gwdata);
-
-/* Allocate memory */
-
-	if (!alloc_xz (&ecmdata, &ecmdata.xz)) goto oom;
-	ecmdata.gg = NULL;
+	ASSERTG (ecmdata.xz.x == NULL && ecmdata.xz.z == NULL);
+	ASSERTG (ecmdata.e.x == NULL && ecmdata.e.y == NULL && ecmdata.e.z == NULL);
+	ASSERTG (ecmdata.gg == NULL);
 
 /* Choose curve with order divisible by 16 and choose a point (x/z) on said curve. */
 
@@ -6922,34 +7026,33 @@ restart0:
 		ecmdata.sigma = w->curve;
 		w->curves_to_do = 1;
 	}
+	montg_default = (IniGetInt (INI_FILE, "DictionarySize", (int) (dictionary_memory / (3 * gwnum_size (&ecmdata.gwdata)))) < 4);
+	ecmdata.montg_sigma = IniGetInt (INI_FILE, "MontgSigma", montg_default);
+	ecmdata.montg_stage1 = IniGetInt(INI_FILE, "MontgStage1", montg_default);
 	curve_start_msg (&ecmdata);
-ecmdata.sigma_montg=IniGetInt(INI_FILE, "MontgSigma", 1);
-ecmdata.stage1_montg=IniGetInt(INI_FILE, "MontgStage1", 1);
-	if (!ecmdata.sigma_montg) stop_reason = choose_atkin_morain (&ecmdata, &ecmdata.e);		// Edwards curve, Edwards stage 1
-	else if (ecmdata.stage1_montg) stop_reason = choose12 (&ecmdata, FALSE, &ecmdata.xz, NULL);	// Montgomery curve, Montgomery stage 1
-	else stop_reason = choose12 (&ecmdata, TRUE, NULL, &ecmdata.e);					// Montgomery curve, twisted Edwards stage 1
+	stop_reason = init_curve (&ecmdata);
 	if (stop_reason) goto exit;
 	if (ecmdata.factor != NULL) goto bingo;
-	sieve_start = 2;
+	ecmdata.stage1_prime = 0;				// Last prime processed = none
+	ecmdata.state = ECM_STATE_STAGE1;
+	w->pct_complete = 0.0;
+	sprintf (w->stage, "C%" PRIu32 "S1", ecmdata.curve);
 
 /* The stage 1 restart point */
 
 restart1:
-	ecmdata.state = ECM_STATE_STAGE1;
 	one_over_B = 1.0 / (double) ecmdata.B;
-	w->pct_complete = sieve_start * one_over_B;
-	sprintf (w->stage, "C%" PRIu32 "S1", ecmdata.curve);
 	start_timer_from_zero (timers, 0);
 	start_timer_from_zero (timers, 1);
 
 /* The old-style Montgomery stage 1 */
 
-	if (ecmdata.stage1_montg) {
+	if (ecmdata.montg_stage1) {
 		ecm_stage1_memory_usage (thread_num, &ecmdata);
 		unsigned long SQRT_B = (unsigned long) sqrt ((double) ecmdata.B);
 		// We guess the max sieve prime for stage 2.  If optimal B2 is less 256 * B, then max sieve prime will be less than 16 * sqrt(B).
 		// If our guess is wrong, that's no big deal -- sieve code is smart enough to handle it.
-		stop_reason = start_sieve_with_limit (thread_num, sieve_start, 16 * SQRT_B, &ecmdata.sieve_info);
+		stop_reason = start_sieve_with_limit (thread_num, ecmdata.stage1_prime + 1, 16 * SQRT_B, &ecmdata.sieve_info);
 		if (stop_reason) goto exit;
 		for (ecmdata.stage1_prime = sieve (ecmdata.sieve_info); ecmdata.stage1_prime <= ecmdata.B; ecmdata.stage1_prime = next_prime) {
 			int	count;
@@ -7040,55 +7143,59 @@ restart1:
 
 	else {
 
-/* Stage 1 pre-calculates an exponent that is the product of small primes.  The default maximum exponent size is 40MB (B1 of roughly 266 million). */
-/* Reports of GMP having trouble with products larger than 2^32 bits leads us to cap maximum exponent size at 128MB. */
+/* Stage 1 pre-calculates an exponent that is the product of small primes.  The default maximum exponent size is 40MB (B1 of roughly 222 million). */
+/* Reports of GMP having difficulty with products larger than 2^32 bits leads us to cap maximum exponent size at 128MB. */
 
-		ecmdata.stage1_start_prime = 2;		// Remember this for save files
-		ecmdata.stage1_bitnum = 0;		// Can't overwrite if read from save file
-		ecmdata.stage1_exp_buffer_size = IniGetInt (INI_FILE, "ECMStage1ExpBufferSize", 40);
-		if (ecmdata.stage1_exp_buffer_size < 1) ecmdata.stage1_exp_buffer_size = 1;
-		if (ecmdata.stage1_exp_buffer_size > 128) ecmdata.stage1_exp_buffer_size = 128;
-		ecmdata.stage1_exp_buffer_size <<= 20;
+		// Perform required initialization if not resuming from a save file
+		if (ecmdata.e.x == NULL) {
+			ecmdata.stage1_start_prime = 2;
+			ecmdata.stage1_bitnum = 0;
+			ecmdata.stage1_exp_buffer_size = IniGetInt (INI_FILE, "ECMStage1ExpBufferSize", 40);
+			if (ecmdata.stage1_exp_buffer_size < 1) ecmdata.stage1_exp_buffer_size = 1;
+			if (ecmdata.stage1_exp_buffer_size > 128) ecmdata.stage1_exp_buffer_size = 128;
+			ecmdata.stage1_exp_buffer_size <<= 20;
+		}
 
-//GW Save file will need sieve_start, exp_bufsize, bit_number in exp  to rebuild big exponent and resume
-//GW Save file will need dictionary value 1 and dictionary size to rebuild dictionary
-//GW Restart must use same dictionary size to get same NAF numbers
-
-// jump here for restart from save file?
-		ecm_stage1_memory_usage (thread_num, &ecmdata);		//GW this routine will need to change!
 		stop_reason = start_sieve_with_limit (thread_num, ecmdata.stage1_start_prime, (uint32_t) sqrt ((double) ecmdata.B), &ecmdata.sieve_info);
 		if (stop_reason) goto exit;
 		ecmdata.stage1_prime = sieve (ecmdata.sieve_info);	// Get first prime from sieve
 
 		mpz_init (ecmdata.stage1_exp), ecmdata.stage1_exp_initialized = TRUE;
 
-/* Process primes into big calculated exponents.  We may not be able to process all of them in one blast, so loop in case multiple big exponents are needed. */
+/* Process primes into one big exponent.  We may not be able to process all primes in one blast, so loop in case multiple exponent chunks are needed. */
 
-		for ( ; ecmdata.stage1_prime < ecmdata.B; ecmdata.stage1_bitnum = 0) {
+		for ( ; ; ) {
 			int	NAF_index;
+			uint32_t best_size;
 			uint64_t num_doublings;
+			double	chunk_size, chunk_size_over_num_doublings;
 
 /* Create the big exponent and init the dictionary */
 
 			ecmdata.stage1_start_prime = ecmdata.stage1_prime;	// Remember stage1_exp's starting prime for saving to a file
 			ecm_calc_exp (ecmdata.sieve_info, ecmdata.stage1_exp, ecmdata.B, &ecmdata.stage1_prime, ecmdata.stage1_exp_buffer_size);
-ecmdata.NAF_dictionary_size=IniGetInt(INI_FILE, "DictSize", 256);
-			sprintf (buf, "Exponent length is %" PRIu64 ", best dictionary size is %" PRIu32 ", actual dictionary size is %" PRIu32 "\n",
-				 (uint64_t) mpz_sizeinbase (ecmdata.stage1_exp, 2),
-				 NAF_best_size (&ecmdata),
-				 ecmdata.NAF_dictionary_size);
+			best_size = NAF_best_size (&ecmdata);
+			if (ecmdata.stage1_bitnum == 0) {			// Dictionary size cannot be changed when resuming from a save file
+				ecmdata.NAF_dictionary_size = (uint32_t) (dictionary_memory / (3 * gwnum_size (&ecmdata.gwdata)));
+				if (ecmdata.NAF_dictionary_size > best_size) ecmdata.NAF_dictionary_size = best_size;
+				ecmdata.NAF_dictionary_size = IniGetInt (INI_FILE, "DictionarySize", ecmdata.NAF_dictionary_size);  // User override
+			}
+			sprintf (buf, "%sxponent length is %" PRIu64 ", best dictionary size is %" PRIu32 ", actual dictionary size is %" PRIu32 "\n",
+				 ecmdata.stage1_prime <= ecmdata.B ? "Partial e" : "E",
+				 (uint64_t) mpz_sizeinbase (ecmdata.stage1_exp, 2), best_size, ecmdata.NAF_dictionary_size);
 			OutputStr (thread_num, buf);
+			ecm_stage1_memory_usage (thread_num, &ecmdata);
 			NAF_dictionary_init (&ecmdata, &NAF_index, &num_doublings);
 
 /* Init variables used in calculating percent complete. */
 
-			double one_over_doublings = 1.0 / (double) num_doublings;
-			if (ecmdata.stage1_prime < ecmdata.B) one_over_doublings *= (double) ecmdata.stage1_prime / (double) ecmdata.B;
+			chunk_size = (double) ((ecmdata.stage1_prime < ecmdata.B ? ecmdata.stage1_prime : ecmdata.B) - ecmdata.stage1_start_prime);
+			chunk_size_over_num_doublings = chunk_size / (double) num_doublings;
 
-/* Use first NAF_index to initialize the starting Edwards point (extended coordinate is not needed).  Do the first ed_dbl. */
+/* Unless resuming from a save file, use first NAF_index to initialize the starting Edwards point.  Do the first ed_dbl to avoid gwcopys. */
 
-			if (!ed_alloc (&ecmdata, &ecmdata.e)) goto oom;
 			if (ecmdata.stage1_bitnum == 0) {
+				if (!ed_alloc (&ecmdata, &ecmdata.e)) goto oom;
 				ed_dbl (&ecmdata, &ecmdata.NAF_dictionary[NAF_index], &ecmdata.e, ED_FFT_S1 | ED_RESULT_FOR_DBL | ED_STARTNEXTFFT);
 				ecmdata.stage1_bitnum = 1;
 			}
@@ -7120,8 +7227,7 @@ ecmdata.NAF_dictionary_size=IniGetInt(INI_FILE, "DictSize", 256);
 /* Calculate our stage 1 percentage complete */
 
 				ecmdata.stage1_bitnum++;
-//GW pct must account for completed chunks as well as future chunks
-				w->pct_complete = (double) ecmdata.stage1_bitnum * one_over_doublings;
+				w->pct_complete = (ecmdata.stage1_start_prime + ecmdata.stage1_bitnum * chunk_size_over_num_doublings) * one_over_B;
 
 /* Output the title every so often */
 
@@ -7137,7 +7243,7 @@ ecmdata.NAF_dictionary_size=IniGetInt(INI_FILE, "DictSize", 256);
 
 				if (first_iter_msg ||
 				    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
-					sprintf (buf, "%s curve %" PRIu32 " stage 1 at exponent bit %" PRIu64 " [%.*f%%].",
+					sprintf (buf, "%s curve %" PRIu32 " stage 1 at exponent bit %" PRIu32 " [%.*f%%].",
 						 gwmodulo_as_string (&ecmdata.gwdata), ecmdata.curve, ecmdata.stage1_bitnum,
 						 (int) PRECISION, trunc_percent (w->pct_complete));
 					end_timer (timers, 0);
@@ -7168,16 +7274,20 @@ ecmdata.NAF_dictionary_size=IniGetInt(INI_FILE, "DictSize", 256);
 /* Free the NAF dictionary */
 
 			NAF_dictionary_free (&ecmdata);
+
+/* Are we done?  If not, prepare for the next looping. */
+
+			if (ecmdata.stage1_prime > ecmdata.B) break;
+			ecmdata.stage1_bitnum = 0;
+			ed_swap (ecmdata.e, ecmdata.dict_start);
 		}
 		mpz_clear (ecmdata.stage1_exp), ecmdata.stage1_exp_initialized = FALSE;
 
 /* Convert stage 1 end point to Montgomery for stage 2 */
 
-		ed_to_Montgomery (&ecmdata, &ecmdata.e, &ecmdata.xz);
-
-//GW Free edwards memory
+		ed_to_Montgomery (&ecmdata);
+		ecmdata.montg_stage1 = TRUE;		// Tell ecm_save to save the Montgomery point
 	}
-
 
 /* Stage 1 complete */
 
@@ -7499,7 +7609,7 @@ OutputStr (thread_num, buf); }
 			free (ecmdata.Ad4_binary), ecmdata.Ad4_binary = NULL;
 			gwfft (&ecmdata.gwdata, ecmdata.Ad4, ecmdata.Ad4);
 		} else {
-			stop_reason = choose12 (&ecmdata, FALSE, NULL, NULL);
+			stop_reason = init_curve (&ecmdata);
 			if (stop_reason) goto possible_lowmem;
 		}
 	}
@@ -9408,8 +9518,8 @@ more_curves:
 
 /* Output line to results file indicating the number of curves run */
 
-	sprintf (buf, "%s completed %u ECM %s, B1=%" PRIu64 ",%s B2=%" PRIu64 ", Wi%d: %08lX\n",
-		 gwmodulo_as_string (&ecmdata.gwdata), w->curves_to_do, w->curves_to_do == 1 ? "curve" : "curves",
+	sprintf (buf, "%s completed %u ECM %s curve%s, B1=%" PRIu64 ",%s B2=%" PRIu64 ", Wi%d: %08lX\n",
+		 gwmodulo_as_string (&ecmdata.gwdata), w->curves_to_do, ecmdata.montg_sigma ? "Montgomery" : "Edwards", w->curves_to_do == 1 ? "" : "s",
 		 ecmdata.B, ecmdata.optimal_B2 ? " average" : "", ecmdata.average_B2, PORT, SEC5 (w->n, ecmdata.B, ecmdata.average_B2));
 	OutputStr (thread_num, buf);
 	formatMsgForResultsFile (buf, w);
@@ -9426,6 +9536,7 @@ more_curves:
 	strcat (JSONbuf, ", \"worktype\":\"ECM\"");
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"b1\":%" PRIu64 ", \"b2\":%" PRIu64, ecmdata.B, ecmdata.average_B2);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"curves\":%u", w->curves_to_do);
+	if (!ecmdata.montg_sigma) sprintf (JSONbuf+strlen(JSONbuf), ", \"Edwards\": {}");
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", ecmdata.stage1_fftlen);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, ecmdata.B, ecmdata.average_B2));
 	JSONaddProgramTimestamp (JSONbuf);
@@ -9536,7 +9647,8 @@ bingo:	stage = (ecmdata.state > ECM_STATE_MIDSTAGE) ? 2 : (ecmdata.state > ECM_S
 	strcat (JSONbuf, ", \"worktype\":\"ECM\"");
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"factors\":[\"%s\"]", str);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"b1\":%" PRIu64 ", \"b2\":%" PRIu64, ecmdata.B, ecmdata.C);
-	sprintf (JSONbuf+strlen(JSONbuf), ", \"sigma\":%" PRIu64, ecmdata.sigma);
+	if (!ecmdata.montg_sigma) sprintf (JSONbuf+strlen(JSONbuf), ", \"Edwards\": { \"sigma\":%" PRIu64 " }", ecmdata.sigma);
+	else sprintf (JSONbuf+strlen(JSONbuf), ", \"sigma\":%" PRIu64, ecmdata.sigma);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"stage\":%d", stage);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"curves\":%" PRIu32, ecmdata.curve);
 	if (ecmdata.optimal_B2 && ecmdata.average_B2 != ecmdata.C) sprintf (JSONbuf+strlen(JSONbuf), ", \"average-b2\":%" PRIu64, ecmdata.average_B2);
