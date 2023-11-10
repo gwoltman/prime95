@@ -411,6 +411,18 @@ void gwfft_for_fma (		/* Forward FFT with extra processing for use in gwmuladd4 
 #define GWMUL_ADDINCONST	0x0100		/* Addin the optional gwsetaddin value to the multiplication result */
 #define GWMUL_MULBYCONST	0x0200		/* Multiply the final result by the small mulbyconst */
 #define GWMUL_STARTNEXTFFT	0x0400		/* Start the forward FFT of the multiplication result (for better performance) */
+/* These "combo" options are provided to make code more readable */
+#define GWMUL_FFT_S12		(GWMUL_FFT_S1 | GWMUL_FFT_S2)
+#define GWMUL_FFT_S13		(GWMUL_FFT_S1 | GWMUL_FFT_S3)
+#define GWMUL_FFT_S14		(GWMUL_FFT_S1 | GWMUL_FFT_S4)
+#define GWMUL_FFT_S23		(GWMUL_FFT_S2 | GWMUL_FFT_S3)
+#define GWMUL_FFT_S24		(GWMUL_FFT_S2 | GWMUL_FFT_S4)
+#define GWMUL_FFT_S34		(GWMUL_FFT_S3 | GWMUL_FFT_S4)
+#define GWMUL_FFT_S123		(GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_FFT_S3)
+#define GWMUL_FFT_S124		(GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_FFT_S4)
+#define GWMUL_FFT_S134		(GWMUL_FFT_S1 | GWMUL_FFT_S3 | GWMUL_FFT_S4)
+#define GWMUL_FFT_S234		(GWMUL_FFT_S2 | GWMUL_FFT_S3 | GWMUL_FFT_S4)
+#define GWMUL_FFT_S1234		(GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_FFT_S3 | GWMUL_FFT_S4)
 /* There are advanced GWMUL_ options described later */
 void gwmul3 (			/* Multiply two gwnums, one of s1 or s2 will be FFTed unless the PRESERVE option is set */
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */

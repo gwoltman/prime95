@@ -1953,7 +1953,7 @@ void ed_extend (
 	// Allocate a buffer for the new coordinate
 	e->t = gwalloc (&ecmdata->gwdata);
 	// Extend (X,Y,Z) to (XZ, YZ, XY, Z^2)
-	gwmul3 (&ecmdata->gwdata, e->x, e->y, e->t, GWMUL_FFT_S1 | GWMUL_FFT_S2 | mul_options);	// t = xy
+	gwmul3 (&ecmdata->gwdata, e->x, e->y, e->t, GWMUL_FFT_S12 | mul_options);		// t = xy
 	if (e->z != NULL) {
 		gwmul3 (&ecmdata->gwdata, e->x, e->z, e->x, GWMUL_FFT_S2 | mul_options);	// x = xz
 		gwmul3 (&ecmdata->gwdata, e->y, e->z, e->y, GWMUL_FFT_S2 | mul_options);	// y = yz
@@ -2004,25 +2004,23 @@ void ed_add (
 	gwnum C;
 	if (in1z == NULL) C = in2->t;
 	else gwmul3 (&ecmdata->gwdata, in1z, in2->t, C = out->z, mul_S1Z_options | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT_IF(safe11 || !extended)); // C = Z1 * T2
-	gwaddsub4o (&ecmdata->gwdata, D, C, tmp2, out->z, GWADD_DELAYNORM_IF(safe11 || !extended));		// E = D + C, H = D - C
+	gwaddsub4o (&ecmdata->gwdata, D, C, tmp2, out->z, GWADD_DELAYNORM_IF(safe11 || !extended));				// E = D + C, H = D - C
         if (subtract) {
-		gwswap (tmp2, out->z);										// swap E,H since C should have been negated
-		gwmulmuladd5 (&ecmdata->gwdata, in1->x, in2->y, in1->y, in2->x, tmp1,
-			      GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_FFT_S3 | GWMUL_FFT_S4 | GWMUL_STARTNEXTFFT);	// F = X1*Y2 - Y1*[-]X2
+		gwswap (tmp2, out->z);			// swap E,H since C should have been negated
+		gwmulmuladd5 (&ecmdata->gwdata, in1->x, in2->y, in1->y, in2->x, tmp1, GWMUL_FFT_S1234 | GWMUL_STARTNEXTFFT);	// F = X1*Y2 - Y1*[-]X2
 		if (ecmdata->ed_a == NULL)
-			gwmulmulsub5 (&ecmdata->gwdata, in1->y, in2->y, in1->x, in2->x, out->y, GWMUL_STARTNEXTFFT); // G = Y1*Y2 + X1*[-]X2
+			gwmulmulsub5 (&ecmdata->gwdata, in1->y, in2->y, in1->x, in2->x, out->y, GWMUL_STARTNEXTFFT);		// G = Y1*Y2 + X1*[-]X2
 		else {
 			gwmul3 (&ecmdata->gwdata, in1->x, in2->x, out->x, GWMUL_STARTNEXTFFT);
-			gwmulmulsub5 (&ecmdata->gwdata, in1->y, in2->y, ecmdata->ed_a, out->x, out->y, GWMUL_STARTNEXTFFT); // G = Y1*Y2 + aX1*[-]X2
+			gwmulmulsub5 (&ecmdata->gwdata, in1->y, in2->y, ecmdata->ed_a, out->x, out->y, GWMUL_STARTNEXTFFT);	// G = Y1*Y2 + aX1*[-]X2
 		}
         } else {
-		gwmulmulsub5 (&ecmdata->gwdata, in1->x, in2->y, in1->y, in2->x, tmp1,
-			      GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_FFT_S3 | GWMUL_FFT_S4 | GWMUL_STARTNEXTFFT);	// F = X1*Y2 - Y1*X2
+		gwmulmulsub5 (&ecmdata->gwdata, in1->x, in2->y, in1->y, in2->x, tmp1, GWMUL_FFT_S1234 | GWMUL_STARTNEXTFFT);	// F = X1*Y2 - Y1*X2
 		if (ecmdata->ed_a == NULL)
-			gwmulmuladd5 (&ecmdata->gwdata, in1->y, in2->y, in1->x, in2->x, out->y, GWMUL_STARTNEXTFFT); // G = Y1*Y2 + X1*X2
+			gwmulmuladd5 (&ecmdata->gwdata, in1->y, in2->y, in1->x, in2->x, out->y, GWMUL_STARTNEXTFFT);		// G = Y1*Y2 + X1*X2
 		else {
 			gwmul3 (&ecmdata->gwdata, in1->x, in2->x, out->x, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);
-			gwmulmuladd5 (&ecmdata->gwdata, in1->y, in2->y, ecmdata->ed_a, out->x, out->y, GWMUL_STARTNEXTFFT); // G = Y1*Y2 + aX1*X2
+			gwmulmuladd5 (&ecmdata->gwdata, in1->y, in2->y, ecmdata->ed_a, out->x, out->y, GWMUL_STARTNEXTFFT);	// G = Y1*Y2 + aX1*X2
 		}
 	}
 	if (!extended) {
@@ -2034,7 +2032,7 @@ void ed_add (
 		gwswap (tmp1, out->z);
 		out->t = NULL;
 	} else {
-		gwmul3 (&ecmdata->gwdata, tmp2, tmp1, out->x, GWMUL_FFT_S1 | GWMUL_FFT_S2 | mul_options);	// X3 = E * F
+		gwmul3 (&ecmdata->gwdata, tmp2, tmp1, out->x, GWMUL_FFT_S12 | mul_options);			// X3 = E * F
 		gwmul3 (&ecmdata->gwdata, tmp1, out->y, tmp1, GWMUL_FFT_S2 | mul_options);			// Z3 = F * G
 		gwmul3 (&ecmdata->gwdata, out->y, out->z, out->y, GWMUL_FFT_S2 | mul_options);			// Y3 = G * H
 		gwmul3 (&ecmdata->gwdata, tmp2, out->z, tmp2, mul_options);					// T3 = E * H
@@ -2093,14 +2091,14 @@ void ed_dbl (
 		gwswap (tmp1, out->x);
 	    }
 	    if (!extended) {
-		gwsubmul4 (&ecmdata->gwdata, out->y, tmp2, out->y, tmp2, GWMUL_FFT_S1 | GWMUL_FFT_S3 | mul_options);	// Y3 = (H=G-(G-H)) * G
+		gwsubmul4 (&ecmdata->gwdata, out->y, tmp2, out->y, tmp2, GWMUL_FFT_S13 | mul_options);			// Y3 = (H=G-(G-H)) * G
 		gwsubmul4 (&ecmdata->gwdata, out->z, out->y, out->y, out->x, GWMUL_FFT_S1 | mul_options);		// Z3 = (F=C-G) * G
 		gwsubmul4 (&ecmdata->gwdata, out->z, out->y, tmp1, tmp1, mul_options);					// X3 = (F=C-G) * E  (better to write result to argument that needs FFTing)
 		gwswap (tmp2, out->y);
 		gwswap (out->x, out->z);
 		gwswap (tmp1, out->x);
 	    } else {
-		gwsubmul4 (&ecmdata->gwdata, out->y, tmp2, out->y, out->x, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_FFT_S3 | mul_options); // Y3 = (H=G-(G-H)) * G
+		gwsubmul4 (&ecmdata->gwdata, out->y, tmp2, out->y, out->x, GWMUL_FFT_S123 | mul_options);		// Y3 = (H=G-(G-H)) * G
 		gwsubmul4 (&ecmdata->gwdata, out->y, tmp2, tmp1, tmp2, GWMUL_FFT_S3 | mul_options);			// T3 = (H=G-(G-H)) * E
 		gwsubmul4 (&ecmdata->gwdata, out->z, out->y, tmp1, tmp1, GWMUL_FFT_S1 | mul_options);			// X3 = (F=C-G) * E
 		gwsubmul4 (&ecmdata->gwdata, out->z, out->y, out->y, out->z, mul_options);				// Z3 = (F=C-G) * G
@@ -2120,13 +2118,13 @@ void ed_dbl (
 	    gwmuladd4 (&ecmdata->gwdata, in->y, in->y, tmp2, out->y, GWMUL_FFT_S3 | GWMUL_STARTNEXTFFT);		// G = Y^2 + A (improved asm code could save a read here)
 	    gwadd3o (&ecmdata->gwdata, tmp2, tmp2, tmp2, GWADD_DELAY_NORMALIZE);					// 2A = A + A
 	    if (!extended) {
-		gwsubmul4 (&ecmdata->gwdata, out->y, tmp2, out->y, tmp2, GWMUL_FFT_S1 | GWMUL_FFT_S3 | mul_options);	// Y3 = (H=G-2A) * G
+		gwsubmul4 (&ecmdata->gwdata, out->y, tmp2, out->y, tmp2, GWMUL_FFT_S13 | mul_options);			// Y3 = (H=G-2A) * G
 		gwsubmul4 (&ecmdata->gwdata, out->z, out->y, out->y, tmp1, GWMUL_FFT_S1 | mul_options);			// Z3 = (F=C-G) * G
 		gwsubmul4 (&ecmdata->gwdata, out->z, out->y, out->x, out->x, mul_options);				// X3 = (F=C-G) * E  (better to write result to argument that needs FFTing)
 		gwswap (tmp2, out->y);
 		gwswap (tmp1, out->z);
 	    } else {
-		gwsubmul4 (&ecmdata->gwdata, out->y, tmp2, out->y, tmp1, GWMUL_FFT_S1 | GWMUL_FFT_S3 | mul_options);	// Y3 = (H=G-2A) * G
+		gwsubmul4 (&ecmdata->gwdata, out->y, tmp2, out->y, tmp1, GWMUL_FFT_S13 | mul_options);			// Y3 = (H=G-2A) * G
 		gwsubmul4 (&ecmdata->gwdata, out->y, tmp2, out->x, tmp2, GWMUL_FFT_S3 | mul_options);			// T3 = (H=G-2A) * E
 		gwsubmul4 (&ecmdata->gwdata, out->z, out->y, out->x, out->x, GWMUL_FFT_S1 | mul_options);		// X3 = (F=C-G) * E
 		gwsubmul4 (&ecmdata->gwdata, out->z, out->y, out->y, out->z, mul_options);				// Z3 = (F=C-G) * G
@@ -2150,7 +2148,7 @@ void ed_dbl (
 		gwsubmul4 (&ecmdata->gwdata, out->z, tmp2, out->x, out->x, mul_options);				// X3 = (F=C-G) * E
 		gwswap (tmp1, out->z);
 	    } else {
-		gwmul3 (&ecmdata->gwdata, tmp2, out->y, tmp1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | mul_options);		// Y3 = G * H
+		gwmul3 (&ecmdata->gwdata, tmp2, out->y, tmp1, GWMUL_FFT_S12 | mul_options);				// Y3 = G * H
 		gwmul3 (&ecmdata->gwdata, out->x, out->y, out->y, GWMUL_FFT_S1 | mul_options);				// T3 = E * H
 		gwsubmul4 (&ecmdata->gwdata, out->z, tmp2, out->x, out->x, GWMUL_FFT_S1 | mul_options);			// X3 = (F=C-G) * E
 		gwsubmul4 (&ecmdata->gwdata, out->z, tmp2, tmp2, out->z, mul_options);					// Z3 = (F=C-G) * G
@@ -2250,11 +2248,11 @@ void ell_dbl_xz_scr (
 		t4 = out->z;
 
 		gwsetmulbyconst (&ecmdata->gwdata, 4);
-		gwmul3 (&ecmdata->gwdata, in->x, in->z, t3, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT); /* t3 = 4*x*z */
+		gwmul3 (&ecmdata->gwdata, in->x, in->z, t3, GWMUL_FFT_S12 | GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT); /* t3 = 4*x*z */
 		gwsub3o (&ecmdata->gwdata, in->x, in->z, t2, GWADD_DELAY_NORMALIZE);			/* Compute x - z */
 		gwsquare2 (&ecmdata->gwdata, t2, t2, GWMUL_STARTNEXTFFT);				/* t2 = (x - z)^2 */
 		gwmul3 (&ecmdata->gwdata, t2, ecmdata->Ad4, t4, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);	/* t4 = t2 * Ad4 */
-		gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S2 | GWMUL_FFT_S3 | GWMUL_STARTNEXTFFT); /* outx = (t1 = t2 + t3) * t4 */
+		gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S23 | GWMUL_STARTNEXTFFT);	/* outx = (t1 = t2 + t3) * t4 */
 		gwaddmul4 (&ecmdata->gwdata, t4, t3, t3, out->z, GWMUL_STARTNEXTFFT);			/* outz = (t4 + t3) * t3 */
 	}
 
@@ -2278,7 +2276,7 @@ void ell_dbl_xz_scr (
 		gwadd3o (&ecmdata->gwdata, t3, t3, t3, GWADD_FORCE_NORMALIZE);					/* t3 = 4*x*z */
 
 		gwmul3 (&ecmdata->gwdata, t2, ecmdata->Ad4, t4, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);		/* t4 = t2 * Ad4 */
-		gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S2 | GWMUL_FFT_S3 | GWMUL_STARTNEXTFFT); /* outx = (t1 = t2 + t3) * t4 */
+		gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S23 | GWMUL_STARTNEXTFFT);		/* outx = (t1 = t2 + t3) * t4 */
 		gwaddmul4 (&ecmdata->gwdata, t4, t3, t3, out->z, GWMUL_STARTNEXTFFT);				/* outz = (t4 + t3) * t3 */
 	}
 }
@@ -2302,11 +2300,11 @@ void ell_dbl_xz_scr_last (
 		t4 = out->z;
 
 		gwsetmulbyconst (&ecmdata->gwdata, 4);
-		gwmul3 (&ecmdata->gwdata, in->x, in->z, t3, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT); /* t3 = 4*x*z */
+		gwmul3 (&ecmdata->gwdata, in->x, in->z, t3, GWMUL_FFT_S12 | GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT); /* t3 = 4*x*z */
 		gwsub3o (&ecmdata->gwdata, in->x, in->z, t2, GWADD_DELAY_NORMALIZE);			/* Compute x - z */
 		gwsquare2 (&ecmdata->gwdata, t2, t2, GWMUL_STARTNEXTFFT);				/* t2 = (x - z)^2 */
 		gwmul3 (&ecmdata->gwdata, t2, ecmdata->Ad4, t4, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);	/* t4 = t2 * Ad4 */
-		gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S2 | GWMUL_FFT_S3);		/* outx = (t1 = t2 + t3) * t4 */
+		gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S23);			/* outx = (t1 = t2 + t3) * t4 */
 		gwaddmul4 (&ecmdata->gwdata, t4, t3, t3, out->z, 0);					/* outz = (t4 + t3) * t3 */
 	}
 
@@ -2330,7 +2328,7 @@ void ell_dbl_xz_scr_last (
 		gwadd3o (&ecmdata->gwdata, t3, t3, t3, GWADD_FORCE_NORMALIZE);					/* t3 = 4*x*z */
 
 		gwmul3 (&ecmdata->gwdata, t2, ecmdata->Ad4, t4, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);		/* t4 = t2 * Ad4 */
-		gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S2 | GWMUL_FFT_S3);			/* outx = (t1 = t2 + t3) * t4 */
+		gwaddmul4 (&ecmdata->gwdata, t2, t3, t4, out->x, GWMUL_FFT_S23);				/* outx = (t1 = t2 + t3) * t4 */
 		gwaddmul4 (&ecmdata->gwdata, t4, t3, t3, out->z, 0);						/* outz = (t4 + t3) * t3 */
 	}
 }
@@ -2353,8 +2351,8 @@ void ell_add_xz_scr (
 	ASSERTG (scr != in1 && scr != in2 && scr != diff);
 	t1 = scr->z;
 	t2 = scr->x;
-	gwmulmulsub5 (&ecmdata->gwdata, in1->x, in2->z, in1->z, in2->x, t1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	/* t1 = x1z2 - z1x2 */
-	gwmulmulsub5 (&ecmdata->gwdata, in1->x, in2->x, in1->z, in2->z, t2, GWMUL_STARTNEXTFFT);				/* t2 = x1x2 - z1z2 */
+	gwmulmulsub5 (&ecmdata->gwdata, in1->x, in2->z, in1->z, in2->x, t1, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);	/* t1 = x1z2 - z1x2 */
+	gwmulmulsub5 (&ecmdata->gwdata, in1->x, in2->x, in1->z, in2->z, t2, GWMUL_STARTNEXTFFT);			/* t2 = x1x2 - z1z2 */
 	gwsquare2 (&ecmdata->gwdata, t1, t1, GWMUL_STARTNEXTFFT);				/* t1 = t1^2 */
 	gwsquare2 (&ecmdata->gwdata, t2, t2, GWMUL_STARTNEXTFFT);				/* t2 = t2^2 */
 	options = (diff == out) ? GWMUL_STARTNEXTFFT : GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT;
@@ -2399,8 +2397,8 @@ void ell_add_xz_last (
 	ASSERTG (scr != in1 && scr != in2 && scr != diff);
 	t1 = scr->z;
 	t2 = scr->x;
-	gwmulmulsub5 (&ecmdata->gwdata, in1->x, in2->z, in1->z, in2->x, t1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	/* t1 = x1z2 - z1x2 */
-	gwmulmulsub5 (&ecmdata->gwdata, in1->x, in2->x, in1->z, in2->z, t2, GWMUL_STARTNEXTFFT);				/* t2 = x1x2 - z1z2 */
+	gwmulmulsub5 (&ecmdata->gwdata, in1->x, in2->z, in1->z, in2->x, t1, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);	/* t1 = x1z2 - z1x2 */
+	gwmulmulsub5 (&ecmdata->gwdata, in1->x, in2->x, in1->z, in2->z, t2, GWMUL_STARTNEXTFFT);			/* t2 = x1x2 - z1z2 */
 	gwsquare2 (&ecmdata->gwdata, t1, t1, GWMUL_STARTNEXTFFT);				/* t1 = t1^2 */
 	gwsquare2 (&ecmdata->gwdata, t2, t2, GWMUL_STARTNEXTFFT);				/* t2 = t2^2 */
 	gwmul3 (&ecmdata->gwdata, t2, diff->z, t2, 0);						/* t2 = t2 * zdiff (will become outx) */
@@ -2422,7 +2420,7 @@ void ell_add_xz_1norm (
 	ASSERTG (out != in1 && out->x != in2 && out->z != in2 && out != diff);
 
 	t1 = out->z;
-	gwmulsub4 (&ecmdata->gwdata, in1->z, in2, in1->x, t1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	/* t1 = z1x2 - x1 */
+	gwmulsub4 (&ecmdata->gwdata, in1->z, in2, in1->x, t1, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);	/* t1 = z1x2 - x1 */
 	gwsquare2 (&ecmdata->gwdata, t1, t1, GWMUL_STARTNEXTFFT);				/* t1 = t1^2 */
 	gwmul3 (&ecmdata->gwdata, t1, diff->x, t1, GWMUL_STARTNEXTFFT);				/* t1 = t1 * xdiff (will become outz) */
 
@@ -2446,7 +2444,7 @@ void ell_add_xz_2norm (
 	ASSERTG (out != in1 && out->x != in2 && out->z != in2 && out->z != diff);
 
 	t1 = out->z;
-	gwmulsub4 (&ecmdata->gwdata, in1->z, in2, in1->x, t1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);	/* t1 = z1x2 - x1 */
+	gwmulsub4 (&ecmdata->gwdata, in1->z, in2, in1->x, t1, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);	/* t1 = z1x2 - x1 */
 	gwsquare2 (&ecmdata->gwdata, t1, t1, GWMUL_STARTNEXTFFT);				/* t1 = t1^2 */
 	gwmul3 (&ecmdata->gwdata, t1, diff, t1, GWMUL_STARTNEXTFFT);				/* t1 = t1 * xdiff (will become outz) */
 
@@ -3275,9 +3273,9 @@ int add_to_normalize_pool_ro (
 			gwmul3 (&ecmdata->gwdata, a, b7, a, GWMUL_STARTNEXTFFT);
 			// b56 * b78
 			b5678 = b7;
-			gwmul3 (&ecmdata->gwdata, b56, b78, b5678, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (&ecmdata->gwdata, b56, b78, b5678, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);
 			// b34 * b5678
-			gwmul3 (&ecmdata->gwdata, b34, b5678, b6vals, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (&ecmdata->gwdata, b34, b5678, b6vals, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);
 			// (a1*b2)*b345678
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[0], b6vals, ecmdata->pool_values[0], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			// (a2*b1)*b345678
@@ -3379,9 +3377,9 @@ int add_to_normalize_pool_ro (
 			gwmul3 (&ecmdata->gwdata, a, b14, a, GWMUL_STARTNEXTFFT);
 			// b1213 * b1415
 			b12131415 = b14;
-			gwmul3 (&ecmdata->gwdata, b1213, b1415, b12131415, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (&ecmdata->gwdata, b1213, b1415, b12131415, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);
 			// b1011 * b12131415
-			gwmul3 (&ecmdata->gwdata, b1011, b12131415, b6vals, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (&ecmdata->gwdata, b1011, b12131415, b6vals, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);
 			// b9*b101112131415
 			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count-1], b6vals, ecmdata->poolz_values[ecmdata->poolz_count-1], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			// (a9*b0)*b101112131415
@@ -3604,7 +3602,7 @@ int normalize_pool (
 			b34 = ecmdata->poolz_values[0];
 			ecmdata->poolz_count = 0;
 			// b34 * b5
-			gwmul3 (&ecmdata->gwdata, b34, b5, b6vals, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (&ecmdata->gwdata, b34, b5, b6vals, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);
 			// (a1*b2)*b345
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[0], b6vals, ecmdata->pool_values[0], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			// (a2*b1)*b345
@@ -3637,7 +3635,7 @@ int normalize_pool (
 			b34 = ecmdata->poolz_values[0];
 			ecmdata->poolz_count = 0;
 			// b34 * b56
-			gwmul3 (&ecmdata->gwdata, b34, b56, b6vals, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (&ecmdata->gwdata, b34, b56, b6vals, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);
 			// (a1*b2)*b3456
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[0], b6vals, ecmdata->pool_values[0], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			// (a2*b1)*b3456
@@ -3675,9 +3673,9 @@ int normalize_pool (
 			b34 = ecmdata->poolz_values[0];
 			ecmdata->poolz_count = 0;
 			// b56 * b7
-			gwmul3 (&ecmdata->gwdata, b56, b7, b567, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (&ecmdata->gwdata, b56, b7, b567, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);
 			// b34 * b567
-			gwmul3 (&ecmdata->gwdata, b34, b567, b6vals, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (&ecmdata->gwdata, b34, b567, b6vals, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);
 			// (a1*b2)*b34567
 			gwmul3 (&ecmdata->gwdata, ecmdata->pool_values[0], b6vals, ecmdata->pool_values[0], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			// (a2*b1)*b34567
@@ -3764,7 +3762,7 @@ int normalize_pool (
 			b1011 = ecmdata->poolz_values[ecmdata->poolz_count-2];
 			ecmdata->poolz_count -= 2;
 			// b1011 * b12
-			gwmul3 (&ecmdata->gwdata, b1011, b12, b6vals, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (&ecmdata->gwdata, b1011, b12, b6vals, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);
 			// b9*b101112
 			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count-1], b6vals, ecmdata->poolz_values[ecmdata->poolz_count-1], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			// (a9*b0)*b101112
@@ -3797,7 +3795,7 @@ int normalize_pool (
 			b1011 = ecmdata->poolz_values[ecmdata->poolz_count-2];
 			ecmdata->poolz_count -= 2;
 			// b1011 * b1213
-			gwmul3 (&ecmdata->gwdata, b1011, b1213, b6vals, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (&ecmdata->gwdata, b1011, b1213, b6vals, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);
 			// b9*b10111213
 			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count-1], b6vals, ecmdata->poolz_values[ecmdata->poolz_count-1], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			// (a9*b0)*b10111213
@@ -3835,9 +3833,9 @@ int normalize_pool (
 			b1011 = ecmdata->poolz_values[ecmdata->poolz_count-3];
 			ecmdata->poolz_count -= 3;
 			// b1213 * b14
-			gwmul3 (&ecmdata->gwdata, b1213, b14, b121314, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (&ecmdata->gwdata, b1213, b14, b121314, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);
 			// b1011 * b121314
-			gwmul3 (&ecmdata->gwdata, b1011, b121314, b6vals, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (&ecmdata->gwdata, b1011, b121314, b6vals, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);
 			// b9*b1011121314
 			gwmul3 (&ecmdata->gwdata, ecmdata->poolz_values[ecmdata->poolz_count-1], b6vals, ecmdata->poolz_values[ecmdata->poolz_count-1], GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 			// (a9*b0)*b1011121314
@@ -4261,7 +4259,7 @@ int choose_atkin_morain (
 
 	// Compute modular inverse of sD and dD.  This will be used to normalize either s, t, and d.  Leave b2m1 unnormalized.
 	gwnum	inv_sD, inv_dD, inv_sDdD, s, t;
-	gwmul3 (&ecmdata->gwdata, sD, dD, tmp, GWMUL_FFT_S1 | GWMUL_FFT_S2);				// sD * dD
+	gwmul3 (&ecmdata->gwdata, sD, dD, tmp, GWMUL_FFT_S12);						// sD * dD
 	ecm_modinv (ecmdata, inv_sDdD = tmp);								// 1 / (sD * dD)
 	gwmul3 (&ecmdata->gwdata, inv_sDdD, dD, inv_sD = dD, GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);	// 1/sD = dD * 1 / (sD * dD)
 	gwmul3 (&ecmdata->gwdata, inv_sDdD, sD, inv_dD = sD, GWMUL_STARTNEXTFFT);			// 1/dD = sD * 1 / (sD * dD)
@@ -4494,7 +4492,7 @@ bool dict_normalize (
 	// Loop multiplying all the numbers together into temps
 	gwswap (ecmdata->NAF_dictionary[first_index].z, temps[0]);
 	for (uint32_t i = 1; i <= last_index - first_index; i++) {
-		gwmul3 (&ecmdata->gwdata, temps[i-1], ecmdata->NAF_dictionary[first_index+i].z, temps[i], GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+		gwmul3 (&ecmdata->gwdata, temps[i-1], ecmdata->NAF_dictionary[first_index+i].z, temps[i], GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);
 	}
 
 	// Invert the multiplied numbers
@@ -6977,6 +6975,7 @@ if (w->n == 604) {
 		if (ecmdata.state == ECM_STATE_STAGE1) {
 			stop_reason = init_curve (&ecmdata);
 			if (stop_reason) goto exit;
+			if (ecmdata.factor != NULL) goto bingo;				// Can't happen
 			if (!ecmdata.montg_stage1 && !ed_check (&ecmdata, &ecmdata.e)) {
 				saveFileBad (&ecmdata.read_save_file_state);		/* Close and rename the bad save file */
 				goto ed_err;
@@ -7193,6 +7192,7 @@ restart1:
 			OutputStr (thread_num, buf);
 			ecm_stage1_memory_usage (thread_num, &ecmdata);
 			NAF_dictionary_init (&ecmdata, &NAF_index, &num_doublings);
+			if (ecmdata.factor != NULL) goto bingo;			// Highly unlikely that the modinv in dictionary init found a factor
 
 /* Init variables used in calculating percent complete. */
 
@@ -8337,7 +8337,7 @@ OutputStr (thread_num, buf); }
 /* 4 FFT per prime continuation - deals with only nQx values normalized */
 
 		else {
-			gwmul3 (&ecmdata.gwdata, ecmdata.nQx[ecmdata.relp], mQz, t1, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (&ecmdata.gwdata, ecmdata.nQx[ecmdata.relp], mQz, t1, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);
 			gwsubmul4 (&ecmdata.gwdata, mQx, t1, ecmdata.gg, ecmdata.gg, (!stop_reason && !saving) ? GWMUL_STARTNEXTFFT : 0);
 		}
 
@@ -9881,8 +9881,8 @@ print out each test case (all relevant data)*/
 /* Handy macros for Lucas doubling and adding */
 
 #define luc_dbl(h,s,d)			gwsquare2 (h, s, d, GWMUL_FFT_S1 | GWMUL_ADDINCONST | GWMUL_STARTNEXTFFT)
-#define luc_add(h,s1,s2,diff,d)		gwmulsub4 (h, s1, s2, diff, d, GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT)
-#define luc_add_last(h,s1,s2,diff,d)	gwmulsub4 (h, s1, s2, diff, d, GWMUL_FFT_S1 | GWMUL_FFT_S2)
+#define luc_add(h,s1,s2,diff,d)		gwmulsub4 (h, s1, s2, diff, d, GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT)
+#define luc_add_last(h,s1,s2,diff,d)	gwmulsub4 (h, s1, s2, diff, d, GWMUL_FFT_S12)
 
 /**************************************************************
  *	P-1 Functions
@@ -11174,7 +11174,7 @@ void pm1_helper (
 //GW: handle no work to do case (more helpers than work to do)?
 		for (uint64_t j = pm1data->remaining_poly2_size - 1 - helper_num; ; j -= pm1data->helper_count) {
 			// Compute next poly2 coefficient
-			gwmul3 (gwdata, pm1data->poly2[j+pm1data->helper_count], diff1, pm1data->poly2[j], GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (gwdata, pm1data->poly2[j+pm1data->helper_count], diff1, pm1data->poly2[j], GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);
 			if (j < pm1data->helper_count) break;
 			// Compute next diff1, save the very last diff1 for next polymult
 			if (j == pm1data->helper_count) gwmul3 (gwdata, diff1, diff2, pm1data->diff1, GWMUL_STARTNEXTFFT), diff1 = pm1data->diff1;
@@ -13002,7 +13002,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 			// Compute next small diff1
 			gwmul3 (&pm1data.gwdata, small_diff1, pm1data.r_squared, small_diff1, GWMUL_STARTNEXTFFT);
 			// Compute next poly #2 coefficient
-			gwmul3 (&pm1data.gwdata, poly2[pm1data.poly2_size-1-j], small_diff1, poly2[pm1data.poly2_size-2-j], GWMUL_FFT_S1 | GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
+			gwmul3 (&pm1data.gwdata, poly2[pm1data.poly2_size-1-j], small_diff1, poly2[pm1data.poly2_size-2-j], GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);
 			// Accumulate big diff1
 			gwmul3 (&pm1data.gwdata, big_diff1, small_diff1, big_diff1, GWMUL_STARTNEXTFFT);
 		}
