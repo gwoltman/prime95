@@ -309,11 +309,28 @@ You can change the maximum map size with this poorly named prime.txt entry:
 	MaximumBitArraySize=n	(default is 250)
 Values from 1 to 2000 are supported.
 
-The ECM stage 1, the program examines several different Lucas-chains looking for the shortest.
-For ECM on very small numbers, it may be beneficial to reduce the search effort as the
-work saved is pretty small.  For ECM on larger numbers, it might pay to increase the search
-effort.  I have not studied the optimal search effort, so the current default of 7 is a
-complete guess.  To change the search effort, add this to prime.txt:
+For ECM stage 1, one can use either Edwards curves or Montgomery curves.  One can also
+specify whether to use Edwards stage 1 or Montgomery stage 1.  In prime.txt, add
+	MontgSigma=0 or 1	(default is 0 for most setttings of DictionaryMemory)
+	MontgStage1=0 or 1	(default is 0 for Edwards curves, 1 for Montgomery curves)
+Using Edwards stage 1 on a Montgomery curve makes little sense as the program will
+have to use convert the Montgomery curve to a twisted Edwards curve.  
+
+For Edwards ECM stage 1, you can control how much memory can be used.  In prime.txt, add
+	DictionaryMemory=n	(default is 256)
+where n is MB.
+
+For Edwards ECM stage 1, you can control which doubling algorithm to use.  In prime.txt, add
+	EdDblAlgo5=0 or 1	(default is 0)
+	EdDblAlgo6=0 or 1	(default is 1)
+There are 3 algorithms (4, 5, and 6).  Algorithm 4 and 6 are similar and unlikely to perform
+much differently.  I've seen cases where algorithm 5 is a little faster.
+
+For Montgomery ECM stage 1, the program examines several different Lucas-chains looking
+for the shortest.  For ECM on very small numbers, it may be beneficial to reduce the search
+effort as the work saved is pretty small.  For ECM on larger numbers, it might pay to increase
+the search effort.  I have not studied the optimal search effort, so the current default of 7 is
+a complete guess.  To change the search effort, add this to prime.txt:
 	PracSearch=n		(default is 7)
 Values from 1 to 50 are supported.
 
