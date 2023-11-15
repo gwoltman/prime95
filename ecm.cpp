@@ -6928,7 +6928,7 @@ if (w->n == 604) {
 	sprintf (buf, "\nUsing %s\n", fft_desc);
 	OutputStr (thread_num, buf);
 	sprintf (buf, "%5.3f bits-per-word below FFT limit (more than %5.3f allows extra optimizations)\n",
-		 ecmdata.gwdata.fft_max_bits_per_word - virtual_bits_per_word (&ecmdata.gwdata), EB_FIRST_ADD);
+		 (ecmdata.gwdata.EXTRA_BITS - EB_GWMUL_SAVINGS) / 2.0, (EB_FIRST_ADD + EB_SECOND_ADD - EB_GWMUL_SAVINGS) / 2.0);
 	OutputStr (thread_num, buf);
 
 /* If we are near the maximum exponent this fft length can test, then we will roundoff check all multiplies */
@@ -7034,7 +7034,7 @@ restart0:
 	}
 	montg_default = (IniGetInt (INI_FILE, "DictionarySize", (int) (dictionary_memory / (3 * gwnum_size (&ecmdata.gwdata)))) < 4);
 	ecmdata.montg_sigma = IniGetInt (INI_FILE, "MontgSigma", montg_default);
-	ecmdata.montg_stage1 = IniGetInt(INI_FILE, "MontgStage1", montg_default);
+	ecmdata.montg_stage1 = IniGetInt(INI_FILE, "MontgStage1", ecmdata.montg_sigma);
 	curve_start_msg (&ecmdata);
 	stop_reason = init_curve (&ecmdata);
 	if (stop_reason) goto exit;
@@ -11880,8 +11880,7 @@ restart3a:
 
 	pm1data.required_missing = 0;
 
-/* Restart here when in the middle of stage 2. */
-/* Initialize gg to x-1 in case the user opted to skip the GCD after stage 1. */
+/* Restart here when in the middle of stage 2.  Initialize gg to x-1 in case the user opted to skip the GCD after stage 1. */
 
 restart3b:
 	ASSERTG (pm1data.gg == NULL);
@@ -12097,7 +12096,7 @@ OutputStr (thread_num, buf); }
 	pm1data.V = gwalloc (&pm1data.gwdata);
 	if (pm1data.V == NULL) goto oom;
 	gwadd3o (&pm1data.gwdata, pm1data.x, pm1data.invx, pm1data.V, GWADD_SQUARE_INPUT);
-			
+
 /* Set addin for future lucas_dbl and lucas_add calls */ 
 
 	gwsetaddin (&pm1data.gwdata, -2);
@@ -12475,6 +12474,7 @@ OutputStr (thread_num, buf); }
 
 /* Re-initialize gg */
 
+	ASSERTG (pm1data.gg == NULL);
 	pm1data.gg = gwalloc (&pm1data.gwdata);
 	if (pm1data.gg == NULL) goto lowmem;
 	gianttogw (&pm1data.gwdata, pm1data.gg_binary, pm1data.gg);
@@ -12943,6 +12943,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);
 // Re-initialize gg.  If helper_count > 1 we reduce peak mem usage by delaying this re-init until r_squared is freed */
 
 	if (pm1data.helper_count == 1) {
+		ASSERTG (pm1data.gg == NULL);
 		pm1data.gg = gwalloc (&pm1data.gwdata);
 		if (pm1data.gg == NULL) goto lowmem;
 		gianttogw (&pm1data.gwdata, pm1data.gg_binary, pm1data.gg);
