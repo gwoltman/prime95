@@ -3042,7 +3042,12 @@ int parseWorkToDoLine (
 		goto illegal_line;
 	}
 	if (w->work_type == WORK_FACTOR && w->n > MAX_FACTOR && !IniGetInt (INI_FILE, "LargeTFexponents", 0)) {
-		sprintf (buf, "Error: Worktodo.txt file contained bad factoring assignment: %ld\n", w->n);
+		sprintf (buf, "Error: Worktodo.txt file contained bad factoring exponent: %ld\n", w->n);
+		OutputBoth (MAIN_THREAD_NUM, buf);
+		goto illegal_line;
+	}
+	if (w->work_type == WORK_FACTOR && w->factor_to > MAX_FACTOR_BITS && !IniGetInt (INI_FILE, "LargeTFbits", 0)) {
+		sprintf (buf, "Error: Worktodo.txt file contained bad factoring limit: %d\n", (int) w->factor_to);
 		OutputBoth (MAIN_THREAD_NUM, buf);
 		goto illegal_line;
 	}
