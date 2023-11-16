@@ -12,7 +12,7 @@ extern "C" {
 /* Constants */
 
 #define VERSION		"30.19"
-#define BUILD_NUM	"1"
+#define BUILD_NUM	"2"
 /* The list of assigned OS ports follows: */
 /* Win9x (prime95) #1 */
 /* Linux (mprime)  #2 */
@@ -518,6 +518,7 @@ int writeResults (const char *);
 int writeResultsBench (const char *);
 int writeResultsJSON (const char *);
 void JSONaddExponent (char *JSONbuf, struct work_unit *w);
+void JSONaddExponentKnownFactors (char *JSONbuf, struct work_unit *w);
 void JSONaddProgramTimestamp (char *JSONbuf);
 void JSONaddUserComputerAID (char *JSONbuf, struct work_unit *w);
 

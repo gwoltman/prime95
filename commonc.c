@@ -2344,6 +2344,12 @@ void JSONaddExponent (
 {
 	if (w->k == 1.0 && w->b == 2 && w->c == -1) sprintf (JSONbuf+strlen(JSONbuf), ", \"exponent\":%lu", w->n);
 	else sprintf (JSONbuf+strlen(JSONbuf), ", \"k\":%.0f, \"b\":%lu, \"n\":%lu, \"c\":%ld", w->k, w->b, w->n, w->c);
+}
+
+void JSONaddExponentKnownFactors (
+	char	*JSONbuf,
+	struct work_unit *w)
+{
 	if (w->known_factors != NULL) {
 		char	fac_string[1210];
 		char	*in, *out;
