@@ -766,7 +766,8 @@ void init_gcd_costs (
 /* Returns the cost.  Cost function can return more information, such as best ECM pooling type. */
 
 double best_stage2_impl_internal (
-	uint64_t C_start,		/* Starting point for bound #2 (usually B1, but can be different when multiple pairmaps are required) */
+	uint64_t B,			/* Bound #1 */
+	uint64_t C_start,		/* Starting point for bound #2 (usually B1, but can be different for save files and required multiple pairmaps) */
 	uint64_t C,			/* Bound #2 */
 	uint64_t max_numvals,		/* Number of gwnum temporaries that can be used.  Different than c->numvals when binary searching on numvals. */
 	double	(*cost_func)(void *),	/* ECM, P-1 or P+1 costing function */
@@ -816,7 +817,7 @@ double best_stage2_impl_internal (
 
 		D = d_data[i].D;
 		// Compute values needed by the costing functions
-		c->B1 = C_start;
+		c->B1 = B;
 		c->B2 = C;
 		c->D = D;
 		c->numrels = d_data[i].numrels;
@@ -837,7 +838,7 @@ double best_stage2_impl_internal (
 			if (c->B2_start < C_start) c->B2_start = C_start;
 			if (c->gap_end && c->B2_start < c->gap_end) c->B2_start = c->gap_end;
 			c->B2_start = round_down_to_multiple_of (c->B2_start, D);
-		}			
+		}
 		c->numDsections = (B2_end - c->B2_start) / D;
 
 /* Perform pairing-specific and polymult-specific initializations */
@@ -925,6 +926,7 @@ double best_stage2_impl_internal (
 /* Returns the cost.  Cost function can return more information, such as best D value, B2_start, B2_end. */
 
 double best_stage2_impl (
+	uint64_t B,			/* Bound #1 */
 	uint64_t C_start,		/* Starting point for bound #2 -- usually bound #1 */
 	uint64_t gap_start,		/* last_relocatable or zero (when pairmaps are split, c_start to gap_start are the remaining relocatables to pair) */
 	uint64_t gap_end,		/* a.k.a C_done (when pairmaps are split, gap_end to C are the remaining primes to pair) */
@@ -971,21 +973,21 @@ double best_stage2_impl (
 
 /* When binary searching on numvals is not needed (with poly stage 2 maximum numvals is always best), then just do one call to best_stage2_impl_internal */
 
-	if (c->use_poly_D_data) return (best_stage2_impl_internal (C_start, C, c->numvals, cost_func, cost_func_data));
+	if (c->use_poly_D_data) return (best_stage2_impl_internal (B, C_start, C, c->numvals, cost_func, cost_func_data));
 
 /* Prepare for a binary search looking for the most efficienct stage 2 implementation varying the number of gwnums available for relative primes data. */
 
 	best[0].numvals = 4;
-	best[0].efficiency = best_stage2_impl_internal (C_start, C, best[0].numvals, cost_func, cost_func_data);
+	best[0].efficiency = best_stage2_impl_internal (B, C_start, C, best[0].numvals, cost_func, cost_func_data);
 	if (numvals == 4) return (best[0].efficiency);
 	best[2].numvals = c->numvals;
-	best[2].efficiency = best_stage2_impl_internal (C_start, C, best[2].numvals, cost_func, cost_func_data);
+	best[2].efficiency = best_stage2_impl_internal (B, C_start, C, best[2].numvals, cost_func, cost_func_data);
 	if (numvals == 5) return (best[2].efficiency);
 	best[1].numvals = (c->numvals + 4) / 2;
-	best[1].efficiency = best_stage2_impl_internal (C_start, C, best[1].numvals, cost_func, cost_func_data);
+	best[1].efficiency = best_stage2_impl_internal (B, C_start, C, best[1].numvals, cost_func, cost_func_data);
 //for (int i = 200; i < 1685; i++) {
 //char buf[200];
-//double efficiency = best_stage2_impl_internal (C_start, C, i, cost_func, cost_func_data);
+//double efficiency = best_stage2_impl_internal (B, C_start, C, i, cost_func, cost_func_data);
 //sprintf (buf, "best %d, d: %d, efficiency: %g\n", i, c->D, efficiency);
 //writeResults (buf);
 //}
@@ -1004,19 +1006,19 @@ double best_stage2_impl (
 			ASSERTG (best[1].efficiency >= best[2].efficiency);
 			best[2] = best[1];
 			best[1].numvals = (best[0].numvals + best[2].numvals) / 2;
-			best[1].efficiency = best_stage2_impl_internal (C_start, C, best[1].numvals, cost_func, cost_func_data);
+			best[1].efficiency = best_stage2_impl_internal (B, C_start, C, best[1].numvals, cost_func, cost_func_data);
 		}
 		// If midpoint is worse than end point, make midpoint the new start point.
 		else if (best[1].efficiency < best[2].efficiency) {
 			ASSERTG (best[1].efficiency >= best[0].efficiency);
 			best[0] = best[1];
 			best[1].numvals = (best[0].numvals + best[2].numvals) / 2;
-			best[1].efficiency = best_stage2_impl_internal (C_start, C, best[1].numvals, cost_func, cost_func_data);
+			best[1].efficiency = best_stage2_impl_internal (B, C_start, C, best[1].numvals, cost_func, cost_func_data);
 		}
 		// Work on the bigger of the lower section and upper section
 		else if (best[1].numvals - best[0].numvals > best[2].numvals - best[1].numvals) {	// Work on lower section
 			midpoint.numvals = (best[0].numvals + best[1].numvals) / 2;
-			midpoint.efficiency = best_stage2_impl_internal (C_start, C, midpoint.numvals, cost_func, cost_func_data);
+			midpoint.efficiency = best_stage2_impl_internal (B, C_start, C, midpoint.numvals, cost_func, cost_func_data);
 			if (midpoint.efficiency > best[1].efficiency || best[1].efficiency == best[2].efficiency) {	// Make middle the new end point
 				best[2] = best[1];
 				best[1] = midpoint;
@@ -1025,7 +1027,7 @@ double best_stage2_impl (
 			}
 		} else {							// Work on upper section
 			midpoint.numvals = (best[1].numvals + best[2].numvals) / 2;
-			midpoint.efficiency = best_stage2_impl_internal (C_start, C, midpoint.numvals, cost_func, cost_func_data);
+			midpoint.efficiency = best_stage2_impl_internal (B, C_start, C, midpoint.numvals, cost_func, cost_func_data);
 			if (midpoint.efficiency > best[1].efficiency) {		// Make middle the new start point
 				best[0] = best[1];
 				best[1] = midpoint;
@@ -1039,10 +1041,10 @@ double best_stage2_impl (
 
 	if (best[2].efficiency > best[1].efficiency) best[1] = best[2];
 //{char buf[200];
-//double efficiency = best_stage2_impl_internal (C_start, C, best[1].numvals, cost_func, cost_func_data);
+//double efficiency = best_stage2_impl_internal (B, C_start, C, best[1].numvals, cost_func, cost_func_data);
 //sprintf (buf, "best %d, d: %d, efficiency: %g\n", best[1].numvals, c->D, efficiency);
 //writeResults (buf);}
-	return (best_stage2_impl_internal (C_start, C, best[1].numvals, cost_func, cost_func_data));
+	return (best_stage2_impl_internal (B, C_start, C, best[1].numvals, cost_func, cost_func_data));
 }
 
 /**********************************************************************************************************************/
@@ -5719,7 +5721,8 @@ double ecm_stage2_impl_given_numvals (
 		cost_data.stage2_type = (stage2_type == 0 ? ECM_STAGE2_PAIRING : ECM_STAGE2_POLYMULT);
 		cost_data.impl = impl;
 		cost_data.c.use_poly_D_data = (stage2_type == 1);
-		efficiency = best_stage2_impl (ecmdata->first_relocatable, ecmdata->last_relocatable, ecmdata->C_done, ecmdata->C, numvals - 9, &ecm_stage2_cost, &cost_data);
+		efficiency = best_stage2_impl (ecmdata->B, ecmdata->first_relocatable, ecmdata->last_relocatable, ecmdata->C_done, ecmdata->C,
+					       numvals - 9, &ecm_stage2_cost, &cost_data);
 		if (efficiency > best_efficiency) {
 			best_efficiency = efficiency;
 			*return_cost_data = cost_data;
@@ -10792,7 +10795,7 @@ double pm1_stage2_impl_given_numvals (
 		cost_data.stage2_type = (stage2_type == 0 ? PM1_STAGE2_PAIRING : PM1_STAGE2_POLYMULT);
 		cost_data.c.use_poly_D_data = (stage2_type == 1);
 		cost_data.c.centers_on_Dmultiple = (stage2_type != 1);
-		efficiency = best_stage2_impl (pm1data->first_relocatable, pm1data->last_relocatable, pm1data->C_done, pm1data->C,
+		efficiency = best_stage2_impl (pm1data->B, pm1data->first_relocatable, pm1data->last_relocatable, pm1data->C_done, pm1data->C,
 					       numvals - (stage2_type == 0 ? 4 : 3), &pm1_stage2_cost, &cost_data);
 		if (efficiency > best_efficiency) {
 			best_efficiency = efficiency;
@@ -13636,7 +13639,7 @@ void pm1_savings (
 			g->cost_data.c.use_poly_D_data = FALSE;
 			g->cost_data.c.centers_on_Dmultiple = TRUE;
 			g->cost_data.c.stage2_fftlen = g->cost_data.c.stage1_fftlen;
-			efficiency = best_stage2_impl (B1, 0, 0, B2, g->vals - 3, &pm1_stage2_cost, &g->cost_data);
+			efficiency = best_stage2_impl (B1, B1, 0, 0, B2, g->vals - 3, &pm1_stage2_cost, &g->cost_data);
 			if (efficiency > 0.0) {
 				c->prob = g->cost_data.factor_probability;
 				c->total_cost = g->cost_data.c.total_cost;
@@ -13650,7 +13653,7 @@ void pm1_savings (
 			g->cost_data.c.centers_on_Dmultiple = FALSE;
 			// Polymult is likely require a larger FFT length and fewer vals
 			g->cost_data.c.stage2_fftlen = (unsigned long) ((double) g->cost_data.c.stage1_fftlen * 1.10);
-			double poly_efficiency = best_stage2_impl (B1, 0, 0, B2, (int) (g->vals / 1.10) - 4, &pm1_stage2_cost, &g->cost_data);
+			double poly_efficiency = best_stage2_impl (B1, B1, 0, 0, B2, (int) (g->vals / 1.10) - 4, &pm1_stage2_cost, &g->cost_data);
 			if (poly_efficiency > efficiency) {
 				efficiency = poly_efficiency;
 				c->prob = g->cost_data.factor_probability;
@@ -14415,7 +14418,7 @@ void pp1_choose_B2 (
 	cost_data.c.threads = gwget_num_threads (&pp1data->gwdata);
 #define p1eval(x,B2mult)	x.i = B2mult; \
 				if (x.i > max_B2mult) x.i = max_B2mult; \
-				x.B2_cost = best_stage2_impl (pp1data->B, 0, 0, x.i * pp1data->B, numvals - 4, &pp1_stage2_cost, &cost_data); \
+				x.B2_cost = best_stage2_impl (pp1data->B, pp1data->B, 0, 0, x.i * pp1data->B, numvals - 4, &pp1_stage2_cost, &cost_data); \
 				x.fac_pct = pp1prob (pp1data->B, x.i * pp1data->B);
 
 // Return TRUE if x is better than y.  Determined by seeing if taking the increased cost of y's higher B2 and investing it in increasing x's bounds
@@ -14573,7 +14576,7 @@ int pp1_stage2_impl (
 	cost_data.c.stage1_fftlen = pp1data->stage1_fftlen;
 	cost_data.c.stage2_fftlen = gwfftlen (&pp1data->gwdata);
 	cost_data.c.threads = gwget_num_threads (&pp1data->gwdata);
-	best_stage2_impl (pp1data->first_relocatable, pp1data->last_relocatable, pp1data->C_done, pp1data->C, numvals - 4, &pp1_stage2_cost, &cost_data);
+	best_stage2_impl (pp1data->B, pp1data->first_relocatable, pp1data->last_relocatable, pp1data->C_done, pp1data->C, numvals - 4, &pp1_stage2_cost, &cost_data);
 
 /* If are continuing from a save file that was in stage 2 and the new plan doesn't look significant better than the old plan, then */
 /* we use the old plan and its partially completed pairmap. */
