@@ -104,6 +104,10 @@ int16_t relp_set_hard7c[] = {7,0,1,  0,1,3,7,15,31,127  ,63};		// 87.50%
 //int16_t relp_set_NOTeasy9[]  = {9,0,0,  0,1,3,7,15,31,47,63,27};
 #endif
 
+//GW I'm getting occasional reports of crashes on big pairing jobs (https://www.mersenneforum.org/showpost.php?p=643362&postcount=511).
+//GW Polymult has pretty much made large pairing jobs irrelevant, so I'm capping the max relp sets at 12 in hopes that eliminates crashes.
+#define MAX_RELP_SETS	12
+
 /* This set of data requires no intermediate calculations (except for discarding the usable set -1) during initialization. */
 /* That is, every D/2 set can be calculated be adding a multiple-of-D to a previous D/2 set, where the difference is also a previous D/2 set. */
 /* NOTE: We might eek out a little more performance by using "negative sets".  Try building on 0,1,-3 = 61.13%.  If we do explore negative sets, */
@@ -133,6 +137,7 @@ int16_t relp_set_easy20[] = {20,0,0,  0,1,3,5,6,13,20,21,27,48,55,83,111,201,209
 /* Over time we may enhance this to return different relp_sets based on the bounds and/or cost of computing intermediate sets. */
 
 int16_t *relp_set_selection (int L) {
+	if (L > MAX_RELP_SETS) L = MAX_RELP_SETS;
 	if (L <= 2) return relp_set_easy2;
 	if (L <= 3) return relp_set_easy3;
 	if (L <= 4) return relp_set_easy4;
@@ -852,7 +857,7 @@ double best_stage2_impl_internal (
 /* Estimate our prime pairing percentage and number of D sections that can fit in a pairing map */
 
 			/* We only support relp_sets up to 20 entries */
-			c->totrels = (max_numvals > 20 * d_data[i].numrels) ? 20 * d_data[i].numrels : (int) max_numvals;
+			c->totrels = (max_numvals > MAX_RELP_SETS * d_data[i].numrels) ? MAX_RELP_SETS * d_data[i].numrels : (int) max_numvals;
 			estimate_pairing (d_data[i].second_missing_prime, C_start, C, c->totrels, d_data[i].numrels, &pairing_percentage, &pairing_runtime);
 			c->est_pair_pct = pairing_percentage;
 			c->est_numpairs = (pairing_percentage * c->est_numprimes) / 2.0;
