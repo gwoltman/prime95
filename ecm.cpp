@@ -6921,7 +6921,7 @@ if (w->n == 604) {
 	gw_clear_fft_count (&ecmdata.gwdata);
 	first_iter_msg = TRUE;
 	calc_output_frequencies (&ecmdata.gwdata, &output_frequency, &output_title_frequency);
-	dictionary_memory = IniGetInt (INI_FILE, "DictionaryMemory", 256) << 20;	// Default to 256MB dictionary memory
+	dictionary_memory = (uint64_t) IniGetInt (INI_FILE, "DictionaryMemory", 256) << 20;	// Default to 256MB dictionary memory
 
 /* Optionally do a probable prime test */
 
