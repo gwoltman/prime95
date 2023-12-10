@@ -2889,8 +2889,8 @@ int parseWorkToDoLine (
 		}
 		if (ecm_type == 0) w->curves_to_do = 100;		// Default to 100 curves for ECM=
 		if (q != NULL && q[1] != '"') {				// Get optional num_curves (num lines) for all ECM types
-			q = strchr (q+1, ',');
 			w->curves_to_do = atoi (q+1);
+			q = strchr (q+1, ',');
 		}
 		if (q != NULL && q[1] != '"' && ecm_type == 0) {	// Get optional sigma for ECM=
 			w->curve = atoll (q+1);
