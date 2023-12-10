@@ -3,6 +3,10 @@ New features in Version 30.19 of prime95.exe
 
 1) Edwards ECM curves.  Given a reasonable amount of memory, Edwards ECM curves are roughly
    10% faster than Montgomery ECM curves used in all earlier prime95 versions.
+2) Support for running ECM stage 2 given a resume file from GMP-ECM.  Especially useful when GMP-ECM
+   uses a GPU to run ECM stage 1.  Syntax for worktodo entries are:
+	ECMSTAGE2=k,b,n,c,filename[,B2-or-zero][,skip_curves][,num_curves][,"known-factors"]
+	ECMSTAGE2N=filename[,B2-or-zero][,skip_curves][,num_curves][,"known-factors"]
 
 New features in Version 30.18 of prime95.exe
 --------------------------------------------
