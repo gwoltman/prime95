@@ -47,7 +47,7 @@ SOFTWARE.
 */
 
 static int 
-facceptstr (FILE *fd, char *s)
+facceptstr (FILE *fd, const char *s)
 {
   int c;
   unsigned i = 0;
