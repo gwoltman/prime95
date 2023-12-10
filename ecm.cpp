@@ -6282,6 +6282,10 @@ int ecm_restore (			/* For version 30.4 and later save files */
 		goto readerr;
 	}
 
+/* Handle the case where we are doing stage 2 only, use the B1 value from the save file */
+
+	if (ecmdata->B == 0) ecmdata->B = savefile_B;
+
 /* Pre-version 30.10 save files cannot continue stage 2 */
 
 	if (version == 2 && ecmdata->state == ECM_STATE_STAGE2) {
@@ -7069,6 +7073,21 @@ if (w->n == 604) {
 			/* Close and rename the bad save file */
 			saveFileBad (&ecmdata.read_save_file_state);
 			continue;
+		}
+
+/* If resuming from a GMP-ECM stage 2 run, make sure we are on the right line in the GMP-ECM file */
+
+		if (w->gmp_ecm_file != NULL) {
+			fclose (ecmdata.gmp_ecm_file);
+			ecmdata.gmp_ecm_file = fopen (w->gmp_ecm_file, "r");
+			if (ecmdata.gmp_ecm_file == NULL) {
+				sprintf (buf, "File named '%s' could not be opened.\n", w->gmp_ecm_file);
+				OutputStr (thread_num, buf);
+				stop_reason = STOP_FILE_IO_ERROR;
+				goto exit;
+			}
+			/* Skip past the curve we are processing, the save file has all the information we need */
+			for (i = 0; i < (int) (w->skip_curves + ecmdata.curve); i++) skip_resumefile_line (ecmdata.gmp_ecm_file);
 		}
 
 /* Output a startup message */
