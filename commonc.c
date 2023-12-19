@@ -3083,7 +3083,8 @@ int parseWorkToDoLine (
 		OutputBoth (MAIN_THREAD_NUM, buf);
 		goto illegal_line;
 	}
-	if ((w->work_type == WORK_PMINUS1 || w->work_type == WORK_PPLUS1 || w->work_type == WORK_ECM) && w->B1 < 50000 && !IniGetInt (INI_FILE, "AllowLowB1", 0)) {
+	if ((w->work_type == WORK_PMINUS1 || w->work_type == WORK_PPLUS1 || w->work_type == WORK_ECM) && w->B1 < 50000 &&
+	    w->gmp_ecm_file == NULL && !IniGetInt (INI_FILE, "AllowLowB1", 0)) {
 		sprintf (buf, "Error: Worktodo.txt file has P-1/P+1/ECM with B1 < 50000 (exponent: %ld)\n", w->n);
 		OutputBoth (MAIN_THREAD_NUM, buf);
 		goto illegal_line;
