@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2023 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2024 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
@@ -11,7 +11,7 @@
 | Commonc contains information used during setup and execution
 +---------------------------------------------------------------------*/
 
-static const char JUNK[]="Copyright 1996-2023 Mersenne Research, Inc. All rights reserved";
+static const char JUNK[]="Copyright 1996-2024 Mersenne Research, Inc. All rights reserved";
 
 char	INI_FILE[260] = {0};
 char	WORKTODO_FILE[260] = {0};
