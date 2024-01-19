@@ -7305,6 +7305,7 @@ restart0:
 	if (stop_reason) goto exit;
 	if (ecmdata.factor != NULL) goto bingo;
 	ecmdata.stage1_prime = 0;				// Last prime processed = none
+	ecmdata.stage1_bitnum = 0;				// Last Edwards bit processed = none
 	ecmdata.state = ECM_STATE_STAGE1;
 	w->pct_complete = 0.0;
 	sprintf (w->stage, "C%" PRIu32 "S1", ecmdata.curve);
@@ -9777,7 +9778,7 @@ more_curves:
 			gwset_thread_callback (&ecmdata.gwdata, SetAuxThreadPriority);
 			gwset_thread_callback_data (&ecmdata.gwdata, sp_info);
 			gwset_safety_margin (&ecmdata.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
-			gwset_minimum_fftlen (&ecmdata.gwdata, ecmdata.stage1_fftlen);
+			gwset_minimum_fftlen (&ecmdata.gwdata, w->minimum_fftlen);
 			gwset_using_polymult (&ecmdata.gwdata);
 			gwset_use_spin_wait (&ecmdata.gwdata, IniGetInt (INI_FILE, "SpinWait", 0));
 			if (w->n) res = gwsetup (&ecmdata.gwdata, w->k, w->b, w->n, w->c);
