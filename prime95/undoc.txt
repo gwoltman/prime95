@@ -145,10 +145,14 @@ with 1 digit of precision, n=3 for milliseconds with 2 digits of precision,
 n=4 for milliseconds with 3 digit of precision.
 
 You can change the formatting of date and time to the screen.  In prime.txt:
-	TimeStamp=n
-where n=0 turns output off, n=1 is the default date/time without seconds,
-n=2 is date/time with seconds, n=3 is time only without seconds, n=4 is
-time-only with seconds.
+	TimeStamp=n		(default is 1)
+	TimeStampUTC=x		(default is 0)
+	TimeStampFormat=s
+where n=0 turns output off, and x=0 is local time and x=1 is UTC time, and n=1
+is date/time without seconds, n=2 is date/time with seconds, n=3 is time only
+without seconds, n=4 is time-only with seconds, n=5 is YYYY-MM-DD HH-MM,
+n=6 is YYYY-MM-DD HH:MM:SS, n=7 means use the TimeStampFormat=s value as a
+format string for strftime.
 
 You can have the timings that are output to the screen be cumulative
 (from program restart or start of a new exponent) rather than resetting

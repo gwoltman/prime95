@@ -66,6 +66,7 @@ unsigned int ROLLING_AVERAGE = 0;
 unsigned int PRECISION = 2;
 int	RDTSC_TIMING = 1;
 int	TIMESTAMPING = 1;
+int	TIMESTAMPING_UTC = 0;
 int	CUMULATIVE_TIMING = 0;
 int	CUMULATIVE_ROUNDOFF = 1;
 int	SEQUENTIAL_WORK = -1;
@@ -1857,6 +1858,7 @@ int readIniFiles (void)
 /* Other oddball options */
 
 	TIMESTAMPING = IniGetInt (INI_FILE, "TimeStamp", 1);
+	TIMESTAMPING_UTC = IniGetInt (INI_FILE, "TimeStampUTC", 0);
 	CUMULATIVE_TIMING = IniGetInt (INI_FILE, "CumulativeTiming", 0);
 	CUMULATIVE_ROUNDOFF = IniGetInt (INI_FILE, "CumulativeRoundoff", 1);
 	SEQUENTIAL_WORK = IniGetInt (INI_FILE, "SequentialWorkToDo", -1);
@@ -2181,6 +2183,33 @@ int PTOHasOptionChanged (
 /*                Utility routines to output messages                       */
 /****************************************************************************/
 
+/* Format the current time according to user preferencess */
+
+void timestamp (
+	char	*buf)
+{
+	char	user_defined_fmt[100];
+	const char *fmtstr;
+	time_t	this_time;
+
+	if (TIMESTAMPING == 0) { *buf = 0; return; }		/* No timestamping */
+	fmtstr = "%b %e %H:%M";					/* Default format */
+	if (TIMESTAMPING == 2) fmtstr = "%b %e %H:%M:%S";
+	else if (TIMESTAMPING == 3) fmtstr = "%H:%M";
+	else if (TIMESTAMPING == 4) fmtstr = "%H:%M:%S";
+	else if (TIMESTAMPING == 5) fmtstr = "%Y-%m-%d %H:%M";	/* New in version 30.19b6 */
+	else if (TIMESTAMPING == 6) fmtstr = "%Y-%m-%d %H:%M:%S";
+	else if (TIMESTAMPING == 7) {
+		IniGetString (INI_FILE, "TimestampFormat", user_defined_fmt, sizeof (user_defined_fmt), fmtstr);
+		fmtstr = user_defined_fmt;
+	}
+
+	/* Format local time or UTC time */
+	time (&this_time);
+	if (TIMESTAMPING_UTC) strftime (buf, 80, fmtstr, gmtime (&this_time));
+	else strftime (buf, 80, fmtstr, localtime (&this_time));
+}
+
 /* Output string to screen or results file */
 
 void OutputSomewhere (
@@ -2260,26 +2289,12 @@ void OutputStr (
 
 	gwmutex_lock (&OUTPUT_MUTEX);
 
-/* Format a timestamp.  Prefix every line in the input buffer with */
-/* the timestamp. */
+/* Format a timestamp.  Prefix every line in the input buffer with the timestamp. */
 
 	if (TIMESTAMPING) {
-		time_t	this_time;
-		char	tmpbuf[200], fmtbuf[40];
+		char	tmpbuf[200], fmtbuf[202];
 
-		time (&this_time);
-		strcpy (tmpbuf, ctime (&this_time)+4);
-
-		/* Eliminate seconds and year or just year */
-		if (TIMESTAMPING & 1) tmpbuf[12] = 0;
-		else tmpbuf[15] = 0;
-
-		/* Eliminate date or zero-suppress day */
-		if (TIMESTAMPING >= 3)
-			safe_strcpy (tmpbuf, tmpbuf+7);
-		else if (tmpbuf[4] == '0' || tmpbuf[4] == ' ')
-			safe_strcpy (tmpbuf+4, tmpbuf+5);
-
+		timestamp (tmpbuf);
 		sprintf (fmtbuf, "[%s] ", tmpbuf);
 
 /* Output the prefix for every line in the buffer */ 
@@ -2294,8 +2309,7 @@ void OutputStr (
 			while (buf != eol) {
 				int	len;
 				len = (int) (eol - buf);
-				if (len >= sizeof (tmpbuf))
-					len = sizeof (tmpbuf) - 1;
+				if (len >= sizeof (tmpbuf)) len = sizeof (tmpbuf) - 1;
 				memcpy (tmpbuf, buf, len);
 				tmpbuf[len] = 0;
 				RealOutputStr (thread_num, tmpbuf);
@@ -4866,13 +4880,11 @@ static	time_t	last_time[3] = {0};
 
 	time (&this_time);
 	if (write_interval && this_time - last_time[which_results_file] > (time_t) write_interval) {
-		char	buf[32];
+		char	tmpbuf[200], buf[202];
 		last_time[which_results_file] = this_time;
-		buf[0] = '[';
-		strcpy (buf+1, ctime (&this_time));
-		buf[25] = ']';
-		buf[26] = '\n';
-		(void) _write (fd, buf, 27);
+		timestamp (tmpbuf);
+		sprintf (buf, "[%s]", tmpbuf);
+		(void) _write (fd, buf, (int) strlen (buf));
 	}
 
 /* Output the message */
