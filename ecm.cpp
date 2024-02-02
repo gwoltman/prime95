@@ -5917,7 +5917,7 @@ double ecm_stage2_impl_given_numvals (
 
 /* Choose most effective B2 for an ECM curve given number of gwnums we are allowed to allocate */
 
-void ecm_choose_B2 (
+int ecm_choose_B2 (
 	ecmhandle *ecmdata,
 	uint64_t numvals,
 	int	forced_stage2_type,		/* 0 = cost pairing, 1 = cost poly, 99 = cost both */
@@ -5947,6 +5947,7 @@ void ecm_choose_B2 (
 	kruppa (best[0], 50);
 	kruppa (best[1], best[0].actual_i * 5);
 	kruppa (best[2], best[1].actual_i * 5);
+	if (best[0].efficiency < 0.0 && best[1].efficiency < 0.0 && best[2].efficiency < 0.0) return (FALSE);
 
 /* Handle case where midpoint has worse efficiency than the start point.  The search code requires best[1] is better than best[0] and best[2]. */
 /* There is an edge case where max_safe_poly_size returns a very small value and there is no case where best[1] is better than best[0]. */
@@ -6002,6 +6003,10 @@ void ecm_choose_B2 (
 
 	ecmdata->C = best[1].actual_i * ecmdata->B;
 	sprintf (optimal_B2_msg, "Optimal B2 is %d*B1 = %" PRIu64 ".  ", best[1].actual_i, ecmdata->C);
+
+/* Return success */
+
+	return (TRUE);
 }
 
 /* Choose the best implementation of ECM stage 2 given the current memory settings.  We choose the best values for D, 2 or 4 FFT stage 2, and best */
@@ -6029,7 +6034,7 @@ double ecm_stage2_impl (
 		// Note: differs from P-1 and P+1 code in that "more C" is not supported
 		ecmdata->first_relocatable = ecmdata->C_done = ecmdata->B;
 		ecmdata->last_relocatable = 0;
-		if (ecmdata->optimal_B2) ecm_choose_B2 (ecmdata, numvals, forced_stage2_type, msgbuf + strlen (msgbuf));
+		if (ecmdata->optimal_B2 && !ecm_choose_B2 (ecmdata, numvals, forced_stage2_type, msgbuf + strlen (msgbuf))) return (0.0);
 	}
 	if (ecmdata->state >= ECM_STATE_STAGE2 && ecmdata->stage2_type == ECM_STAGE2_POLYMULT) {
 		ecmdata->first_relocatable = ecmdata->C_done > ecmdata->B ? ecmdata->C_done : ecmdata->B;
@@ -11082,7 +11087,7 @@ double pm1_stage2_impl_given_numvals (
 /* Choose the most effective B2 for a P-1 run with a fixed B1 given the number of gwnums we are allowed to allocate. */
 /* That is, find the B2 such that investing a fixed cost in either a larger B1 or B2 results in the same increase in chance of finding a factor. */
 
-void pm1_choose_B2 (
+int pm1_choose_B2 (
 	pm1handle *pm1data,
 	uint64_t numvals,
 	int	forced_stage2_type,		/* 0 = cost pairing, 1 = cost poly, 99 = cost both */
@@ -11096,6 +11101,8 @@ void pm1_choose_B2 (
 		uint64_t B2;			/* Actual B2 -- polymult often chooses much larger B2 value */
 		double	B2_cost;		/* Cost of stage 2 in transforms */
 		double	fac_pct;		/* Percentage chance of finding a factor */
+		double	efficiency;
+		double	compared_to_next_i;	/* Best i occurs when comparison to next i approaches zero (no difference between investing time in B1 or B2) */
 	} best[3];
 	double	saved_sieve_depth;
 	double	takeAwayBits;			/* Bits we get for free in smoothness of P-1 factor */
@@ -11105,21 +11112,28 @@ void pm1_choose_B2 (
 	saved_sieve_depth = pm1data->w->sieve_depth;
 	if (saved_sieve_depth == 0.0) pm1data->w->sieve_depth = 67.0;
 
-// Cost out a B2 value
+// Cost out a B2 value.  Then compare it to the next larger B2 to determine if investing more time in larger B1 or larger B2 would be better.
 	max_B2mult = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", (int) (numvals < 100000 ? numvals * 100 : 10000000));
-#define p1eval(x,B2mult)	x.i = B2mult; \
-				if (x.i > max_B2mult) x.i = max_B2mult; \
+#define p1eval(x,B2mult)	x.i = B2mult; if (x.i > max_B2mult) x.i = max_B2mult; \
 				pm1data->C = x.i * pm1data->B; \
-				pm1_stage2_impl_given_numvals (pm1data, numvals, forced_stage2_type, &cost_data); \
-				x.B2 = cost_data.c.B2_start + cost_data.c.numDsections * cost_data.c.D; \
-				x.actual_i = (int) (x.B2 / pm1data->B); \
-				x.B2_cost = cost_data.c.stage2_cost; \
-				x.fac_pct = cost_data.factor_probability;
+				x.efficiency = pm1_stage2_impl_given_numvals (pm1data, numvals, forced_stage2_type, &cost_data); \
+				if (x.efficiency > 0.0) { \
+				  x.B2 = cost_data.c.B2_start + cost_data.c.numDsections * cost_data.c.D; \
+				  x.actual_i = (int) (x.B2 / pm1data->B); \
+				  x.B2_cost = cost_data.c.stage2_cost; \
+				  x.fac_pct = cost_data.factor_probability; \
+				  /* Get cost of next i */ \
+				  pm1data->C = (x.i + 1) * pm1data->B; \
+				  if (pm1_stage2_impl_given_numvals (pm1data, numvals, forced_stage2_type, &cost_data) > 0.0) { \
+				    /* Compare tbe fac pct of a larger B2 to using the extra cost to up B1 instead */ \
+				    int B1inc = (int) ((cost_data.c.stage2_cost - x.B2_cost) / (1.44 * 2.0)); \
+				    x.compared_to_next_i = pm1prob (takeAwayBits, pm1data->w->sieve_depth, pm1data->B+B1inc, x.B2+B1inc) - cost_data.factor_probability; \
+				    x.compared_to_next_i = - abs (x.compared_to_next_i); \
+				  } else x.compared_to_next_i = -100.0; \
+				} else x.actual_i = x.i;
 
-// Return TRUE if x is better than y.  Determined by seeing if taking the increased cost of y's higher B2 and investing it in increasing x's bounds
-// results in a higher chance of finding a factor.
-#define B1increase(x,y)	(uint64_t) ((y.B2_cost - x.B2_cost) / (1.44 * 2.0))			// Each B1 increase costs 1.44 squarings
-#define p1compare(x,y)	(pm1prob (takeAwayBits, pm1data->w->sieve_depth, pm1data->B + B1increase(x,y), x.B2 + B1increase(x,y)) > y.fac_pct)
+// Return TRUE if x is better than y.
+#define p1compare(x,y)	(x.compared_to_next_i > y.compared_to_next_i)
 
 /* Look for the best B2 which is likely between 5*B1 and 1000*B1.  If optimal is not between these bounds, don't worry we'll locate the optimal spot anyway. */
 
@@ -11128,6 +11142,7 @@ void pm1_choose_B2 (
 	p1eval (best[0], 5);
 	p1eval (best[1], best[0].actual_i * 5);
 	p1eval (best[2], best[1].actual_i * 5);
+	if (best[0].efficiency < 0.0 && best[1].efficiency < 0.0 && best[2].efficiency < 0.0) return (FALSE);
 
 /* Handle case where midpoint is worse than the start point.  The search code requires best[1] is better than best[0] and best[2]. */
 /* To be safe, like ECM catch cases where no suitable best[1] exists. */
@@ -11187,6 +11202,10 @@ void pm1_choose_B2 (
 /* Restore the sieve depth */
 
 	pm1data->w->sieve_depth = saved_sieve_depth;
+
+/* Return success */
+
+	return (TRUE);
 }
 #undef p1eval
 #undef B1increase
@@ -11218,7 +11237,7 @@ double pm1_stage2_impl (
 		if (pm1data->C_done == pm1data->B) {
 			pm1data->first_relocatable = pm1data->first_C_start;
 			pm1data->last_relocatable = 0;
-			if (pm1data->optimal_B2) pm1_choose_B2 (pm1data, numvals, forced_stage2_type, msgbuf + strlen (msgbuf));
+			if (pm1data->optimal_B2 && !pm1_choose_B2 (pm1data, numvals, forced_stage2_type, msgbuf + strlen (msgbuf))) return (0.0);
 		} else {
 			pm1data->first_relocatable = pm1data->C_done;
 			pm1data->last_relocatable = 0;
