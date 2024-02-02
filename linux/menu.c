@@ -411,6 +411,7 @@ done:	if (askOkCancel ()) {
 
 		if (!USE_PRIMENET && m_primenet) {
 			USE_PRIMENET = 1;
+			test_workers ();
 			create_window (COMM_THREAD_NUM);
 			base_title (COMM_THREAD_NUM, "Communication thread");
 			if (!STARTUP_IN_PROGRESS) set_comm_timers ();

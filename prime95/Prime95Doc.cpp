@@ -1,6 +1,6 @@
 // Prime95Doc.cpp : implementation of the CPrime95Doc class
 //
-// Copyright 1995-2023 Mersenne Research, Inc.  All rights reserved
+// Copyright 1995-2024 Mersenne Research, Inc.  All rights reserved
 //
 
 #include "stdafx.h"
@@ -261,6 +261,7 @@ void CPrime95Doc::OnPrimenet()
 		}
 		if (!USE_PRIMENET && dlg.m_primenet) {
 			USE_PRIMENET = 1;
+			OnWorkers ();		// Allow changing worker preferences before starting comm thread
 			create_window (COMM_THREAD_NUM);
 			base_title (COMM_THREAD_NUM, "Communication thread");
 			if (!STARTUP_IN_PROGRESS) set_comm_timers ();
