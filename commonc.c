@@ -40,6 +40,7 @@ unsigned int CORES_PER_TEST[MAX_NUM_WORKERS] = {1}; /* Number of cores gwnum can
 int	HYPERTHREAD_TF = 1;		/* TRUE if trial factoring should use hyperthreads */
 int	HYPERTHREAD_LL = 0;		/* TRUE if FFTs (LL, P-1, ECM, PRP) should use hyperthreads */
 int	MANUAL_COMM = 0;
+int	this_is_a_manual_comm = FALSE;	/* Ugly hack to let comm thread know it was triggered by a user's manual comm */
 float volatile CPU_WORKER_DISK_SPACE = 6.0;
 unsigned int volatile CPU_HOURS = 0;
 int	CLASSIC_OUTPUT = 0;
@@ -67,6 +68,7 @@ unsigned int PRECISION = 2;
 int	RDTSC_TIMING = 1;
 int	TIMESTAMPING = 1;
 int	TIMESTAMPING_UTC = 0;
+int	SCREENLOG = 0;
 int	CUMULATIVE_TIMING = 0;
 int	CUMULATIVE_ROUNDOFF = 1;
 int	SEQUENTIAL_WORK = -1;
@@ -1859,6 +1861,7 @@ int readIniFiles (void)
 
 	TIMESTAMPING = IniGetInt (INI_FILE, "TimeStamp", 1);
 	TIMESTAMPING_UTC = IniGetInt (INI_FILE, "TimeStampUTC", 0);
+	SCREENLOG = IniGetInt (INI_FILE, "ScreenLog", 0);
 	CUMULATIVE_TIMING = IniGetInt (INI_FILE, "CumulativeTiming", 0);
 	CUMULATIVE_ROUNDOFF = IniGetInt (INI_FILE, "CumulativeRoundoff", 1);
 	SEQUENTIAL_WORK = IniGetInt (INI_FILE, "SequentialWorkToDo", -1);
@@ -5022,12 +5025,12 @@ void set_comm_timers (void)
 	add_timed_event (TE_WORK_QUEUE_CHECK, 5);  /* Start in 5 seconds */
 }
 
-/* Routine to fire up the communication thread in response to a user */
-/* request to communicate with the server now. */
+/* Routine to fire up the communication thread in response to a user request to communicate with the server now. */
 
 void do_manual_comm_now (void)
 {
 	gwmutex_lock (&SPOOL_FILE_MUTEX);
+	this_is_a_manual_comm = TRUE;
 	if (!COMMUNICATION_THREAD) gwthread_create (&COMMUNICATION_THREAD, &communicateWithServer, NULL);
 	gwmutex_unlock (&SPOOL_FILE_MUTEX);
 }
@@ -5051,8 +5054,7 @@ void clear_comm_rate_limits (void)
 	    !COMMUNICATION_THREAD &&
 	    is_timed_event_active (TE_COMM_SERVER)) {
 		delete_timed_event (TE_COMM_SERVER);
-		gwthread_create (&COMMUNICATION_THREAD,
-				 &communicateWithServer, NULL);
+		gwthread_create (&COMMUNICATION_THREAD, &communicateWithServer, NULL);
 	}
 	gwmutex_unlock (&SPOOL_FILE_MUTEX);
 }
@@ -5068,9 +5070,7 @@ void pingServer (void)
 
 	gwmutex_lock (&SPOOL_FILE_MUTEX);
 	GET_PING_INFO = 1;
-	if (!COMMUNICATION_THREAD)
-		gwthread_create (&COMMUNICATION_THREAD,
-				 &communicateWithServer, NULL);
+	if (!COMMUNICATION_THREAD) gwthread_create (&COMMUNICATION_THREAD, &communicateWithServer, NULL);
 	gwmutex_unlock (&SPOOL_FILE_MUTEX);
 }
 
@@ -6232,9 +6232,11 @@ retry:
 		msg_offset = new_offset;
 	}
 
-/* If we just sent a PRP result, trigger thread that uploads proofs */
+/* If we just sent a PRP result or this is a manual comm, trigger thread that uploads proofs.  For good measure, also do this if quitting GIMPS. */
 
-	if (sent_prp_result) gwevent_signal (&PROOF_UPLOAD_EVENT);
+	if (sent_prp_result || this_is_a_manual_comm || (header_words[1] & HEADER_FLAG_QUIT_GIMPS) || IniGetInt (INI_FILE, KEY_QuitGIMPS, 0))
+		gwevent_signal (&PROOF_UPLOAD_EVENT);
+	this_is_a_manual_comm = FALSE;		// Clear ugly flag that signals manual comm
 
 /* See if we can request certification work.  Certification work must be done ASAP to reduce disk space used by PrimeNet server. */
 /* Thus, it is priority work.  Some options turn off priority work which precludes getting certification work.  Part-time computers */
@@ -6742,8 +6744,7 @@ retry:
 
 /* Tell user we're done communicating, then exit this communication thread */
 
-	if (talked_to_server)
-		OutputStr (COMM_THREAD_NUM, "Done communicating with server.\n");
+	if (talked_to_server) OutputStr (COMM_THREAD_NUM, "Done communicating with server.\n");
 	goto locked_leave;
 
 /* We got an error communicating with the server.  Check for error codes */
@@ -6850,19 +6851,15 @@ error_exit:
 
 	OutputStr (COMM_THREAD_NUM, "Visit http://mersenneforum.org for help.\n");
 
-/* We could not contact the server.  Set up a timer to relaunch the */
-/* communication thread. */
+/* We could not contact the server.  Set up a timer to relaunch the communication thread. */
 
 	if (!MANUAL_COMM) {
 		unsigned int retry_time;
-		retry_time = (rc == PRIMENET_ERROR_MODEM_OFF) ?
-			MODEM_RETRY_TIME : NETWORK_RETRY_TIME;
-		sprintf (buf, "Will try contacting server again in %d %s.\n",
-			 retry_time, retry_time == 1 ? "minute" : "minutes");
+		retry_time = (rc == PRIMENET_ERROR_MODEM_OFF) ? MODEM_RETRY_TIME : NETWORK_RETRY_TIME;
+		sprintf (buf, "Will try contacting server again in %d %s.\n", retry_time, retry_time == 1 ? "minute" : "minutes");
 		OutputStr (COMM_THREAD_NUM, buf);
 		ChangeIcon (COMM_THREAD_NUM, IDLE_ICON);
-		sprintf (buf, "Waiting %d %s",
-			 retry_time, retry_time == 1 ? "minute" : "minutes");
+		sprintf (buf, "Waiting %d %s", retry_time, retry_time == 1 ? "minute" : "minutes");
 		title (COMM_THREAD_NUM, buf);
 		add_timed_event (TE_COMM_SERVER, retry_time * 60);
 	}
