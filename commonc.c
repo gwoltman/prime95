@@ -20,6 +20,7 @@ char	RESFILEBENCH[260] = {0};
 char	RESFILEJSON[260] = {0};
 char	SPOOL_FILE[260] = {0};
 char	LOGFILE[260] = {0};
+char	SCREENLOGFILE[260] = {0};
 char	*RESFILES[3] = {RESFILE, RESFILEBENCH, RESFILEJSON};
 int	NO_GUI = 1;
 
@@ -1341,6 +1342,7 @@ void nameAndReadIniFiles (
 		strcpy (RESFILEJSON, "results.json.txt");
 		strcpy (SPOOL_FILE, "prime.spl");
 		strcpy (LOGFILE, "prime.log");
+		strcpy (SCREENLOGFILE, "screen.log");
 	} else {
 		sprintf (INI_FILE, "prim%04d.txt", named_ini_files);
 		sprintf (localini_file, "loca%04d.txt", named_ini_files);
@@ -1350,6 +1352,7 @@ void nameAndReadIniFiles (
 		sprintf (RESFILEJSON, "resu%04d.json.txt", named_ini_files);
 		sprintf (SPOOL_FILE, "prim%04d.spl", named_ini_files);
 		sprintf (LOGFILE, "prim%04d.log", named_ini_files);
+		sprintf (SCREENLOGFILE, "screen%04d.log", named_ini_files);
 	}
 
 /* Let the user rename these files and pick a different working directory */
@@ -1362,6 +1365,7 @@ void nameAndReadIniFiles (
 	IniGetString (INI_FILE, "results.json.txt", RESFILEJSON, 260, RESFILEJSON);
 	IniGetString (INI_FILE, "prime.spl", SPOOL_FILE, 260, SPOOL_FILE);
 	IniGetString (INI_FILE, "prime.log", LOGFILE, 260, LOGFILE);
+	IniGetString (INI_FILE, "screen.log", SCREENLOGFILE, 260, SCREENLOGFILE);
 	IniGetString (INI_FILE, "prime.ini", INI_FILE, 260, INI_FILE);
 	if (buf[0]) {
 		(void) _chdir (buf);
@@ -2213,6 +2217,37 @@ void timestamp (
 	else strftime (buf, 80, fmtstr, localtime (&this_time));
 }
 
+/* Intercept output to the screen for optional logging to a file */
+
+void OutputStrInternal (
+	int	thread_num,
+	const char *buf)
+{
+static	int	last_char_out_was_newline = TRUE;
+	
+	RealOutputStr (thread_num, buf);
+	if ((SCREENLOG & 0xF) == 1 ||					// Log everything
+	    ((SCREENLOG & 0x2) && thread_num >= 0) ||			// Log workers
+	    ((SCREENLOG & 0x4) && thread_num == COMM_THREAD_NUM) ||	// Log communications window
+	    ((SCREENLOG & 0x8) && thread_num == MAIN_THREAD_NUM)) {	// Log main window
+		int fd = _open (SCREENLOGFILE, _O_TEXT | _O_RDWR | _O_CREAT | _O_APPEND, CREATE_FILE_ACCESS);
+		if (fd >= 0) {
+			if (last_char_out_was_newline && !(SCREENLOG & 0x10)) {
+				char	prefix[40];
+				if (thread_num == MAIN_THREAD_NUM) strcpy (prefix, "[Main window");
+				else if (thread_num == COMM_THREAD_NUM) strcpy (prefix, "[Comm window");
+				else if (NUM_WORKERS == 1 && WORKERS_ACTIVE == 1) strcpy (prefix, "[Worker");
+				else sprintf (prefix, "[Worker #%d", thread_num+1);
+				strcat (prefix, "] ");
+				_write (fd, prefix, (unsigned int) strlen (prefix));
+			}
+			_write (fd, buf, (unsigned int) strlen (buf));
+			_close (fd);
+		}
+		last_char_out_was_newline = (buf[strlen(buf)-1] == '\n');
+	}
+}
+
 /* Output string to screen or results file */
 
 void OutputSomewhere (
@@ -2308,14 +2343,14 @@ void OutputStr (
 			eol = strchr (buf, '\n');
 			if (eol != NULL) eol++;
 			else eol = buf + strlen (buf);
-			RealOutputStr (thread_num, fmtbuf);
+			OutputStrInternal (thread_num, fmtbuf);
 			while (buf != eol) {
 				int	len;
 				len = (int) (eol - buf);
 				if (len >= sizeof (tmpbuf)) len = sizeof (tmpbuf) - 1;
 				memcpy (tmpbuf, buf, len);
 				tmpbuf[len] = 0;
-				RealOutputStr (thread_num, tmpbuf);
+				OutputStrInternal (thread_num, tmpbuf);
 				buf += len;
 			}
 		} while (*buf);
@@ -2324,22 +2359,21 @@ void OutputStr (
 /* No timestamp - just output the possibly multi-line buffer. */
 
 	else
-		RealOutputStr (thread_num, buf);
+		OutputStrInternal (thread_num, buf);
 
 /* Free the lock and return */
 
 	gwmutex_unlock (&OUTPUT_MUTEX);
 }
 
-/* Output string to screen without prefixing a timestamp.  Only used when */
-/* outputting a line in chunks (we do this when benchmarking). */
+/* Output string to screen without prefixing a timestamp.  Only used when outputting a line in chunks (we do this when benchmarking). */
 
 void OutputStrNoTimeStamp (
 	int	thread_num,
 	const char *buf)
 {
 	gwmutex_lock (&OUTPUT_MUTEX);
-	RealOutputStr (thread_num, buf);
+	OutputStrInternal (thread_num, buf);
 	gwmutex_unlock (&OUTPUT_MUTEX);
 }
 

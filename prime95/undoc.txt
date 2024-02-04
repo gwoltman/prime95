@@ -2,12 +2,13 @@ This file lists previously undocumented features available in the program.
 These features may change or be discontinued at any time.  Their use is
 totally unsupported.
 
-In prime.txt you can force the program to use different filenames for 6 files.
+In prime.txt you can force the program to use different filenames for 7 files.
 You can also change the working directory (identical to the -W command line
 argument).
 	prime.ini=your_filename
 	worktodo.ini=your_filename
 	prime.log=your_filename
+	screen.log=your_filename
 	prime.spl=your_filename
 	results.txt=your_filename
 	WorkingDir=your_directory_name
@@ -637,6 +638,13 @@ Since P-1,P+1,ECM stage 2 runs faster with more memory available you can have th
 program only run stage 2 at night when more memory is available.  In
 prime.txt set:
 	OnlyRunStage2WithMaxMemory=1
+
+You can capture screen output in a screen.log file.  Add this line to prime.txt
+to change the default:
+	ScreenLog=n		(default 0)
+where 0 means no logging, 1 means log everything.  Alernatively, one can fine tune
+what is logged with any combination of 2 = log worker windows, 4 = log communication
+window, 8 = log main window, 16 = no prefix on output lines.
 
 You can control the maximum prime.log file size.  The default is 2MB.  Add
 this line to prime.txt to change the default:
