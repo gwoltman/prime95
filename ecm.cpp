@@ -1533,6 +1533,7 @@ typedef struct {
 	uint64_t Dsection;	/* Current D section being processed in stage 2 */
 	uint64_t first_relocatable; /* First relocatable prime (same as B1 unless pairmaps must be split or mem change caused a replan) */
 	uint64_t last_relocatable; /* Last relocatable prime for filling pairmaps (unless mem change causes a replan) */
+	double	est_stage2_stage1_ratio; /* Estimated stage 2 runtime / stage 1 runtime ratio */
 	double	pct_mem_to_use;	/* If we get memory allocation errors, we progressively try using less and less. */
 
 	struct xz Qm, Qprevm, QD; /* Values used to calculate successive D values in stage 2 */
@@ -5820,8 +5821,9 @@ if (Ftree_polys_in_mem + more_Ftree_polys_in_mem > num_Ftree_polys - 1) more_Ftr
 		cost += cost_modinv;
 	}
 
-/* Save the final costs */
+/* Save the final costs fudged by an auto-adjusting value */
 
+	cost *= IniGetFloat (INI_FILE, "EcmStage2RatioAdjust", 1.0);
 	cost_data->c.stage2_cost = cost;						// Raw cost of stage 2
 	cost_data->c.est_stage2_stage1_ratio = cost / cost_data->c.stage1_cost;		// Cost of stage 2 relative to stage 1
 	cost_data->c.total_cost = cost_data->c.stage1_cost + cost_data->c.stage2_cost + cost_data->c.gcd_cost;
@@ -6132,20 +6134,10 @@ double ecm_stage2_impl (
 	// Output estimated runtime of stage 2 vs. stage 1.  The better the accuracy, the better our deduced optimal B2 value and the
 	// better we can judge pairing vs. polymult crossover.  User can create ratio adjustments if necessary.
 	sprintf (msgbuf + strlen (msgbuf), "Estimated stage 2 vs. stage 1 runtime ratio: %.3f\n", cost_data.c.est_stage2_stage1_ratio);
+	ecmdata->est_stage2_stage1_ratio = cost_data.c.est_stage2_stage1_ratio;
 
 	// Return stage 2 plan's efficiency
 	return (cost_data.c.efficiency);
-
-/* Output some debugging data so we can compare estimateds to actuals */
-
-	if (IniGetInt (INI_FILE, "Stage2Estimates", 0)) {
-		char	buf[120];
-		sprintf (buf, "Est pair%%: %5.2f, init transforms: %.0f, main loop transforms: %.0f\n",
-			 cost_data.c.est_pair_pct * 100.0, cost_data.c.est_init_transforms, cost_data.c.est_stage2_transforms);
-		OutputStr (ecmdata->thread_num, buf);
-	}
-
-	return (0);
 }
 
 /* Routines to create and read save files for an ECM factoring job */
@@ -6731,7 +6723,7 @@ int ecm (
 	int	res, stop_reason, delayed_stop_reason, stage, first_iter_msg;
 	int	msglen, continueECM, prpAfterEcmFactor;
 	char	*str, *msg;
-	double	timers[10];
+	double	stage1_timer, stage2_timer, timers[10];
 	bool	near_fft_limit, saving, default_sigma_type;
 	double	allowable_maxerr;
 	int	maxerr_restart_count = 0;
@@ -7129,6 +7121,7 @@ if (w->n == 604) {
 
 /* More random initializations */
 
+	stage1_timer = stage2_timer = 0.0;
 	last_output = last_output_t = ecmdata.modinv_count = 0;
 	gw_clear_fft_count (&ecmdata.gwdata);
 	first_iter_msg = TRUE;
@@ -7312,8 +7305,9 @@ restart0:
 	ecmdata.stage1_prime = 0;				// Last prime processed = none
 	ecmdata.stage1_bitnum = 0;				// Last Edwards bit processed = none
 	ecmdata.state = ECM_STATE_STAGE1;
-	w->pct_complete = 0.0;
 	sprintf (w->stage, "C%" PRIu32 "S1", ecmdata.curve);
+	w->pct_complete = 0.0;
+	start_timer_from_zero (&stage1_timer, 0);
 
 /* The stage 1 restart point */
 
@@ -7579,6 +7573,7 @@ restart1:
 
 	end_timer (timers, 0);
 	end_timer (timers, 1);
+	if (stage1_timer != 0.0) end_timer (&stage1_timer, 0);
 	sprintf (buf, "Stage 1 complete. %" PRIu64 " transforms, %lu modular inverses. Total time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
@@ -7680,6 +7675,7 @@ skip_stage_2:	start_timer_from_zero (timers, 0);
 	ecmdata.state = ECM_STATE_MIDSTAGE;
 	sprintf (w->stage, "C%" PRIu32 "S2", ecmdata.curve);
 	w->pct_complete = 0.0;
+	start_timer_from_zero (&stage2_timer, 0);
 
 /* Some users have requested that a save file be written here.  Sometimes the vast amount of stage 2 memory allocated makes their machine thrash which */
 /* may require a reboot.  Upon resumption, the tail end of stage 1 calculations then need to be repeated.  For now, we'll make this the default behavior. */
@@ -9730,11 +9726,25 @@ stage2_done:
 	mallocFreeForOS ();
 	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&ecmdata.gwdata, 1));	// Let other high memory workers resume
 	end_timer (timers, 1);
+	end_timer (&stage2_timer, 0);
 	sprintf (buf, "Stage 2 complete. %" PRIu64 " transforms, %lu modular inverses. Total time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
 	last_output = last_output_t = ecmdata.modinv_count = 0;
 	gw_clear_fft_count (&ecmdata.gwdata);
+
+/* Adjust fudge factor for stage2 vs. stage1 runtime ratio.  We use a rolling average. */
+
+	if (stage1_timer != 0.0 && stage2_timer != 0.0 & IniGetInt (INI_FILE, "EcmStage2AutoAdjust", 1)) {
+		double correct_ratio = stage2_timer / stage1_timer;
+		double current_adjustment = IniGetFloat (INI_FILE, "EcmStage2RatioAdjust", 1.0);
+		double correct_adjustment = correct_ratio / ecmdata.est_stage2_stage1_ratio * current_adjustment;
+		// Sanity check.  Estimation code should not be off by a factor of 2.
+		if (correct_adjustment > 2.0) correct_adjustment = 2.0;
+		if (correct_adjustment < 0.5) correct_adjustment = 0.5;
+		// Set new adjustment for next time
+		IniWriteFloat (INI_FILE, "EcmStage2RatioAdjust", (float) (0.9 * current_adjustment + 0.1 * correct_adjustment));
+	}
 
 /* Print out round off error */
 
@@ -10215,6 +10225,7 @@ typedef struct {
 	int	D;		/* Stage 2 loop size */
 	int	numrels;	/* Number of relative primes less than D/2 (the number of relative primes in one full relp_set) */
 	gwnum	*nQx;		/* Array of relprime data or polymult coefficients used in stage 2 */
+	double	est_stage2_stage1_ratio; /* Estimated stage 2 runtime / stage 1 runtime ratio */
 	double	pct_mem_to_use;	/* If we get memory allocation errors in stage 2 init, we progressively try using less and less memory. */
 	uint64_t B2_start;	/* Starting point of first D section to be processed in stage 2 (an odd multiple of D/2) */
 	uint64_t numDsections;	/* Number of D sections to process in stage 2 */
@@ -10994,8 +11005,9 @@ double pm1_stage2_cost (
 
 	cost += cost_data->c.modinv_cost;
 
-/* Save the final costs */
+/* Save the final costs fudged by an auto-adjusting value */
 
+	cost *= IniGetFloat (INI_FILE, "Pm1Stage2RatioAdjust", 1.0);
 	cost_data->c.stage2_cost = cost;						// Raw cost of stage 2
 	cost_data->c.est_stage2_stage1_ratio = cost / cost_data->c.stage1_cost;		// Cost of stage 2 relative to stage 1
 	cost_data->c.total_cost = cost_data->c.stage1_cost + cost_data->c.stage2_cost + cost_data->c.gcd_cost;
@@ -11334,6 +11346,7 @@ double pm1_stage2_impl (
 	// Output estimated runtime of stage 2 vs. stage 1.  The better the accuracy, the better our deduced optimal B2 value and the
 	// better we can judge pairing vs. polymult crossover.  User can create ratio adjustments if necessary.
 	sprintf (msgbuf + strlen (msgbuf), "Estimated stage 2 vs. stage 1 runtime ratio: %.3f\n", cost_data.c.est_stage2_stage1_ratio);
+	pm1data->est_stage2_stage1_ratio = cost_data.c.est_stage2_stage1_ratio;
 
 	// Return stage 2 plan's efficiency
 	return (cost_data.c.efficiency);
@@ -11541,7 +11554,7 @@ int pminus1 (
 	int	first_iter_msg;
 	int	msglen;
 	char	*str, *msg;
-	double	timers[2];
+	double	stage1_timer, stage2_timer, timers[2];
 	relp_set_data_map relp_set_map;
 	Dmultiple_data_map Dmultiple_map;
 
@@ -11647,6 +11660,7 @@ restart:
 
 /* More miscellaneous initializations */
 
+	stage1_timer = stage2_timer = 0.0;
 	last_output = last_output_t = last_output_r = 0;
 	gw_clear_fft_count (&pm1data.gwdata);
 	first_iter_msg = TRUE;
@@ -11807,6 +11821,7 @@ restart:
 
 	strcpy (w->stage, "S1");
 	w->pct_complete = 0.0;
+	start_timer_from_zero (&stage1_timer, 0);
 	pm1data.state = PM1_STATE_STAGE0;
 	pm1data.interim_B = pm1data.B;
 	pm1data.stage0_bitnum = 0;
@@ -12062,6 +12077,7 @@ more_B:		if (pm1data.x_binary != NULL) {			// pm1_restore can return x as binary
 /* Stage 1 complete, print a message */
 
 	end_timer (timers, 1);
+	if (stage1_timer != 0.0) end_timer (&stage1_timer, 0);
 	sprintf (buf, "%s stage 1 complete. %" PRIu64 " transforms. Total time: ", gwmodulo_as_string (&pm1data.gwdata), gw_get_fft_count (&pm1data.gwdata));
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
@@ -12165,6 +12181,7 @@ restart3a:
 	pm1data.state = PM1_STATE_MIDSTAGE;
 	strcpy (w->stage, "S2");
 	w->pct_complete = 0.0;
+	start_timer_from_zero (&stage2_timer, 0);
 
 /* Some users have requested that a save file be written here.  Sometimes the vast amount of stage 2 memory allocated makes their machine thrash which */
 /* may require a reboot.  Upon resumption, the tail end of stage 1 calculations then need to be repeated.  For now, we'll make this the default behavior. */
@@ -13488,9 +13505,23 @@ stage2_done:
 	mallocFreeForOS ();
 	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&pm1data.gwdata, 1));	// Let other high memory workers resume
 	end_timer (timers, 1);
+	end_timer (&stage2_timer, 0);
 	sprintf (buf, "%s stage 2 complete. %" PRIu64 " transforms. Total time: ", gwmodulo_as_string (&pm1data.gwdata), gw_get_fft_count (&pm1data.gwdata));
 	print_timer (timers, 1, buf, TIMER_NL | TIMER_CLR);
 	OutputStr (thread_num, buf);
+
+/* Adjust fudge factor for stage2 vs. stage1 runtime ratio.  We use a rolling average. */
+
+	if (stage1_timer != 0.0 && stage2_timer != 0.0 && IniGetInt (INI_FILE, "Pm1Stage2AutoAdjust", 1)) {
+		double correct_ratio = stage2_timer / stage1_timer;
+		double current_adjustment = IniGetFloat (INI_FILE, "Pm1Stage2RatioAdjust", 1.0);
+		double correct_adjustment = correct_ratio / pm1data.est_stage2_stage1_ratio * current_adjustment;
+		// Sanity check.  Estimation code should not be off by a factor of 2.
+		if (correct_adjustment > 2.0) correct_adjustment = 2.0;
+		if (correct_adjustment < 0.5) correct_adjustment = 0.5;
+		// Set new adjustment for next time
+		IniWriteFloat (INI_FILE, "Pm1Stage2RatioAdjust", (float) (0.9 * current_adjustment + 0.1 * correct_adjustment));
+	}
 
 /* Print out round off error */
 
