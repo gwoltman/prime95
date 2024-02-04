@@ -9720,11 +9720,11 @@ stage2_done:
 		ecmdata.average_B2 = kruppa_unadjust (total_B2 / ecmdata.curve, ecmdata.B);
 	}
 
-/* Stage 2 is complete.  Free memory so that other high memory workers can begin. */
+/* Stage 2 is complete.  Free memory so that other high memory workers can begin -- assume we will start stage 1 on another curve. */
 
 	gwfree_internal_memory (&ecmdata.gwdata);
 	mallocFreeForOS ();
-	set_memory_usage (thread_num, 0, cvt_gwnums_to_mem (&ecmdata.gwdata, 1));	// Let other high memory workers resume
+	ecm_stage1_memory_usage (thread_num, &ecmdata);					// Let other high memory workers resume
 	end_timer (timers, 1);
 	end_timer (&stage2_timer, 0);
 	sprintf (buf, "Stage 2 complete. %" PRIu64 " transforms, %lu modular inverses. Total time: ", gw_get_fft_count (&ecmdata.gwdata), ecmdata.modinv_count);
@@ -9735,7 +9735,7 @@ stage2_done:
 
 /* Adjust fudge factor for stage2 vs. stage1 runtime ratio.  We use a rolling average. */
 
-	if (stage1_timer != 0.0 && stage2_timer != 0.0 & IniGetInt (INI_FILE, "EcmStage2AutoAdjust", 1)) {
+	if (stage1_timer != 0.0 && stage2_timer != 0.0 && IniGetInt (INI_FILE, "EcmStage2AutoAdjust", 1)) {
 		double correct_ratio = stage2_timer / stage1_timer;
 		double current_adjustment = IniGetFloat (INI_FILE, "EcmStage2RatioAdjust", 1.0);
 		double correct_adjustment = correct_ratio / ecmdata.est_stage2_stage1_ratio * current_adjustment;
