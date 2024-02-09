@@ -874,7 +874,7 @@ int gwnum_ecmStage1_u32 (
 	if (b) 
 		bits = (unsigned long) (n * log ((double) b) / log ((double) 2.0)) + 60;
 	else
-		bits = num_being_factored_array_len * sizeof (uint32_t);
+		bits = num_being_factored_array_len * 8 * sizeof (uint32_t);
 
 /* Setup the assembly code */
 
@@ -1111,7 +1111,7 @@ int gwnum_ecmStage1_u64 (
 	if (b) 
 		bits = (unsigned long) (n * log ((double) b) / log ((double) 2.0)) + 60;
 	else
-		bits = num_being_factored_array_len * sizeof (uint64_t);
+		bits = num_being_factored_array_len * 8 * sizeof (uint64_t);
 
 /* Setup the assembly code */
 
