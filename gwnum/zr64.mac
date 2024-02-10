@@ -1,4 +1,4 @@
-; Copyright 2018-2023 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2018-2024 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -6330,7 +6330,7 @@ submul:	vmovapd	zmm24, [srcreg+rbp+d1]		;;		MemR2
 	vsubpd	zmm24, zmm24, [srcreg+r9+d2+d1+64];;		MemI4
 	zfnmaddpd zmm21, zmm12, zmm24, zmm21	;;		A4 - I4 * MemI4 (R4 & R6)			; 8-11		n 19
 	zfmaddpd zmm20, zmm9, zmm24, zmm20	;;		B4 + R4 * MemI4 (I4 & I6)			; 8-11		n 20
-	vmovsd	Q [srcreg-16], xmm23		;;				Save product of FFT sums	; 8
+	vmovsd	Q [srcreg+r8-16], xmm23		;;				Save product of FFT sums	; 8
 
 	vmovapd	zmm24, [srcreg+rbp+d4+d1]	;;		MemR6
 	vsubpd	zmm24, zmm24, [srcreg+r9+d4+d1];;		MemR6
@@ -6412,7 +6412,7 @@ submul313:
 	vsubpd	zmm24, zmm12, [srcreg+rbp+d2+d1+64];;		I4-MemI4
 	zfnmaddpd zmm21, zmm12, zmm24, zmm21	;;		A4 - I4 * MemI4 (R4 & R6)			; 8-11		n 19
 	zfmaddpd zmm20, zmm9, zmm24, zmm20	;;		B4 + R4 * MemI4 (I4 & I6)			; 8-11		n 20
-	vmovsd	Q [srcreg-16], xmm23		;;				Save product of FFT sums	; 8
+	vmovsd	Q [srcreg+r8-16], xmm23		;;				Save product of FFT sums	; 8
 
 	vsubpd	zmm24, zmm6, [srcreg+rbp+d4+d1];;		R6-MemR6
 	vmulpd	zmm15, zmm6, zmm24		;;		A6 = R6 * MemR6					; 9-12		n 14
@@ -6494,7 +6494,7 @@ submul133:
 	vsubpd	zmm24, zmm24, zmm12		;;		MemI4-I4
 	zfnmaddpd zmm21, zmm12, zmm24, zmm21	;;		A4 - I4 * MemI4 (R4 & R6)			; 8-11		n 19
 	zfmaddpd zmm20, zmm9, zmm24, zmm20	;;		B4 + R4 * MemI4 (I4 & I6)			; 8-11		n 20
-	vmovsd	Q [srcreg-16], xmm23		;;				Save product of FFT sums	; 8
+	vmovsd	Q [srcreg+r8-16], xmm23		;;				Save product of FFT sums	; 8
 
 	vmovapd	zmm24, [srcreg+rbp+d4+d1]	;;		MemR6
 	vsubpd	zmm24, zmm24, zmm6		;;		MemR6-R6
@@ -6582,7 +6582,7 @@ submul312:
 	zfmaddpd zmm22 {k7}{z}, zmm1, zmm9, zmm22;; B1 + R1 * MemI1 (I1)	0				; 10-13		n 18
 	vmovapd	zmm12, zmm17			;;		Copy R2
 	vmulpd	zmm12 {k6}, zmm11, zmm9		;; R2				R1b * MemR1b (R1b)		; 11-14		n 16
-	vmovsd	Q [srcreg-16], xmm23		;;				Save product of FFT sums	; 8
+	vmovsd	Q [srcreg+r8-16], xmm23		;;				Save product of FFT sums	; 8
 
 	vsubpd	zmm24, zmm10, [srcreg+rbp+d4]	;;		R5-MemR5
 	vmovapd	zmm10, [srcreg+r9+d4]		;;		R5=MemR5
@@ -6671,7 +6671,7 @@ submul132:
 	zfmaddpd zmm22 {k7}{z}, zmm1, zmm9, zmm22;; B1 + R1 * MemI1 (I1)	0				; 10-13		n 18
 	vmovapd	zmm12, zmm17			;;		Copy R2
 	vmulpd	zmm12 {k6}, zmm11, zmm9		;; R2				R1b * MemR1b (R1b)		; 11-14		n 16
-	vmovsd	Q [srcreg-16], xmm23		;;				Save product of FFT sums	; 8
+	vmovsd	Q [srcreg+r8-16], xmm23		;;				Save product of FFT sums	; 8
 
 	vmovapd	zmm24, [srcreg+rbp+d4]		;;		MemR5
 	vsubpd	zmm24, zmm24, zmm10		;;		MemR5-R5
@@ -6724,7 +6724,7 @@ submul132:
 
 unfft:	vmovapd	zmm23, zmm1			;; R1				R1a
 	vmovapd	zmm22 {k7}{z}, zmm11		;; I1				0
-	vmovsd	Q [srcreg-16], xmm23		;;				Save product of FFT sums
+	vmovsd	Q [srcreg+r8-16], xmm23		;;				Save product of FFT sums
 
 	vmovapd	zmm17, zmm2			;;		R2
 	vmovapd	zmm2 {k6}, zmm11		;; R2				R1b
@@ -6780,7 +6780,7 @@ muladd:	vmovapd	zmm24, [srcreg+rbp+d1]		;;		MemR2
 	vmovapd zmm24, [srcreg+rbp+d2+d1+64]	;;		MemI4
 	zfnmaddpd zmm21, zmm12, zmm24, zmm21	;;		A4 - I4 * MemI4 (R4 & R6)			; 8-11		n 19
 	zfmaddpd zmm20, zmm9, zmm24, zmm20	;;		B4 + R4 * MemI4 (I4 & I6)			; 8-11		n 20
-	vmovsd	Q [srcreg-16], xmm23		;;				Save product of FFT sums	; 8
+	vmovsd	Q [srcreg+r8-16], xmm23		;;				Save product of FFT sums	; 8
 
 	vmovapd	zmm24, [srcreg+rbp+d4+d1]	;;		MemR6
 	vmulpd	zmm15, zmm6, zmm24		;;		A6 = R6 * MemR6					; 9-12		n 14
@@ -6987,7 +6987,7 @@ mulsub:	vmovapd	zmm24, [srcreg+rbp+d1]		;;		MemR2
 	vmovapd zmm24, [srcreg+rbp+d2+d1+64]	;;		MemI4
 	zfnmaddpd zmm21, zmm12, zmm24, zmm21	;;		A4 - I4 * MemI4 (R4 & R6)			; 8-11		n 19
 	zfmaddpd zmm20, zmm9, zmm24, zmm20	;;		B4 + R4 * MemI4 (I4 & I6)			; 8-11		n 20
-	vmovsd	Q [srcreg-16], xmm23		;;				Save product of FFT sums	; 8
+	vmovsd	Q [srcreg+r8-16], xmm23		;;				Save product of FFT sums	; 8
 
 	vmovapd	zmm24, [srcreg+rbp+d4+d1]	;;		MemR6
 	vmulpd	zmm15, zmm6, zmm24		;;		A6 = R6 * MemR6					; 9-12		n 14
@@ -7196,7 +7196,7 @@ orig:
 	vmovapd zmm24, [srcreg+rbp+d2+d1+64]	;;		MemI4
 	zfnmaddpd zmm21, zmm12, zmm24, zmm21	;;		A4 - I4 * MemI4 (R4 & R6)			; 8-11		n 19
 	zfmaddpd zmm20, zmm9, zmm24, zmm20	;;		B4 + R4 * MemI4 (I4 & I6)			; 8-11		n 20
-	vmovsd	Q [srcreg-16], xmm23		;;				Save product of FFT sums	; 8
+	vmovsd	Q [srcreg+r8-16], xmm23		;;				Save product of FFT sums	; 8
 
 	vmovapd	zmm24, [srcreg+rbp+d4+d1]	;;		MemR6
 	vmulpd	zmm15, zmm6, zmm24		;;		A6 = R6 * MemR6					; 9-12		n 14
