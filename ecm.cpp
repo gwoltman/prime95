@@ -8939,11 +8939,13 @@ start_timer_from_zero (timers, 0);
 
 	gwfree (&ecmdata.gwdata, ecmdata.Ad4);
 	ecmdata.Ad4 = NULL;
+if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
 end_timer (timers, 0);
 sprintf (buf, "nQx complete.  Time: ");
 print_timer (timers, 0, buf, TIMER_NL);
 OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 start_timer_from_zero (timers, 0);
+}
 
 /* We're about to reach peak memory usage, free any gwnum internal memory */
 
@@ -9163,11 +9165,13 @@ start_timer_from_zero (timers, 0);
 		// Update count of terms computed
 		terms = terms + terms_to_compute;
 	}
+if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
 end_timer (timers, 0);
 sprintf (buf, "PolyR built.  Time: ");
 print_timer (timers, 0, buf, TIMER_NL);
 OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 start_timer_from_zero (timers, 0);
+}
 
 	// Resume caching new polymult sin/cos data
 	ecmdata.polydata.twiddle_cache_additions_disabled = FALSE;
@@ -9202,11 +9206,13 @@ start_timer_from_zero (timers, 0);
 		gwfree_array (&ecmdata.gwdata, ecmdata.polyR);
 		ecmdata.polyR = tmp;
 	}
+if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
 end_timer (timers, 0);
 sprintf (buf, "Poly compress.  Time: ");
 print_timer (timers, 0, buf, TIMER_NL);
 OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
 start_timer_from_zero (timers, 0);
+}
 
 /* We're nearing peak memory usage, free any cached gwnums */
 
@@ -9344,11 +9350,13 @@ start_timer_from_zero (timers, 0);
 				goto polydown;
 			}
 		}
+if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
 strcpy (buf, "PolyG built.  Time: ");
 end_timer (timers, 0);
 print_timer (timers, 0, buf, TIMER_NL);
 OutputStr (thread_num, buf);
 start_timer_from_zero (timers, 0);
+}
 
 // First loop iteration do nothing.  On subsequent loop iterations, H(X) = G(X) * H(X) mod F(X).  The first time we do this H(X) is monic.
 // It might appear that doing just one loop could be advantageous -- we wouldn't need memory for an H(X) poly.  However, increasing the D
@@ -9367,11 +9375,13 @@ start_timer_from_zero (timers, 0);
 			// Compute H(X) = tmp - quot * F(X).  Tmp is in polyG, quotient is in polyH.
 			polymult_fma (&ecmdata.polydata, polyH, ecmdata.poly_size, ecmdata.polyF, ecmdata.poly_size, polyH, ecmdata.poly_size, polyG,
 				      POLYMULT_INVEC2_MONIC | POLYMULT_FNMADD | POLYMULT_MULLO | POLYMULT_NEXTFFT);
+if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
 strcpy (buf, "PolyH built.  Time: ");
 end_timer (timers, 0);
 print_timer (timers, 0, buf, TIMER_NL);
 OutputStr (thread_num, buf);
 start_timer_from_zero (timers, 0);
+}
 		}
 
 if (ecmdata.Dsection==0 && IniGetInt (INI_FILE, "PolyVerbose", 0)) {
@@ -9440,11 +9450,13 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);}
 polydown:
 	polymult (&ecmdata.polydata, polyH, ecmdata.poly_size, ecmdata.polyR, ecmdata.poly_size,
 		  polyH, ecmdata.poly_size, POLYMULT_INVEC2_MONIC_NEGATE | POLYMULT_MULHI | POLYMULT_NEXTFFT);
+if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
 strcpy (buf, "H(X) scaled.  Time: ");
 end_timer (timers, 0);
 print_timer (timers, 0, buf, TIMER_NL);
 OutputStr (thread_num, buf);
 start_timer_from_zero (timers, 0);
+}
 
 	// Work down the F(X) tree in a memory efficient way.  This involves recomputing the Ftree.
 
@@ -9564,12 +9576,14 @@ start_timer_from_zero (timers, 0);
 			free (plan2);
 			poly_unfft_fft_coefficients (&ecmdata.polydata, polyF, slice_size);
 		}
+if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
 if (slice == 0) {
 strcpy (buf, "PolyF up.  Time: ");
 end_timer (timers, 0); timers[0] *= 1 << log2_num_slices;
 print_timer (timers, 0, buf, TIMER_NL);
 OutputStr (thread_num, buf);
 start_timer_from_zero (timers, 0);
+}
 }
 
 		// Now work down this slice of Ftree
@@ -9631,12 +9645,14 @@ start_timer_from_zero (timers, 0);
 			// Don't unfft the last polyH row.  Do that in ecm_helper when multiplying the polyH coefficients together.
 			if (pass == 1 || level > 0) poly_unfft_fft_coefficients (&ecmdata.polydata, &polyH[slice_base], slice_size);
 		}
+if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
 if (slice == 0) {
 strcpy (buf, "PolyF down.  Time: ");
 end_timer (timers, 0); timers[0] *= 1 << log2_num_slices;
 print_timer (timers, 0, buf, TIMER_NL);
 OutputStr (thread_num, buf);
 start_timer_from_zero (timers, 0);
+}
 }
 		slice_base = next_slice_base;
 	    }
@@ -9682,11 +9698,13 @@ ASSERTG (ecmdata.gg == NULL);
 		gwfree (&ecmdata.gwdata, tmp);
 	}
 	ecmdata.gg = ecmdata.polyGH[0];
+if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
 strcpy (buf, "gg = mul H(X).  Time: ");
 end_timer (timers, 0);
 print_timer (timers, 0, buf, TIMER_NL);
 OutputStr (thread_num, buf);
 start_timer_from_zero (timers, 0);
+}
 
 /* Set required_missing for continuation from a new C_done value.  Set C and C_done for the delayed or final save file and the Kruppa adjustment. */
 
