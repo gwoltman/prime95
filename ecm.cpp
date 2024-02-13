@@ -715,7 +715,8 @@ struct common_cost_data {
 	double	gcd_cost;		/* Cost (in stage 1 FFTs) of a GCD */
 	double	modinv_cost;		/* Cost (in stage 1 FFTs) of a modular inverse */
 	double	poly_compression;	/* Expected compression from polymult_preprocess for polynomials that can be compressed. */
-	int	threads;		/* Number of threads used during FFTs */
+	int	stage1_threads;		/* Number of threads used during stage 1 */
+	int	stage2_threads;		/* Number of threads used during stage 2 */
 	uint64_t numvals;		/* Maximum number of gwnum temporaries that can be allocated for relative prime data, pairmaps, */
 					/* ECM pooling.  Additional gwnums needed by ECM/P-1/P+1 are not included in this maximum number. */
 	bool	use_poly_D_data;	/* Set to TRUE if selecting from the alternate D_data designed for polymult */
@@ -766,9 +767,9 @@ void init_gcd_costs (
 	if (c->gcd_cost < 100.0) c->gcd_cost = 100.0;
 	c->modinv_cost = 570.16 * log (bit_length) - 6188.4;
 	if (c->modinv_cost < 1.25 * c->gcd_cost) c->modinv_cost = 1.25 * c->gcd_cost;
-	if (c->threads == 2) c->gcd_cost *= 1.9, c->modinv_cost *= 1.9;
-	else if (c->threads == 3) c->gcd_cost *= 2.7, c->modinv_cost *= 2.7;
-	else if (c->threads >= 4) c->gcd_cost *= 3.2, c->modinv_cost *= 3.2;
+	if (c->stage2_threads == 2) c->gcd_cost *= 1.9, c->modinv_cost *= 1.9;
+	else if (c->stage2_threads == 3) c->gcd_cost *= 2.7, c->modinv_cost *= 2.7;
+	else if (c->stage2_threads >= 4) c->gcd_cost *= 3.2, c->modinv_cost *= 3.2;
 }
 
 /* Select the best D value for the given the number of temporary gwnums that can be allocated.  We trade off more D steps vs. better */
@@ -884,9 +885,9 @@ double best_stage2_impl_internal (
 			else
 				c->est_pairing_runtime = pairing_runtime / (0.00169 * pow(2.0,log2((double)c->stage2_fftlen/(512.0*1024.0))*1.093)) * 2.0;
 			// Make some adjustments for multi-threaded FFTs vs. single-threaded pairing
-			if (c->threads == 2) c->est_pairing_runtime *= 1.9;
-			else if (c->threads == 3) c->est_pairing_runtime *= 2.7;
-			else if (c->threads >= 4) c->est_pairing_runtime *= 3.2;
+			if (c->stage2_threads == 2) c->est_pairing_runtime *= 1.9;
+			else if (c->stage2_threads == 3) c->est_pairing_runtime *= 2.7;
+			else if (c->stage2_threads >= 4) c->est_pairing_runtime *= 3.2;
 
 /* Pick the relp_sets to use.  Someday we should expand the options for which relp_sets are tried (don't limit to just the easy sets). */
 
@@ -5733,7 +5734,7 @@ if (cost_data->c.numvals < 6*32) return (-1.0);
 		double	polymult_cost;		// Cost of a polymult (per coefficient) compared to a pass 1 transform
 		polymult_cost = 2.145 + 0.58 * log2 ((double) poly_size / 105.0);
 		double L2_cache_size = (CPU_NUM_L2_CACHES > 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 0) * 1024.0;
-		double polymult_mem_per_thread = mem_used_by_polymult / cost_data->c.threads;
+		double polymult_mem_per_thread = mem_used_by_polymult / cost_data->c.stage2_threads;
 		if (polymult_mem_per_thread >= 8 * L2_cache_size) polymult_cost *= 2.05;
 		else if (polymult_mem_per_thread > L2_cache_size) polymult_cost *= 1.0 + 1.05 * (polymult_mem_per_thread - L2_cache_size) / (7 * L2_cache_size);
 		polymult_cost *= IniGetFloat (INI_FILE, "EcmPolymultCostAdjust", 1.0);
@@ -5793,7 +5794,7 @@ if (Ftree_polys_in_mem + more_Ftree_polys_in_mem > num_Ftree_polys - 1) more_Ftr
 		total_Ftree_polys_in_mem = Ftree_polys_in_mem + more_Ftree_polys_in_mem;
 		cost_data->Ftree_polys_in_mem = total_Ftree_polys_in_mem;
 		cost_data->c.stage2_numvals += more_Ftree_polys_in_mem * poly_size;
-		if (total_Ftree_polys_in_mem < 2) cost_modinv += (cost_data->c.gwdata->b == 2 ? 13.2 : 687.0) * cost_data->c.threads * (2 - total_Ftree_polys_in_mem) * poly_size;
+		if (total_Ftree_polys_in_mem < 2) cost_modinv += (cost_data->c.gwdata->b == 2 ? 13.2 : 687.0) * cost_data->c.stage2_threads * (2 - total_Ftree_polys_in_mem) * poly_size;
 
 /* Rebuilding F(X) tree requires (log2(poly_size) - Ftree_polys_in_mem_or_on_disk) polymults on poly_size coefficients */
 
@@ -5826,6 +5827,7 @@ if (Ftree_polys_in_mem + more_Ftree_polys_in_mem > num_Ftree_polys - 1) more_Ftr
 	cost *= IniGetFloat (INI_FILE, "EcmStage2RatioAdjust", 1.0);
 	cost_data->c.stage2_cost = cost;						// Raw cost of stage 2
 	cost_data->c.est_stage2_stage1_ratio = cost / cost_data->c.stage1_cost;		// Cost of stage 2 relative to stage 1
+	cost_data->c.est_stage2_stage1_ratio *= (double) cost_data->c.stage1_threads / (double) cost_data->c.stage2_threads;
 	cost_data->c.total_cost = cost_data->c.stage1_cost + cost_data->c.stage2_cost + cost_data->c.gcd_cost;
 
 /* Calculate and return the efficiency which is ECM curve "value" divided by total cost of running the curve */
@@ -5874,7 +5876,8 @@ double ecm_stage2_impl_given_numvals (
 	cost_data.c.polydata = &ecmdata->polydata;
 	cost_data.c.stage1_fftlen = ecmdata->stage1_fftlen;
 	cost_data.c.stage2_fftlen = gwfftlen (&ecmdata->gwdata);
-	cost_data.c.threads = get_worker_num_threads (ecmdata->thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
+	cost_data.c.stage1_threads = get_worker_num_threads (ecmdata->thread_num, HYPERTHREAD_LL);
+	cost_data.c.stage2_threads = cost_data.c.stage1_threads + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
 	init_gcd_costs (ecmdata->gwdata.bit_length, &cost_data);
 	for (int stage2_type = 0; stage2_type <= 1; stage2_type++) {	// Prime pairing vs. polymult
 
@@ -10942,7 +10945,7 @@ double pm1_stage2_cost (
 
 		// Roughly double the poly cost when we exceed the L2 cache.
 		double L2_cache_size = (CPU_NUM_L2_CACHES > 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 0) * 1024.0;
-		double polymult_mem_per_thread = mem_used_by_polymult / cost_data->c.threads;
+		double polymult_mem_per_thread = mem_used_by_polymult / cost_data->c.stage2_threads;
 		if (polymult_mem_per_thread >= 8 * L2_cache_size) polymult_cost *= 2.05;
 		else if (polymult_mem_per_thread > L2_cache_size) polymult_cost *= 1.0 + 1.05 * (polymult_mem_per_thread - L2_cache_size) / (7 * L2_cache_size);
 		polymult_cost *= IniGetFloat (INI_FILE, "Pm1PolymultCostAdjust", 1.0);
@@ -11012,6 +11015,7 @@ double pm1_stage2_cost (
 	cost *= IniGetFloat (INI_FILE, "Pm1Stage2RatioAdjust", 1.0);
 	cost_data->c.stage2_cost = cost;						// Raw cost of stage 2
 	cost_data->c.est_stage2_stage1_ratio = cost / cost_data->c.stage1_cost;		// Cost of stage 2 relative to stage 1
+	cost_data->c.est_stage2_stage1_ratio *= (double) cost_data->c.stage1_threads / (double) cost_data->c.stage2_threads;
 	cost_data->c.total_cost = cost_data->c.stage1_cost + cost_data->c.stage2_cost + cost_data->c.gcd_cost;
 
 /* Calculate and return the efficiency which is the P-1 "value" divided by total cost of running P-1.  If TF depth known "value" is the factor probability, */
@@ -11053,7 +11057,8 @@ double pm1_stage2_impl_given_numvals (
 	cost_data.c.polydata = &pm1data->polydata;
 	cost_data.c.stage1_fftlen = pm1data->stage1_fftlen;
 	cost_data.c.stage2_fftlen = gwfftlen (&pm1data->gwdata);
-	cost_data.c.threads = get_worker_num_threads (pm1data->thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
+	cost_data.c.stage1_threads = get_worker_num_threads (pm1data->thread_num, HYPERTHREAD_LL);
+	cost_data.c.stage2_threads = cost_data.c.stage1_threads + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
 	init_gcd_costs (pm1data->gwdata.bit_length, &cost_data);
 	cost_data.sieve_depth = pm1data->w->sieve_depth;
 	cost_data.takeAwayBits = isMersenne (pm1data->w->k, pm1data->w->b, pm1data->w->n, pm1data->w->c) ? log2 (pm1data->w->n) + 1.0 :
@@ -14125,7 +14130,8 @@ void guess_pminus1_bounds (
 	if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 2) g.cost_data.c.poly_compression *= 0.875;
 	if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 0) g.cost_data.c.poly_compression = 1.0;
 	g.cost_data.c.stage1_fftlen = gwmap_to_fftlen (k, b, n, c);
-	g.cost_data.c.threads = CORES_PER_TEST[thread_num] + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
+	g.cost_data.c.stage1_threads = CORES_PER_TEST[thread_num];
+	g.cost_data.c.stage2_threads = g.cost_data.c.stage1_threads + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
 	init_gcd_costs ((n * log ((double) b) + log (k)) / log (2.0), &g.cost_data);
 
 /* Balance P-1 against 1 or 2 LL/PRP tests (actually more since we get a corrupt result reported some of the time).  One squaring equals two FFTs. */
@@ -14148,7 +14154,7 @@ void guess_pminus1_bounds (
 	gwdata.FFTLEN = (unsigned long) (g.cost_data.c.stage1_fftlen * 1.10);
 	gwdata.cpu_flags = CPU_FLAGS;
 	if (gwdata.FFTLEN < 1024 && gwdata.cpu_flags & CPU_AVX512F) gwdata.cpu_flags &= ~CPU_AVX512F;
-	gwdata.num_threads = g.cost_data.c.threads;
+	gwdata.num_threads = g.cost_data.c.stage2_threads;
 	polymult_init (&g.polydata, &gwdata);
 	polymult_default_tuning (&g.polydata,
 				 IniGetInt (INI_FILE, "PolymultCacheSize", CPU_NUM_L2_CACHES > 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 256),
@@ -14732,7 +14738,8 @@ void pp1_choose_B2 (
 	cost_data.c.gwdata = &pp1data->gwdata;
 	cost_data.c.stage1_fftlen = pp1data->stage1_fftlen;
 	cost_data.c.stage2_fftlen = gwfftlen (&pp1data->gwdata);
-	cost_data.c.threads = gwget_num_threads (&pp1data->gwdata);
+	cost_data.c.stage1_threads = gwget_num_threads (&pp1data->gwdata);
+	cost_data.c.stage2_threads = cost_data.c.stage1_threads + 0;
 #define p1eval(x,B2mult)	x.i = B2mult; \
 				if (x.i > max_B2mult) x.i = max_B2mult; \
 				x.B2_cost = best_stage2_impl (pp1data->B, pp1data->B, 0, 0, x.i * pp1data->B, numvals - 4, &pp1_stage2_cost, &cost_data); \
@@ -14892,7 +14899,8 @@ int pp1_stage2_impl (
 	cost_data.c.gwdata = &pp1data->gwdata;
 	cost_data.c.stage1_fftlen = pp1data->stage1_fftlen;
 	cost_data.c.stage2_fftlen = gwfftlen (&pp1data->gwdata);
-	cost_data.c.threads = gwget_num_threads (&pp1data->gwdata);
+	cost_data.c.stage1_threads = gwget_num_threads (&pp1data->gwdata);
+	cost_data.c.stage2_threads = cost_data.c.stage1_threads + 0;
 	best_stage2_impl (pp1data->B, pp1data->first_relocatable, pp1data->last_relocatable, pp1data->C_done, pp1data->C, numvals - 4, &pp1_stage2_cost, &cost_data);
 
 /* If are continuing from a save file that was in stage 2 and the new plan doesn't look significant better than the old plan, then */
