@@ -5972,18 +5972,20 @@ int ecm_choose_B2 (
 
 /* Find the best B2.  We use a binary-like search to speed things up (new in version 30.3b3). */
 
-	while (best[2].i - best[0].i > 2 && best[0].i > 1) {
+	for ( ; ; ) {
 		struct ecm_stage2_efficiency midpoint;
 
 		ASSERTG (best[1].efficiency >= best[0].efficiency);
 		ASSERTG (best[1].efficiency >= best[2].efficiency);
 
-		// Polymult can have a wide variety of i values choose the same D value and thus the same efficiency
-		if (best[0].actual_i == best[1].actual_i && best[1].actual_i == best[2].actual_i) break;
+		// Quit when both gaps are too small to have a midpoint
+		int	lower_gap = best[1].i - best[0].actual_i;
+		int	upper_gap = best[2].i - best[1].actual_i;
+		if (lower_gap < 2 && upper_gap < 2) break;
 
 		// Work on the bigger of the lower section and upper section
-		if (best[1].i - best[0].i > best[2].i - best[1].i) {		// Work on lower section
-			kruppa (midpoint, (best[0].i + best[1].i) / 2);
+		if (lower_gap > upper_gap) {					// Work on lower section
+			kruppa (midpoint, best[0].actual_i + lower_gap / 2);
 			if (midpoint.efficiency > best[1].efficiency) {		// Make middle the new end point
 				best[2] = best[1];
 				best[1] = midpoint;
@@ -5991,7 +5993,7 @@ int ecm_choose_B2 (
 				best[0] = midpoint;
 			}
 		} else {							// Work on upper section
-			kruppa (midpoint, (best[1].i + best[2].i) / 2);
+			kruppa (midpoint, best[1].actual_i + upper_gap / 2);
 			if (midpoint.efficiency > best[1].efficiency) {		// Make middle the new start point
 				best[0] = best[1];
 				best[1] = midpoint;
@@ -11134,26 +11136,24 @@ int pm1_choose_B2 (
 				  x.actual_i = (int) (x.B2 / pm1data->B); \
 				  x.B2_cost = cost_data.c.stage2_cost; \
 				  x.fac_pct = cost_data.factor_probability; \
-				  /* Get cost of next i */ \
-				  pm1data->C = (x.i + 1) * pm1data->B; \
-				  if (pm1_stage2_impl_given_numvals (pm1data, numvals, forced_stage2_type, &cost_data) > 0.0) { \
-				    /* Compare tbe fac pct of a larger B2 to using the extra cost to up B1 instead */ \
-				    int B1inc = (int) ((cost_data.c.stage2_cost - x.B2_cost) / (1.44 * 2.0)); \
-				    x.compared_to_next_i = pm1prob (takeAwayBits, pm1data->w->sieve_depth, pm1data->B+B1inc, x.B2+B1inc) - cost_data.factor_probability; \
-				    x.compared_to_next_i = - abs (x.compared_to_next_i); \
-				  } else x.compared_to_next_i = -100.0; \
-				} else x.actual_i = x.i;
+				  /* To see if we're near the point where we're ambivalent to increasing B1 vs. B2, compare this fac pct to using */ \
+				  /* to a run where B2 is reduced 1% and the CPU savings is used to increase B1. */ \
+				  int B1inc = (int) (0.01 * cost_data.c.stage2_cost / (1.44 * 2.0)); \
+				  int B2dec = (int) (0.01 * (x.B2 - pm1data->B)); \
+				  x.compared_to_next_i = pm1prob (takeAwayBits, pm1data->w->sieve_depth, pm1data->B+B1inc, x.B2-B2dec) - cost_data.factor_probability; \
+				  x.compared_to_next_i = - abs (x.compared_to_next_i); \
+				} else x.actual_i = x.i, x.compared_to_next_i = -100.0;
 
 // Return TRUE if x is better than y.
 #define p1compare(x,y)	(x.compared_to_next_i > y.compared_to_next_i)
 
-/* Look for the best B2 which is likely between 5*B1 and 1000*B1.  If optimal is not between these bounds, don't worry we'll locate the optimal spot anyway. */
+/* Look for the best B2 which is likely between 5*B1 and 10000*B1.  If optimal is not between these bounds, don't worry we'll locate the optimal spot anyway. */
 
 	takeAwayBits = isMersenne (pm1data->w->k, pm1data->w->b, pm1data->w->n, pm1data->w->c) ? log2 (pm1data->w->n) + 1.0 :
 		       isGeneralizedFermat (pm1data->w->k, pm1data->w->b, pm1data->w->n, pm1data->w->c) ? log2 (pm1data->w->n) : 0.0;
 	p1eval (best[0], 5);
-	p1eval (best[1], best[0].actual_i * 5);
-	p1eval (best[2], best[1].actual_i * 5);
+	p1eval (best[1], best[0].actual_i * 50);
+	p1eval (best[2], best[1].actual_i * 50);
 	if (best[0].efficiency < 0.0 && best[1].efficiency < 0.0 && best[2].efficiency < 0.0) return (FALSE);
 
 /* Handle case where midpoint is worse than the start point.  The search code requires best[1] is better than best[0] and best[2]. */
@@ -11175,15 +11175,17 @@ int pm1_choose_B2 (
 
 /* Find the best B2.  We use a binary-like search to speed things up (new in version 30.3b3). */
 
-	while (best[2].i - best[0].i > 2 && best[0].i > 1) {
+	for ( ; ; ) {
 		struct pm1_stage2_efficiency midpoint;
 
-		// Polymult can have a wide variety of i values choose the same D value and thus the same efficiency
-		if (best[0].actual_i == best[1].actual_i && best[1].actual_i == best[2].actual_i) break;
+		// Quit when both gaps are too small to have a midpoint
+		int	lower_gap = best[1].i - best[0].actual_i;
+		int	upper_gap = best[2].i - best[1].actual_i;
+		if (lower_gap < 2 && upper_gap < 2) break;
 
 		// Work on the bigger of the lower section and upper section
-		if (best[1].i - best[0].i > best[2].i - best[1].i) {		// Work on lower section
-			p1eval (midpoint, (best[0].i + best[1].i) / 2);
+		if (lower_gap > upper_gap) {					// Work on lower section
+			p1eval (midpoint, best[0].actual_i + lower_gap / 2);
 			if (p1compare (midpoint, best[1])) {			// Make middle the new end point
 				best[2] = best[1];
 				best[1] = midpoint;
@@ -11191,7 +11193,7 @@ int pm1_choose_B2 (
 				best[0] = midpoint;
 			}
 		} else {							// Work on upper section
-			p1eval (midpoint, (best[1].i + best[2].i) / 2);
+			p1eval (midpoint, best[1].actual_i + upper_gap / 2);
 			if (!p1compare (best[1], midpoint)) {			// Make middle the new start point
 				best[0] = best[1];
 				best[1] = midpoint;
