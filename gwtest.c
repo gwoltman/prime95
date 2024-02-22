@@ -145,6 +145,7 @@ void compare (int thread_num, gwhandle *gwdata, gwnum x, giant g)
 		OutputBoth (thread_num, msg);
 
 		gianttogw (gwdata, g, y);
+
 		if (IniSectionGetInt (INI_FILE, "QA", "DUMP_DIFF", 0)) { // Sometimes we must debug by finding which FFT words are different
 			int	count, max_count;
 			count = 0;
@@ -226,6 +227,29 @@ void gen_data (gwhandle *gwdata, gwnum x, giant g)
 		memset ((char*) g->n + len, 0, 8);
 		g->sign = divide_rounding_up (len, 4);
 	}
+
+#ifdef XXX
+	ultog (gwdata->b, g);
+	power (g, gwdata->n);
+	dblmulg (gwdata->k, g);
+	iaddg (gwdata->c, g);
+	mpz_t	__N, __f;
+	mpz_init (__N);
+	gtompz (g, __N);
+	mpz_init_set_ui (__f, 3);
+//	mpz_invert (__f, __f, __N);
+	mpztog (__f, g);
+	mpz_clear (__N);
+	mpz_clear (__f);
+#endif
+#ifdef YYYY
+	mpz_t	__N;
+	mpz_init_set_str (__N, 
+			  "940298595550113209437044880150400782041500126558160757273039748840761654374277758643017009845641260178773718460021731045549833766269150463259915966750844168464904734881875009550500964490196501797797924415086495515182931",
+			  10);
+	mpztog (__N, g);
+	mpz_clear (__N);
+#endif
 
 // Convert to gwnum
 
@@ -405,6 +429,8 @@ void test_it_all (
 
 /* Test gwaddsub */
 
+gwaddsub4o (&gwdata, x, x2, x3, x4, GWADD_DELAY_NORMALIZE); // compute x+x2 and x-x2
+gwaddsub4o (&gwdata, x, x2, x, x2, GWADD_FORCE_NORMALIZE);	// compute x+x2 and x-x2
 		gwaddsub (&gwdata, x, x2);	// compute x+x2 and x-x2
 		gwaddsub4 (&gwdata, x, x2, x3, x4); // compute x+x2 and x-x2
 		gwadd (&gwdata, x2, x);
@@ -526,8 +552,10 @@ void test_it (
 		gwsetnormroutine (gwdata, 0, 1, 0);	/* Enable error checking */
 		for (i = 0; i < (int) (gwdata->ZERO_PADDED_FFT ? gwdata->FFTLEN / 2 + 1 : gwdata->FFTLEN); i++) {
 			dbltogw (gwdata, 0.0, x);
-			set_fft_value (gwdata, x, i, 5000);
+			set_fft_value (gwdata, x, i, 10000);
 			gwtogiant (gwdata, x, g);
+//gwfft (gwdata, x, x3);
+//gwfftmul (gwdata, x3, x);
 			gwsquare (gwdata, x);
 			squaregi (&gwdata->gdata, g);
 			specialmodg (gwdata, g);
@@ -797,12 +825,12 @@ void test_it (
 
 /* Test gwaddsub */
 
-	gwaddsub (gwdata, x, x2);	// compute x+x2 and x-x2
+	gwaddsub4o (gwdata, x, x2, x, x2, GWADD_FORCE_NORMALIZE);	// compute x+x2 and x-x2
 	subg (g, g2);		// x2-x
 	addg (g, g);		// x+x
 	addg (g2, g);		// x+x2
 	negg (g2);		// x-x2
-	gwaddsub4 (gwdata, x, x2, x3, x4);	// compute x+x2 and x-x2
+	gwaddsub4o (gwdata, x, x2, x3, x4, GWADD_FORCE_NORMALIZE);	// compute x+x2 and x-x2
 	gtog (g, g3); addg (g2, g3);
 	gtog (g, g4); subg (g2, g4);
 	if (CHECK_OFTEN) {

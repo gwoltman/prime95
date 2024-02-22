@@ -1,4 +1,4 @@
-; Copyright 1995-2023 Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2024 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -633,6 +633,18 @@ ZPRCENTRY1 MACRO procprefix, fftlen, procsuffix, mem_needed, best_impl_for1
 	ZPRCENTRY2 procprefix, fftlen, procsuffix, p2size, 1, mem_needed, best_impl_for1
 	ENDM
 
+; Used for true one-pass AVX-512 FFTs
+
+ZPRCENTRY1A MACRO procprefix, fftlen, procsuffix, mem_needed, best_impl_for1
+	IF (@INSTR (,&fftlen,K)) NE 0
+		p1size = @SUBSTR (fftlen, 1, @SIZESTR (fftlen) - 1) * 1024
+	ELSE
+		p1size = fftlen
+	ENDIF
+	p2size = 1
+	ZPRCENTRY2 procprefix, fftlen, @CATSTR (<_op>, procsuffix), p2size, 1, mem_needed, best_impl_for1
+	ENDM
+
 ; Used for AVX-512 FFTs with shared code for pass 1 and for pass 2.  This macro generates a table entry
 ; for all possible FFT implemenations so that gwnum can use prior benchmarks to chose the fastest.
 
@@ -675,9 +687,6 @@ ZPRCENTRY2 MACRO procprefix, fftlen, procsuffix, p2size, clm, mem_needed, best_i
 ZPRCENTRY3 MACRO procprefix, fftlen, procsuffix, p2size, clm, procarch, mem_needed, bif
 	flags = 0
 	IFNB <procsuffix>
-	IF (@INSTR (,&procsuffix,_op)) NE 0
-		one_pass_ffts_not_supported_here
-	ENDIF
 	IF (@INSTR (,&procsuffix,_np)) NE 0
 		no_prefetch_ffts_not_supported_here
 		flags = flags + 2
@@ -689,6 +698,8 @@ ZPRCENTRY3 MACRO procprefix, fftlen, procsuffix, p2size, clm, procarch, mem_need
 	ENDIF
 	IF (@INSTR (,&procprefix,_r4dwpn)) NE 0
 		fft_type = 3
+	ELSEIF (@INSTR (,&procprefix,_r4)) NE 0
+		fft_type = 1
 	ELSE
 		bad_avx512_fft_type
 	ENDIF
@@ -716,12 +727,19 @@ ZPRCENTRY3 MACRO procprefix, fftlen, procsuffix, p2size, clm, procarch, mem_need
 	ELSE
 		p1size = fftlen / p2size
 	ENDIF
-	zprocpass1name CATSTR <&procprefix>,<_>,%p1size,<&procsuffix>,<_>,%clm,<&procarch>
-	zprocpass2name CATSTR <zpass2_>,@SUBSTR(&procprefix,6),<_>,%p2size,<&procarch>
-	EXTRN	zprocpass1name:PROC
-	EXTRN	zprocpass2name:PROC
-	DD	80000000h + 40000000h + flags SHL 26 + fft_type SHL 21 + arch SHL 17 + best_impl_for SHL 13 + clm SHL 9 + pass2_size_over_64
-	DP	OFFSET zprocpass1name, OFFSET zprocpass2name
+	IF fft_type EQ 1
+		zfftname CATSTR <&procprefix>,<_>,%p1size,<&procsuffix>,<&procarch>
+		EXTRN	zfftname:PROC
+		DD	80000000h + flags SHL 26 + fft_type SHL 21 + arch SHL 17 + best_impl_for SHL 13
+		DP	OFFSET zfftname
+	ELSE
+		zprocpass1name CATSTR <&procprefix>,<_>,%p1size,<&procsuffix>,<_>,%clm,<&procarch>
+		zprocpass2name CATSTR <zpass2_>,@SUBSTR(&procprefix,6),<_>,%p2size,<&procarch>
+		EXTRN	zprocpass1name:PROC
+		EXTRN	zprocpass2name:PROC
+		DD	80000000h + 40000000h + flags SHL 26 + fft_type SHL 21 + arch SHL 17 + best_impl_for SHL 13 + clm SHL 9 + pass2_size_over_64
+		DP	OFFSET zprocpass1name, OFFSET zprocpass2name
+	ENDIF
 	DD	mem_needed
 	ENDM
 
@@ -5082,6 +5100,9 @@ yjmptablep DD	0
 IFDEF X86_64
 zjmptable DD	0
 	org	$-4
+	PRCSTRT	2445,	128,	0.000004
+	ZPRCENTRY1A		zfft_r4,128,,13312,SKX+RYZEN
+	DD			0
 	PRCSTRT	22445,	1024,	0.000004
 	ZPRCENTRY1		zfft_r4dwpn,1K,,13312,SKX+RYZEN
 	DD			0
@@ -6209,6 +6230,9 @@ zjmptable DD	0
 
 zjmptablep DD	0
 	org	$-4
+	PRCSTRT	2445,	128,	0.000004
+	ZPRCENTRY1A		zfft_r4,128,_ac,13312,SKX+RYZEN
+	DD			0
 	PRCSTRT	22397,	1024,	0.0000036
 	ZPRCENTRY1		zfft_r4dwpn,1K,_ac,16832,SKX+RYZEN
 	DD			0
