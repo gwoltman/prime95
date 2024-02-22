@@ -1,4 +1,4 @@
-; Copyright 2011-2023 Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2024 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -28,7 +28,7 @@ _TEXT SEGMENT
 ;; rdx = count of clmblks to normalize
 ;; rcx = address to do clm prefetching
 ;; rbx = clm-1 (mask used to detect every clm-th iteration where rcx must bump by a large stride)
-;; r12 = large stride increment (which equals -clm*128 + large stride)
+;; r8 = large stride increment (which equals -clm*128 + large stride)
 ;; rdi = pointer to big/lit flags
 ;; r10 = address of inverse group multipliers
 
@@ -38,11 +38,11 @@ _TEXT SEGMENT
 ;; rdi = big/lit/fudge flags array
 ;; rbp = carries array
 ;; r15 = clm loop counter
-;; r8 = compressed biglit table pointer
+;; r12 = compressed biglit table pointer
 ;; r9 = alternating zero and one for incrementing rdi during a zero pad normalize
-;; rdx = outer loop counter (which gets pushed/popped), then register for loading compressed biglit index
-;; r13 = 3rd ptr to FFT data area
-;; r14 = distance between 1st and 2nd FFT data area (as well as 3rd and 4th)
+;; rdx = outer loop counter (which gets pushed/popped), then register for loading biglit data
+;; r13 = distance to second FFT section data
+;; r14 = distance to fourth FFT section data
 
 inorm	MACRO	lab, ttp, zero, echk, const
 	LOCAL	ilp1, ilp2, not8, done
@@ -56,16 +56,14 @@ echk	vbroadcastsd zmm31, MAXERR	;; Load maximum error
 
 ;; BUG - why calculate this every time?
 	;; Calculate distance between 1st and 2nd FFT data areas (cache_line_multiplier * 128 + normblkdst)
-	mov	r14d, cache_line_multiplier
-	shl	r14, 7
-	add	r14, normblkdst
+	mov	r13d, cache_line_multiplier
+	shl	r13, 7
+	add	r13, normblkdst
+	lea	r14, [2*r13+r13]	;; Calc distance to 4th section
 
-ttp	mov	r8, compressed_biglits	;; Get pointer to compressed biglit table
+ttp	mov	r12, compressed_biglits	;; Get pointer to compressed biglit table
 ilp1:	push	rdx			;; Save outer loop counter
 	mov	r15d, cache_line_multiplier ;; Load inner loop counter (8*clm)
-	lea	r13, [rsi+r14*2]	;; Calc 3rd src pointer
-;; BUG/OPT?? use rax register instead of rdx to save a push/pop?
-ttp	sub	rdx, rdx		;; Clear register used to load compressed biglit index
 
 	vmovapd zmm0, [rbp+0*128]	;; Load low carries
 	vmovapd zmm1, [rbp+1*128]
@@ -87,13 +85,12 @@ const ttp vsubpd zmm7, zmm7, zmm30
 
 ilp2:	znorm_wpn ttp, zero, echk, const ;; Normalize 64 values (4 simultaneous clmblks)
 	bump	rsi, 128		;; Next 1st source pointer
-	bump	r13, 128		;; Next 3rd source pointer
 ttp	bump	rdi, 1			;; Next big/little flags
 	sub	r15, 1			;; Test clm loop counter
 
 	prefetchwt1 [rcx]		;; Prefetch with write intent FFT data for next pass 1 block
 	bump	rcx, 64			;; Tentatively compute next cache line to prefetch
-	lea	rax, [rcx+r12]		;; Tentatively compute next cache line to prefetch if it is time for a large stride
+	lea	rax, [rcx+r8]		;; Tentatively compute next cache line to prefetch if it is time for a large stride
 	test	r15, rbx		;; Compare loop counter to the clm-1 mask
 	cmovz	rcx, rax		;; Every clm-th iteration use a large stride
 
@@ -118,12 +115,11 @@ const ttp vaddpd zmm7, zmm7, zmm30
 	zstore	[rbp+2*128+64], zmm6
 	zstore	[rbp+3*128+64], zmm7
 	bump	rbp, 4*128		;; Next set of carries
-
 ttp	bump	r10, 4*128		;; Next set of inverse group multipliers
-no ttp	bump	r10, 4*64		;; Next set of inverse group multipliers
+no ttp	bump	r10, 4*64		;; Rational negacyclics also need inverse weights due to delayed mul-by-sine
 
-	add	r13, normblkdst		;; Add 0 or 64 every clmblkdst.  r13 is now the just completed 4th source ptr
-	lea	rsi, [r13+r14]		;; Calculate next 1st source ptr 
+	add	rsi, normblkdst		;; Add 0 or 64 every clmblkdst.  rsi is now the just completed 1st section ptr
+	add	rsi, r14		;; Calculate next 1st source ptr 
 	add	rsi, normblkdst4	;; Add 0 or 64 every 4KB for a one-pass FFT
 
 ;;BUG - change/alias name of normblkdst to clmblkdst_pad?
@@ -165,16 +161,15 @@ echk	vbroadcastsd zmm31, MAXERR	;; Load maximum error
 
 	;; BUG - why calculate this every time?
 	;; Calculate distance between 1st and 2nd FFT data areas (cache_line_multiplier * 128 + normblkdst)
-	mov	r14d, cache_line_multiplier
-	shl	r14, 7
-	add	r14, normblkdst
+	mov	r13d, cache_line_multiplier
+	shl	r13, 7
+	add	r13, normblkdst
+	lea	r14, [2*r13+r13]	;; Calc distance to 4th section
 
-ttp	mov	r8, compressed_biglits	;; Get pointer to compressed biglit table
+ttp	mov	r12, compressed_biglits	;; Get pointer to compressed biglit table
 ttp	sub	r9, r9			;; Clear register used to alternate the increment of rdi
 ilp1:	push	rdx			;; Save outer loop counter
 	mov	r15d, cache_line_multiplier ;; Load inner loop counter
-	lea	r13, [rsi+r14*2]	;; Calc 3rd src pointer
-ttp	sub	rdx, rdx		;; Clear register used to load compressed biglit index
 
 	vmovapd zmm0, [rbp+0*128]	;; Load low carries
 	vmovapd zmm1, [rbp+1*128]
@@ -191,16 +186,15 @@ ttp	vsubpd	zmm7, zmm7, zmm30
 
 ilp2:	znorm_wpn_zpad ttp, echk, const, khi ;; Normalize 64 values (4 simultaneous clmblks)
 	bump	rsi, 128		;; Next 1st source pointer
-	bump	r13, 128		;; Next 3rd source pointer
 	sub	r15, 1			;; Test clm loop counter
 
-ttp	xor	r8, 4			;; Bump or unbump pointer into the compressed biglit table
+ttp	xor	r12, 4			;; Bump or unbump pointer into the compressed biglit table
 ttp	add	rdi, r9			;; Increment (or not) the biglit table pointer
 ttp	xor	r9, 1			;; Alternate the increment for rdi
 
 	prefetchwt1 [rcx]		;; Prefetch with write intent FFT data for next pass 1 block
 	bump	rcx, 64			;; Tentatively compute next cache line to prefetch
-	lea	rax, [rcx+r12]		;; Tentatively compute next cache line to prefetch if it is time for a large stride
+	lea	rax, [rcx+r8]		;; Tentatively compute next cache line to prefetch if it is time for a large stride
 	test	r15, rbx		;; Compare loop counter to the clm-1 mask
 	cmovz	rcx, rax		;; Every clm-th iteration use a large stride
 
@@ -223,8 +217,8 @@ ttp	vaddpd	zmm7, zmm7, zmm30
 
 ttp	bump	r10, 4*64		;; Next set of inverse group multipliers
 
-	add	r13, normblkdst		;; Add 0 or 64 every clmblkdst.  r13 is now the just completed 4th source ptr
-	lea	rsi, [r13+r14]		;; Calculate next 1st source ptr 
+	add	rsi, normblkdst		;; Add 0 or 64 every clmblkdst.  rsi is now the just completed 1st section ptr
+	add	rsi, r14		;; Calculate next 1st source ptr 
 	add	rsi, normblkdst4	;; Add 0 or 64 every 4KB for a one-pass FFT
 
 	pop	rdx			;; Restore outer loop counter

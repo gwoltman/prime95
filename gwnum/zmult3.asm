@@ -1,4 +1,4 @@
-; Copyright 2011-2018 Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2024 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -33,8 +33,8 @@ i3_not_block0_a:
 
 	mov	rbp, carries		; Addr of the carries
 	mov	rsi, DATA_ADDR		; Addr of the FFT data
-	mov	r14, pass1blkdst	; Distance to FFT source #2
-	lea	r13, [rsi+2*r14]	; FFT source #3
+	mov	r13, pass1blkdst	; Distance to 2nd FFT source
+	lea	r14, [2*r13+r13]	; Distance to 4th FFT source
 	mov	rdi, norm_ptr1		; Addr of the big/little flags array
 	mov	ecx, addcount1		; Load count of pass 1 blocks
 	mov	r12, compressed_biglits	; Load address of the compressed biglit table
@@ -47,10 +47,8 @@ mov	r15d, cache_line_multiplier; Cache lines in each pass1 loop
 	zadd_carry_rows_preload exec
 ilp1:	zadd_carry_rows exec		; Propagate 4 low/high carry pairs
 	bump	rbp, 4*128		; Next carries pointer
-	lea	rsi, [rsi+4*r14]	; Next FFT source #1
-	lea	r13, [r13+4*r14]	; Next FFT source #3
+	lea	rsi, [rsi+4*r13]	; Next FFT source #1
 	add	rsi, normblkdst4	; Add 0 or 64 every 4KB for one-pass FFTs
-	add	r13, normblkdst4	; Add 0 or 64 every 4KB for one-pass FFTs
 	add	rdi, r15		; Next big/little flags pointer
 	sub	ecx, 4			; Test loop counter
 	jnz	ilp1
@@ -70,17 +68,15 @@ r3_not_block0_a:
 
 	mov	rbp, carries		; Addr of the carries
 	mov	rsi, DATA_ADDR		; Addr of the FFT data
-	mov	r14, pass1blkdst	; Distance to FFT source #2
-	lea	r13, [rsi+2*r14]	; FFT source #3
+	mov	r13, pass1blkdst	; Distance to 2nd FFT source
+	lea	r14, [2*r13+r13]	; Distance to 4th FFT source
 	mov	ecx, addcount1		; Load count of pass 1 blocks
 
 	zadd_carry_rows_preload noexec
 rlp1:	zadd_carry_rows noexec		; Propagate 4 low/high carry pairs
 	bump	rbp, 4*128		; Next carries pointer
-	lea	rsi, [rsi+4*r14]	; Next FFT source #1
-	lea	r13, [r13+4*r14]	; Next FFT source #3
+	lea	rsi, [rsi+4*r13]	; Next FFT source #1
 	add	rsi, normblkdst4	; Add 0 or 64 every 4KB for one-pass FFTs
-	add	r13, normblkdst4	; Add 0 or 64 every 4KB for one-pass FFTs
 	sub	ecx, 4			; Test loop counter
 	jnz	rlp1			; Next carry row
 	int_epilog 0,0,0
@@ -99,8 +95,8 @@ izp3_not_block0_a:
 
 	mov	rbp, carries		; Addr of the carries
 	mov	rsi, DATA_ADDR		; Addr of the FFT data
-	mov	r14, pass1blkdst	; Distance to FFT source #2
-	lea	r13, [rsi+2*r14]	; FFT source #3
+	mov	r13, pass1blkdst	; Distance to 2nd FFT source
+	lea	r14, [2*r13+r13]	; Distance to 4th FFT source
 	mov	rdi, norm_ptr1		; Addr of the big/little flags array
 	mov	ecx, addcount1		; Load count of pass 1 blocks
 	mov	r12, compressed_biglits	; Load address of the compressed biglit table
@@ -113,10 +109,8 @@ shr	r15, 1			; Compute biglit increment
 	zadd_carry_rows_zpad_preload exec
 izplp1: zadd_carry_rows_zpad exec	; Propagate 4 low/high carry pairs
 	bump	rbp, 4*128		; Next carries pointer
-	lea	rsi, [rsi+4*r14]	; Next FFT source #1
-	lea	r13, [r13+4*r14]	; Next FFT source #3
+	lea	rsi, [rsi+4*r13]	; Next FFT source #1
 	add	rsi, normblkdst4	; Add 0 or 64 every 4KB for one-pass FFTs
-	add	r13, normblkdst4	; Add 0 or 64 every 4KB for one-pass FFTs
 	add	rdi, r15		; Next big/little flags pointer
 	sub	ecx, 4			; Test loop counter
 	jnz	izplp1
@@ -145,17 +139,15 @@ rzp3_not_block0_a:
 
 	mov	rbp, carries		; Addr of the carries
 	mov	rsi, DATA_ADDR		; Addr of the FFT data
-	mov	r14, pass1blkdst	; Distance to FFT source #2
-	lea	r13, [rsi+2*r14]	; FFT source #3
+	mov	r13, pass1blkdst	; Distance to 2nd FFT source
+	lea	r14, [2*r13+r13]	; Distance to 4th FFT source
 	mov	ecx, addcount1		; Load count of pass 1 blocks
 
 	zadd_carry_rows_zpad_preload noexec
 rzplp1:	zadd_carry_rows_zpad noexec	; Propagate 4 low/high carry pairs
 	bump	rbp, 4*128		; Next carries pointer
-	lea	rsi, [rsi+4*r14]	; Next FFT source #1
-	lea	r13, [r13+4*r14]	; Next FFT source #3
+	lea	rsi, [rsi+4*r13]	; Next FFT source #1
 	add	rsi, normblkdst4	; Add 0 or 64 every 4KB for one-pass FFTs
-	add	r13, normblkdst4	; Add 0 or 64 every 4KB for one-pass FFTs
 	sub	ecx, 4			; Test loop counter
 	jnz	rzplp1			; Next carry row
 
@@ -183,8 +175,8 @@ iopzp3_not_block0_a:
 
 	mov	rbp, carries		; Addr of the carries
 	mov	rsi, DATA_ADDR		; Addr of the FFT data
-	mov	r14, pass1blkdst	; Distance to FFT source #2
-	lea	r13, [rsi+2*r14]	; FFT source #3
+	mov	r13, pass1blkdst	; Distance to 2nd FFT source
+	lea	r14, [2*r13+r13]	; Distance to 4th FFT source
 	mov	rdi, norm_ptr1		; Addr of the big/little flags array
 	mov	ecx, addcount1		; Load count of pass 1 blocks
 	mov	r12, compressed_biglits	; Load address of the compressed biglit table
@@ -197,10 +189,8 @@ shr	r15, 1			; Compute biglit increment
 	zadd_carry_rows_op_zpad_preload exec
 iopzplp1: zadd_carry_rows_op_zpad exec	; Propagate 4 low/high carry pairs
 	bump	rbp, 4*128		; Next carries pointer
-	lea	rsi, [rsi+4*r14]	; Next FFT source #1
-	lea	r13, [r13+4*r14]	; Next FFT source #3
+	lea	rsi, [rsi+4*r13]	; Next FFT source #1
 	add	rsi, normblkdst4	; Add 0 or 64 every 4KB for one-pass FFTs
-	add	r13, normblkdst4	; Add 0 or 64 every 4KB for one-pass FFTs
 	add	rdi, r15		; Next big/little flags pointer
 	sub	ecx, 4			; Test loop counter
 	jnz	iopzplp1
@@ -229,17 +219,15 @@ ropzp3_not_block0_a:
 
 	mov	rbp, carries		; Addr of the carries
 	mov	rsi, DATA_ADDR		; Addr of the FFT data
-	mov	r14, pass1blkdst	; Distance to FFT source #2
-	lea	r13, [rsi+2*r14]	; FFT source #3
+	mov	r13, pass1blkdst	; Distance to 2nd FFT source
+	lea	r14, [2*r13+r13]	; Distance to 4th FFT source
 	mov	ecx, addcount1		; Load count of pass 1 blocks
 
 	zadd_carry_rows_op_zpad_preload noexec
 ropzplp1: zadd_carry_rows_op_zpad noexec ; Propagate 4 low/high carry pairs
 	bump	rbp, 4*128		; Next carries pointer
-	lea	rsi, [rsi+4*r14]	; Next FFT source #1
-	lea	r13, [r13+4*r14]	; Next FFT source #3
+	lea	rsi, [rsi+4*r13]	; Next FFT source #1
 	add	rsi, normblkdst4	; Add 0 or 64 every 4KB for one-pass FFTs
-	add	r13, normblkdst4	; Add 0 or 64 every 4KB for one-pass FFTs
 	sub	ecx, 4			; Test loop counter
 	jnz	ropzplp1		; Next carry row
 

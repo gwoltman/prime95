@@ -9,7 +9,7 @@
  *  This is the only C++ routine in the gwnum library.  Since gwnum is
  *  a C based library, we declare all routines here as extern "C".
  *
- *  Copyright 2005-2023 Mersenne Research, Inc.  All rights reserved.
+ *  Copyright 2005-2024 Mersenne Research, Inc.  All rights reserved.
  *
  **************************************************************/
 
@@ -637,51 +637,6 @@ void gwcos1plusby (
 	END_x86_FIX
 }
 
-/* Special version for 8-complex and 16-real macros that multiplies some sine values by SQRTHALF */
-
-#ifdef TRY_SQRT2_TO_REDUCE_ROUNDOFF
-extern "C"
-void gwsincos1234by_sqrthalf (
-	unsigned long x,
-	unsigned long N,
-	double	*results,
-	int	incr)
-{
-	dd_real arg1, sine, cosine, sine2, cosine2, sine3, cosine3, sine4, cosine4;
-	dd_real sqrthalf;
-
-	x86_FIX
-	sqrthalf = sqrt (dd_real (0.5));
-	arg1 = dd_real::_2pi * (double) x / (double) N;
-	sincos (arg1, sine, cosine);
-	results[0] = sine * sqrthalf;
-	results[0] += epsilon;		/* Protect against divide by zero */
-	results[incr] = cosine * sqrthalf / results[0];
-	results += incr + incr;
-
-	sine2 = sine * cosine * 2.0;
-	cosine2 = sqr (cosine) - sqr (sine);
-	results[0] = sine2;
-	results[0] += epsilon;		/* Protect against divide by zero */
-	results[incr] = cosine2 / results[0];
-	results += incr + incr;
-
-	sine3 = sine * cosine2 + sine2 * cosine;
-	cosine3 = cosine * cosine2 - sine * sine2;
-	results[0] = sine3 * sqrthalf;
-	results[0] += epsilon;		/* Protect against divide by zero */
-	results[incr] = cosine3 * sqrthalf / results[0];
-	results += incr + incr;
-
-	sine4 = sine2 * cosine2 * 2.0;
-	cosine4 = sqr (cosine2) - sqr (sine2);
-	results[0] = sine4;
-	results[0] += epsilon;		/* Protect against divide by zero */
-	results[incr] = cosine4 / results[0];
-	END_x86_FIX
-}
-#endif
-
 /* Special version for 14-reals (and 7-complex) macro, multiplies sine values by 0.975 */
 
 extern "C"
@@ -1107,6 +1062,30 @@ void gwfft_weights3 (
 	END_x86_FIX
 }
 
+// This computes the three FFT weights divided by a different weight in one call.
+
+extern "C"
+void gwfft_weights_over_weights3 (
+	void	*dd_data_arg,
+	unsigned long j,
+	unsigned long over_j,
+	double	*fft_weight,
+	double	*fft_weight_inverse,
+	double	*fft_weight_inverse_over_fftlen)
+{
+	dd_real bpower, weight, over_bpower, over_weight;
+
+	x86_FIX
+	bpower = map_to_weight_power (dd_data_arg, j);
+	weight = exp (dd_data->gw__logb * bpower);
+	over_bpower = map_to_weight_power (dd_data_arg, over_j);
+	over_weight = exp (dd_data->gw__logb * over_bpower);
+	if (fft_weight != NULL) *fft_weight = double (weight / over_weight);
+	if (fft_weight_inverse != NULL) *fft_weight_inverse = double (1.0 / (weight / over_weight));
+	if (fft_weight_inverse_over_fftlen != NULL) *fft_weight_inverse_over_fftlen = double (dd_data->gw__over_fftlen / (weight / over_weight));
+	END_x86_FIX
+}
+
 // Returns logb(fft_weight).  This is used in determining the FFT weight
 // fudge factor in two-pass FFTs.  This is much faster than computing the
 // fft_weight because it eliminates a call to the double-double exp routine.
@@ -1375,13 +1354,14 @@ void gwfft_weights_fudged (
 /* Used in AVX-512 negacyclic FFTs. */
 
 extern "C"
-void gwfft_weights_times_sine (
+void gwfft_weights3_times_sine (
 	void	*dd_data_arg,
-	unsigned long j,		/* For computing group multiplier */
-	unsigned long x,		/* For computing roots-of-minus-one sine value */
-	unsigned long N,		/* For computing sine value */
-	double	*fft_weight,		/* Returned group multiplier * sine */
-	double	*fft_weight_inverse)	/* Returned 1/group multiplier * sine */
+	unsigned long j,				/* For computing weights */
+	unsigned long x,				/* For computing roots-of-minus-one sine value */
+	unsigned long N,				/* For computing sine value */
+	double	*fft_weight,				/* Returned inverse weight * sine */
+	double	*fft_weight_inverse,			/* Returned inverse weight * sine */
+	double	*fft_weight_inverse_over_fftlen)	/* Returned inverse weight * sine */
 {
 	dd_real bpower, weight, sine0;
 
@@ -1397,6 +1377,7 @@ void gwfft_weights_times_sine (
 
 	if (fft_weight != NULL) *fft_weight = double (weight * sine0);
 	if (fft_weight_inverse != NULL) *fft_weight_inverse = double (sine0 / weight);
+	if (fft_weight_inverse_over_fftlen != NULL) *fft_weight_inverse_over_fftlen = double (sine0 / weight * dd_data->gw__over_fftlen);
 
 	END_x86_FIX
 }

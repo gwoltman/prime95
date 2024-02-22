@@ -1,4 +1,4 @@
-; Copyright 2011-2023 Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2024 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 
@@ -74,11 +74,9 @@ PROCFL	gwzadd3
 	znorm_op_wpn_preload exec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
-	lea	r14, [r13+r13]			; Distance to FFT source #3
-	lea	r15, [r13+r14]			; Distance to FFT source #4
+	lea	r14, [2*r13+r13]		; Distance to FFT source #4
 	mov	rdi, norm_ptr1			; Addr of the big/little flags array
 	mov	r12, compressed_biglits		; Get pointer to compressed biglit table
-	sub	rdx, rdx			; Clear register used to load compressed biglit index
 
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 add0:	mov	r8, normval2			; Load count of clms in 4KB chunk
@@ -124,8 +122,7 @@ PROCFL	gwzaddr3
 	znorm_op_wpn_preload noexec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
-	lea	r14, [r13+r13]			; Distance to FFT source #3
-	lea	r15, [r13+r14]			; Distance to FFT source #4
+	lea	r14, [2*r13+r13]		; Distance to FFT source #4
 
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 add0r:	mov	r8d, normval1			; Load count of loword/highword pairs in 4KB chunk
@@ -166,11 +163,9 @@ PROCFL	gwzaddzp3
 	znorm_op_wpn_zpad_preload exec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
-	lea	r14, [r13+r13]			; Distance to FFT source #3
-	lea	r15, [r13+r14]			; Distance to FFT source #4
+	lea	r14, [2*r13+r13]		; Distance to FFT source #4
 	mov	rdi, norm_ptr1			; Addr of the big/little flags array
 	mov	r12, compressed_biglits		; Get pointer to compressed biglit table
-	sub	rdx, rdx			; Clear register used to load compressed biglit index
 	sub	r9, r9				; Clear register used to alternate the increment of rdi
 
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
@@ -219,8 +214,7 @@ PROCFL	gwzaddrzp3
 	znorm_op_wpn_zpad_preload noexec	; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
-	lea	r14, [r13+r13]			; Distance to FFT source #3
-	lea	r15, [r13+r14]			; Distance to FFT source #4
+	lea	r14, [2*r13+r13]		; Distance to FFT source #4
 
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 add0rzp:mov	r8d, normval1			; Load count of loword/highword pairs in 4KB chunk
@@ -305,11 +299,9 @@ PROCFL	gwzsub3
 	znorm_op_wpn_preload exec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
-	lea	r14, [r13+r13]			; Distance to FFT source #3
-	lea	r15, [r13+r14]			; Distance to FFT source #4
+	lea	r14, [2*r13+r13]		; Distance to FFT source #4
 	mov	rdi, norm_ptr1			; Addr of the big/little flags array
 	mov	r12, compressed_biglits		; Get pointer to compressed biglit table
-	sub	rdx, rdx			; Clear register used to load compressed biglit index
 
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 sub0:	mov	r8, normval2			; Load count of clms in 4KB chunk
@@ -355,8 +347,7 @@ PROCFL	gwzsubr3
 	znorm_op_wpn_preload noexec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
-	lea	r14, [r13+r13]			; Distance to FFT source #3
-	lea	r15, [r13+r14]			; Distance to FFT source #4
+	lea	r14, [2*r13+r13]		; Distance to FFT source #4
 
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 sub0r:	mov	r8d, normval1			; Load count of loword/highword pairs in 4KB chunk
@@ -397,11 +388,9 @@ PROCFL	gwzsubzp3
 	znorm_op_wpn_zpad_preload exec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
-	lea	r14, [r13+r13]			; Distance to FFT source #3
-	lea	r15, [r13+r14]			; Distance to FFT source #4
+	lea	r14, [2*r13+r13]		; Distance to FFT source #4
 	mov	rdi, norm_ptr1			; Addr of the big/little flags array
 	mov	r12, compressed_biglits		; Get pointer to compressed biglit table
-	sub	rdx, rdx			; Clear register used to load compressed biglit index
 	sub	r9, r9				; Clear register used to alternate the increment of rdi
 
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
@@ -450,8 +439,7 @@ PROCFL	gwzsubrzp3
 	znorm_op_wpn_zpad_preload noexec	; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
-	lea	r14, [r13+r13]			; Distance to FFT source #3
-	lea	r15, [r13+r14]			; Distance to FFT source #4
+	lea	r14, [2*r13+r13]		; Distance to FFT source #4
 
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 sub0rzp:mov	r8d, normval1			; Load count of loword/highword pairs in 4KB chunk
@@ -544,11 +532,9 @@ PROCFL	gwzaddsub3
 	znorm_addsub_wpn_preload exec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
-	lea	r14, [r13+r13]			; Distance to FFT source #3
-	lea	r15, [r13+r14]			; Distance to FFT source #4
+	lea	r14, [2*r13+r13]		; Distance to FFT source #4
 	mov	rdi, norm_ptr1			; Addr of the big/little flags array
 	mov	r12, compressed_biglits		; Get pointer to compressed biglit table
-	sub	rdx, rdx			; Clear register used to load compressed biglit index
 
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 as0:	mov	r8, normval2			; Load count of clms in 4KB chunk
@@ -598,8 +584,7 @@ PROCFL	gwzaddsubr3
 	znorm_addsub_wpn_preload noexec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
-	lea	r14, [r13+r13]			; Distance to FFT source #3
-	lea	r15, [r13+r14]			; Distance to FFT source #4
+	lea	r14, [2*r13+r13]		; Distance to FFT source #4
 
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 as0r:	mov	r8d, normval1			; Load count of loword/highword pairs in 4KB chunk
@@ -644,11 +629,9 @@ PROCFL	gwzaddsubzp3
 	znorm_addsub_wpn_zpad_preload exec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
-	lea	r14, [r13+r13]			; Distance to FFT source #3
-	lea	r15, [r13+r14]			; Distance to FFT source #4
+	lea	r14, [2*r13+r13]		; Distance to FFT source #4
 	mov	rdi, norm_ptr1			; Addr of the big/little flags array
 	mov	r12, compressed_biglits		; Get pointer to compressed biglit table
-	sub	rdx, rdx			; Clear register used to load compressed biglit index
 	sub	r9, r9				; Clear register used to alternate the increment of rdi
 
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
@@ -702,8 +685,7 @@ PROCFL	gwzaddsubrzp3
 	znorm_addsub_wpn_zpad_preload noexec	; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
-	lea	r14, [r13+r13]			; Distance to FFT source #3
-	lea	r15, [r13+r14]			; Distance to FFT source #4
+	lea	r14, [2*r13+r13]		; Distance to FFT source #4
 
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 as0rzp:	mov	r8d, normval1			; Load count of loword/highword pairs in 4KB chunk
@@ -751,11 +733,9 @@ PROCFL	gwzmuls3
 	znorm_smallmul_wpn_preload exec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
-	lea	r14, [r13+r13]			; Distance to FFT source #3
-	lea	r15, [r13+r14]			; Distance to FFT source #4
+	lea	r14, [2*r13+r13]		; Distance to FFT source #4
 	mov	rdi, norm_ptr1			; Addr of the big/little flags array
 	mov	r12, compressed_biglits		; Get pointer to compressed biglit table
-	sub	rdx, rdx			; Clear register used to load compressed biglit index
 
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 mul0:	mov	r8, normval2			; Load count of clms in 4KB chunk
@@ -797,8 +777,7 @@ PROCFL	gwzmulsr3
 	znorm_smallmul_wpn_preload noexec	; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
-	lea	r14, [r13+r13]			; Distance to FFT source #3
-	lea	r15, [r13+r14]			; Distance to FFT source #4
+	lea	r14, [2*r13+r13]		; Distance to FFT source #4
 
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 mul0r:	mov	r8d, normval1			; Load count of loword/highword pairs in 4KB chunk
@@ -835,11 +814,9 @@ PROCFL	gwzmulszp3
 	znorm_smallmul_wpn_zpad_preload exec	; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
-	lea	r14, [r13+r13]			; Distance to FFT source #3
-	lea	r15, [r13+r14]			; Distance to FFT source #4
+	lea	r14, [2*r13+r13]		; Distance to FFT source #4
 	mov	rdi, norm_ptr1			; Addr of the big/little flags array
 	mov	r12, compressed_biglits		; Get pointer to compressed biglit table
-	sub	rdx, rdx			; Clear register used to load compressed biglit index
 	sub	r9, r9				; Clear register used to alternate the increment of rdi
 
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
@@ -885,8 +862,7 @@ PROCFL	gwzmulsrzp3
 	znorm_smallmul_wpn_zpad_preload noexec	; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
-	lea	r14, [r13+r13]			; Distance to FFT source #3
-	lea	r15, [r13+r14]			; Distance to FFT source #4
+	lea	r14, [2*r13+r13]		; Distance to FFT source #4
 
 	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
 mul0rzp:mov	r8d, normval1			; Load count of loword/highword pairs in 4KB chunk
@@ -940,13 +916,14 @@ cpzlp2:	and	ecx, ecx			; Time to load new masks?
 	kshiftrw k2, k1, 8
 	mov	ecx, [rdx+4]			; Count of iterations these masks are valid
 	bump	rdx, 8				; Move onto next set of masks
+	jmp	short cpzlp2			; Loop in case loaded count is zero
 noload:	vmovapd	zmm0 {k1}{z}, [rsi]		; Load source data
 	vmovapd	zmm2 {k2}{z}, [rsi+64]
 	zstore	[rdi], zmm0			; Store destination data
 	zstore	[rdi+64], zmm2
 	bump	rcx, -1				; Decrement mask count
 	add	rsi, pass2blkdst		; Next src ptr
-	add	rdi, pass2blkdst		; Next src ptr
+	add	rdi, pass2blkdst		; Next dest ptr
 	add	eax, 0x80000000/4		; Loop 8 times (8 pass 2 blocks in each pass 1 block)
 	jnc	short cpzlp2
 	sub	rsi, pass1blkdst		; Adjust source pointers

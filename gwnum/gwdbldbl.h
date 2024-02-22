@@ -4,7 +4,7 @@
 | This file contains the headers for the gwnum helper routines that use
 | extended-precision floats.
 | 
-|  Copyright 2005-2023 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2005-2024 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 #ifndef _GWDBLDBL_H
@@ -143,11 +143,12 @@ double gwfft_weight_inverse_squared (void *, unsigned long);
 double gwfft_weight_inverse_sloppy (void *, unsigned long);
 double gwfft_weight_inverse_over_fftlen (void *, unsigned long);
 void gwfft_weights3 (void *, unsigned long, double *, double *, double *);
+void gwfft_weights_over_weights3 (void *, unsigned long, unsigned long, double *, double *, double *);
 double gwfft_weight_exponent (void *, unsigned long);
 double gwfft_weight_no_c (void *, unsigned long);
 unsigned long gwfft_base (void *, unsigned long);
 void gwfft_weights_fudged (void	*, unsigned long, unsigned long, double *, double *, double *, double *);
-void gwfft_weights_times_sine (void *, unsigned long, unsigned long, unsigned long, double *, double *);
+void gwfft_weights3_times_sine (void *, unsigned long, unsigned long, unsigned long, double *, double *, double *);
 double gwfft_partial_weight (void *, unsigned long, unsigned long);
 double gwfft_partial_weight_sloppy (void *, unsigned long, unsigned long);
 double gwfft_partial_weight_inverse (void *, unsigned long, unsigned long);

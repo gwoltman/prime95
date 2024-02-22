@@ -1,4 +1,4 @@
-; Copyright 2017-2023 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2017-2024 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -756,7 +756,7 @@ zsf_onepass_complex_fft_wrapper MACRO srcreg,srcinc,d1,d2,d4,pmreg,pminc,maskreg
 	ENDM
 
 
-;; Wrapper macro that takes two negacyclic reals, swizzles data, and applies weights.  Output will be suitable for use by a pass 2 FFT macro.
+;; Wrapper macro that takes two negacyclic reals, swizzles data, and applies weights.  Output will be suitable for normalize.
 ;; NOTE: The r1/i1 inverse column multiplier is 1.0 thus there are no fudges to apply to R1/I1
 
 zs_onepass_complex_unfft_wrapper_preload MACRO
@@ -1016,5 +1016,376 @@ zs_onepass_complex_unfft_wrapper MACRO srcreg,srcinc,d1,d2,d4,pmreg,pminc,colreg
 	zstore	[srcreg+d4+d2+64], zmm19		;; Save I7						; 58
 	zstore	[srcreg+d4+d2+d1+64], zmm6		;; Save I8						; 58+1
 	bump	srcreg, srcinc
+	ENDM
+
+
+; ********************************************************
+; ********************************************************
+; ********************  FFT MACROS  **********************
+; ********************************************************
+; ********************************************************
+
+;; Custom coded one pass AVX-512 FFTs
+;;
+;; These ffts are all done in a single pass.  On entry the memory layout is
+;; quite simple.  It is assumed each cache line is 64 bytes or 8 doubles.
+
+;; These macros support 4 "types".  Type 1 if forward FFT only.
+;; Type 2 is forward FFT, square, inverse FFT.  Type 3 is forward
+;; FFT, multiply, inverse FFT.  Type 4 is multiply, and inverse FFT.
+
+;; rsi = destination pointer
+;; DIST_TO_FFTSRCARG = rbx = distance from rsi to source (zero for types 1, 2)
+;; DIST_TO_MULSRCARG = distance from rsi to multiplier (zero for types 2, 3)
+
+
+;;;
+;;;  First some utility macros
+;;;
+
+;; When doing zero-padded FFTs, the 7 words around the halfway point must
+;; be copied for later processing.  This macro does that.
+
+zcopy_7_words MACRO dist_half_minus_3, dist_half_minus_2, dist_half_minus_1, dist_half, dist_half_plus_1, dist_half_plus_2, dist_half_plus_3
+	LOCAL	nozpad
+	cmp	ZERO_PADDED_FFT, 0	;; Is this a zero-padded FFT?
+	je	short nozpad		;; No, skip 7 word copy
+	vmovsd	xmm0, Q [rsi+rbx+dist_half] ;; Copy half-way point word
+	vmovsd	Q [rsi-64], xmm0
+	vmovsd	xmm1, Q [rsi+rbx+dist_half_plus_1] ;; Copy 1st word above half-way
+	vmovsd	Q [rsi-56], xmm1
+	vmovsd	xmm2, Q [rsi+rbx+dist_half_plus_2] ;; Copy 2nd word above half-way
+	vmovsd	Q [rsi-48], xmm2
+	vmovsd	xmm3, Q [rsi+rbx+dist_half_plus_3] ;; Copy 3rd word above half-way
+	vmovsd	Q [rsi-40], xmm3
+	vmovsd	xmm0, Q [rsi+rbx+dist_half_minus_1] ;; Copy 1st word below half-way
+	vmovsd	Q [rsi-72], xmm0
+	vmovsd	xmm1, Q [rsi+rbx+dist_half_minus_2] ;; Copy 2nd word below half-way
+	vmovsd	Q [rsi-80], xmm1
+	vmovsd	xmm2, Q [rsi+rbx+dist_half_minus_3] ;; Copy 3rd word below half-way
+	vmovsd	Q [rsi-88], xmm2
+nozpad:
+	ENDM
+
+;; When doing zero-padded FFTs, the multiplied 7 words around the halfway point
+;; must be subtracted from the bottom of the FFT.  This must be done before
+;; normalization multiplies the FFT data by k.  This macro does that and also
+;; initializes the sumout reg.
+;; On input, rsi=DESTARG (already adjusted for two destination multiplies)
+
+zsub_7_words MACRO dist1, dist2, dist3, dist4, dist5, dist6
+	LOCAL	nozpad
+	vxorpd	zmm7, zmm7, zmm7		;; Clear sumout
+	cmp	ZERO_PADDED_FFT, 0		;; Is this a zero-padded FFT?
+	je	nozpad				;; No, skip 7 word subtract
+	IF dist1 EQ 8 AND dist2 EQ 16 AND dist3 EQ 24
+	vmovapd	ymm0, [rsi]			;; Subtract 1st through 4th words
+	vmovapd	ymm1, ZPAD0			;; Load ZPAD data
+;;	vmulpd	ymm1, ymm1, ZMM_NORM012_FF	;; Scale by FFTLEN/2
+	vsubpd	ymm0, ymm0, ymm1
+	vaddpd	ymm7, ymm7, ymm1		;; Adjust sumout
+	vmovapd	[rsi], ymm0
+	ELSE
+	vmovsd	xmm0, Q [rsi]			;; Subtract 1st word
+	vmovsd	xmm1, ZPAD0			;; Load ZPAD data
+;;	vmulsd	xmm1, xmm1, Q ZMM_NORM012_FF	;; Scale by FFTLEN/2
+	vsubsd	xmm0, xmm0, xmm1
+	vaddsd	xmm7, xmm7, xmm1		;; Adjust sumout
+	vmovsd	Q [rsi], xmm0
+	vmovsd	xmm0, Q [rsi+dist1]		;; Subtract 2nd word
+	vmovsd	xmm1, ZPAD1			;; Load ZPAD data
+;;	vmulsd	xmm1, xmm1, Q ZMM_NORM012_FF	;; Scale by FFTLEN/2
+	vsubsd	xmm0, xmm0, xmm1
+	vaddsd	xmm7, xmm7, xmm1		;; Adjust sumout
+	vmovsd	Q [rsi+dist1], xmm0
+	vmovsd	xmm0, Q [rsi+dist2]		;; Subtract 3rd word
+	vmovsd	xmm1, ZPAD2			;; Load ZPAD data
+;;	vmulsd	xmm1, xmm1, Q ZMM_NORM012_FF	;; Scale by FFTLEN/2
+	vsubsd	xmm0, xmm0, xmm1
+	vaddsd	xmm7, xmm7, xmm1		;; Adjust sumout
+	vmovsd	Q [rsi+dist2], xmm0
+	vmovsd	xmm0, Q [rsi+dist3]		;; Subtract 4th word
+	vmovsd	xmm1, ZPAD3			;; Load ZPAD data
+;;	vmulsd	xmm1, xmm1, Q ZMM_NORM012_FF	;; Scale by FFTLEN/2
+	vsubsd	xmm0, xmm0, xmm1
+	vaddsd	xmm7, xmm7, xmm1		;; Adjust sumout
+	vmovsd	Q [rsi+dist3], xmm0
+	ENDIF
+	IF dist5-dist4 EQ 8
+	vmovapd	xmm0, [rsi+dist4]		;; Subtract 5th-6th word
+	vmovapd	xmm1, XPTR ZPAD4		;; Load ZPAD data
+;;	vmulpd	xmm1, xmm1, XPTR ZMM_NORM012_FF	;; Scale by FFTLEN/2
+	vsubpd	xmm0, xmm0, xmm1
+	vaddpd	zmm7, zmm7, zmm1		;; Adjust sumout
+	vmovapd	[rsi+dist4], xmm0
+	ELSE
+	vmovsd	xmm0, Q [rsi+dist4]		;; Subtract 5th word
+	vmovsd	xmm1, ZPAD4			;; Load ZPAD data
+;;	vmulsd	xmm1, xmm1, Q ZMM_NORM012_FF	;; Scale by FFTLEN/2
+	vsubsd	xmm0, xmm0, xmm1
+	vaddpd	zmm7, zmm7, zmm1		;; Adjust sumout
+	vmovsd	Q [rsi+dist4], xmm0
+	vmovsd	xmm0, Q [rsi+dist5]		;; Subtract 6th word
+	vmovsd	xmm1, ZPAD5			;; Load ZPAD data
+;;	vmulsd	xmm1, xmm1, Q ZMM_NORM012_FF	;; Scale by FFTLEN/2
+	vsubsd	xmm0, xmm0, xmm1
+	vaddpd	zmm7, zmm7, zmm1		;; Adjust sumout
+	vmovsd	Q [rsi+dist5], xmm0
+	ENDIF
+	vmovsd	xmm0, Q [rsi+dist6]		;; Subtract 7th word
+	vmovsd	xmm1, ZPAD6			;; Load ZPAD data
+;;	vmulsd	xmm1, xmm1, Q ZMM_NORM012_FF	;; Scale by FFTLEN/2
+	vsubsd	xmm0, xmm0, xmm1
+	vaddpd	zmm7, zmm7, zmm1		;; Adjust sumout
+	vmovsd	Q [rsi+dist6], xmm0
+nozpad:
+	ENDM
+
+
+;;;
+;;;  Now we have one macro for each FFT length
+;;;
+
+
+;; Perform a 128-element FFT
+
+zfft128 MACRO type
+	LOCAL	zmid2, zmid3, zmid4, zfinish_unfft
+
+;; Check for a multiply with pre-FFTed inputs
+
+	cmp	ffttype, 4
+	je	zmid4
+
+;; Do zero-pad prep work.  Copy 7 words around the halfway point.
+
+	zcopy_7_words 7*128+40, 7*128+48, 7*128+56, 64, 72, 80, 88
+
+;; Do FFT levels 1,2,3,4
+;; On input the 128-byte cache line pairs hold these data values:
+;;	0	+1	...	64	+1	...
+;;	8	...
+;;	16	...
+;;	...
+;; On output the 128-byte cache line pairs hold these data values:
+;;	0	+1	...	8	+1	...
+;;	16	...
+;;	32	...
+;;	...
+;; These are swizzled to:
+;;	0	+16	...	8	+16	...
+;;	1	...
+;;	2	...
+;;	...
+
+;; Do 8 sixteen_reals_fft operations
+;;	distance between fft data elements is 8
+;;	do 1 macro processing 128 data values
+
+	start_timer 4
+	mov	rdi, sincos1		;; Load sin/cos data ptr
+	mov	r9, norm_col_mults	;; Load weights pointer
+	zr8fs_sixteen_reals_first_fft_preload
+	zr8fs_sixteen_reals_first_fft rsi, 0, 128, 2*128, 4*128, rdi, 0, r9, 0, 0, 1
+;; bigger ffts bump rsi by 128 and r9 by 8*128, change gwtables to access 
+	end_timer 4
+
+;; Do FFT levels 5,6,7
+;; On input and output the 128-byte cache line pairs hold these data values:
+;;	0	+16	...	8	+16	...
+;;	1	...
+;;	2	...
+;;	...
+
+;; Do 1 sixteen_reals_fft operation
+;; Do 7 eight_complex_fft operations
+;;	distance between fft data elements is 1
+;;	do 1 macro processing 128 data values
+
+	cmp	ffttype, 2
+	je	zmid2
+	ja	zmid3
+
+	start_timer 5
+;;	zr8_sixteen_reals_eight_complex_fft_final rsi, 0, 128, 2*128, 4*128
+	zr8_dispatch call, zreal_fft_final, 128, 2*128, 4*128
+	end_timer 5
+	zfft_1_ret
+
+zmid2:	start_timer 5
+	mov	r8, DEST2ARG
+;;	zr8_sixteen_reals_eight_complex_with_square rsi, 0, 128, 2*128, 4*128
+	zr8_dispatch call, zreal_square, 128, 2*128, 4*128
+	lea	rsi, [rsi+r8-8*128]
+	mov	DESTARG, rsi
+	end_timer 5
+	jmp	zfinish_unfft
+
+zmid3:	start_timer 5
+	mov	r8, DEST2ARG
+	mov	rbp, DIST_TO_MULSRCARG
+;;	zr8_sixteen_reals_eight_complex_with_mult rsi, 0, 128, 2*128, 4*128
+	zr8_dispatch call, zreal_mult, 128, 2*128, 4*128
+	lea	rsi, [rsi+r8-8*128]
+	mov	DESTARG, rsi
+	end_timer 5
+	jmp	zfinish_unfft
+
+zmid4:	start_timer 5
+	mov	rbp, DIST_TO_MULSRCARG
+;;	zr8_sixteen_reals_eight_complex_with_mulf rsi, 0, 128, 2*128, 4*128
+	zr8_dispatch call, zreal_mulf, 128, 2*128, 4*128
+	bump	rsi, -8*128
+	end_timer 5
+
+zfinish_unfft:
+
+;; Do inverse FFT levels 1,2,3,4
+;; On input the 128-byte cache line pairs hold these data values:
+;;	0	+16	...	8	+16	...
+;;	1	...
+;;	2	...
+;;	...
+;; These are swizzled to:
+;;	0	+1	...	8	+1	...
+;;	16	...
+;;	32	...
+;;	...
+;; On output the 128-byte cache line pairs hold these data values:
+;;	0	+1	...	64	+1	...
+;;	8	...
+;;	16	...
+;;	...
+
+;; Do 8 sixteen_reals_unfft operations
+;;	distance between fft data elements is 8
+;;	do 1 macro processing 128 data values
+
+	start_timer 6
+	mov	rdi, sincos1		;; Load sin/cos data ptr
+	zr8s_sixteen_reals_last_unfft_preload
+;; load weights pointer into r9?  pass r9 to macro?
+	zr8s_sixteen_reals_last_unfft rsi, 0, 128, 2*128, 4*128, rdi, 0, r9, 0, 0, 1
+	end_timer 6
+
+	zsub_7_words 8, 16, 24, 64, 72, 80
+	zfft_3_ret
+	ENDM
+
+;; Perform a 128-element negacyclic FFT
+
+zfft128p MACRO type
+	LOCAL	zmid2p, zmid3p, zmid4p, zfinish_unfft
+
+;; Do a multiply with pre-FFTed inputs
+
+	cmp	ffttype, 4
+	je	zmid4p
+
+;; Do FFT levels 1,2,3,4
+;; On input the 128-byte cache line pairs hold these data values:
+;;	0	+1	...	64	+1	...
+;;	8	...
+;;	16	...
+;;	...
+;; On output the 128-byte cache line pairs hold these data values:
+;;	0	+1	...	8	+1	...
+;;	16	...
+;;	32	...
+;;	...
+;; These are swizzled to:
+;;	0	+16	...	8	+16	...
+;;	1	...
+;;	2	...
+;;	...
+
+;; Do 8 eight_complex_first_fft operations
+;;	distance between fft data elements is 8
+;;	do 1 macro processing 128 data values
+
+	start_timer 4
+	mov	rdi, sincos1		;; Load sin/cos pointer
+	mov	r9, norm_col_mults	;; Load weights pointer
+	zr8fs_eight_complex_first_fft_preload
+	zr8fs_eight_complex_first_fft rsi, 0, 128, 2*128, 4*128, rdi, 0, r9, 0, 0, 1
+;; bigger ffts bump rsi by 128 and r9 by 8*128 and rdi by ???
+	end_timer 4
+
+;; Do FFT levels 5,6,7
+;; On input and output the 128-byte cache line pairs hold these data values:
+;;	0	+16	...	8	+16	...
+;;	1	...
+;;	2	...
+;;	...
+
+;; Do 8 eight_complex_fft operations
+;;	distance between fft data elements is 1
+;;	do 1 macro processing 128 data values
+
+	cmp	ffttype, 2
+	je	zmid2p
+	ja	zmid3p
+
+	start_timer 5
+	zr8_eight_complex_fft_final_preload
+	zr8_eight_complex_fft_final rsi, 0, 128, 2*128, 4*128
+	end_timer 5
+	zfft_1_ret
+
+zmid2p:	start_timer 5
+	mov	r8, DEST2ARG
+	zr8_eight_complex_with_square_preload
+	zr8_eight_complex_with_square rsi, 0, 128, 2*128, 4*128
+	lea	rsi, [rsi+r8-0*128]
+	mov	DESTARG, rsi
+	end_timer 5
+	jmp	zfinish_unfft
+
+zmid3p:	start_timer 5
+	mov	r8, DEST2ARG
+	mov	rbp, DIST_TO_MULSRCARG
+	zr8_eight_complex_with_mult_preload
+	zr8_eight_complex_with_mult rsi, 0, 128, 2*128, 4*128
+	lea	rsi, [rsi+r8-0*128]
+	mov	DESTARG, rsi
+	end_timer 5
+	jmp	zfinish_unfft
+
+zmid4p:	start_timer 5
+	mov	rbp, DIST_TO_MULSRCARG
+	zr8_eight_complex_with_mulf_preload
+	zr8_eight_complex_with_mulf rsi, 0, 128, 2*128, 4*128
+	end_timer 5
+
+;; Do inverse FFT levels 1,2,3,4
+;; On input the 128-byte cache line pairs hold these data values:
+;;	0	+16	...	8	+16	...
+;;	1	...
+;;	2	...
+;;	...
+;; These are swizzled to:
+;;	0	+1	...	8	+1	...
+;;	16	...
+;;	32	...
+;;	...
+;; On output the 128-byte cache line pairs hold these data values:
+;;	0	+1	...	64	+1	...
+;;	8	...
+;;	16	...
+;;	...
+
+;; Do 8 eight_complex_last_unfft operations
+;;	distance between fft data elements is 8
+;;	do 1 macro processing 128 data values
+
+zfinish_unfft:
+	start_timer 6
+	mov	rdi, sincos1		;; Load sin/cos pointer
+;; load weights pointer into r9??
+	zr8fs_eight_complex_last_unfft_preload
+	zr8fs_eight_complex_last_unfft rsi, 0, 128, 2*128, 4*128, rdi, 0, r9, 0, 0, 1
+	end_timer 6
+
+	zfft_3_ret
 	ENDM
 
