@@ -10816,7 +10816,7 @@ void gwunfft2 (
 			if (options & GWMUL_MULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + 2 + gwdata->ERROR_CHECKING];
 			else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->ERROR_CHECKING];
 			asm_data->mul4_opcode = 5;
-			asm_data->SRC3ARG = (void *) 2;			// Indicate this gwnum is FFTed_FOR_FMA and FFT(1) is not one
+			asm_data->SRC3ARG = (void *) 2;		// Indicate this gwnum is FFTed_FOR_FMA and FFT(1) is not one
 			asm_data->DEST2ARG = 0;
 			asm_data->ffttype = 4;
 			asm_mul (gwdata, s, s, d, options);
@@ -10828,20 +10828,16 @@ void gwunfft2 (
 		// the implied mul-by-FFT(1) that is included in all FFTed_FOR_FMA values.
 		else {
 			gwnum	tmp = gwalloc (gwdata);
-			dbltogw (gwdata, gwdata->k, tmp);		// should be all ones when FFTed
+			dbltogw (gwdata, gwdata->k, tmp);	// should be all ones when FFTed
 			gwfft (gwdata, tmp, tmp);
-			if (gwdata->ZERO_PADDED_FFT) {	// trick zmult7/ymult7/xmult7 into copying the 7 ZPAD header values that polymult already computed
-				if (gwdata->cpu_flags & CPU_AVX512F) tmp[-5] = 1.0;
-				else tmp[-8] = 1.0;
-			}
-
 			struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 			if (options & GWMUL_MULBYCONST) asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + 2 + gwdata->ERROR_CHECKING];
 			else asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->ERROR_CHECKING];
-			asm_data->mul4_opcode = 0;
+			asm_data->mul4_opcode = 5;		// Indicate source gwnum is FFTed_FOR_FMA so that zpad_prep into copying
+			asm_data->SRC3ARG = (void *) 2;		// the 7 ZPAD header values that polymult already computed
 			asm_data->DEST2ARG = 0;
 			asm_data->ffttype = 4;
-			asm_mul (gwdata, tmp, s, d, options);
+			asm_mul (gwdata, s, tmp, d, options);
 			gwdata->read_count += 2, gwdata->write_count += 2;
 			if (gwdata->GENERAL_MOD) emulate_mod (gwdata, d);
 
