@@ -4564,9 +4564,6 @@ zr8_sixteen_reals_eight_complex_with_square_preload MACRO
 zr8_sixteen_reals_eight_complex_with_square MACRO srcreg,srcinc,d1,d2,d4
 	LOCAL	nosave, orig, back_to_orig, muladd, muladdhard, mulsub, mulsubhard, fma_done
 
-	;; For zero pad
-	zsquare7 srcreg
-
 	vbroadcastsd zmm29, ZMM_P383
 	vbroadcastsd zmm30, ZMM_P924_P383
 	vbroadcastsd zmm31, ZMM_SQRTHALF
@@ -5217,9 +5214,6 @@ zr8_sixteen_reals_eight_complex_with_mult_preload MACRO
 zr8_sixteen_reals_eight_complex_with_mult MACRO srcreg,srcinc,d1,d2,d4
 	LOCAL	orig, back_to_orig, dispatch, disptab, addmul, submul, muladd, muladdhard, mulsub, mulsubhard, unfft
 	LOCAL	addmul312, addmul313, addmul132, addmul133, submul312, submul313, submul132, submul133
-
-	;; For zero pad
-	zmult7	srcreg, srcreg+rbp
 
 	vbroadcastsd zmm29, ZMM_P383
 	vbroadcastsd zmm30, ZMM_P924_P383
@@ -6731,9 +6725,6 @@ zr8_sixteen_reals_eight_complex_with_mulf_preload MACRO
 	ENDM
 zr8_sixteen_reals_eight_complex_with_mulf MACRO srcreg,srcinc,d1,d2,d4
 	LOCAL	orig, back_to_orig, fma_or_unfft, fma, addmul, submul, muladd, muladdhard, mulsub, mulsubhard, unfft
-
-	;; For zero pad
-	zmult7	srcreg+rbx, srcreg+rbp
 
 	vbroadcastsd zmm29, ZMM_P383
 	vbroadcastsd zmm30, ZMM_P924_P383

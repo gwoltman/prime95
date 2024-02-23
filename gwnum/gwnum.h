@@ -1190,6 +1190,7 @@ struct gwhandle_struct {
 					/* be identical) results of another FFT implementation. */
 	int	qa_picked_nth_fft;	/* Internal hack returning which FFT implementation was selected */
 	int	careful_count;		/* Count of gwsquare and gwmul3 calls to convert into gwmul3_carefully calls */
+	intptr_t ZPAD_COPY7_OFFSET[7];	/* Offsets to the 7 words around the halfway point */
 	double	ZPAD_COPY7_ADJUST[7];	/* Adjustments for copying the 7 words around the halfway point of a zero pad FFT. */
 	double	ZPAD_0_6_ADJUST[7];	/* Adjustments for ZPAD0_6 in a r4dwpn FFT */
 	unsigned long wpn_count;	/* Count of r4dwpn pass 1 blocks that use the same ttp/ttmp grp multipliers */

@@ -718,7 +718,7 @@ unsigned long cache_line_offset (
 
 //
 // Process the 7 values in the header of zero-padded FFT gwnums.  These seven values cannot be multiplied pointwise as is required by polymult.
-// The assembly code (see zmult7) multiplies the 7 values keeping the high half of the result.  An zero-padded 13-reals FFT of the 7 values allows
+// The gwnum.c zpad_prep code multiplies the 7 values keeping the high half of the result.  A zero-padded 13-reals FFT of the 7 values allows
 // us to do pointwise multiplies.  A zero-padded FFT produces 1 real value and 6 complex values for a total of 13 doubles.  The extra 6 doubles need
 // to be stored somewhere in the gwnum header or a pad line in the gwnum.
 //

@@ -1,4 +1,4 @@
-; Copyright 2011-2023 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2024 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -12534,7 +12534,6 @@ yr4_4cl_eight_reals_four_complex_fft_final MACRO srcreg,srcinc,d1,d2
 	ENDM
 
 yr4_4cl_eight_reals_four_complex_with_square MACRO srcreg,srcinc,d1,d2
-	ysquare7 srcreg
 	yr4_o8r_t4c_simple_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+d2+d1],[srcreg+d2+d1+32]
 	yp_complex_square ymm2, ymm6, ymm4	;; Square R2, I2
 	yp_complex_square ymm1, ymm5, ymm4	;; Square R3, I3
@@ -12568,7 +12567,6 @@ yr4_4cl_eight_reals_four_complex_with_square MACRO srcreg,srcinc,d1,d2
 	ENDM
 
 yr4_4cl_eight_reals_four_complex_with_mult MACRO srcreg,srcinc,d1,d2
-	ymult7	srcreg, srcreg+rbp
 	yr4_o8r_t4c_simple_fft_mem [srcreg],[srcreg+d1],[srcreg+d2],[srcreg+d2+d1],[srcreg+32],[srcreg+d1+32],[srcreg+d2+32],[srcreg+d2+d1+32],[srcreg+d2+d1],[srcreg+d2+d1+32]
 	yp_complex_mult ymm2, ymm6, [srcreg+d1][rbp], [srcreg+d1+32][rbp], ymm4, ymm7 ;; Mult R2, I2
 	yp_complex_mult ymm1, ymm5, [srcreg+d2][rbp], [srcreg+d2+32][rbp], ymm4, ymm7 ;; Mult R3, I3
@@ -12611,7 +12609,6 @@ yr4_4cl_eight_reals_four_complex_with_mult MACRO srcreg,srcinc,d1,d2
 	LOCAL	orig, back_to_orig, nofftsave, disptab, addmul, submul, muladd, muladdhard, mulsub, mulsubhard, unfft, done
 	LOCAL	addmul312, addmul313, addmul132, addmul133, submul312, submul313, submul132, submul133
 
-	ymult7	srcreg, srcreg+rbp
 						;; Eight-reals comments		; Three four-complex comments
 	vmovapd	ymm6, [srcreg+d2+d1]		;; R4				; R4
 	vmovapd	ymm7, [srcreg+d2+d1+32]		;; R8				; I4
@@ -13406,7 +13403,6 @@ back_to_orig:
 ENDIF
 
 yr4_4cl_eight_reals_four_complex_with_mulf MACRO srcreg,srcinc,d1,d2
-	ymult7	srcreg+rbx, srcreg+rbp
 	vmovapd	ymm2, [srcreg+d1][rbx]		;; R2
 	vmovapd	ymm1, [srcreg+d1+32][rbx]	;; I2
 	yp_complex_mult ymm2, ymm1, [srcreg+d1][rbp], [srcreg+d1+32][rbp], ymm4, ymm5 ;; Mult R2, I2
@@ -13452,8 +13448,6 @@ IFDEF X86_64
 
 yr4_4cl_eight_reals_four_complex_with_mulf MACRO srcreg,srcinc,d1,d2
 	LOCAL	orig, back_to_orig, no_save_fft, fma_or_unfft, fma, addmul, submul, muladd, muladdhard, mulsub, mulsubhard, unfft
-
-	ymult7	srcreg+rbx, srcreg+rbp
 
 	mov	al, mul4_opcode			;; Load the mul4_opcode
 	cmp	al, 0				;; See if we need to do more than the original type-4 FFT multiply

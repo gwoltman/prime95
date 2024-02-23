@@ -1043,30 +1043,6 @@ zs_onepass_complex_unfft_wrapper MACRO srcreg,srcinc,d1,d2,d4,pmreg,pminc,colreg
 ;;;  First some utility macros
 ;;;
 
-;; When doing zero-padded FFTs, the 7 words around the halfway point must
-;; be copied for later processing.  This macro does that.
-
-zcopy_7_words MACRO dist_half_minus_3, dist_half_minus_2, dist_half_minus_1, dist_half, dist_half_plus_1, dist_half_plus_2, dist_half_plus_3
-	LOCAL	nozpad
-	cmp	ZERO_PADDED_FFT, 0	;; Is this a zero-padded FFT?
-	je	short nozpad		;; No, skip 7 word copy
-	vmovsd	xmm0, Q [rsi+rbx+dist_half] ;; Copy half-way point word
-	vmovsd	Q [rsi-64], xmm0
-	vmovsd	xmm1, Q [rsi+rbx+dist_half_plus_1] ;; Copy 1st word above half-way
-	vmovsd	Q [rsi-56], xmm1
-	vmovsd	xmm2, Q [rsi+rbx+dist_half_plus_2] ;; Copy 2nd word above half-way
-	vmovsd	Q [rsi-48], xmm2
-	vmovsd	xmm3, Q [rsi+rbx+dist_half_plus_3] ;; Copy 3rd word above half-way
-	vmovsd	Q [rsi-40], xmm3
-	vmovsd	xmm0, Q [rsi+rbx+dist_half_minus_1] ;; Copy 1st word below half-way
-	vmovsd	Q [rsi-72], xmm0
-	vmovsd	xmm1, Q [rsi+rbx+dist_half_minus_2] ;; Copy 2nd word below half-way
-	vmovsd	Q [rsi-80], xmm1
-	vmovsd	xmm2, Q [rsi+rbx+dist_half_minus_3] ;; Copy 3rd word below half-way
-	vmovsd	Q [rsi-88], xmm2
-nozpad:
-	ENDM
-
 ;; When doing zero-padded FFTs, the multiplied 7 words around the halfway point
 ;; must be subtracted from the bottom of the FFT.  This must be done before
 ;; normalization multiplies the FFT data by k.  This macro does that and also
@@ -1156,10 +1132,6 @@ zfft128 MACRO type
 
 	cmp	ffttype, 4
 	je	zmid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	zcopy_7_words 7*128+40, 7*128+48, 7*128+56, 64, 72, 80, 88
 
 ;; Do FFT levels 1,2,3,4
 ;; On input the 128-byte cache line pairs hold these data values:

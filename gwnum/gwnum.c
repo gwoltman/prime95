@@ -4955,6 +4955,7 @@ int internal_gwsetup (
 			}
 		}
 
+//GW: Needed???? We now have COPY7_offsets
 		asm_data->HIGH_WORD1_OFFSET = addr_offset (gwdata, gwdata->FFTLEN/2-1);
 		asm_data->HIGH_WORD2_OFFSET = addr_offset (gwdata, gwdata->FFTLEN/2-2);
 		asm_data->HIGH_WORD3_OFFSET = addr_offset (gwdata, gwdata->FFTLEN/2-3);
@@ -5045,29 +5046,24 @@ int internal_gwsetup (
 			asm_data->ZPAD_INVERSE_K6 = bigpowb / k;
 		}
 
-/* Pre-compute the adjustments to copying the 7 words around the halfway point */
-/* In a radix-4 delay with full or partial normalization, we must apply an adjustment */
-/* so that the copied words are fully weighted. */
+/* Pre-compute the adjustments to copying the 7 words around the halfway point. */
+/* In a radix-4 delay with full or partial normalization, we must apply an adjustment so that the copied words are fully weighted. */
 
-		if (gwdata->cpu_flags & CPU_AVX512F) {
-			int	i;
-			for (i = 0; i < 7; i++) {
+		for (int i = 0; i < 7; i++) {
+			gwdata->ZPAD_COPY7_OFFSET[i] = addr_offset (gwdata, gwdata->FFTLEN/2-3+i);
+			if (gwdata->cpu_flags & CPU_AVX512F) {
 				/* Weights for words we are copying before an FFT is performed */
-				gwdata->ZPAD_COPY7_ADJUST[i] = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN / 2 - 3 + i);
+				gwdata->ZPAD_COPY7_ADJUST[i] = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN/2-3+i);
 				/* Inverse weights for ZPAD0 - ZPAD6 applied after an inverse FFT is performed */
 				gwdata->ZPAD_0_6_ADJUST[i] = gwfft_weight_inverse (gwdata->dd_data, i);
-			}
-		} else if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-			int	i;
-			for (i = 0; i < 7; i++) {
+			} else if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
 				/* Partial weights for words we are copying before an FFT is performed */
-				gwdata->ZPAD_COPY7_ADJUST[i] = gwfft_weight (gwdata->dd_data, dwpn_col (gwdata, gwdata->FFTLEN / 2 - 3 + i));
+				gwdata->ZPAD_COPY7_ADJUST[i] = gwfft_weight (gwdata->dd_data, dwpn_col (gwdata, gwdata->FFTLEN/2-3+i));
 				/* Partial inverse weights for ZPAD0 - ZPAD6 applied after an inverse FFT is performed */
 				gwdata->ZPAD_0_6_ADJUST[i] = gwfft_weight_inverse (gwdata->dd_data, dwpn_col (gwdata, i));
+			} else {
+				gwdata->ZPAD_COPY7_ADJUST[i] = 1.0;
 			}
-		} else {
-			int	i;
-			for (i = 0; i < 7; i++) gwdata->ZPAD_COPY7_ADJUST[i] = 1.0;
 		}
 	    }
 
@@ -5259,57 +5255,9 @@ int internal_gwsetup (
 }
 
 
-/* Utility routines to deal with the 7 words near the half-way point */
-/* in a zero-padded AVX-512/AVX/SSE2 FFT.  This used to be all done in assembly code, */
-/* but I moved it to C code when the multithread code was written. */
-
-/* When doing zero-padded FFTs, the 7 words around the halfway point must be copied (after applying weights) */
-/* for later processing.  This macro does that before a typical forward FFT. */
-
-void xcopy_7_words (
-	struct gwasm_data *asm_data)
-{
-	gwhandle *gwdata;
-	double	*srcarg, *destarg;
-
-	gwdata = asm_data->gwdata;
-	destarg = (double *) asm_data->DESTARG;
-	srcarg = (double *) ((char *) destarg + asm_data->DIST_TO_FFTSRCARG);
-	if (gwdata->cpu_flags & CPU_AVX512F) {
-		char	*srcp;
-		srcp = (char *) srcarg + 64;
-		destarg[-8] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[3];	/* Copy 1st word above halfway point */
-		srcp += asm_data->u.zmm.ZMM_SRC_INCR;
-		destarg[-7] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[4]; /* Copy 2nd word */
-		srcp += asm_data->u.zmm.ZMM_SRC_INCR;
-		destarg[-6] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[5]; /* Copy 3rd word */
-		srcp += asm_data->u.zmm.ZMM_SRC_INCR;
-		destarg[-5] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[6]; /* Copy 4th word */
-	}
-	else if (gwdata->cpu_flags & CPU_AVX) {
-		char	*srcp;
-		srcp = (char *) srcarg + 32;
-		destarg[-8] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[3];	/* Copy 1st word above halfway point */
-		srcp += asm_data->u.ymm.YMM_SRC_INCR1;
-		destarg[-7] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[4]; /* Copy 2nd word */
-		srcp += asm_data->u.ymm.YMM_SRC_INCR2;
-		destarg[-6] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[5]; /* Copy 3rd word */
-		srcp += asm_data->u.ymm.YMM_SRC_INCR3;
-		destarg[-5] = * (double *) srcp * gwdata->ZPAD_COPY7_ADJUST[6]; /* Copy 4th word */
-	} else {
-		destarg[-8] = srcarg[4] * gwdata->ZPAD_COPY7_ADJUST[3];	/* Copy 1st word above halfway point */
-		destarg[-7] = srcarg[12] * gwdata->ZPAD_COPY7_ADJUST[4]; /* Copy 2nd word */
-		destarg[-6] = srcarg[20] * gwdata->ZPAD_COPY7_ADJUST[5]; /* Copy 3rd word */
-		destarg[-5] = srcarg[28] * gwdata->ZPAD_COPY7_ADJUST[6]; /* Copy 4th word */
-	}
-	destarg[-9] = * (double *)  ((char *) srcarg + asm_data->HIGH_WORD1_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[2];	/* Copy 1st word below halfway point */
-	destarg[-10] = * (double *) ((char *) srcarg + asm_data->HIGH_WORD2_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[1];	/* Copy 2nd word below */
-	destarg[-11] = * (double *) ((char *) srcarg + asm_data->HIGH_WORD3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];	/* Copy 3rd word below */
-}
-
-/* When POSTFFT is set, we must copy the 7 words at two different spots. */
-/* These two routines copy the four values above the half-way point after */
-/* carries have been propagated and copy the three words just below the */
+/* Utility routines to deal with the 7 words near the half-way point in a zero-padded AVX-512/AVX/SSE2 FFT.  This used to be all done in assembly code, */
+/* but I moved it to C code when the multithread code was written.  When POSTFFT is set, we must copy the 7 words at two different spots. */
+/* These two routines copy the four values above the half-way point after carries have been propagated and copy the three words just below the */
 /* half-way point right after the last NORMRTN has been called. */
 
 void xcopy_4_words (
@@ -5984,10 +5932,6 @@ void pass1_wake_up_threads (
 /* Initialization for the forward FFT case */
 
 	if (gwdata->pass1_state == 0) {
-
-/* Prior to doing a forward zero-padded FFT copy 7 FFT elements */
-
-		if (gwdata->ZERO_PADDED_FFT) xcopy_7_words (asm_data);
 
 /* Set up the this_block and next_block values for the main thread */
 
@@ -10320,6 +10264,170 @@ void gwuser_init_FFT1 (		/* Calculate GW_FFT1 at user's request */
 	gwdata->FFT1_user_allocated = 1;
 }
 
+/* Internal routine to do zero-padded FFT prep work prior to calling assembly FFT code */
+
+void zpad_prep (
+	gwhandle *gwdata)	/* Handle initialized by gwsetup */
+{
+	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
+	gwnum d = (gwnum) asm_data->DESTARG;
+	gwnum s = (gwnum) ((char *) d + asm_data->DIST_TO_FFTSRCARG);
+
+/* For a forward FFT and the source has been partially FFTed (by a prior POSTFFT setting) and the destination is different than the */
+/* source, then we must copy the saved 7 words around the halfway point from the source to the destination. */
+
+	if (asm_data->ffttype == 1 && FFT_state (s) == PARTIALLY_FFTed && s != d) memcpy (&d[-11], &s[-11], 7 * sizeof (double));
+
+/* When doing zero-padded FFTs, the 7 words around the halfway point must be saved (after applying weights) for later processing. */
+
+	if (FFT_state (s) == NOT_FFTed) {
+
+		/* If two-dest save 7 words in the header of s, else if ffttype is 1 save 7 words in header of d.  Otherwise, the 7 words need not */
+		/* be saved permanently we can save to the header of s or save locally for use in zpad0-7 calcs.  We'll use the header of s. */
+		gwnum d7 = (asm_data->ffttype == 1) ? d : s;
+
+		/* Now, find and save the 7 words */
+		d7[-11] = * (double *) ((char *) s + gwdata->ZPAD_COPY7_OFFSET[0]) * gwdata->ZPAD_COPY7_ADJUST[0]; /* Copy 3rd word below halfway point */
+		d7[-10] = * (double *) ((char *) s + gwdata->ZPAD_COPY7_OFFSET[1]) * gwdata->ZPAD_COPY7_ADJUST[1]; /* Copy 2nd word below halfway point */
+		d7[-9] = * (double *)  ((char *) s + gwdata->ZPAD_COPY7_OFFSET[2]) * gwdata->ZPAD_COPY7_ADJUST[2]; /* Copy 1st word below halfway point */
+		d7[-8] = * (double *)  ((char *) s + gwdata->ZPAD_COPY7_OFFSET[3]) * gwdata->ZPAD_COPY7_ADJUST[3]; /* Copy word at halfway point */
+		d7[-7] = * (double *)  ((char *) s + gwdata->ZPAD_COPY7_OFFSET[4]) * gwdata->ZPAD_COPY7_ADJUST[4]; /* Copy 1st word above halfway point */
+		d7[-6] = * (double *)  ((char *) s + gwdata->ZPAD_COPY7_OFFSET[5]) * gwdata->ZPAD_COPY7_ADJUST[5]; /* Copy 2nd word above halfway point */
+		d7[-5] = * (double *)  ((char *) s + gwdata->ZPAD_COPY7_OFFSET[6]) * gwdata->ZPAD_COPY7_ADJUST[6]; /* Copy 3rd word above halfway point */
+	}
+
+// Calculate ZPAD0-6
+
+	// Unfft
+	if (asm_data->mul4_opcode == 5) {
+		if ((intptr_t) asm_data->SRC3ARG == 2)		// Special code for unfft of an ffted_for_fma value (already multiplied by FFT(1)).
+			memcpy (asm_data->ZPAD0_6, &s[-11], 7 * sizeof (double));	// Simply copy 7 values from header to ZPAD0-6.
+		else						// Simple unfft - no result words just above or below the last FFT word
+			memset (asm_data->ZPAD0_6, 0, 7 * sizeof (double));		// Simply zero ZPAD0-6.
+	}
+
+	// Multiplying numbers
+	else if (asm_data->ffttype != 1) {
+		gwnum s2 = (gwnum) ((char *) d + asm_data->DIST_TO_MULSRCARG);
+		gwnum s3 = (gwnum) ((char *) d + (intptr_t) asm_data->SRC2ARG);		// s2 arg from gwaddmul4 or gwsubmul4 or s3 arg in gwmuladd4 or gwmulsub4
+		int mul4_opcode = asm_data->mul4_opcode	& 0x7F;				// Strip the fft save bit from mul4_opcode
+		gwnum	mularg, addtomularg, mularg2;
+		double	mulwords[7];
+
+		// Switch off the mul4_opcode to figure out the order of the arguments.
+		switch (mul4_opcode) {
+		case 0:			// 0 = nothing fancy (s1 * s2)
+		case 3:			// 3 = muladd (s1 * s2 + s3)
+		case 4:			// 4 = mulsub (s1 * s2 - s3)
+			mularg = s;
+			addtomularg = NULL;
+			mularg2 = s2;
+			break;
+		case 1:			// 1 = addmul (s1 * (s2 + s3))
+		case 2:			// 2 = submul (s1 * (s2 - s3))
+			mularg = s2;
+			addtomularg = s3;
+			mularg2 = s;
+			break;
+		case 6:			// 6 = addmul FFTval mem1 mem2 ((s1 + s2) * s3)
+		case 10:		// 10 = submul FFTval mem1 mem2 ((s1 - s2) * s3)
+			mularg = s;
+			addtomularg = s2;
+			mularg2 = s3;
+			break;
+		case 7:			// 7 = addmul FFTval mem1 FFTval ((s1 + s2) * s1)
+		case 11:		// 11 = submul FFTval mem1 FFTval ((s1 - s2) * s1)
+			mularg = s;
+			addtomularg = s2;
+			mularg2 = s;
+			break;
+		case 8:			// 8 = addmul mem1 FFTval mem2 ((s2 + s1) * s3)
+		case 12:		// 12 = submul mem1 FFTval mem2 ((s2 - s1) * s3)
+			mularg = s2;
+			addtomularg = s;
+			mularg2 = s3;
+			break;
+		case 9:			// 9 = addmul mem1 FFTval FFTval ((s2 + s1) * s1)
+		case 13:		// 13 = submul mem1 FFTval FFTval ((s2 - s1) * s1)
+			mularg = s2;
+			addtomularg = s;
+			mularg2 = s;
+			break;
+		}
+
+		// Put one set of 7 words in mulwords
+		memcpy (mulwords, &mularg[-11], 7 * sizeof (double));
+		if (addtomularg != NULL) {
+			for (int i = 0; i < 7; i++) {
+				if (mul4_opcode != 2 && mul4_opcode <= 9) mulwords[i] += addtomularg[-11+i];
+				else mulwords[i] -= addtomularg[-11+i];
+			}
+		}
+
+		// Multiply two sets of 7 words.  Keep only the most significant 7 words.
+		// Result0 = word-3 * word3 + word-2 * word2 + word-1 * word1 + word0 * word0 + word1 * word-1 + word2 * word-2 + word3 * word-3
+		asm_data->ZPAD0_6[0] = mulwords[0] * mularg2[-5] + mulwords[1] * mularg2[-6] + mulwords[2] * mularg2[-7] + mulwords[3] * mularg2[-8] +
+				       mulwords[4] * mularg2[-9] + mulwords[5] * mularg2[-10] + mulwords[6] * mularg2[-11];
+		// Result1 = word-2 * word3 + word-1 * word2 + word0 * word1 + word1 * word0 + word2 * word-1 + word3 * word-2
+		asm_data->ZPAD0_6[1] = mulwords[1] * mularg2[-5] + mulwords[2] * mularg2[-6] + mulwords[3] * mularg2[-7] + mulwords[4] * mularg2[-8] +
+				       mulwords[5] * mularg2[-9] + mulwords[6] * mularg2[-10];
+		// Result2 = word-1 * word3 + word0 * word2 + word1 * word1 + word2 * word0 + word3 * word-1
+		asm_data->ZPAD0_6[2] = mulwords[2] * mularg2[-5] + mulwords[3] * mularg2[-6] + mulwords[4] * mularg2[-7] + mulwords[5] * mularg2[-8] +
+				       mulwords[6] * mularg2[-9];
+		// Result3 = word0 * word3 + word1 * word2 + word2 * word1 + word3 * word0
+		asm_data->ZPAD0_6[3] = mulwords[3] * mularg2[-5] + mulwords[4] * mularg2[-6] + mulwords[5] * mularg2[-7] + mulwords[6] * mularg2[-8];
+		// Result4 = word1 * word3 + word2 * word2 + word3 * word1
+		asm_data->ZPAD0_6[4] = mulwords[4] * mularg2[-5] + mulwords[5] * mularg2[-6] + mulwords[6] * mularg2[-7];
+		// Result5 = word2 * word3 + word3 * word2
+		asm_data->ZPAD0_6[5] = mulwords[5] * mularg2[-5] + mulwords[6] * mularg2[-6];
+		// Result6 = word3 * word3
+		asm_data->ZPAD0_6[6] = mulwords[6] * mularg2[-5];
+
+		// More work to do if this is a muladd or mulsub
+		if (mul4_opcode == 3 || mul4_opcode == 4) {
+			double	addins[7];
+
+			// Copy the words to addin
+			memcpy (addins, &s3[-11], 7 * sizeof (double));
+
+			// If s3 is not FFTed_FOR_FMA, then he addins must be multiplied by s4 before addin
+			ASSERTG ((intptr_t) asm_data->SRC3ARG != 1);		/* FFT(1) can't be one for zero-padded FFTs */
+			if ((intptr_t) asm_data->SRC3ARG != 2) {
+				gwnum s4 = (gwnum) ((char *) d + (intptr_t) asm_data->SRC3ARG);
+	
+				// Multiply addins by s4.  Keep only the most significant 7 words.
+				// Result0 = word-3 * word3 + word-2 * word2 + word-1 * word1 + word0 * word0 + word1 * word-1 + word2 * word-2 + word3 * word-3
+				addins[0] = addins[0] * s4[-5] + addins[1] * s4[-6] + addins[2] * s4[-7] + addins[3] * s4[-8] + addins[4] * s4[-9] +
+					    addins[5] * s4[-10] + addins[6] * s4[-11];
+				// Result1 = word-2 * word3 + word-1 * word2 + word0 * word1 + word1 * word0 + word2 * word-1 + word3 * word-2
+				addins[1] = addins[1] * s4[-5] + addins[2] * s4[-6] + addins[3] * s4[-7] + addins[4] * s4[-8] + addins[5] * s4[-9] +
+					    addins[6] * s4[-10];
+				// Result2 = word-1 * word3 + word0 * word2 + word1 * word1 + word2 * word0 + word3 * word-1
+				addins[2] = addins[2] * s4[-5] + addins[3] * s4[-6] + addins[4] * s4[-7] + addins[5] * s4[-8] + addins[6] * s4[-9];
+				// Result3 = word0 * word3 + word1 * word2 + word2 * word1 + word3 * word0
+				addins[3] = addins[3] * s4[-5] + addins[4] * s4[-6] + addins[5] * s4[-7] + addins[6] * s4[-8];
+				// Result4 = word1 * word3 + word2 * word2 + word3 * word1
+				addins[4] = addins[4] * s4[-5] + addins[5] * s4[-6] + addins[6] * s4[-7];
+				// Result5 = word2 * word3 + word3 * word2
+				addins[5] = addins[5] * s4[-5] + addins[6] * s4[-6];
+				// Result6 = word3 * word3
+				addins[6] = addins[6] * s4[-5];
+			}
+
+			// Now add or subtract the addins
+			for (int i = 0; i < 7; i++) {
+				if (mul4_opcode == 3) asm_data->ZPAD0_6[i] += addins[i];
+				else asm_data->ZPAD0_6[i] -= addins[i];
+			}
+		}
+	}
+
+	// x87 code maintains a pointer into ZPADs.  Perhaps this ugliness can be eliminated.
+#ifndef X86_64
+	if (! (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX | CPU_SSE2))) asm_data->u.x87.zpad_addr = asm_data->ZPAD0_6;
+#endif
+}
+
 /* Internal routine to implement gwmul3 by calling fft/multiply assembly code. */
 /* Caller must set ffttype, SRC2ARG, DEST2ARG, mul4_opcode, NORMRTN prior to calling this routine.  Caller is responsible for emulate_mod. */
 
@@ -10347,7 +10455,7 @@ void asm_mul (
 	asm_data->ADDIN_VALUE = (options & GWMUL_ADDINCONST) ? gwdata->asm_addin_value : 0.0;
 	asm_data->POSTADDIN_VALUE = (options & GWMUL_ADDINCONST) ? gwdata->asm_postaddin_value : 0.0;
 
-/* Call the assembly code */
+/* Call the assembly code, but first some zero padded FFT prep may be necessary */
 
 	asm_data->DESTARG = d;
 	asm_data->DIST_TO_FFTSRCARG = (intptr_t) s1 - (intptr_t) d;
@@ -10358,6 +10466,7 @@ void asm_mul (
 	asm_data->add_sub_smallmul_op = 0;
 //if (rand() % 100 < 1) *s += 1.0;			// Generate random errors (for caller to test error recovery)
 //if (rand() % 1000 < 2) *s += 1.0E200 * 1.0E200;
+	if (gwdata->ZERO_PADDED_FFT) zpad_prep (gwdata);
 	gw_fft (gwdata, asm_data);
 //if (rand() % 100 < 1) *d += 1.0;			// Generate random errors (for caller to test error recovery)
 //if (rand() % 1000 < 2) *d += 1.0E200 * 1.0E200;
@@ -10513,10 +10622,6 @@ if ((gwdata->cpu_flags & (CPU_AVX512F | CPU_FMA3 | CPU_AVX)) &&
 			else asm_data->ffttype = 3;
 		}
 	}
-
-/* Work around zero-padding bug.  If s1 is partially FFTed and s1 != d, then xmult7/ymult7/zmult7 all read d's 7 saved values rather than s1's. */
-
-	if (gwdata->ZERO_PADDED_FFT && FFT_state (s1) == PARTIALLY_FFTed && s1 != d) memcpy (&d[-11], &s1[-11], 7 * sizeof (double));
 
 /* Pre-adjust counts for input that is not partially or fully FFTed */
 
@@ -11525,20 +11630,14 @@ void gwfft (			/* Forward FFT */
 		return;
 	}
 
-/* If this is a zero-padded FFT and the source has been partially FFTed */
-/* (by a prior POSTFFT setting) and the destination is different than the */
-/* source, then we must also copy the 7 words around the halfway point from */
-/* the source to the destination. */
+/* Call the assembly code, but first some zero padded FFT prep may be necessary */
 
 	asm_data = (struct gwasm_data *) gwdata->asm_data;
-	if (asm_data->ZERO_PADDED_FFT && FFT_state (s) == PARTIALLY_FFTed && s != d) memcpy (&d[-11], &s[-11], 7 * sizeof (double));
-
-/* Call the assembly code */
-
 	asm_data->DESTARG = d;
 	asm_data->DIST_TO_FFTSRCARG = (intptr_t) s - (intptr_t) d;
 	asm_data->DIST_TO_MULSRCARG = 0;
 	asm_data->ffttype = 1;
+	if (gwdata->ZERO_PADDED_FFT) zpad_prep (gwdata);
 	gw_fft (gwdata, asm_data);
 
 /* Update counts */

@@ -33,30 +33,6 @@ x64	add	rsi, DEST2ARG
 x64	mov	DESTARG, rsi
 	ENDM
 
-;; When doing zero-padded FFTs, the 7 words around the halfway point must
-;; be copied for later processing.  This macro does that.
-
-ycopy_7_words MACRO dist_half_minus_3, dist_half_minus_2, dist_half_minus_1, dist_half, dist_half_plus_1, dist_half_plus_2, dist_half_plus_3
-	LOCAL	nozpad
-	cmp	ZERO_PADDED_FFT, 0	;; Is this a zero-padded FFT?
-	je	short nozpad		;; No, skip 7 word copy
-	vmovsd	xmm0, Q [rsi+rbx+dist_half] ;; Copy half-way point word
-	vmovsd	Q [rsi-64], xmm0
-	vmovsd	xmm1, Q [rsi+rbx+dist_half_plus_1] ;; Copy 1st word above half-way
-	vmovsd	Q [rsi-56], xmm1
-	vmovsd	xmm2, Q [rsi+rbx+dist_half_plus_2] ;; Copy 2nd word above half-way
-	vmovsd	Q [rsi-48], xmm2
-	vmovsd	xmm3, Q [rsi+rbx+dist_half_plus_3] ;; Copy 3rd word above half-way
-	vmovsd	Q [rsi-40], xmm3
-	vmovsd	xmm0, Q [rsi+rbx+dist_half_minus_1] ;; Copy 1st word below half-way
-	vmovsd	Q [rsi-72], xmm0
-	vmovsd	xmm1, Q [rsi+rbx+dist_half_minus_2] ;; Copy 2nd word below half-way
-	vmovsd	Q [rsi-80], xmm1
-	vmovsd	xmm2, Q [rsi+rbx+dist_half_minus_3] ;; Copy 3rd word below half-way
-	vmovsd	Q [rsi-88], xmm2
-nozpad:
-	ENDM
-
 ;; When doing zero-padded FFTs, the multiplied 7 words around the halfway point
 ;; must be subtracted from the bottom of the FFT.  This must be done before
 ;; normalization multiplies the FFT data by k.  This macro does that and also
@@ -146,10 +122,6 @@ yfft32 MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 3*64+8, 3*64+16, 3*64+24, 32, 40, 48, 56
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -380,10 +352,6 @@ yfft64 MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 7*64+16, 6*64+24, 7*64+24, 32, 64+32, 40, 64+40
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -630,10 +598,6 @@ yfft96 MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 9*64+24, 10*64+24, 11*64+24, 32, 64+32, 2*64+32, 40
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -1019,10 +983,6 @@ yfft128 MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 13*64+24, 14*64+24, 15*64+24, 32, 64+32, 2*64+32, 3*64+32
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -1423,10 +1383,6 @@ yfft160 MACRO type
 	cmp	ffttype, 4
 	je	ymid4
 
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 17*64+24, 18*64+24, 19*64+24, 32, 64+32, 2*64+32, 3*64+32
-
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0	5	10	15	80	+5	+5	+5
@@ -1826,10 +1782,6 @@ yfft192 MACRO type
 	cmp	ffttype, 4
 	je	ymid4
 
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 21*64+24, 22*64+24, 23*64+24, 32, 64+32, 2*64+32, 3*64+32
-
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0	+6	+6	+6	96	+6	+6	+6
@@ -2222,10 +2174,6 @@ yfft256 MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 29*64+24, 30*64+24, 31*64+24, 32, 64+32, 2*64+32, 3*64+32
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -2626,10 +2574,6 @@ yfft320 MACRO type
 	cmp	ffttype, 4
 	je	ymid4
 
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 37*64+24, 38*64+24, 39*64+24, 32, 64+32, 2*64+32, 3*64+32
-
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0	+10	+10	+10	160	+10	+10	+10
@@ -3028,10 +2972,6 @@ yfft384 MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 45*64+24, 46*64+24, 47*64+24, 32, 64+32, 2*64+32, 3*64+32
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -3559,10 +3499,6 @@ yfft512 MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 61*64+24, 62*64+24, 63*64+24, 32, 64+32, 2*64+32, 3*64+32
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -4094,10 +4030,6 @@ yfft640 MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 77*64+24, 78*64+24, 79*64+24, 32, 64+32, 2*64+32, 3*64+32
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -4634,10 +4566,6 @@ yfft768 MACRO type
 	cmp	ffttype, 4
 	je	ymid4
 
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 93*64+24, 94*64+24, 95*64+24, 32, 64+32, 2*64+32, 3*64+32
-
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0	+24	+24	+24	384	+24	+24	+24
@@ -5164,10 +5092,6 @@ yfft1K MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 3*dist32+29*64+24, 3*dist32+30*64+24, 3*dist32+31*64+24, 32, 64+32, 2*64+32, 3*64+32
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -5708,10 +5632,6 @@ yfft1280 MACRO type
 	cmp	ffttype, 4
 	je	ymid4
 
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 157*64+24, 158*64+24, 159*64+24, 32, 64+32, 2*64+32, 3*64+32
-
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0	+40	+40	+40	640	+40	+40	+40
@@ -6246,10 +6166,6 @@ yfft1536 MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 11*dist16+13*64+24, 11*dist16+14*64+24, 11*dist16+15*64+24, 32, 64+32, 2*64+32, 3*64+32
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -6909,10 +6825,6 @@ yfft2K MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 3*dist64+61*64+24, 3*dist64+62*64+24, 3*dist64+63*64+24, 32, 64+32, 2*64+32, 3*64+32
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -7605,10 +7517,6 @@ yfft2560 MACRO type
 	cmp	ffttype, 4
 	je	ymid4
 
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 19*dist16+13*64+24, 19*dist16+14*64+24, 19*dist16+15*64+24, 32, 64+32, 2*64+32, 3*64+32
-
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0	+80	+80	+80	1280	+80	+80	+80
@@ -8276,10 +8184,6 @@ yfft3K MACRO type
 	cmp	ffttype, 4
 	je	ymid4
 
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 11*dist32+29*64+24, 11*dist32+30*64+24, 11*dist32+31*64+24, 32, 64+32, 2*64+32, 3*64+32
-
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0	+96	+96	+96	1536	+96	+96	+96
@@ -8938,10 +8842,6 @@ yfft4K MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 7*dist64+61*64+24, 7*dist64+62*64+24, 7*dist64+63*64+24, 32, 64+32, 2*64+32, 3*64+32
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -9634,10 +9534,6 @@ yfft5K MACRO type
 	cmp	ffttype, 4
 	je	ymid4
 
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 19*dist32+29*64+24, 19*dist32+30*64+24, 19*dist32+31*64+24, 32, 64+32, 2*64+32, 3*64+32
-
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0	+160	+160	+160	2560	+160	+160	+160
@@ -10305,10 +10201,6 @@ yfft6K MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 11*dist64+61*64+24, 11*dist64+62*64+24, 11*dist64+63*64+24, 32, 64+32, 2*64+32, 3*64+32
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -11129,10 +11021,6 @@ yfft8K MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 15*dist64+61*64+24, 15*dist64+62*64+24, 15*dist64+63*64+24, 32, 64+32, 2*64+32, 3*64+32
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -11957,10 +11845,6 @@ yfft10K MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 19*dist64+61*64+24, 19*dist64+62*64+24, 19*dist64+63*64+24, 32, 64+32, 2*64+32, 3*64+32
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -12790,10 +12674,6 @@ yfft12K MACRO type
 	cmp	ffttype, 4
 	je	ymid4
 
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 23*dist64+61*64+24, 23*dist64+62*64+24, 23*dist64+63*64+24, 32, 64+32, 2*64+32, 3*64+32
-
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0	+384	+384	+384	6K	+384	+384	+384
@@ -13619,10 +13499,6 @@ yfft16K MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 31*dist64+61*64+24, 31*dist64+62*64+24, 31*dist64+63*64+24, 32, 64+32, 2*64+32, 3*64+32
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -14453,10 +14329,6 @@ yfft20K MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 39*dist64+61*64+24, 39*dist64+62*64+24, 39*dist64+63*64+24, 32, 64+32, 2*64+32, 3*64+32
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -15291,10 +15163,6 @@ yfft18K MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 35*dist64+61*64+24, 35*dist64+62*64+24, 35*dist64+63*64+24, 32, 64+32, 2*64+32, 3*64+32
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
@@ -16254,10 +16122,6 @@ yfft24K MACRO type
 	cmp	ffttype, 4
 	je	ymid4
 
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 47*dist64+61*64+24, 47*dist64+62*64+24, 47*dist64+63*64+24, 32, 64+32, 2*64+32, 3*64+32
-
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0	+768	+768	+768	12K	+768	+768	+768
@@ -17215,10 +17079,6 @@ yfft32K MACRO type
 
 	cmp	ffttype, 4
 	je	ymid4
-
-;; Do zero-pad prep work.  Copy 7 words around the halfway point.
-
-	ycopy_7_words 63*dist64+61*64+24, 63*dist64+62*64+24, 63*dist64+63*64+24, 32, 64+32, 2*64+32, 3*64+32
 
 ;; Do FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
