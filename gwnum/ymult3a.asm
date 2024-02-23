@@ -1,4 +1,4 @@
-; Copyright 2011-2023 Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2024 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -273,6 +273,10 @@ zpnorm	MACRO	lab, ttp, echk, const, base2, khi, c1, cm1
 	LOCAL	ilp0, ilp1, ilp2, not8
 	PROCFLP	lab
 	int_prolog 12,0,0
+
+;; Handled in C code by pass1_pre_carries
+;;	c_call	ZPAD_SUB7		;; Subtract 7 ZPAD words from lowest FFT words
+
 echk	vmovapd	ymm6, YMM_MAXERR	;; Load maximum error
 
 	ynorm_wpn_zpad_preload ttp, base2, echk, const, khi, c1, cm1
@@ -322,6 +326,10 @@ zpnorm	MACRO	lab, ttp, echk, const, base2, khi, c1, cm1
 	LOCAL	noinc, ilp0, ilp1, ilp2, not8
 	PROCFLP	lab
 	int_prolog 4,0,0
+
+;; Handled in C code by pass1_pre_carries
+;;	c_call	ZPAD_SUB7		;; Subtract 7 ZPAD words from lowest FFT words
+
 echk	vmovapd	ymm6, YMM_MAXERR	;; Load maximum error
 
 	ynorm_wpn_zpad_preload ttp, base2, echk, const, khi, c1, cm1
@@ -401,6 +409,10 @@ zpnorm	MACRO	lab, ttp, echk, const, base2, khi, c1, cm1
 	LOCAL	ilp0, ilp1, ilp2, not8
 	PROCFLP	lab
 	int_prolog 0,0,0
+
+;; Handled in C code by pass1_pre_carries
+;;	c_call	ZPAD_SUB7		;; Subtract 7 ZPAD words from lowest FFT words
+
 echk	vmovapd	ymm6, YMM_MAXERR	;; Load maximum error
 
 	ynorm_wpn_zpad_preload ttp, base2, echk, const, khi, c1, cm1

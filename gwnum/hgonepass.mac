@@ -84,7 +84,6 @@ x32_finish_unfft:
 
 	x4cl_eight_reals_last_unfft rsi, 0, 64, 2*64
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -283,7 +282,6 @@ c1b:	x3cl_six_reals_last_unfft rsi, 64, 2*64
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -544,7 +542,6 @@ c1b:	x4cl_eight_reals_last_unfft rsi, 64, 2*64, 4*64
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -807,7 +804,6 @@ c1b:	x5cl_five_reals_last_unfft rsi, 64, 2*64
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 16
 	xfft_3_ret
 	ENDM
 
@@ -955,7 +951,6 @@ c1b:	x3cl_six_reals_last_unfft rsi, 64, 4*64
 	add	al, 256/4		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -1242,7 +1237,6 @@ c1b:	x7cl_seven_reals_last_unfft rsi, 64, 2*64
 	add	al, 256/2		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 16
 	xfft_3_ret
 	ENDM
 
@@ -1388,7 +1382,6 @@ c1b:	x4cl_eight_reals_last_unfft rsi, 64, 4*64, 8*64
 	add	al, 256/4		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -1618,7 +1611,6 @@ c1b:	x5cl_five_reals_last_unfft rsi, 64, 4*64
 	add	al, 256/4		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -1748,7 +1740,6 @@ c1b:	x3cl_six_reals_last_unfft rsi, 64, 8*64
 	add	al, 256/8		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -1997,7 +1988,6 @@ c1b:	x7cl_seven_reals_last_unfft rsi, 64, 4*64
 	add	al, 256/4		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -2123,7 +2113,6 @@ c1b:	x4cl_eight_reals_last_unfft rsi, 64, 8*64, 16*64
 	add	al, 256/8		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 
 
@@ -2525,7 +2514,6 @@ c1b:	x5cl_five_reals_last_unfft rsi, 64, 8*64
 	add	al, 256/8		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -2655,7 +2643,6 @@ c1b:	x3cl_six_reals_last_unfft rsi, 64, 16*64
 	add	al, 256/16		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -2907,7 +2894,6 @@ c1b:	x7cl_seven_reals_last_unfft rsi, 64, 8*64
 	add	al, 256/8		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -3038,7 +3024,6 @@ c1b:	x4cl_eight_reals_last_unfft rsi, 64, 16*64, 32*64
 	add	al, 256/16		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 
 
@@ -3384,7 +3369,6 @@ c1b:	x5cl_five_reals_last_unfft rsi, 64, 16*64
 	add	al, 256/16		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -3514,7 +3498,6 @@ c1b:	x3cl_six_reals_last_unfft rsi, 64, 32*64
 	add	al, 256/32		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -3762,7 +3745,6 @@ c1b:	x7cl_seven_reals_last_unfft rsi, 64, 16*64
 	add	al, 256/16		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -3892,7 +3874,6 @@ c1b:	x4cl_eight_reals_last_unfft rsi, 64, 32*64, 64*64
 	add	al, 256/32		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 
 ;; Common code for length 640, 768, 896, and 1024 FFTs
@@ -4373,7 +4354,6 @@ c1b:	x5cl_five_reals_last_unfft rsi, 64, 32*64
 	add	al, 256/32		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -4503,7 +4483,6 @@ c1b:	x3cl_six_reals_last_unfft rsi, 64, 64*64
 	add	al, 256/64		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -4757,7 +4736,6 @@ c1b:	x7cl_seven_reals_last_unfft rsi, 64, 32*64
 	add	al, 256/32		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -4891,7 +4869,6 @@ c1b:	x4cl_eight_reals_last_unfft rsi, 64, 64*64, 128*64
 	add	al, 256/64		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 
 ;; Common inverse FFT code for lengths 1280, 1536, 1792, 2048
@@ -5313,7 +5290,6 @@ c1b:	x5cl_five_reals_last_unfft rsi, 64, 64*64
 	add	al, 256/64		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -5444,7 +5420,6 @@ c1b:	x3cl_six_reals_last_unfft rsi, 64, 128*64
 	add	al, 256/128		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -5693,7 +5668,6 @@ c1b:	x7cl_seven_reals_last_unfft rsi, 64, 64*64
 	add	al, 256/64		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -5820,7 +5794,6 @@ c1b:	x4cl_eight_reals_last_unfft rsi, 64, 128*64, 256*64
 	add	al, 256/128		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 
 
@@ -6388,7 +6361,6 @@ c1b:	x5cl_five_reals_last_unfft rsi, 64, 128*64
 	add	al, 256/128		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -6517,7 +6489,6 @@ c1b:	x3cl_six_reals_last_unfft rsi, 64, 256*64
 	add	al, 256/256		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -6764,7 +6735,6 @@ c1b:	x7cl_seven_reals_last_unfft rsi, 64, 128*64
 	add	al, 256/128		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 	ENDM
 
@@ -6891,7 +6861,6 @@ c1b:	x4cl_eight_reals_last_unfft rsi, 64, 256*64, 512*64
 	add	al, 256/256		;; Test loop counter
 	jnc	c1b			;; Iterate if necessary
 
-	xsub_7_words 128
 	xfft_3_ret
 
 
@@ -7665,40 +7634,3 @@ c3b:	x4cl_four_complex_unfft rsi, 64, 64*64, 128*64, rdi
 	ret
 	ENDM
 
-;; When doing zero-padded FFTs, the multiplied 7 words around the halfway point
-;; must be subtracted from the bottom of the FFT.  This must be done before
-;; normalization multiplies the FFT data by k.  This macro does that and also
-;; initializes the sumout reg.
-
-xsub_7_words MACRO dist4
-	LOCAL	nozpad
-	subpd	xmm7, xmm7		;; Clear sumout
-	cmp	ZERO_PADDED_FFT, 0	;; Is this a zero-padded FFT?
-	je	nozpad			;; No, skip 7 word subtract
-	mov	rsi, DESTARG
-	xload	xmm0, [rsi]		;; Subtract 1st, 2nd word
-	xload	xmm1, ZPAD0		;; Load ZPAD data
-	mulpd	xmm1, XMM_NORM012_FF	;; Scale by FFTLEN/2
-	subpd	xmm0, xmm1
-	addpd	xmm7, xmm1		;; Adjust sumout
-	xstore	[rsi], xmm0
-	xload	xmm0, [rsi+64]		;; Subtract 3rd, 4th word
-	xload	xmm1, ZPAD2		;; Load ZPAD data
-	mulpd	xmm1, XMM_NORM012_FF	;; Scale by FFTLEN/2
-	subpd	xmm0, xmm1
-	addpd	xmm7, xmm1		;; Adjust sumout
-	xstore	[rsi+64], xmm0
-	xload	xmm0, [rsi+dist4]	;; Subtract 5th, 6th word
-	xload	xmm1, ZPAD4		;; Load ZPAD data
-	mulpd	xmm1, XMM_NORM012_FF	;; Scale by FFTLEN/2
-	subpd	xmm0, xmm1
-	addpd	xmm7, xmm1		;; Adjust sumout
-	xstore	[rsi+dist4], xmm0
-	movsd	xmm0, Q [rsi+dist4+64]	;; Subtract 7th word
-	movsd	xmm1, ZPAD6		;; Load ZPAD data
-	mulsd	xmm1, Q XMM_NORM012_FF	;; Scale by FFTLEN/2
-	subsd	xmm0, xmm1
-	addsd	xmm7, xmm1		;; Adjust sumout
-	movsd	Q [rsi+dist4+64], xmm0
-nozpad:
-	ENDM

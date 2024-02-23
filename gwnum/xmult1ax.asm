@@ -473,7 +473,7 @@ saved_reg3	EQU	PPTR [rsp+first_local+2*SZPTR]
 inorm	MACRO	lab, ttp, zero, echk, const, base2, sse4
 	LOCAL	ilp0, ilp1, off_ok
 	PROCFLP	lab
-	int_prolog 3*SZPTR,0,0
+	int_prolog 3*SZPTR,0,4
 	mov	rsi, DESTARG		;; Addr of multiplied number
 no zero	mov	edi, ADDIN_OFFSET	;; Get address to add value into
 no zero	movsd	xmm0, Q [rsi][rdi]	;; Get the value
@@ -533,7 +533,11 @@ base2 no zero jmp idn			;; Go to normal end code
 zpnorm	MACRO	lab, ttp, echk, const, base2, sse4, khi, c1, cm1
 	LOCAL	ilp0, ilp1
 	PROCFLP	lab
-	int_prolog 3*SZPTR,0,0
+	int_prolog 3*SZPTR,0,4
+
+	c_call	ZPAD_SUB7		;; Subtract 7 ZPAD words from lowest FFT words
+	subpd	xmm7, xmm7		;; Clear sumout
+
 	mov	rsi, DESTARG		;; Addr of multiplied number
 	xload	xmm2, XMM_BIGVAL	;; Start process with no carry
 	subpd	xmm3, xmm3
@@ -748,7 +752,7 @@ base2 no const jmp zpdn			;; Go to zero padded FFT end code
 PROCF	__common_xnorm1_end_code
 
 	;; Dummy prolog to match normalization code
-	int_prolog 3*SZPTR,0,0
+	int_prolog 3*SZPTR,0,4
 
 ; Finish off the normalization process by adding any carry to first values.
 ; Handle both the with and without two-to-phi array cases.
@@ -816,7 +820,7 @@ cmnend:	mov	rsi, DESTARG		; Address of squared number
 
 ; Return
 
-	int_epilog 3*SZPTR,0,0
+	int_epilog 3*SZPTR,0,4
 __common_xnorm1_end_code ENDP
 
 _TEXT	ENDS

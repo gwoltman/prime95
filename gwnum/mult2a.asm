@@ -1,4 +1,4 @@
-; Copyright 1995-2023 Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2024 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -138,6 +138,10 @@ zpnorm	MACRO	lab, ttp, echk, const
 	LOCAL	ilp0, ilp1, ilpdn
 	PROCFLP	lab
 	int_prolog 12,0,0,rcx,rdx,rsi,rbp
+
+;; Two-pass x87 sub7 is not handled by C code
+;;	c_call	ZPAD_SUB7		;; Subtract 7 ZPAD words from lowest FFT words
+
 no const mov	const_fft, 0		;; Set flag saying not mul-by-const
 const	mov	const_fft, 1		;; Set flag saying mul-by-const
 echk	fld	MAXERR			;; Load maximum error

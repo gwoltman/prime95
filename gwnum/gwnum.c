@@ -474,6 +474,7 @@ void pass1_aux_entry_point (void*);
 void pass2_aux_entry_point (void*);
 void gw_fixed_random_number (gwhandle *gwdata, gwnum x);
 gwnum gwalloc_internal (gwhandle *gwdata);
+void zpad_sub7 (struct gwasm_data *asm_data);
 
 /* Routine to split a r4dwpn FFT word into column and group multiplier indexes. */
 /* We remove bit(s) associated with the upper SSE2/AVX words because those are handled by the group multipliers. */
@@ -4938,6 +4939,10 @@ int internal_gwsetup (
 		unsigned long num_b_in_k, num_b_in_word_0, num_b_in_word_1;
 		unsigned long num_b_in_word_2, num_b_in_word_3, num_b_in_word_4, num_b_in_word_5;
 
+		// ZPAD callbacks
+		asm_data->gwdata = gwdata;
+		asm_data->zpad_sub7 = zpad_sub7;
+
 		// Compute constant used for zero-padded ADDIN_VALUE when k=1 and c!=1
 		// when c = -1, 1 = b^n
 		// when c = 1, -1 = b^n, 1 = -b^n
@@ -4955,10 +4960,11 @@ int internal_gwsetup (
 			}
 		}
 
-//GW: Needed???? We now have COPY7_offsets
+#ifndef X86_64
 		asm_data->HIGH_WORD1_OFFSET = addr_offset (gwdata, gwdata->FFTLEN/2-1);
 		asm_data->HIGH_WORD2_OFFSET = addr_offset (gwdata, gwdata->FFTLEN/2-2);
 		asm_data->HIGH_WORD3_OFFSET = addr_offset (gwdata, gwdata->FFTLEN/2-3);
+#endif
 
 		raw_gwsetaddin (gwdata, gwdata->FFTLEN/2-1, NULL, 0.0);
 		asm_data->HIGH_SCRATCH1_OFFSET = asm_data->ADDIN_OFFSET;
@@ -5051,6 +5057,8 @@ int internal_gwsetup (
 
 		for (int i = 0; i < 7; i++) {
 			gwdata->ZPAD_COPY7_OFFSET[i] = addr_offset (gwdata, gwdata->FFTLEN/2-3+i);
+			raw_gwsetaddin (gwdata, i, NULL, 0.0);
+			gwdata->ZPAD_SUB7_OFFSET[i] = asm_data->ADDIN_OFFSET;
 			if (gwdata->cpu_flags & CPU_AVX512F) {
 				/* Weights for words we are copying before an FFT is performed */
 				gwdata->ZPAD_COPY7_ADJUST[i] = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN/2-3+i);
@@ -5315,8 +5323,8 @@ void xcopy_3_words (
 			srcarg[-9] = * (double *)  ((char *) asm_data->scratch_area + asm_data->HIGH_SCRATCH1_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[2];
 			srcarg[-10] = * (double *) ((char *) asm_data->scratch_area + asm_data->HIGH_SCRATCH2_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[1];
 		} else {
-			srcarg[-9] = * (double *)  ((char *) srcarg + asm_data->HIGH_WORD1_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[2];
-			srcarg[-10] = * (double *) ((char *) srcarg + asm_data->HIGH_WORD2_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[1];
+			srcarg[-9] = * (double *)  ((char *) srcarg + gwdata->ZPAD_COPY7_OFFSET[2]) * gwdata->ZPAD_COPY7_ADJUST[2];
+			srcarg[-10] = * (double *) ((char *) srcarg + gwdata->ZPAD_COPY7_OFFSET[1]) * gwdata->ZPAD_COPY7_ADJUST[1];
 		}
 	}
 
@@ -5327,7 +5335,7 @@ void xcopy_3_words (
 		if (gwdata->SCRATCH_SIZE) {
 			srcarg[-11] = * (double *) ((char *) asm_data->scratch_area + asm_data->HIGH_SCRATCH3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];
 		} else {
-			srcarg[-11] = * (double *) ((char *) srcarg + asm_data->HIGH_WORD3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];
+			srcarg[-11] = * (double *) ((char *) srcarg + gwdata->ZPAD_COPY7_OFFSET[0]) * gwdata->ZPAD_COPY7_ADJUST[0];
 		}
 	}
 }
@@ -5345,9 +5353,9 @@ void xcopy_3_words_after_gwcarries (
 /* Copy three words below the halfway point from the FFT data */
 
 	srcarg = (double *) asm_data->DESTARG;
-	srcarg[-9] = * (double *)  ((char *) srcarg + asm_data->HIGH_WORD1_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[2];
-	srcarg[-10] = * (double *) ((char *) srcarg + asm_data->HIGH_WORD2_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[1];
-	srcarg[-11] = * (double *) ((char *) srcarg + asm_data->HIGH_WORD3_OFFSET) * gwdata->ZPAD_COPY7_ADJUST[0];
+	srcarg[-9] = * (double *)  ((char *) srcarg + gwdata->ZPAD_COPY7_OFFSET[2]) * gwdata->ZPAD_COPY7_ADJUST[2];
+	srcarg[-10] = * (double *) ((char *) srcarg + gwdata->ZPAD_COPY7_OFFSET[1]) * gwdata->ZPAD_COPY7_ADJUST[1];
+	srcarg[-11] = * (double *) ((char *) srcarg + gwdata->ZPAD_COPY7_OFFSET[0]) * gwdata->ZPAD_COPY7_ADJUST[0];
 }
 
 /* Possible states for the (mis-named) gwdata->pass1_state variable */
@@ -10426,6 +10434,37 @@ void zpad_prep (
 #ifndef X86_64
 	if (! (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX | CPU_SSE2))) asm_data->u.x87.zpad_addr = asm_data->ZPAD0_6;
 #endif
+}
+
+/* Internal routine to subtract the ZPAD0-6 from the lowest 7 FFT words prior to carry propagation */
+
+void zpad_sub7 (
+	struct gwasm_data *asm_data)
+{
+	gwhandle *gwdata = asm_data->gwdata;
+	gwnum d = (gwnum) asm_data->DESTARG;
+	double	fudge;
+
+	ASSERTG (gwdata->ZERO_PADDED_FFT);
+
+	// Figure out the fudge factor -- usually FFTlen/2
+	if (gwdata->cpu_flags & CPU_AVX512F) fudge = 1.0;
+	else if (gwdata->cpu_flags & CPU_AVX) fudge = asm_data->u.ymm.YMM_NORM012_FF[0];
+	else if (gwdata->cpu_flags & CPU_SSE2) fudge = asm_data->u.xmm.XMM_NORM012_FF[0];
+#ifndef X86_64
+	else fudge = asm_data->u.x87.NORM012_FF;
+#endif
+
+	// When doing zero-padded FFTs, the multiplied 7 words around the halfway point must be subtracted from the bottom of the FFT.  This must be done
+	// before normalization multiplies the FFT data by k.  Subtract ZPAD0-6 from lowest 7 words.  Except for AVX-512, the lowest 7 words have not yet
+	// been multiplied by 2/FFTlen.
+	* (double *) ((char *) d + gwdata->ZPAD_SUB7_OFFSET[0]) -= asm_data->ZPAD0_6[0] * fudge;
+	* (double *) ((char *) d + gwdata->ZPAD_SUB7_OFFSET[1]) -= asm_data->ZPAD0_6[1] * fudge;
+	* (double *) ((char *) d + gwdata->ZPAD_SUB7_OFFSET[2]) -= asm_data->ZPAD0_6[2] * fudge;
+	* (double *) ((char *) d + gwdata->ZPAD_SUB7_OFFSET[3]) -= asm_data->ZPAD0_6[3] * fudge;
+	* (double *) ((char *) d + gwdata->ZPAD_SUB7_OFFSET[4]) -= asm_data->ZPAD0_6[4] * fudge;
+	* (double *) ((char *) d + gwdata->ZPAD_SUB7_OFFSET[5]) -= asm_data->ZPAD0_6[5] * fudge;
+	* (double *) ((char *) d + gwdata->ZPAD_SUB7_OFFSET[6]) -= asm_data->ZPAD0_6[6] * fudge;
 }
 
 /* Internal routine to implement gwmul3 by calling fft/multiply assembly code. */

@@ -1038,90 +1038,9 @@ zs_onepass_complex_unfft_wrapper MACRO srcreg,srcinc,d1,d2,d4,pmreg,pminc,colreg
 ;; DIST_TO_FFTSRCARG = rbx = distance from rsi to source (zero for types 1, 2)
 ;; DIST_TO_MULSRCARG = distance from rsi to multiplier (zero for types 2, 3)
 
-
 ;;;
-;;;  First some utility macros
+;;;  One macro for each FFT length
 ;;;
-
-;; When doing zero-padded FFTs, the multiplied 7 words around the halfway point
-;; must be subtracted from the bottom of the FFT.  This must be done before
-;; normalization multiplies the FFT data by k.  This macro does that and also
-;; initializes the sumout reg.
-;; On input, rsi=DESTARG (already adjusted for two destination multiplies)
-
-zsub_7_words MACRO dist1, dist2, dist3, dist4, dist5, dist6
-	LOCAL	nozpad
-	vxorpd	zmm7, zmm7, zmm7		;; Clear sumout
-	cmp	ZERO_PADDED_FFT, 0		;; Is this a zero-padded FFT?
-	je	nozpad				;; No, skip 7 word subtract
-	IF dist1 EQ 8 AND dist2 EQ 16 AND dist3 EQ 24
-	vmovapd	ymm0, [rsi]			;; Subtract 1st through 4th words
-	vmovapd	ymm1, ZPAD0			;; Load ZPAD data
-;;	vmulpd	ymm1, ymm1, ZMM_NORM012_FF	;; Scale by FFTLEN/2
-	vsubpd	ymm0, ymm0, ymm1
-	vaddpd	ymm7, ymm7, ymm1		;; Adjust sumout
-	vmovapd	[rsi], ymm0
-	ELSE
-	vmovsd	xmm0, Q [rsi]			;; Subtract 1st word
-	vmovsd	xmm1, ZPAD0			;; Load ZPAD data
-;;	vmulsd	xmm1, xmm1, Q ZMM_NORM012_FF	;; Scale by FFTLEN/2
-	vsubsd	xmm0, xmm0, xmm1
-	vaddsd	xmm7, xmm7, xmm1		;; Adjust sumout
-	vmovsd	Q [rsi], xmm0
-	vmovsd	xmm0, Q [rsi+dist1]		;; Subtract 2nd word
-	vmovsd	xmm1, ZPAD1			;; Load ZPAD data
-;;	vmulsd	xmm1, xmm1, Q ZMM_NORM012_FF	;; Scale by FFTLEN/2
-	vsubsd	xmm0, xmm0, xmm1
-	vaddsd	xmm7, xmm7, xmm1		;; Adjust sumout
-	vmovsd	Q [rsi+dist1], xmm0
-	vmovsd	xmm0, Q [rsi+dist2]		;; Subtract 3rd word
-	vmovsd	xmm1, ZPAD2			;; Load ZPAD data
-;;	vmulsd	xmm1, xmm1, Q ZMM_NORM012_FF	;; Scale by FFTLEN/2
-	vsubsd	xmm0, xmm0, xmm1
-	vaddsd	xmm7, xmm7, xmm1		;; Adjust sumout
-	vmovsd	Q [rsi+dist2], xmm0
-	vmovsd	xmm0, Q [rsi+dist3]		;; Subtract 4th word
-	vmovsd	xmm1, ZPAD3			;; Load ZPAD data
-;;	vmulsd	xmm1, xmm1, Q ZMM_NORM012_FF	;; Scale by FFTLEN/2
-	vsubsd	xmm0, xmm0, xmm1
-	vaddsd	xmm7, xmm7, xmm1		;; Adjust sumout
-	vmovsd	Q [rsi+dist3], xmm0
-	ENDIF
-	IF dist5-dist4 EQ 8
-	vmovapd	xmm0, [rsi+dist4]		;; Subtract 5th-6th word
-	vmovapd	xmm1, XPTR ZPAD4		;; Load ZPAD data
-;;	vmulpd	xmm1, xmm1, XPTR ZMM_NORM012_FF	;; Scale by FFTLEN/2
-	vsubpd	xmm0, xmm0, xmm1
-	vaddpd	zmm7, zmm7, zmm1		;; Adjust sumout
-	vmovapd	[rsi+dist4], xmm0
-	ELSE
-	vmovsd	xmm0, Q [rsi+dist4]		;; Subtract 5th word
-	vmovsd	xmm1, ZPAD4			;; Load ZPAD data
-;;	vmulsd	xmm1, xmm1, Q ZMM_NORM012_FF	;; Scale by FFTLEN/2
-	vsubsd	xmm0, xmm0, xmm1
-	vaddpd	zmm7, zmm7, zmm1		;; Adjust sumout
-	vmovsd	Q [rsi+dist4], xmm0
-	vmovsd	xmm0, Q [rsi+dist5]		;; Subtract 6th word
-	vmovsd	xmm1, ZPAD5			;; Load ZPAD data
-;;	vmulsd	xmm1, xmm1, Q ZMM_NORM012_FF	;; Scale by FFTLEN/2
-	vsubsd	xmm0, xmm0, xmm1
-	vaddpd	zmm7, zmm7, zmm1		;; Adjust sumout
-	vmovsd	Q [rsi+dist5], xmm0
-	ENDIF
-	vmovsd	xmm0, Q [rsi+dist6]		;; Subtract 7th word
-	vmovsd	xmm1, ZPAD6			;; Load ZPAD data
-;;	vmulsd	xmm1, xmm1, Q ZMM_NORM012_FF	;; Scale by FFTLEN/2
-	vsubsd	xmm0, xmm0, xmm1
-	vaddpd	zmm7, zmm7, zmm1		;; Adjust sumout
-	vmovsd	Q [rsi+dist6], xmm0
-nozpad:
-	ENDM
-
-
-;;;
-;;;  Now we have one macro for each FFT length
-;;;
-
 
 ;; Perform a 128-element FFT
 
@@ -1240,7 +1159,6 @@ zfinish_unfft:
 	zr8s_sixteen_reals_last_unfft rsi, 0, 128, 2*128, 4*128, rdi, 0, r9, 0, 0, 1
 	end_timer 6
 
-	zsub_7_words 8, 16, 24, 64, 72, 80
 	zfft_3_ret
 	ENDM
 

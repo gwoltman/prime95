@@ -121,7 +121,7 @@ struct gwasm_data {
 	void	*sincos3;
 	void	*sincos4;
 	void	*sincos5;
-	gwthread UNUSED_hyperthread_id;	/* Thread ID of prefetching hyperthread */
+	void	*zpad_sub7;		/* Callback routine to subtract ZPAD words */
 	gwevent UNUSED_hyperthread_work_to_do;	/* Event to signal hyperthread to begin prefetching */
 	void	*SRC3ARG;		/* Function argument */
 	uint32_t *ASM_TIMERS;		/* Timers used for optimizing code */

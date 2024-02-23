@@ -268,68 +268,13 @@ gwmuls1	ENDP
 ;; Routines to do the normalization after a multiply
 ;;
 
-;; When doing zero-padded FFTs, the multiplied 7 words around the halfway point
-;; must be subtracted from the bottom of the FFT.  This must be done before
-;; normalization multiplies the FFT data by k.
-
-sub_7_words MACRO
-	fld	QWORD PTR [esi+0*16]	;; Subtract 1st word
-	fld	ZPAD0			;; Load ZPAD data
-	fmul	NORM012_FF		;; Scale by FFTLEN/2
-	fsub	st(1), st
-	faddp	st(2), st		;; Adjust sumout
-	fstp	QWORD PTR [esi+0*16]
-
-	fld	QWORD PTR [esi+1*16]	;; Subtract 2nd word
-	fld	ZPAD1			;; Load ZPAD data
-	fmul	NORM012_FF		;; Scale by FFTLEN/2
-	fsub	st(1), st
-	faddp	st(2), st		;; Adjust sumout
-	fstp	QWORD PTR [esi+1*16]
-
-	fld	QWORD PTR [esi+2*16]	;; Subtract 3rd word
-	fld	ZPAD2			;; Load ZPAD data
-	fmul	NORM012_FF		;; Scale by FFTLEN/2
-	fsub	st(1), st
-	faddp	st(2), st		;; Adjust sumout
-	fstp	QWORD PTR [esi+2*16]
-
-	fld	QWORD PTR [esi+3*16]	;; Subtract 4th word
-	fld	ZPAD3			;; Load ZPAD data
-	fmul	NORM012_FF		;; Scale by FFTLEN/2
-	fsub	st(1), st
-	faddp	st(2), st		;; Adjust sumout
-	fstp	QWORD PTR [esi+3*16]
-
-	fld	QWORD PTR [esi+4*16]	;; Subtract 5th word
-	fld	ZPAD4			;; Load ZPAD data
-	fmul	NORM012_FF		;; Scale by FFTLEN/2
-	fsub	st(1), st
-	faddp	st(2), st		;; Adjust sumout
-	fstp	QWORD PTR [esi+4*16]
-
-	fld	QWORD PTR [esi+5*16]	;; Subtract 6th word
-	fld	ZPAD5			;; Load ZPAD data
-	fmul	NORM012_FF		;; Scale by FFTLEN/2
-	fsub	st(1), st
-	faddp	st(2), st		;; Adjust sumout
-	fstp	QWORD PTR [esi+5*16]
-
-	fld	QWORD PTR [esi+6*16]	;; Subtract 7th word
-	fld	ZPAD6			;; Load ZPAD data
-	fmul	NORM012_FF		;; Scale by FFTLEN/2
-	fsub	st(1), st
-	faddp	st(2), st		;; Adjust sumout
-	fstp	QWORD PTR [esi+6*16]
-	ENDM
-
 ; Macro to loop through all the FFT values and apply the proper normalization
 ; routine.  Used whenever we are using an irrational-base FFT.
 
 inorm	MACRO	lab, ttp, zero, echk, const
 	LOCAL	ilp
 	PROCFL	lab
-	int_prolog 0,0,0
+	int_prolog 0,0,4
 	mov	esi, DESTARG		;; Address of multiplied number
 	fld	MAXERR			;; Load MAXERR
 	fldz				;; Init SUMOUT
@@ -365,11 +310,13 @@ no zero	jmp	idn			;; Go to normal end code
 zpnorm	MACRO	lab, ttp, echk, const
 	LOCAL	ilp
 	PROCFL	lab
-	int_prolog 0,0,0
+	int_prolog 0,0,4
+
+	c_call	ZPAD_SUB7		;; Subtract 7 ZPAD words from lowest FFT words
+
 	mov	esi, DESTARG		;; Address of multiplied number
 	fld	MAXERR			;; Load MAXERR
 	fldz				;; Init SUMOUT
-	sub_7_words			;; Subtract 7 ZPAD words
 	fld	BIGVAL			;; Init traditional carry
 	fldz				;; Init high FFT data carry
 	mov	ebx, norm_col_mults	;; Address of the multipliers
@@ -421,7 +368,7 @@ no const jmp	zpdn			;; Go to zero padded FFT end code
 PROCF	__common_norm1_end_code
 
 	;; Dummy prolog to match normalization code
-	int_prolog 0,0,0
+	int_prolog 0,0,4
 
 ; Finish off the normalization process by adding any carry to first values.
 ; FPU stack is now: carry #2, carry #1, sumout, maxerr
@@ -462,7 +409,7 @@ cmnend:	fmul	ttmp_ff_inv
 
 ; Return
 
-	int_epilog 0,0,0
+	int_epilog 0,0,4
 __common_norm1_end_code ENDP
 
 _TEXT	ENDS

@@ -1022,7 +1022,9 @@ echk	zcollapse_maxerr		;; Collapse and save MAXERR
 zpnorm	MACRO	lab, ttp, echk, const, khi
 	LOCAL	ilp1, ilp2
 	PROCFLP	lab
-	int_prolog 0,0,0
+	int_prolog 0,0,4
+
+	c_call	ZPAD_SUB7		;; Subtract 7 ZPAD words from lowest FFT words
 
 	mov	rsi, DESTARG		;; Source pointer
 echk	vbroadcastsd zmm31, MAXERR	;; Load maximum error
@@ -1094,7 +1096,7 @@ ttp	mov	rdi, norm_biglit_array	;; rdi = pointer to big/lit flags
 	;; Compress 8 MAXERR values into one
 echk	zcollapse_maxerr		;; Collapse and save MAXERR
 
-	int_epilog 0,0,0
+	int_epilog 0,0,4
 	ENDPP lab
 	ENDM
 

@@ -1,4 +1,4 @@
-; Copyright 2011-2023 Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2024 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -1637,11 +1637,10 @@ loopcount2		EQU	DPTR [rsp+first_local+6*SZPTR+4]
 inorm	MACRO	lab, ttp, zero, echk, const, base2
 	LOCAL	ilp0, ilp1, ilp2, ilpsecdn
 	PROCFLP	lab
-	int_prolog 6*SZPTR+8,0,0
+	int_prolog 6*SZPTR+8,0,4
 	mov	rsi, DESTARG		;; Addr of multiplied number
 no zero	mov	edi, ADDIN_OFFSET	;; Get address to add value into
 no zero	vmovsd	xmm0, ADDIN_VALUE	;; Get the addin value
-no zero	vsubpd	ymm7, ymm7, ymm0	;; Do not include addin in sumout
 no zero	vaddsd	xmm0, xmm0, Q [rsi][rdi] ;; Add in the FFT value
 no zero	vmovsd	Q [rsi][rdi], xmm0	;; Save the new value
 base2	vmovapd	ymm2, YMM_BIGVAL	;; Start process with no carry
@@ -1697,7 +1696,10 @@ base2 no zero no ttp	jmp	b2rdn	;; Go to base2 rational end code
 zpnorm	MACRO	lab, ttp, echk, const, base2, khi, c1, cm1
 	LOCAL	ilp0, ilp1, ilp2, ilpsecdn
 	PROCFLP	lab
-	int_prolog 6*SZPTR+8,0,0
+	int_prolog 6*SZPTR+8,0,4
+
+	c_call	ZPAD_SUB7		;; Subtract 7 ZPAD words from lowest FFT words
+
 	mov	rsi, DESTARG		;; Addr of multiplied number
 base2	vmovapd	ymm2, YMM_BIGVAL	;; Start process with no carry
 no base2 vxorpd	ymm2, ymm2, ymm2	;; Start process with no carry
@@ -1840,7 +1842,7 @@ base2 no const jmp zpdn			;; Go to zero padded FFT end code
 PROCFP	__common_ynorm1_end_code
 
 	;; Dummy prolog to match normalization code
-	int_prolog 6*SZPTR+8,0,0
+	int_prolog 6*SZPTR+8,0,4
 
 ; Finish off the normalization process by adding any carry to first values.
 ; Handle both the with and without two-to-phi array cases.
@@ -1885,12 +1887,6 @@ b2rdn:	mov	rsi, DESTARG		; Address of squared number
 ; Normalize SUMOUT value by multiplying by 1 / (fftlen/2).
 
 cmnend:	mov	rsi, DESTARG		; Address of squared number
-	ystore	YMM_TMP1, ymm7		; Add together the four partial sumouts
-	vaddsd	xmm7, xmm7, Q YMM_TMP1[8]
-	vaddsd	xmm7, xmm7, Q YMM_TMP1[16]
-	vaddsd	xmm7, xmm7, Q YMM_TMP1[24]
-	vmulsd	xmm7, xmm7, ttmp_ff_inv
-	vmovsd	Q [rsi-24], xmm7	; Save sum of FFT outputs
 	vmovsd	xmm6, MAXERR		; Compute new maximum error
 	vmaxsd	xmm6, xmm6, Q YMM_MAXERR[0]
 	vmaxsd	xmm6, xmm6, Q YMM_MAXERR[8]
@@ -1900,7 +1896,7 @@ cmnend:	mov	rsi, DESTARG		; Address of squared number
 
 ; Return
 
-	int_epilog 6*SZPTR+8,0,0
+	int_epilog 6*SZPTR+8,0,4
 	ENDPP __common_ynorm1_end_code 
 
 _TEXT	ENDS

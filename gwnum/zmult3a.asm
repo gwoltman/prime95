@@ -154,6 +154,9 @@ zpnorm	MACRO	lab, ttp, echk, const, khi
 	PROCFLP	lab
 	int_prolog 0,0,0
 
+;; Handled in C code by pass1_pre_carries
+;;	c_call	ZPAD_SUB7		;; Subtract 7 ZPAD words from lowest FFT words
+
 echk	vbroadcastsd zmm31, MAXERR	;; Load maximum error
 	znorm_wpn_zpad_preload ttp, echk, const, khi
 

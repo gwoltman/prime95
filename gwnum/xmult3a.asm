@@ -1,4 +1,4 @@
-; Copyright 2001-2023 Mersenne Research, Inc.  All rights reserved
+; Copyright 2001-2024 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -109,6 +109,10 @@ zpnorm	MACRO	lab, ttp, echk, const, base2, sse4, khi, c1, cm1
 	LOCAL	setlp, ilp0, ilp1, ilp2, not8
 	PROCFLP	lab
 	int_prolog 12,0,0
+
+;; Handled in C code by pass1_pre_carries
+;;	c_call	ZPAD_SUB7		;; Subtract 7 ZPAD words from lowest FFT words
+
 echk	xload	xmm6, XMM_MAXERR	;; Load maximum error
 
 	xnorm_wpn_zpad_preload ttp, echk, const, base2, sse4, khi, c1, cm1
