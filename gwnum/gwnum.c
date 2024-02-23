@@ -4059,11 +4059,6 @@ int internal_gwsetup (
 
 	asm_data->cache_line_multiplier = gwdata->PASS1_CACHE_LINES;
 
-/* The sumout value is FFTLEN/2 times larger than it should be.  Create an */
-/* inverse to properly calculate the sumout when a multiplication ends. */
-
-	asm_data->ttmp_ff_inv = 2.0 / (double) gwdata->FFTLEN;
-
 /* Now compute a number of constants the assembly code needs.  These will be copied to properly aligned (SSE2 constants */
 /* must be on 16-byte boundaries, AVX constants must be on 32-byte boundaries, AVX-512 are unaligned due to cheap vbroadcastsd) */
 /* and grouped (for better cache line locality) assembly global variables. */
@@ -5878,14 +5873,12 @@ void auxiliary_thread (void *arg)
 				memcpy (asm_data->u.xmm.XMM_K_TIMES_MULCONST_LO, main_thread_asm_data->u.xmm.XMM_K_TIMES_MULCONST_LO, 2 * sizeof (double));
 				memcpy (asm_data->u.xmm.XMM_MINUS_C_TIMES_MULCONST, main_thread_asm_data->u.xmm.XMM_MINUS_C_TIMES_MULCONST, 2 * sizeof (double));
 			}
-			// Copy maxerr and sumout
+			// Copy maxerr
 			if (gwdata->cpu_flags & CPU_AVX512F) {
 				asm_data->MAXERR = main_thread_asm_data->MAXERR;
 			} else if (gwdata->cpu_flags & CPU_AVX) {
 				memcpy (asm_data->u.ymm.YMM_MAXERR, &main_thread_asm_data->u.ymm.YMM_MAXERR, 4 * sizeof (double));
 			} else {
-				asm_data->u.xmm.XMM_SUMOUT[0] = 0.0;
-				asm_data->u.xmm.XMM_SUMOUT[1] = 0.0;
 				memcpy (asm_data->u.xmm.XMM_MAXERR, &main_thread_asm_data->u.xmm.XMM_MAXERR, 2 * sizeof (double));
 			}
 		}
@@ -5966,9 +5959,6 @@ void pass1_wake_up_threads (
 			asm_data->u.ymm.YMM_MAXERR[2] =
 			asm_data->u.ymm.YMM_MAXERR[3] = asm_data->MAXERR;
 		} else {
-			((double *) asm_data->DESTARG)[-3] = 0.0; // For accumulating SUMOUT
-			asm_data->u.xmm.XMM_SUMOUT[0] =
-			asm_data->u.xmm.XMM_SUMOUT[1] = 0.0;
 			asm_data->u.xmm.XMM_MAXERR[0] =
 			asm_data->u.xmm.XMM_MAXERR[1] = asm_data->MAXERR;
 		}
@@ -6019,7 +6009,6 @@ void pass1_pre_carries (
 				*fft_data -= main_thread_asm_data->ZPAD0_6[i];
 			} else {
 				*fft_data -= main_thread_asm_data->ZPAD0_6[i] * asm_data->u.xmm.XMM_NORM012_FF[0];
-				asm_data->u.xmm.XMM_SUMOUT[0] += main_thread_asm_data->ZPAD0_6[i] * asm_data->u.xmm.XMM_NORM012_FF[0];
 			}
 			if (gwdata->cpu_flags & CPU_AVX512F)
 				fft_data += 16;		// Next low-word/high-word pair (two cache lines)
@@ -6191,10 +6180,6 @@ int pass1_get_next_block (
 	} else if (gwdata->cpu_flags & CPU_SSE2) {
 		if (asm_data->u.xmm.XMM_MAXERR[0] > asm_data->MAXERR) asm_data->MAXERR = asm_data->u.xmm.XMM_MAXERR[0];
 		if (asm_data->u.xmm.XMM_MAXERR[1] > asm_data->MAXERR) asm_data->MAXERR = asm_data->u.xmm.XMM_MAXERR[1];
-		/* Accumulate SUMOUT */
-		((double *) asm_data->DESTARG)[-3] = asm_data->u.xmm.XMM_SUMOUT[0] + asm_data->u.xmm.XMM_SUMOUT[1];
-		/* Normalize SUMOUT value by multiplying by 1 / (fftlen/2). */
-		((double *) asm_data->DESTARG)[-3] *= asm_data->ttmp_ff_inv;
 	}
 
 	return (PASS1_COMPLETE);
@@ -6377,7 +6362,7 @@ int pass1_get_next_block_mt (
 		return (PASS1_DO_MORE_INVERSE_FFT);
 	}
 
-/* We've finished this thread, merge this thread's maxerr and sumout with the main thread */
+/* We've finished this thread, merge this thread's maxerr with the main thread */
 
 #define replace_with_larger(a,b)	if ((a)<(b)) (a)=(b)
 #define locked_replace_with_larger(a,b) if ((a)<(b)) { gwmutex_lock(&gwdata->thread_lock); replace_with_larger(a,b); gwmutex_unlock(&gwdata->thread_lock);}
@@ -6394,10 +6379,6 @@ int pass1_get_next_block_mt (
 		struct gwasm_data *main_thread_asm_data = (struct gwasm_data *) gwdata->asm_data;
 		replace_with_larger (asm_data->u.xmm.XMM_MAXERR[0], asm_data->u.xmm.XMM_MAXERR[1]);
 		locked_replace_with_larger (main_thread_asm_data->MAXERR, asm_data->u.xmm.XMM_MAXERR[0]);
-		/* Accumulate SUMOUT */
-		gwmutex_lock (&gwdata->thread_lock);
-		((double *) asm_data->DESTARG)[-3] += asm_data->u.xmm.XMM_SUMOUT[0] + asm_data->u.xmm.XMM_SUMOUT[1];
-		gwmutex_unlock (&gwdata->thread_lock);
 	}
 
 /* There are no more blocks to process.  If this is an auxiliary thread then return code telling the assembly code to exit. */
@@ -6408,10 +6389,7 @@ int pass1_get_next_block_mt (
 
 	wait_on_auxiliary_threads (gwdata);
 
-/* We're finished, do final cleanup */
-
-	/* Normalize SUMOUT value by multiplying by 1 / (fftlen/2). */
-	((double *) asm_data->DESTARG)[-3] *= asm_data->ttmp_ff_inv;
+/* We're finished */
 
 	return (PASS1_COMPLETE);
 }
@@ -10509,7 +10487,6 @@ void asm_mul (
 	gw_fft (gwdata, asm_data);
 //if (rand() % 100 < 1) *d += 1.0;			// Generate random errors (for caller to test error recovery)
 //if (rand() % 1000 < 2) *d += 1.0E200 * 1.0E200;
-	if (! is_valid_double_addr (&gwsumout (gwdata, d))) gwdata->GWERROR |= 1;
 	gwdata->fft_count += (asm_data->ffttype <= 3) ? 2 : 1;
 
 /* For the two destination case, mark the source fully FFTed and calculate the address for the multiplication destination */

@@ -46,7 +46,6 @@ inorm	MACRO	lab, ttp, zero, echk, const, base2, sse4
 	LOCAL	setlp, ilp0, ilp1, ilexit, done
 	PROCFLP	lab
 	int_prolog SZPTR+12,0,0
-	movapd	xmm7, XMM_SUMOUT	;; Load SUMOUT
 	movapd	xmm6, XMM_MAXERR	;; Load maximum error
 	mov	saved_rsi, rsi		;; Save for xtop_carry_adjust
 	mov	rbx, norm_ptr2		;; Load column multipliers ptr
@@ -94,8 +93,7 @@ ttp	bump	rdx, 128		;; Next set of 8 group multipliers
 	jnc	ilp0
 	add	rsi, normblkdst8	;; Add 128 every 8 clmblkdsts
 	jmp	ilp0			;; Iterate
-ilexit:	movapd	XMM_SUMOUT, xmm7	;; Save SUMOUT
-	movapd	XMM_MAXERR, xmm6	;; Save maximum error
+ilexit:	movapd	XMM_MAXERR, xmm6	;; Save maximum error
 
 	; Handle adjusting the carry out of the topmost FFT word
 
@@ -125,7 +123,6 @@ zpnorm	MACRO	lab, ttp, echk, const, base2, sse4, khi, c1, cm1
 ;; Handled in C code by pass1_pre_carries
 ;;	c_call	ZPAD_SUB7		;; Subtract 7 ZPAD words from lowest FFT words
 
-	movapd	xmm7, XMM_SUMOUT	;; Load SUMOUT
 echk	movapd	xmm6, XMM_MAXERR	;; Load maximum error
 
 	mov	rbx, norm_ptr2		;; Load column multipliers ptr
@@ -178,7 +175,7 @@ ttp	bump	rdx, 128		;; Next set of 8 group multipliers
 	jnc	ilp0
 	add	rsi, normblkdst8	;; Add 128 every 8 clmblkdsts
 	jmp	ilp0			;; Iterate
-ilexit:	movapd	XMM_SUMOUT, xmm7	;; Save SUMOUT
+ilexit:
 echk	movapd	XMM_MAXERR, xmm6	;; Save maximum error
 	int_epilog 12,0,0
 	ENDPP	lab

@@ -1,4 +1,4 @@
-; Copyright 1995-2023 Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2024 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -400,11 +400,10 @@ idn:	mov	esi, DESTARG		; Address of squared number
 	mov	ebx, norm_col_mults	; Restart the column multipliers
 	norm012_1d noexec
 
-; Normalize SUMOUT value by multiplying by 1 / (fftlen/2).
+; Return unnormalized SUMOUT -- no one uses it
 ; FPU stack is now: sumout, maxerr
 
-cmnend:	fmul	ttmp_ff_inv
-	fstp	QWORD PTR [esi-24]	; Save sum of FFT outputs
+cmnend:	fstp	QWORD PTR [esi-24]	; Save sum of FFT outputs
 	fstp	MAXERR			; Save new maximum roundoff error
 
 ; Return

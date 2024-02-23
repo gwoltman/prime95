@@ -1884,7 +1884,7 @@ b2dn:	mov	rsi, DESTARG		; Address of squared number
 b2rdn:	mov	rsi, DESTARG		; Address of squared number
 	ynorm_1d_cleanup noexec, exec, noexec ; Add in carries
 
-; Normalize SUMOUT value by multiplying by 1 / (fftlen/2).
+; Combine MAXERR
 
 cmnend:	mov	rsi, DESTARG		; Address of squared number
 	vmovsd	xmm6, MAXERR		; Compute new maximum error

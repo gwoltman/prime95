@@ -479,7 +479,6 @@ no zero	mov	edi, ADDIN_OFFSET	;; Get address to add value into
 no zero	movsd	xmm0, Q [rsi][rdi]	;; Get the value
 no zero	addsd	xmm0, ADDIN_VALUE	;; Add in the requested value
 no zero	movsd	Q [rsi][rdi], xmm0	;; Save the new value
-no zero	subsd	xmm7, ADDIN_VALUE	;; Do not include addin in sumout
 	xload	xmm2, XMM_BIGVAL	;; Start process with no carry
 	xcopy	xmm3, xmm2
 	movlpd	xmm6, MAXERR		;; Current maximum error
@@ -536,7 +535,6 @@ zpnorm	MACRO	lab, ttp, echk, const, base2, sse4, khi, c1, cm1
 	int_prolog 3*SZPTR,0,4
 
 	c_call	ZPAD_SUB7		;; Subtract 7 ZPAD words from lowest FFT words
-	subpd	xmm7, xmm7		;; Clear sumout
 
 	mov	rsi, DESTARG		;; Addr of multiplied number
 	xload	xmm2, XMM_BIGVAL	;; Start process with no carry
@@ -807,13 +805,9 @@ idn:	mov	rsi, DESTARG		; Address of squared number
 	sub	rax, rax
 	xnorm012_1d noexec, exec	; Add in carries
 
-; Normalize SUMOUT value by multiplying by 1 / (fftlen/2).
+; Combine MAXERR
 
 cmnend:	mov	rsi, DESTARG		; Address of squared number
-	xstore	XMM_TMP1, xmm7		; Add together the two partial sumouts
-	addsd	xmm7, Q XMM_TMP1+8
-	mulsd	xmm7, ttmp_ff_inv
-	movsd	Q [rsi-24], xmm7	; Save sum of FFT outputs
 	xstore	XMM_TMP1, xmm6		; Compute new maximum error
 	maxsd	xmm6, Q XMM_TMP1+8
 	movsd	MAXERR, xmm6

@@ -183,7 +183,7 @@ struct gwasm_data {
 	double	ZPAD0_6[7];		/* 7 ZPAD doubles */
 	double	ZPAD_LSW_ADJUST;	/* Multiplier for ADDIN_VALUE when ZERO_PADDED k=1, abs(c)!=1 */
 
-	double	ttmp_ff_inv;		/* Inverse FFT adjust (2/FFTLEN) */
+	double	UNUSED_ttmp_ff_inv;	/* Inverse FFT adjust (2/FFTLEN) */
 	double	UNUSED_DOUBLES[7];
 
 	union {
@@ -367,7 +367,7 @@ struct gwasm_data {
 		double	XMM_TWO[2];		/* 2.0 */
 		double	XMM_HALF[2];		/* 0.5 */
 		double	XMM_SQRTHALF[2];	/* SQRT(0.5) */
-		double	XMM_SUMOUT[2];		/* Used in normalization macros */
+		double	UNUSED_XMM_SUMOUT[2];
 
 		double	XMM_MAXERR[2];		/* Used in normalization macros */
 		int32_t	XMM_ABSVAL[4];		/* Used to compute absolute values */
