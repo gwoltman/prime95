@@ -170,7 +170,6 @@ echk	vbroadcastsd zmm31, MAXERR	;; Load maximum error
 	lea	r14, [2*r13+r13]	;; Calc distance to 4th section
 
 ttp	mov	r12, compressed_biglits	;; Get pointer to compressed biglit table
-ttp	sub	r9, r9			;; Clear register used to alternate the increment of rdi
 ilp1:	push	rdx			;; Save outer loop counter
 	mov	r15d, cache_line_multiplier ;; Load inner loop counter
 
@@ -191,9 +190,10 @@ ilp2:	znorm_wpn_zpad ttp, echk, const, khi ;; Normalize 64 values (4 simultaneou
 	bump	rsi, 128		;; Next 1st source pointer
 	sub	r15, 1			;; Test clm loop counter
 
+ttp	mov	rdx, r12		;; If r12 has been been bumped by 4, we'll need to unbump r12 and bump rdi
+ttp	shr	rdx, 3			;; Set carry if r12 is in +4 state
+ttp	adc	rdi, 0			;; Increment (or not) the biglit table pointer
 ttp	xor	r12, 4			;; Bump or unbump pointer into the compressed biglit table
-ttp	add	rdi, r9			;; Increment (or not) the biglit table pointer
-ttp	xor	r9, 1			;; Alternate the increment for rdi
 
 	prefetchwt1 [rcx]		;; Prefetch with write intent FFT data for next pass 1 block
 	bump	rcx, 64			;; Tentatively compute next cache line to prefetch

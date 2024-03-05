@@ -14,9 +14,9 @@
 |
 | MULTI-THREAD WARNING: You CAN perform gwnum operations in different
 | threads IF AND ONLY IF each uses a different gwhandle structure
-| initialized by gwinit.
+| initialized by gwinit or gwclone.
 | 
-|  Copyright 2002-2023 Mersenne Research, Inc.  All rights reserved.
+|  Copyright 2002-2024 Mersenne Research, Inc.  All rights reserved.
 +---------------------------------------------------------------------*/
 
 #ifndef _GWNUM_H
@@ -55,9 +55,9 @@ typedef gwnum *gwarray;
 /* are new prime95 versions without any changes in the gwnum code.  This version number is also embedded in the assembly code and */
 /* gwsetup verifies that the version numbers match.  This prevents bugs from accidentally linking in the wrong gwnum library. */
 
-#define GWNUM_VERSION		"30.19"
-#define GWNUM_MAJOR_VERSION	30
-#define GWNUM_MINOR_VERSION	19
+#define GWNUM_VERSION		"31.0"
+#define GWNUM_MAJOR_VERSION	31
+#define GWNUM_MINOR_VERSION	0
 
 /* Error codes returned by the three gwsetup routines */
 
@@ -1193,7 +1193,7 @@ struct gwhandle_struct {
 	intptr_t ZPAD_SUB7_OFFSET[7];	/* Offsets to the lowest 7 words */
 	intptr_t ZPAD_COPY7_OFFSET[7];	/* Offsets to the 7 words around the halfway point */
 	double	ZPAD_COPY7_ADJUST[7];	/* Adjustments for copying the 7 words around the halfway point of a zero pad FFT. */
-	double	ZPAD_0_6_ADJUST[7];	/* Adjustments for ZPAD0_6 in a r4dwpn FFT */
+	double	ZPAD0_6_ADJUST[7];	/* Adjustments for ZPAD0_6 in a r4dwpn FFT */
 	unsigned long wpn_count;	/* Count of r4dwpn pass 1 blocks that use the same ttp/ttmp grp multipliers */
 	gwatomic clone_count;		/* How many times this gwhandle has been cloned */
 	gwhandle *clone_of;		/* If this is a cloned gwhandle, this points to the gwhandle that was cloned */
@@ -1205,23 +1205,16 @@ struct gwhandle_struct {
 	gwhandle *parent_gwdata;	/* The parent gwdata of the cyclic and negacyclic gwdata */
 };
 
-/* A psuedo declaration for our big numbers.  The actual pointers to */
-/* these big numbers are to the data array.  The 96 bytes prior to the data contain: */
+/* A psuedo declaration for gwnum numbers.  A gwnum pointer points to the FFT data array.  The bytes prior to the FFT data contain: */
 /* data-4:  float containing number of unnormalized adds that have been done.  After a certain number of unnormalized adds, */
 /*	    the next add must be normalized to avoid overflow errors during a multiply. */
 /* data-8:  Four unused bytes. */
 /* data-16: double containing the product of the two sums of the input FFT values. */
-/* data-24: double containing the sum of the output FFT values.  These two */
-/*	    values can be used as a sanity check when multiplying numbers. */
-/*	    The two values should be "reasonably close" to one another. */
+/* data-24: Unused.  Formerly a double containing the sum of the output FFT values. */
 /* data-28: Flag indicating gwnum value has been partially FFTed. */
 /* data-32: Allocation flags - used to free memory when done. */
 /* data-88: Seven doubles (input FFT values near the halfway point when doing a zero-padded FFT). */
 /* data-192: Thirteen doubles only used by the polymult library for zero-padded FFTs */
-/* typedef struct { */
-/*	char	pad[96];	   Used to track unnormalized add/sub and original address */
-/*	double	data[512];	   The big number broken into chunks.  This array is variably sized. */
-/* } *gwnum; */
 #define GW_SMALL_HEADER_SIZE	32	/* Number of data bytes before a gwnum ptr when not using zero-padded FFTs */
 #define GW_ZPAD_HEADER_SIZE	96	/* Number of data bytes before a gwnum ptr when using zero-padded FFTs */
 #define GW_LARGE_HEADER_SIZE	192	/* Number of data bytes before a gwnum ptr when using zero-padded FFTs and polymult */

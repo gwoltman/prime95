@@ -2810,8 +2810,7 @@ int gwsetup_general_mod_giant (
 	return (0);
 }
 
-/* This setup routine is for operations without a modulo. In essence, */
-/* you are using gwnums as a general-purpose FFT multiply library. */
+/* This setup routine is for operations without a modulo. In essence, caller is using gwnums as a general-purpose FFT multiply library. */
 
 int gwsetup_without_mod (
 	gwhandle *gwdata,	/* Placeholder for gwnum global data */
@@ -5058,12 +5057,12 @@ int internal_gwsetup (
 				/* Weights for words we are copying before an FFT is performed */
 				gwdata->ZPAD_COPY7_ADJUST[i] = gwfft_weight (gwdata->dd_data, gwdata->FFTLEN/2-3+i);
 				/* Inverse weights for ZPAD0 - ZPAD6 applied after an inverse FFT is performed */
-				gwdata->ZPAD_0_6_ADJUST[i] = gwfft_weight_inverse (gwdata->dd_data, i);
+				gwdata->ZPAD0_6_ADJUST[i] = gwfft_weight_inverse (gwdata->dd_data, i);
 			} else if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
 				/* Partial weights for words we are copying before an FFT is performed */
 				gwdata->ZPAD_COPY7_ADJUST[i] = gwfft_weight (gwdata->dd_data, dwpn_col (gwdata, gwdata->FFTLEN/2-3+i));
 				/* Partial inverse weights for ZPAD0 - ZPAD6 applied after an inverse FFT is performed */
-				gwdata->ZPAD_0_6_ADJUST[i] = gwfft_weight_inverse (gwdata->dd_data, dwpn_col (gwdata, i));
+				gwdata->ZPAD0_6_ADJUST[i] = gwfft_weight_inverse (gwdata->dd_data, dwpn_col (gwdata, i));
 			} else {
 				gwdata->ZPAD_COPY7_ADJUST[i] = 1.0;
 			}
@@ -6005,7 +6004,7 @@ void pass1_pre_carries (
 		double *fft_data = gwdata->SCRATCH_SIZE ? (double *) asm_data->scratch_area : (double *) asm_data->DESTARG;
 		for (unsigned int i = asm_data->this_block; i <= 6 && i < asm_data->this_block + asm_data->cache_line_multiplier; i++) {
 			if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) {
-				main_thread_asm_data->ZPAD0_6[i] *= gwdata->ZPAD_0_6_ADJUST[i];
+				main_thread_asm_data->ZPAD0_6[i] *= gwdata->ZPAD0_6_ADJUST[i];
 				*fft_data -= main_thread_asm_data->ZPAD0_6[i];
 			} else {
 				*fft_data -= main_thread_asm_data->ZPAD0_6[i] * asm_data->u.xmm.XMM_NORM012_FF[0];
@@ -9292,10 +9291,9 @@ void raw_gwsetaddin (
 		else if (gwdata->PASS2_SIZE == 0) {
 			double	ttmp;
 			// Mimic code from building inverse multipliers in zr4_build_onepass_inverse_weights_table
-			if (gwdata->NEGACYCLIC_FFT) {
-				if (word >= gwdata->FFTLEN/2) word -= gwdata->FFTLEN/2;
-				gwfft_weights3_times_sine (gwdata->dd_data, word, word, gwdata->FFTLEN * 2, NULL, NULL, &ttmp);
-			} else
+			if (gwdata->NEGACYCLIC_FFT)
+				gwfft_weights3_times_sine (gwdata->dd_data, word, word % (gwdata->FFTLEN / 2), gwdata->FFTLEN * 2, NULL, NULL, &ttmp);
+			else
 				gwfft_weights3 (gwdata->dd_data, word, NULL, NULL, &ttmp);
 			*ptr = val / ttmp;
 		}
@@ -9317,11 +9315,9 @@ void raw_gwsetaddin (
 			// Mimic code from building inverse multipliers in zr4dwpn_build_norm_table
 			upper_avx512_word = (gwdata->PASS1_SIZE == 0) ? 8 : gwdata->PASS2_SIZE;
 			grp = word - word % upper_avx512_word;
-			if (gwdata->PASS1_SIZE && gwdata->NEGACYCLIC_FFT) {
-				unsigned long sine_word;
-				sine_word = grp % (gwdata->FFTLEN / 2);
-				gwfft_weights3_times_sine (gwdata->dd_data, grp, sine_word, gwdata->FFTLEN * 2, NULL, &ttmp, NULL);
-			} else
+			if (gwdata->PASS1_SIZE && gwdata->NEGACYCLIC_FFT)
+				gwfft_weights3_times_sine (gwdata->dd_data, grp, grp % (gwdata->FFTLEN / 2), gwdata->FFTLEN * 2, NULL, &ttmp, NULL);
+			else
 				ttmp = gwfft_weight_inverse (gwdata->dd_data, grp);
 			*ptr = val / ttmp;
 		}
@@ -10226,7 +10222,7 @@ void init_FFT1 (		/* Calculate GW_FFT1 if necessary */
 		gwdata->GW_FFT1 = gwdata->clone_of->GW_FFT1;
 	}
 
-/* Check if GW_FFT1 has already been initialized (FFT1_state = 1) or GW_FFT1 is not needed becasue it is all ones (FFT_state = 2) */
+/* Check if GW_FFT1 has already been initialized (FFT1_state = 1) or GW_FFT1 is not needed because it is all ones (FFT_state = 2) */
 
 	else if (gwdata->FFT1_state != 0) return;
 
@@ -10272,7 +10268,7 @@ void zpad_prep (
 		/* be saved permanently we can save to the header of s or save locally for use in zpad0-7 calcs.  We'll use the header of s. */
 		gwnum d7 = (asm_data->ffttype == 1) ? d : s;
 
-		/* Now, find and save the 7 words */
+		/* Now, find and save the fully weighted 7 words */
 		d7[-11] = * (double *) ((char *) s + gwdata->ZPAD_COPY7_OFFSET[0]) * gwdata->ZPAD_COPY7_ADJUST[0]; /* Copy 3rd word below halfway point */
 		d7[-10] = * (double *) ((char *) s + gwdata->ZPAD_COPY7_OFFSET[1]) * gwdata->ZPAD_COPY7_ADJUST[1]; /* Copy 2nd word below halfway point */
 		d7[-9] = * (double *)  ((char *) s + gwdata->ZPAD_COPY7_OFFSET[2]) * gwdata->ZPAD_COPY7_ADJUST[2]; /* Copy 1st word below halfway point */
@@ -10369,18 +10365,16 @@ void zpad_prep (
 		// Result6 = word3 * word3
 		asm_data->ZPAD0_6[6] = mulwords[6] * mularg2[-5];
 
-		// More work to do if this is a muladd or mulsub
-		if (mul4_opcode == 3 || mul4_opcode == 4) {
+		// More work to do if this is a muladd or mulsub (unless s4 is FFT(1))
+		if ((mul4_opcode == 3 || mul4_opcode == 4) && (intptr_t) asm_data->SRC3ARG != 1) {
 			double	addins[7];
 
 			// Copy the words to addin
 			memcpy (addins, &s3[-11], 7 * sizeof (double));
 
-			// If s3 is not FFTed_FOR_FMA, then he addins must be multiplied by s4 before addin
-			ASSERTG ((intptr_t) asm_data->SRC3ARG != 1);		/* FFT(1) can't be one for zero-padded FFTs */
+			// If s3 is not FFTed_FOR_FMA, then the addins must be multiplied by s4 before addin
 			if ((intptr_t) asm_data->SRC3ARG != 2) {
 				gwnum s4 = (gwnum) ((char *) d + (intptr_t) asm_data->SRC3ARG);
-	
 				// Multiply addins by s4.  Keep only the most significant 7 words.
 				// Result0 = word-3 * word3 + word-2 * word2 + word-1 * word1 + word0 * word0 + word1 * word-1 + word2 * word-2 + word3 * word-3
 				addins[0] = addins[0] * s4[-5] + addins[1] * s4[-6] + addins[2] * s4[-7] + addins[3] * s4[-8] + addins[4] * s4[-9] +
@@ -10426,7 +10420,7 @@ void zpad_sub7 (
 	ASSERTG (gwdata->ZERO_PADDED_FFT);
 
 	// Figure out the fudge factor -- usually FFTlen/2
-	if (gwdata->cpu_flags & CPU_AVX512F) fudge = 1.0;
+	if (gwdata->cpu_flags & CPU_AVX512F) fudge = (double) (gwdata->FFTLEN / 2);
 	else if (gwdata->cpu_flags & CPU_AVX) fudge = asm_data->u.ymm.YMM_NORM012_FF[0];
 	else if (gwdata->cpu_flags & CPU_SSE2) fudge = asm_data->u.xmm.XMM_NORM012_FF[0];
 #ifndef X86_64
@@ -10443,6 +10437,19 @@ void zpad_sub7 (
 	* (double *) ((char *) d + gwdata->ZPAD_SUB7_OFFSET[4]) -= asm_data->ZPAD0_6[4] * fudge;
 	* (double *) ((char *) d + gwdata->ZPAD_SUB7_OFFSET[5]) -= asm_data->ZPAD0_6[5] * fudge;
 	* (double *) ((char *) d + gwdata->ZPAD_SUB7_OFFSET[6]) -= asm_data->ZPAD0_6[6] * fudge;
+
+	/* Now, that the weighted and multiplied 7 zpad words have been subtracted from the multiplication results, AVX-512 FFTs need the words unweighted */
+	/* for the final divide-by-k step.  Actually, only the traditional one-pass AVX-512 FFTs use this code.  It would be nice to convert more asm code */
+	/* to work this way, but that might be a fair amount of work. */
+	if (gwdata->cpu_flags & CPU_AVX512F && gwdata->PASS2_SIZE == 0 && !gwdata->RATIONAL_FFT) {
+		// asm_data->ZPAD0_6[0] *= gwdata->ZPAD0_6_ADJUST[0];    This weight should always be 1.0
+		asm_data->ZPAD0_6[1] *= gwdata->ZPAD0_6_ADJUST[1];
+		asm_data->ZPAD0_6[2] *= gwdata->ZPAD0_6_ADJUST[2];
+		asm_data->ZPAD0_6[3] *= gwdata->ZPAD0_6_ADJUST[3];
+		asm_data->ZPAD0_6[4] *= gwdata->ZPAD0_6_ADJUST[4];
+		asm_data->ZPAD0_6[5] *= gwdata->ZPAD0_6_ADJUST[5];
+		asm_data->ZPAD0_6[6] *= gwdata->ZPAD0_6_ADJUST[6];
+	}
 }
 
 /* Internal routine to implement gwmul3 by calling fft/multiply assembly code. */
@@ -12044,9 +12051,9 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 				gwdata->GW_RANDOM_FFT = random_fft;		// For gwclone's sake, do not set GW_RANDOM_FFT until it is fully initialized
 			}
 		}
-		
+
 		/* Generate desired result, d = ((s1+r)*(s2-r) + r*(s1+r-s2) + addin) * mulbyconst + postaddin */
-		if (!gwdata->paranoid_mul_careful || mulsquareadd_safe (gwdata, 0, 0, 0, 0)) {
+		if (!gwdata->paranoid_mul_careful && mulsquareadd_safe (gwdata, 0, 0, 0, 0)) {
 			gwmulmuladd5 (gwdata, tmp1, tmp3, gwdata->GW_RANDOM_FFT, d, d, options & (GWMUL_ADDINCONST | GWMUL_MULBYCONST | GWMUL_STARTNEXTFFT));
 		} else {
 			// Paranoid code does not use gwmulmuladd5 in case the value in s1 and s2 are identical which means we are computing r^2 which

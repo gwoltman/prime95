@@ -36,11 +36,6 @@ IF (@INSTR(,%zarch,<SKX>) NE 0)
 ;; zmm0-7	carries
 ;; zmm8-15	carries (addsub only)
 
-;;GW  would be nice to standardize with inorm and wpn  -- start with 1d and later convert wpn?  -- especially with AVX10 on the horizon
-;;DONE	next is wpn's use of zmm26-29 (and wpn_zpad?)
-;;;;	next is standardizing section save -- push/pop, registers, xchg???
-;;	finally loop counter registers?
-
 ;;
 ;; Add two numbers without carry propagation.  Caller can use this for
 ;; consecutive add or subtract operations.  However, the last operation
@@ -48,12 +43,12 @@ IF (@INSTR(,%zarch,<SKX>) NE 0)
 ;;
 
 PROCFL	gwzaddq1
-	ad_prolog 0,0,rbx,rsi,rdi
+	ad_prolog 0,0,rbx,rsi
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
 	mov	al, 8				; Eight sections
-uaddlp2:mov	edi, addcount1			; Count of double cache lines in a section
+uaddlp2:mov	edx, addcount1			; Count of double cache lines in a section
 ;	mov	r9, rsi				; Save section pointers for later carry rotate and add
 uaddlp:	vmovapd	zmm0, [rcx]			; Load second number
 	vaddpd	zmm0, zmm0, [rsi]		; Add in first number
@@ -64,11 +59,11 @@ uaddlp:	vmovapd	zmm0, [rcx]			; Load second number
 	bump	rcx, 128			; Next source
 	bump	rsi, 128			; Next source
 	bump	rbx, 128			; Next dest
-	dec	edi				; Test loop counter
+	dec	edx				; Test loop counter
 	jnz	short uaddlp			; Loop if necessary
 ;	bump	rcx, 64				; Pad 64 bytes
-;	bump	rdx, 64				; Pad 64 bytes
 ;	bump	rsi, 64				; Pad 64 bytes
+;	bump	rbx, 64				; Pad 64 bytes
 	dec	al				; Check loop counter
 	jnz	uaddlp2				; Loop if necessary
 	ad_epilog 0,0,rbx,rsi
@@ -172,14 +167,19 @@ zaddsec:mov	r10d, addcount1			; Count of double cache lines in a section
 	mov	r8, rdi
 	push	rsi
 	push	rcx
+	push	r12				; Save section start compressed biglit table pointer
 zaddlp:	znorm_op_1d_zpad vaddpd, exec		; Add and normalize 4 double cache lines
 	bump	rsi, 128			; Next source/dest pointers
 	bump	rcx, 128
 	bump	rbx, 128
-	bump	rdi, 1				; Next big/little flags
+	mov	rdx, r12			; If r12 has been been bumped by 4, we'll need to unbump r12 and bump rdi
+	shr	rdx, 3				; Set carry if r12 is in +4 state
+	adc	rdi, 0				; Increment (or not) the biglit table pointer
+	xor	r12, 4				; Bump or unbump pointer into the compressed biglit table
 	dec	r10d				; Are we done with the inner loop?
 	jnz	zaddlp				; Loop til done
-	call	zi1_add_carry_zpad		; Rotate and apply carries, create carries for next four sections
+	pop	rbp				; Load section start compressed biglit table pointer
+	call	zi1_add_carry_op_zpad		; Rotate and apply carries, create carries for next four sections
 	; Position to next set of 4 sections and loop
 	shr	r13, 1				; Compute section distance
 	lea	rbx, [r9+r13]			; Calculate next source/dest ptrs
@@ -190,7 +190,7 @@ zaddlp:	znorm_op_1d_zpad vaddpd, exec		; Add and normalize 4 double cache lines
 	shl	r13, 1				; Restore every other section distance
 	dec	al				; Test outer loop counter
 	jnz	zaddsec				; Iterate
-	call	zi1_add_carry_zpad_cleanup	; Handle last eight carries out of the last four sections
+	call	zi1_add_carry_op_zpad_cleanup	; Handle last eight carries out of the last four sections
 	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzaddzp1 ENDP
 
@@ -215,7 +215,7 @@ zraddlp:znorm_op_1d_zpad vaddpd, noexec		; Add and normalize 4 double cache line
 	bump	rbx, 128
 	dec	r10d				; Are we done with the inner loop?
 	jnz	zraddlp				; Loop til done
-	call	zr1_add_carry_zpad			; Rotate and apply carries, create carries for next four sections
+	call	zr1_add_carry_op_zpad		; Rotate and apply carries, create carries for next four sections
 	;; Position to next set of 4 sections and loop
 	shr	r13, 1				; Compute section distance
 	lea	rbx, [r9+r13]			; Calculate next source/dest ptrs
@@ -226,7 +226,7 @@ zraddlp:znorm_op_1d_zpad vaddpd, noexec		; Add and normalize 4 double cache line
 	shl	r13, 1				; Restore every other section distance
 	dec	al				; Test outer loop counter
 	jnz	zraddsec			; Iterate
-	call	zr1_add_carry_zpad_cleanup	; Handle last eight carries out of the last four sections
+	call	zr1_add_carry_op_zpad_cleanup	; Handle last eight carries out of the last four sections
 	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzaddrzp1 ENDP
 
@@ -238,12 +238,12 @@ gwzaddrzp1 ENDP
 ;;
 
 PROCFL	gwzsubq1
-	ad_prolog 0,0,rbx,rsi,rdi
+	ad_prolog 0,0,rbx,rsi
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
 	mov	al, 8				; Eight sections
-usublp2:mov	edi, addcount1			; Count of double cache lines in a section
+usublp2:mov	edx, addcount1			; Count of double cache lines in a section
 ;	mov	r9, rsi				; Save section pointers for later carry rotate and add
 usublp:	vmovapd	zmm0, [rcx]			; Load second number
 	vsubpd	zmm0, zmm0, [rsi]		; Add in first number
@@ -254,14 +254,14 @@ usublp:	vmovapd	zmm0, [rcx]			; Load second number
 	bump	rcx, 128			; Next source
 	bump	rsi, 128			; Next source
 	bump	rbx, 128			; Next dest
-	dec	edi				; Test loop counter
+	dec	edx				; Test loop counter
 	jnz	short usublp			; Loop if necessary
 ;	bump	rcx, 64				; Pad 64 bytes
-;	bump	rdx, 64				; Pad 64 bytes
 ;	bump	rsi, 64				; Pad 64 bytes
+;	bump	rbx, 64				; Pad 64 bytes
 	dec	al				; Check loop counter
 	jnz	usublp2				; Loop if necessary
-	ad_epilog 0,0,rbx,rsi
+	ad_epilog 0,0,rbx,rsi,rdi
 gwzsubq1 ENDP
 
 ;;
@@ -362,14 +362,19 @@ zsubsec:mov	r10d, addcount1			; Count of double cache lines in a section
 	mov	r8, rdi
 	push	rsi
 	push	rcx
+	push	r12				; Save section start compressed biglit table pointer
 zsublp:	znorm_op_1d_zpad vsubpd, exec		; Add and normalize 4 double cache lines
 	bump	rsi, 128			; Next source/dest pointers
 	bump	rcx, 128
 	bump	rbx, 128
-	bump	rdi, 1				; Next big/little flags
+	mov	rdx, r12			; If r12 has been been bumped by 4, we'll need to unbump r12 and bump rdi
+	shr	rdx, 3				; Set carry if r12 is in +4 state
+	adc	rdi, 0				; Increment (or not) the biglit table pointer
+	xor	r12, 4				; Bump or unbump pointer into the compressed biglit table
 	dec	r10d				; Are we done with the inner loop?
 	jnz	zsublp				; Loop til done
-	call	zi1_add_carry_zpad		; Rotate and apply carries, create carries for next four sections
+	pop	rbp				; Load section start compressed biglit table pointer
+	call	zi1_add_carry_op_zpad		; Rotate and apply carries, create carries for next four sections
 	; Position to next set of 4 sections and loop
 	shr	r13, 1				; Compute section distance
 	lea	rbx, [r9+r13]			; Calculate next source/dest ptrs
@@ -380,7 +385,7 @@ zsublp:	znorm_op_1d_zpad vsubpd, exec		; Add and normalize 4 double cache lines
 	shl	r13, 1				; Restore every other section distance
 	dec	al				; Test outer loop counter
 	jnz	zsubsec				; Iterate
-	call	zi1_add_carry_zpad_cleanup	; Handle last eight carries out of the last four sections
+	call	zi1_add_carry_op_zpad_cleanup	; Handle last eight carries out of the last four sections
 	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzsubzp1 ENDP
 
@@ -406,7 +411,7 @@ zrsublp:znorm_op_1d_zpad vsubpd, noexec		; Add and normalize 4 double cache line
 	bump	rbx, 128
 	dec	r10d				; Are we done with the inner loop?
 	jnz	zrsublp				; Loop til done
-	call	zr1_add_carry_zpad		; Rotate and apply carries, create carries for next four sections
+	call	zr1_add_carry_op_zpad		; Rotate and apply carries, create carries for next four sections
 	; Position to next set of 4 sections and loop
 	shr	r13, 1				; Compute section distance
 	lea	rbx, [r9+r13]			; Calculate next source/dest ptrs
@@ -417,7 +422,7 @@ zrsublp:znorm_op_1d_zpad vsubpd, noexec		; Add and normalize 4 double cache line
 	shl	r13, 1				; Restore every other section distance
 	dec	al				; Test outer loop counter
 	jnz	zrsubsec			; Iterate
-	call	zr1_add_carry_zpad_cleanup	; Handle last eight carries out of the last four sections
+	call	zr1_add_carry_op_zpad_cleanup	; Handle last eight carries out of the last four sections
 	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzsubrzp1 ENDP
 
@@ -427,13 +432,13 @@ gwzsubrzp1 ENDP
 ;;
 
 PROCFL	gwzaddsubq1
-	ad_prolog 0,0,rbx,rbp,rsi,rdi
+	ad_prolog 0,0,rbx,rbp,rsi
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
 	mov	rbp, DEST2ARG			; Address of destination #2
 	mov	al, 8				; Eight sections
-uaslp2:	mov	edi, addcount1			; Count of double cache lines in a section
+uaslp2:	mov	edx, addcount1			; Count of double cache lines in a section
 ;	mov	r9, rsi				; Save section pointers for later carry rotate and add
 uaslp:	vmovapd	zmm0, [rsi]			; Load first number
 	vmovapd	zmm1, [rcx]			; Load second number
@@ -451,15 +456,15 @@ uaslp:	vmovapd	zmm0, [rsi]			; Load first number
 	bump	rsi, 128			; Next source
 	bump	rbx, 128			; Next dest
 	bump	rbp, 128			; Next dest
-	dec	edi				; Test loop counter
+	dec	edx				; Test loop counter
 	jnz	short uaslp			; Loop if necessary
 ;	bump	rcx, 64				; Pad 64 bytes
-;	bump	rdx, 64				; Pad 64 bytes
 ;	bump	rsi, 64				; Pad 64 bytes
+;	bump	rbx, 64				; Pad 64 bytes
 ;	bump	rbp, 64				; Pad 64 bytes
 	dec	al				; Check loop counter
 	jnz	uaslp2				; Loop if necessary
-	ad_epilog 0,0,rbx,rbp,rsi,rdi
+	ad_epilog 0,0,rbx,rbp,rsi
 gwzaddsubq1 ENDP
 
 ;;
@@ -584,19 +589,24 @@ zassec:	mov	r10d, addcount1			; Count of double cache lines in a section
 	mov	r8, rdi
 	push	rsi
 	push	rcx
+	push	r12				; Save section start compressed biglit table pointer
 zaslp:	znorm_addsub_1d_zpad exec		; Add/sub and normalize 4 double cache lines
 	bump	rsi, 128			; Next source/dest pointers
 	bump	rcx, 128
 	bump	rbx, 128
 	bump	rbp, 128
-	bump	rdi, 1				; Next big/little flags
+	mov	rdx, r12			; If r12 has been been bumped by 4, we'll need to unbump r12 and bump rdi
+	shr	rdx, 3				; Set carry if r12 is in +4 state
+	adc	rdi, 0				; Increment (or not) the biglit table pointer
+	xor	r12, 4				; Bump or unbump pointer into the compressed biglit table
 	dec	r10d				; Are we done with the inner loop?
 	jnz	zaslp				; Loop til done
-	znorm_addsub_save 1			; Save state of subtract carries
-	call	zi1_add_carry_zpad		; Rotate and apply carries, create carries for next four sections
-	znorm_addsub_save 2			; Save state of add carries, restore state of subtract carries
-	call	zi1_add_carry_zpad		; Rotate and apply carries, create carries for next four sections
-	znorm_addsub_save 3			; Restore state of add carries
+	pop	rbp				; Load section start compressed biglit table pointer
+	znorm_addsub_1d_zpad_save 1		; Save state of subtract carries
+	call	zi1_add_carry_op_zpad		; Rotate and apply carries, create carries for next four sections
+	znorm_addsub_1d_zpad_save 2		; Save state of add carries, restore state of subtract carries
+	call	zi1_add_carry_op_zpad		; Rotate and apply carries, create carries for next four sections
+	znorm_addsub_1d_zpad_save 3		; Restore state of add carries
 	; Position to next set of 4 sections and loop
 	shr	r13, 1				; Compute section distance
 	lea	rbx, [r9+r13]			; Calculate next source/dest ptrs
@@ -608,10 +618,10 @@ zaslp:	znorm_addsub_1d_zpad exec		; Add/sub and normalize 4 double cache lines
 	shl	r13, 1				; Restore every other section distance
 	dec	al				; Test outer loop counter
 	jnz	zassec				; Iterate
-	znorm_addsub_save 1			; Save state of subtract carries
-	call	zi1_add_carry_zpad_cleanup	; Handle last eight carries out of the last four sections
-	znorm_addsub_save 4			; Restore state of subtract carries
-	call	zi1_add_carry_zpad_cleanup	; Handle last eight carries out of the last four sections
+	znorm_addsub_1d_zpad_save 1		; Save state of subtract carries
+	call	zi1_add_carry_op_zpad_cleanup	; Handle last eight carries out of the last four sections
+	znorm_addsub_1d_zpad_save 4		; Restore state of subtract carries
+	call	zi1_add_carry_op_zpad_cleanup	; Handle last eight carries out of the last four sections
 	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzaddsubzp1 ENDP
 
@@ -639,11 +649,11 @@ zraslp:	znorm_addsub_1d_zpad noexec		; Add/sub and normalize 4 double cache line
 	bump	rbp, 128
 	dec	r10d				; Are we done with the inner loop?
 	jnz	zraslp				; Loop til done
-	znorm_addsub_save 1			; Save state of subtract carries
-	call	zr1_add_carry_zpad		; Rotate and apply carries, create carries for next four sections
-	znorm_addsub_save 2			; Save state of add carries, restore state of subtract carries
-	call	zr1_add_carry_zpad		; Rotate and apply carries, create carries for next four sections
-	znorm_addsub_save 3			; Restore state of add carries
+	znorm_addsub_1d_zpad_save 1		; Save state of subtract carries
+	call	zr1_add_carry_op_zpad		; Rotate and apply carries, create carries for next four sections
+	znorm_addsub_1d_zpad_save 2		; Save state of add carries, restore state of subtract carries
+	call	zr1_add_carry_op_zpad		; Rotate and apply carries, create carries for next four sections
+	znorm_addsub_1d_zpad_save 3		; Restore state of add carries
 	; Position to next set of 4 sections and loop
 	shr	r13, 1				; Compute section distance
 	lea	rbx, [r9+r13]			; Calculate next source/dest ptrs
@@ -655,10 +665,10 @@ zraslp:	znorm_addsub_1d_zpad noexec		; Add/sub and normalize 4 double cache line
 	shl	r13, 1				; Restore every other section distance
 	dec	al				; Test outer loop counter
 	jnz	zrassec				; Iterate
-	znorm_addsub_save 1			; Save state of subtract carries
-	call	zr1_add_carry_zpad_cleanup	; Handle last eight carries out of the last four sections
-	znorm_addsub_save 4			; Restore state of subtract carries
-	call	zr1_add_carry_zpad_cleanup	; Handle last eight carries out of the last four sections
+	znorm_addsub_1d_zpad_save 1		; Save state of subtract carries
+	call	zr1_add_carry_op_zpad_cleanup	; Handle last eight carries out of the last four sections
+	znorm_addsub_1d_zpad_save 4		; Restore state of subtract carries
+	call	zr1_add_carry_op_zpad_cleanup	; Handle last eight carries out of the last four sections
 	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzaddsubrzp1 ENDP
 
@@ -791,13 +801,18 @@ zmulsec:mov	r10d, addcount1			; Count of double cache lines in a section
 	mov	r9, rbx				; Save section start pointers for later zr1_add_carry and positioning to next set of sections
 	mov	r8, rdi
 	push	rsi
+	push	r12				; Save section start compressed biglit table pointer
 zmullp:	znorm_smallmul_1d_zpad exec		; Add and normalize 4 double cache lines
 	bump	rsi, 128			; Next source/dest pointers
 	bump	rbx, 128
-	bump	rdi, 1				; Next big/little flags
+	mov	rdx, r12			; If r12 has been been bumped by 4, we'll need to unbump r12 and bump rdi
+	shr	rdx, 3				; Set carry if r12 is in +4 state
+	adc	rdi, 0				; Increment (or not) the biglit table pointer
+	xor	r12, 4				; Bump or unbump pointer into the compressed biglit table
 	dec	r10d				; Are we done with the inner loop?
 	jnz	zmullp				; Loop til done
-	call	zi1_add_carry_zpad		; Rotate and apply carries, create carries for next four sections
+	pop	rbp				; Load section start compressed biglit table pointer
+	call	zi1_add_carry_op_zpad		; Rotate and apply carries, create carries for next four sections
 	; Position to next set of 4 sections and loop
 	shr	r13, 1				; Compute section distance
 	lea	rbx, [r9+r13]			; Calculate next source/dest ptrs
@@ -806,7 +821,7 @@ zmullp:	znorm_smallmul_1d_zpad exec		; Add and normalize 4 double cache lines
 	shl	r13, 1				; Restore every other section distance
 	dec	al				; Test outer loop counter
 	jnz	zmulsec				; Iterate
-	call	zi1_add_carry_zpad_cleanup	; Handle last eight carries out of the last four sections
+	call	zi1_add_carry_op_zpad_cleanup	; Handle last eight carries out of the last four sections
 	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzmulszp1 ENDP
 
@@ -829,7 +844,7 @@ zrmullp:znorm_smallmul_1d_zpad noexec		; Add and normalize 4 double cache lines
 	bump	rbx, 128
 	dec	r10d				; Are we done with the inner loop?
 	jnz	zrmullp				; Loop til done
-	call	zr1_add_carry_zpad		; Rotate and apply carries, create carries for next four sections
+	call	zr1_add_carry_op_zpad		; Rotate and apply carries, create carries for next four sections
 	; Position to next set of 4 sections and loop
 	shr	r13, 1				; Compute section distance
 	lea	rbx, [r9+r13]			; Calculate next source/dest ptrs
@@ -838,7 +853,7 @@ zrmullp:znorm_smallmul_1d_zpad noexec		; Add and normalize 4 double cache lines
 	shl	r13, 1				; Restore every other section distance
 	dec	al				; Test outer loop counter
 	jnz	zrmulsec			; Iterate
-	call	zr1_add_carry_zpad_cleanup	; Handle last eight carries out of the last four sections
+	call	zr1_add_carry_op_zpad_cleanup	; Handle last eight carries out of the last four sections
 	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwzmulsrzp1 ENDP
 
@@ -846,9 +861,9 @@ gwzmulsrzp1 ENDP
 ;; Routines to do the normalization after a multiply
 ;;
 
-;; Internal routines to process carries after one set of four sections
-;; Rotate and apply carries, create carries for next set of four sections
-;; See zadd_carry_1d macro for register usage
+;; Six internal routines to process carries after one set of four sections.
+;; Rotate and apply carries, create carries for next set of four sections.
+;; See zadd_carry_1d macro for register usage.
 PROCFL	zr1_add_carry
 	int_prolog 0,0,0
 	zadd_carry_1d noexec
@@ -856,53 +871,70 @@ PROCFL	zr1_add_carry
 zr1_add_carry ENDP
 PROCFL	zi1_add_carry
 	int_prolog 0,0,0
-	push	rdi			;; Save next section's biglit pointer
 	zadd_carry_1d exec
-	pop	rdi			;; Restore next section's biglit pointer
 	int_epilog 0,0,0
 zi1_add_carry ENDP
 PROCFL	zr1_add_carry_zpad
 	int_prolog 0,0,0
-;;	zadd_carry_1d_zpad noexec
+	zadd_carry_1d_zpad noexec
 	int_epilog 0,0,0
 zr1_add_carry_zpad ENDP
 PROCFL	zi1_add_carry_zpad
 	int_prolog 0,0,0
-	push	rdi			;; Save next section's biglit pointer
-;;	zadd_carry_1d_zpad exec
-	pop	rdi			;; Restore next section's biglit pointer
+	zadd_carry_1d_zpad exec
 	int_epilog 0,0,0
 zi1_add_carry_zpad ENDP
+PROCFL	zr1_add_carry_op_zpad
+	int_prolog 0,0,0
+	zadd_carry_op_1d_zpad noexec
+	int_epilog 0,0,0
+zr1_add_carry_op_zpad ENDP
+PROCFL	zi1_add_carry_op_zpad
+	int_prolog 0,0,0
+	zadd_carry_op_1d_zpad exec
+	int_epilog 0,0,0
+zi1_add_carry_op_zpad ENDP
 
-;; Internal routines to handle last eight carries out of the last four sections
+;; Six internal routines to handle last eight carries out of the last four sections
 PROCFL	zr1_add_carry_cleanup
 	int_prolog 0,0,0
-	mov	rsi, DESTARG		;; Source pointer
 	zadd_carry_1d_cleanup noexec	;; Process last 8 carries
 	int_epilog 0,0,0
 zr1_add_carry_cleanup ENDP
 PROCFL	zi1_add_carry_cleanup
 	int_prolog 0,0,0
-	mov	rsi, DESTARG		;; Source pointer
-	mov	rdi, norm_biglit_array	;; rdi = pointer to big/lit flags
 	znorm_top_carry_1d		;; Adjust carry in xmm7 if k > 1
 	zadd_carry_1d_cleanup exec	;; Process last 8 carries
 	int_epilog 0,0,0
 zi1_add_carry_cleanup ENDP
 PROCFL	zr1_add_carry_zpad_cleanup
 	int_prolog 0,0,0
-	mov	rsi, DESTARG		;; Source pointer
-;	zadd_carry_1d_zpad_cleanup noexec	;; Process last 8 carries
+	zadd_carry_1d_zpad_cleanup noexec ;; Process last 8 carries
+	zpad_prep_final_div_by_k_after_multiply noexec
+	zpad_final_div_by_k noexec
 	int_epilog 0,0,0
 zr1_add_carry_zpad_cleanup ENDP
 PROCFL	zi1_add_carry_zpad_cleanup
 	int_prolog 0,0,0
-	mov	rsi, DESTARG		;; Source pointer
-	mov	rdi, norm_biglit_array	;; rdi = pointer to big/lit flags
-	znorm_top_carry_1d		;; Adjust carry in xmm7 if k > 1
-;	zadd_carry_1d_zpad_cleanup exec	;; Process last 8 carries
+	zadd_carry_1d_zpad_cleanup exec	;; Process last 8 carries
+	zpad_prep_final_div_by_k_after_multiply exec
+	zpad_final_div_by_k exec
 	int_epilog 0,0,0
 zi1_add_carry_zpad_cleanup ENDP
+PROCFL	zr1_add_carry_op_zpad_cleanup
+	int_prolog 0,0,0
+	zadd_carry_op_1d_zpad_cleanup noexec ;; Process last 8 carries
+	zpad_prep_final_div_by_k_after_op noexec
+	zpad_final_div_by_k noexec
+	int_epilog 0,0,0
+zr1_add_carry_op_zpad_cleanup ENDP
+PROCFL	zi1_add_carry_op_zpad_cleanup
+	int_prolog 0,0,0
+	zadd_carry_op_1d_zpad_cleanup exec ;; Process last 8 carries
+	zpad_prep_final_div_by_k_after_op exec
+	zpad_final_div_by_k exec
+	int_epilog 0,0,0
+zi1_add_carry_op_zpad_cleanup ENDP
 
 ENDIF 
 
@@ -921,7 +953,6 @@ ENDIF
 ;; rdi = big/lit/fudge flags array
 ;; r12 = compressed biglit table pointer
 ;; r10 = pointer to inverse weight multipliers
-				;; r9 = alternating zero and one for incrementing rdi during a zero pad normalize
 ;; r9 = saved dest ptr at section start
 ;; r8 = saved big/lit ptr at section start
 ;; rbx = available
@@ -1028,7 +1059,6 @@ zpnorm	MACRO	lab, ttp, echk, const, khi
 
 	mov	rsi, DESTARG		;; Source pointer
 echk	vbroadcastsd zmm31, MAXERR	;; Load maximum error
-	vbroadcastsd zmm30, ZMM_RNDVAL	;; Load rounding constant
 	znorm_1d_zpad_preload ttp, echk, const, khi
 
 	mov	r13, pass1blkdst	;; Distance between two sections (there are 8 sections)
@@ -1042,44 +1072,32 @@ ttp	mov	r12, compressed_biglits	;; Get pointer to compressed biglit table
 	vmovapd zmm1, zmm30
 	vmovapd zmm2, zmm30
 	vmovapd zmm3, zmm30
-	vmovapd zmm4, zmm30
-	vmovapd zmm5, zmm30
-	vmovapd zmm6, zmm30
-	vmovapd zmm7, zmm30
+no ttp	vmovapd zmm4, zmm30
+ttp	vxorpd	zmm4, zmm4, zmm4	;; Remove RNDVAL from high carries for irrational normalization
+	vmovapd zmm5, zmm4
+	vmovapd zmm6, zmm4
+	vmovapd zmm7, zmm4
 
 	mov	al, 2			;; Loop counter (even sections, then odd sections)
 ilp1:	mov	ecx, addcount1		;; Count of double cache lines in a section
 
 	mov	r9, rsi			;; Save section pointers for later carry rotate and add
 ttp	mov	r8, rdi
-
-;;GW ???ttp	sub	r9, r9			;; Clear register used to alternate the increment of rdi
-
-ttp	vsubpd	zmm4, zmm4, zmm30	;; Remove RNDVAL from high carries for irrational normalization
-ttp	vsubpd	zmm5, zmm5, zmm30
-ttp	vsubpd	zmm6, zmm6, zmm30
-ttp	vsubpd	zmm7, zmm7, zmm30
+ttp	mov	rbp, r12
 
 ilp2:	znorm_1d_zpad ttp, echk, const, khi ;; Normalize 64 values (4 simultaneous sections)
 	bump	rsi, 128		;; Next source pointer
-ttp	bump	r10, 4*64		;; Next set of inverse weights
-
-;;GW ttp	xor	r12, 4			;; Bump or unbump pointer into the compressed biglit table
-;;GW ttp	add	rdi, r9			;; Increment (or not) the biglit table pointer
-;;GW ttp	xor	r9, 1			;; Alternate the increment for rdi
-
+	bump	r10, 4*64		;; Rational negacyclics also need inverse weights due to delayed mul-by-sine
+ttp	mov	rdx, r12		;; If r12 has been been bumped by 4, we'll need to unbump r12 and bump rdi
+ttp	shr	rdx, 3			;; Set carry if r12 is in the +4 state
+ttp	adc	rdi, 0			;; Increment (or not) the biglit table pointer
+ttp	xor	r12, 4			;; Bump or unbump pointer into the compressed biglit table
 	dec	ecx			;; Are we done with the inner loop?
 	jnz	ilp2			;; Loop til done
 
-ttp	vaddpd	zmm4, zmm4, zmm30	;; Restore RNDVAL to high carries for irrational normalization
-ttp	vaddpd	zmm5, zmm5, zmm30
-ttp	vaddpd	zmm6, zmm6, zmm30
-ttp	vaddpd	zmm7, zmm7, zmm30
-
-	;; Rotate and apply section carries, create 8 next section carries
-ttp	push	rdi			;; Save next section's biglit pointer
-	zadd_carry_1d_zpad ttp
-ttp	pop	rdi			;; Restore next section's biglit pointer
+	;; Rotate and apply four section carries, create carries for next four sections
+no ttp	call	zr1_add_carry_zpad
+ttp	call	zi1_add_carry_zpad
 
 	;; Position to next 4 sections and loop
 	shr	r13, 1			;; Compute section distance
@@ -1089,9 +1107,8 @@ ttp	pop	rdi			;; Restore next section's biglit pointer
 	jnz	ilp1			;; Iterate
 
 	;; Handle last eight carries out of the last four sections
-;;GW apply top carry (here or in common code?)  Make common code callable so add/sub/addsub can use it
-ttp	mov	rdi, norm_biglit_array	;; rdi = pointer to big/lit flags
-	zadd_carry_1d_zpad_cleanup ttp	;; Process last 8 carries
+no ttp	call	zr1_add_carry_zpad_cleanup
+ttp	call	zi1_add_carry_zpad_cleanup
 
 	;; Compress 8 MAXERR values into one
 echk	zcollapse_maxerr		;; Collapse and save MAXERR

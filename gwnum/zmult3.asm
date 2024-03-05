@@ -25,6 +25,8 @@ _TEXT SEGMENT
 PROCFL	zgw_carries_wpn3
 	int_prolog 0,0,0
 
+	zadd_carry_rows_preload exec	; Constants needed for zprocess_last_two_carries and zadd_carry_rows
+
 	cmp	THIS_BLOCK, 0		; Are we carrying into the first data block?
 	jne	i3_not_block0_a		; If not, skip wrapping carries and negating the last carry
 	zrotate_carries_array		; Rotate the entire carries array
@@ -44,7 +46,6 @@ i3_not_block0_a:
 mov	r15d, cache_line_multiplier; Cache lines in each pass1 loop
 ;;shl	r15, 3			; Compute biglit increment
 
-	zadd_carry_rows_preload exec
 ilp1:	zadd_carry_rows exec		; Propagate 4 low/high carry pairs
 	bump	rbp, 4*128		; Next carries pointer
 	lea	rsi, [rsi+4*r13]	; Next FFT source #1
@@ -60,6 +61,8 @@ zgw_carries_wpn3 ENDP
 PROCFL	zgw_carries_wpnr3
 	int_prolog 0,0,0
 
+	zadd_carry_rows_preload noexec	; Constants needed for zprocess_last_two_carries and zadd_carry_rows
+
 	cmp	THIS_BLOCK, 0		; Are we carrying into the first data block?
 	jne	r3_not_block0_a		; If not, skip wrapping carries and negating the last carry
 	zrotate_carries_array		; Rotate the entire carries array
@@ -72,7 +75,6 @@ r3_not_block0_a:
 	lea	r14, [2*r13+r13]	; Distance to 4th FFT source
 	mov	ecx, addcount1		; Load count of pass 1 blocks
 
-	zadd_carry_rows_preload noexec
 rlp1:	zadd_carry_rows noexec		; Propagate 4 low/high carry pairs
 	bump	rbp, 4*128		; Next carries pointer
 	lea	rsi, [rsi+4*r13]	; Next FFT source #1
@@ -86,6 +88,8 @@ zgw_carries_wpnr3 ENDP
 ;; Irrational, zero padding, carries from a squaring/multiply operation
 PROCFL	zgw_carries_wpnzp3
 	int_prolog 0,0,0
+
+	zadd_carry_rows_zpad_preload exec ; Constants needed for zprocess_last_two_carries_zpad and zadd_carry_rows_zpad
 
 	cmp	THIS_BLOCK, 0		; Are we carrying into the first data block?
 	jne	izp3_not_block0_a	; If not, skip wrapping carries and negating the last carry
@@ -106,7 +110,6 @@ izp3_not_block0_a:
 mov	r15d, cache_line_multiplier; Cache lines in each pass1 loop
 shr	r15, 1			; Compute biglit increment
 
-	zadd_carry_rows_zpad_preload exec
 izplp1: zadd_carry_rows_zpad exec	; Propagate 4 low/high carry pairs
 	bump	rbp, 4*128		; Next carries pointer
 	lea	rsi, [rsi+4*r13]	; Next FFT source #1
@@ -131,6 +134,8 @@ zgw_carries_wpnzp3 ENDP
 PROCFL	zgw_carries_wpnrzp3
 	int_prolog 0,0,0
 
+	zadd_carry_rows_zpad_preload noexec ; Constants needed for zprocess_last_two_carries_zpad and zadd_carry_rows_zpad
+
 	cmp	THIS_BLOCK, 0		;; Are we carrying into the first data block?
 	jne	rzp3_not_block0_a	;; If not, skip wrapping carries and negating the last carry
 	zrotate_carries_array		;; Rotate the entire carries array
@@ -143,7 +148,6 @@ rzp3_not_block0_a:
 	lea	r14, [2*r13+r13]	; Distance to 4th FFT source
 	mov	ecx, addcount1		; Load count of pass 1 blocks
 
-	zadd_carry_rows_zpad_preload noexec
 rzplp1:	zadd_carry_rows_zpad noexec	; Propagate 4 low/high carry pairs
 	bump	rbp, 4*128		; Next carries pointer
 	lea	rsi, [rsi+4*r13]	; Next FFT source #1
@@ -167,6 +171,8 @@ zgw_carries_wpnrzp3 ENDP
 PROCFL	zgw_carries_op_wpnzp3
 	int_prolog 0,0,0
 
+	zadd_carry_rows_op_zpad_preload exec ; Constants needed for zprocess_last_two_carries_zpad and zadd_carry_rows_op_zpad
+
 	cmp	THIS_BLOCK, 0		;; Are we carrying into the first data block?
 	jne	iopzp3_not_block0_a	;; If not, skip wrapping carries and negating the last carry
 	zrotate_carries_array		;; Rotate the entire carries array
@@ -186,7 +192,6 @@ iopzp3_not_block0_a:
 mov	r15d, cache_line_multiplier; Cache lines in each pass1 loop
 shr	r15, 1			; Compute biglit increment
 
-	zadd_carry_rows_op_zpad_preload exec
 iopzplp1: zadd_carry_rows_op_zpad exec	; Propagate 4 low/high carry pairs
 	bump	rbp, 4*128		; Next carries pointer
 	lea	rsi, [rsi+4*r13]	; Next FFT source #1
@@ -211,6 +216,8 @@ zgw_carries_op_wpnzp3 ENDP
 PROCFL	zgw_carries_op_wpnrzp3
 	int_prolog 0,0,0
 
+	zadd_carry_rows_op_zpad_preload noexec ; Constants needed for zprocess_last_two_carries_zpad and zadd_carry_rows_op_zpad
+
 	cmp	THIS_BLOCK, 0		;; Are we carrying into the first data block?
 	jne	ropzp3_not_block0_a	;; If not, skip wrapping carries and negating the last carry
 	zrotate_carries_array		;; Rotate the entire carries array
@@ -223,7 +230,6 @@ ropzp3_not_block0_a:
 	lea	r14, [2*r13+r13]	; Distance to 4th FFT source
 	mov	ecx, addcount1		; Load count of pass 1 blocks
 
-	zadd_carry_rows_op_zpad_preload noexec
 ropzplp1: zadd_carry_rows_op_zpad noexec ; Propagate 4 low/high carry pairs
 	bump	rbp, 4*128		; Next carries pointer
 	lea	rsi, [rsi+4*r13]	; Next FFT source #1

@@ -70,7 +70,6 @@ PROCFL	gwzadd3
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
 
-	znorm_common_op_wpn_preload exec	; Preload constants common to add,sub,addsub,smalladd,smallmul,with and without zpad
 	znorm_op_wpn_preload exec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
@@ -118,7 +117,6 @@ PROCFL	gwzaddr3
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
 
-	znorm_common_op_wpn_preload noexec	; Preload constants common to add,sub,addsub,smalladd,smallmul,with and without zpad
 	znorm_op_wpn_preload noexec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
@@ -159,7 +157,6 @@ PROCFL	gwzaddzp3
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
 
-	znorm_common_op_wpn_preload exec	; Preload constants common to add,sub,addsub,smalladd,smallmul,with and without zpad
 	znorm_op_wpn_zpad_preload exec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
@@ -210,7 +207,6 @@ PROCFL	gwzaddrzp3
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
 
-	znorm_common_op_wpn_preload noexec	; Preload constants common to add,sub,addsub,smalladd,smallmul,with and without zpad
 	znorm_op_wpn_zpad_preload noexec	; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
@@ -295,7 +291,6 @@ PROCFL	gwzsub3
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
 
-	znorm_common_op_wpn_preload exec	; Preload constants common to add,sub,addsub,smalladd,smallmul,with and without zpad
 	znorm_op_wpn_preload exec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
@@ -343,7 +338,6 @@ PROCFL	gwzsubr3
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
 
-	znorm_common_op_wpn_preload noexec	; Preload constants common to add,sub,addsub,smalladd,smallmul,with and without zpad
 	znorm_op_wpn_preload noexec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
@@ -384,7 +378,6 @@ PROCFL	gwzsubzp3
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
 
-	znorm_common_op_wpn_preload exec	; Preload constants common to add,sub,addsub,smalladd,smallmul,with and without zpad
 	znorm_op_wpn_zpad_preload exec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
@@ -435,7 +428,6 @@ PROCFL	gwzsubrzp3
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
 
-	znorm_common_op_wpn_preload noexec	; Preload constants common to add,sub,addsub,smalladd,smallmul,with and without zpad
 	znorm_op_wpn_zpad_preload noexec	; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
@@ -528,7 +520,6 @@ PROCFL	gwzaddsub3
 	mov	rbx, DESTARG			; Address of destination
 	mov	rbp, DEST2ARG		  	; Address of destination #2
 
-	znorm_common_op_wpn_preload exec	; Preload constants common to add,sub,addsub,smalladd,smallmul,with and without zpad
 	znorm_addsub_wpn_preload exec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
@@ -580,7 +571,6 @@ PROCFL	gwzaddsubr3
 	mov	rbx, DESTARG			; Address of destination
 	mov	rbp, DEST2ARG		  	; Address of destination #2
 
-	znorm_common_op_wpn_preload noexec	; Preload constants common to add,sub,addsub,smalladd,smallmul,with and without zpad
 	znorm_addsub_wpn_preload noexec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
@@ -625,7 +615,6 @@ PROCFL	gwzaddsubzp3
 	mov	rbx, DESTARG			; Address of destination
 	mov	rbp, DEST2ARG		  	; Address of destination #2
 
-	znorm_common_op_wpn_preload exec	; Preload constants common to add,sub,addsub,smalladd,smallmul,with and without zpad
 	znorm_addsub_wpn_zpad_preload exec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
@@ -681,7 +670,6 @@ PROCFL	gwzaddsubrzp3
 	mov	rbx, DESTARG			; Address of destination
 	mov	rbp, DEST2ARG		  	; Address of destination #2
 
-	znorm_common_op_wpn_preload noexec	; Preload constants common to add,sub,addsub,smalladd,smallmul,with and without zpad
 	znorm_addsub_wpn_zpad_preload noexec	; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
@@ -729,7 +717,6 @@ PROCFL	gwzmuls3
 
 	vbroadcastsd zmm31, DBLARG		; Load small multiplier value
 
-	znorm_common_op_wpn_preload exec	; Preload constants common to add,sub,addsub,smalladd,smallmul,with and without zpad
 	znorm_smallmul_wpn_preload exec		; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
@@ -773,7 +760,6 @@ PROCFL	gwzmulsr3
 
 	vbroadcastsd zmm31, DBLARG		; Load small multiplier value
 
-	znorm_common_op_wpn_preload noexec	; Preload constants common to add,sub,addsub,smalladd,smallmul,with and without zpad
 	znorm_smallmul_wpn_preload noexec	; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
@@ -810,7 +796,6 @@ PROCFL	gwzmulszp3
 
 	vbroadcastsd zmm31, DBLARG		; Load small multiplier value
 
-	znorm_common_op_wpn_preload exec	; Preload constants common to add,sub,addsub,smalladd,smallmul,with and without zpad
 	znorm_smallmul_wpn_zpad_preload exec	; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
@@ -858,7 +843,6 @@ PROCFL	gwzmulsrzp3
 
 	vbroadcastsd zmm31, DBLARG		; Load small multiplier value
 
-	znorm_common_op_wpn_preload noexec	; Preload constants common to add,sub,addsub,smalladd,smallmul,with and without zpad
 	znorm_smallmul_wpn_zpad_preload noexec	; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2

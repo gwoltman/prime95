@@ -254,11 +254,16 @@ const	int	END_OF_CHAIN = 0x4000;
 
 /* Init table of first 8 big/lit values */
 
-//GW	memset (asm_data->u.zmm.ZMM_FIRST_BIGLIT_VALUES, 0, sizeof (asm_data->u.zmm.ZMM_FIRST_BIGLIT_VALUES));
+	memset (asm_data->u.zmm.ZMM_FIRST_BIGLIT_VALUES, 0, sizeof (asm_data->u.zmm.ZMM_FIRST_BIGLIT_VALUES));
 
 /* Rational FFTs don't have any big/lit flags */
 
 	if (gwdata->RATIONAL_FFT) return (table);
+
+/* Create separate table for first 8 biglit values for carry propagation code */
+
+	for (i = 0; i < sizeof (asm_data->u.zmm.ZMM_FIRST_BIGLIT_VALUES) * 8; i++)
+		if (is_big_word (gwdata, i)) bitset (asm_data->u.zmm.ZMM_FIRST_BIGLIT_VALUES, i);
 
 /* Loop to build table for non-zero-padded case in the order that normalize will need them */
 
@@ -286,11 +291,6 @@ const	int	END_OF_CHAIN = 0x4000;
 		if (is_big_word (gwdata, word + 5 * upper_avx512_word)) *p += 32;
 		if (is_big_word (gwdata, word + 6 * upper_avx512_word)) *p += 64;
 		if (is_big_word (gwdata, word + 7 * upper_avx512_word)) *p += 128;
-
-/* Create separate table for first 8 biglit values for carry propagation code */
-
-//GW		if (word < sizeof (asm_data->u.zmm.ZMM_FIRST_BIGLIT_VALUES) * 8 && (*p & 1))
-//GW			bitset (asm_data->u.zmm.ZMM_FIRST_BIGLIT_VALUES, word);
 
 /* Move to next big/lit byte */
 
@@ -400,63 +400,33 @@ double *zr4_build_onepass_weights_table (
 	double	*table)		/* Pointer to the table to fill in */
 {
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
-	unsigned long i;
 
-/* Loop to build table for zero-padded case.  We only need half as much data because the upper half data are the same as the lower half data. */
+/* Loop to build table for non-zero-padded case in the order that sixteen reals and eight complex first fft will need them. */
+/* We only need half as much zero-padded FFT data because the upper half weights are the same as the lower half.  Unfortunately, the */
+/* sixteen reals and eight complex macros don't know that they are operating on a zero-padded FFT.  Thus, we create a bigger table than strictly necessary. */
 
-	if (gwdata->ZERO_PADDED_FFT) {
-		for (i = 0; i < gwdata->FFTLEN / 2; i++) {
-			double	ttp, ttmp;
-			unsigned long top5bits, j, table_entry;
-
-/* Call double-precision routine to compute the two multipliers */
-
-			gwfft_weights3 (gwdata->dd_data, i, &ttp, NULL, &ttmp);
-
-/* Find where this data appears in the table we are building.  Use the same algorithm */
-/* as addr_offset except no padding is necessary. */			
-
-			top5bits = i / (gwdata->FFTLEN >> 5); j = i - top5bits * (gwdata->FFTLEN >> 5);
-			j = ((top5bits >> 2) & 3) * (gwdata->FFTLEN >> 2) + (j << 3) + ((top5bits >> 4) << 2) + (top5bits & 3);
-			table_entry = j >> 3;
-
-/* Now set the entry for the proper double in an AVX word */
-
-			table[table_entry*8+(j&3)] = ttmp;
-			table[table_entry*8+4+(j&3)] = ttp;
-		}
-
-/* Form pointer for next table */
-
-		table += gwdata->FFTLEN;
-	}
-
-/* Loop to build table for non-zero-padded case in the order that sixteen reals an eight complex first fft will need them */
-
-	else {
-		for (int i = 0; i < (int) gwdata->FFTLEN/128; i++) {				// Number of sixteen reals first fft macro calls
-		for (int j = 0; j < (int) gwdata->FFTLEN/2; j += gwdata->FFTLEN/16) {		// Each macro accesses 8 double cache lines
-		for (int k = 0; k < (int) gwdata->FFTLEN; k += gwdata->FFTLEN/2) {		// Two AVX512 words in each double cache line
-		for (int l = 0; l < (int) gwdata->FFTLEN/16; l += gwdata->FFTLEN/128) {		// Eight elements in each AVX512 word
+	for (int i = 0; i < (int) gwdata->FFTLEN/128; i++) {				// Number of sixteen reals first fft macro calls
+	for (int j = 0; j < (int) gwdata->FFTLEN/2; j += gwdata->FFTLEN/16) {		// Each macro accesses 8 double cache lines
+	for (int k = 0; k < (int) gwdata->FFTLEN; k += gwdata->FFTLEN/2) {		// Two AVX512 words in each double cache line
+	for (int l = 0; l < (int) gwdata->FFTLEN/16; l += gwdata->FFTLEN/128) {		// Eight elements in each AVX512 word
 
 /* Call double-precision routine to compute the weight */
 
-			// Four special divided weights for zr8fs_eight_complex_first_fft
-			if (gwdata->NEGACYCLIC_FFT && k && j <= (int) (3*gwdata->FFTLEN/16))
-				gwfft_weights_over_weights3 (gwdata->dd_data, i+j+k+l, i+j+l, table, NULL, NULL);
-			// Remaining negacyclic weights are pre-multiplied by sine value for the root-of-minus-one premultiplier.  The root-of-minus-one premultiplier
-			// is for 2N, and a root-of-minus-one-of-2N is the same as a root unity for 4N (where N is the number of complex values = FFTLEN/2). */
-			else if (gwdata->NEGACYCLIC_FFT)
-				gwfft_weights3_times_sine (gwdata->dd_data, i+j+k+l, i+j+l, gwdata->FFTLEN * 2, table, NULL, NULL);
-			// Three special divided weights for zr8fs_sixteen_reals_first_fft
-			else if (k && j && j <= (int) (3*gwdata->FFTLEN/16))
-				gwfft_weights_over_weights3 (gwdata->dd_data, i+j+k+l, i+j+l, table, NULL, NULL);
-			// Finally, output a simple weight
-			else
-				gwfft_weights3 (gwdata->dd_data, i+j+k+l, table, NULL, NULL);
-			table++;
-		}}}}
-	}
+		// Four special divided weights for zr8fs_eight_complex_first_fft
+		if (gwdata->NEGACYCLIC_FFT && k && j <= (int) (3*gwdata->FFTLEN/16))
+			gwfft_weights_over_weights3 (gwdata->dd_data, i+j+k+l, i+j+l, table, NULL, NULL);
+		// Remaining negacyclic weights are pre-multiplied by sine value for the root-of-minus-one premultiplier.  The root-of-minus-one premultiplier
+		// is for 2N, and a root-of-minus-one-of-2N is the same as a root unity for 4N (where N is the number of complex values = FFTLEN/2). */
+		else if (gwdata->NEGACYCLIC_FFT)
+			gwfft_weights3_times_sine (gwdata->dd_data, i+j+k+l, i+j+l, gwdata->FFTLEN * 2, table, NULL, NULL);
+		// Three special divided weights for zr8fs_sixteen_reals_first_fft
+		else if (k && j && j <= (int) (3*gwdata->FFTLEN/16))
+			gwfft_weights_over_weights3 (gwdata->dd_data, i+j+k+l, i+j+l, table, NULL, NULL);
+		// Finally, output a simple weight
+		else
+			gwfft_weights3 (gwdata->dd_data, i+j+k+l, table, NULL, NULL);
+		table++;
+	}}}}
 
 /* Return pointer for next table */
 
@@ -471,7 +441,7 @@ double *zr4_build_onepass_inverse_weights_table (
 {
 	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
 
-/* Loop to build table for non-zero-padded case in the order that normalize will need them. */
+/* Loop to build table in the order that normalize will need them. */
 
 	for (int i = 0; i < (int) (2*gwdata->FFTLEN/16); i += gwdata->FFTLEN/16) {	// Two groups of 4 sections normalized at the same time
 	for (int j = 0; j < (int) gwdata->FFTLEN/128; j++) {				// Number double cache lines in each section
@@ -487,11 +457,11 @@ double *zr4_build_onepass_inverse_weights_table (
 /* by precomputing the weight times sine value of the roots-of-minus-one premultiplier. */
 
 		if (gwdata->NEGACYCLIC_FFT) {
-			/* The weights for each cache line of the double cache line are identical.  Only output the inverse weights once */
-			if (l) break;
+			/* Rational negacyclic FFT inverse weight are the same for low and high cache lines of the double cache line */
+			if (gwdata->RATIONAL_FFT && l) continue;
 			/* Compute the roots-of-minus-one premultiplier.  The root-of-minus-one premultiplier is for 2N, and a root-of-minus-one-of-2N */
 			/* is the same as a root unity for 4N (where N is the number of complex values = FFTLEN/2). */
-			gwfft_weights3_times_sine (gwdata->dd_data, i+j+k+m, i+j+k+m, gwdata->FFTLEN * 2, NULL, NULL, table);
+			gwfft_weights3_times_sine (gwdata->dd_data, i+j+k+l+m, i+j+k+m, gwdata->FFTLEN * 2, NULL, NULL, table);
 		} else
 			gwfft_weights3 (gwdata->dd_data, i+j+k+l+m, NULL, NULL, table);
 		table++;

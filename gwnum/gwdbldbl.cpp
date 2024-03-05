@@ -1350,8 +1350,7 @@ void gwfft_weights_fudged (
 	END_x86_FIX
 }
 
-/* Special version that merges group multiplier with the sine value from gwsincos1plus0123456789ABby. */
-/* Used in AVX-512 negacyclic FFTs. */
+/* Special version that merges weights with the sine value from gwsincos1plus0123456789ABby.  Used in AVX-512 negacyclic FFTs. */
 
 extern "C"
 void gwfft_weights3_times_sine (
