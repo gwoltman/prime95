@@ -64,40 +64,51 @@ double *zr4_build_onepass_sincos_table (
 	N = 8;
 	size /= 8;
 
-/* For the zr4_four_complex_djbfft and yr4_eight_reals_four_complex_djbfft building block levels, output the sin/cos values. */
+/* For the zr8_eight_complex_djbfft and zr8_sixteen_reals_eight_complex_djbfft building block levels, output the sin/cos values. */
 
-#ifdef LATER
 	if ((size & 7) == 0) {
 		while ((size & 7) == 0) {
 			N = N * 8;
 			size /= 8;
 		}
 
-/* For the zr8_sixteen_reals_eight_complex_djbfft building block levels, output the sin/cos values needed. */
-/* The sixteen doubles N because the real part of the FFT is one level behind the complex part of the FFT. /
-/* The eight-complex sin/cos values are the same for all 3 of the upper ZMM doubles. */
+/* For the zr8_sixteen_reals_eight_complex_djbfft building block levels, output the sin/cos values needed.  The sixteen doubles N because the real */
+/* part of the FFT is one level behind the complex part of the FFT.  The eight-complex sin/cos values are the same for all 3 of the upper ZMM doubles. */
 
 		if (!gwdata->NEGACYCLIC_FFT) {
 			for (j = 0; j < N / 8; j++) {
-??				gwsincos125by8 (j, N*2, table);				/* For the sixteen reals */
-??				gwsincos12by8 (j + avx_increment, N, table+1);		/* For the eight complex */
-				table[3] = table[2] = table[1];
-				table[7] = table[6] = table[5];
-				table[11] = table[10] = table[9];
-				table[15] = table[14] = table[13];
-				table[19] = table[18] = table[17] = -table[1];
-				table[23] = table[22] = table[21] = -table[5];
-				table += 24;
+				// This is really ugly.  Butterflies require bit-flipping powers of w and the real and complex powers use different powers of w.
+				// Computing powers of w for 16-reals			and matching 8-complex:
+				// r1a/r1b, w power = 0					r1/i1, w power = 0
+				// r3/i3, 3-1=2 flip=4					r2/i2, 2-1=1, flip=4
+				// r5/i5, 5-1=4 flip=2					r3/i3, 3-1=2, flip=2
+				// r6/i6, 6-1=5 flip=10 (aka -6)			r4/i4, 4-1=3, flip=6 (aka -2)
+				// r9/i9, 9-1=8 flip=1					r5/i5, 5-1=4, flip=1
+				// r10/i10, 10-1=9 flip=9 (aka -7)			r6/i6, 6-1=5, flip=5 (aka -3)
+				// r11/i11, 11-1=10 flip=5				r7/i7, 7-1=6, flip=3
+				// r12/i12, 12-1=11 flip=13 (aka -3)			r8/i8, 8-1=7, flip=7 (aka -1)
+				// so we need sincos12549AD				and sincos1234567 or sincos1234(-321)
+				gwsincos12549ADby8 (j, N*2, table);			/* For the sixteen reals */
+				gwsincos1234by8 (j + avx_increment, N, table+1);	/* For the eight complex */
+				table[6*16+1] = -table[0*16+1];				/* Copy and negate the first 3 sin and cos/sin values (due to djbfft) */
+				table[6*16+9] = -table[0*16+9];
+				table[5*16+1] = -table[1*16+1];
+				table[5*16+9] = -table[1*16+9];
+				table[4*16+1] = -table[2*16+1];
+				table[4*16+9] = -table[2*16+9];
+				for (int k = 0; k < 14*8; k += 8)			/* Fill out the upper AVX512 entries */
+					table[k+7] = table[k+6] = table[k+5] = table[k+4] = table[k+3] = table[k+2] = table[k+1];
+				table += 112;
 			}
 		}
 
-/* Output the sin/cos values for negacyclic FFTs, used by the zr8__b4cl_eight_complex_djbfft macro. */
+/* Output the sin/cos values for negacyclic FFTs, used by the zr8b_eight_complex_djbfft macro. */
 /* We only need one sin/cos value pair as we use the vbroadcastsd instruction to fill out the ZMM register. */
 
 		else {
 			for (j = 0; j < N / 8; j++) {
-				gwsincos12by1 (j, N, table);
-				table += 4;
+				gwsincos1234by1 (j, N, table);
+				table += 8;
 			}
 		}
 	}
@@ -178,7 +189,6 @@ double *zr4_build_onepass_sincos_table (
 			}
 		}
 	}
-#endif
 	ASSERTG (size == 1);
 	if (size != 1) gwdata->GWERROR = GWERROR_INTERNAL + 1;
 
@@ -1973,13 +1983,18 @@ double *yr4_build_onepass_sincos_table (
 			size /= 4;
 		}
 
-/* For the yr4_eight_reals_four_complex_djbfft building block levels, output the */
-/* sin/cos values needed.  The eight_reals doubles N because the real part of the FFT */
-/* is one level behind the complex part of the FFT.  The four-complex sin/cos values */
-/* are the same for all 3 of the upper YMM doubles. */		
+/* For the yr4_eight_reals_four_complex_djbfft building block levels, output the sin/cos values needed.  The eight_reals doubles N because the real */
+/* part of the FFT is one level behind the complex part of the FFT.  The four-complex sin/cos values are the same for all 3 of the upper YMM doubles. */
 
 		if (!gwdata->NEGACYCLIC_FFT) {
 			for (j = 0; j < N / 4; j++) {
+				// This is really ugly.  Butterflies require bit-flipping powers of w and the real and complex powers use different powers of w.
+				// Computing powers of w for 8-reals			and matching 4-complex:
+				// r1a/r1b, w power = 0					r1/i1, w power = 0
+				// r3/i3, 3-1=2 flip=2					r2/i2, 2-1=1, flip=2
+				// r5/i5, 5-1=4 flip=1					r3/i3, 3-1=2, flip=1
+				// r6/i6, 6-1=5 flip=5 (aka -3)				r4/i4, 4-1=3, flip=3 (aka -1)
+				// so we need sincos125					and sincos123 or sincos12(-1)
 				gwsincos125by4 (j, N*2, table);				/* For the eight_reals */
 				gwsincos12by4 (j + avx_increment, N, table+1);		/* For the four-complex */
 				table[3] = table[2] = table[1];

@@ -527,6 +527,72 @@ void gwsincos125by (
 }
 
 extern "C"
+void gwsincos12549ADby (
+	unsigned long x,
+	unsigned long N,
+	double	*results,
+	int	incr)
+{
+	dd_real arg1, sine, cosine, sine2, cosine2, sine4, cosine4, sine5, cosine5, sine9, cosine9, sine10, cosine10, sine13, cosine13;
+
+	x86_FIX
+	arg1 = dd_real::_2pi * (double) x / (double) N;
+	sincos (arg1, sine, cosine);
+	results[0] = sine;
+	results[0] += epsilon;		/* Protect against divide by zero */
+	results[incr] = cosine / results[0];
+	results += incr + incr;
+
+	sine2 = sine * cosine * 2.0;
+	cosine2 = sqr (cosine) - sqr (sine);
+
+	results[0] = sine2;
+	results[0] += epsilon;		/* Protect against divide by zero */
+	results[incr] = cosine2 / results[0];
+	results += incr + incr;
+
+	sine4 = sine2 * cosine2 * 2.0;
+	cosine4 = sqr (cosine2) - sqr (sine2);
+
+	sine5 = sine * cosine4 + sine4 * cosine;
+	cosine5 = cosine * cosine4 - sine * sine4;
+
+	results[0] = sine5;
+	results[0] += epsilon;		/* Protect against divide by zero */
+	results[incr] = cosine5 / results[0];
+	results += incr + incr;
+
+	results[0] = sine4;
+	results[0] += epsilon;		/* Protect against divide by zero */
+	results[incr] = cosine4 / results[0];
+	results += incr + incr;
+
+	sine9 = sine5 * cosine4 + sine4 * cosine5;
+	cosine9 = cosine5 * cosine4 - sine5 * sine4;
+
+	results[0] = sine9;
+	results[0] += epsilon;		/* Protect against divide by zero */
+	results[incr] = cosine9 / results[0];
+	results += incr + incr;
+
+	sine10 = sine5 * cosine5 * 2.0;
+	cosine10 = sqr (cosine5) - sqr (sine5);
+
+	results[0] = sine10;
+	results[0] += epsilon;		/* Protect against divide by zero */
+	results[incr] = cosine10 / results[0];
+	results += incr + incr;
+
+	sine13 = sine9 * cosine4 + sine4 * cosine9;
+	cosine13 = cosine9 * cosine4 - sine9 * sine4;
+
+	results[0] = sine13;
+	results[0] += epsilon;		/* Protect against divide by zero */
+	results[incr] = cosine13 / results[0];
+	END_x86_FIX
+}
+
+extern "C"
 void gwsincos1234by_raw (
 	unsigned long x,
 	unsigned long N,

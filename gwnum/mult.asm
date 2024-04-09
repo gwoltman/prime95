@@ -728,7 +728,7 @@ ZPRCENTRY3 MACRO procprefix, fftlen, procsuffix, p2size, clm, procarch, mem_need
 		p1size = fftlen / p2size
 	ENDIF
 	IF fft_type EQ 1
-		zfftname CATSTR <&procprefix>,<_>,%p1size,<&procsuffix>,<&procarch>
+		zfftname CATSTR <&procprefix>,<_>,<&fftlen>,<&procsuffix>,<&procarch>
 		EXTRN	zfftname:PROC
 		DD	80000000h + flags SHL 26 + fft_type SHL 21 + arch SHL 17 + best_impl_for SHL 13
 		DP	OFFSET zfftname
@@ -5100,11 +5100,15 @@ yjmptablep DD	0
 IFDEF X86_64
 zjmptable DD	0
 	org	$-4
-	PRCSTRT	2445,	128,	0.000004
+	PRCSTRT	2905,	128,	0.000004
 	ZPRCENTRY1A		zfft_r4,128,,13312,SKX+RYZEN
 	DD			0
+;	PRCSTRT	11309,	512,	0.000002
+;	ZPRCENTRY1A		zfft_r4,512,,133120,SKX+RYZEN
+;	DD			0
 	PRCSTRT	22445,	1024,	0.000004
-	ZPRCENTRY1		zfft_r4dwpn,1K,,13312,SKX+RYZEN
+	ZPRCENTRY1A		zfft_r4,1K,,133120,SKX+RYZEN
+	ZPRCENTRY1		zfft_r4dwpn,1K,,13312
 	DD			0
 	PRCSTRT	33380,	1536,	0.000006
 	ZPRCENTRY1		zfft_r4dwpn,1536,,19008,SKX+RYZEN
@@ -6230,11 +6234,15 @@ zjmptable DD	0
 
 zjmptablep DD	0
 	org	$-4
-	PRCSTRT	2445,	128,	0.000004
+	PRCSTRT	2897,	128,	0.000004
 	ZPRCENTRY1A		zfft_r4,128,_ac,13312,SKX+RYZEN
 	DD			0
+;	PRCSTRT	11319,	512,	0.0000015
+;	ZPRCENTRY1A		zfft_r4,512,_ac,133120,SKX+RYZEN
+;	DD			0
 	PRCSTRT	22397,	1024,	0.0000036
-	ZPRCENTRY1		zfft_r4dwpn,1K,_ac,16832,SKX+RYZEN
+	ZPRCENTRY1A		zfft_r4,1K,_ac,133120,SKX+RYZEN
+	ZPRCENTRY1		zfft_r4dwpn,1K,_ac,16832
 	DD			0
 	PRCSTRT	33371,	1536,	0.0000068
 	ZPRCENTRY1		zfft_r4dwpn,1536,_ac,24576,SKX+RYZEN

@@ -81,6 +81,11 @@ void gwsincos159by (unsigned long, unsigned long, double *, int, int);
 #define gwsincos125by8(a,b,c)		gwsincos125by(a,b,c,8)
 void gwsincos125by (unsigned long, unsigned long, double *, int);
 
+#define gwsincos12549ADby2(a,b,c)	gwsincos12549ADby(a,b,c,2)
+#define gwsincos12549ADby4(a,b,c)	gwsincos12549ADby(a,b,c,4)
+#define gwsincos12549ADby8(a,b,c)	gwsincos12549ADby(a,b,c,8)
+void gwsincos12549ADby (unsigned long, unsigned long, double *, int);
+
 #define gwsincos1by1_raw(a,b,c)		gwsincos1234by_raw(a,b,c,1,1)
 #define gwsincos1by2_raw(a,b,c)		gwsincos1234by_raw(a,b,c,2,1)
 #define gwsincos1by4_raw(a,b,c)		gwsincos1234by_raw(a,b,c,4,1)

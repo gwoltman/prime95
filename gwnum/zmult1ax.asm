@@ -963,7 +963,7 @@ inorm	MACRO	lab, ttp, zero, echk, const
 	PROCFLP	lab
 	int_prolog 0,0,0
 
-	mov	rsi, DESTARG		;; Source pointer
+	mov	rsi, DESTARG		;; Destination pointer
 no zero	mov	edi, ADDIN_OFFSET	;; Get address to add value into
 no zero	vmovsd	xmm0, ADDIN_VALUE	;; Get the addin value
 no zero	vaddsd	xmm0, xmm0, Q [rsi][rdi] ;; Add in the FFT value
@@ -1037,6 +1037,7 @@ no ttp	call	zr1_add_carry_cleanup
 ttp	call	zi1_add_carry_cleanup
 
 	;; Apply post-addin
+no zero	mov	rsi, DESTARG		;; Restore destination address
 no zero	mov	edi, ADDIN_OFFSET	;; Get address to add value into
 no zero	vmovsd	xmm8, POSTADDIN_VALUE	;; Get the addin value
 no zero	vaddsd	xmm8, xmm8, Q [rsi][rdi] ;; Add in the FFT value

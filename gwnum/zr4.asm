@@ -53,6 +53,8 @@ EXTRN zcomplex_mulf_opcode:PROC
 ;; Implement the small custom-coded one pass FFTs
 
 buildfor SKX,	zonepass 128, 0
+;buildfor SKX,	zonepass 512, 0
+buildfor SKX,	zonepass 1K, 0
 IFDEF NOT_YET_IMPL
 buildfor SKX,	zonepass 640, 0
 buildfor SKX,	zonepass 768, 0
@@ -83,6 +85,8 @@ buildfor     ,	zonepass 32K, 0
 ENDIF
 
 buildfor SKX,	zonepass 128, 1
+;buildfor SKX,	zonepass 512, 1
+buildfor SKX,	zonepass 1K, 1
 IFDEF NOT_YET_IMPL
 buildfor SKX,	zonepass 640, 1
 buildfor SKX,	zonepass 768, 1

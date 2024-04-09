@@ -7324,7 +7324,7 @@ unsigned long addr_offset (
 		if (gwdata->PASS2_SIZE == 0) {
 			unsigned long top_bit, section, line, num_lines;
 			top_bit = i / (fftlen >> 1); i -= top_bit * (fftlen >> 1);	// 640 in example above
-			section = i / 8; i -= section * 8;				// section #, which multiple of 80 in the example above
+			section = i / (fftlen >> 4); i -= section * (fftlen >> 4);	// section #, which multiple of 80 in the example above
 			num_lines = (fftlen >> 7);					// num_lines = 10 in example above
 			line = i % num_lines;
 			i = i / num_lines;
