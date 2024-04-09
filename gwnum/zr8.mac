@@ -5565,7 +5565,7 @@ back_to_orig:
 	vblendmpd zmm8 {k6}, zmm12, zmm8	;; R5				R5				; 38		n 40
 	vsubpd	zmm18 {k6}, zmm15, zmm18	;; I7				R11 = 0 - negR11		; 38-55		n 43
 
-	vblendmpd zmm29 {k6}, zmm26, zmm31			;; 1, 1, 1, 1, 1, 1, 1	SQRTHALF
+	vblendmpd zmm29 {k6}, zmm26, zmm31	;; 1, 1, 1, 1, 1, 1, 1		SQRTHALF
 	vblendmpd zmm11 {k6}, zmm1, zmm11	;; R7				R7				; 39		n 41
 	vmulpd	zmm15 {k6}, zmm29, zmm1		;; I3				I11*SQRTHALF			; 39-42		n 43
 

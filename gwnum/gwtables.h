@@ -217,12 +217,10 @@ struct gwasm_data {
 		double	ZMM_K_TIMES_MULCONST_HI_OVER_SMALL_BASE; /* k*mulconst, top bits */
 		double	ZMM_K_TIMES_MULCONST_HI_OVER_LARGE_BASE; /* k*mulconst, top bits */
 
-		// Next 4 values must be in this order and on a 256-bit boundary
 		double	ZMM_ONE;		/* 1.0 - used in 128-real and expanding reduced sin/cos */
 		double	ZMM_P383;		/* Used in 128-real, 16-real, 16-complex, 32-real macros */
 		double	ZMM_SQRTHALF;		/* SQRT(0.5) - used in 128-real and many other macros */
-		double	ZMM_P383_1;		/* Used in 128-real macros */
-		// End of 4 values that must be in a particular order and on a 256-bit boundary
+		double	UNUSED_P383_1;
 
 		double	ZMM_TWO;		/* 2.0 - used in 64-complex macros */
 		double	ZMM_HALF;		/* 0.5, used in 12-real, 12-complex, 24-real, 128-real macros */
