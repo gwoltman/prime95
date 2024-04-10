@@ -4705,14 +4705,14 @@ zr8_sixteen_reals_eight_complex_djbunfft MACRO srcreg,srcinc,d1,d2,d4,screg,scin
 	vblendmpd zmm0 {k6}, zmm8, zmm17	;; R3				R3				; 25		n 26
 	vblendmpd zmm15 {k6}, zmm18, zmm16	;; R4				R4				; 26		n 28
 
-	vaddpd	zmm13, zmm0, zmm10		;; R1 + R3 (newer R1)		R1 + R3 (newer R1)		; 26-57		n 
-	vsubpd	zmm10, zmm0, zmm10		;; R1 - R3 (newer R3)		R1 - R3 (newer R3)		; 27-57		n 
+	vaddpd	zmm13, zmm10, zmm0		;; R1 + R3 (newer R1)		R1 + R3 (newer R1)		; 26-57		n 
+	vsubpd	zmm10, zmm10, zmm0		;; R1 - R3 (newer R3)		R1 - R3 (newer R3)		; 27-57		n 
 
 	vaddpd	zmm9 {k7}{z}, zmm17, zmm6	;; I1 + I3 (newer I1)		0				; 27-59		n 38
 	vsubpd	zmm17 {k7}{z}, zmm17, zmm6	;; I1 - I3 (newer I3)		0				; 28-59		n 39
 
-	vaddpd	zmm7, zmm15, zmm23		;; R2 + R4 (newer R2)		R2 + R4 (newer R2)		; 28-61		n 45
-	vsubpd	zmm23, zmm15, zmm23		;; R2 - R4 (newer R4)		R2 - R4 (newer R4)		; 29-61		n 46
+	vaddpd	zmm7, zmm23, zmm15		;; R2 + R4 (newer R2)		R2 + R4 (newer R2)		; 28-61		n 45
+	vsubpd	zmm23, zmm23, zmm15		;; R2 - R4 (newer R4)		R2 - R4 (newer R4)		; 29-61		n 46
 
 	vmovapd zmm0, zmm3			;; R6				R10
 	vmulpd	zmm0 {k6}, zmm27, zmm11		;; R6				I12*.383			; 29-61		n 
