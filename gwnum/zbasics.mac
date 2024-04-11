@@ -17,10 +17,14 @@ zstore MACRO address, reg
 ;; A latency one vblendmpd instruction may introduce "bubbles" into a pipeline full af latency four adds and muls.
 ;; If so, using an vmovapd and vaddpd instruction might be faster even though it is more uops and longer latency.
 
-zblendmpd MACRO dest, kreg, src1, src2, zeroreg
+zblendmpd_preload MACRO zeroreg
+	zblendmpd_zeroreg EQU <&zeroreg>
+	vxorpd	zeroreg, zeroreg, zeroreg
+	ENDM	
+zblendmpd MACRO dest, kreg, src1, src2
 	vblendmpd dest {kreg}, src1, src2
 ;;	vmovapd	dest, src1
-;;	vaddpd	dest {kreg}, zeroreg, src2
+;;	vaddpd	dest {kreg}, zblendmpd_zeroreg, src2
 	ENDM
 
 ;; Macros that try to make it easier to write code that works best on both Bulldozer 
