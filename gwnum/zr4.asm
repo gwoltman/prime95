@@ -86,7 +86,7 @@ buildfor     ,	zonepass 32K, 0
 ENDIF
 
 buildfor SKX,	zonepass 128, 1
-;buildfor SKX,	zonepass 512, 1
+buildfor SKX,	zonepass 512, 1
 buildfor SKX,	zonepass 1K, 1
 buildfor SKX,	zonepass 8K, 1
 IFDEF NOT_YET_IMPL
