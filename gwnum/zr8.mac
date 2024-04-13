@@ -4705,6 +4705,7 @@ zr8_sixteen_reals_eight_complex_djbunfft MACRO srcreg,srcinc,d1,d2,d4,screg,scin
 	vaddpd	zmm8, zmm21, zmm19		;; R4 + R3 (new R3)		R6 + R5 (new R5)		; 16-19		n 23
 	vsubpd	zmm21, zmm21, zmm19		;; R4 - R3 (new I4)		R6 - R5 (new negR6)		; 17-20		n 29
 
+;;GW: delay the sine4 sine multiply.  do it here using FMA
 	vsubpd	zmm6, zmm18, zmm20		;; I3 - I4 (new R4)		I5 - I6 (new I6)		; 17-20		n 24
 	vaddpd	zmm18, zmm18, zmm20		;; I3 + I4 (new I3)		I5 + I6 (new I5)		; 18-21		n 27
 
