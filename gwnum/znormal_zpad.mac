@@ -1119,7 +1119,8 @@ cloop_end:
 	zstore	[rsi+r14], zmm11		;; Save value4
 
 	;; Mimic two-pass's zprocess_last_two_carries
-done:	vsubsd	xmm3, xmm3, xmm30		;; Remove RNDVAL from carries
+done:	mov	rsi, DESTARG			;; Start of first section
+	vsubsd	xmm3, xmm3, xmm30		;; Remove RNDVAL from carries
 	cmp	const_fft, 0			;; Are we also multiplying by a constant?
 	je	short noncon			;; Jump if not const
 	vmulsd	xmm3, xmm3, ZMM_MULCONST	;; Mul low carry by optional mul-by-const
@@ -1249,7 +1250,8 @@ cloop_end:
 	zstore	[rsi+r14], zmm11		;; Save val4
 
 	;; Mimic two-pass's zprocess_last_two_carries
-done:	cmp	const_fft, 0			;; Are we also multiplying by a constant?
+done:	mov	rsi, DESTARG			;; Start of first section
+	cmp	const_fft, 0			;; Are we also multiplying by a constant?
 	je	short noncon			;; Jump if not const
 	vmulsd	xmm3, xmm3, ZMM_MULCONST	;; Mul low carry by optional mul-by-const
 noncon:	zfmaddsd xmm4, xmm3, xmm26, xmm30	;; val_hi+RNDVAL = val / base + RNDVAL = rnd(val/base)+RNDVAL
@@ -1330,7 +1332,8 @@ cloop_end:
 	zstore	[rsi+r14], zmm11		;; Save value4
 
 	;; Mimic two-pass's zprocess_last_two_carries_op_zpad
-done:	vmovsd	Q ZMM_TMP1, xmm22		;; Clear split carry for later (in zpad_final_div_by_k)
+done:	mov	rsi, DESTARG			;; Start of first section
+	vmovsd	Q ZMM_TMP1, xmm22		;; Clear split carry for later (in zpad_final_div_by_k)
 	vmovsd	Q ZMM_TMP2, xmm22
 	vaddsd	xmm3, xmm3, [rsi+64]		;; Add wrap-around high carry (+0 format) in first upper half FFT word
 	vmovsd	[rsi+64], xmm3
@@ -1413,7 +1416,8 @@ cloop_end:
 	zstore	[rsi+r14], zmm11		;; Save val4
 
 	;; Mimic two-pass's zprocess_last_two_carries_op_zpad
-done:	vmovsd	Q ZMM_TMP1, xmm22		;; Clear split carry for later (in zpad_final_div_by_k)
+done:	mov	rsi, DESTARG			;; Start of first section
+	vmovsd	Q ZMM_TMP1, xmm22		;; Clear split carry for later (in zpad_final_div_by_k)
 	vmovsd	Q ZMM_TMP2, xmm22
 	vaddsd	xmm3, xmm3, [rsi+64]		;; Add wrap-around high carry (+0 format) in first upper half FFT word
 	vmovsd	[rsi+64], xmm3
@@ -3407,17 +3411,17 @@ ttp	kmovw	k1, ZMM_FIRST_BIGLIT_VALUES	;; Load first 8 big vs. little flags
 	vaddsd	xmm3, xmm30, Q [rsi+64]		;; value1 + RNDVAL
 	split_first_zpad7_word ttp, xmm3, xmm0
 
-	add	rsi, ZMM_SRC_INCR		;; Next source pointer
+	add	rsi, ZMM_SRC_INCR1		;; Next source pointer
 ttp	kshiftrw k1, k1, 1			;; Next big vs. little flag
 	vaddsd	xmm4, xmm0, [rsi+64]		;; Load value + carry
 	split_zpad7_word ttp, xmm4, xmm0
 
-	add	rsi, ZMM_SRC_INCR		;; Next source pointer
+	add	rsi, ZMM_SRC_INCR2		;; Next source pointer
 ttp	kshiftrw k1, k1, 1			;; Next big vs. little flag
 	vaddsd	xmm5, xmm0, [rsi+64]		;; Load value + carry
 	split_zpad7_word ttp, xmm5, xmm0
 
-	add	rsi, ZMM_SRC_INCR		;; Next source pointer
+	add	rsi, ZMM_SRC_INCR3		;; Next source pointer
 ttp	kshiftrw k1, k1, 1			;; Next big vs. little flag
 	vaddsd	xmm6, xmm0, [rsi+64]		;; Load value + carry
 	split_zpad7_word ttp, xmm6, xmm7
@@ -3583,17 +3587,17 @@ ttp	kmovw	k1, ZMM_FIRST_BIGLIT_VALUES	;; Load first 8 big vs. little flags
 	split_first_zpad7_word ttp, xmm0, xmm1
 	vmovsd	Q [rsi+64], xmm0		;; Save value1
 
-	add	rsi, ZMM_SRC_INCR		;; Next source pointer
+	add	rsi, ZMM_SRC_INCR1		;; Next source pointer
 ttp	kshiftrw k1, k1, 1			;; Next big vs. little flag
 	split_zpad7_word ttp, xmm1, xmm0
 	vmovsd	Q [rsi+64], xmm1		;; Save value2
 
-	add	rsi, ZMM_SRC_INCR		;; Next source pointer
+	add	rsi, ZMM_SRC_INCR2		;; Next source pointer
 ttp	kshiftrw k1, k1, 1			;; Next big vs. little flag
 	split_zpad7_word ttp, xmm0, xmm1
 	vmovsd	Q [rsi+64], xmm0		;; Save value3
 
-	add	rsi, ZMM_SRC_INCR		;; Next source pointer
+	add	rsi, ZMM_SRC_INCR3		;; Next source pointer
 	vsubsd	xmm1, xmm1, xmm30		;; Remove RNDVAL
 	vmovsd	Q [rsi+64], xmm1		;; Save new value4
 
@@ -3611,7 +3615,7 @@ ttp	kmovw	k1, ZMM_FIRST_BIGLIT_VALUES	;; Load first 8 big vs. little flags
 	split_first_zpad7_word ttp, xmm6, xmm1
 	vmovsd	Q [rsi], xmm6			;; Save value1
 
-	add	rsi, ZMM_SRC_INCR		;; Next source pointer
+	add	rsi, ZMM_SRC_INCR1		;; Next source pointer
 ttp	kshiftrw k1, k1, 1			;; Next big vs. little flag
 	vaddsd	xmm7, xmm7, ZMM_TMP2		;; Add carry from zprocess_last_two_carries which wasn't yet mul'ed by -c
 	zfmaddsd xmm7, xmm7, xmm19, xmm1	;; Mul integer part of divide by k by -c, add carry
@@ -3619,41 +3623,41 @@ ttp	kshiftrw k1, k1, 1			;; Next big vs. little flag
 	split_zpad7_word ttp, xmm7, xmm1
 	vmovsd	Q [rsi], xmm7			;; Save value2
  
-	add	rsi, ZMM_SRC_INCR		;; Next source pointer
+	add	rsi, ZMM_SRC_INCR2		;; Next source pointer
 ttp	kshiftrw k1, k1, 1			;; Next big vs. little flag
 	zfmaddsd xmm8, xmm8, xmm19, xmm1	;; Mul integer part of divide by k by -c, add carry
 	vaddsd	xmm8, xmm8, Q [rsi]		;; Add in the FFT data
 	split_zpad7_word ttp, xmm8, xmm1
 	vmovsd	Q [rsi], xmm8			;; Save value3
 
-	add	rsi, ZMM_SRC_INCR		;; Next source pointer
+	add	rsi, ZMM_SRC_INCR3		;; Next source pointer
 ttp	kshiftrw k1, k1, 1			;; Next big vs. little flag
 	zfmaddsd xmm9, xmm9, xmm19, xmm1	;; Mul integer part of divide by k by -c, add carry
 	vaddsd	xmm9, xmm9, Q [rsi]		;; Add in the FFT data
 	split_zpad7_word ttp, xmm9, xmm1
 	vmovsd	Q [rsi], xmm9			;; Save value4
 
-	add	rsi, ZMM_SRC_INCR		;; Next source pointer
+	add	rsi, ZMM_SRC_INCR4		;; Next source pointer
 ttp	kshiftrw k1, k1, 1			;; Next big vs. little flag
 	zfmaddsd xmm10, xmm10, xmm19, xmm1	;; Mul integer part of divide by k by -c, add carry
 	vaddsd	xmm10, xmm10, Q [rsi]		;; Add in the FFT data
 	split_zpad7_word ttp, xmm10, xmm1
 	vmovsd	Q [rsi], xmm10			;; Save value5
 
-	add	rsi, ZMM_SRC_INCR		;; Next source pointer
+	add	rsi, ZMM_SRC_INCR5		;; Next source pointer
 ttp	kshiftrw k1, k1, 1			;; Next big vs. little flag
 	zfmaddsd xmm11, xmm11, xmm19, xmm1	;; Mul integer part of divide by k by -c, add carry
 	vaddsd	xmm11, xmm11, Q [rsi]		;; Add in the FFT data
 	split_zpad7_word ttp, xmm11, xmm1
 	vmovsd	Q [rsi], xmm11			;; Save value6
 
-	add	rsi, ZMM_SRC_INCR		;; Next source pointer
+	add	rsi, ZMM_SRC_INCR6		;; Next source pointer
 ttp	kshiftrw k1, k1, 1			;; Next big vs. little flag
 	vaddsd	xmm0, xmm1, Q [rsi]		;; Add FFT data and carry
 	split_zpad7_word ttp, xmm0, xmm1
 	vmovsd	Q [rsi], xmm0			;; Save value7
 
-	add	rsi, ZMM_SRC_INCR		;; Next source pointer
+	add	rsi, ZMM_SRC_INCR7		;; Next source pointer
 	vsubsd	xmm1, xmm1, xmm30		;; Remove RNDVAL
 	vaddsd	xmm1, xmm1, Q [rsi]		;; Add in FFT data
 	vmovsd	Q [rsi], xmm1			;; Save value8
