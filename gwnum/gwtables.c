@@ -209,13 +209,13 @@ double *zr4_build_onepass_sincos_table (
 
 		if (!gwdata->NEGACYCLIC_FFT) {
 			for (j = 0; j < N / 3; j++) {
-				gwsincos12by4 (j, N*2, table);				/* For the six-reals FFT */
-				gwsincos1by4 (j + avx_increment, N, table+1);		/* For the three-complex FFT */
-				table[3] = table[2] = table[1];
-				table[7] = table[6] = table[5];
-				table[11] = table[10] = table[9] = -table[1];
-				table[15] = table[14] = table[13] = -table[5];
-				table += 16;
+				gwsincos12by8 (j, N*2, table);				/* For the six-reals FFT */
+				gwsincos1by8 (j + avx_increment, N, table+1);		/* For the three-complex FFT */
+				table[1*16+1] = -table[0*16+1];				/* Copy and negate the first sin and cos/sin values (due to djbfft) */
+				table[1*16+9] = -table[0*16+9];
+				for (int k = 0; k < 4*8; k += 8)			/* Fill out the upper AVX512 entries */
+					table[k+7] = table[k+6] = table[k+5] = table[k+4] = table[k+3] = table[k+2] = table[k+1];
+				table += 32;
 			}
 		}
 

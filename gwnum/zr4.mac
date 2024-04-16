@@ -5,6 +5,7 @@
 
 ;; Include other macro files needed by the AVX-512 versions of our primarily radix-4/8 traditional FFTs
 
+INCLUDE zr3.mac
 INCLUDE zr5.mac
 INCLUDE zr6.mac
 INCLUDE zr7.mac
