@@ -166,23 +166,15 @@ double *zr4_build_onepass_sincos_table (
 
 		if (!gwdata->NEGACYCLIC_FFT) {
 			for (j = 0; j < N / 5; j++) {
-				gwsincos13by4 (j, N*2, table);				/* For the ten_reals */
-				gwsincos12by4 (j + avx_increment, N, table+1);		/* For the five-complex */
-				table[16] = table[8];					/* For the ten_reals */
-				table[20] = table[12];
-				table[8] = table[1];
-				table[12] = table[5];
-				table[24] = table[9];
-				table[28] = table[13];
-				table[3] = table[2] = table[1];				/* For the five-complex */
-				table[7] = table[6] = table[5];
-				table[11] = table[10] = table[9];
-				table[15] = table[14] = table[13];
-				table[19] = table[18] = table[17] = -table[9];
-				table[23] = table[22] = table[21] = -table[13];
-				table[27] = table[26] = table[25] = -table[1];
-				table[31] = table[30] = table[29] = -table[5];
-				table += 32;
+				gwsincos1234by8 (j, N*2, table);			/* For the ten-reals FFT */
+				gwsincos12by8 (j + avx_increment, N, table+1);		/* For the five-complex FFT */
+				table[3*16+1] = -table[0*16+1];				/* Copy and negate the first sin and cos/sin values (due to djbfft) */
+				table[3*16+9] = -table[0*16+9];
+				table[2*16+1] = -table[1*16+1];				/* Copy and negate the first sin and cos/sin values (due to djbfft) */
+				table[2*16+9] = -table[1*16+9];
+				for (int k = 0; k < 8*8; k += 8)			/* Fill out the upper AVX512 entries */
+					table[k+7] = table[k+6] = table[k+5] = table[k+4] = table[k+3] = table[k+2] = table[k+1];
+				table += 64;
 			}
 		}
 
