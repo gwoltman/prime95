@@ -220,6 +220,35 @@ double *zr4_build_onepass_sincos_table (
 			}
 		}
 	}
+
+/* For the zr2_two_complex_djbfft building block level, output the sin/cos values. */
+
+	if (size % 2 == 0) {
+		N = N * 2;
+		size /= 2;
+
+/* The zr2_four_reals building blocks require an extra sin/cos value.  The dour_reals doubles N because */
+/* the real part of theFFT is one level behind the complex part of the FFT. */
+
+		if (!gwdata->NEGACYCLIC_FFT) {
+			for (j = 0; j < N / 2; j++) {
+				gwsincos1by8 (j, N*2, table);				/* For the four-reals FFT */
+				gwsincos1by8 (j + avx_increment, N, table+1);		/* For the two-complex FFT */
+				for (int k = 0; k < 2*8; k += 8)			/* Fill out the upper AVX512 entries */
+					table[k+7] = table[k+6] = table[k+5] = table[k+4] = table[k+3] = table[k+2] = table[k+1];
+				table += 16;
+			}
+		}
+
+/* Output the sin/cos data for the complex sections (used by the zr3_three_complex_djbfft building block). */
+
+		else {
+			for (j = 0; j < N / 2; j++) {
+				gwsincos1by1 (j, N, table);
+				table += 2;
+			}
+		}
+	}
 	ASSERTG (size == 1);
 	if (size != 1) gwdata->GWERROR = GWERROR_INTERNAL + 1;
 

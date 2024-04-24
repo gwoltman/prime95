@@ -1,0 +1,245 @@
+; Copyright 2024 - Mersenne Research, Inc.  All rights reserved
+; Author:  George Woltman
+; Email: woltman@alum.mit.edu
+;
+
+;;
+;;
+;; All new macros for version 31 of gwnum.  Do an AVX-512 radix-2 step in an FFT.
+;; The forward FFT macros multiply by the sin/cos values at the end of the macro
+;; and the inverse FFTs multiply by the sin/cos values at the start of the macro.
+;;
+;;
+
+;;
+;; ************************************* three-complex-djbfft variants ******************************************
+;;
+
+;; The standard version
+zr2_two_complex_djbfft_preload MACRO
+	zr2_2c_djbfft_cmn_preload
+	ENDM
+zr2_two_complex_djbfft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt,L1pt,L1pd
+	zr2_2c_djbfft_cmn srcreg,srcinc,0,d1,noexec,0,0,screg,scinc,maxrpt,L1pt,L1pd
+	ENDM
+
+; Like the standard version except vbroadcastsd is used to reduce sin/cos data
+zr2b_two_complex_djbfft_preload MACRO
+	zr2_2c_djbfft_cmn_preload
+	ENDM
+zr2b_two_complex_djbfft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt,L1pt,L1pd
+	zr2_2c_djbfft_cmn srcreg,srcinc,0,d1,exec,screg,16,screg,scinc,maxrpt,L1pt,L1pd
+	ENDM
+
+; Like b2cl but extracts the sin/cos data to broadcasts from the four-real/two_complex sin/cos table
+zr2rb_two_complex_djbfft_preload MACRO
+	zr2_2c_djbfft_cmn_preload
+	ENDM
+zr2rb_two_complex_djbfft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt,L1pt,L1pd
+	zr2_2c_djbfft_cmn srcreg,srcinc,0,d1,exec,screg+8,128,screg,scinc,maxrpt,L1pt,L1pd
+	ENDM
+
+;; Common code to do a 2-complex FFT.  Then multiply 1 of the 2 results by a twiddle factor.
+zr2_2c_djbfft_cmn_preload MACRO
+	ENDM
+zr2_2c_djbfft_cmn MACRO srcreg,srcinc,srcoff,d1,bcast,bcreg,bcsz,screg,scinc,maxrpt,L1pt,L1pd
+
+;;GW Lots of stalls, unravel with maxrpt
+
+	vmovapd	zmm0, [srcreg+srcoff]		;; R1
+	vmovapd	zmm1, [srcreg+srcoff+d1]	;; R2
+	vmovapd	zmm2, [srcreg+srcoff+64]	;; I1
+	vmovapd	zmm3, [srcreg+srcoff+d1+64]	;; I2
+
+	vaddpd	zmm4, zmm0, zmm1		;; R1 + R2 (final R1)			; 1-4		n 
+	vsubpd	zmm0, zmm0, zmm1		;; R1 - R2 (final R2)			; 1-4		n 
+	vaddpd	zmm5, zmm2, zmm3		;; I1 + I2 (final I1)			; 1-4		n 
+	vsubpd	zmm2, zmm2, zmm3		;; I1 - I2 (final I2)			; 1-4		n 
+
+;;	L1prefetchw srcreg+L1pd, L1pt
+;;	L1prefetchw srcreg+64+L1pd, L1pt
+;;	L1prefetchw srcreg+d1+L1pd, L1pt
+;;	L1prefetchw srcreg+d1+64+L1pd, L1pt
+
+no bcast vmovapd zmm7, [screg+64]		;; cosine/sine
+bcast	vbroadcastsd zmm7, Q [bcreg+bcsz/2]	;; cosine/sine
+	zfmsubpd zmm6, zmm0, zmm7, zmm2		;; A2 = R2 * cosine/sine - I2		; 1-4		n 
+	zfmaddpd zmm2, zmm2, zmm7, zmm0		;; B2 = I2 * cosine/sine + R2		; 1-4		n 
+
+no bcast vmovapd zmm7, [screg]			;; sine
+bcast	vbroadcastsd zmm7, Q [bcreg]		;; sine
+	vmulpd	zmm6, zmm6, zmm7		;; A2 = A2 * sine (new R2)		; 1-4		n 
+	vmulpd	zmm2, zmm2, zmm7		;; B2 = B2 * sine (new I2)		; 1-4		n 
+
+	zstore	[srcreg], zmm4			;; Save R1
+	zstore	[srcreg+64], zmm5		;; Save I1
+	zstore	[srcreg+d1], zmm6		;; Save R2
+	zstore	[srcreg+d1+64], zmm2		;; Save I2
+	bump	srcreg, srcinc
+	bump	screg, scinc
+	ENDM
+
+;;
+;; ************************************* two-complex-djbunfft variants ******************************************
+;;
+
+;; The standard version
+zr2_two_complex_djbunfft_preload MACRO
+	zr2_2c_djbunfft_cmn_preload
+	ENDM
+zr2_two_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt,L1pt,L1pd
+	zr2_2c_djbunfft_cmn srcreg,srcinc,d1,noexec,0,0,screg,scinc,maxrpt,L1pt,L1pd
+	ENDM
+
+; Like the standard version except vbroadcastsd is used to reduce sin/cos data
+zr2b_two_complex_djbunfft_preload MACRO
+	zr2_2c_djbunfft_cmn_preload
+	ENDM
+zr2b_two_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt,L1pt,L1pd
+	zr2_2c_djbunfft_cmn srcreg,srcinc,d1,exec,screg,16,screg,scinc,maxrpt,L1pt,L1pd
+	ENDM
+
+; Like b2cl but extracts the sin/cos data to broadcasts from the four-real/two_complex sin/cos table
+zr2rb_two_complex_djbunfft_preload MACRO
+	zr2_2c_djbunfft_cmn_preload
+	ENDM
+zr2rb_two_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt,L1pt,L1pd
+	zr2_2c_djbunfft_cmn srcreg,srcinc,d1,exec,screg+8,128,screg,scinc,maxrpt,L1pt,L1pd
+	ENDM
+
+;; Do a 2-complex inverse FFT.  First we apply a twiddle factor to 1 of the 2 input numbers.
+zr2_2c_djbunfft_cmn_preload MACRO
+	ENDM
+zr2_2c_djbunfft_cmn MACRO srcreg,srcinc,d1,bcast,bcreg,bcsz,screg,scinc,maxrpt,L1pt,L1pd
+
+;;GW Lots of stalls, unravel with maxrpt
+
+no bcast vmovapd zmm0, [screg+64]		;; cosine/sine
+bcast	vbroadcastsd zmm0, Q [bcreg+bcsz/2]	;; cosine/sine
+	vmovapd	zmm1, [srcreg+d1]		;; R2
+	vmovapd	zmm5, [srcreg+d1+64]		;; I2
+	zfmaddpd zmm2, zmm1, zmm0, zmm5		;; A2 = R2 * cosine/sine + I2		; 1-4		n 
+	zfmsubpd zmm5, zmm5, zmm0, zmm1		;; B2 = I2 * cosine/sine - R2		; 1-4		n 
+
+no bcast vmovapd zmm0, [screg]			;; sine
+bcast	vbroadcastsd zmm0, Q [bcreg]		;; sine
+	vmulpd	zmm2, zmm2, zmm0		;; A2 = A2 * sine (final R2)		; 1-4		n 
+	vmulpd	zmm5, zmm5, zmm0		;; B2 = B2 * sine (final I2)		; 1-4		n 
+
+;;	L1prefetchw srcreg+L1pd, L1pt
+;;	L1prefetchw srcreg+64+L1pd, L1pt
+;;	L1prefetchw srcreg+d1+L1pd, L1pt
+;;	L1prefetchw srcreg+d1+64+L1pd, L1pt
+
+	vmovapd	zmm0, [srcreg]			;; R1
+	vaddpd	zmm1, zmm0, zmm2		;; R1 + R2 (final R1)			; 1-4		n 
+	vsubpd	zmm0, zmm0, zmm2		;; R1 - R2 (final R2)			; 1-4		n 
+
+	vmovapd	zmm2, [srcreg+64]		;; I1
+	vaddpd	zmm3, zmm2, zmm5		;; I1 + I2 (final I1)			; 1-4		n 
+	vsubpd	zmm2, zmm2, zmm5		;; I1 - I2 (final I2)			; 1-4		n 
+
+	zstore	[srcreg], zmm1			;; Save R1
+	zstore	[srcreg+64], zmm3		;; Save I1
+	zstore	[srcreg+d1], zmm0		;; Save R2
+	zstore	[srcreg+d1+64], zmm2		;; Save I2
+	bump	srcreg, srcinc
+	bump	screg, scinc
+	ENDM
+
+;;
+;; ************************************* four-reals-two-complex-fft variants ******************************************
+;;
+
+;; Macro to do one four_reals_fft and seven two_complex_fft.  The four-reals operation is done in the lower double of the ZMM register.  The two-complex
+;; is done in the high doubles of the ZMM register.   This is REALLY funky, as we do both at the same time within the full zmm register whenever possible.
+zr2_four_reals_two_complex_djbfft_preload MACRO
+	mov	r9d, 11111110b			;; We're pretty sure r9 is safe to use
+	kmovw	k7, r9d				;; Set k7 to 11111110b
+	knotw	k6, k7				;; Set k6 to 00000001b
+;;	zblendmpd_preload zmm29
+	ENDM
+
+zr2_four_reals_two_complex_djbfft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt
+
+						;; Two complex comments		Four-reals comments
+	vmovapd	zmm0, [srcreg]			;; R1				R1+R3
+	vmovapd	zmm1, [srcreg+64]		;; I1				R1-R3 (final R2)
+	vmovapd	zmm2, [srcreg+d1]		;; R2				R2+R4
+	vmovapd	zmm3, [srcreg+d1+64]		;; I2				R2-R4 (final I2)
+
+;; GW - lots of stalls, use maxrpt
+
+	vaddpd	zmm4, zmm1, zmm3		;; I1 + I2 (final I1)		not important			; 5-8		n 22
+	vsubpd	zmm3 {k7}, zmm1, zmm3		;; I1 - I2 (final I2)		blend in final I2		; 5-8		n 22
+
+	vaddpd	zmm5, zmm0, zmm2		;; R1 + R2 (final R1)		R1+R3 + R2+R4 (final R1a)	; 6-9		n 22
+	vsubpd	zmm1 {k7}, zmm0, zmm2		;; R1 - R2 (final R2)		blend in final R2		; 6-9		n 22
+
+	vsubpd	zmm4 {k6}, zmm0, zmm2		;; blend in final I1		R1+R3 - R2+R4 (final R1b)	; 6-9		n 22
+
+	vmovapd	zmm7, [screg+64]				;; cosine/sine
+	zfmsubpd zmm0, zmm1, zmm7, zmm3				;; A2 = R2 * cosine/sine - I2			; 18-21		n 22
+	zfmaddpd zmm3, zmm3, zmm7, zmm1				;; B2 = I2 * cosine/sine + R2			; 18-21		n 22
+
+	vmovapd	zmm7, [screg]					;; sine
+	vmulpd	zmm0, zmm0, zmm7				;; A2 = A2 * sine (new R2)			; 22-25		n 22
+	vmulpd	zmm3, zmm3, zmm7				;; B2 = B2 * sine (new I2)			; 22-25		n 22
+
+	zstore	[srcreg], zmm5			;; Save R1
+	zstore	[srcreg+64], zmm4		;; Save I1
+	zstore	[srcreg+d1], zmm0		;; Save R2
+	zstore	[srcreg+d1+64], zmm3		;; Save I2
+	bump	srcreg, srcinc
+	bump	screg, scinc
+	ENDM
+
+;;
+;; ************************************* four-reals-two-complex-unfft variants ******************************************
+;;
+
+;; Macro to do one four_reals_unfft and seven two_complex_unfft.  The four-reals operation is done in the lower double of the ZMM register.  The two-complex
+;; is done in the high doubles of the ZMM register.   This is REALLY funky, as we do both at the same time within the full zmm register whenever possible.
+zr2_four_reals_two_complex_djbunfft_preload MACRO
+	mov	r9d, 11111110b			;; We're pretty sure r9 is safe to use
+	kmovw	k7, r9d				;; Set k7 to 11111110b
+	knotw	k6, k7				;; Set k6 to 00000001b
+;;	zblendmpd_preload zmm29
+	ENDM
+
+zr2_four_reals_two_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt
+
+						;; Two complex comments		Four-reals comments
+	vmovapd	zmm6, [srcreg+d1]				;; R2
+	vmovapd	zmm1, [srcreg+d1+64]				;; I2
+	vmovapd	zmm7, [screg+64]				;; cosine2/sine2
+	zfmaddpd zmm0, zmm6, zmm7, zmm1				;; A2 = R2 * cosine2/sine2 + I2			; 1-4		n 22
+	zfmsubpd zmm1, zmm1, zmm7, zmm6				;; B2 = I2 * cosine2/sine2 - R2			; 1-4		n 22
+
+;; GW - lots of stalls, use maxrpt
+
+	vmovapd	zmm7, [screg]					;; sine2
+	vmulpd	zmm0, zmm0, zmm7				;; A2 = A2 * sine2 (final R2)			; 5-8		n 22
+	vmulpd	zmm1, zmm1, zmm7				;; B2 = B2 * sine2 (final I2)			; 5-8		n 22
+	bump	screg, scinc
+
+	vmovapd	zmm4, [srcreg]			;; R1				R1a
+	vmovapd	zmm5, [srcreg+64]		;; I1				R1b
+
+						;;				R2/I2 morphs into final R3/R4 
+
+	vaddpd	zmm2, zmm4, zmm0		;; R1 + R2 (final R1)		not important		; 1-4		n 
+	vsubpd	zmm3, zmm4, zmm0		;; R1 - R2 (final R2)		not important		; 1-4		n 
+
+	vaddpd	zmm0 {k7}, zmm5, zmm1		;; I1 + I2 (final I1)		blend in final R3	; 1-4		n 
+	vsubpd	zmm1 {k7}, zmm5, zmm1		;; I1 - I2 (final I2)		blend in final R4	; 1-4		n 
+
+	vaddpd	zmm2 {k6}, zmm4, zmm5		;; blend in final R1		R1a + R1b (final R1)	; 1-4		n 
+	vsubpd	zmm3 {k6}, zmm4, zmm5		;; blend in final R2		R1a - R1b (final R2)	; 1-4		n 
+
+	zstore	[srcreg], zmm2			;; Save R1
+	zstore	[srcreg+64], zmm0		;; Save I1
+	zstore	[srcreg+d1], zmm3		;; Save R2
+	zstore	[srcreg+d1+64], zmm1		;; Save I2
+	bump	srcreg, srcinc
+	ENDM

@@ -3,8 +3,9 @@
 ; Email: woltman@alum.mit.edu
 ;
 
-;; Include other macro files needed by the AVX-512 versions of our primarily radix-4/8 traditional FFTs
+;; Include other macro files needed by the AVX-512 versions of our primarily radix-8 traditional FFTs
 
+INCLUDE zr2.mac
 INCLUDE zr3.mac
 INCLUDE zr5.mac
 INCLUDE zr6.mac
