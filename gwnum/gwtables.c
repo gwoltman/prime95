@@ -152,9 +152,47 @@ double *zr4_build_onepass_sincos_table (
 		}
 	}
 
+/* For the zr7_seven_complex_djbfft building block levels, output the sin/cos values. */
+
+	if (size % 7 == 0) {
+		while ((size % 7) == 0) {
+			N = N * 7;
+			size /= 7;
+		}
+
+/* For the zr7_fourteen_reals_seven_complex_djbfft building block levels, output the sin/cos values needed. */
+/* The fourteen_reals doubles N because the real part of the FFT is one level behind the complex part of the FFT. */
+/* The seven-complex sin/cos values are the same for all 7 of the upper ZMM doubles. */
+
+		if (!gwdata->NEGACYCLIC_FFT) {
+			for (j = 0; j < N / 7; j++) {
+				gwsincos123456by8 (j, N*2, table);			/* For the fourteen-reals FFT */
+				gwsincos123by8 (j + avx_increment, N, table+1);		/* For the seven-complex FFT */
+				table[5*16+1] = -table[0*16+1];				/* Copy and negate the first sin and cos/sin values (due to djbfft) */
+				table[5*16+9] = -table[0*16+9];
+				table[4*16+1] = -table[1*16+1];
+				table[4*16+9] = -table[1*16+9];
+				table[3*16+1] = -table[2*16+1];
+				table[3*16+9] = -table[2*16+9];
+				for (int k = 0; k < 12*8; k += 8)			/* Fill out the upper AVX512 entries */
+					table[k+7] = table[k+6] = table[k+5] = table[k+4] = table[k+3] = table[k+2] = table[k+1];
+				table += 96;
+			}
+		}
+
+/* Output the sin/cos data for the complex sections (used by the zr7_seven_complex_djbfft building block). */
+
+		else {
+			for (j = 0; j < N / 7; j++) {
+				gwsincos123by1_special7 (j, N, table);
+				table += 6;
+			}
+		}
+	}
+
 /* For the zr5_five_complex_djbfft building block levels, output the sin/cos values. */
 
-	while (size % 5 == 0) {
+	if (size % 5 == 0) {
 		while ((size % 5) == 0) {
 			N = N * 5;
 			size /= 5;
@@ -162,7 +200,7 @@ double *zr4_build_onepass_sincos_table (
 
 /* For the zr5_ten_reals_five_complex_djbfft building block levels, output the sin/cos values needed. */
 /* The ten_reals doubles N because the real part of the FFT is one level behind the complex part of the FFT. */
-/* The five-complex sin/cos values are the same for all 3 of the upper ZMM doubles. */
+/* The five-complex sin/cos values are the same for all 7 of the upper ZMM doubles. */
 
 		if (!gwdata->NEGACYCLIC_FFT) {
 			for (j = 0; j < N / 5; j++) {
@@ -170,7 +208,7 @@ double *zr4_build_onepass_sincos_table (
 				gwsincos12by8 (j + avx_increment, N, table+1);		/* For the five-complex FFT */
 				table[3*16+1] = -table[0*16+1];				/* Copy and negate the first sin and cos/sin values (due to djbfft) */
 				table[3*16+9] = -table[0*16+9];
-				table[2*16+1] = -table[1*16+1];				/* Copy and negate the first sin and cos/sin values (due to djbfft) */
+				table[2*16+1] = -table[1*16+1];
 				table[2*16+9] = -table[1*16+9];
 				for (int k = 0; k < 8*8; k += 8)			/* Fill out the upper AVX512 entries */
 					table[k+7] = table[k+6] = table[k+5] = table[k+4] = table[k+3] = table[k+2] = table[k+1];
@@ -190,7 +228,7 @@ double *zr4_build_onepass_sincos_table (
 
 /* For the zr3_three_complex_djbfft building block levels, output the sin/cos values. */
 
-	while (size % 3 == 0) {
+	if (size % 3 == 0) {
 		while ((size % 3) == 0) {
 			N = N * 3;
 			size /= 3;
