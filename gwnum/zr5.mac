@@ -1452,20 +1452,20 @@ zr5_ten_reals_five_complex_djbunfft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt
 	zfmsubpd zmm5, zmm5, zmm9, zmm8				;; B4 = I4 * cosine4/sine4 - R4			; 4-7		n 22
 
 	vmovapd	zmm9, [screg+0*128]				;; sine2
-	vmulpd	zmm0, zmm0, zmm9				;; A2 = A2 * sine2 (final R2)			; 5-8		n 22
-	vmulpd	zmm1, zmm1, zmm9				;; B2 = B2 * sine2 (final I2)			; 5-8		n 22
+	vmulpd	zmm0, zmm0, zmm9				;; A2 = A2 * sine2 (R2)				; 5-8		n 22
+	vmulpd	zmm1, zmm1, zmm9				;; B2 = B2 * sine2 (I2)				; 5-8		n 22
 
 	vmovapd	zmm9, [screg+3*128]				;; sine5
-	vmulpd	zmm6, zmm6, zmm9				;; A5 = A5 * sine5 (final R5)			; 6-9		n 22
-	vmulpd	zmm7, zmm7, zmm9				;; B5 = B5 * sine5 (final I5)			; 6-9		n 22
+	vmulpd	zmm6, zmm6, zmm9				;; A5 = A5 * sine5 (R5)				; 6-9		n 22
+	vmulpd	zmm7, zmm7, zmm9				;; B5 = B5 * sine5 (I5)				; 6-9		n 22
 
 	vmovapd	zmm9, [screg+1*128]				;; sine3
-	vmulpd	zmm2, zmm2, zmm9				;; A3 = A3 * sine3 (final R3)			; 7-10		n 22
-	vmulpd	zmm3, zmm3, zmm9				;; B3 = B3 * sine3 (final I3)			; 7-10		n 22
+	vmulpd	zmm2, zmm2, zmm9				;; A3 = A3 * sine3 (R3)				; 7-10		n 22
+	vmulpd	zmm3, zmm3, zmm9				;; B3 = B3 * sine3 (I3)				; 7-10		n 22
 
 	vmovapd	zmm9, [screg+2*128]				;; sine4
-	vmulpd	zmm4, zmm4, zmm9				;; A4 = A4 * sine4 (final R4)			; 8-11		n 22
-	vmulpd	zmm5, zmm5, zmm9				;; B4 = B4 * sine4 (final I4)			; 8-11		n 22
+	vmulpd	zmm4, zmm4, zmm9				;; A4 = A4 * sine4 (R4)				; 8-11		n 22
+	vmulpd	zmm5, zmm5, zmm9				;; B4 = B4 * sine4 (I4)				; 8-11		n 22
 	bump	screg, scinc
 
 ;; GW - lots of stalls, use maxrpt
