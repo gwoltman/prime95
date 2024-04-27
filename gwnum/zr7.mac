@@ -1123,7 +1123,7 @@ zr7_fourteen_reals_seven_complex_djbfft MACRO srcreg,srcinc,d1,screg,scinc,maxrp
 	zfnmaddpd zmm3, zmm3, zmm26, zmm8	;; i2- = I2-1*I7		r2-+ = r2- - -1*r7-		; 2-5		n 9
 
 	vmovapd	zmm8, [srcreg+2*d1+64]		;; I3				r3- = R3-R10
-	vmovapd	zmm5, [srcreg+5*d1+64]		;; I6				r4- = R6-R13
+	vmovapd	zmm5, [srcreg+5*d1+64]		;; I6				r6- = R6-R13
 	zfmaddpd zmm4, zmm5, zmm26, zmm8	;; i3+ = I3+1*I6		r3-- = r3- + -1*r6-		; 3-6		n 17
 	zfmsubpd zmm5, zmm8, zmm26, zmm5	;; i3- = 1*I3-I6		-r3-+ = -1*r3- - r6-		; 3-6		n 9
 
