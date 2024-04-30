@@ -1251,7 +1251,6 @@ zr5_ten_reals_five_complex_djbfft_preload MACRO
 	vmulpd	zmm29 {k6}, zmm26, zmm0		;; .809 (7 times)		-.309
 	vbroadcastsd zmm28, ZMM_P951
 	vbroadcastsd zmm27, ZMM_P588_P951
-	vmulpd	zmm25, zmm26, zmm28		;; .951 (7 times)		-.951
 	vmulpd	zmm24, zmm26, zmm27		;; .588/.951 (7 times)		-.588/.951
 	ENDM
 
@@ -1266,13 +1265,12 @@ zr5_ten_reals_five_complex_djbfft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt
 	vmovapd	zmm8, [srcreg+d1+64]		;; I2				r2- = R2-R7
 	vmovapd	zmm3, [srcreg+4*d1+64]		;; I5				r5- = R5-R10
 	zfmaddpd zmm2, zmm8, zmm26, zmm3	;; i2+ = 1*I2+I5		-r2-- = -1*r2- + r5-		; 2-5		n 11
-;;	zfmaddpd zmm2, zmm3, zmm26, zmm8	;; i2+ = I2+1*I5		r2-- = r2- + -1*r5-		; 2-5		n 11
 	zfnmaddpd zmm3, zmm3, zmm26, zmm8	;; i2- = I2-1*I5		r2-+ = r2- - -1*r5-		; 2-5		n 5 
 
 	vmovapd	zmm5, [srcreg+2*d1]		;; R3				r3+ = R3+R8
 	vmovapd	zmm8, [srcreg+3*d1]		;; R4				r4+ = R4+R9
 	vaddpd	zmm4, zmm5, zmm8		;; r3+ = R3+R4			r3++ = r3+ + r4+		; 3-6		n 9
-	vsubpd	zmm5, zmm5, zmm8		;; r3- = R3-R4			r3+- = r3+ - r4+		; 3-6		n 11
+	vsubpd	zmm5, zmm8, zmm5		;; -r3- = R4-R3			-r3+- = r4+ - r3+		; 3-6		n 11
 
 	vmovapd	zmm8, [srcreg+2*d1+64]		;; I3				r3- = R3-R8
 	vmovapd	zmm7, [srcreg+3*d1+64]		;; I4				r4- = R4-R9
@@ -1302,8 +1300,8 @@ zr5_ten_reals_five_complex_djbfft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt
 	zfmaddpd zmm8, zmm7, zmm24, zmm3	;; r25tmp = i2- + .588/.951i3-	I4 = r2-+ + -.588/.951r3-+	; 8-11		n 16
 	zfnmaddpd zmm3, zmm3, zmm24, zmm7	;; r34tmp = i3- - .588/.951i2- 	I2 = r3-+ - -.588/.951r2-+ 	; 8-11		n 18
 
-	zfmaddpd zmm4, zmm5, zmm27, zmm1	;; i25tmp = r2- + .588/.951r3-	I3 = r2+- + .588/.951r3+-	; 12-15		n 17
-	zfnmaddpd zmm1, zmm1, zmm27, zmm5	;; i34tmp = r3- - .588/.951r2- 	negI5 = r3+- - .588/.951r2+- 	; 12-15		n 19
+	zfnmaddpd zmm4, zmm5, zmm27, zmm1	;; i25tmp = r2- - .588/.951-r3-	I3 = r2+- - .588/.951-r3+-	; 12-15		n 17
+	zfmaddpd zmm1, zmm1, zmm27, zmm5	;; -i34tmp = -r3- + .588/.951r2- I5 = -r3+- + .588/.951r2+- 	; 12-15		n 19
 
 	zfnmaddpd zmm6, zmm8, zmm28, zmm10	;; R2 = R25 - .951*r25tmp	not important			; 13-16		n 21
 	zfmaddpd zmm10 {k7}, zmm8, zmm28, zmm10	;; R5 = R25 + .951*r25tmp	blend in R5			; 13-16		n 21
@@ -1314,14 +1312,14 @@ zr5_ten_reals_five_complex_djbfft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt
 	zfmaddpd zmm5, zmm4, zmm28, zmm12	;; I2 = I25 + .951*i25tmp	not important			; 16-19		n 22
 	zfnmaddpd zmm13, zmm4, zmm28, zmm12	;; I5 = I25 - .951*i25tmp	not important			; 16-19		n 22
 
-	zfnmaddpd zmm14, zmm1, zmm28, zmm2	;; I3 = I34 - .951*i34tmp	not important			; 17-20		n 24
-	zfmaddpd zmm15, zmm1, zmm28, zmm2	;; I4 = I34 + .951*i34tmp	not important			; 17-20		n 24
+	zfmaddpd zmm14, zmm1, zmm28, zmm2	;; I3 = I34 + .951*-i34tmp	not important			; 17-20		n 24
+	zfnmaddpd zmm15, zmm1, zmm28, zmm2	;; I4 = I34 - .951*-i34tmp	not important			; 17-20		n 24
 
 	zblendmpd zmm6, k6, zmm6, zmm12		;; R2				R2				; 18-21		n 14
 	zblendmpd zmm7, k6, zmm7, zmm2		;; R4				R4				; 18-21		n 14
 
 	vmulpd	zmm5 {k6}, zmm28, zmm3		;; blend in I2			.951 * I2 (final I2)		; 20-23		n 22
-	vmulpd	zmm13 {k6}, zmm25, zmm1		;; blend in I5			-.951 * negI5 (final I5)	; 20-23		n 22
+	vmulpd	zmm13 {k6}, zmm28, zmm1		;; blend in I5			.951 * I5 (final I5)		; 20-23		n 22
 	vmulpd	zmm14 {k6}, zmm28, zmm4		;; blend in I3			.951 * I3 (final I3)		; 21-24		n 22
 	vmulpd	zmm15 {k6}, zmm28, zmm8		;; blend in I4			.951 * I4 (final I4)		; 21-24		n 22
 
