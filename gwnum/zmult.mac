@@ -6,7 +6,7 @@
 ; Return from a type 1 FFT - return to caller
 
 zfft_1_ret MACRO
-	ad_epilog 0,1,rbx,rbp,rsi,rdi,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_epilog 0,1,rbx,rbp,rsi,rdi,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	ENDM
 
 ; Return from a type 2,3, or 4 FFT - call the common normalization code used in one-pass FFTs only.
@@ -16,7 +16,7 @@ zfft_3_ret MACRO
 	mov	rax, NORMRTN	;; Call the normalization routine
 	call	rax
 	end_timer 28
-	ad_epilog 0,1,rbx,rbp,rsi,rdi,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_epilog 0,1,rbx,rbp,rsi,rdi,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	ENDM
 
 ;;
@@ -88,7 +88,7 @@ zonepass MACRO fftname, negacyclic
 ;; Header for the FFT routine
 
 	PROCF	zprocname
-	ad_prolog 0,1,rbx,rbp,rsi,rdi,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_prolog 0,1,rbx,rbp,rsi,rdi,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, DESTARG
 	mov	rbx, DIST_TO_FFTSRCARG
 
