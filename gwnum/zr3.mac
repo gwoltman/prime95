@@ -240,8 +240,8 @@ zr3_six_reals_three_complex_djbfft MACRO srcreg,srcinc,d1,screg,scinc,maxrpt
 						;; Three complex comments	Six-reals comments
 	vmovapd	zmm1, [srcreg+d1+64]		;; I2				R2-R5
 	vmovapd	zmm7, [srcreg+2*d1+64]		;; I3				R3-R6
-	zfmaddpd zmm0, zmm1, zmm26, zmm7	;; I2 + 1*I3			r2-- = R2-R5 + -1*(R3-R6)	; 1-4		n 5
-	zfmaddpd zmm1, zmm1, zmm26, zmm7	;; I2 - 1*I3			r2-+ = R2-R5 - -1*(R3-R6)	; 1-4		n 5
+	zfmaddpd zmm0, zmm7, zmm26, zmm1	;; I2 + 1*I3			r2-- = R2-R5 + -1*(R3-R6)	; 1-4		n 5
+	zfnmaddpd zmm1, zmm7, zmm26, zmm1	;; I2 - 1*I3			r2-+ = R2-R5 - -1*(R3-R6)	; 1-4		n 5
 
 	vmovapd	zmm3, [srcreg+d1]		;; R2				R2+R5
 	vmovapd	zmm7, [srcreg+2*d1]		;; R3				R3+R6
