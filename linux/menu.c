@@ -1231,7 +1231,7 @@ void options_benchmark (void)
 	if (m_bench_type != 2) {
 		printf ("\nFFTs to benchmark\n");
 		m_minFFT = IniGetInt (INI_FILE, "MinBenchFFT", 2048);
-		askNum ("Minimum FFT size (in K)", &m_minFFT, 1, 65536);
+		askNum ("Minimum FFT size (in K)", &m_minFFT, 0, 65536);
 		m_maxFFT = IniGetInt (INI_FILE, "MaxBenchFFT", 8192);
 		askNum ("Maximum FFT size (in K)", &m_maxFFT, m_minFFT, 65536);
 		m_errchk = ERRCHK;			// IniGetInt (INI_FILE, "BenchErrorCheck", 0);

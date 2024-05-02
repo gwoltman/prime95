@@ -9167,7 +9167,7 @@ void primeBenchOneWorker (void *arg)
 {
 	struct PriorityInfo sp_info;
 	llhandle lldata;
-	int	stop_reason;
+	int	batch_size, stop_reason;
 	double	timers[2];
 	struct prime_bench_arg *info;
 
@@ -9204,6 +9204,11 @@ void primeBenchOneWorker (void *arg)
 
 	generateRandomData (&lldata);
 
+/* Calculate a batch size that is large enough that timer will not be zero */
+
+	batch_size = 25000 / info->fftlen;
+	if (batch_size < 1) batch_size = 1;
+
 /* Pause until all workers are initialized */
 
 	gwmutex_lock (&bench_workers_mutex);
@@ -9229,14 +9234,14 @@ void primeBenchOneWorker (void *arg)
 		if (stop_reason) break;
 		clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
 		start_timer (timers, 0);
-		gwsquare (&lldata.gwdata, lldata.lldata);
+		for (int i = 0; i < batch_size; i++) gwsquare (&lldata.gwdata, lldata.lldata);
 		end_timer (timers, 0);
-		// If any of the bench workers have finished, then do not imclude this timing
+		// If any of the bench workers have finished, then do not include this timing
 		if (bench_worker_finished) break;
 		// Add in this timing.  If time exceeds our limit, end this worker.
 		// Note: the timer should never be <= 0, but I have seen unexplained timer behavior in the past.
 		// Just to be safe from infinite loops, if the timer is zero or less, assume the iteration took 1 second.
-		info->iterations++;
+		info->iterations += batch_size;
 		if (timer_value (timers, 0) <= 0.0) info->total_time += 1.0;
 		else info->total_time += timer_value (timers, 0);
 		if (info->total_time > bench_workers_time) {
@@ -9290,7 +9295,7 @@ int primeBenchMultipleWorkersInternal (
 	for (plus1 = 0; plus1 <= 1; plus1++) {
 	  if (plus1 == 0 && time_negacyclic == 2) continue;
 	  if (plus1 == 1 && time_negacyclic == 0) continue;
-	  for (fftlen = min_FFT_length * 1024; fftlen <= max_FFT_length * 1024; fftlen += 10) {
+	  for (fftlen = (min_FFT_length ? min_FFT_length * 1024 : 10); fftlen <= max_FFT_length * 1024; fftlen += 10) {
 
 /* Initialize this FFT length */
 
