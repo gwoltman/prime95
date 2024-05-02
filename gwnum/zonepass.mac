@@ -4921,6 +4921,514 @@ c1b:	zr8s_eight_complex_last_unfft rsi, 128, 16*128, 32*128, 64*128, rdi, ZMM_CD
 	ENDM
 
 
+;; Perform a 2560-element FFT
+
+zfft2560 MACRO type
+	LOCAL	b1b, b2b, b3a, b3b, b4a, b4b, b4c, b4d, c3a, c3b, c2b, c1b, zmid2, zmid3, zmid4, zfinish_unfft
+
+;; Check for a multiply with pre-FFTed inputs
+
+	cmp	ffttype, 4
+	je	zmid4
+
+;; Do FFT levels 1,2,3,4
+;; On input the 128-byte cache line pairs hold these data values:
+;;	0	+20	...	1280	+20	...
+;;	...
+;;	19	...
+;;	160	...
+;;	240	...
+;;	...
+;; On output the 128-byte cache line pairs hold these data values:
+;;	0	+20	...	160	+20	...
+;;	...
+;;	19	...
+;;	320	...
+;;	640	...
+;;	...
+;; These are swizzled to:
+;;	0	+320	...	160	+320	...
+;;	...
+;;	159	...
+
+;; Do 160 sixteen_reals_fft operations
+;;	distance between fft data elements is 160
+;;	do 20 macros processing 128 data values
+
+	start_timer 4
+	mov	rdi, sincos1		;; Load sin/cos data ptr
+	bump	rdi, 32*ZMM_SCD4+8*ZMM_SCD3
+	mov	r9, norm_col_mults	;; Load weights pointer
+	zloop_init  20			;; 20 iterations
+	zr8fs_sixteen_reals_first_fft_preload
+b1b:	zr8fs_sixteen_reals_first_fft rsi, 128, 20*128, 40*128, 80*128, rdi, ZMM_SCD7, r9, 8*128, 20
+	zloop	20, b1b, -20*128	;; Test loop counter, restore source pointer
+	end_timer 4
+
+;; Do FFT levels 5,6
+;; On input the 64-byte cache lines hold these data values:
+;;	0	+320	...	160	+320	...
+;;	...
+;;	159	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0	+320	...	32	+320	...
+;;	...
+;;	31
+;;	64	...
+;;	128	...
+;;	...
+
+;; Do 16 ten_reals_fft operation
+;; Do 240 five_complex_fft operations
+;;	distance between fft data elements is 32
+;;	do 32 macros each processing 80 data values
+
+	start_timer 5
+	bump	rdi, -20*ZMM_SCD7-32*ZMM_SCD4 ;; Load sin/cos pointer
+	zloop_init  32			;; 32 iterations
+	zr5_ten_reals_five_complex_djbfft_preload
+b2b:	zr5_ten_reals_five_complex_djbfft rsi, 128, 32*128, rdi, ZMM_SCD4, 32
+	zloop	32, b2b, -32*128	;; Test loop counter, restore source pointer
+	end_timer 5
+
+;; Do FFT levels 7,8,9
+;; On input the 64-byte cache lines hold these data values:
+;;	0	+320	...	32	+320	...
+;;	...
+;;	31
+;;	64	...
+;;	128	...
+;;	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0	+320	...	8	+320	...
+;;	...
+;;	7
+;;	16	...
+;;	32	...
+;;	...
+
+;; Do 8 eight_reals_fft operation
+;; Do 312 four_complex_fft operations
+;;	distance between fft data elements is 8
+;;	do 40 macros each processing 64 data values
+
+	start_timer 6
+	bump	rdi, -32*ZMM_SCD4-8*ZMM_SCD3 ;; Load sin/cos ptr
+	zloop_init  40			;; 5 iterations of 8
+	zr4_eight_reals_four_complex_djbfft_preload
+b3a:	zr4_eight_reals_four_complex_djbfft rsi, 128, 8*128, 16*128, rdi, ZMM_SCD3, 8
+	zloop	8, b3a, -8*128+32*128, rdi, -8*ZMM_SCD3 ;; Test loop counter, next source pointer, restore sin/cos pointer
+
+	loops_reset			;; 4 more iters of 8
+	zr4rb_four_complex_djbfft_preload
+b3b:	zr4rb_four_complex_djbfft rsi, 128, 8*128, 16*128, rdi, ZMM_SCD3, 8
+	zloop	8, b3b, -8*128+32*128, rdi, -8*ZMM_SCD3 ;; Test loop counter, next source pointer, restore sin/cos pointer
+	zloop	5, b3b, -5*32*128	;; Test loop counter, restore source pointer
+	end_timer 6
+
+;; Do FFT levels 10,11,12
+;; On input and output the 128-byte cache line pairs hold these data values:
+;;	0	+320	...	8	+320	...
+;;	...
+;;	7
+;;	16	...
+;;	32	...
+;;	...
+
+;; Do 1 sixteen_reals_fft operation
+;; Do 159 eight_complex_fft operations
+;;	distance between fft data elements is 1
+;;	do 20 macros processing 128 data values
+
+	cmp	ffttype, 2
+	je	zmid2
+	ja	zmid3
+
+	start_timer 7
+;;	zr8_sixteen_reals_eight_complex_fft_final rsi, 0, 128, 2*128, 4*128
+	zr8_dispatch call, zreal_fft_final, 128, 2*128, 4*128
+	zloop_init  19			;; 19 more iterations
+	zr8_eight_complex_fft_final_preload
+b4a:	zr8_eight_complex_fft_final rsi, 8*128, 128, 2*128, 4*128
+	zloop	19, b4a			;; Test loop counter
+	end_timer 7
+	zfft_1_ret
+
+zmid2:	start_timer 7
+	mov	r8, DEST2ARG
+;;	zr8_sixteen_reals_eight_complex_with_square rsi, 0, 128, 2*128, 4*128
+	zr8_dispatch call, zreal_square, 128, 2*128, 4*128
+	zloop_init  19			;; 19 more iterations
+	zr8_eight_complex_with_square_preload
+b4b:	zr8_eight_complex_with_square rsi, 8*128, 128, 2*128, 4*128
+	zloop	19, b4b			;; Test loop counter
+	lea	rsi, [rsi+r8-20*8*128]	;; Restore source pointer
+	mov	DESTARG, rsi
+	end_timer 7
+	jmp	zfinish_unfft
+
+zmid3:	start_timer 7
+	mov	r8, DEST2ARG
+	mov	rbp, DIST_TO_MULSRCARG
+;;	zr8_sixteen_reals_eight_complex_with_mult rsi, 0, 128, 2*128, 4*128
+	zr8_dispatch call, zreal_mult, 128, 2*128, 4*128
+	zloop_init  19			;; 19 more iterations
+	zr8_eight_complex_with_mult_preload
+b4c:	zr8_eight_complex_with_mult rsi, 8*128, 128, 2*128, 4*128
+	zloop	19, b4c			;; Test loop counter
+	lea	rsi, [rsi+r8-20*8*128]	;; Restore source pointer
+	mov	DESTARG, rsi
+	end_timer 7
+	jmp	zfinish_unfft
+
+zmid4:	start_timer 7
+	mov	rbp, DIST_TO_MULSRCARG
+;;	zr8_sixteen_reals_eight_complex_with_mulf rsi, 0, 128, 2*128, 4*128
+	zr8_dispatch call, zreal_mulf, 128, 2*128, 4*128
+	zloop_init  19			;; 19 more iterations
+	zr8_eight_complex_with_mulf_preload
+b4d:	zr8_eight_complex_with_mulf rsi, 8*128, 128, 2*128, 4*128
+	zloop	19, b4d, -20*8*128	;; Test loop counter, restore source pointer
+	end_timer 7
+
+;; Do inverse FFT levels 7,8,9
+;; On input the 64-byte cache lines hold these data values:
+;;	0	+320	...	8	+320	...
+;;	...
+;;	7
+;;	16	...
+;;	32	...
+;;	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0	+320	...	32	+320	...
+;;	...
+;;	31
+;;	64	...
+;;	128	...
+;;	...
+
+;; Do 8 eight_reals_unfft operations
+;; Do 312 four_complex_unfft operations
+;;	distance between fft data elements is 8
+;;	do 40 macros each processing 64 data values
+
+zfinish_unfft:
+	start_timer 8
+	mov	rdi, sincos1		;; Load sin/cos pointer
+	zloop_init  40			;; 5 iterations of 8
+	zr4_eight_reals_four_complex_djbunfft_preload
+c3a:	zr4_eight_reals_four_complex_djbunfft rsi, 128, 8*128, 16*128, rdi, ZMM_SCD3, 8
+	zloop	8, c3a, -8*128+32*128, rdi, -8*ZMM_SCD3 ;; Test loop counter, restore source pointer, restore sin/cos pointer
+
+	loops_reset			;; 4 more iters of 8
+	zr4rb_four_complex_djbunfft_preload
+c3b:	zr4rb_four_complex_djbunfft rsi, 128, 8*128, 16*128, rdi, ZMM_SCD3, 8
+	zloop	8, c3b, -8*128+32*128, rdi, -8*ZMM_SCD3 ;; Test loop counter, next source pointer, restore sin/cos pointer
+	zloop	5, c3b, -5*32*128, rdi, 8*ZMM_SCD3 ;; Test loop counter, restore source pointer, next sin/cos pointer
+	end_timer 8
+
+;; Do inverse FFT levels 5,6
+;; On input the 64-byte cache lines hold these data values:
+;;	0	+320	...	32	+320	...
+;;	...
+;;	31
+;;	64	...
+;;	128	...
+;;	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0	+320	...	160	+320	...
+;;	...
+;;	159	...
+
+;; Do 16 ten_reals_unfft operations
+;; Do 240 five_complex_unfft operations
+;;	distance between fft data elements is 32
+;;	do 32 macros each processing 80 data values
+
+	start_timer 9
+	zloop_init  32			;; 32 iterations
+	zr5_ten_reals_five_complex_djbunfft_preload
+c2b:	zr5_ten_reals_five_complex_djbunfft rsi, 128, 32*128, rdi, ZMM_SCD4, 32
+	zloop	32, c2b, -32*128	;; Test loop counter, restore source pointer
+	end_timer 9
+
+;; Do inverse FFT levels 1,2,3,4
+;; On input the 128-byte cache line pairs hold these data values:
+;;	0	+320	...	160	+320	...
+;;	...
+;;	159	...
+;; These are swizzled to:
+;;	0	+20	...	160	+20	...
+;;	...
+;;	19	...
+;;	320	...
+;;	640	...
+;;	...
+;; On output the 128-byte cache line pairs hold these data values:
+;;	0	+20	...	1280	+20	...
+;;	...
+;;	19	...
+;;	160	...
+;;	240	...
+;;	...
+
+;; Do 160 sixteen_reals_unfft operations
+;;	distance between fft data elements is 160
+;;	do 20 macros processing 128 data values
+
+	start_timer 10
+	zloop_init  20			;; 20 iterations
+	zr8s_sixteen_reals_last_unfft_preload
+c1b:	zr8s_sixteen_reals_last_unfft rsi, 128, 20*128, 40*128, 80*128, rdi, ZMM_SCD7, 20
+	zloop	20, c1b, -20*128	;; Test loop counter, restore source pointer
+	end_timer 10
+
+	zfft_3_ret
+	ENDM
+
+;; Perform a 2560-element negacyclic FFT
+
+zfft2560p MACRO type
+	LOCAL	b1b, b2b, b3b, b4a, b4b, b4c, b4d, c3b, c2b, c1b, zmid2p, zmid3p, zmid4p, zfinish_unfft
+
+;; Do a multiply with pre-FFTed inputs
+
+	cmp	ffttype, 4
+	je	zmid4p
+
+;; Do FFT levels 1,2,3,4
+;; On input the 128-byte cache line pairs hold these data values:
+;;	0	+20	...	1280	+20	...
+;;	...
+;;	19	...
+;;	160	...
+;;	240	...
+;;	...
+;; On output the 128-byte cache line pairs hold these data values:
+;;	0	+20	...	160	+20	...
+;;	...
+;;	19	...
+;;	320	...
+;;	640	...
+;;	...
+;; These are swizzled to:
+;;	0	+320	...	160	+320	...
+;;	...
+;;	159	...
+
+;; Do 160 eight_complex_first_fft operations
+;;	distance between fft data elements is 160
+;;	do 20 macros processing 128 data values
+
+	start_timer 4
+	mov	rdi, sincos1		;; Load sin/cos pointer
+	bump	rdi, 32*ZMM_SCD2/8+8*ZMM_SCD2/8
+	mov	r9, norm_col_mults	;; Load weights pointer
+	zloop_init  20			;; 20 iterations
+	zr8fs_eight_complex_first_fft_preload
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 20*128, 40*128, 80*128, rdi, ZMM_CD8SCD4, r9, 8*128, 20
+	zloop	20, b1b, -20*128	;; Test loop counter, restore source pointer
+	end_timer 4
+
+;; Do FFT levels 5,6
+;; On input the 64-byte cache lines hold these data values:
+;;	0	+320	...	160	+320	...
+;;	...
+;;	159	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0	+320	...	32	+320	...
+;;	...
+;;	31
+;;	64	...
+;;	128	...
+;;	...
+
+;; Do 256 five_complex_fft operations
+;;	distance between fft data elements is 32
+;;	do 32 macros each processing 80 data values
+
+	start_timer 5
+	bump	rdi, -20*ZMM_CD8SCD4-32*ZMM_SCD2/8 ;; Load sin/cos pointer
+	zloop_init  32			;; 32 iterations
+	zr5b_five_complex_djbfft_preload
+b2b:	zr5b_five_complex_djbfft rsi, 128, 32*128, rdi, ZMM_SCD2/8, 32
+	zloop	32, b2b, -32*128	;; Test loop counter, restore source pointer
+	end_timer 5
+
+;; Do FFT levels 7,8,9
+;; On input the 64-byte cache lines hold these data values:
+;;	0	+320	...	32	+320	...
+;;	...
+;;	31
+;;	64	...
+;;	128	...
+;;	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0	+320	...	8	+320	...
+;;	...
+;;	7
+;;	16	...
+;;	32	...
+;;	...
+
+;; Do 320 four_complex_fft operations
+;;	distance between fft data elements is 8
+;;	do 40 macros each processing 64 data values
+
+	start_timer 6
+	bump	rdi, -32*ZMM_SCD2/8-8*ZMM_SCD2/8 ;; Load sin/cos pointer
+	zloop_init  40			;; 5 iterations of 8
+	zr4b_four_complex_djbfft_preload
+b3b:	zr4b_four_complex_djbfft rsi, 128, 8*128, 16*128, rdi, ZMM_SCD2/8, 8
+	zloop	8, b3b, -8*128+32*128, rdi, -8*ZMM_SCD2/8 ;; Test loop counter, next source pointer, restore sin/cos pointer
+	zloop	5, b3b, -5*32*128	;; Test loop counter, restore source pointer
+	end_timer 6
+
+;; Do FFT levels 10,11,12
+;; On input and output the 128-byte cache line pairs hold these data values:
+;;	0	+320	...	8	+320	...
+;;	...
+;;	7
+;;	16	...
+;;	32	...
+;;	...
+
+;; Do 160 eight_complex_fft operations
+;;	distance between fft data elements is 1
+;;	do 20 macros processing 128 data values
+
+	cmp	ffttype, 2
+	je	zmid2p
+	ja	zmid3p
+
+	start_timer 7
+	zloop_init  20			;; 20 iterations
+	zr8_eight_complex_fft_final_preload
+b4a:	zr8_eight_complex_fft_final rsi, 8*128, 128, 2*128, 4*128
+	zloop	20, b4a			;; Test loop counter
+	end_timer 7
+	zfft_1_ret
+
+zmid2p:	start_timer 7
+	mov	r8, DEST2ARG
+	zloop_init  20			;; 20 iterations
+	zr8_eight_complex_with_square_preload
+b4b:	zr8_eight_complex_with_square rsi, 8*128, 128, 2*128, 4*128
+	zloop	20, b4b			;; Test loop counter
+	lea	rsi, [rsi+r8-20*8*128]	;; Restore source pointer
+	mov	DESTARG, rsi
+	end_timer 7
+	jmp	zfinish_unfft
+
+zmid3p:	start_timer 7
+	mov	r8, DEST2ARG
+	mov	rbp, DIST_TO_MULSRCARG
+	zloop_init  20			;; 20 iterations
+	zr8_eight_complex_with_mult_preload
+b4c:	zr8_eight_complex_with_mult rsi, 8*128, 128, 2*128, 4*128
+	zloop	20, b4c			;; Test loop counter
+	lea	rsi, [rsi+r8-20*8*128]	;; Restore source pointer
+	mov	DESTARG, rsi
+	end_timer 7
+	jmp	zfinish_unfft
+
+zmid4p:	start_timer 7
+	mov	rbp, DIST_TO_MULSRCARG
+	zloop_init  20			;; 20 iterations
+	zr8_eight_complex_with_mulf_preload
+b4d:	zr8_eight_complex_with_mulf rsi, 8*128, 128, 2*128, 4*128
+	zloop	20, b4d, -20*8*128	;; Test loop counter, restore source pointer
+	end_timer 7
+
+;; Do inverse FFT levels 7,8,9
+;; On input the 64-byte cache lines hold these data values:
+;;	0	+320	...	8	+320	...
+;;	...
+;;	7
+;;	16	...
+;;	32	...
+;;	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0	+320	...	32	+320	...
+;;	...
+;;	31
+;;	64	...
+;;	128	...
+;;	...
+
+;; Do 320 four_complex_unfft operations
+;;	distance between fft data elements is 8
+;;	do 40 macros each processing 64 data values
+
+zfinish_unfft:
+	start_timer 8
+	mov	rdi, sincos1		;; Load sin/cos pointer
+	zloop_init  40			;; 5 iterations of 8
+	zr4b_four_complex_djbunfft_preload
+c3b:	zr4b_four_complex_djbunfft rsi, 128, 8*128, 16*128, rdi, ZMM_SCD2/8, 8
+	zloop	8, c3b, -8*128+32*128, rdi, -8*ZMM_SCD2/8 ;; Test loop counter, next source pointer, restore sin/cos pointer
+	zloop	5, c3b, -5*32*128, rdi, 8*ZMM_SCD2/8 ;; Test loop counter, restore source pointer, next sin/cos pointer
+	end_timer 8
+
+;; Do inverse FFT levels 5,6
+;; On input the 64-byte cache lines hold these data values:
+;;	0	+320	...	32	+320	...
+;;	...
+;;	31
+;;	64	...
+;;	128	...
+;;	...
+;; On output the 64-byte cache lines hold these data values:
+;;	0	+320	...	160	+320	...
+;;	...
+;;	159	...
+
+;; Do 256 five_complex_unfft operations
+;;	distance between fft data elements is 32
+;;	do 32 macros each processing 80 data values
+
+	start_timer 9
+	zloop_init  32			;; 32 iterations
+	zr5b_five_complex_djbunfft_preload
+c2b:	zr5b_five_complex_djbunfft rsi, 128, 32*128, rdi, ZMM_SCD2/8, 32
+	zloop	32, c2b, -32*128	;; Test loop counter, restore source pointer
+	end_timer 9
+
+;; Do inverse FFT levels 1,2,3,4
+;; On input the 128-byte cache line pairs hold these data values:
+;;	0	+320	...	160	+320	...
+;;	...
+;;	159	...
+;; These are swizzled to:
+;;	0	+20	...	160	+20	...
+;;	...
+;;	19	...
+;;	320	...
+;;	640	...
+;;	...
+;; On output the 128-byte cache line pairs hold these data values:
+;;	0	+20	...	1280	+20	...
+;;	...
+;;	19	...
+;;	160	...
+;;	240	...
+;;	...
+
+;; Do 160 eight_complex_last_unfft operations
+;;	distance between fft data elements is 160
+;;	do 20 macros processing 128 data values
+
+	start_timer 10
+	zloop_init  20			;; 20 iterations
+	zr8s_eight_complex_last_unfft_preload
+c1b:	zr8s_eight_complex_last_unfft rsi, 128, 20*128, 40*128, 80*128, rdi, ZMM_CD8SCD4, 20
+	zloop	20, c1b, -20*128	;; Test loop counter, restore source pointer
+	end_timer 10
+
+	zfft_3_ret
+	ENDM
+
+
 ;; Perform a 3K-element FFT
 
 zfft3K MACRO type
