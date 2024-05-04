@@ -290,8 +290,8 @@ double *zr4_build_onepass_sincos_table (
 
 		else {
 			for (j = 0; j < N / 3; j++) {
-				gwsincos1by1 (j, N, table);
-				table += 2;
+				gwsincos1by1_special3 (j, N, table);
+				table += 3;
 			}
 		}
 	}

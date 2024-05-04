@@ -703,6 +703,30 @@ void gwcos1plusby (
 	END_x86_FIX
 }
 
+/* Special version for 3-complex macro, outputs sine and sine*0.866 */
+
+extern "C"
+void gwsincos1by_special3 (
+	unsigned long x,
+	unsigned long N,
+	double	*results,
+	int	incr)
+{
+	dd_real arg1, sine, cosine, sine866, tmp;
+
+	arg1 = dd_real::_2pi / 3.0;		// 2*PI / 3
+	sine866 = sin (arg1);			// sine (0.866)
+
+	x86_FIX
+	arg1 = dd_real::_2pi * (double) x / (double) N;
+	sincos (arg1, sine, cosine);
+	tmp = sine + epsilon;		/* Protect against divide by zero */
+	results[0] = tmp;
+	results[incr] = cosine / tmp;
+	results[incr*2] = tmp * sine866;
+	END_x86_FIX
+}
+
 /* Special version for 14-reals (and 7-complex) macro, multiplies sine values by 0.975 */
 
 extern "C"
