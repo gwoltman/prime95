@@ -681,7 +681,6 @@ IF maxrpt MOD 4 EQ 0
 	zfmaddpd zmm23, zmm25, zmm26, zmm24			;; A3 = R3 * cosine3/sine3 + I3			; 8-11		n 16
 	zfmsubpd zmm24, zmm24, zmm26, zmm25			;; B3 = I3 * cosine3/sine3 - R3			; 8-11		n 16
 
-
 	vmovapd	zmm4, [screg+0*scinc]				;; sine2
 	vmulpd	zmm0, zmm0, zmm4				;; A2 = A2 * sine2 (R2)				; 9-12		n 17
 	vmulpd	zmm1, zmm1, zmm4				;; B2 = B2 * sine2 (I2)				; 9-12		n 17
@@ -803,7 +802,7 @@ IF maxrpt MOD 4 EQ 0
 	zstore	[srcreg+0*srcinc+d1], zmm1	;; Save R2							; 37
 
 	zfnmaddpd zmm16, zmm18, zmm30, zmm14	;; I2 = i1- - .866r2-		negR5 = R1b- - .866*I2		; 38-41		n 42
-	zfnmaddpd zmm23, zmm25, zmm30, zmm21	;; I2 = i1- - .866r2-		negR5 = R1b- - .866*I2		; 38-41		n 42
+	zfnmaddpd zmm27, zmm25, zmm30, zmm21	;; I2 = i1- - .866r2-		negR5 = R1b- - .866*I2		; 38-41		n 42
 	zstore	[srcreg+0*srcinc+2*d1], zmm3	;; Save R3							; 37+1
 
 	zfmaddpd zmm18, zmm18, zmm30, zmm14	;; I3 = i1- + .866r2-		R6 = R1b- + .866*I2		; 39-42
@@ -819,7 +818,7 @@ IF maxrpt MOD 4 EQ 0
 	zstore	[srcreg+1*srcinc+2*d1], zmm10	;; Save R3							; 39+2
 
 	vsubpd	zmm16 {k6}, zmm29, zmm16	;; blend in I2			R5 = 0 - negR5			; 42-45
-	vsubpd	zmm23 {k6}, zmm29, zmm23	;; blend in I2			R5 = 0 - negR5			; 42-45
+	vsubpd	zmm27 {k6}, zmm29, zmm27	;; blend in I2			R5 = 0 - negR5			; 42-45
 
 	zstore	[srcreg+1*srcinc+2*d1+64], zmm11;; Save I3							; 40+2
 	zstore	[srcreg+2*srcinc+d1], zmm15	;; Save R2							; 41+2
@@ -831,8 +830,8 @@ IF maxrpt MOD 4 EQ 0
 	zstore	[srcreg+0*srcinc+d1+64], zmm2	;; Save I2							; 45+4
 	zstore	[srcreg+1*srcinc+d1+64], zmm9	;; Save I2							; 45+5
 	zstore	[srcreg+2*srcinc+d1+64], zmm16	;; Save I2							; 46+5
-	zstore	[srcreg+3*srcinc+d1+64], zmm23	;; Save I2							; 46+6
-	bump	srcreg, srcinc
+	zstore	[srcreg+3*srcinc+d1+64], zmm27	;; Save I2							; 46+6
+	bump	srcreg, 4*srcinc
 ELSE
 						;; Three complex comments	Six-reals comments
 	vmovapd	zmm2, [srcreg+0*srcinc+d1]			;; R2
