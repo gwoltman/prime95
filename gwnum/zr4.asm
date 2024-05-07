@@ -60,6 +60,7 @@ buildfor SKX,	zonepass 640, 0
 buildfor SKX,	zonepass 768, 0
 buildfor SKX,	zonepass 896, 0
 buildfor SKX,	zonepass 1K, 0
+buildfor SKX,	zonepass 1280, 0
 buildfor SKX,	zonepass 1536, 0
 buildfor SKX,	zonepass 2K, 0
 buildfor SKX,	zonepass 2560, 0
@@ -71,16 +72,6 @@ buildfor SKX,	zonepass 5K, 0
 buildfor SKX,	zonepass 6K, 0
 buildfor SKX,	zonepass 7K, 0
 buildfor SKX,	zonepass 8K, 0
-IFDEF NOT_YET_IMPL
-buildfor SKX,	zonepass 1280, 0
-buildfor     ,	zonepass 10K, 0
-buildfor     ,	zonepass 12K, 0
-buildfor     ,	zonepass 16K, 0
-buildfor     ,	zonepass 20K, 0
-buildfor     ,	zonepass 18K, 0
-buildfor     ,	zonepass 24K, 0
-buildfor     ,	zonepass 32K, 0
-ENDIF
 
 buildfor SKX,	zonepass 128, 1
 buildfor SKX,	zonepass 256, 1
@@ -90,6 +81,7 @@ buildfor SKX,	zonepass 640, 1
 buildfor SKX,	zonepass 768, 1
 buildfor SKX,	zonepass 896, 1
 buildfor SKX,	zonepass 1K, 1
+buildfor SKX,	zonepass 1280, 1
 buildfor SKX,	zonepass 1536, 1
 buildfor SKX,	zonepass 2K, 1
 buildfor SKX,	zonepass 2560, 1
@@ -101,16 +93,6 @@ buildfor SKX,	zonepass 5K, 1
 buildfor SKX,	zonepass 6K, 1
 buildfor SKX,	zonepass 7K, 1
 buildfor SKX,	zonepass 8K, 1
-IFDEF NOT_YET_IMPL
-buildfor SKX,	zonepass 1280, 1
-buildfor SKX,	zonepass 10K, 1
-buildfor SKX,	zonepass 12K, 1
-buildfor SKX,	zonepass 16K, 1
-buildfor     ,	zonepass 20K, 1
-buildfor     ,	zonepass 18K, 1
-buildfor     ,	zonepass 24K, 1
-buildfor     ,	zonepass 32K, 1
-ENDIF
 
 _TEXT	ENDS
 END
