@@ -10554,7 +10554,7 @@ if ((gwdata->cpu_flags & (CPU_AVX512F | CPU_FMA3 | CPU_AVX)) &&
 			else if (!(options & GWMUL_FFT_S12)) asm_data->ffttype = 2;
 			else {	// Two destinations
 				asm_data->ffttype = (gwdata->cpu_flags & CPU_AVX512F) ? 2 : 3;
-				asm_data->DEST2ARG = (void *) ((intptr_t) d - (intptr_t) s1);
+				asm_data->DEST2ARG = d;
 				asm_data->mul4_opcode = 0x80;
 			}
 		}
@@ -10583,8 +10583,8 @@ if ((gwdata->cpu_flags & (CPU_AVX512F | CPU_FMA3 | CPU_AVX)) &&
 			else if (FFT_state (s1) != FULLY_FFTed && !(options & GWMUL_FFT_S1) && s1_can_be_preferred_without_two_dest) preferred_FFT_arg = s1;
 			else if (FFT_state (s2) != FULLY_FFTed && !(options & GWMUL_FFT_S2) && s2_can_be_preferred_without_two_dest) preferred_FFT_arg = s2;
 			// Lastly, handle must FFT case using two destinations (may save a read)
-			else if (FFT_state (s1) != FULLY_FFTed) preferred_FFT_arg = s1, asm_data->DEST2ARG = (void *) ((intptr_t) d - (intptr_t) s1);
-			else if (FFT_state (s2) != FULLY_FFTed) preferred_FFT_arg = s2, asm_data->DEST2ARG = (void *) ((intptr_t) d - (intptr_t) s2);
+			else if (FFT_state (s1) != FULLY_FFTed) preferred_FFT_arg = s1, asm_data->DEST2ARG = d;
+			else if (FFT_state (s2) != FULLY_FFTed) preferred_FFT_arg = s2, asm_data->DEST2ARG = d;
 			// Can't happen
 			else ASSERTG (FALSE);
 
@@ -10659,6 +10659,7 @@ if ((gwdata->cpu_flags & (CPU_AVX512F | CPU_FMA3 | CPU_AVX)) &&
 
 	if (asm_data->DEST2ARG) {
 		asm_data->mul4_opcode = 0x80;
+		asm_data->DEST2ARG = (void *) ((intptr_t) asm_data->DEST2ARG - (intptr_t) s1);  // Make DEST2ARG an offset from s1
 		asm_mul (gwdata, s1, s2, s1, options);
 	} else {
 		asm_data->mul4_opcode = 0;
@@ -10976,9 +10977,9 @@ void cmn_gwopmul4 (		/* Calculate (s1 op s2) * s3 */
 		else if (FFT_state (s1) != FULLY_FFTed && !(options & GWMUL_FFT_S1) && s1_can_be_preferred_without_two_dest) preferred_FFT_arg = s1;
 		else if (FFT_state (s2) != FULLY_FFTed && !(options & GWMUL_FFT_S2) && s2_can_be_preferred_without_two_dest) preferred_FFT_arg = s2;
 		// Lastly, handle must FFT case using two destinations (may save a read)
-		else if (FFT_state (s3) != FULLY_FFTed) preferred_FFT_arg = s3, asm_data->DEST2ARG = (void *) ((intptr_t) d - (intptr_t) s3);
-		else if (FFT_state (s1) != FULLY_FFTed) preferred_FFT_arg = s1, asm_data->DEST2ARG = (void *) ((intptr_t) d - (intptr_t) s1);
-		else if (FFT_state (s2) != FULLY_FFTed) preferred_FFT_arg = s2, asm_data->DEST2ARG = (void *) ((intptr_t) d - (intptr_t) s2);
+		else if (FFT_state (s3) != FULLY_FFTed) preferred_FFT_arg = s3, asm_data->DEST2ARG = d;
+		else if (FFT_state (s1) != FULLY_FFTed) preferred_FFT_arg = s1, asm_data->DEST2ARG = d;
+		else if (FFT_state (s2) != FULLY_FFTed) preferred_FFT_arg = s2, asm_data->DEST2ARG = d;
 		// Can't happen
 		else ASSERTG (FALSE);
 
@@ -11029,6 +11030,7 @@ void cmn_gwopmul4 (		/* Calculate (s1 op s2) * s3 */
 		if (asm_data->DEST2ARG) {
 			asm_data->mul4_opcode = 0x80 | opcode;
 			asm_data->SRC2ARG = (void *) ((intptr_t) s2 - (intptr_t) s3);
+			asm_data->DEST2ARG = (void *) ((intptr_t) asm_data->DEST2ARG - (intptr_t) s3);
 			asm_mul (gwdata, s3, s1, s3, options);
 		} else {
 			asm_data->mul4_opcode = opcode;
@@ -11227,7 +11229,7 @@ void cmn_gwmulmulop5 (		/* Calculate (s1 * s2) op (s3 * s4) */
 			else if (!(gwdata->cpu_flags & (CPU_AVX512F))) gwfft (gwdata, s1, s1), asm_data->ffttype = 4;
 			else {	// Two destinations
 				asm_data->ffttype = 2;
-				asm_data->DEST2ARG = (void *) ((intptr_t) d - (intptr_t) s1);
+				asm_data->DEST2ARG = d;
 			}
 		}
 
@@ -11255,8 +11257,8 @@ void cmn_gwmulmulop5 (		/* Calculate (s1 * s2) op (s3 * s4) */
 			else if (FFT_state (s1) != FULLY_FFTed && !(options & GWMUL_FFT_S1) && s1_can_be_preferred_without_two_dest) preferred_FFT_arg = s1;
 			else if (FFT_state (s2) != FULLY_FFTed && !(options & GWMUL_FFT_S2) && s2_can_be_preferred_without_two_dest) preferred_FFT_arg = s2;
 			// Lastly, handle must FFT case using two destinations (may save a read)
-			else if (FFT_state (s1) != FULLY_FFTed) preferred_FFT_arg = s1, asm_data->DEST2ARG = (void *) ((intptr_t) d - (intptr_t) s1);
-			else if (FFT_state (s2) != FULLY_FFTed) preferred_FFT_arg = s2, asm_data->DEST2ARG = (void *) ((intptr_t) d - (intptr_t) s2);
+			else if (FFT_state (s1) != FULLY_FFTed) preferred_FFT_arg = s1, asm_data->DEST2ARG = d;
+			else if (FFT_state (s2) != FULLY_FFTed) preferred_FFT_arg = s2, asm_data->DEST2ARG = d;
 			// Can't happen
 			else ASSERTG (FALSE);
 
@@ -11297,6 +11299,7 @@ void cmn_gwmulmulop5 (		/* Calculate (s1 * s2) op (s3 * s4) */
 			asm_data->mul4_opcode = 0x80 | opcode;
 			asm_data->SRC2ARG = (void *) ((intptr_t) s3 - (intptr_t) s1);
 			asm_data->SRC3ARG = (void *) ((intptr_t) s4 - (intptr_t) s1);
+			asm_data->DEST2ARG = (void *) ((intptr_t) asm_data->DEST2ARG - (intptr_t) s1);
 			asm_mul (gwdata, s1, s2, s1, options);
 		} else {
 			asm_data->mul4_opcode = opcode;
@@ -11500,7 +11503,7 @@ void cmn_gwmulop4 (		/* Calculate (s1 * s2) op s3 */
 			else if (!(gwdata->cpu_flags & (CPU_AVX512F))) gwfft (gwdata, s1, s1), asm_data->ffttype = 4;
 			else {	// Two destinations
 				asm_data->ffttype = 2;
-				asm_data->DEST2ARG = (void *) ((intptr_t) d - (intptr_t) s1);
+				asm_data->DEST2ARG = d;
 			}
 		}
 
@@ -11528,8 +11531,8 @@ void cmn_gwmulop4 (		/* Calculate (s1 * s2) op s3 */
 			else if (FFT_state (s1) != FULLY_FFTed && !(options & GWMUL_FFT_S1) && s1_can_be_preferred_without_two_dest) preferred_FFT_arg = s1;
 			else if (FFT_state (s2) != FULLY_FFTed && !(options & GWMUL_FFT_S2) && s2_can_be_preferred_without_two_dest) preferred_FFT_arg = s2;
 			// Lastly, handle must FFT case using two destinations (may save a read)
-			else if (FFT_state (s1) != FULLY_FFTed) preferred_FFT_arg = s1, asm_data->DEST2ARG = (void *) ((intptr_t) d - (intptr_t) s1);
-			else if (FFT_state (s2) != FULLY_FFTed) preferred_FFT_arg = s2, asm_data->DEST2ARG = (void *) ((intptr_t) d - (intptr_t) s2);
+			else if (FFT_state (s1) != FULLY_FFTed) preferred_FFT_arg = s1, asm_data->DEST2ARG = d;
+			else if (FFT_state (s2) != FULLY_FFTed) preferred_FFT_arg = s2, asm_data->DEST2ARG = d;
 			// Can't happen
 			else ASSERTG (FALSE);
 
@@ -11571,6 +11574,7 @@ void cmn_gwmulop4 (		/* Calculate (s1 * s2) op s3 */
 		if (asm_data->DEST2ARG) {
 			asm_data->mul4_opcode = 0x80 | opcode;
 			asm_data->SRC2ARG = (void *) ((intptr_t) s3 - (intptr_t) s1);
+			asm_data->DEST2ARG = (void *) ((intptr_t) asm_data->DEST2ARG - (intptr_t) s1);
 			asm_mul (gwdata, s1, s2, s1, options);
 		} else {
 			asm_data->mul4_opcode = opcode;
