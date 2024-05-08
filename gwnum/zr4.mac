@@ -565,7 +565,7 @@ IF maxrpt MOD 2 EQ 0
 	vaddpd	zmm2, zmm3, zmm4		;; r2+ = R2 + R4		r2++ = r2+ + r4+		; 2-5		n 6
 	vsubpd	zmm3, zmm3, zmm4		;; i34tmp = R2 - R4		I2 = r2+ - r4+			; 2-5		n 7
 
-	vmovapd	zmm13, [srcreg+1*srcinc]		;; R1				R1+R5
+	vmovapd	zmm13, [srcreg+1*srcinc]	;; R1				R1+R5
 	vmovapd	zmm14, [srcreg+1*srcinc+d2]	;; R3				R3+R7
 	vaddpd	zmm12, zmm13, zmm14		;; r1+ = R1 + R3		r1++ = r1+ + r3+		; 3-6   	n 7
 	vsubpd	zmm13, zmm13, zmm14		;; R34 = R1 - R3		R2 = r1+ - r3+			; 3-6		n 9
@@ -634,8 +634,8 @@ IF maxrpt MOD 2 EQ 0
 	zfmaddpd zmm18, zmm23, zmm30, zmm17	;; I3 = I34 + i34tmp*1		I3 = I34 + i34tmp*SQRTHALF	; 18-21		n 20
 	zfnmaddpd zmm23, zmm23, zmm30, zmm17	;; I4 = I34 - i34tmp*1		I4 = I34 - i34tmp*SQRTHALF	; 18-21		n 21
 
-	zstore	[srcreg+1*srcinc], zmm4		;; Save R1							; 19
-	zstore	[srcreg+1*srcinc+64], zmm9	;; Save I1							; 18
+	zstore	[srcreg+1*srcinc], zmm16	;; Save R1							; 19
+	zstore	[srcreg+1*srcinc+64], zmm21	;; Save I1							; 18
 	zloop_unrolled_one
 
 	vmovapd	zmm8, [screg+0*scinc+1*128+64]			;; cosine/sine
@@ -693,12 +693,12 @@ IF maxrpt MOD 2 EQ 0
 	zstore	[srcreg+0*srcinc+d2+64], zmm6	;; Save I3
 	zstore	[srcreg+0*srcinc+d2+d1], zmm2	;; Save R4
 	zstore	[srcreg+0*srcinc+d2+d1+64], zmm11 ;; Save I4
-	zstore	[srcreg+1*srcinc+d1], zmm5	;; Save R2
-	zstore	[srcreg+1*srcinc+d1+64], zmm3	;; Save I2
-	zstore	[srcreg+1*srcinc+d2], zmm1	;; Save R3
-	zstore	[srcreg+1*srcinc+d2+64], zmm6	;; Save I3
-	zstore	[srcreg+1*srcinc+d2+d1], zmm2	;; Save R4
-	zstore	[srcreg+1*srcinc+d2+d1+64], zmm11 ;; Save I4
+	zstore	[srcreg+1*srcinc+d1], zmm17	;; Save R2
+	zstore	[srcreg+1*srcinc+d1+64], zmm15	;; Save I2
+	zstore	[srcreg+1*srcinc+d2], zmm13	;; Save R3
+	zstore	[srcreg+1*srcinc+d2+64], zmm18	;; Save I3
+	zstore	[srcreg+1*srcinc+d2+d1], zmm14	;; Save R4
+	zstore	[srcreg+1*srcinc+d2+d1+64], zmm23 ;; Save I4
 	bump	srcreg, 2*srcinc
 ELSE
 						;; Four-complex comments	Eight-reals comments
@@ -1015,9 +1015,3 @@ ELSE
 	bump	srcreg, srcinc
 ENDIF
 	ENDM
-
-
-
-
-
-
