@@ -647,7 +647,11 @@ unsigned long cache_line_offset (
 /* Memory layouts for AVX-512 machines */
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
-		if (gwdata->PASS1_SIZE == 0) {
+		if (gwdata->PASS2_SIZE == 0) {
+			addr = i * 64;
+			// No padding (yet) in traditional one-pass FFTs
+		}
+		else if (gwdata->PASS1_SIZE == 0) {
 			addr = i * 64;
 			/* Now optionally add 64 pad bytes every 4KB */
 			if (gwdata->FOURKBGAPSIZE) addr = addr + (addr / (gwdata->FOURKBGAPSIZE << 6)) * 64;
