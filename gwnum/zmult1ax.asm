@@ -261,7 +261,7 @@ usublp:	vmovapd	zmm0, [rcx]			; Load second number
 ;	bump	rbx, 64				; Pad 64 bytes
 	dec	al				; Check loop counter
 	jnz	usublp2				; Loop if necessary
-	ad_epilog 0,0,rbx,rsi,rdi
+	ad_epilog 0,0,rbx,rsi
 gwzsubq1 ENDP
 
 ;;
@@ -627,7 +627,7 @@ gwzaddsubzp1 ENDP
 
 	; Rational, zero-padded
 PROCFL	gwzaddsubrzp1
-	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
+	ad_prolog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 	mov	rsi, SRCARG			; Address of first number
 	mov	rcx, SRC2ARG			; Address of second number
 	mov	rbx, DESTARG			; Address of destination
