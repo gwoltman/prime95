@@ -68,9 +68,11 @@ buildfor SKX,	zonepass 2304, 0
 buildfor SKX,	zonepass 2560, 0
 buildfor SKX,	zonepass 3K, 0
 buildfor SKX,	zonepass 3584, 0
+buildfor SKX,	zonepass 3840, 0
 buildfor SKX,	zonepass 4K, 0
 buildfor SKX,	zonepass 4608, 0
 buildfor SKX,	zonepass 5K, 0
+buildfor SKX,	zonepass 5376, 0
 buildfor SKX,	zonepass 6K, 0
 buildfor SKX,	zonepass 7K, 0
 buildfor SKX,	zonepass 8K, 0
@@ -91,9 +93,11 @@ buildfor SKX,	zonepass 2304, 1
 buildfor SKX,	zonepass 2560, 1
 buildfor SKX,	zonepass 3K, 1
 buildfor SKX,	zonepass 3584, 1
+buildfor SKX,	zonepass 3840, 1
 buildfor SKX,	zonepass 4K, 1
 buildfor SKX,	zonepass 4608, 1
 buildfor SKX,	zonepass 5K, 1
+buildfor SKX,	zonepass 5376, 1
 buildfor SKX,	zonepass 6K, 1
 buildfor SKX,	zonepass 7K, 1
 buildfor SKX,	zonepass 8K, 1
