@@ -229,6 +229,7 @@ void gen_data (gwhandle *gwdata, gwnum x, giant g)
 	}
 
 #ifdef XXX
+	//Giants/GMP code to craft a special initial value for g
 	ultog (gwdata->b, g);
 	power (g, gwdata->n);
 	dblmulg (gwdata->k, g);
@@ -635,7 +636,12 @@ void test_it (
 		if (i == 45 || i == 46) gwsetaddin (gwdata, -31);
 
 		/* Test several different ways to square a number */
-		if (i % 50 >= 4 && i % 50 <= 7) {
+		if (i % 50 == 25 || i % 50 == 26) {			// Deprecated safemul on Montgomery mod numbers had problems -- reported by Atnashev
+			gwfft (gwdata, x, x3);
+			gwsafemul (gwdata, x, x3);
+			if (i % 50 == 25) gwcopy (gwdata, x3, x);
+			else gwsquare (gwdata, x);
+		} else if (i % 50 >= 4 && i % 50 <= 7) {
 			gwfft (gwdata, x, x);
 			gwfftfftmul (gwdata, x, x, x);
 		} else if (i % 50 >= 12 && i % 50 <= 15) {
@@ -1269,6 +1275,32 @@ again:		gwinit (&gwdata);
 			continue;
 		}
 
+#ifdef XXX
+	//(2^1845030-1)*3*2^1845030+1.
+	giant k = allocgiant (1000000);
+	giant g = allocgiant (2000000);
+		
+	ultog (2, k);
+	power (k, 1845030);
+	iaddg (-1, k);
+	dblmulg (3.0, k);
+
+	ultog (2, g);
+	power (g, 1845030);
+
+	mulg (k, g);
+	iaddg (1, g);
+	
+	gwdone (&gwdata);
+	gwinit (&gwdata);
+	gwset_maxmulbyconst (&gwdata, 5);
+	gwset_num_threads (&gwdata, threads);
+	gwset_thread_callback (&gwdata, SetAuxThreadPriority);
+	gwset_thread_callback_data (&gwdata, sp_info);
+	res = gwsetup_general_mod_giant (&gwdata, g);
+	free (k);
+	free (g);
+#endif
 		sprintf (buf, "Starting %s QA run on %s, kbits=%d, cbits=%d\n",
 			 gwdata.RATIONAL_FFT ? "rational" : "irrational",
 			 gwmodulo_as_string (&gwdata), kbits, cbits);
