@@ -10048,7 +10048,7 @@ int primeBench (
 	    for (plus1 = 0; plus1 <= 1; plus1++) {
 	      if (plus1 == 0 && time_negacyclic == 2) continue;
 	      if (plus1 == 1 && time_negacyclic == 0) continue;
-	      for (fftlen = min_FFT_length * 1024; fftlen <= max_FFT_length * 1024; fftlen += 10) {
+	      for (fftlen = (min_FFT_length ? min_FFT_length * 1024 : 30); fftlen <= max_FFT_length * 1024; fftlen += 10) {
 	        for (impl = 1; ; impl++) {
 		  if (impl > 1 && !all_bench) break;
 
@@ -10117,7 +10117,7 @@ int primeBench (
 
 		  sprintf (buf, "Timing %lu iterations of %luK%s FFT length%s.  ",
 			 iterations, fftlen / 1024,
-			 plus1 ? " all-complex" : "",
+			 plus1 ? " negacyclic" : "",
 			 gw_using_large_pages (&lldata.gwdata) ? " using large pages" : "");
 		  OutputStr (thread_num, buf);
 
