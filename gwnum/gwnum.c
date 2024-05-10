@@ -10570,7 +10570,7 @@ if ((gwdata->cpu_flags & (CPU_AVX512F | CPU_FMA3 | CPU_AVX)) &&
 			gwnum	preferred_FFT_arg;	// Which source should be src1 in asm_mul possibly getting FFTed by asm_mul
 
 /* If a source arg equals d then the other source args can be the type-3 forward FFT arg only if they use two destinations. */
-/* Otherwise, the forward FFT of type-3 will write to d which corrupt the source arg that equals d. */
+/* Otherwise, the forward FFT of type-3 will write to d which corrupts the source arg that equals d. */
 
 			bool s1_can_be_FFTed_and_discarded = (s2 != d);
 			bool s2_can_be_FFTed_and_discarded = (s1 != d);
@@ -10593,7 +10593,7 @@ if ((gwdata->cpu_flags & (CPU_AVX512F | CPU_FMA3 | CPU_AVX)) &&
 			else if (FFT_state (s2) == FULLY_FFTed) preferred_FFT_arg = s2;
 			else ASSERTG (FALSE);
 
-/* Pre-FFT all but the preferred FFT arg.  Even the preferred FFT arg may need to be FFTed. */
+/* Pre-FFT all but the preferred FFT arg */
 
 			if (preferred_FFT_arg != s1 && FFT_state (s1) != FULLY_FFTed) {
 				if (options & GWMUL_PRESERVE_S1) { tmp1 = gwalloc (gwdata); gwfft (gwdata, s1, tmp1); s1 = tmp1; }
@@ -10959,7 +10959,7 @@ void cmn_gwopmul4 (		/* Calculate (s1 op s2) * s3 */
 		asm_data->DEST2ARG = 0;
 
 /* If a source arg equals d then the other source args can be the type-3 forward FFT arg only if they use two destinations. */
-/* Otherwise, the forward FFT of type-3 will write to d which corrupt the source arg that equals d. */
+/* Otherwise, the forward FFT of type-3 will write to d which corrupts the source arg that equals d. */
 
 		bool s1_can_be_FFTed_and_discarded = (s2 != d && s3 != d);
 		bool s2_can_be_FFTed_and_discarded = (s1 != d && s3 != d);
@@ -10989,7 +10989,7 @@ void cmn_gwopmul4 (		/* Calculate (s1 op s2) * s3 */
 		else if (FFT_state (s3) == FULLY_FFTed) preferred_FFT_arg = s3;
 		else ASSERTG (FALSE);
 
-/* Pre-FFT all but the preferred FFT arg.  Even the preferred FFT arg may need to be FFTed. */
+/* Pre-FFT all but the preferred FFT arg */
 
 		if (preferred_FFT_arg != s1 && FFT_state (s1) != FULLY_FFTed) {
 			if (options & GWMUL_PRESERVE_S1) { tmp1 = gwalloc (gwdata); gwfft (gwdata, s1, tmp1); s1 = tmp1; }
@@ -11244,7 +11244,7 @@ void cmn_gwmulmulop5 (		/* Calculate (s1 * s2) op (s3 * s4) */
 			gwnum	preferred_FFT_arg;	// Which source should be src1 in asm_mul and can be FFTed by asm_mul
 
 /* If a source arg equals d then the other source args can be the type-3 forward FFT arg only if they use two destinations. */
-/* Otherwise, the forward FFT of type-3 will write to d which corrupt the source arg that equals d. */
+/* Otherwise, the forward FFT of type-3 will write to d which corrupts the source arg that equals d. */
 
 			bool s1_can_be_FFTed_and_discarded = (s2 != d && s3 != d && s4 != d);
 			bool s2_can_be_FFTed_and_discarded = (s1 != d && s3 != d && s4 != d);
@@ -11267,7 +11267,7 @@ void cmn_gwmulmulop5 (		/* Calculate (s1 * s2) op (s3 * s4) */
 			else if (FFT_state (s2) == FULLY_FFTed) preferred_FFT_arg = s2;
 			else ASSERTG (FALSE);
 
-/* Pre-FFT all but the preferred FFT arg.  Even the preferred FFT arg may need to be FFTed. */
+/* Pre-FFT all but the preferred FFT arg */
 
 			if (preferred_FFT_arg != s1 && FFT_state (s1) != FULLY_FFTed) {
 				if (options & GWMUL_PRESERVE_S1) { tmp1 = gwalloc (gwdata); gwfft (gwdata, s1, tmp1); s1 = tmp1; }
@@ -11518,7 +11518,7 @@ void cmn_gwmulop4 (		/* Calculate (s1 * s2) op s3 */
 			gwnum	preferred_FFT_arg;	// Which source should be src1 in asm_mul which can be FFTed by asm_mul
 
 /* If a source arg equals d then the other source args can be the type-3 forward FFT arg only if they use two destinations. */
-/* Otherwise, the forward FFT of type-3 will write to d which corrupt the source arg that equals d. */
+/* Otherwise, the forward FFT of type-3 will write to d which corrupts the source arg that equals d. */
 
 			bool s1_can_be_FFTed_and_discarded = (s2 != d && s3 != d);
 			bool s2_can_be_FFTed_and_discarded = (s1 != d && s3 != d);
@@ -11541,7 +11541,7 @@ void cmn_gwmulop4 (		/* Calculate (s1 * s2) op s3 */
 			else if (FFT_state (s2) == FULLY_FFTed) preferred_FFT_arg = s2;
 			else ASSERTG (FALSE);
 
-/* Pre-FFT all but the preferred FFT arg.  Even the preferred FFT arg may need to be FFTed. */
+/* Pre-FFT all but the preferred FFT arg */
 
 			if (preferred_FFT_arg != s1 && FFT_state (s1) != FULLY_FFTed) {
 				if (options & GWMUL_PRESERVE_S1) { tmp1 = gwalloc (gwdata); gwfft (gwdata, s1, tmp1); s1 = tmp1; }
