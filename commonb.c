@@ -5850,7 +5850,7 @@ typedef struct {		/* Some of the data kept during LL test */
 int lucasSetup (
 	int	thread_num,	/* Worker number */
 	unsigned long p,	/* Exponent to test */
-	unsigned long fftlen,	/* Specific FFT length to use or zero.  Add one to test all-complex. */
+	unsigned long fftlen,	/* Specific FFT length to use or zero.  Add one to test negacyclic. */
 	llhandle *lldata)	/* Common LL data structure */
 {
 	int	res;
@@ -5861,7 +5861,7 @@ int lucasSetup (
 	lldata->lldata = NULL;
 	lldata->units_bit = 0;
 
-/* As a kludge for the benchmarking and timing code, an odd FFTlen sets up gwnum for all-complex FFTs. */
+/* As a kludge for the benchmarking and timing code, an odd FFTlen sets up gwnum for negacyclic FFTs. */
 
 	c = (fftlen & 1) ? 1 : -1;
 	fftlen &= ~1;
@@ -9374,7 +9374,7 @@ int primeBenchMultipleWorkersInternal (
 			    sprintf (buf, "Timing %lu%s%s FFT, %d core%s%s, %d worker%s.  ",
 				     (fftlen & 0x3FF) ? fftlen : fftlen / 1024,
 				     (fftlen & 0x3FF) ? "" : "K",
-				     plus1 ? " all-complex" : "",
+				     plus1 ? " negacyclic" : "",
 				     cpus, cpus > 1 ? "s" : "",
 				     hypercpus > 1 ? " hyperthreaded" : "",
 				     workers, workers > 1 ? "s" : "");
@@ -9511,7 +9511,7 @@ int primeBenchMultipleWorkersInternal (
 					 "FFTlen=%lu%s%s, Type=%d, Arch=%d, Pass1=%lu, Pass2=%lu, clm=%lu",
 					 (fftlen & 0x3FF) ? fftlen : fftlen / 1024,
 					 (fftlen & 0x3FF) ? "" : "K",
-					 plus1 ? " all-complex" : "",
+					 plus1 ? " negacyclic" : "",
 					 lldata.gwdata.FFT_TYPE, lldata.gwdata.ARCH,
 					 fftlen / (lldata.gwdata.PASS2_SIZE ? lldata.gwdata.PASS2_SIZE : 1),
 					 lldata.gwdata.PASS2_SIZE,
@@ -9520,7 +9520,7 @@ int primeBenchMultipleWorkersInternal (
 				sprintf (buf, "Timings for %lu%s%s FFT length",
 					 (fftlen & 0x3FF) ? fftlen : fftlen / 1024,
 					 (fftlen & 0x3FF) ? "" : "K",
-					 plus1 ? " all-complex" : "");
+					 plus1 ? " negacyclic" : "");
 			    }
 			    if (hypercpus <= 2)
 				sprintf (buf+strlen(buf), " (%d core%s%s, %d worker%s): ",
@@ -9653,7 +9653,7 @@ int primeBenchMultipleWorkers (
 		IniGetInt (INI_FILE, "MinBenchFFT", 1024),
 		IniGetInt (INI_FILE, "MaxBenchFFT", 8192),
 		IniGetInt (INI_FILE, "OnlyBench5678", 0),			/* Limit FFTs benched to mimic previous prime95s */
-		IniGetInt (INI_FILE, "BenchAllComplex", 0),
+		IniGetInt (INI_FILE, "BenchNegacyclic", 0),
 		all_bench,
 		bench_cores,
 		IniGetInt (INI_FILE, "BenchHyperthreads", 1),			/* Benchmark hyperthreading */
@@ -10167,7 +10167,7 @@ int primeBench (
 		  if (all_bench) {
 			sprintf (buf,
 				 "Time FFTlen=%luK%s, Type=%d, Arch=%d, Pass1=%lu, Pass2=%lu, clm=%lu: ",
-				 fftlen / 1024, plus1 ? " all-complex" : "",
+				 fftlen / 1024, plus1 ? " negacyclic" : "",
 				 lldata.gwdata.FFT_TYPE, lldata.gwdata.ARCH,
 				 fftlen / (lldata.gwdata.PASS2_SIZE ? lldata.gwdata.PASS2_SIZE : 1),
 				 lldata.gwdata.PASS2_SIZE,
@@ -10178,7 +10178,7 @@ int primeBench (
 			strcat (buf, ", avg: ");
 			print_timer (timers, 0, buf, TIMER_NL | TIMER_MS);
 		  } else {
-			sprintf (buf, "Best time for %luK%s FFT length: ", fftlen / 1024, plus1 ? " all-complex" : "");
+			sprintf (buf, "Best time for %luK%s FFT length: ", fftlen / 1024, plus1 ? " negacyclic" : "");
 			timers[0] = best_time;
 			print_timer (timers, 0, buf, TIMER_MS);
 			timers[0] = total_time / iterations;
