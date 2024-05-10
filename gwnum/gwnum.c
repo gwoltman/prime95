@@ -3382,17 +3382,21 @@ int internal_gwsetup (
 			ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 			asm_data->sincos1 = tables;
 			tables = zr4_build_onepass_sincos_table (gwdata, tables);
+			tables = round_to_cache_line (tables);
 
 			ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 			asm_data->norm_col_mults = tables;
 			tables = zr4_build_onepass_weights_table (gwdata, tables);
+			tables = round_to_cache_line (tables);
 
 			ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 			asm_data->norm_grp_mults = tables;
 			tables = zr4_build_onepass_inverse_weights_table (gwdata, tables);
+			tables = round_to_cache_line (tables);
 
 			ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 			tables = zr4_build_onepass_biglit_table (gwdata, tables);	/* Sets compressed_biglits & norm_biglit_array */
+			tables = round_to_cache_line (tables);
 
 #ifdef GDEBUG_MEM
 			{
@@ -4020,7 +4024,6 @@ int internal_gwsetup (
 		asm_data->norm_biglit_array = tables;
 		tables = x87_build_biglit_table (gwdata, tables);
 	    }
-
 #endif
 
 /* Return "impossible" internal errors from building tables */
@@ -10569,34 +10572,34 @@ if ((gwdata->cpu_flags & (CPU_AVX512F | CPU_FMA3 | CPU_AVX)) &&
 /* If a source arg equals d then the other source args can be the type-3 forward FFT arg only if they use two destinations. */
 /* Otherwise, the forward FFT of type-3 will write to d which corrupt the source arg that equals d. */
 
-			bool s1_can_be_preferred_without_two_dest = (s2 != d);
-			bool s2_can_be_preferred_without_two_dest = (s1 != d);
+			bool s1_can_be_FFTed_and_discarded = (s2 != d);
+			bool s2_can_be_FFTed_and_discarded = (s1 != d);
 
 /* Pick which argument to FFT.  Prefer to FFT one that we can discard the FFT result (saves a write). */
 
 			// Type-4 FFT
 			if (FFT_state (s1) == FULLY_FFTed && FFT_state (s2) == FULLY_FFTed) preferred_FFT_arg = s1;
 			// Next, prefer an arg that must be preserved (saves allocating a temporary and maybe a read-write)
-			else if (FFT_state (s1) != FULLY_FFTed && (options & GWMUL_PRESERVE_S1) && s1_can_be_preferred_without_two_dest) preferred_FFT_arg = s1;
-			else if (FFT_state (s2) != FULLY_FFTed && (options & GWMUL_PRESERVE_S2) && s2_can_be_preferred_without_two_dest) preferred_FFT_arg = s2;
+			else if (FFT_state (s1) != FULLY_FFTed && (options & GWMUL_PRESERVE_S1) && s1_can_be_FFTed_and_discarded) preferred_FFT_arg = s1;
+			else if (FFT_state (s2) != FULLY_FFTed && (options & GWMUL_PRESERVE_S2) && s2_can_be_FFTed_and_discarded) preferred_FFT_arg = s2;
 			// Next, prefer an arg that we're allowed to leave in unFFTed state (may save a read-write)
-			else if (FFT_state (s1) != FULLY_FFTed && !(options & GWMUL_FFT_S1) && s1_can_be_preferred_without_two_dest) preferred_FFT_arg = s1;
-			else if (FFT_state (s2) != FULLY_FFTed && !(options & GWMUL_FFT_S2) && s2_can_be_preferred_without_two_dest) preferred_FFT_arg = s2;
-			// Lastly, handle must FFT case using two destinations (may save a read)
-			else if (FFT_state (s1) != FULLY_FFTed) preferred_FFT_arg = s1, asm_data->DEST2ARG = d;
-			else if (FFT_state (s2) != FULLY_FFTed) preferred_FFT_arg = s2, asm_data->DEST2ARG = d;
-			// Can't happen
+			else if (FFT_state (s1) != FULLY_FFTed && !(options & GWMUL_FFT_S1) && s1_can_be_FFTed_and_discarded) preferred_FFT_arg = s1;
+			else if (FFT_state (s2) != FULLY_FFTed && !(options & GWMUL_FFT_S2) && s2_can_be_FFTed_and_discarded) preferred_FFT_arg = s2;
+			// Handle must FFT case using two destinations (may save a read)
+			else if (FFT_state (s1) != FULLY_FFTed && !(options & GWMUL_PRESERVE_S1)) preferred_FFT_arg = s1, asm_data->DEST2ARG = d;
+			else if (FFT_state (s2) != FULLY_FFTed && !(options & GWMUL_PRESERVE_S2)) preferred_FFT_arg = s2, asm_data->DEST2ARG = d;
+			// Rarely happens.  Preserve option forces us to use gwalloc, gwfft, and a type-4 multiply
+			else if (FFT_state (s1) == FULLY_FFTed) preferred_FFT_arg = s1;
+			else if (FFT_state (s2) == FULLY_FFTed) preferred_FFT_arg = s2;
 			else ASSERTG (FALSE);
 
 /* Pre-FFT all but the preferred FFT arg.  Even the preferred FFT arg may need to be FFTed. */
 
-			if ((preferred_FFT_arg != s1 || (preferred_FFT_arg == s1 && (options & GWMUL_PRESERVE_S1) && !s1_can_be_preferred_without_two_dest)) &&
-			    FFT_state (s1) != FULLY_FFTed) {
+			if (preferred_FFT_arg != s1 && FFT_state (s1) != FULLY_FFTed) {
 				if (options & GWMUL_PRESERVE_S1) { tmp1 = gwalloc (gwdata); gwfft (gwdata, s1, tmp1); s1 = tmp1; }
 				else gwfft (gwdata, s1, s1);
 			}
-			if ((preferred_FFT_arg != s2 || (preferred_FFT_arg == s2 && (options & GWMUL_PRESERVE_S2) && !s2_can_be_preferred_without_two_dest)) &&
-			    FFT_state (s2) != FULLY_FFTed) {
+			if (preferred_FFT_arg != s2 && FFT_state (s2) != FULLY_FFTed) {
 				if (options & GWMUL_PRESERVE_S2) { tmp2 = gwalloc (gwdata); gwfft (gwdata, s2, tmp2); s2 = tmp2; }
 				else gwfft (gwdata, s2, s2);
 			}
@@ -10958,9 +10961,9 @@ void cmn_gwopmul4 (		/* Calculate (s1 op s2) * s3 */
 /* If a source arg equals d then the other source args can be the type-3 forward FFT arg only if they use two destinations. */
 /* Otherwise, the forward FFT of type-3 will write to d which corrupt the source arg that equals d. */
 
-		bool s1_can_be_preferred_without_two_dest = (s2 != d && s3 != d);
-		bool s2_can_be_preferred_without_two_dest = (s1 != d && s3 != d);
-		bool s3_can_be_preferred_without_two_dest = (s1 != d && s2 != d);
+		bool s1_can_be_FFTed_and_discarded = (s2 != d && s3 != d);
+		bool s2_can_be_FFTed_and_discarded = (s1 != d && s3 != d);
+		bool s3_can_be_FFTed_and_discarded = (s1 != d && s2 != d);
 
 /* Pick which argument to FFT.  Prefer to FFT one that we can discard the FFT result (saves a write). */
 /* NOTE: Type-4 FFTs do not support rearranging source arguments. */
@@ -10969,34 +10972,34 @@ void cmn_gwopmul4 (		/* Calculate (s1 op s2) * s3 */
 		// Type-4 FFT and bizarre s1 = s2 case
 		if ((FFT_state (s1) == FULLY_FFTed && FFT_state (s2) == FULLY_FFTed && FFT_state (s3) == FULLY_FFTed) || s1 == s2) preferred_FFT_arg = s3;
 		// Next, prefer an arg that must be preserved (saves allocating a temporary and maybe a read-write)
-		else if (FFT_state (s3) != FULLY_FFTed && (options & GWMUL_PRESERVE_S3) && s3_can_be_preferred_without_two_dest) preferred_FFT_arg = s3;
-		else if (FFT_state (s1) != FULLY_FFTed && (options & GWMUL_PRESERVE_S1) && s1_can_be_preferred_without_two_dest) preferred_FFT_arg = s1;
-		else if (FFT_state (s2) != FULLY_FFTed && (options & GWMUL_PRESERVE_S2) && s2_can_be_preferred_without_two_dest) preferred_FFT_arg = s2;
+		else if (FFT_state (s3) != FULLY_FFTed && (options & GWMUL_PRESERVE_S3) && s3_can_be_FFTed_and_discarded) preferred_FFT_arg = s3;
+		else if (FFT_state (s1) != FULLY_FFTed && (options & GWMUL_PRESERVE_S1) && s1_can_be_FFTed_and_discarded) preferred_FFT_arg = s1;
+		else if (FFT_state (s2) != FULLY_FFTed && (options & GWMUL_PRESERVE_S2) && s2_can_be_FFTed_and_discarded) preferred_FFT_arg = s2;
 		// Next, prefer an arg that we're allowed to leave in unFFTed state (may save a read-write)
-		else if (FFT_state (s3) != FULLY_FFTed && !(options & GWMUL_FFT_S3) && s3_can_be_preferred_without_two_dest) preferred_FFT_arg = s3;
-		else if (FFT_state (s1) != FULLY_FFTed && !(options & GWMUL_FFT_S1) && s1_can_be_preferred_without_two_dest) preferred_FFT_arg = s1;
-		else if (FFT_state (s2) != FULLY_FFTed && !(options & GWMUL_FFT_S2) && s2_can_be_preferred_without_two_dest) preferred_FFT_arg = s2;
-		// Lastly, handle must FFT case using two destinations (may save a read)
-		else if (FFT_state (s3) != FULLY_FFTed) preferred_FFT_arg = s3, asm_data->DEST2ARG = d;
-		else if (FFT_state (s1) != FULLY_FFTed) preferred_FFT_arg = s1, asm_data->DEST2ARG = d;
-		else if (FFT_state (s2) != FULLY_FFTed) preferred_FFT_arg = s2, asm_data->DEST2ARG = d;
-		// Can't happen
+		else if (FFT_state (s3) != FULLY_FFTed && !(options & GWMUL_FFT_S3) && s3_can_be_FFTed_and_discarded) preferred_FFT_arg = s3;
+		else if (FFT_state (s1) != FULLY_FFTed && !(options & GWMUL_FFT_S1) && s1_can_be_FFTed_and_discarded) preferred_FFT_arg = s1;
+		else if (FFT_state (s2) != FULLY_FFTed && !(options & GWMUL_FFT_S2) && s2_can_be_FFTed_and_discarded) preferred_FFT_arg = s2;
+		// Handle must FFT case using two destinations (may save a read)
+		else if (FFT_state (s1) != FULLY_FFTed && !(options & GWMUL_PRESERVE_S1)) preferred_FFT_arg = s1, asm_data->DEST2ARG = d;
+		else if (FFT_state (s2) != FULLY_FFTed && !(options & GWMUL_PRESERVE_S2)) preferred_FFT_arg = s2, asm_data->DEST2ARG = d;
+		else if (FFT_state (s3) != FULLY_FFTed && !(options & GWMUL_PRESERVE_S3)) preferred_FFT_arg = s3, asm_data->DEST2ARG = d;
+		// Rarely happens.  Preserve option forces us to use gwalloc, gwfft, and a type-4 multiply
+		else if (FFT_state (s1) == FULLY_FFTed) preferred_FFT_arg = s1;
+		else if (FFT_state (s2) == FULLY_FFTed) preferred_FFT_arg = s2;
+		else if (FFT_state (s3) == FULLY_FFTed) preferred_FFT_arg = s3;
 		else ASSERTG (FALSE);
 
 /* Pre-FFT all but the preferred FFT arg.  Even the preferred FFT arg may need to be FFTed. */
 
-		if ((preferred_FFT_arg != s1 || (preferred_FFT_arg == s1 && (options & GWMUL_PRESERVE_S1) && !s1_can_be_preferred_without_two_dest)) &&
-		    FFT_state (s1) != FULLY_FFTed) {
+		if (preferred_FFT_arg != s1 && FFT_state (s1) != FULLY_FFTed) {
 			if (options & GWMUL_PRESERVE_S1) { tmp1 = gwalloc (gwdata); gwfft (gwdata, s1, tmp1); s1 = tmp1; }
 			else gwfft (gwdata, s1, s1);
 		}
-		if ((preferred_FFT_arg != s2 || (preferred_FFT_arg == s2 && (options & GWMUL_PRESERVE_S2) && !s2_can_be_preferred_without_two_dest)) &&
-		    FFT_state (s2) != FULLY_FFTed) {
+		if (preferred_FFT_arg != s2 && FFT_state (s2) != FULLY_FFTed) {
 			if (options & GWMUL_PRESERVE_S2) { tmp2 = gwalloc (gwdata); gwfft (gwdata, s2, tmp2); s2 = tmp2; }
 			else gwfft (gwdata, s2, s2);
 		}
-		if ((preferred_FFT_arg != s3 || (preferred_FFT_arg == s3 && (options & GWMUL_PRESERVE_S3) && !s3_can_be_preferred_without_two_dest)) &&
-		    FFT_state (s3) != FULLY_FFTed) {
+		if (preferred_FFT_arg != s3 && FFT_state (s3) != FULLY_FFTed) {
 			if (options & GWMUL_PRESERVE_S3) { tmp3 = gwalloc (gwdata); gwfft (gwdata, s3, tmp3); s3 = tmp3; }
 			else gwfft (gwdata, s3, s3);
 		}
@@ -11243,34 +11246,34 @@ void cmn_gwmulmulop5 (		/* Calculate (s1 * s2) op (s3 * s4) */
 /* If a source arg equals d then the other source args can be the type-3 forward FFT arg only if they use two destinations. */
 /* Otherwise, the forward FFT of type-3 will write to d which corrupt the source arg that equals d. */
 
-			bool s1_can_be_preferred_without_two_dest = (s2 != d && s3 != d && s4 != d);
-			bool s2_can_be_preferred_without_two_dest = (s1 != d && s3 != d && s4 != d);
+			bool s1_can_be_FFTed_and_discarded = (s2 != d && s3 != d && s4 != d);
+			bool s2_can_be_FFTed_and_discarded = (s1 != d && s3 != d && s4 != d);
 
 /* Pick which argument to FFT.  Prefer to FFT one that we can discard the FFT result (saves a write).  Only one of the first two sources can be preferred_FFT_arg. */
 
 			// Type-4 FFT
 			if (FFT_state (s1) == FULLY_FFTed && FFT_state (s2) == FULLY_FFTed) preferred_FFT_arg = s1;
 			// Next, prefer an arg that must be preserved (saves allocating a temporary and maybe a read-write)
-			else if (FFT_state (s1) != FULLY_FFTed && (options & GWMUL_PRESERVE_S1) && s1_can_be_preferred_without_two_dest) preferred_FFT_arg = s1;
-			else if (FFT_state (s2) != FULLY_FFTed && (options & GWMUL_PRESERVE_S2) && s2_can_be_preferred_without_two_dest) preferred_FFT_arg = s2;
+			else if (FFT_state (s1) != FULLY_FFTed && (options & GWMUL_PRESERVE_S1) && s1_can_be_FFTed_and_discarded) preferred_FFT_arg = s1;
+			else if (FFT_state (s2) != FULLY_FFTed && (options & GWMUL_PRESERVE_S2) && s2_can_be_FFTed_and_discarded) preferred_FFT_arg = s2;
 			// Next, prefer an arg that we're allowed to leave in unFFTed state (may save a read-write)
-			else if (FFT_state (s1) != FULLY_FFTed && !(options & GWMUL_FFT_S1) && s1_can_be_preferred_without_two_dest) preferred_FFT_arg = s1;
-			else if (FFT_state (s2) != FULLY_FFTed && !(options & GWMUL_FFT_S2) && s2_can_be_preferred_without_two_dest) preferred_FFT_arg = s2;
-			// Lastly, handle must FFT case using two destinations (may save a read)
-			else if (FFT_state (s1) != FULLY_FFTed) preferred_FFT_arg = s1, asm_data->DEST2ARG = d;
-			else if (FFT_state (s2) != FULLY_FFTed) preferred_FFT_arg = s2, asm_data->DEST2ARG = d;
-			// Can't happen
+			else if (FFT_state (s1) != FULLY_FFTed && !(options & GWMUL_FFT_S1) && s1_can_be_FFTed_and_discarded) preferred_FFT_arg = s1;
+			else if (FFT_state (s2) != FULLY_FFTed && !(options & GWMUL_FFT_S2) && s2_can_be_FFTed_and_discarded) preferred_FFT_arg = s2;
+			// Handle must FFT case using two destinations (may save a read)
+			else if (FFT_state (s1) != FULLY_FFTed && !(options & GWMUL_PRESERVE_S1)) preferred_FFT_arg = s1, asm_data->DEST2ARG = d;
+			else if (FFT_state (s2) != FULLY_FFTed && !(options & GWMUL_PRESERVE_S2)) preferred_FFT_arg = s2, asm_data->DEST2ARG = d;
+			// Rarely happens.  Preserve option forces us to use gwalloc, gwfft, and a type-4 multiply
+			else if (FFT_state (s1) == FULLY_FFTed) preferred_FFT_arg = s1;
+			else if (FFT_state (s2) == FULLY_FFTed) preferred_FFT_arg = s2;
 			else ASSERTG (FALSE);
 
 /* Pre-FFT all but the preferred FFT arg.  Even the preferred FFT arg may need to be FFTed. */
 
-			if ((preferred_FFT_arg != s1 || (preferred_FFT_arg == s1 && (options & GWMUL_PRESERVE_S1) && !s1_can_be_preferred_without_two_dest)) &&
-			    FFT_state (s1) != FULLY_FFTed) {
+			if (preferred_FFT_arg != s1 && FFT_state (s1) != FULLY_FFTed) {
 				if (options & GWMUL_PRESERVE_S1) { tmp1 = gwalloc (gwdata); gwfft (gwdata, s1, tmp1); s1 = tmp1; }
 				else gwfft (gwdata, s1, s1);
 			}
-			if ((preferred_FFT_arg != s2 || (preferred_FFT_arg == s2 && (options & GWMUL_PRESERVE_S2) && !s2_can_be_preferred_without_two_dest)) &&
-			    FFT_state (s2) != FULLY_FFTed) {
+			if (preferred_FFT_arg != s2 && FFT_state (s2) != FULLY_FFTed) {
 				if (options & GWMUL_PRESERVE_S2) { tmp2 = gwalloc (gwdata); gwfft (gwdata, s2, tmp2); s2 = tmp2; }
 				else gwfft (gwdata, s2, s2);
 			}
@@ -11517,34 +11520,34 @@ void cmn_gwmulop4 (		/* Calculate (s1 * s2) op s3 */
 /* If a source arg equals d then the other source args can be the type-3 forward FFT arg only if they use two destinations. */
 /* Otherwise, the forward FFT of type-3 will write to d which corrupt the source arg that equals d. */
 
-			bool s1_can_be_preferred_without_two_dest = (s2 != d && s3 != d);
-			bool s2_can_be_preferred_without_two_dest = (s1 != d && s3 != d);
+			bool s1_can_be_FFTed_and_discarded = (s2 != d && s3 != d);
+			bool s2_can_be_FFTed_and_discarded = (s1 != d && s3 != d);
 
 /* Pick which argument to FFT.  Prefer to FFT one that we can discard the FFT result (saves a write).  Only one of the first two sources can be preferred_FFT_arg. */
 
 			// Type-4 FFT
 			if (FFT_state (s1) == FULLY_FFTed && FFT_state (s2) == FULLY_FFTed) preferred_FFT_arg = s1;
 			// Next, prefer an arg that must be preserved (saves allocating a temporary and maybe a read-write)
-			else if (FFT_state (s1) != FULLY_FFTed && (options & GWMUL_PRESERVE_S1) && s1_can_be_preferred_without_two_dest) preferred_FFT_arg = s1;
-			else if (FFT_state (s2) != FULLY_FFTed && (options & GWMUL_PRESERVE_S2) && s2_can_be_preferred_without_two_dest) preferred_FFT_arg = s2;
+			else if (FFT_state (s1) != FULLY_FFTed && (options & GWMUL_PRESERVE_S1) && s1_can_be_FFTed_and_discarded) preferred_FFT_arg = s1;
+			else if (FFT_state (s2) != FULLY_FFTed && (options & GWMUL_PRESERVE_S2) && s2_can_be_FFTed_and_discarded) preferred_FFT_arg = s2;
 			// Next, prefer an arg that we're allowed to leave in unFFTed state (may save a read-write)
-			else if (FFT_state (s1) != FULLY_FFTed && !(options & GWMUL_FFT_S1) && s1_can_be_preferred_without_two_dest) preferred_FFT_arg = s1;
-			else if (FFT_state (s2) != FULLY_FFTed && !(options & GWMUL_FFT_S2) && s2_can_be_preferred_without_two_dest) preferred_FFT_arg = s2;
-			// Lastly, handle must FFT case using two destinations (may save a read)
-			else if (FFT_state (s1) != FULLY_FFTed) preferred_FFT_arg = s1, asm_data->DEST2ARG = d;
-			else if (FFT_state (s2) != FULLY_FFTed) preferred_FFT_arg = s2, asm_data->DEST2ARG = d;
-			// Can't happen
+			else if (FFT_state (s1) != FULLY_FFTed && !(options & GWMUL_FFT_S1) && s1_can_be_FFTed_and_discarded) preferred_FFT_arg = s1;
+			else if (FFT_state (s2) != FULLY_FFTed && !(options & GWMUL_FFT_S2) && s2_can_be_FFTed_and_discarded) preferred_FFT_arg = s2;
+			// Handle must FFT case using two destinations (may save a read)
+			else if (FFT_state (s1) != FULLY_FFTed && !(options & GWMUL_PRESERVE_S1)) preferred_FFT_arg = s1, asm_data->DEST2ARG = d;
+			else if (FFT_state (s2) != FULLY_FFTed && !(options & GWMUL_PRESERVE_S2)) preferred_FFT_arg = s2, asm_data->DEST2ARG = d;
+			// Rarely happens.  Preserve option forces us to use gwalloc, gwfft, and a type-4 multiply
+			else if (FFT_state (s1) == FULLY_FFTed) preferred_FFT_arg = s1;
+			else if (FFT_state (s2) == FULLY_FFTed) preferred_FFT_arg = s2;
 			else ASSERTG (FALSE);
 
 /* Pre-FFT all but the preferred FFT arg.  Even the preferred FFT arg may need to be FFTed. */
 
-			if ((preferred_FFT_arg != s1 || (preferred_FFT_arg == s1 && (options & GWMUL_PRESERVE_S1) && !s1_can_be_preferred_without_two_dest)) &&
-			    FFT_state (s1) != FULLY_FFTed) {
+			if (preferred_FFT_arg != s1 && FFT_state (s1) != FULLY_FFTed) {
 				if (options & GWMUL_PRESERVE_S1) { tmp1 = gwalloc (gwdata); gwfft (gwdata, s1, tmp1); s1 = tmp1; }
 				else gwfft (gwdata, s1, s1);
 			}
-			if ((preferred_FFT_arg != s2 || (preferred_FFT_arg == s2 && (options & GWMUL_PRESERVE_S2) && !s2_can_be_preferred_without_two_dest)) &&
-			    FFT_state (s2) != FULLY_FFTed) {
+			if (preferred_FFT_arg != s2 && FFT_state (s2) != FULLY_FFTed) {
 				if (options & GWMUL_PRESERVE_S2) { tmp2 = gwalloc (gwdata); gwfft (gwdata, s2, tmp2); s2 = tmp2; }
 				else gwfft (gwdata, s2, s2);
 			}
