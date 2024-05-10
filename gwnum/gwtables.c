@@ -536,7 +536,7 @@ const	int	END_OF_CHAIN = 0x4000;
 
 /* Return pointer to end of our table */
 
-	return (table);
+	return ((double *) ((char *) table + 768));
 }
 
 /* This routine builds a weights table - used by one-pass AVX-512 first FFT levels */
