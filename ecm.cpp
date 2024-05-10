@@ -9766,9 +9766,9 @@ stage2_done:
 		double correct_ratio = stage2_timer / stage1_timer;
 		double current_adjustment = IniGetFloat (INI_FILE, "EcmStage2RatioAdjust", 1.0);
 		double correct_adjustment = correct_ratio / ecmdata.est_stage2_stage1_ratio * current_adjustment;
-		// Sanity check.  Estimation code should not be off by a factor of 2.
-		if (correct_adjustment > 2.0) correct_adjustment = 2.0;
-		if (correct_adjustment < 0.5) correct_adjustment = 0.5;
+		// Sanity check.  Estimation code should not be off by a factor of 3.
+		if (correct_adjustment > 3.0) correct_adjustment = 3.0;
+		if (correct_adjustment < 0.333) correct_adjustment = 0.333;
 		// Set new adjustment for next time
 		IniWriteFloat (INI_FILE, "EcmStage2RatioAdjust", (float) (0.9 * current_adjustment + 0.1 * correct_adjustment));
 	}
@@ -13564,9 +13564,9 @@ stage2_done:
 		double correct_ratio = stage2_timer / stage1_timer;
 		double current_adjustment = IniGetFloat (INI_FILE, "Pm1Stage2RatioAdjust", 1.0);
 		double correct_adjustment = correct_ratio / pm1data.est_stage2_stage1_ratio * current_adjustment;
-		// Sanity check.  Estimation code should not be off by a factor of 2.
-		if (correct_adjustment > 2.0) correct_adjustment = 2.0;
-		if (correct_adjustment < 0.5) correct_adjustment = 0.5;
+		// Sanity check.  Estimation code should not be off by a factor of 3.
+		if (correct_adjustment > 3.0) correct_adjustment = 3.0;
+		if (correct_adjustment < 0.333) correct_adjustment = 0.333;
 		// Set new adjustment for next time
 		IniWriteFloat (INI_FILE, "Pm1Stage2RatioAdjust", (float) (0.9 * current_adjustment + 0.1 * correct_adjustment));
 	}
