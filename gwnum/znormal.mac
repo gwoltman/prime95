@@ -230,13 +230,11 @@ znorm_top_carry_cmn MACRO xreg, twopass
 
 	vsubsd	xreg, xreg, xmm30	;; Convert top carry out of int+RNDVAL state
 
-	;; We want to calculate carry * b^ceil(logb(k)) / k and
-	;; carry * b^ceil(logb(k)) % k.  This must be done very carefully as
-	;; carry * b^ceil(logb(k)) may not fit in 53 bits.
+	;; We want to calculate carry * b^ceil(logb(k)) / k and carry * b^ceil(logb(k)) % k.
+	;; This must be done very carefully as carry * b^ceil(logb(k)) may not fit in 53 bits.
 
 	;; Here is a strategy that works for k values up to and including 34 bits.
-	;; We do lots of modulo k operations along the way to insure all intermediate
-	;; results are 51 bits or less.
+	;; We do lots of modulo k operations along the way to insure all intermediate results are 51 bits or less.
 	;; Calculate y = carry % k.  This will fit in 34 bits.
 	;; Let z = b^ceil(logb(k)) % k.  Precalculate high_17_bits(z) and low_17_bits(z)
 	;; Remainder is (high_17_bits(z) * y % k * 2^17 + low_17_bits(z) * y) % k
@@ -1556,13 +1554,15 @@ zadd_carry_1d_nottp MACRO
 	vmovapd	zmm7, zmm30			;; Yes, don't add carries into upper words
 nz:
 	vmovapd	zmm25, zmm30			;; Top carries are saved here for adding into next section
-	mov	cl, 7				;; Spread carry over a max of 8 words
+	mov	cl, 8				;; Spread carry over a max of 8 words
 rloop:	mov	rsi, r9				;; Restore section start pointers
 	zrotate_carries_1d
 	mov	ebx, addcount1			;; Count of double cache lines in a section
 
 	;; The following rounding code is copied almost verbatim from znorm_1d_noconst_noechk_nottp
-cloop:	vaddpd	zmm8, zmm0, [rsi]		; 1-4	;; x+RNDVAL = carry+RNDVAL + value
+cloop:	dec	cl				;; Decrement propagation count
+	jz	cloop_end			;; Exit carry propagation loop
+	vaddpd	zmm8, zmm0, [rsi]		; 1-4	;; x+RNDVAL = carry+RNDVAL + value
 	vaddpd	zmm9, zmm1, [rsi+r13]		; 1-4	;; x+RNDVAL = carry+RNDVAL + value
 	vaddpd	zmm10, zmm2, [rsi+2*r13]	; 2-5	;; x+RNDVAL = carry+RNDVAL + value
 	vaddpd	zmm11, zmm3, [rsi+r14]		; 2-5	;; x+RNDVAL = carry+RNDVAL + value
@@ -1625,10 +1625,6 @@ cloop:	vaddpd	zmm8, zmm0, [rsi]		; 1-4	;; x+RNDVAL = carry+RNDVAL + value
 	jz	done				;; If carries not found then we're done
 
 	bump	rsi, 128			;; Next source pointer
-
-	dec	cl				;; Decrement propagation count
-	jz	short cloop_end			;; Exit carry propagation loop
-
 	dec	ebx				;; Test for end of section
 	jnz	cloop				;; Loop to next double cache lines within section
 	jmp	rloop				;; Loop to rotate carries and go back to section start
@@ -1678,14 +1674,16 @@ zadd_carry_1d_ttp MACRO
 nz:
 
 	vmovapd	zmm25, zmm30			;; Top carries are saved here for adding into next section
-	mov	cl, 7				;; Spread carry over a max of 8 words
+	mov	cl, 8				;; Spread carry over a max of 8 words
 rloop:	mov	rsi, r9				;; Restore section start pointers
 	mov	rdi, r8
 	zrotate_carries_1d
 	mov	ebx, addcount1			;; Count of double cache lines in a section
 
 	;; The following rounding code is copied almost verbatim from znorm_1d_noconst_noechk_ttp
-cloop:	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
+cloop:	dec	cl				;; Decrement propagation count
+	jz	cloop_end			;; Exit carry propagation loop
+	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
 	vaddpd	zmm8, zmm0, [rsi]		; 1-4	;; x+RNDVAL = carry+RNDVAL + value
 	vaddpd	zmm9, zmm1, [rsi+r13]		; 1-4	;; x+RNDVAL = carry+RNDVAL + value
 	vaddpd	zmm10, zmm2, [rsi+2*r13]	; 2-5	;; x+RNDVAL = carry+RNDVAL + value
@@ -1783,10 +1781,6 @@ cloop:	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
 
 	bump	rsi, 128			;; Next source pointer
 	bump	rdi, 1				;; Next big/little flags
-
-	dec	cl				;; Decrement propagation count
-	jz	short cloop_end			;; Exit carry propagation loop
-
 	dec	ebx				;; Test for end of section
 	jnz	cloop				;; Loop to next double cache lines within section
 	jmp	rloop				;; Loop to rotate carries and go back to section start
@@ -1861,12 +1855,14 @@ nz:
 	vmulpd	zmm7, zmm7, ZMM_MINUS_C{1to8}	;; Multiply by -c
 	vaddpd	zmm7, zmm7, zmm30		;; Re-apply RNDVAL
 
-	mov	cl, 7				;; Spread carry over a max of 8 words
+	mov	cl, 8				;; Spread carry over a max of 8 words
 rloop:	mov	rsi, DESTARG				;; Start of first section
 	mov	ebx, addcount1			;; Count of double cache lines in a section
 
 	;; The following rounding code is copied almost verbatim from znorm_1d_noconst_noechk_nottp
-cloop:	vaddpd	zmm8, zmm7, [rsi]		; 1-4	;; x+RNDVAL = carry+RNDVAL + value
+cloop:	dec	cl				;; Decrement propagation count
+	jz	cloop_end			;; Exit carry propagation loop
+	vaddpd	zmm8, zmm7, [rsi]		; 1-4	;; x+RNDVAL = carry+RNDVAL + value
 	vaddpd	zmm9, zmm0, [rsi+r13]		; 1-4	;; x+RNDVAL = carry+RNDVAL + value
 	vaddpd	zmm10, zmm1, [rsi+2*r13]	; 2-5	;; x+RNDVAL = carry+RNDVAL + value
 	vaddpd	zmm11, zmm2, [rsi+r14]		; 2-5	;; x+RNDVAL = carry+RNDVAL + value
@@ -1929,10 +1925,6 @@ cloop:	vaddpd	zmm8, zmm7, [rsi]		; 1-4	;; x+RNDVAL = carry+RNDVAL + value
 	jz	done				;; If carries not found then we're done
 
 	bump	rsi, 128			;; Next 1st source pointer
-
-	dec	cl				;; Decrement propagation count
-	jz	short cloop_end			;; Exit carry propagation loop
-
 	dec	ebx				;; Test for end of section
 	jnz	cloop				;; Loop to next double cache lines within section
 	zrotate_carries_1d_cleanup
@@ -1985,14 +1977,16 @@ nz:
 	vmulpd	zmm7, zmm7, ZMM_MINUS_C{1to8}	;; Multiply by -c
 	vaddpd	zmm7, zmm7, zmm30		;; Re-apply RNDVAL
 
-	mov	cl, 7				;; Spread carry over a max of 8 words
+	mov	cl, 8				;; Spread carry over a max of 8 words
 rloop:	mov	rsi, DESTARG			;; Start of first section
 	mov	rdi, norm_biglit_array		;; pointer to big/lit flags
 	;;mov	r12, compressed_biglits		;; pointer to compressed biglit table
 	mov	ebx, addcount1			;; Count of double cache lines in a section
 
 	;; The following rounding code is copied almost verbatim from znorm_1d_noconst_noechk_ttp
-cloop:	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
+cloop:	dec	cl				;; Decrement propagation count
+	jz	cloop_end			;; Exit carry propagation loop
+	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
 	vaddpd	zmm8, zmm7, [rsi]		; 1-4	;; x+RNDVAL = carry+RNDVAL + value
 	vaddpd	zmm9, zmm0, [rsi+r13]		; 1-4	;; x+RNDVAL = carry+RNDVAL + value
 	vaddpd	zmm10, zmm1, [rsi+2*r13]	; 2-5	;; x+RNDVAL = carry+RNDVAL + value
@@ -2090,10 +2084,6 @@ cloop:	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
 
 	bump	rsi, 128			;; Next source pointer
 	bump	rdi, 1				;; Next big/little flags
-
-	dec	cl				;; Decrement propagation count
-	jz	short cloop_end			;; Exit carry propagation loop
-
 	dec	ebx				;; Test for end of section
 	jnz	cloop				;; Loop to next double cache lines within section
 	zrotate_carries_1d_cleanup
@@ -4438,7 +4428,7 @@ zadd_carry_rows_nottp_preload MACRO
 	ENDM
 
 zadd_carry_rows_nottp MACRO
-	LOCAL	nz, cloop, done
+	LOCAL	nz, cloop, cloop_end, done
 
 	vmovapd	zmm0, [rbp+0*128]		;; Load low carry word for source #1
 	vmovapd	zmm1, [rbp+1*128]		;; Load low carry word for source #2
@@ -4458,10 +4448,11 @@ zadd_carry_rows_nottp MACRO
 nz:
 
 	mov	r8, rsi				;; Save pointers
-	mov	al, 7				;; Spread carry over a max of 8 words
+	mov	al, 8				;; Spread carry over a max of 8 words
 
 	;; The following rounding code is copied almost verbatim from znorm_wpn_noconst_noechk_nottp
-cloop:
+cloop:	sub	al, 1				;; Decrement propagation count
+	jz	cloop_end			;; Exit carry propagation loop
 	vaddpd	zmm8, zmm0, [rsi]		; 1-4	;; x+RNDVAL = carry+RNDVAL + value
 	vaddpd	zmm9, zmm1, [rsi+r13]		; 1-4	;; x+RNDVAL = carry+RNDVAL + value
 	vaddpd	zmm10, zmm2, [rsi+2*r13]	; 2-5	;; x+RNDVAL = carry+RNDVAL + value
@@ -4525,11 +4516,11 @@ cloop:
 	jz	done				;; If carries not found then we're done
 
 	add	rsi, pass2blkdst		;; Next FFT data ptr source #1
-	sub	al, 1				;; Decrement propagation count
-	jne	cloop				;; Repeat carry propagation loop
+	jmp	cloop				;; Repeat carry propagation loop
 
 	;; Do eighth and last iteration without propagating carries out
 
+cloop_end:
 	vsubpd	zmm0, zmm0, zmm30		;; Remove RNDVAL from carries
 	vsubpd	zmm1, zmm1, zmm30
 	vsubpd	zmm2, zmm2, zmm30
@@ -4577,7 +4568,7 @@ zadd_carry_rows_ttp_preload MACRO
 	ENDM
 
 zadd_carry_rows_ttp MACRO
-	LOCAL	nz, cloop, done
+	LOCAL	nz, cloop, cloop_end, done
 
 	vmovapd	zmm0, [rbp+0*128]		;; Load low carry word for source #1
 	vmovapd	zmm1, [rbp+1*128]		;; Load low carry word for source #2
@@ -4598,10 +4589,11 @@ nz:
 
 	mov	r8, rsi				;; Save pointers
 	mov	r9, rdi
-	mov	al, 7				;; Spread carry over a max of 8 words
+	mov	al, 8				;; Spread carry over a max of 8 words
 
 	;; The following rounding code is copied almost verbatim from znorm_wpn_noconst_noechk_ttp
-cloop:
+cloop:	sub	al, 1				;; Decrement propagation count
+	jz	cloop_end			;; Exit carry propagation loop
 	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
 	vaddpd	zmm8, zmm0, [rsi]		; 1-4	;; x+RNDVAL = carry+RNDVAL + value
 	vaddpd	zmm9, zmm1, [rsi+r13]		; 1-4	;; x+RNDVAL = carry+RNDVAL + value
@@ -4700,11 +4692,11 @@ cloop:
 
 	add	rsi, pass2blkdst		;; Next FFT data ptr
 	bump	rdi, 1				;; Bump big/lit ptr the same amount we bump it in inorm macro
-	sub	al, 1				;; Decrement propagation count
-	jne	cloop				;; Repeat carry propagation loop
+	jmp	cloop				;; Repeat carry propagation loop
 
 	;; Do eighth and last iteration without propagating carries out
 
+cloop_end:
 	vsubpd	zmm0, zmm0, zmm30		;; Remove RNDVAL from carries
 	vsubpd	zmm1, zmm1, zmm30
 	vsubpd	zmm2, zmm2, zmm30
