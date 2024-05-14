@@ -9521,11 +9521,11 @@ void gianttogw (
 		memset (g, 0, gwnum_datasize (gwdata));
 	}
 
-/* Small numbers can also be optimized for many moduli by zeroing all the */
-/* FFT data using memset and then setting only the affected FFT elements. */
+/* Small numbers can also be optimized for many moduli by zeroing all FFT data using memset and then setting only the affected FFT elements. */
 
 	else if (labs (a->sign) <= 2 && (gwdata->k == 1.0 || labs (gwdata->c) == 1)) {
 		uint64_t value_to_convert, low_addin;
+		bool	negate_set_fft_value = (a->sign < 0);
 		int	i;
 
 /* Zero the FFT data, init the small value to convert to a gwnum */
@@ -9545,15 +9545,11 @@ void gianttogw (
 			uint64_t quotient, remainder, high_addin;
 			unsigned long word, bit_in_word;
 
+			if (gwdata->c == 1) negate_set_fft_value = !negate_set_fft_value;
 			quotient = value_to_convert / (uint64_t) gwdata->k;
 			remainder = value_to_convert - quotient * (uint64_t) gwdata->k;
-			if (gwdata->c == -1) {
-				low_addin = quotient;
-				high_addin = remainder;
-			} else {
-				low_addin = quotient + 1;
-				high_addin = (uint64_t) gwdata->k - remainder;
-			}
+			low_addin = quotient;
+			high_addin = remainder;
 
 /* Add the high_addin value across the top FFT words */
 
@@ -9561,33 +9557,34 @@ void gianttogw (
 			for (i = word; high_addin; i++, bit_in_word = 0) {
 				long	value;
 
-				uint64_t maxval = small_maxval;
-				if (is_big_word (gwdata, i)) maxval *= gwdata->b;
-
-				if (bit_in_word == 0) {
-					quotient = high_addin / maxval;
-					remainder = high_addin - quotient * maxval;
-					value = (long) remainder;
-					high_addin = quotient;
-				} else {
-					uint64_t pow_fudge, fudged_maxval;
-					pow_fudge = intpow (gwdata->b, bit_in_word);
-					fudged_maxval = maxval / pow_fudge;
-					quotient = high_addin / fudged_maxval;
-					remainder = high_addin - quotient * fudged_maxval;
-					value = (long) (remainder * pow_fudge);
-					high_addin = quotient;
-				}
-
-				if ((uint64_t) value > (maxval >> 1)) {
-					value = value - (long) maxval;
-					high_addin += 1;
-				}
-				if (i == gwdata->FFTLEN - 1) {
-					value = value + (long) high_addin * (long) maxval;
+				if (i == gwdata->FFTLEN - 1 || (gwdata->ZERO_PADDED_FFT && i == gwdata->FFTLEN/2 + 3)) {
+					value = (long) high_addin;
 					high_addin = 0;
+				} else {
+					uint64_t maxval = small_maxval;
+					if (is_big_word (gwdata, i)) maxval *= gwdata->b;
+
+					if (bit_in_word == 0) {
+						quotient = high_addin / maxval;
+						remainder = high_addin - quotient * maxval;
+						value = (long) remainder;
+						high_addin = quotient;
+					} else {
+						uint64_t pow_fudge, fudged_maxval;
+						pow_fudge = intpow (gwdata->b, bit_in_word);
+						fudged_maxval = maxval / pow_fudge;
+						quotient = high_addin / fudged_maxval;
+						remainder = high_addin - quotient * fudged_maxval;
+						value = (long) (remainder * pow_fudge);
+						high_addin = quotient;
+					}
+
+					if ((uint64_t) value > (maxval >> 1)) {
+						value = value - (long) maxval;
+						high_addin += 1;
+					}
 				}
-				set_fft_value (gwdata, g, i, a->sign > 0 ? value : -value);
+				set_fft_value (gwdata, g, i, negate_set_fft_value ? -value : value);
 			}
 		}
 
@@ -9608,7 +9605,7 @@ void gianttogw (
 				value = value - (long) maxval;
 				low_addin++;
 			}
-			set_fft_value (gwdata, g, i, a->sign > 0 ? value : -value);
+			set_fft_value (gwdata, g, i, negate_set_fft_value ? -value : value);
 		}
 	}
 
@@ -11843,6 +11840,7 @@ void gwmul3 (			/* Multiply two gwnums */
 
 	if (gwdata->GENERAL_MMGW_MOD) {
 		bool mulmulsub5able = (!(options & GWMUL_MULBYCONST) && !(options & GWMUL_ADDINCONST));
+		int T_Q_options = options;
 
 		// Get pointers to the six gwnums
 		gwnum s1R = cyclic_gwnum (gwdata, s1);
@@ -11862,8 +11860,11 @@ void gwmul3 (			/* Multiply two gwnums */
 
 			// Compute s1Q = negacyclic FFT of s1 where necessary
 			if (FFT_state (s1R) != FULLY_FFTed) {					// If s1R is FFTed, so is s1Q
-				if (!mulmulsub5able) s1Q = s2Q = s1R;				// Delay the FFT for the gwmul3 that computes T_Q
-				else gwfft (gwdata->negacyclic_gwdata, s1R, s1Q);		// FFT into the currently unused s1Q buffer
+				if (!mulmulsub5able) {
+					s1Q = s2Q = s1R;					// Save a write by delaying the FFT to the gwmul3 that computes T_Q
+					T_Q_options |= GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2;
+				} else
+					gwfft (gwdata->negacyclic_gwdata, s1R, s1Q);		// FFT into the currently unused s1Q buffer
 			}
 		} else {									// Multiplication
 			mulmulsub5able = mulmulsub5able && mulmuladd_safe (gwdata->negacyclic_gwdata, 0, 0, unnorms (s1), unnorms (s2));
@@ -11873,7 +11874,7 @@ void gwmul3 (			/* Multiply two gwnums */
 				if (s1 != d && !(options & GWMUL_PRESERVE_S1) && (FFT_state (s2R) != FULLY_FFTed || s2 == d))
 					gwfft (gwdata, s1, s1);					// FFT both s1R and s1Q as a pair for possible future use
 				else if (!mulmulsub5able)
-					s1Q = s1R;						// Delay the FFT for the gwmul3 that computes T_Q
+					s1Q = s1R, T_Q_options |= GWMUL_PRESERVE_S1;		// Save a write by delaying the FFT to the gwmul3 that computes T_Q
 				else
 					gwfft (gwdata->negacyclic_gwdata, s1R, s1Q);		// FFT into the currently unused s1Q buffer
 			}
@@ -11882,15 +11883,15 @@ void gwmul3 (			/* Multiply two gwnums */
 			if (FFT_state (s2R) != FULLY_FFTed) {					// If s2R is FFTed, so is s2Q
 				if (s2 != d && !(options & GWMUL_PRESERVE_S2) && (FFT_state (s1R) != FULLY_FFTed || s1 == d))
 					gwfft (gwdata, s2, s2);					// FFT both s2R and s2Q as a pair for possible future use
-				else if (!mulmulsub5able)
-					s2Q = s2R;						// Delay the FFT for the gwmul3 that computes T_Q
+				else if (!mulmulsub5able && s1Q != s1R)				// Only one argument can be delayed
+					s2Q = s2R, T_Q_options |= GWMUL_PRESERVE_S2;		// Save a write by delaying the FFT to the gwmul3 that computes T_Q
 				else
 					gwfft (gwdata->negacyclic_gwdata, s2R, s2Q);		// FFT into the currently unused s2Q buffer
 			}
 		}
 
-		// Compute T_Q = s1Q * s2Q mod Q
-		if (!mulmulsub5able) gwmul3 (gwdata->negacyclic_gwdata, s1Q, s2Q, T_Q, options & ~GWMUL_STARTNEXTFFT);
+		// Compute T_Q = s1Q * s2Q mod Q.
+		if (!mulmulsub5able) gwmul3 (gwdata->negacyclic_gwdata, s1Q, s2Q, T_Q, T_Q_options & ~GWMUL_STARTNEXTFFT);
 
 		// T_R = s1R * s2R mod R
 		gwmul3 (gwdata->cyclic_gwdata, s1R, s2R, T_R, options | GWMUL_STARTNEXTFFT);
