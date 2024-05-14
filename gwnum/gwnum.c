@@ -11107,6 +11107,8 @@ void cmn_gwmulmulop5 (		/* Calculate (s1 * s2) op (s3 * s4) */
 /* Handle general mod with Montgomery-McLaughlin-Gallot-Woltman multiplication and reduction */
 
 	else if (gwdata->GENERAL_MMGW_MOD) {
+		int T_Q_options = options;
+
 		// Get pointers to the ten gwnums
 		gwnum s1R = cyclic_gwnum (gwdata, s1);
 		gwnum s1Q = negacyclic_gwnum (gwdata, s1);
@@ -11130,29 +11132,36 @@ void cmn_gwmulmulop5 (		/* Calculate (s1 * s2) op (s3 * s4) */
 			if (FFT_state (s1R) != FULLY_FFTed) {					// If s1R is FFTed, so is s1Q
 				if (s1 != d && !(options & GWMUL_PRESERVE_S1) && (!(gwdata->cpu_flags & CPU_AVX512F) || s3 == d || s4 == d))
 					gwfft (gwdata, s1, s1);					// FFT both s1R and s1Q as a pair for possible future use
-				else
-					s1Q = s2Q = s1R, options |= GWMUL_PRESERVE_S1;		// Delay the FFT for the gwmul3 that computes T_Q
+				else if (s3 != d && s4 != d) {					// Can s1 be handled with a discardable forward FFT?
+					s1Q = s2Q = s1R;					// Delay the FFT for the cmn_gwmulmulop5 that computes T_Q
+					T_Q_options |= GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2;
+				} else
+					gwfft (gwdata->negacyclic_gwdata, s1R, s1Q);		// FFT into the currently unused s1Q buffer
 			}
 		} else {									// Multiplication
 			// Compute FFT of s1 where necessary
 			if (FFT_state (s1R) != FULLY_FFTed) {					// If s1R is FFTed, so is s1Q
 				if (s1 != d && !(options & GWMUL_PRESERVE_S1) && (FFT_state (s2R) != FULLY_FFTed || s2 == d || s3 == d || s4 == d))
 					gwfft (gwdata, s1, s1);					// FFT both s1R and s1Q as a pair for possible future use
+				else if (s2 != d && s3 != d && s4 != d)				// Can s1 be handled with a discardable forward FFT?
+					s1Q = s1R, T_Q_options |= GWMUL_PRESERVE_S1;		// Delay the FFT for the mul that computes T_Q
 				else
-					s1Q = s1R;						// Delay the FFT for the gwmul3 that computes T_Q
+					gwfft (gwdata->negacyclic_gwdata, s1R, s1Q);		// FFT into the currently unused s1Q buffer
 			}
 
 			// Compute FFT of s2 where necessary
 			if (FFT_state (s2R) != FULLY_FFTed) {					// If s2R is FFTed, so is s2Q
 				if (s2 != d && !(options & GWMUL_PRESERVE_S2) && (FFT_state (s1R) != FULLY_FFTed || s1 == d || s3 == d || s4 == d))
 					gwfft (gwdata, s2, s2);					// FFT both s2R and s2Q as a pair for possible future use
+				else if (s1 != d && s3 != d && s4 != d && s1Q != s1R)		// Can mul discard FFT of s2?  Only one argument can be delayed.
+					s2Q = s2R, T_Q_options |= GWMUL_PRESERVE_S2;		// Save a write by delaying the FFT to the mul that computes T_Q
 				else
-					s2Q = s2R;						// Delay the FFT for the gwmul3 that computes T_Q
+					gwfft (gwdata->negacyclic_gwdata, s2R, s2Q);		// FFT into the currently unused s2Q buffer
 			}
 		}
 
 		// T_Q = s1Q * s2Q +/- s3Q * s4Q mod Q
-		cmn_gwmulmulop5 (gwdata->negacyclic_gwdata, s1Q, s2Q, s3Q, s4Q, T_Q, options & ~GWMUL_STARTNEXTFFT, opcode);
+		cmn_gwmulmulop5 (gwdata->negacyclic_gwdata, s1Q, s2Q, s3Q, s4Q, T_Q, T_Q_options & ~GWMUL_STARTNEXTFFT, opcode);
 
 		// T_R = s1R * s2R +/- s3R * s4R mod R
 		cmn_gwmulmulop5 (gwdata->cyclic_gwdata, s1R, s2R, s3R, s4R, T_R, options | GWMUL_STARTNEXTFFT, opcode);
@@ -11369,6 +11378,8 @@ void cmn_gwmulop4 (		/* Calculate (s1 * s2) op s3 */
 /* Handle general mod with Montgomery-McLaughlin-Gallot-Woltman multiplication and reduction */
 
 	else if (gwdata->GENERAL_MMGW_MOD) {
+		int T_Q_options = options;
+
 		// Get pointers to the eight gwnums
 		gwnum s1R = cyclic_gwnum (gwdata, s1);
 		gwnum s1Q = negacyclic_gwnum (gwdata, s1);
@@ -11390,29 +11401,36 @@ void cmn_gwmulop4 (		/* Calculate (s1 * s2) op s3 */
 			if (FFT_state (s1R) != FULLY_FFTed) {					// If s1R is FFTed, so is s1Q
 				if (s1 != d && !(options & GWMUL_PRESERVE_S1) && (!(gwdata->cpu_flags & CPU_AVX512F) || s3 == d))
 					gwfft (gwdata, s1, s1);					// FFT both s1R and s1Q as a pair for possible future use
-				else
-					s1Q = s2Q = s1R, options |= GWMUL_PRESERVE_S1;		// Delay the FFT for the gwmul3 that computes T_Q
+				else if (s3 != d) {						// Can s1 be handled with a discardable forward FFT?
+					s1Q = s2Q = s1R;					// Delay the FFT for the cmn_gwmulop4 that computes T_Q
+					T_Q_options |= GWMUL_PRESERVE_S1 | GWMUL_PRESERVE_S2;
+				} else
+					gwfft (gwdata->negacyclic_gwdata, s1R, s1Q);		// FFT into the currently unused s1Q buffer
 			}
 		} else {									// Multiplication
 			// Compute FFT of s1 where necessary
 			if (FFT_state (s1R) != FULLY_FFTed) {					// If s1R is FFTed, so is s1Q
 				if (s1 != d && !(options & GWMUL_PRESERVE_S1) && (FFT_state (s2R) != FULLY_FFTed || s2 == d || s3 == d))
 					gwfft (gwdata, s1, s1);					// FFT both s1R and s1Q as a pair for possible future use
+				else if (s2 != d && s3 != d)					// Can s1 be handled with a discardable forward FFT?
+					s1Q = s1R, T_Q_options |= GWMUL_PRESERVE_S1;		// Delay the FFT for the mul that computes T_Q
 				else
-					s1Q = s1R;						// Delay the FFT for the gwmul3 that computes T_Q
+					gwfft (gwdata->negacyclic_gwdata, s1R, s1Q);		// FFT into the currently unused s1Q buffer
 			}
 
 			// Compute FFT of s2 where necessary
 			if (FFT_state (s2R) != FULLY_FFTed) {					// If s2R is FFTed, so is s2Q
 				if (s2 != d && !(options & GWMUL_PRESERVE_S2) && (FFT_state (s1R) != FULLY_FFTed || s1 == d || s3 == d))
 					gwfft (gwdata, s2, s2);					// FFT both s2R and s2Q as a pair for possible future use
+				else if (s1 != d && s3 != d && s1Q != s1R)			// Can mul discard FFT of s2?  Only one argument can be delayed.
+					s2Q = s2R, T_Q_options |= GWMUL_PRESERVE_S2;		// Save a write by delaying the FFT to the mul that computes T_Q
 				else
-					s2Q = s2R;						// Delay the FFT for the gwmul3 that computes T_Q
+					gwfft (gwdata->negacyclic_gwdata, s2R, s2Q);		// FFT into the currently unused s2Q buffer
 			}
 		}
 
 		// T_Q = s1Q * s2Q +/- s3Q mod Q
-		cmn_gwmulop4 (gwdata->negacyclic_gwdata, s1Q, s2Q, s3Q, T_Q, options & ~GWMUL_STARTNEXTFFT, opcode);
+		cmn_gwmulop4 (gwdata->negacyclic_gwdata, s1Q, s2Q, s3Q, T_Q, T_Q_options & ~GWMUL_STARTNEXTFFT, opcode);
 
 		// T_R = s1R * s2R +/- s3R mod R
 		cmn_gwmulop4 (gwdata->cyclic_gwdata, s1R, s2R, s3R, T_R, options | GWMUL_STARTNEXTFFT, opcode);
@@ -11879,7 +11897,7 @@ void gwmul3 (			/* Multiply two gwnums */
 			if (FFT_state (s2R) != FULLY_FFTed) {					// If s2R is FFTed, so is s2Q
 				if (s2 != d && !(options & GWMUL_PRESERVE_S2) && (FFT_state (s1R) != FULLY_FFTed || s1 == d))
 					gwfft (gwdata, s2, s2);					// FFT both s2R and s2Q as a pair for possible future use
-				else if (!mulmulsub5able && s1 != d && s1Q != s1R)		// Can raw_gwmul3 discard FFT?  Only one argument can be delayed.
+				else if (!mulmulsub5able && s1 != d && s1Q != s1R)		// Can raw_gwmul3 discard FFT of s2?  Only one argument can be delayed.
 					s2Q = s2R, T_Q_options |= GWMUL_PRESERVE_S2;		// Save a write by delaying the FFT to the gwmul3 that computes T_Q
 				else
 					gwfft (gwdata->negacyclic_gwdata, s2R, s2Q);		// FFT into the currently unused s2Q buffer
