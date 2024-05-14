@@ -9545,11 +9545,12 @@ void gianttogw (
 			uint64_t quotient, remainder, high_addin;
 			unsigned long word, bit_in_word;
 
-			if (gwdata->c == 1) negate_set_fft_value = !negate_set_fft_value;
 			quotient = value_to_convert / (uint64_t) gwdata->k;
 			remainder = value_to_convert - quotient * (uint64_t) gwdata->k;
 			low_addin = quotient;
 			high_addin = remainder;
+			// Handle case 2 (k*b^n+1) where inverse of k is -b^n
+			if (gwdata->c == 1) negate_set_fft_value = !negate_set_fft_value;
 
 /* Add the high_addin value across the top FFT words */
 
@@ -9559,6 +9560,7 @@ void gianttogw (
 
 				if (i == gwdata->FFTLEN - 1 || (gwdata->ZERO_PADDED_FFT && i == gwdata->FFTLEN/2 + 3)) {
 					value = (long) high_addin;
+					if (bit_in_word) value *= intpow (gwdata->b, bit_in_word);
 					high_addin = 0;
 				} else {
 					uint64_t maxval = small_maxval;
@@ -9586,6 +9588,8 @@ void gianttogw (
 				}
 				set_fft_value (gwdata, g, i, negate_set_fft_value ? -value : value);
 			}
+			// The wrapped carry (low_addin) is multiplied by -c.
+			if (gwdata->c == 1) negate_set_fft_value = !negate_set_fft_value;
 		}
 
 /* If k is 1, simply copy the giant value to the low FFT words */
