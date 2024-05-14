@@ -9374,14 +9374,6 @@ void MMGW_redc (gwhandle *gwdata, gwnum T_R, gwnum T_Q)
 	gwsub3o (gwdata->negacyclic_gwdata, T_R, T_Q, T_R, GWADD_FORCE_NORMALIZE);	// T_R = T_R - T_Q
 }
 
-/* Special version of Montgomery-McLaughlin-Gallot-Woltman reduction that uses gwmulsub4 to save one transform */
-void MMGW_redc4 (gwhandle *gwdata, gwnum T_R, gwnum T_Q)
-{
-	gwmul3 (gwdata->cyclic_gwdata, T_R, gwdata->Np_R, T_R, 0);			// T_R = T_R * Np_R mod R
-	*T_R += 2.0;									// T_R += 2
-	gwmulsub4 (gwdata->negacyclic_gwdata, T_R, gwdata->N_Q, T_Q, T_R, 0);		// T_R = T_R * N_Q - T_Q mod Q
-}
-
 /* Special version of Montgomery-McLaughlin-Gallot-Woltman reduction that uses gwmulmulsub5 to save one transform */
 void MMGW_redc5 (gwhandle *gwdata, gwnum T_R, gwnum s1_Q, gwnum s2_Q)
 {
@@ -11851,7 +11843,7 @@ void gwmul3 (			/* Multiply two gwnums */
 		gwnum s1Q = negacyclic_gwnum (gwdata, s1);
 		gwnum s2R = cyclic_gwnum (gwdata, s2);
 		gwnum s2Q = negacyclic_gwnum (gwdata, s2);
-		gwnum T_R = cyclic_gwnum (gwdata, d);	
+		gwnum T_R = cyclic_gwnum (gwdata, d);
 		gwnum T_Q = negacyclic_gwnum (gwdata, d);
 
 		// Apply request to FFT input arguments.  FUTURE: It might be possible to use two-destination FFTs in some cases.
@@ -11877,7 +11869,7 @@ void gwmul3 (			/* Multiply two gwnums */
 			if (FFT_state (s1R) != FULLY_FFTed) {					// If s1R is FFTed, so is s1Q
 				if (s1 != d && !(options & GWMUL_PRESERVE_S1) && (FFT_state (s2R) != FULLY_FFTed || s2 == d))
 					gwfft (gwdata, s1, s1);					// FFT both s1R and s1Q as a pair for possible future use
-				else if (!mulmulsub5able)
+				else if (!mulmulsub5able && s2 != d)				// Can raw_gwmul3 save a write with a discardable forward FFT?
 					s1Q = s1R, T_Q_options |= GWMUL_PRESERVE_S1;		// Save a write by delaying the FFT to the gwmul3 that computes T_Q
 				else
 					gwfft (gwdata->negacyclic_gwdata, s1R, s1Q);		// FFT into the currently unused s1Q buffer
@@ -11887,7 +11879,7 @@ void gwmul3 (			/* Multiply two gwnums */
 			if (FFT_state (s2R) != FULLY_FFTed) {					// If s2R is FFTed, so is s2Q
 				if (s2 != d && !(options & GWMUL_PRESERVE_S2) && (FFT_state (s1R) != FULLY_FFTed || s1 == d))
 					gwfft (gwdata, s2, s2);					// FFT both s2R and s2Q as a pair for possible future use
-				else if (!mulmulsub5able && s1Q != s1R)				// Only one argument can be delayed
+				else if (!mulmulsub5able && s1 != d && s1Q != s1R)		// Can raw_gwmul3 discard FFT?  Only one argument can be delayed.
 					s2Q = s2R, T_Q_options |= GWMUL_PRESERVE_S2;		// Save a write by delaying the FFT to the gwmul3 that computes T_Q
 				else
 					gwfft (gwdata->negacyclic_gwdata, s2R, s2Q);		// FFT into the currently unused s2Q buffer
