@@ -1037,11 +1037,10 @@ int gwinfo (			/* Return zero-padded fft flag or error code */
 	log2maxmulbyconst = log2 (gwdata->maxmulbyconst);
 	safety_margin = gwdata->safety_margin + gwdata->polymult_safety_margin;
 
-/* The smallest AVX-512F FFT is length 128.  Limited testing has indicated that less than 5 bits per FFT word */
-/* can result in carry propagation errors.  For small k*b^n+c values switch to not using AVX-512 instructions. */
+/* The smallest AVX-512F FFT is length 128.  For small k*b^n+c values switch to not using AVX-512 instructions as a length 32 AVX FFT is faster. */
 /* Don't catch the n==0 case from gwmap_with_cpu_flags_fftlen_to_max_exponent. */
 
-	if (n && log2b * (double) n < 5.0 * 128.0)
+	if (n && log2b * (double) n < 5.0 * 128.0 && gwdata->minimum_fftlen <= 32)
 		gwdata->cpu_flags &= ~CPU_AVX512F;
 
 /* First, see what FFT length we would get if we emulate the k*b^n+c modulo */
@@ -2626,17 +2625,19 @@ int gwsetup_general_mod_giant (
 /* n values, but unless the modulus has small factors the GCD will not fail and the first test case we try will be acceptable. */
 
 	gwdata->use_benchmarks = FALSE;					// Benchmarking MMGW generic reduction is not supported
+	int saved_cpu_flags = gwdata->cpu_flags;			// gwinfo sometimes alters cpu_flags (like stripping AVX512F flag for FFT length 32)
 	int saved_minimum_fftlen = gwdata->minimum_fftlen;		// though not necessary, remember this option
 	int saved_larger_fftlen_count = gwdata->larger_fftlen_count;	// though not necessary, remember this option
 	int larger_fftlen_count = saved_larger_fftlen_count;		// Counter to handle larger fft length within the loop below
 	gwdata->larger_fftlen_count = 0;
 	for ( ; ; ) {							// Loop until larger_fftlen_count is satisfied
-	    int fft_lengths_tried = 0;
-	    for ( ; ; gwdata->minimum_fftlen = fftlen + 1) {
+	    // Find a workable FFT length.  Try several FFT lengths before giving up -- the modulus must be highly composite.
+	    for (int fft_lengths_tried = 0; fft_lengths_tried < 7; fft_lengths_tried++, gwdata->minimum_fftlen = fftlen + 1) {
 		// We need FFTs that can handle the number of input bits plus some padding, especially if polymult may be used.  The value of 128 needs study.
 		n = safe_bits + 128;
 
 		// Find next potential FFT length.  Decrease the safety margin as we will use a rational FFT which has lower round off errors.
+		gwdata->cpu_flags = saved_cpu_flags;			// Restore CPU flags
 		gwdata->safety_margin -= 0.15f;
 		gwdata->required_pass2_size = 0;			// Allow any pass 2 size
 		error_code = gwinfo (gwdata, 1.0, 2, n, 1);
@@ -2647,9 +2648,6 @@ int gwsetup_general_mod_giant (
 		const struct gwasm_jmptab *info = gwdata->jmptab;
 		fftlen = info->fftlen;
 		unsigned long max_exponent = adjusted_max_exponent (gwdata, info);
-
-		// Increment count of FFT sizes tried.  If we try too many, give up and switch to Barrett -- modulus must be highly composite.
-		fft_lengths_tried++;
 
 		// FFTs don't handle cases where there are few bits per word because carries must be propagated over too many words.
 		// Arbitrarily insist that n is at least 12 * fftlen.
@@ -2724,13 +2722,11 @@ int gwsetup_general_mod_giant (
 
 		// If we found a useable n value end our search
 		if (Np != NULL) break;
-
-		// If we've tried hard to find a suitable fft length, give up.  The modulus must be highly composite.
-		if (fft_lengths_tried >= 5) break;
 	    }
 
 	    // If no usable n value was found, switch to Barrett reduction
 	    if (Np == NULL) {
+		gwdata->cpu_flags = saved_cpu_flags;				// Restore CPU flags
 		gwdata->larger_fftlen_count = saved_larger_fftlen_count;	// Restore this option to its original setting
 		gwdata->minimum_fftlen = saved_minimum_fftlen;			// Restore this option to its original setting
 		gwdata->required_pass2_size = 0;				// Allow any pass 2 size
