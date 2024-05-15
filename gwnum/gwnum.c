@@ -9895,6 +9895,7 @@ int gwtogiant (
 		int	bits, accumbits;
 		uint32_t *outptr, outval;
 		uint64_t outcarry;
+		uint32_t will_output, cached_zeros;
 
 /* Collect bits until we have all of them */
 
@@ -9902,6 +9903,7 @@ int gwtogiant (
 		accumbits = 0;
 		outptr = v->n;
 		outcarry = 0;
+		cached_zeros = 0;
 		for (gwiter_init_zero (gwdata, &iter, gg); ; ) {
 			// Process next FFT word
 			if (gwiter_index (&iter) < limit) {
@@ -9923,17 +9925,23 @@ int gwtogiant (
 
 			// Now mul by k
 			if (k_is_one)
-				*outptr++ = outval;
+				will_output = outval;
 			else if (k_is_small) {
 				uint64_t tmp = (uint64_t) outval * (uint64_t) klo + outcarry;
-				*outptr++ = (uint32_t) tmp;
+				will_output = (uint32_t) tmp;
 				outcarry = tmp >> 32;
 			} else {
 				uint64_t tmp = (uint64_t) outval * (uint64_t) klo;
 				uint64_t next_outcarry = tmp >> 32;
 				tmp = (tmp & 0xFFFFFFFFULL) + outcarry;
-				*outptr++ = (uint32_t) tmp;
+				will_output = (uint32_t) tmp;
 				outcarry = next_outcarry + (tmp >> 32) + (uint64_t) outval * (uint64_t) khi;
+			}
+			if (will_output) {
+				while (cached_zeros) { *outptr++ = 0; cached_zeros--; }
+				*outptr++ = will_output;
+			} else {
+				cached_zeros++;
 			}
 
 			// Are we done?  We need to process limit FFT words plus the outcarry.
@@ -9944,7 +9952,7 @@ int gwtogiant (
 
 		ASSERTG (v->maxsize >= (int) (outptr - v->n));
 		v->sign = (int) (outptr - v->n);
-		while (v->sign && v->n[v->sign-1] == 0) v->sign--;
+		ASSERTG (v->sign == 0 || v->n[v->sign-1] != 0);		// Trailing zeros were eliminated above
 
 /* Divide the upper bits by k, leave the remainder in the upper bits and multiply the quotient by c and subtract that from the lower bits. */
 
