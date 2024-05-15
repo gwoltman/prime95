@@ -2552,6 +2552,8 @@ int gwsetup_general_mod_giant (
 	int	error_code;
 	unsigned long fftlen;
 	gwhandle *cyclic_gwdata, *negacyclic_gwdata;
+	giant	R = NULL;
+	giant	Np = NULL;
 
 /* Make sure gwinit was called */
 
@@ -2620,23 +2622,21 @@ int gwsetup_general_mod_giant (
 		return (gwsetup_general_Barrett_mod_giant (gwdata, N, d));
 	}
 
-/* Setup the FFT code in much the same way that gwsetup_without_mod does.  Unless the user insists, we try for an integral number of bits per word. */
-/* There are pathological bit patterns that generate huge roundoff errors.  For example, if we test (10^828809-1)/9 and put exactly 18 bits into each */
-/* FFT word, then every FFT word in GW_MODULUS_FFT will contain the same value!  Not exactly, the random data our FFTs require for small roundoff errors. */
-/* Thus, the caller may need to insist we use an irrational FFT on occasion. */
-
-/* Search for an acceptable FFT length that has both cyclic and negacyclic FFT implementations. */
+/* Search for an acceptable FFT length that has both cyclic and negacyclic FFT implementations.  It looks like this code might test a lot of different */
+/* n values, but unless the modulus has small factors the GCD will not fail and the first test case we try will be acceptable. */
 
 	gwdata->use_benchmarks = FALSE;					// Benchmarking MMGW generic reduction is not supported
 	int saved_minimum_fftlen = gwdata->minimum_fftlen;		// though not necessary, remember this option
 	int saved_larger_fftlen_count = gwdata->larger_fftlen_count;	// though not necessary, remember this option
 	int larger_fftlen_count = saved_larger_fftlen_count;		// Counter to handle larger fft length within the loop below
 	gwdata->larger_fftlen_count = 0;
-	for ( ; ; gwdata->minimum_fftlen = fftlen + 1) {
+	for ( ; ; ) {							// Loop until larger_fftlen_count is satisfied
+	    int fft_lengths_tried = 0;
+	    for ( ; ; gwdata->minimum_fftlen = fftlen + 1) {
 		// We need FFTs that can handle the number of input bits plus some padding, especially if polymult may be used.  The value of 128 needs study.
 		n = safe_bits + 128;
 
-		// Find next potential FFT length.  Decrease the safety margin as we will likely use a rational FFT which has lower round off errors.
+		// Find next potential FFT length.  Decrease the safety margin as we will use a rational FFT which has lower round off errors.
 		gwdata->safety_margin -= 0.15f;
 		gwdata->required_pass2_size = 0;			// Allow any pass 2 size
 		error_code = gwinfo (gwdata, 1.0, 2, n, 1);
@@ -2648,47 +2648,101 @@ int gwsetup_general_mod_giant (
 		fftlen = info->fftlen;
 		unsigned long max_exponent = adjusted_max_exponent (gwdata, info);
 
+		// Increment count of FFT sizes tried.  If we try too many, give up and switch to Barrett -- modulus must be highly composite.
+		fft_lengths_tried++;
+
 		// FFTs don't handle cases where there are few bits per word because carries must be propagated over too many words.
 		// Arbitrarily insist that n is at least 12 * fftlen.
 		if (n < 12 * fftlen) n = 12 * fftlen;
 
-		// MMGW requires unweighted rational FFTs
-		n = round_up_to_multiple_of (n, fftlen);
-		if (n > max_exponent) continue;
+		// MMGW requires unweighted rational FFTs (except for AVX-512).  Try each n that is a multiple of fftlen.
+		for (n = round_up_to_multiple_of (n, fftlen); n < max_exponent; n += fftlen) {
 
-		// Verify that cyclic and negacyclic FFTs are available for this (n, fftlen) combination
-		gwdata->minimum_fftlen = fftlen;					// Force selection of the already found fft length
-		gwdata->required_pass2_size = gwdata->PASS2_SIZE + gwdata->ARCH;	// Force negacyclic and cyclic FFTs to use same pass 2 size & architecture
-		error_code = gwinfo (gwdata, 1.0, 2, n, 1);
-		if (error_code) return (error_code);
-		if (gwdata->jmptab->fftlen != fftlen) continue;
-		error_code = gwinfo (gwdata, 1.0, 2, n, -1);
-		if (error_code == GWERROR_TOO_LARGE) continue;				// This happens when no matching pass 2 size found
-		if (error_code) return (error_code);
-		if (gwdata->jmptab->fftlen != fftlen) continue;
+			// Verify that cyclic and negacyclic FFTs are available for this (n, fftlen) combination
+			gwdata->minimum_fftlen = fftlen;				 // Force selection of the already found fft length
+			gwdata->required_pass2_size = gwdata->PASS2_SIZE + gwdata->ARCH; // Force negacyclic and cyclic FFTs to use same pass 2 size & architecture
+			gwdata->safety_margin -= 0.15f;
+			error_code = gwinfo (gwdata, 1.0, 2, n, 1);
+			gwdata->safety_margin += 0.15f;
+			if (error_code) return (error_code);
+			if (gwdata->jmptab->fftlen != fftlen) break;
+			gwdata->safety_margin -= 0.15f;
+			error_code = gwinfo (gwdata, 1.0, 2, n, -1);
+			gwdata->safety_margin += 0.15f;
+			if (error_code == GWERROR_TOO_LARGE) break;			// This happens when no matching pass 2 size found
+			if (error_code) return (error_code);
+			if (gwdata->jmptab->fftlen != fftlen) break;
 
-		// Check larger_fftlen_count here.  If zero, we've found our desired fft length
-		if (larger_fftlen_count == 0) break;
-		larger_fftlen_count--;
-	}
+			// Need the inverse of N mod R, later FFTed for future cyclic multiplications.  Yves calls this Np_R.
+			R = allocgiant (2 * (n >> 5) + 2);
+			Np = allocgiant ((n >> 5) + 2);
+			if (R == NULL || Np == NULL) { gwdone (gwdata); return (GWERROR_MALLOC); }
+			itog (1, R); gshiftleft (n, R); sladdg (-1, R);			// 2^n-1
+			gtog (safe_N, Np);
+			invg (R, Np);							// Np = 1/N mod R
 
-	// Need the inverse of N mod R, later FFTed for future cyclic multiplications.  Yves calls this Np_R.
-	giant R = allocgiant (2 * (n >> 5) + 2);
-	giant Np = allocgiant ((n >> 5) + 2);
-	if (R == NULL || Np == NULL) { gwdone (gwdata); return (GWERROR_MALLOC); }
-	itog (1, R); gshiftleft (n, R); sladdg (-1, R);			// 2^n-1
-	gtog (safe_N, Np);
-	invg (R, Np);							// Np = 1/N mod R
+			// If R and N are relatively prime, which is a requirement of MMGW algorithm, use it.  Else keep looking for a relative prime pair.
+			if (Np->sign > 0) break;
+			Np->sign = -Np->sign; modg (Np, R); if (!isZero(R)) { gwdone (gwdata); return (GWERROR_INTERNAL+12); } // Sanity check invg's results
+			free (Np), Np = NULL;
+			free (R), R = NULL;
+		}
 
-	// R and N may not be relatively prime which is a requirement of MMGW algorithm!  Fall back to the older Barrett reduction.
-	if (Np->sign <= 0) {
-		Np->sign = -Np->sign; modg (Np, R); if (!isZero(R)) { gwdone (gwdata); return (GWERROR_INTERNAL+12); } // Sanity check invg's results
-		free (Np); free (R);
+		// If we found a useable n value end our search
+		if (Np != NULL) break;
+
+		// AVX-512 FFTs can use irrational FFTs because the weights are handled entirely in assembly code
+		// Search n values that are not a multiple of FFT length.
+		if (! (gwdata->cpu_flags & CPU_AVX512F)) continue;
+		for (n = (safe_bits + 128) | 1; n < max_exponent; n += 2) {
+
+			// Verify that cyclic and negacyclic FFTs are available for this (n, fftlen) combination
+			gwdata->minimum_fftlen = fftlen;				 // Force selection of the already found fft length
+			gwdata->required_pass2_size = gwdata->PASS2_SIZE + gwdata->ARCH; // Force negacyclic and cyclic FFTs to use same pass 2 size & architecture
+			error_code = gwinfo (gwdata, 1.0, 2, n, 1);
+			if (error_code) return (error_code);
+			if (gwdata->jmptab->fftlen != fftlen) break;
+			error_code = gwinfo (gwdata, 1.0, 2, n, -1);
+			if (error_code == GWERROR_TOO_LARGE) break;			// This happens when no matching pass 2 size found
+			if (error_code) return (error_code);
+			if (gwdata->jmptab->fftlen != fftlen) break;
+
+			// Need the inverse of N mod R, later FFTed for future cyclic multiplications.  Yves calls this Np_R.
+			R = allocgiant (2 * (n >> 5) + 2);
+			Np = allocgiant ((n >> 5) + 2);
+			if (R == NULL || Np == NULL) { gwdone (gwdata); return (GWERROR_MALLOC); }
+			itog (1, R); gshiftleft (n, R); sladdg (-1, R);			// 2^n-1
+			gtog (safe_N, Np);
+			invg (R, Np);							// Np = 1/N mod R
+
+			// If R and N are relatively prime, which is a requirement of MMGW algorithm, use it.  Else keep looking for a relative prime pair.
+			if (Np->sign > 0) break;
+			Np->sign = -Np->sign; modg (Np, R); if (!isZero(R)) { gwdone (gwdata); return (GWERROR_INTERNAL+12); } // Sanity check invg's results
+			free (Np), Np = NULL;
+			free (R), R = NULL;
+		}
+
+		// If we found a useable n value end our search
+		if (Np != NULL) break;
+
+		// If we've tried hard to find a suitable fft length, give up.  The modulus must be highly composite.
+		if (fft_lengths_tried >= 5) break;
+	    }
+
+	    // If no usable n value was found, switch to Barrett reduction
+	    if (Np == NULL) {
 		gwdata->larger_fftlen_count = saved_larger_fftlen_count;	// Restore this option to its original setting
 		gwdata->minimum_fftlen = saved_minimum_fftlen;			// Restore this option to its original setting
 		gwdata->required_pass2_size = 0;				// Allow any pass 2 size
 		if (safe_N != N) free (safe_N);
 		return (gwsetup_general_Barrett_mod_giant (gwdata, N, d));
+	    }
+
+	    // Check larger_fftlen_count here.  If zero, we've found our desired fft length
+	    if (larger_fftlen_count == 0) break;
+	    larger_fftlen_count--;
+	    free (Np), Np = NULL;
+	    free (R), R = NULL;
 	}
 
 	// Allocate and init the two internal gwdatas (cyclic and negacyclic).  We must do this even if information_only is set or fft_description won't work.
@@ -2733,7 +2787,7 @@ int gwsetup_general_mod_giant (
 	gwdata->GENERAL_MMGW_MOD = TRUE;		// Set flag indicating general-purpose MMGW modulo operations are in force
 	gwdata->GENERAL_MOD = FALSE;
 	gwdata->FFTLEN = cyclic_gwdata->FFTLEN;
-	gwdata->RATIONAL_FFT = TRUE; ASSERTG (cyclic_gwdata->RATIONAL_FFT && negacyclic_gwdata->RATIONAL_FFT);
+	gwdata->RATIONAL_FFT = TRUE; ASSERTG ((gwdata->cpu_flags & CPU_AVX512F) || (cyclic_gwdata->RATIONAL_FFT && negacyclic_gwdata->RATIONAL_FFT));
 	gwdata->avg_num_b_per_word = cyclic_gwdata->avg_num_b_per_word;
 	gwdata->NUM_B_PER_SMALL_WORD = cyclic_gwdata->NUM_B_PER_SMALL_WORD;
 	gwdata->fft_max_bits_per_word = negacyclic_gwdata->fft_max_bits_per_word;
@@ -11831,8 +11885,7 @@ void gwmul3 (			/* Multiply two gwnums */
 	ASSERTG (unnorms (s2) >= 0.0f);
 	ASSERTG (FFT_state (s1) != FFTed_FOR_FMA && FFT_state (s2) != FFTed_FOR_FMA);
 	// Make sure not too many unnormalized adds prior to square or multiply
-	ASSERTG ((s1 == s2 && square_safe (gwdata, unnorms (s1))) ||
-		 (s1 != s2 && mul_safe (gwdata, unnorms (s1), unnorms (s2))));
+	ASSERTG ((s1 == s2 && square_safe (gwdata, unnorms (s1))) || (s1 != s2 && mul_safe (gwdata, unnorms (s1), unnorms (s2))));
 
 /* Clear flags that are impossible when a source is the same as the destination */
 
