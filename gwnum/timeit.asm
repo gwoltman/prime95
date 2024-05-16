@@ -1,4 +1,4 @@
-; Copyright 1995-2020 Mersenne Research, Inc.  All rights reserved
+; Copyright 1995-2024 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -820,7 +820,7 @@ ynormwpnmac1 MACRO lab, memused, memarea, ops:vararg
 	outer_iters = outer_iters + 1
 	ENDIF
 lab:
-	mov	COPYZERO, outer_iters
+	mov	count5, outer_iters
 	mov	ebp, odd_iters
 	mov	SRCARG, rdi		;; Save work buf addr
 av0a:	mov	rsi, SRCARG		;; Reload work buf addr (FFT data)
@@ -838,7 +838,7 @@ av0b:	&ops
 	dec	rbp
 	jnz	av0b
 	mov	ebp, inner_iters
-	dec	COPYZERO
+	dec	count5
 	jnz	av0a
 	jmp	exit
 	ENDM
@@ -866,7 +866,7 @@ ynormwpn4mac1 MACRO lab, memused, memarea, ops:vararg
 	outer_iters = outer_iters + 1
 	ENDIF
 lab:
-	mov	COPYZERO, outer_iters
+	mov	count5, outer_iters
 	mov	ebp, odd_iters
 	mov	SRCARG, rdi		;; Save work buf addr
 av0a:	mov	rsi, SRCARG		;; Reload work buf addr (FFT data)
@@ -889,7 +889,7 @@ av0b:	&ops
 	dec	rbp
 	jnz	av0b
 	mov	ebp, inner_iters
-	dec	COPYZERO
+	dec	count5
 	jnz	av0a
 	jmp	exit
 	ENDM
@@ -1840,16 +1840,16 @@ avcase11:	readwrite4 32768*1024, 2 ; Read/write 32MB
 	avxmac 896*1, 100000, 0, yr7_14cl_28_reals_unfft rsi, 14*64, 64, 128, rdi, YMM_SCD13, 1
 
 ;;232
-	ynormmac 64, 8192, ynorm_1d exec, exec, noexec, noexec, noexec		;; base2 ttp (the most common case)
-	ynormmac 64, 8192, ynorm_1d exec, exec, noexec, exec, noexec		;; base2 ttp echk
-	ynormmac 64, 8192, ynorm_1d exec, exec, noexec, noexec, exec		;; base2 ttp const
-	ynormmac 64, 8192, ynorm_1d exec, exec, noexec, exec, exec		;; base2 ttp const echk
-	ynormmac 64, 8192, ynorm_1d noexec, exec, noexec, noexec, noexec	;; base2 nottp
-	ynormmac 64, 8192, ynorm_1d exec, noexec, noexec, noexec, noexec	;; nobase2 ttp
-	ynormmac 64, 8192, ynorm_1d exec, noexec, noexec, exec, noexec		;; nobase2 ttp echk
-	ynormmac 64, 8192, ynorm_1d exec, noexec, noexec, noexec, exec		;; nobase2 ttp const
-	ynormmac 64, 8192, ynorm_1d exec, noexec, noexec, exec, exec		;; nobase2 ttp const echk
-	ynormmac 64, 8192, ynorm_1d noexec, noexec, noexec, noexec, noexec	;; nobase2 nottp
+	ynormmac 64, 8192, ynorm_1d exec, exec, noexec, noexec		;; base2 ttp (the most common case)
+	ynormmac 64, 8192, ynorm_1d exec, exec, exec, noexec		;; base2 ttp echk
+	ynormmac 64, 8192, ynorm_1d exec, exec, noexec, exec		;; base2 ttp const
+	ynormmac 64, 8192, ynorm_1d exec, exec, exec, exec		;; base2 ttp const echk
+	ynormmac 64, 8192, ynorm_1d noexec, exec, noexec, noexec	;; base2 nottp
+	ynormmac 64, 8192, ynorm_1d exec, noexec, noexec, noexec	;; nobase2 ttp
+	ynormmac 64, 8192, ynorm_1d exec, noexec, exec, noexec		;; nobase2 ttp echk
+	ynormmac 64, 8192, ynorm_1d exec, noexec, noexec, exec		;; nobase2 ttp const
+	ynormmac 64, 8192, ynorm_1d exec, noexec, exec, exec		;; nobase2 ttp const echk
+	ynormmac 64, 8192, ynorm_1d noexec, noexec, noexec, noexec	;; nobase2 nottp
 
 ;;242
 	ynormmac 64, 8192, ynorm_1d_zpad exec, exec, noexec, noexec, noexec, exec, noexec	;; base2 ttp c1 (the most common case)
@@ -1864,16 +1864,16 @@ avcase11:	readwrite4 32768*1024, 2 ; Read/write 32MB
 	ynormmac 64, 8192, ynorm_1d_zpad exec, noexec, noexec, noexec, noexec, exec, noexec	;; nobase2 ttp c1 khi
 
 ;;252
-	ynormwpn4mac 64, 8192, ynorm_wpn exec, exec, noexec, noexec, noexec		;; base2 ttp (the most common case)
-	ynormwpn4mac 64, 8192, ynorm_wpn exec, exec, noexec, exec, noexec		;; base2 ttp echk
-	ynormwpn4mac 64, 8192, ynorm_wpn exec, exec, noexec, noexec, exec		;; base2 ttp const
-	ynormwpn4mac 64, 8192, ynorm_wpn exec, exec, noexec, exec, exec			;; base2 ttp const echk
-	ynormwpn4mac 64, 8192, ynorm_wpn noexec, exec, noexec, noexec, noexec		;; base2 nottp
-	ynormwpn4mac 64, 8192, ynorm_wpn exec, noexec, noexec, noexec, noexec		;; nobase2 ttp
-	ynormwpn4mac 64, 8192, ynorm_wpn exec, noexec, noexec, exec, noexec		;; nobase2 ttp echk
-	ynormwpn4mac 64, 8192, ynorm_wpn exec, noexec, noexec, noexec, exec		;; nobase2 ttp const
-	ynormwpn4mac 64, 8192, ynorm_wpn exec, noexec, noexec, exec, exec		;; nobase2 ttp const echk
-	ynormwpn4mac 64, 8192, ynorm_wpn noexec, noexec, noexec, noexec, noexec		;; nobase2 nottp
+	ynormwpn4mac 64, 8192, ynorm_wpn exec, exec, noexec, noexec		;; base2 ttp (the most common case)
+	ynormwpn4mac 64, 8192, ynorm_wpn exec, exec, exec, noexec		;; base2 ttp echk
+	ynormwpn4mac 64, 8192, ynorm_wpn exec, exec, noexec, exec		;; base2 ttp const
+	ynormwpn4mac 64, 8192, ynorm_wpn exec, exec, exec, exec			;; base2 ttp const echk
+	ynormwpn4mac 64, 8192, ynorm_wpn noexec, exec, noexec, noexec		;; base2 nottp
+	ynormwpn4mac 64, 8192, ynorm_wpn exec, noexec, noexec, noexec		;; nobase2 ttp
+	ynormwpn4mac 64, 8192, ynorm_wpn exec, noexec, exec, noexec		;; nobase2 ttp echk
+	ynormwpn4mac 64, 8192, ynorm_wpn exec, noexec, noexec, exec		;; nobase2 ttp const
+	ynormwpn4mac 64, 8192, ynorm_wpn exec, noexec, exec, exec		;; nobase2 ttp const echk
+	ynormwpn4mac 64, 8192, ynorm_wpn noexec, noexec, noexec, noexec		;; nobase2 nottp
 
 ;;262
 	ynormwpn4mac 64, 8192, ynorm_wpn_zpad exec, exec, noexec, noexec, noexec, exec, noexec	;; base2 ttp c1 (the most common case)
@@ -2339,32 +2339,32 @@ av512case15:	scatter_read_sequential_write8 1280*7680*8, 5 ; Read/write 78MB
 	avx512mac 1024, 262144, 0, zs_onepass_complex_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, r15, 0, rdi, 14, 1
 
 ;;124
-	znorm_wpn_preload noexec, noexec, noexec, noexec	;; ttp, zero, echk, const
-	avx512znormmac 1536, 16384, 0, znorm_wpn noexec, noexec, noexec, noexec
-	avx512znormmac 1536, 262144, 0, znorm_wpn noexec, noexec, noexec, noexec
-	znorm_wpn_preload noexec, noexec, exec, noexec	;; ttp, zero, echk, const
-	avx512znormmac 1536, 16384, 0, znorm_wpn noexec, noexec, exec, noexec
-	avx512znormmac 1536, 262144, 0, znorm_wpn noexec, noexec, exec, noexec
-	znorm_wpn_preload noexec, noexec, noexec, exec	;; ttp, zero, echk, const
-	avx512znormmac 1536, 16384, 0, znorm_wpn noexec, noexec, noexec, exec
-	avx512znormmac 1536, 262144, 0, znorm_wpn noexec, noexec, noexec, exec
-	znorm_wpn_preload noexec, noexec, exec, exec	;; ttp, zero, echk, const
-	avx512znormmac 1536, 16384, 0, znorm_wpn noexec, noexec, exec, exec
-	avx512znormmac 1536, 262144, 0, znorm_wpn noexec, noexec, exec, exec
+	znorm_wpn_preload noexec, noexec, noexec	;; ttp, echk, const
+	avx512znormmac 1536, 16384, 0, znorm_wpn noexec, noexec, noexec
+	avx512znormmac 1536, 262144, 0, znorm_wpn noexec, noexec, noexec
+	znorm_wpn_preload noexec, exec, noexec		;; ttp, echk, const
+	avx512znormmac 1536, 16384, 0, znorm_wpn noexec, exec, noexec
+	avx512znormmac 1536, 262144, 0, znorm_wpn noexec, exec, noexec
+	znorm_wpn_preload noexec, noexec, exec		;; ttp, echk, const
+	avx512znormmac 1536, 16384, 0, znorm_wpn noexec, noexec, exec
+	avx512znormmac 1536, 262144, 0, znorm_wpn noexec, noexec, exec
+	znorm_wpn_preload noexec, exec, exec		;; ttp, echk, const
+	avx512znormmac 1536, 16384, 0, znorm_wpn noexec, exec, exec
+	avx512znormmac 1536, 262144, 0, znorm_wpn noexec, exec, exec
 
 ;;132
-	znorm_wpn_preload exec, noexec, noexec, noexec	;; ttp, zero, echk, const
-	avx512znormmac 1536, 16384, 0, znorm_wpn exec, noexec, noexec, noexec
-	avx512znormmac 1536, 262144, 0, znorm_wpn exec, noexec, noexec, noexec
-	znorm_wpn_preload exec, noexec, exec, noexec	;; ttp, zero, echk, const
-	avx512znormmac 1536, 16384, 0, znorm_wpn exec, noexec, exec, noexec
-	avx512znormmac 1536, 262144, 0, znorm_wpn exec, noexec, exec, noexec
-	znorm_wpn_preload exec, noexec, noexec, exec	;; ttp, zero, echk, const
-	avx512znormmac 1536, 16384, 0, znorm_wpn exec, noexec, noexec, exec
-	avx512znormmac 1536, 262144, 0, znorm_wpn exec, noexec, noexec, exec
-	znorm_wpn_preload exec, noexec, exec, exec	;; ttp, zero, echk, const
-	avx512znormmac 1536, 16384, 0, znorm_wpn exec, noexec, exec, exec
-	avx512znormmac 1536, 262144, 0, znorm_wpn exec, noexec, exec, exec
+	znorm_wpn_preload exec, noexec, noexec		;; ttp, echk, const
+	avx512znormmac 1536, 16384, 0, znorm_wpn exec, noexec, noexec
+	avx512znormmac 1536, 262144, 0, znorm_wpn exec, noexec, noexec
+	znorm_wpn_preload exec, exec, noexec		;; ttp, echk, const
+	avx512znormmac 1536, 16384, 0, znorm_wpn exec, exec, noexec
+	avx512znormmac 1536, 262144, 0, znorm_wpn exec, exec, noexec
+	znorm_wpn_preload exec, noexec, exec		;; ttp, echk, const
+	avx512znormmac 1536, 16384, 0, znorm_wpn exec, noexec, exec
+	avx512znormmac 1536, 262144, 0, znorm_wpn exec, noexec, exec
+	znorm_wpn_preload exec, exec, exec		;; ttp, echk, const
+	avx512znormmac 1536, 16384, 0, znorm_wpn exec, exec, exec
+	avx512znormmac 1536, 262144, 0, znorm_wpn exec, exec, exec
 
 ENDIF
 

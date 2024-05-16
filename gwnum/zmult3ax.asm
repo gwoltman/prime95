@@ -881,48 +881,5 @@ PROCFL	gwz3_apply_carries
 	ad_epilog 0,0,rbx,rbp,rsi,rdi,r8,r9,r10,r12,r13,r14,r15,zmm6,zmm7,zmm8,zmm9,zmm10,zmm11,zmm12,zmm13,zmm14,zmm15
 gwz3_apply_carries ENDP
 
-
-;;
-;; Copy a number zeroing some low order words
-;;
-
-PROCFL	gwzcopyzero3
-	ad_prolog 0,0,rbx,rsi,rdi
-	mov	rsi, SRCARG			; Address of first number
-	mov	rdi, DESTARG			; Address of destination
-	mov	rdx, SRC2ARG			; Load address of masks and counts computed in C code
-	sub	ecx, ecx			; Count of iterations before new masks are needed
-	mov	eax, normval4			; Load count of 4KB chunks in a pass 2 block
-cpzlp0:	mov	ebx, normval1			; Load count of loword/highword pairs in 4KB chunk
-cpzlp2:	and	ecx, ecx			; Time to load new masks?
-	jnz	short noload			; No, wait for count to reach zero
-	kmovw	k1, [rdx+0]			; Load 2 new masks
-	kshiftrw k2, k1, 8
-	mov	ecx, [rdx+4]			; Count of iterations these masks are valid
-	bump	rdx, 8				; Move onto next set of masks
-	jmp	short cpzlp2			; Loop in case loaded count is zero
-noload:	vmovapd	zmm0 {k1}{z}, [rsi]		; Load source data
-	vmovapd	zmm2 {k2}{z}, [rsi+64]
-	zstore	[rdi], zmm0			; Store destination data
-	zstore	[rdi+64], zmm2
-	bump	rcx, -1				; Decrement mask count
-	add	rsi, pass2blkdst		; Next src ptr
-	add	rdi, pass2blkdst		; Next dest ptr
-	add	eax, 0x80000000/4		; Loop 8 times (8 pass 2 blocks in each pass 1 block)
-	jnc	short cpzlp2
-	sub	rsi, pass1blkdst		; Adjust source pointers
-	sub	rdi, pass1blkdst
-	bump	rsi, 128
-	bump	rdi, 128
-	dec	rbx				; Loop until 4KB processed
-	jnz	short cpzlp2			; Loop til done
-	add	rsi, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	add	rdi, fourKBgapsize		; Skip 64 to 192 bytes every 4KB
-	dec	eax				; Loop until pass 1 block completed
-	jnz	cpzlp0
-	ad_epilog 0,0,rbx,rsi,rdi
-gwzcopyzero3 ENDP
-
-
 _TEXT	ENDS
 END

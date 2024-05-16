@@ -90,10 +90,9 @@ void pause_for_count (int count);
 #define gw_addsub(h,a)	(*(h)->GWPROCPTRS[5])(a)
 #define gw_addsubq(h,a)	(*(h)->GWPROCPTRS[6])(a)
 #define gw_addsubf(h,a)	(*(h)->GWPROCPTRS[6])(a)
-#define gw_copyzero(h,a) (*(h)->GWPROCPTRS[7])(a)
+#define gw_copy4kb(h,a) (*(h)->GWPROCPTRS[7])(a)
 #define gw_muls(h,a)	(*(h)->GWPROCPTRS[8])(a)
 #define norm_routines	9
-#define zerohigh_routines 13
 
 #define addr_gw_fft(h)		((h)->GWPROCPTRS[0])
 #define addr_gw_add(h)		((h)->GWPROCPTRS[1])
@@ -105,7 +104,7 @@ void pause_for_count (int count);
 #define addr_gw_addsub(h)	((h)->GWPROCPTRS[5])
 #define addr_gw_addsubq(h)	((h)->GWPROCPTRS[6])
 #define addr_gw_addsubf(h)	((h)->GWPROCPTRS[6])
-#define addr_gw_copyzero(h)	((h)->GWPROCPTRS[7])
+#define addr_gw_copy4kb(h)	((h)->GWPROCPTRS[7])
 #define addr_gw_muls(h)		((h)->GWPROCPTRS[8])
 #define call_op(p,a)		(*p)(a)
 
@@ -125,47 +124,39 @@ void pause_for_count (int count);
 aux_decl(gwadd)		aux_decl(gwaddq)
 aux_decl(gwsub)		aux_decl(gwsubq)
 aux_decl(gwaddsub)	aux_decl(gwaddsubq)
-aux_decl(gwcopyzero)	aux_decl(gwmuls)
+aux_decl(gwmuls)
 
 void *x87_aux_prctab[] = {
-	&gwadd1, &gwaddq1, &gwsub1, &gwsubq1, &gwaddsub1, &gwaddsubq1, &gwcopyzero1, &gwmuls1,
-	&gwadd2, &gwaddq2, &gwsub2, &gwsubq2, &gwaddsub2, &gwaddsubq2, &gwcopyzero2, &gwmuls2};
+	&gwadd1, &gwaddq1, &gwsub1, &gwsubq1, &gwaddsub1, &gwaddsubq1, NULL, &gwmuls1,
+	&gwadd2, &gwaddq2, &gwsub2, &gwsubq2, &gwaddsub2, &gwaddsubq2, NULL, &gwmuls2};
 #endif
 
 aux_decl3(gwxadd)	aux_decl(gwxaddq)
 aux_decl3(gwxsub)	aux_decl(gwxsubq)
 aux_decl3(gwxaddsub)	aux_decl(gwxaddsubq)
-aux_decl(gwxcopyzero)	aux_decl3(gwxadds)	aux_decl3(gwxmuls)
+extern_decl(gwxcopy4kb)	aux_decl3(gwxadds)	aux_decl3(gwxmuls)
 
 void *sse2_aux_prctab[] = {
-	&gwxadd1, &gwxaddq1, &gwxsub1, &gwxsubq1, &gwxaddsub1, &gwxaddsubq1, &gwxcopyzero1, &gwxmuls1,
-	&gwxadd2, &gwxaddq2, &gwxsub2, &gwxsubq2, &gwxaddsub2, &gwxaddsubq2, &gwxcopyzero2, &gwxmuls2,
-	&gwxadd3, &gwxaddq2, &gwxsub3, &gwxsubq2, &gwxaddsub3, &gwxaddsubq2, &gwxcopyzero2, &gwxmuls3};
+	&gwxadd1, &gwxaddq1, &gwxsub1, &gwxsubq1, &gwxaddsub1, &gwxaddsubq1, &gwxcopy4kb, &gwxmuls1,
+	&gwxadd2, &gwxaddq2, &gwxsub2, &gwxsubq2, &gwxaddsub2, &gwxaddsubq2, &gwxcopy4kb, &gwxmuls2,
+	&gwxadd3, &gwxaddq2, &gwxsub3, &gwxsubq2, &gwxaddsub3, &gwxaddsubq2, &gwxcopy4kb, &gwxmuls3};
 
 aux_decl3y(gwyadd)	aux_decl3(gwyaddq)
 aux_decl3y(gwysub)	aux_decl3(gwysubq)
 aux_decl3y(gwyaddsub)	aux_decl3(gwyaddsubq)
-aux_decl3(gwycopyzero)	aux_decl3y(gwyadds)	aux_decl3y(gwymuls)
+extern_decl(gwycopy4kb)	aux_decl3y(gwyadds)	aux_decl3y(gwymuls)
 
 void *avx_aux_prctab[] = {
-	&gwyaddq1, &gwysubq1, &gwyaddsubq1, &gwycopyzero1,
-	&gwyadd1, &gwysub1, &gwyaddsub1, &gwymuls1,
-	&gwyaddr1, &gwysubr1, &gwyaddsubr1, &gwymulsr1,
-	&gwyaddzp1, &gwysubzp1, &gwyaddsubzp1, &gwymulszp1,
-	&gwyaddrzp1, &gwysubrzp1, &gwyaddsubrzp1, &gwymulsrzp1,
-	&gwyaddn1, &gwysubn1, &gwyaddsubn1, &gwymulsn1,
-	&gwyaddnr1, &gwysubnr1, &gwyaddsubnr1, &gwymulsnr1,
-	&gwyaddnzp1, &gwysubnzp1, &gwyaddsubnzp1, &gwymulsnzp1,
+	&gwyaddq1, &gwysubq1, &gwyaddsubq1, &gwycopy4kb, &gwyadd1, &gwysub1, &gwyaddsub1, &gwymuls1,
+	&gwyaddr1, &gwysubr1, &gwyaddsubr1, &gwymulsr1,	&gwyaddzp1, &gwysubzp1, &gwyaddsubzp1, &gwymulszp1,
+	&gwyaddrzp1, &gwysubrzp1, &gwyaddsubrzp1, &gwymulsrzp1, &gwyaddn1, &gwysubn1, &gwyaddsubn1, &gwymulsn1,
+	&gwyaddnr1, &gwysubnr1, &gwyaddsubnr1, &gwymulsnr1, &gwyaddnzp1, &gwysubnzp1, &gwyaddsubnzp1, &gwymulsnzp1,
 	&gwyaddnrzp1, &gwysubnrzp1, &gwyaddsubnrzp1, &gwymulsnrzp1,
 
-	&gwyaddq3, &gwysubq3, &gwyaddsubq3, &gwycopyzero3,
-	&gwyadd3, &gwysub3, &gwyaddsub3, &gwymuls3,
-	&gwyaddr3, &gwysubr3, &gwyaddsubr3, &gwymulsr3,
-	&gwyaddzp3, &gwysubzp3, &gwyaddsubzp3, &gwymulszp3,
-	&gwyaddrzp3, &gwysubrzp3, &gwyaddsubrzp3, &gwymulsrzp3,
-	&gwyaddn3, &gwysubn3, &gwyaddsubn3, &gwymulsn3,
-	&gwyaddnr3, &gwysubnr3, &gwyaddsubnr3, &gwymulsnr3,
-	&gwyaddnzp3, &gwysubnzp3, &gwyaddsubnzp3, &gwymulsnzp3,
+	&gwyaddq3, &gwysubq3, &gwyaddsubq3, &gwycopy4kb, &gwyadd3, &gwysub3, &gwyaddsub3, &gwymuls3,
+	&gwyaddr3, &gwysubr3, &gwyaddsubr3, &gwymulsr3, &gwyaddzp3, &gwysubzp3, &gwyaddsubzp3, &gwymulszp3,
+	&gwyaddrzp3, &gwysubrzp3, &gwyaddsubrzp3, &gwymulsrzp3, &gwyaddn3, &gwysubn3, &gwyaddsubn3, &gwymulsn3,
+	&gwyaddnr3, &gwysubnr3, &gwyaddsubnr3, &gwymulsnr3, &gwyaddnzp3, &gwysubnzp3, &gwyaddsubnzp3, &gwymulsnzp3,
 	&gwyaddnrzp3, &gwysubnrzp3, &gwyaddsubnrzp3, &gwymulsnrzp3};
 
 aux_decl3y(ygw_carries_wpn)
@@ -179,19 +170,15 @@ void *avx_carries_prctab[] = {
 aux_decl3z(gwzadd)	aux_decl3(gwzaddq)
 aux_decl3z(gwzsub)	aux_decl3(gwzsubq)
 aux_decl3z(gwzaddsub)	aux_decl3(gwzaddsubq)
-aux_decl3(gwzcopyzero)	aux_decl3y(gwzadds)	aux_decl3y(gwzmuls)
+extern_decl(gwzcopy4kb)	aux_decl3y(gwzadds)	aux_decl3y(gwzmuls)
 
 void *avx512_aux_prctab[] = {
-	&gwzaddq1, &gwzsubq1, &gwzaddsubq1, &gwzcopyzero1,
-	&gwzadd1, &gwzsub1, &gwzaddsub1, &gwzmuls1,
-	&gwzaddr1, &gwzsubr1, &gwzaddsubr1, &gwzmulsr1,
-	&gwzaddzp1, &gwzsubzp1, &gwzaddsubzp1, &gwzmulszp1,
+	&gwzaddq1, &gwzsubq1, &gwzaddsubq1, &gwzcopy4kb, &gwzadd1, &gwzsub1, &gwzaddsub1, &gwzmuls1,
+	&gwzaddr1, &gwzsubr1, &gwzaddsubr1, &gwzmulsr1, &gwzaddzp1, &gwzsubzp1, &gwzaddsubzp1, &gwzmulszp1,
 	&gwzaddrzp1, &gwzsubrzp1, &gwzaddsubrzp1, &gwzmulsrzp1,
 
-	&gwzaddq3, &gwzsubq3, &gwzaddsubq3, &gwzcopyzero3,
-	&gwzadd3, &gwzsub3, &gwzaddsub3, &gwzmuls3,
-	&gwzaddr3, &gwzsubr3, &gwzaddsubr3, &gwzmulsr3,
-	&gwzaddzp3, &gwzsubzp3, &gwzaddsubzp3, &gwzmulszp3,
+	&gwzaddq3, &gwzsubq3, &gwzaddsubq3, &gwzcopy4kb, &gwzadd3, &gwzsub3, &gwzaddsub3, &gwzmuls3,
+	&gwzaddr3, &gwzsubr3, &gwzaddsubr3, &gwzmulsr3, &gwzaddzp3, &gwzsubzp3, &gwzaddsubzp3, &gwzmulszp3,
 	&gwzaddrzp3, &gwzsubrzp3, &gwzaddsubrzp3, &gwzmulsrzp3};
 
 aux_decl3z(zgw_carries_wpn)
@@ -205,12 +192,11 @@ void *avx512_carries_prctab[] = {
 #define gwz3_apply_carries(a)
 #endif
 
-/* Now we put the normalization routines in an array so we can easily pick */
-/* the normalization routines to use.  There is one table for AVX-512, AVX, SSE2 and */
-/* x87.  The SSE2 table has these 820 combinations: */
+/* Now we put the normalization routines in an array so we can easily pick the normalization routines to use.  There is one table for */
+/* AVX-512, AVX, SSE2 and x87.  The SSE2 table has these 820 combinations: */
 /*	r or i		(rational or irrational) */
 /*	1 or 2 or 2AMD or 3 or 3AMD (1 pass or 2 pass or 2 pass with partial normalization - with optional AMD prefetching) */
-/*	z or zp or blank (zero upper half of result or zero-padded FFT or normal FFT */
+/*	zp or blank	(zero-padded FFT or normal FFT */
 /*	e or blank	(roundoff error checking or not) */
 /*	b or blank	(b > 2 or not, not used in AVX-512) */
 /*	s4 or blank	(SSE4 or not) */
@@ -223,8 +209,7 @@ void *avx512_carries_prctab[] = {
 #ifdef X86_64
 #define avx512_explode(macro)			avx512_explode1(macro,zr)		avx512_explode1(macro,zi)
 #define avx512_explode1(macro,name)		avx512_explode2(macro,name##1,SKX)	avx512_explode2(macro,name##3,SKX)
-#define avx512_explode2(macro,name,suff)	avx512_zero_explode(macro,name##z,suff)	avx512_explode3(macro,name,suff,notzp)	avx512_explode3(macro,name##zp,suff,zp)
-#define avx512_zero_explode(macro,name,suff)	avx512_explode9##suff(macro,name)	avx512_explode9##suff(macro,name##e)
+#define avx512_explode2(macro,name,suff)	avx512_explode3(macro,name,suff,notzp)	avx512_explode3(macro,name##zp,suff,zp)
 #define avx512_explode3(macro,name,suff,zp)	avx512_explode4(macro,name,suff,zp)	avx512_explode4(macro,name##e,suff,zp)
 #define avx512_explode4(macro,name,suff,zp)	avx512_explode5(macro,name,suff,zp,notc) avx512_explode5(macro,name##c,suff,zp,c)
 #define avx512_explode5(macro,name,suff,zp,c)	avx512_explode6(macro,name,suff,zp,c)
@@ -238,18 +223,13 @@ void *avx512_carries_prctab[] = {
 avx512_explode(extern_decl)
 void *avx512_prctab[] = { avx512_explode(array_entry) NULL };
 
-int avx512_prctab_index (gwhandle *gwdata, int z, int e, int c)
+int avx512_prctab_index (gwhandle *gwdata, int e, int c)
 {
 	int	index = 0;
 
-	if (! gwdata->RATIONAL_FFT) index += 28;		/* Irrational FFTs are after the rational FFTs */
-	if (gwdata->PASS2_SIZE) index += 14;			/* Two pass FFTs are after the traditional one pass FFTs */
+	if (! gwdata->RATIONAL_FFT) index += 24;		/* Irrational FFTs are after the rational FFTs */
+	if (gwdata->PASS2_SIZE) index += 12;			/* Two pass FFTs are after the traditional one pass FFTs */
 
-	if (z) {
-		if (e) index += 1;
-		return (index);
-	}
-	index += 2;
 	if (! gwdata->ZERO_PADDED_FFT) {
 		if (e) index += 2;
 		if (c) index += 1;
@@ -272,8 +252,7 @@ int avx512_prctab_index (gwhandle *gwdata, int z, int e, int c)
 
 #define avx_explode(macro)			avx_explode1(macro,yr)			avx_explode1(macro,yi)
 #define avx_explode1(macro,name)		avx_explode2(macro,name##1,CORE)	avx_explode2(macro,name##1,FMA3)	avx_explode2(macro,name##3,CORE)	avx_explode2(macro,name##3,FMA3)
-#define avx_explode2(macro,name,suff)		avx_zero_explode(macro,name##z,suff)	avx_explode3(macro,name,suff,notzp)	avx_explode3(macro,name##zp,suff,zp)
-#define avx_zero_explode(macro,name,suff)	avx_explode9##suff(macro,name)		avx_explode9##suff(macro,name##e)
+#define avx_explode2(macro,name,suff)		avx_explode3(macro,name,suff,notzp)	avx_explode3(macro,name##zp,suff,zp)
 #define avx_explode3(macro,name,suff,zp)	avx_explode4(macro,name,suff,zp)	avx_explode4(macro,name##e,suff,zp)
 #define avx_explode4(macro,name,suff,zp)	avx_explode5(macro,name,suff,zp,notc)	avx_explode5(macro,name##c,suff,zp,c)
 #define avx_explode5(macro,name,suff,zp,c)	avx_explode6(macro,name,suff,zp,c)	avx_explode6(macro,name##b,suff,zp,c)
@@ -293,19 +272,14 @@ int avx512_prctab_index (gwhandle *gwdata, int z, int e, int c)
 avx_explode(extern_decl)
 void *avx_prctab[] = { avx_explode(array_entry) NULL };
 
-int avx_prctab_index (gwhandle *gwdata, int z, int e, int c)
+int avx_prctab_index (gwhandle *gwdata, int e, int c)
 {
 	int	index = 0;
 
-	if (! gwdata->RATIONAL_FFT) index += 168;		/* Irrational FFTs are after the 4 sets of rational FFTs */
-	if (gwdata->PASS2_SIZE) index += 84;			/* Two-pass FFTs are after the one-pass FFTs */
-	if (gwdata->cpu_flags & CPU_FMA3) index += 42;		/* FMA3 FFTs are after the CORE FFTs */
+	if (! gwdata->RATIONAL_FFT) index += 160;		/* Irrational FFTs are after the 4 sets of rational FFTs */
+	if (gwdata->PASS2_SIZE) index += 80;			/* Two-pass FFTs are after the one-pass FFTs */
+	if (gwdata->cpu_flags & CPU_FMA3) index += 40;		/* FMA3 FFTs are after the CORE FFTs */
 
-	if (z) {
-		if (e) index += 1;
-		return (index);
-	}
-	index += 2;
 	if (! gwdata->ZERO_PADDED_FFT) {
 		if (e) index += 4;
 		if (c) index += 2;
@@ -331,8 +305,7 @@ int avx_prctab_index (gwhandle *gwdata, int z, int e, int c)
 
 #define sse2_explode(macro)			sse2_explode1(macro,xr)			sse2_explode1(macro,xi)
 #define sse2_explode1(macro,name)		sse2_explode2(macro,name##1,BLEND)	sse2_explode2(macro,name##2,CORE)	sse2_explode2(macro,name##2,K8)		sse2_explode2(macro,name##3,CORE)	sse2_explode2(macro,name##3,K8)
-#define sse2_explode2(macro,name,suff)		sse2_zero_explode(macro,name##z,suff)	sse2_explode3(macro,name,suff,notzp)	sse2_explode3(macro,name##zp,suff,zp)
-#define sse2_zero_explode(macro,name,suff)	sse2_explode9##suff(macro,name)		sse2_explode9##suff(macro,name##e)
+#define sse2_explode2(macro,name,suff)		sse2_explode3(macro,name,suff,notzp)	sse2_explode3(macro,name##zp,suff,zp)
 #define sse2_explode3(macro,name,suff,zp)	sse2_explode4(macro,name,suff,zp)	sse2_explode4(macro,name##e,suff,zp)
 #define sse2_explode4(macro,name,suff,zp)	sse2_explode5(macro,name,suff,zp,notc)	sse2_explode5(macro,name##c,suff,zp,c)
 #define sse2_explode5(macro,name,suff,zp,c)	sse2_explode6(macro,name,suff,zp,c)	sse2_explode6(macro,name##b,suff,zp,c)
@@ -352,21 +325,16 @@ int avx_prctab_index (gwhandle *gwdata, int z, int e, int c)
 sse2_explode(extern_decl)
 void *sse2_prctab[] = { sse2_explode(array_entry) NULL };
 
-int sse2_prctab_index (gwhandle *gwdata, int z, int e, int c)
+int sse2_prctab_index (gwhandle *gwdata, int e, int c)
 {
 	int	index = 0;
 
-	if (! gwdata->RATIONAL_FFT) index += 410;
+	if (! gwdata->RATIONAL_FFT) index += 400;
 	if (gwdata->PASS2_SIZE) {
-		index += 82;
-		if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) index += 164;
-		if (gwdata->cpu_flags & CPU_3DNOW_PREFETCH) index += 82;
+		index += 80;
+		if (gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN) index += 160;
+		if (gwdata->cpu_flags & CPU_3DNOW_PREFETCH) index += 80;
 	}
-	if (z) {
-		if (e) index += 1;
-		return (index);
-	}
-	index += 2;
 	if (! gwdata->ZERO_PADDED_FFT) {
 		if (e) index += 8;
 		if (c) index += 4;
@@ -402,18 +370,16 @@ int sse2_prctab_index (gwhandle *gwdata, int z, int e, int c)
 #ifndef X86_64
 #define x87_explode(macro)		x87_explode1(macro,r)		x87_explode1(macro,i)
 #define x87_explode1(macro,name)	x87_explode2(macro,name##1)	x87_explode2(macro,name##2)
-#define x87_explode2(macro,name)	x87_zero_explode(macro,name##z)	x87_explode3(macro,name)	x87_explode3(macro,name##zp)
-#define x87_zero_explode(macro,name)	macro(name)			macro(name##e)
+#define x87_explode2(macro,name)	x87_explode3(macro,name)	x87_explode3(macro,name##zp)
 #define x87_explode3(macro,name)	x87_explode4(macro,name)	x87_explode4(macro,name##e)
 #define x87_explode4(macro,name)	macro(name)			macro(name##c)
 
 x87_explode(extern_decl)
 void *x87_prctab[] = { x87_explode(array_entry) NULL };
 
-#define	x87_prctab_index(gwdata, z, e, c)  \
-	    ((gwdata)->RATIONAL_FFT ? 0 : 20) + \
-	    ((gwdata)->PASS2_SIZE ? 10 : 0) + \
-	    (z ? (e ? 1 : 0) : 2 + \
+#define	x87_prctab_index(gwdata, e, c)  \
+	    (((gwdata)->RATIONAL_FFT ? 0 : 16) + \
+	     ((gwdata)->PASS2_SIZE ? 8 : 0) + \
 	     ((gwdata)->ZERO_PADDED_FFT ? 4 : 0) + \
 	     (e ? 2 : 0) + \
 	     (c ? 1 : 0))
@@ -475,6 +441,7 @@ void pass2_aux_entry_point (void*);
 void gw_fixed_random_number (gwhandle *gwdata, gwnum x);
 gwnum gwalloc_internal (gwhandle *gwdata);
 void zpad_sub7 (struct gwasm_data *asm_data);
+void gwcopy_with_mask (gwhandle *, gwnum, gwnum, gwnum);
 
 /* Routine to split a r4dwpn FFT word into column and group multiplier indexes. */
 /* We remove bit(s) associated with the upper SSE2/AVX words because those are handled by the group multipliers. */
@@ -2468,7 +2435,7 @@ int gwsetup_general_Barrett_mod_giant (
 
 /* Calculate number of words to zero during the copy prior to calculating the quotient. */
 
-		gwdata->GW_ZEROWORDSLOW = (unsigned long) floor ((double) bits / gwdata->avg_num_b_per_word);
+		int zerowordslow = (int) floor ((double) bits / gwdata->avg_num_b_per_word);
 
 /* A quick emulate_mod refresher: */
 /* 1) The maximum size of a quotient is gwdata->n/2 bits due to the */
@@ -2488,7 +2455,7 @@ int gwsetup_general_Barrett_mod_giant (
 /*    than the number of unzeroed bits caused by using the floor function in */
 /*    calculating GW_ZEROWORDSLOW. */
 
-		safety_bits = bits - (unsigned long) ((double) gwdata->GW_ZEROWORDSLOW * gwdata->avg_num_b_per_word) + 3;
+		safety_bits = bits - (unsigned long) ((double) zerowordslow * gwdata->avg_num_b_per_word) + 3;
 
 /* Precompute the reciprocal of the modified modulus. */
 
@@ -2512,9 +2479,23 @@ int gwsetup_general_Barrett_mod_giant (
 		free (tmp);
 		free (modified_modulus);
 
-/* Calculate the maximum allowable size of a number used as input */
-/* to gwmul.  We will make sure gwsmallmul does not generate any */
-/* results bigger than this. */
+/* Precompute masks */
+
+		gwdata->BARRETT_MASK_LO = gwalloc_internal (gwdata);
+		gwdata->BARRETT_MASK_HI = gwalloc_internal (gwdata);
+		if (gwdata->BARRETT_MASK_LO == NULL || gwdata->BARRETT_MASK_HI == NULL) {
+			gwdone (gwdata);
+			return (GWERROR_MALLOC);
+		}
+		gwiter iter_lo, iter_hi;
+		gwiter_init_write_only (gwdata, &iter_lo, gwdata->BARRETT_MASK_LO);
+		gwiter_init_write_only (gwdata, &iter_hi, gwdata->BARRETT_MASK_HI);
+		for (int i = 0; i < (int) gwdata->FFTLEN; i++, gwiter_next (&iter_lo), gwiter_next (&iter_hi)) {
+			* (uint64_t *) gwiter_addr (&iter_lo) = (i < zerowordslow) ? 0 : 0xFFFFFFFFFFFFFFFFULL;
+			* (uint64_t *) gwiter_addr (&iter_hi) = (i < (int) gwdata->FFTLEN / 2) ? 0xFFFFFFFFFFFFFFFFULL : 0;
+		}
+
+/* Calculate the maximum allowable size of a number used as input to gwmul.  We will make sure gwsmallmul does not generate any results bigger than this. */
 
 		gwdata->GW_GEN_MOD_MAX = (unsigned long) floor ((double)((gwdata->n/2-safety_bits+bits-8)/2) / gwdata->avg_num_b_per_word);
 		gwdata->GW_GEN_MOD_MAX_OFFSET = addr_offset (gwdata, gwdata->GW_GEN_MOD_MAX-1);
@@ -3051,7 +3032,6 @@ int gwclone (
 	cloned_gwdata->fft_count = 0;
 	cloned_gwdata->read_count = 0;
 	cloned_gwdata->write_count = 0;
-	cloned_gwdata->saved_copyz_n = 0;
 
 /* For now turn off multi-threading and thread callback.  We could re-visit this at a later date.  Our first use of cloned handles is in P-1 stage 2 */
 /* where we are piggybacking off of polymult's thread locks and affinity setting callbacks. */
@@ -5145,14 +5125,12 @@ int internal_gwsetup (
 		gwdata->GWPROCPTRS[4] = avx512_aux_prctab[base+1];	// Sub quick
 		gwdata->GWPROCPTRS[5] = avx512_aux_prctab[index+2];	// AddSub
 		gwdata->GWPROCPTRS[6] = avx512_aux_prctab[base+2];	// AddSub quick
-		gwdata->GWPROCPTRS[7] = avx512_aux_prctab[base+3];	// Copyzero
+		gwdata->GWPROCPTRS[7] = avx512_aux_prctab[base+3];	// Copy4kb
 		gwdata->GWPROCPTRS[8] = avx512_aux_prctab[index+3];	// Mul small
-		gwdata->GWPROCPTRS[norm_routines] = avx512_prctab[avx512_prctab_index (gwdata, 0, 0, 0)];  // No error, no mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+1] = avx512_prctab[avx512_prctab_index (gwdata, 0, 1, 0)];  // Error, no mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+2] = avx512_prctab[avx512_prctab_index (gwdata, 0, 0, 1)];  // No error, mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+3] = avx512_prctab[avx512_prctab_index (gwdata, 0, 1, 1)];  // Error, mulbyconst
-		gwdata->GWPROCPTRS[zerohigh_routines] = avx512_prctab[avx512_prctab_index (gwdata, 1, 0, 0)];  // Zero, no error
-		gwdata->GWPROCPTRS[zerohigh_routines+1] = avx512_prctab[avx512_prctab_index (gwdata, 1, 1, 0)];  // Zero, error
+		gwdata->GWPROCPTRS[norm_routines] = avx512_prctab[avx512_prctab_index (gwdata, 0, 0)];  // No error, no mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+1] = avx512_prctab[avx512_prctab_index (gwdata, 1, 0)];  // Error, no mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+2] = avx512_prctab[avx512_prctab_index (gwdata, 0, 1)];  // No error, mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+3] = avx512_prctab[avx512_prctab_index (gwdata, 1, 1)];  // Error, mulbyconst
 	    } else
 #endif
 	    if (gwdata->cpu_flags & CPU_AVX) {
@@ -5170,33 +5148,27 @@ int internal_gwsetup (
 		gwdata->GWPROCPTRS[4] = avx_aux_prctab[aux_base+1];	// Sub quick
 		gwdata->GWPROCPTRS[5] = avx_aux_prctab[index+2];	// AddSub
 		gwdata->GWPROCPTRS[6] = avx_aux_prctab[aux_base+2];	// AddSub quick
-		gwdata->GWPROCPTRS[7] = avx_aux_prctab[aux_base+3];	// Copyzero
+		gwdata->GWPROCPTRS[7] = avx_aux_prctab[aux_base+3];	// Copy4kb
 		gwdata->GWPROCPTRS[8] = avx_aux_prctab[index+3];	// Mul small
-		gwdata->GWPROCPTRS[norm_routines] = avx_prctab[avx_prctab_index (gwdata, 0, 0, 0)];  // No error, no mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+1] = avx_prctab[avx_prctab_index (gwdata, 0, 1, 0)];  // Error, no mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+2] = avx_prctab[avx_prctab_index (gwdata, 0, 0, 1)];  // No error, mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+3] = avx_prctab[avx_prctab_index (gwdata, 0, 1, 1)];  // Error, mulbyconst
-		gwdata->GWPROCPTRS[zerohigh_routines] = avx_prctab[avx_prctab_index (gwdata, 1, 0, 0)];  // Zero, no error
-		gwdata->GWPROCPTRS[zerohigh_routines+1] = avx_prctab[avx_prctab_index (gwdata, 1, 1, 0)];  // Zero, error
+		gwdata->GWPROCPTRS[norm_routines] = avx_prctab[avx_prctab_index (gwdata, 0, 0)];  // No error, no mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+1] = avx_prctab[avx_prctab_index (gwdata, 1, 0)];  // Error, no mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+2] = avx_prctab[avx_prctab_index (gwdata, 0, 1)];  // No error, mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+3] = avx_prctab[avx_prctab_index (gwdata, 1, 1)];  // Error, mulbyconst
 	    }
 	    else if (gwdata->cpu_flags & CPU_SSE2) {
 		memcpy (gwdata->GWPROCPTRS+1, &sse2_aux_prctab[gwdata->FFT_TYPE == FFT_TYPE_RADIX_4_DWPN ? 16 : gwdata->PASS2_SIZE ? 8 : 0], 8 * sizeof (void *));
-		gwdata->GWPROCPTRS[norm_routines] = sse2_prctab[sse2_prctab_index (gwdata, 0, 0, 0)];  // No error, no mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+1] = sse2_prctab[sse2_prctab_index (gwdata, 0, 1, 0)];  // Error, no mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+2] = sse2_prctab[sse2_prctab_index (gwdata, 0, 0, 1)];  // No error, mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+3] = sse2_prctab[sse2_prctab_index (gwdata, 0, 1, 1)];  // Error, mulbyconst
-		gwdata->GWPROCPTRS[zerohigh_routines] = sse2_prctab[sse2_prctab_index (gwdata, 1, 0, 0)];  // Zero, no error
-		gwdata->GWPROCPTRS[zerohigh_routines+1] = sse2_prctab[sse2_prctab_index (gwdata, 1, 1, 0)];  // Zero, error
+		gwdata->GWPROCPTRS[norm_routines] = sse2_prctab[sse2_prctab_index (gwdata, 0, 0)];  // No error, no mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+1] = sse2_prctab[sse2_prctab_index (gwdata, 1, 0)];  // Error, no mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+2] = sse2_prctab[sse2_prctab_index (gwdata, 0, 1)];  // No error, mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+3] = sse2_prctab[sse2_prctab_index (gwdata, 1, 1)];  // Error, mulbyconst
 	    }
 #ifndef X86_64
 	    else {
 		memcpy (gwdata->GWPROCPTRS+1, &x87_aux_prctab[gwdata->PASS2_SIZE ? 8 : 0], 8 * sizeof (void *));
-		gwdata->GWPROCPTRS[norm_routines] = x87_prctab[x87_prctab_index (gwdata, 0, 0, 0)];  // No error, no mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+1] = x87_prctab[x87_prctab_index (gwdata, 0, 1, 0)];  // Error, no mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+2] = x87_prctab[x87_prctab_index (gwdata, 0, 0, 1)];  // No error, mulbyconst
-		gwdata->GWPROCPTRS[norm_routines+3] = x87_prctab[x87_prctab_index (gwdata, 0, 1, 1)];  // Error, mulbyconst
-		gwdata->GWPROCPTRS[zerohigh_routines] = x87_prctab[x87_prctab_index (gwdata, 1, 0, 0)];  // Zero, no error
-		gwdata->GWPROCPTRS[zerohigh_routines+1] = x87_prctab[x87_prctab_index (gwdata, 1, 1, 0)];  // Zero, error
+		gwdata->GWPROCPTRS[norm_routines] = x87_prctab[x87_prctab_index (gwdata, 0, 0)];  // No error, no mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+1] = x87_prctab[x87_prctab_index (gwdata, 1, 0)];  // Error, no mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+2] = x87_prctab[x87_prctab_index (gwdata, 0, 1)];  // No error, mulbyconst
+		gwdata->GWPROCPTRS[norm_routines+3] = x87_prctab[x87_prctab_index (gwdata, 1, 1)];  // Error, mulbyconst
 	    }
 #endif
 
@@ -5212,7 +5184,6 @@ int internal_gwsetup (
 /* Clear globals */
 
 	asm_data->MAXERR = 0.0;
-	gwdata->saved_copyz_n = 0;
 	gwdata->GWERROR = 0;
 	gwdata->GW_RANDOM = NULL;
 	gwdata->GW_RANDOM_SQUARED = NULL;
@@ -5906,7 +5877,6 @@ void auxiliary_thread (void *arg)
 		asm_data->thread_work_routine = main_thread_asm_data->thread_work_routine;
 		if (gwdata->pass1_state == 1) {
 			asm_data->NORMRTN = main_thread_asm_data->NORMRTN;
-			asm_data->zero_fft = main_thread_asm_data->zero_fft;
 			asm_data->const_fft = main_thread_asm_data->const_fft;
 			asm_data->add_sub_smallmul_op = main_thread_asm_data->add_sub_smallmul_op;
 			asm_data->ADDIN_ROW = main_thread_asm_data->ADDIN_ROW;
@@ -8660,226 +8630,6 @@ double gwmap_to_timing (
 	return (timing);
 }
 
-/* Given k,b,n,c determine the fft length and zero-padding state to be */
-/* used.  Caller peers into the gwdata structure to get this info. */
-// DEPRECATED
-//int gwmap_to_fft_info (
-//	gwhandle *gwdata,	/* Uninitialized gwnum global data */
-//	double	k,		/* K in K*B^N+C. Must be a positive integer. */
-//	unsigned long b,	/* B in K*B^N+C. */
-//	unsigned long n,	/* N in K*B^N+C. Exponent to test. */
-//	signed long c)		/* C in K*B^N+C. Must be rel. prime to K. */
-//{
-//	gwinit (gwdata);
-//	return (gwinfo (gwdata, k, b, n, c));
-//}
-
-
-/* Internal routine to help gwcopyzero */
-
-void calc8ptrs (
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	unsigned long n,	/* Number of words to zero */
-	uint32_t *ptrs)
-{
-	unsigned long i, j, k;
-
-/* AVX-512F processes one double cache line at a time.  The one-pass and two-pass mameory layouts are different. */
-
-	if (gwdata->cpu_flags & CPU_AVX512F) {
-
-/* The traditional one-pass case is just different enough to the wrapper one-pass case that it requires separate code. */
-/* Example: FFTlen 384, with n = 31:	*/
-/*	0  +3  +3	192  +3 ...	*/
-/*	1  ...				*/
-/*	2  ...				*/
-/*	24 ...				*/
-/* n/24 = 1 = #sections with ff00 mask */
-/* n = n % 24 = 7 (use this val in transition section) */
-/* n/3 = 2 = minimum #zeros in transition section's double cache lines, 2 zeros is an fffc mask */
-/* n%3 = 1 = #double cache lines with minimum+1 #zeros, an fff8 mask */
-/* 3-n%3 = 2 = #double cache lines with minimum #zeros */
-/* 7-n/24 = 6 = #sections with ffff mask */
-
-		if (gwdata->PASS2_SIZE == 0) {
-			int upper_avx512_word = gwdata->FFTLEN / 128;
-			int section_size = gwdata->FFTLEN / 16;
-
-			// Create masks assuming n is below the half way point, we correct for this later if not true
-			// Masks and count for the "processing sections before n" case.
-			ptrs[0] = 0xFF00;
-			ptrs[1] = n / section_size * upper_avx512_word;	// Count of double cache lines
-			// Masks and count for the "processing section containing n" case.
-			i = n % section_size;				// Offset within section (7 in example above)
-			j = i / upper_avx512_word;			// Column number (which multiple of 3 in example above)
-			ptrs[2] = 0xFFFF << (j+1);			// Zero j+1 columns mask
-			ptrs[3] = i - j * upper_avx512_word;		// Count
-			ptrs[4] = 0xFFFF << j;				// Zero j columns mask
-			ptrs[5] = upper_avx512_word - ptrs[3];		// Count
-			// Masks and count for the "processing sections after n" case.
-			ptrs[6] = 0xFFFF;
-			ptrs[7] = 0xFFFFFFFF;
-		}
-
-/* The two-pass and wrapper one pass AVX-512 FFTs are very similar */
-
-		else {
-			int	block_size, upper_avx512_word;
-
-/* The wrapper one-pass case.  The copyzero array contains masks and counts */
-/* for when to load new masks.  Here is an example for a 2K FFT (layout below) */
-/*	0	+8	+8	+8	+8	+8	+8	+8	1K	+8	...	*/
-/*	1	...										*/
-/*	...											*/
-/*	7	...										*/
-/*	64	...										*/
-/*	...											*/
-/* The assembly code processes 1 block at a time.  Block 0 processes 0 to 63 and 1K to 1K+63. */
-/* Block 1 processes 64 to 127 and 1K+64 to 1K+127, etc.  If n = 64 + 18, then the masks in block 0 are */
-/* 00000000, 11111111, count = inf (zero low words, copy high words).  The masks in block 1 are */
-/* 11111000, 11111111, count = 2, 11111100, 11111111, count = inf.  The masks in blocks 2+ are */
-/* 11111111, 11111111, count = inf (copy low and high words). */
-
-/* The two-pass case is a little more complex. Here is an example for a 128K FFT (layout below) */
-/*	0	+1K	+1K	+1K	+1K	+1K	+1K	+1K	64K	+1K	...	*/
-/*	8	...										*/
-/*	...											*/
-/*	1016	...										*/
-/*	1	...										*/
-/*	...											*/
-/*	1017	...										*/
-/*	...											*/
-/*	7	...										*/
-/*	...											*/
-/*	1023	...										*/
-/*	8K	...										*/
-/* The assembly code processes 1 block at a time.  Block 0 processes 0 to 8K-1 and 64K to 72K-1. */
-/* Block 1 processes 8K to 16K-1 and 72K to 80K-1, etc.  If n = 9K + 20, then the masks in block 0 are */
-/* 00000000, 11111111, count = inf (zero low words, copy high words).  The masks in block 1 are */
-/* 11111100, 11111111, count = 20, 11111110, 11111111, count = inf.  The masks in blocks 2+ are */
-/* 11111111, 11111111, count = inf (copy low and high words). */
-
-			if (gwdata->PASS1_SIZE == 0) {
-				upper_avx512_word = 8;
-				block_size = 64;
-			} else {
-				upper_avx512_word = gwdata->PASS2_SIZE;
-				block_size = upper_avx512_word * 8;
-			}
-
-			// Create masks assuming n is below the half way point, we correct for this later if not true
-			// Masks and count for the "processing block before n" case.
-			ptrs[0] = 0xFF00;
-			ptrs[1] = 0xFFFFFFFF;
-			// Masks and count for the "processing block containing n" case.
-			i = n % block_size;				// Offset within block (0 to 63 or 8K-1 in examples above)
-			j = i / upper_avx512_word;			// Column number (which multiple of 8 or 1K in examples above)
-			ptrs[2] = 0xFFFF << (j+1);			// Zero j+1 columns mask
-			ptrs[3] = i - j * upper_avx512_word;		// Count
-			ptrs[4] = 0xFFFF << j;				// Zero j columns mask
-			ptrs[5] = 0xFFFFFFFF;				// Count
-			// Masks and count for the "processing block after n" case.
-			ptrs[6] = 0xFFFF;
-			ptrs[7] = 0xFFFFFFFF;
-		}
-
-		/* If n > half way point, change masks to always zero low words */
-		if (n >= gwdata->FFTLEN/2) ptrs[0] <<= 8, ptrs[2] <<= 8, ptrs[4] <<= 8, ptrs[6] <<= 8;
-	}
-
-/* This is a grossly inefficient way to do this.  However, it should be called rarely. */
-
-/* AVX offsets do not always increase, use a new method.  Remember the */
-/* offset of the first word in each column that doesn't need zeroing. */
-
-	else if (gwdata->cpu_flags & CPU_AVX) {
-		for (i = 0; i < 8; i++) ptrs[i] = 0xFFFFFFFF;	/* Start by clearing the eight ptrs. */
-		for (i = n; i < gwdata->FFTLEN; i++) {
-			j = addr_offset (gwdata, i);
-			k = (j & 63) >> 3;
-			if (ptrs[k] == 0xFFFFFFFF) ptrs[k] = j - (k << 3);
-		}
-	}
-
-/* The original version that works for offsets that are always increasing */
-
-	else {
-		for (i = 0; i < 8; i++) ptrs[i] = 0;	/* Start by clearing the eight ptrs. */
-		for (i = 0; i < n; i++) {
-			j = addr_offset (gwdata, i);
-			k = (j & 63) >> 3;
-			if (j >= ptrs[k]) ptrs[k] = j - (k << 3) + 64;
-		}
-	}
-}
-
-/* Routine that sets up and calls assembly code to copy a gwnum from */
-/* source to dest while zeroing some lower FFT words */
-
-void gwcopyzero (
-	gwhandle *gwdata,	/* Handle initialized by gwsetup */
-	gwnum	s,
-	gwnum	d,
-	unsigned long n)
-{
-	struct gwasm_data *asm_data = (struct gwasm_data *) gwdata->asm_data;
-
-	ASSERTG (FFT_state (s) == NOT_FFTed);		// Number not FFTed
-
-/* Handle case where no words are zeroed.  Some of the assembly routines */
-/* do not like a word count of zero. */
-
-	if (n == 0) {
-		gwcopy (gwdata, s, d);
-		return;
-	}
-
-/* Calculate pointers for ASM routines to do their zero-copy */
-
-	if (n != gwdata->saved_copyz_n) {
-		if (gwdata->cpu_flags & (CPU_AVX512F | CPU_AVX | CPU_SSE2))
-			calc8ptrs (gwdata, n, asm_data->COPYZERO);
-		gwdata->saved_copyz_n = n;
-	}
-
-/* Do a two-pass or wrapper one-pass AVX-512 FFT copyzero one block at a time.  This is in preparation for multi-thread support. */
-
-	if (gwdata->cpu_flags & CPU_AVX512F && gwdata->PASS2_SIZE) {
-		//BUG - multithread this?? support AVX too?? change asm to process more than 16 doubles at a time?
-		int	i, num_blks, blk_containing_n;
-
-		if (gwdata->PASS1_SIZE == 0)
-			blk_containing_n = (n % (gwdata->FFTLEN / 2)) / 64;
-		else
-			blk_containing_n = (n % (gwdata->FFTLEN / 2)) / (gwdata->PASS2_SIZE * 8);
-		num_blks = asm_data->addcount1;
-		for (i = 0; i < num_blks; i++) {
-			asm_data->SRCARG = (char *) s + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			asm_data->DESTARG = (char *) d + i * asm_data->pass1blkdst + (i/4) * asm_data->normblkdst4;
-			if (i < blk_containing_n) asm_data->SRC2ARG = (char *) asm_data->COPYZERO;		// This block is before n
-			else if (i == blk_containing_n) asm_data->SRC2ARG = (char *) asm_data->COPYZERO + 8;	// This block contains n
-			else asm_data->SRC2ARG = (char *) asm_data->COPYZERO + 24;				// This block is past n
-			gw_copyzero (gwdata, asm_data);
-		}
-	}
-
-/* Do the copyzero the old-fashioned way -- in one call.  Call assembly language copy-and-zeroing routine. */
-
-	else {
-		asm_data->SRCARG = s;
-		asm_data->DESTARG = d;
-		asm_data->NUMARG = n;
-		gw_copyzero (gwdata, asm_data);
-	}
-
-/* Copy the unnormalized add counter and clear the has been completely/partially FFTed flag. */
-
-	unnorms (d) = unnorms (s);
-	FFT_state (d) = NOT_FFTed;
-	gwdata->read_count += 1;
-	gwdata->write_count += 1;
-}
-
 /* Set the constant which the results of a multiplication should be multiplied by. */
 /* Use this routine in conjunction with the GWMUL_MULBYCONST multiplication option. */
 
@@ -10544,7 +10294,6 @@ void asm_mul (
 	asm_data->DIST_TO_FFTSRCARG = (intptr_t) s1 - (intptr_t) d;
 	asm_data->DIST_TO_MULSRCARG = (intptr_t) s2 - (intptr_t) d;
 
-	asm_data->zero_fft = (asm_data->NORMRTN == gwdata->GWPROCPTRS[zerohigh_routines + gwdata->ERROR_CHECKING]);
 	asm_data->const_fft = !!(options & GWMUL_MULBYCONST);
 	asm_data->add_sub_smallmul_op = 0;
 //if (rand() % 100 < 1) *s += 1.0;			// Generate random errors (for caller to test error recovery)
@@ -10732,7 +10481,7 @@ if ((gwdata->cpu_flags & (CPU_AVX512F | CPU_FMA3 | CPU_AVX)) &&
 	if (tmp2 != NULL) gwfree (gwdata, tmp2);
 }
 
-/* Common code to emulate the modulo with two multiplies in the general purpose case */
+/* Common code to emulate the modulo with two multiplies in the Barrett general purpose case */
 
 void emulate_mod (
 	gwhandle *gwdata,	/* Handle initialized by gwsetup */
@@ -10748,18 +10497,19 @@ void emulate_mod (
 /* Copy the number and zero out the low words. */
 
 	tmp = gwalloc (gwdata);
-	gwcopyzero (gwdata, s, tmp, gwdata->GW_ZEROWORDSLOW);
+	gwcopy_with_mask (gwdata, s, gwdata->BARRETT_MASK_LO, tmp);
 
 /* Multiply by the reciprocal that has been carefully shifted so that the integer part of the result wraps to the lower FFT words. */
-/* Adjust the normalization routine so that the FFT code zeroes the high FFT words and we are left with just the quotient! */
+/* Zero the high FFT words and we are left with just the quotient! */
 
-	asm_data->NORMRTN = gwdata->GWPROCPTRS[zerohigh_routines + gwdata->ERROR_CHECKING];
+	asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->ERROR_CHECKING];
 	raw_gwmul3 (gwdata, gwdata->GW_RECIP_FFT, tmp, tmp, GWMUL_PRESERVE_S1);
 	ASSERTG (* addr (gwdata, tmp, gwdata->FFTLEN/2-1) > -2.0 && * addr (gwdata, tmp, gwdata->FFTLEN/2-1) <= 0.0);
 	if (* addr (gwdata, tmp, gwdata->FFTLEN/2-1) <= -2.0 || * addr (gwdata, tmp, gwdata->FFTLEN/2-1) > 0.0)
 		gwdata->GWERROR = GWERROR_INTERNAL + 11;
+	gwcopy_with_mask (gwdata, tmp, gwdata->BARRETT_MASK_HI, tmp);
 
-/* Muliply quotient and modulus.  Select normalization routine that does not zero the high FFT words and preserves roundoff checking. */
+/* Multiply quotient and modulus.  Select normalization routine that does not zero the high FFT words and preserves roundoff checking. */
 
 	asm_data->NORMRTN = gwdata->GWPROCPTRS[norm_routines + gwdata->ERROR_CHECKING];
 	raw_gwmul3 (gwdata, gwdata->GW_MODULUS_FFT, tmp, tmp, GWMUL_PRESERVE_S1);
@@ -12389,6 +12139,22 @@ static __inline void *biglit_data_ptr (
 	else return (p + (i * gwdata->PASS1_CACHE_LINES * 2 / 8));
 }
 
+/* Copy and mask memory */
+
+void memmask (
+	void	*dest,			/* Destination */
+	void	*src,			/* Source */
+	void	*mask,			/* Mask to apply to source while copying */
+	intptr_t count)			/* Number of bytes to copy */
+{
+	uint64_t *d = (uint64_t *) dest;
+	uint64_t *s = (uint64_t *) src;
+	uint64_t *m = (uint64_t *) mask;
+
+	ASSERTG (count % 8 == 0);
+	for ( ; count; count -= sizeof (uint64_t)) *d++ = *s++ & *m++;
+}
+
 /* Structure to share add/sub/addsub/smallmul data amongst all the compute threads */
 
 struct multithread_op_data {
@@ -12427,31 +12193,52 @@ void multithread_op (
 	data.is_quick = is_quick;
 
 /* Handle gwcopy for all architectures */
-//BUG - is there a better alternative to memcpy?  Like using SSE/AVX/AVX-512 loads and stores.
-//BUG - is there any particular advantage to aligning moves on 128, 256, or 4096 byte boundary?
 
-	if (asm_proc == NULL) {
-		int	size, movesize;
+	if (asm_proc == NULL && s2 == NULL) {
+		int	size;
 
 		size = 7 * sizeof (uint32_t) + gwnum_datasize (gwdata);
 		data.s1 = (gwnum) ((char *) &(((uint32_t *) data.s1)[-7]));
 		data.d1 = (gwnum) ((char *) &(((uint32_t *) data.d1)[-7]));
 
-		// Move any bytes before a 128-byte boundary
+		// Copy any bytes before a 128-byte boundary
 		if ((intptr_t) data.s1 & 127) {
-			movesize = 128 - (int) ((intptr_t) data.s1 & 127);
-			memcpy (data.d1, data.s1, movesize);
-			size -= movesize;
-			data.s1 = (gwnum) ((char *) data.s1 + movesize);
-			data.d1 = (gwnum) ((char *) data.d1 + movesize);
+			int copysize = 128 - (int) ((intptr_t) data.s1 & 127);
+			memcpy (data.d1, data.s1, copysize);
+			size -= copysize;
+			data.s1 = (gwnum) ((char *) data.s1 + copysize);
+			data.d1 = (gwnum) ((char *) data.d1 + copysize);
 		}
 
 		// Calculate number of 4KB blocks
 		data.num_blks = size >> 12;
 
-		// Move any bytes after last 4KB block
+		// Copy any bytes after last 4KB block
 		if (size & 4095) {
 			memcpy ((char *) data.d1 + data.num_blks * 4096, (char *) data.s1 + data.num_blks * 4096, size & 4095);
+		}
+	}
+
+/* Handle gwcopy_with_mask for all architectures */
+
+	else if (asm_proc == NULL) {
+		int size = gwnum_datasize (gwdata);
+
+		// Copy and mask any bytes before a 128-byte boundary
+		if ((intptr_t) data.s1 & 127) {
+			int copysize = 128 - (int) ((intptr_t) data.s1 & 127);
+			memmask (data.d1, data.s1, data.s2, copysize);
+			size -= copysize;
+			data.s1 = (gwnum) ((char *) data.s1 + copysize);
+			data.d1 = (gwnum) ((char *) data.d1 + copysize);
+		}
+
+		// Calculate number of 4KB blocks
+		data.num_blks = size >> 12;
+
+		// Copy and mask any bytes after last 4KB block
+		if (size & 4095) {
+			memmask ((char *) data.d1 + data.num_blks * 4096, (char *) data.s1 + data.num_blks * 4096, (char *) data.s2 + data.num_blks * 4096, size & 4095);
 		}
 	}
 
@@ -12495,7 +12282,6 @@ void multithread_op (
 
 /* Set flags used in processing carries */
 
-	asm_data->zero_fft = 0;
 	asm_data->const_fft = 0;
 	asm_data->add_sub_smallmul_op = 1;
 
@@ -12562,7 +12348,7 @@ void do_multithread_op_work (
 
 /* Loop processing gwcopy blocks (4KB) */
 
-	if (data->asm_proc == NULL) {
+	if (data->asm_proc == NULL && data->s2 == NULL) {
 		for ( ; ; ) {
 
 /* Get next block to process.  Break out of loop when there are no more blocks to process. */
@@ -12570,9 +12356,39 @@ void do_multithread_op_work (
 			int i = (int) atomic_fetch_incr (gwdata->next_block);
 			if (i >= data->num_blks) break;
 
-/* Move a 4KB block */
+/* Copy a 4KB block */
 
-			memcpy ((char *) data->d1 + i * 4096, (char *) data->s1 + i * 4096, 4096);
+			if (addr_gw_copy4kb (gwdata) != NULL) {
+				//BUG/OPT Is it worth writing a 4kb asm routine that does copy only (without masking)
+				asm_data->SRCARG = asm_data->SRC2ARG = (char *) data->s1 + i * 4096;
+				asm_data->DESTARG = (char *) data->d1 + i * 4096;
+				gw_copy4kb (gwdata, asm_data);
+			}
+			else
+				memcpy ((char *) data->d1 + i * 4096, (char *) data->s1 + i * 4096, 4096);
+		}
+	}
+
+/* Loop processing gwcopy_with_mask blocks (4KB) */
+
+	else if (data->asm_proc == NULL) {
+		for ( ; ; ) {
+
+/* Get next block to process.  Break out of loop when there are no more blocks to process. */
+
+			int i = (int) atomic_fetch_incr (gwdata->next_block);
+			if (i >= data->num_blks) break;
+
+/* Copy and mask a 4KB block */
+
+			if (addr_gw_copy4kb (gwdata) != NULL) {
+				asm_data->SRCARG = (char *) data->s1 + i * 4096;
+				asm_data->SRC2ARG = (char *) data->s2 + i * 4096;
+				asm_data->DESTARG = (char *) data->d1 + i * 4096;
+				gw_copy4kb (gwdata, asm_data);
+			}
+			else
+				memmask ((char *) data->d1 + i * 4096, (char *) data->s1 + i * 4096, (char *) data->s2 + i * 4096, 4096);
 		}
 	}
 
@@ -12633,6 +12449,10 @@ void gwcopy (			/* Copy a gwnum */
 	gwnum	d)		/* Dest */
 {
 
+/* Handle the no-op case */
+
+	if (s == d) return;
+
 /* MMGW general mod requires special handling -- there may be two gwnums to copy */
 
 	if (gwdata->GENERAL_MMGW_MOD) {
@@ -12647,18 +12467,54 @@ void gwcopy (			/* Copy a gwnum */
 
 /* Copy the header before the data we are preserving */
 
-	memmove ((char *) d - GW_HEADER_SIZE (gwdata), (char *) s - GW_HEADER_SIZE (gwdata), GW_HEADER_SIZE (gwdata) - 8 * sizeof (uint32_t));
+	memcpy ((char *) d - GW_HEADER_SIZE (gwdata), (char *) s - GW_HEADER_SIZE (gwdata), GW_HEADER_SIZE (gwdata) - 8 * sizeof (uint32_t));
 
 /* Copy the header after the data we are preserving along with all the gwnum data */
 
 	if (gwdata->num_threads > 1)
 		multithread_op (gwdata, s, NULL, d, NULL, NULL, TRUE);
 	else
-		memmove ((char *) &(((uint32_t *) d)[-7]), (char *) &(((uint32_t *) s)[-7]), 7 * sizeof (uint32_t) + gwnum_datasize (gwdata));
+		memcpy ((char *) &(((uint32_t *) d)[-7]), (char *) &(((uint32_t *) s)[-7]), 7 * sizeof (uint32_t) + gwnum_datasize (gwdata));
 
 /* Update counts */
 
 	gwdata->read_count += 1;
+	gwdata->write_count += 1;
+}
+
+/* Copy one gwnum to another gwnum applying a mask.  Used in Barrett reduction. */
+
+void gwcopy_with_mask (		/* Copy a gwnum */
+	gwhandle *gwdata,	/* Handle initialized by gwsetup */
+	gwnum	s,		/* Source */
+	gwnum	mask,		/* Mask to apply to source using AND operator */
+	gwnum	d)		/* Dest */
+{
+	// If we ever expand usage of this routine, zero padded FFTs would require masking copied ZPAD header words.
+	ASSERTG (!gwdata->ZERO_PADDED_FFT);
+	ASSERTG (mask != NULL && FFT_state(s) == NOT_FFTed);
+
+/* There is one piece of information that must not be copied over.  The allocation flags/index at ((uint32_t *) d)[-8] used to free gwnum memory. */
+/* NOTE: we used to load this value, overwrite it with memmove, then restore it.  This did not work in a multi-threaded environment when gwfree_freeable */
+/* changed the value after we loaded it and before we restored it. */
+
+/* Copy the header before and after the data we are preserving */
+
+	if (s != d) {
+		memcpy ((char *) d - GW_HEADER_SIZE (gwdata), (char *) s - GW_HEADER_SIZE (gwdata), GW_HEADER_SIZE (gwdata) - 8 * sizeof (uint32_t));
+		memcpy ((char *) &(((uint32_t *) d)[-7]), (char *) &(((uint32_t *) s)[-7]), 7 * sizeof (uint32_t));
+	}
+
+/* Copy and mask the gwnum data */
+
+	if (gwdata->num_threads > 1)
+		multithread_op (gwdata, s, mask, d, NULL, NULL, TRUE);
+	else
+		memmask (d, s, mask, gwnum_datasize (gwdata));
+
+/* Update counts */
+
+	gwdata->read_count += 2;
 	gwdata->write_count += 1;
 }
 

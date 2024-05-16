@@ -42,7 +42,7 @@ ENDIF
 loopcount2	EQU	DPTR [rsp+first_local+SZPTR+4]
 loopcount3	EQU	DPTR [rsp+first_local+SZPTR+8]
 
-inorm	MACRO	lab, ttp, zero, echk, const, base2, sse4
+inorm	MACRO	lab, ttp, echk, const, base2, sse4
 	LOCAL	setlp, ilp0, ilp1, ilexit, done
 	PROCFLP	lab
 	int_prolog SZPTR+12,0,0
@@ -78,7 +78,7 @@ ilp0:	mov	ebx, cache_line_multiplier ;; Load inner loop counter
 	lea	rbx, XMM_COL_MULTS	;; Load col mult scratch area
 	L2prefetch128 [rdx+128]		;; Prefetch group multiplier
 ilp1:	xprefetchw [rsi+64]
-	xnorm_2d ttp, zero, echk, const, base2, sse4 ;; Normalize 8 values
+	xnorm_2d ttp, echk, const, base2, sse4 ;; Normalize 8 values
 	bump	rsi, 64			;; Next cache line
 ttp	bump	rbx, 512		;; Next column multipliers
 ttp	bump	rdi, 4			;; Next big/little flags
@@ -181,22 +181,16 @@ echk	movapd	XMM_MAXERR, xmm6	;; Save maximum error
 	ENDPP	lab
 	ENDM
 
-; The 16 different normalization routines.  One for each combination of
-; rational/irrational, zeroing/no zeroing, error check/no error check, and
-; mul by const/no mul by const.
+; The 16 different normalization routines.  One for each combination of rational/irrational, error check/no error check, and mul by const/no mul by const.
 
-	inorm	xr2, noexec, noexec, noexec, noexec, exec, noexec
-	inorm	xr2e, noexec, noexec, exec, noexec, exec, noexec
-	inorm	xr2c, noexec, noexec, noexec, exec, exec, noexec
-	inorm	xr2ec, noexec, noexec, exec, exec, exec, noexec
-	inorm	xr2z, noexec, exec, noexec, noexec, exec, noexec
-	inorm	xr2ze, noexec, exec, exec, noexec, exec, noexec
-	inorm	xi2, exec, noexec, noexec, noexec, exec, noexec
-	inorm	xi2e, exec, noexec, exec, noexec, exec, noexec
-	inorm	xi2c, exec, noexec, noexec, exec, exec, noexec
-	inorm	xi2ec, exec, noexec, exec, exec, exec, noexec
-	inorm	xi2z, exec, exec, noexec, noexec, exec, noexec
-	inorm	xi2ze, exec, exec, exec, noexec, exec, noexec
+	inorm	xr2, noexec, noexec, noexec, exec, noexec
+	inorm	xr2e, noexec, exec, noexec, exec, noexec
+	inorm	xr2c, noexec, noexec, exec, exec, noexec
+	inorm	xr2ec, noexec, exec, exec, exec, noexec
+	inorm	xi2, exec, noexec, noexec, exec, noexec
+	inorm	xi2e, exec, exec, noexec, exec, noexec
+	inorm	xi2c, exec, noexec, exec, exec, noexec
+	inorm	xi2ec, exec, exec, exec, exec, noexec
 	zpnorm	xr2zp, noexec, noexec, noexec, exec, noexec, exec, noexec, noexec
 	zpnorm	xr2zpc1, noexec, noexec, noexec, exec, noexec, exec, exec, noexec
 	zpnorm	xr2zpcm1, noexec, noexec, noexec, exec, noexec, exec, noexec, exec
@@ -230,14 +224,14 @@ echk	movapd	XMM_MAXERR, xmm6	;; Save maximum error
 	zpnorm	xi2zpck, exec, noexec, exec, exec, noexec, noexec, noexec, noexec
 	zpnorm	xi2zpeck, exec, exec, exec, exec, noexec, noexec, noexec, noexec
 
-	inorm	xr2b, noexec, noexec, noexec, noexec, noexec, noexec
-	inorm	xr2eb, noexec, noexec, exec, noexec, noexec, noexec
-	inorm	xr2cb, noexec, noexec, noexec, exec, noexec, noexec
-	inorm	xr2ecb, noexec, noexec, exec, exec, noexec, noexec
-	inorm	xi2b, exec, noexec, noexec, noexec, noexec, noexec
-	inorm	xi2eb, exec, noexec, exec, noexec, noexec, noexec
-	inorm	xi2cb, exec, noexec, noexec, exec, noexec, noexec
-	inorm	xi2ecb, exec, noexec, exec, exec, noexec, noexec
+	inorm	xr2b, noexec, noexec, noexec, noexec, noexec
+	inorm	xr2eb, noexec, exec, noexec, noexec, noexec
+	inorm	xr2cb, noexec, noexec, exec, noexec, noexec
+	inorm	xr2ecb, noexec, exec, exec, noexec, noexec
+	inorm	xi2b, exec, noexec, noexec, noexec, noexec
+	inorm	xi2eb, exec, exec, noexec, noexec, noexec
+	inorm	xi2cb, exec, noexec, exec, noexec, noexec
+	inorm	xi2ecb, exec, exec, exec, noexec, noexec
 	zpnorm	xr2zpb, noexec, noexec, noexec, noexec, noexec, exec, noexec, noexec
 	zpnorm	xr2zpbc1, noexec, noexec, noexec, noexec, noexec, exec, exec, noexec
 	zpnorm	xr2zpbcm1, noexec, noexec, noexec, noexec, noexec, exec, noexec, exec
@@ -271,14 +265,14 @@ echk	movapd	XMM_MAXERR, xmm6	;; Save maximum error
 	zpnorm	xi2zpcbk, exec, noexec, exec, noexec, noexec, noexec, noexec, noexec
 	zpnorm	xi2zpecbk, exec, exec, exec, noexec, noexec, noexec, noexec, noexec
 
-	inorm	xr2s4, noexec, noexec, noexec, noexec, exec, exec
-	inorm	xr2es4, noexec, noexec, exec, noexec, exec, exec
-	inorm	xr2cs4, noexec, noexec, noexec, exec, exec, exec
-	inorm	xr2ecs4, noexec, noexec, exec, exec, exec, exec
-	inorm	xi2s4, exec, noexec, noexec, noexec, exec, exec
-	inorm	xi2es4, exec, noexec, exec, noexec, exec, exec
-	inorm	xi2cs4, exec, noexec, noexec, exec, exec, exec
-	inorm	xi2ecs4, exec, noexec, exec, exec, exec, exec
+	inorm	xr2s4, noexec, noexec, noexec, exec, exec
+	inorm	xr2es4, noexec, exec, noexec, exec, exec
+	inorm	xr2cs4, noexec, noexec, exec, exec, exec
+	inorm	xr2ecs4, noexec, exec, exec, exec, exec
+	inorm	xi2s4, exec, noexec, noexec, exec, exec
+	inorm	xi2es4, exec, exec, noexec, exec, exec
+	inorm	xi2cs4, exec, noexec, exec, exec, exec
+	inorm	xi2ecs4, exec, exec, exec, exec, exec
 	zpnorm	xr2zps4, noexec, noexec, noexec, exec, exec, exec, noexec, noexec
 	zpnorm	xr2zps4c1, noexec, noexec, noexec, exec, exec, exec, exec, noexec
 	zpnorm	xr2zps4cm1, noexec, noexec, noexec, exec, exec, exec, noexec, exec
@@ -312,14 +306,14 @@ echk	movapd	XMM_MAXERR, xmm6	;; Save maximum error
 	zpnorm	xi2zpcs4k, exec, noexec, exec, exec, exec, noexec, noexec, noexec
 	zpnorm	xi2zpecs4k, exec, exec, exec, exec, exec, noexec, noexec, noexec
 
-	inorm	xr2bs4, noexec, noexec, noexec, noexec, noexec, exec
-	inorm	xr2ebs4, noexec, noexec, exec, noexec, noexec, exec
-	inorm	xr2cbs4, noexec, noexec, noexec, exec, noexec, exec
-	inorm	xr2ecbs4, noexec, noexec, exec, exec, noexec, exec
-	inorm	xi2bs4, exec, noexec, noexec, noexec, noexec, exec
-	inorm	xi2ebs4, exec, noexec, exec, noexec, noexec, exec
-	inorm	xi2cbs4, exec, noexec, noexec, exec, noexec, exec
-	inorm	xi2ecbs4, exec, noexec, exec, exec, noexec, exec
+	inorm	xr2bs4, noexec, noexec, noexec, noexec, exec
+	inorm	xr2ebs4, noexec, exec, noexec, noexec, exec
+	inorm	xr2cbs4, noexec, noexec, exec, noexec, exec
+	inorm	xr2ecbs4, noexec, exec, exec, noexec, exec
+	inorm	xi2bs4, exec, noexec, noexec, noexec, exec
+	inorm	xi2ebs4, exec, exec, noexec, noexec, exec
+	inorm	xi2cbs4, exec, noexec, exec, noexec, exec
+	inorm	xi2ecbs4, exec, exec, exec, noexec, exec
 	zpnorm	xr2zpbs4, noexec, noexec, noexec, noexec, exec, exec, noexec, noexec
 	zpnorm	xr2zpbs4c1, noexec, noexec, noexec, noexec, exec, exec, exec, noexec
 	zpnorm	xr2zpbs4cm1, noexec, noexec, noexec, noexec, exec, exec, noexec, exec

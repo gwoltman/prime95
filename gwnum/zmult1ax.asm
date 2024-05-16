@@ -674,43 +674,34 @@ gwzaddsubrzp1 ENDP
 
 
 ;;
-;; Copy one number zeroing some low order words.
+;; Copy 4KB a number with optional masking
 ;;
 
-;;
-;; Copy a number zeroing some low order words
-;;
-
-PROCFL	gwzcopyzero1
-	ad_prolog 0,0,rsi,rdi,r10
+PROCFL	gwzcopy4kb
+	ad_prolog 0,0,rsi,rdi
 	mov	rsi, SRCARG			; Address of first number
+	mov	rcx, SRC2ARG			; Address of mask
 	mov	rdi, DESTARG			; Address of destination
-	lea	rdx, COPYZERO			; Load address of masks and counts computed in C code
-	sub	ecx, ecx			; Count of iterations before new masks are needed
-	mov	al, 8				; Loop counter (eight sections)
-cpzlp0:	mov	r10d, addcount1			; Count of double cache lines in a section
-cpzlp2:	and	ecx, ecx			; Time to load new masks?
-	jnz	short noload			; No, wait for count to reach zero
-	kmovw	k1, [rdx+0]			; Load 2 new masks
-	kshiftrw k2, k1, 8
-	mov	ecx, [rdx+4]			; Count of iterations these masks are valid
-	bump	rdx, 8				; Move onto next set of masks
-	jmp	short cpzlp2			; Loop in case loaded count is zero
-noload:	vmovapd	zmm0 {k1}{z}, [rsi]		; Load source data
-	vmovapd	zmm2 {k2}{z}, [rsi+64]
+	mov	al, 4096/256			; Count of 256 byte chunks in 4KB
+z4klp:	vmovapd	zmm0, [rsi]
+	vandpd	zmm0, zmm0, [rcx]
+	vmovapd	zmm1, [rsi+64]
+	vandpd	zmm1, zmm1, [rcx+64]
+	vmovapd	zmm2, [rsi+128]
+	vandpd	zmm2, zmm2, [rcx+128]
+	vmovapd	zmm3, [rsi+192]
+	vandpd	zmm3, zmm3, [rcx+192]
 	zstore	[rdi], zmm0			; Store destination data
-	zstore	[rdi+64], zmm2
-	dec	ecx				; Decrement mask count
-	add	rsi, 128			; Next src ptr
-	add	rdi, 128			; Next dest ptr
-	dec	r10d				; Are we done with the inner loop?
-	jnz	short cpzlp2
-	bump	rsi, 0  ;; 128			; Adjust source pointer to next section
-	bump	rdi, 0  ;; 128			; Adjust dest pointer to next section
-	dec	al				; Loop until all sections processed
-	jnz	short cpzlp0
-	ad_epilog 0,0,rsi,rdi,r10
-gwzcopyzero1 ENDP
+	zstore	[rdi+64], zmm1
+	zstore	[rdi+128], zmm2
+	zstore	[rdi+192], zmm3
+	bump	rsi, 256			; Next src ptr
+	bump	rcx, 256			; Next mask ptr
+	bump	rdi, 256			; Next dest ptr
+	dec	al				; Decrement count
+	jnz	short z4klp
+	ad_epilog 0,0,rsi,rdi
+gwzcopy4kb ENDP
 
 ;;
 ;; Multiply a number by a small value (four versions)
@@ -958,20 +949,20 @@ ENDIF
 ;; rbx = available
 ;; rbp = available
 
-inorm	MACRO	lab, ttp, zero, echk, const
+inorm	MACRO	lab, ttp, echk, const
 	LOCAL	ilp1, ilp2
 	PROCFLP	lab
 	int_prolog 0,0,0
 
 	mov	rsi, DESTARG		;; Destination pointer
-no zero	mov	edi, ADDIN_OFFSET	;; Get address to add value into
-no zero	vmovsd	xmm0, ADDIN_VALUE	;; Get the addin value
-no zero	vaddsd	xmm0, xmm0, Q [rsi][rdi] ;; Add in the FFT value
-no zero	vmovsd	Q [rsi][rdi], xmm0	;; Save the new value
+	mov	edi, ADDIN_OFFSET	;; Get address to add value into
+	vmovsd	xmm0, ADDIN_VALUE	;; Get the addin value
+	vaddsd	xmm0, xmm0, Q [rsi][rdi] ;; Add in the FFT value
+	vmovsd	Q [rsi][rdi], xmm0	;; Save the new value
 
 echk	vbroadcastsd zmm31, MAXERR	;; Load maximum error
 	vbroadcastsd zmm30, ZMM_RNDVAL	;; Load rounding constant
-	znorm_1d_preload ttp, zero, echk, const
+	znorm_1d_preload ttp, echk, const
 
 	mov	r13, pass1blkdst	;; Distance between two sections (there are 8 sections)
 	mov	r10, norm_grp_mults	;; Inverse weights
@@ -1004,7 +995,7 @@ const ttp vsubpd zmm5, zmm5, zmm30
 const ttp vsubpd zmm6, zmm6, zmm30
 const ttp vsubpd zmm7, zmm7, zmm30
 
-ilp2:	znorm_1d ttp, zero, echk, const ;; Normalize 64 values (4 simultaneous sections)
+ilp2:	znorm_1d ttp, echk, const	;; Normalize 64 values (4 simultaneous sections)
 	bump	rsi, 128		;; Next source pointer
 ttp	bump	r10, 4*128		;; Next set of inverse weights
 no ttp	bump	r10, 4*64		;; Rational negacyclics also need inverse weights due to delayed mul-by-sine
@@ -1037,11 +1028,11 @@ no ttp	call	zr1_add_carry_cleanup
 ttp	call	zi1_add_carry_cleanup
 
 	;; Apply post-addin
-no zero	mov	rsi, DESTARG		;; Restore destination address
-no zero	mov	edi, ADDIN_OFFSET	;; Get address to add value into
-no zero	vmovsd	xmm8, POSTADDIN_VALUE	;; Get the addin value
-no zero	vaddsd	xmm8, xmm8, Q [rsi][rdi] ;; Add in the FFT value
-no zero	vmovsd	Q [rsi][rdi], xmm8	;; Save the new value
+	mov	rsi, DESTARG		;; Restore destination address
+	mov	edi, ADDIN_OFFSET	;; Get address to add value into
+	vmovsd	xmm8, POSTADDIN_VALUE	;; Get the addin value
+	vaddsd	xmm8, xmm8, Q [rsi][rdi] ;; Add in the FFT value
+	vmovsd	Q [rsi][rdi], xmm8	;; Save the new value
 
 	;; Compress 8 MAXERR values into one
 echk	zcollapse_maxerr		;; Collapse and save MAXERR
@@ -1119,21 +1110,16 @@ echk	zcollapse_maxerr		;; Collapse and save MAXERR
 	ENDM
 
 
-; The many different normalization routines.  One for each valid combination of rational/irrational,
-; zeroing/no zeroing, error check/no error check, mul by const/no mul by const.
+; The many different normalization routines.  One for each valid combination of rational/irrational, error check/no error check, mul by const/no mul by const.
 
-	inorm	zr1, noexec, noexec, noexec, noexec
-	inorm	zr1e, noexec, noexec, exec, noexec
-	inorm	zr1c, noexec, noexec, noexec, exec
-	inorm	zr1ec, noexec, noexec, exec, exec
-	inorm	zr1z, noexec, exec, noexec, noexec
-	inorm	zr1ze, noexec, exec, exec, noexec
-	inorm	zi1, exec, noexec, noexec, noexec
-	inorm	zi1e, exec, noexec, exec, noexec
-	inorm	zi1c, exec, noexec, noexec, exec
-	inorm	zi1ec, exec, noexec, exec, exec
-	inorm	zi1z, exec, exec, noexec, noexec
-	inorm	zi1ze, exec, exec, exec, noexec
+	inorm	zr1, noexec, noexec, noexec
+	inorm	zr1e, noexec, exec, noexec
+	inorm	zr1c, noexec, noexec, exec
+	inorm	zr1ec, noexec, exec, exec
+	inorm	zi1, exec, noexec, noexec
+	inorm	zi1e, exec, exec, noexec
+	inorm	zi1c, exec, noexec, exec
+	inorm	zi1ec, exec, exec, exec
 	zpnorm	zr1zp, noexec, noexec, noexec, exec
 	zpnorm	zr1zpe, noexec, exec, noexec, exec
 	zpnorm	zr1zpc, noexec, noexec, exec, exec

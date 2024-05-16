@@ -44,13 +44,13 @@ _TEXT SEGMENT
 ;; r13 = distance to second FFT section data
 ;; r14 = distance to fourth FFT section data
 
-inorm	MACRO	lab, ttp, zero, echk, const
+inorm	MACRO	lab, ttp, echk, const
 	LOCAL	ilp1, ilp2, not8, done
 	PROCFLP	lab
 	int_prolog 0,0,0
 
 echk	vbroadcastsd zmm31, MAXERR	;; Load maximum error
-	znorm_wpn_preload ttp, zero, echk, const
+	znorm_wpn_preload ttp, echk, const
 
 	mov	rbp, carries		;; Addr of the carries
 
@@ -83,7 +83,7 @@ const ttp vsubpd zmm5, zmm5, zmm30
 const ttp vsubpd zmm6, zmm6, zmm30
 const ttp vsubpd zmm7, zmm7, zmm30
 
-ilp2:	znorm_wpn ttp, zero, echk, const ;; Normalize 64 values (4 simultaneous clmblks)
+ilp2:	znorm_wpn ttp, echk, const	;; Normalize 64 values (4 simultaneous clmblks)
 	bump	rsi, 128		;; Next 1st source pointer
 ttp	bump	rdi, 1			;; Next big/little flags
 	sub	r15, 1			;; Test clm loop counter
@@ -237,22 +237,16 @@ echk	zcollapse_maxerr		;; Collapse and save MAXERR
 	ENDPP	lab
 	ENDM
 
-; The 16 different normalization routines.  One for each combination of
-; rational/irrational, zeroing/no zeroing, error check/no error check, and
-; mul by const/no mul by const.
+; The 16 different normalization routines.  One for each combination of rational/irrational zeroing, error check/no error check, and mul by const/no mul by const.
 
-	inorm	zr3, noexec, noexec, noexec, noexec
-	inorm	zr3e, noexec, noexec, exec, noexec
-	inorm	zr3c, noexec, noexec, noexec, exec
-	inorm	zr3ec, noexec, noexec, exec, exec
-	inorm	zr3z, noexec, exec, noexec, noexec
-	inorm	zr3ze, noexec, exec, exec, noexec
-	inorm	zi3, exec, noexec, noexec, noexec
-	inorm	zi3e, exec, noexec, exec, noexec
-	inorm	zi3c, exec, noexec, noexec, exec
-	inorm	zi3ec, exec, noexec, exec, exec
-	inorm	zi3z, exec, exec, noexec, noexec
-	inorm	zi3ze, exec, exec, exec, noexec
+	inorm	zr3, noexec, noexec, noexec
+	inorm	zr3e, noexec, exec, noexec
+	inorm	zr3c, noexec, noexec, exec
+	inorm	zr3ec, noexec, exec, exec
+	inorm	zi3, exec, noexec, noexec
+	inorm	zi3e, exec, exec, noexec
+	inorm	zi3c, exec, noexec, exec
+	inorm	zi3ec, exec, exec, exec
 	zpnorm	zr3zp, noexec, noexec, noexec, exec
 	zpnorm	zr3zpe, noexec, exec, noexec, exec
 	zpnorm	zr3zpc, noexec, noexec, exec, exec

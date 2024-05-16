@@ -1091,10 +1091,10 @@ struct gwhandle_struct {
 	giant	GW_MODULUS;		/* In general purpose mod case, operations are modulo this number */
 	gwnum	GW_MODULUS_FFT;		/* In Barrett general purpose mod case, this is  the FFT of GW_MODULUS */
 	gwnum	GW_RECIP_FFT;		/* In Barrett general purpose mod case, FFT of shifted reciprocal of GW_MODULUS */
-	unsigned long GW_ZEROWORDSLOW;	/* In Barrett general purpose mod case, count of words to zero during copy step of a general purpose mod */
+	gwnum	BARRETT_MASK_LO;	/* Mask to zero lower words of an FFT */
+	gwnum	BARRETT_MASK_HI;	/* Mask to zero upper words of an FFT */
 	unsigned long GW_GEN_MOD_MAX;	/* In Barrett general purpose mod case, maximum number of words we can safely allow in a GENERAL_MOD number */
 	unsigned long GW_GEN_MOD_MAX_OFFSET; /* In Barrett general purpose mod case, offset to the GW_GEN_MOD_MAX word */
-	unsigned long saved_copyz_n;	/* In Barrett general purpose mod case, used to reduce COPYZERO calculations */
 	gwnum	N_Q;			/* In MMGW general purpose mod case, this is GW_MODULUS pre-FFTed for negacyclic use. */
 	gwnum	Np_R;			/* In MMGW general purpose mod case, this is inverse of R=2^n-1 pre-FFTed for cyclic use. */
 	gwnum	R2_4;			/* In MMGW general purpose mod case, this is inverse of R^2/4 for faster gianttogw. */

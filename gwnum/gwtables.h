@@ -49,7 +49,7 @@ struct gwasm_data {
 	void	*pass1_get_next_block;	/* Callback routine to get next block number for thread to process */
 
 	double	DBLARG;			/* Function argument */
-	uint32_t NUMARG;		/* Gwcopyzero assembly arg */
+	uint32_t UNUSED_NUMARG;		/* Gwcopyzero assembly arg */
 	uint32_t FFTLEN;		/* The FFT size we are using */
 	double	MAXERR;			/* Convolution error in a multiplication */
 	char	NEGACYCLIC_FFT;		/* True if doing a negacyclic FFT */
@@ -61,12 +61,11 @@ struct gwasm_data {
 	char	TOP_CARRY_NEEDS_ADJUSTING; /* True when carry out of top word needs adjusting */
 	char	SPREAD_CARRY_OVER_EXTRA_WORDS; /* AVX: True when carries must be spread over more than 4 words. */
 					/* X87,SSE2: True when carries must be spread over more than 2 words. */
-	char	zero_fft;		/* TRUE if zero upper half in normalize */
 	char	const_fft;		/* TRUE if mul-by-const in normalize */
 	char	add_sub_smallmul_op;	/* TRUE if we are processing carries from an add/sub/smallmul operation */
 	char	mul4_opcode;		/* 0 for normal gwmul3, 1 for gwaddmul4, 2 for gwsubmul4 */
 	char	aux_initialized;	/* Set to TRUE when an auxiliary thread's asm_data has been initialized */
-	char	UNUSED_CHARS[3];
+	char	UNUSED_CHARS[4];
 	uint32_t ADDIN_ROW;		/* For adding a constant after multiply */
 	uint32_t ADDIN_OFFSET;
 	double	ADDIN_VALUE;		/* Value to add in after a multiply and before a mul-by-const */
@@ -126,7 +125,7 @@ struct gwasm_data {
 	void	*SRC3ARG;		/* Function argument */
 	uint32_t *ASM_TIMERS;		/* Timers used for optimizing code */
 
-	uint32_t COPYZERO[8];		/* Offsets to help in gwcopyzero */
+	uint32_t UNUSED[8];		/* Formerly offsets to help in gwcopyzero */
 	double	K;			/* K */
 	double	INVERSE_K;		/* 1/K */
 	double	TWO_TO_17;		/* 2^17 */
@@ -182,9 +181,6 @@ struct gwasm_data {
 
 	double	ZPAD0_6[7];		/* 7 ZPAD doubles */
 	double	ZPAD_LSW_ADJUST;	/* Multiplier for ADDIN_VALUE when ZERO_PADDED k=1, abs(c)!=1 */
-
-	double	UNUSED_ttmp_ff_inv;	/* Inverse FFT adjust (2/FFTLEN) */
-	double	UNUSED_DOUBLES[7];
 
 	union {
 	    struct zmm_data {
