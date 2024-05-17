@@ -535,13 +535,15 @@ zadd_carry_1d_zpad_nottp MACRO
 	vbroadcastsd zmm21, ZMM_K_TIMES_MULCONST_HI_OVER_SMALL_BASE
 nonconst:
 
-	mov	cl, 7					;; Spread carry over a max of 8 words
+	mov	cl, 8					;; Spread carry over a max of 8 words
 rloop:	mov	rsi, r9					;; Restore section start pointers
 	zrotate_carries_1d_zpad noexec
 	mov	ebx, addcount1				;; Count of double cache lines in a section
 
 	;; Proper carry propagation requires splitting the lower carry that has not been mul'ed-by-k or mul-by-const
-cloop:	vmovapd	zmm12, zmm0				;; Copy carry1+RNDVAL
+cloop:	dec	cl					;; Decrement propagation count
+	jz	cloop_end				;; Exit carry propagation loop
+	vmovapd	zmm12, zmm0				;; Copy carry1+RNDVAL
 	zfmsubpd zmm0, zmm0, zmm28, zmm26	; 1-4	;; carry1_hi+RNDVAL = (carry1+RNDVAL) / base - (RNDVAL/base-RNDVAL) = rnd(carry1/base)+RNDVAL (next carry1)
 	vaddpd	zmm8, zmm4, [rsi]		; 1-4	;; x1+RNDVAL = carry5 + values1
 	vmovapd	zmm13, zmm1				;; Copy carry1+RNDVAL
@@ -611,10 +613,6 @@ cloop:	vmovapd	zmm12, zmm0				;; Copy carry1+RNDVAL
 	jz	done				;; If carries not found then we're done
 
 	bump	rsi, 128			;; Next source pointer
-
-	dec	cl				;; Decrement propagation count
-	jz	short cloop_end			;; Exit carry propagation loop
-
 	dec	ebx				;; Test for end of section
 	jnz	cloop				;; Loop to next double cache lines within section
 	jmp	rloop				;; Loop to rotate carries and go back to section start
@@ -660,14 +658,16 @@ nonconst:
 	vsubpd	zmm2, zmm2, zmm30
 	vsubpd	zmm3, zmm3, zmm30
 
-	mov	cl, 7					;; Spread carry over a max of 8 words
+	mov	cl, 8					;; Spread carry over a max of 8 words
 rloop:	mov	rsi, r9					;; Restore section start pointers
 	mov	rdi, r8
 	mov	r12, rbp
 	zrotate_carries_1d_zpad exec
 	mov	ebx, addcount1				;; Count of double cache lines in a section
 
-cloop:	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
+cloop:	dec	cl					;; Decrement propagation count
+	jz	cloop_end				;; Exit carry propagation loop
+	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
 	mov	edx, [r12+rdx*4]			;; Load 4 big vs. little flags
 
 	kmovw	k1, edx				; 1	;; Load 2 big vs. little flags (16-bit load - we use 8-bits)
@@ -765,15 +765,10 @@ cloop:	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
 	jz	done				;; If carries not found then we're done
 
 	bump	rsi, 128			;; Next source pointer
-
 	mov	rdx, r12			;; If r12 has been been bumped by 4, we'll need to unbump r12 and bump rdi
 	shr	rdx, 3				;; Set carry if r12 is in +4 state
 	adc	rdi, 0				;; Increment (or not) the biglit table pointer
 	xor	r12, 4				;; Bump or unbump pointer into the compressed biglit table
-
-	dec	cl				;; Decrement propagation count
-	jz	short cloop_end			;; Exit carry propagation loop
-
 	dec	ebx				;; Test for end of section
 	jnz	cloop				;; Loop to next double cache lines within section
 	jmp	rloop				;; Loop to rotate carries and go back to section start
@@ -841,13 +836,15 @@ zadd_carry_op_1d_zpad_nottp MACRO
 	vxorpd	zmm23, zmm23, zmm23			;; Top carries are saved here for adding into next section
 	vmovapd	zmm22, zmm23				;; Constant zero
 
-	mov	cl, 7					;; Spread carry over a max of 8 words
+	mov	cl, 8					;; Spread carry over a max of 8 words
 rloop:	mov	rsi, r9					;; Restore section start pointers
 	zrotate_carries_op_1d_zpad noexec
 	mov	ebx, addcount1				;; Count of double cache lines in a section
 
 	;; For add/sub/addsub/smallmul the low carry is zero.
-cloop:	vaddpd	zmm8, zmm0, [rsi]		; 1-4	;; x1 = carry1 + values1
+cloop:	dec	cl					;; Decrement propagation count
+	jz	cloop_end				;; Exit carry propagation loop
+	vaddpd	zmm8, zmm0, [rsi]		; 1-4	;; x1 = carry1 + values1
 	vaddpd	zmm9, zmm1, [rsi+r13]		; 1-4	;; x2 = carry2 + values2
 	vaddpd	zmm10, zmm2, [rsi+2*r13]	; 2-5	;; x3 = carry3 + values3
 	vaddpd	zmm11, zmm3, [rsi+r14]		; 2-5	;; x4 = carry4 + values4
@@ -882,10 +879,6 @@ cloop:	vaddpd	zmm8, zmm0, [rsi]		; 1-4	;; x1 = carry1 + values1
 	jz	done				;; If carries not found then we're done
 
 	bump	rsi, 128			;; Next source pointer
-
-	dec	cl				;; Decrement propagation count
-	jz	short cloop_end			;; Exit carry propagation loop
-
 	dec	ebx				;; Test for end of section
 	jnz	cloop				;; Loop to next double cache lines within section
 	jmp	rloop				;; Loop to rotate carries and go back to section start
@@ -913,7 +906,7 @@ zadd_carry_op_1d_zpad_ttp MACRO
 	vxorpd	zmm23, zmm23, zmm23			;; Top carries are saved here for adding into next section
 	vmovapd	zmm22, zmm23				;; Constant zero
 
-	mov	cl, 7					;; Spread carry over a max of 8 words
+	mov	cl, 8					;; Spread carry over a max of 8 words
 rloop:	mov	rsi, r9					;; Restore section start pointers
 	mov	rdi, r8
 	mov	r12, rbp
@@ -921,7 +914,9 @@ rloop:	mov	rsi, r9					;; Restore section start pointers
 	mov	ebx, addcount1				;; Count of double cache lines in a section
 
 	;; For add/sub/addsub/smallmul the low carry is zero.
-cloop:	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
+cloop:	dec	cl					;; Decrement propagation count
+	jz	cloop_end				;; Exit carry propagation loop
+	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
 	mov	edx, [r12+rdx*4]			;; Load 4 big vs. little flags
 
 	kmovw	k1, edx				; 1	;; Load 2 big vs. little flags (16-bit load - we use 8-bits)
@@ -974,15 +969,10 @@ cloop:	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
 	jz	done				;; If carries not found then we're done
 
 	bump	rsi, 128			;; Next source pointer
-
 	mov	rdx, r12			;; If r12 has been been bumped by 4, we'll need to unbump r12 and bump rdi
 	shr	rdx, 3				;; Set carry if r12 is in +4 state
 	adc	rdi, 0				;; Increment (or not) the biglit table pointer
 	xor	r12, 4				;; Bump or unbump pointer into the compressed biglit table
-
-	dec	cl				;; Decrement propagation count
-	jz	short cloop_end			;; Exit carry propagation loop
-
 	dec	ebx				;; Test for end of section
 	jnz	cloop				;; Loop to next double cache lines within section
 	jmp	rloop				;; Loop to rotate carries and go back to section start
@@ -1037,12 +1027,14 @@ ttp	vpermt2pd zmm6, zmm9, zmm22		;; Rotate carries in zmm6
 zadd_carry_1d_zpad_cleanup_nottp MACRO
 	LOCAL	noncon, rloop, cloop, cloop_end, done
 
-	mov	cl, 7				;; Spread carry over a max of 8 words
+	mov	cl, 8				;; Spread carry over a max of 8 words
 rloop:	mov	rsi, DESTARG			;; Start of first section
 	mov	ebx, addcount1			;; Count of double cache lines in a section
 
 	;; Proper carry propagation requires splitting the lower carry that has not been mul'ed-by-k or mul-by-const
-cloop:	vmovapd	zmm13, zmm0				;; Copy carry2+RNDVAL
+cloop:	dec	cl					;; Decrement propagation count
+	jz	cloop_end				;; Exit carry propagation loop
+	vmovapd	zmm13, zmm0				;; Copy carry2+RNDVAL
 	zfmsubpd zmm0, zmm0, zmm28, zmm26	; 2-5	;; carry2_hi+RNDVAL = (carry2+RNDVAL) / base - (RNDVAL/base-RNDVAL) = rnd(carry2/base)+RNDVAL (next carry2)
 	vaddpd	zmm9, zmm4, [rsi+r13]		; 2-5	;; x2+RNDVAL = carry6 + values2
 	vmovapd	zmm14, zmm1				;; Copy carry3+RNDVAL
@@ -1097,10 +1089,6 @@ cloop:	vmovapd	zmm13, zmm0				;; Copy carry2+RNDVAL
 	jz	done				;; If carries not found then we're done
 
 	bump	rsi, 128			;; Next source pointer
-
-	dec	cl				;; Decrement propagation count
-	jz	short cloop_end			;; Exit carry propagation loop
-
 	dec	ebx				;; Test for end of section
 	jnz	cloop				;; Loop to next double cache lines within section
 	zrotate_carries_1d_zpad_cleanup noexec
@@ -1140,13 +1128,15 @@ zadd_carry_1d_zpad_cleanup_ttp MACRO
 	vsubpd	zmm2, zmm2, zmm30
 	vsubpd	zmm3, zmm3, zmm30
 
-	mov	cl, 7					;; Spread carry over a max of 8 words
+	mov	cl, 8					;; Spread carry over a max of 8 words
 rloop:	mov	rsi, DESTARG				;; Start of first section
 	mov	rdi, norm_biglit_array			;; pointer to big/lit flags
 	mov	r12, compressed_biglits			;; pointer to compressed biglit table
 	mov	ebx, addcount1				;; Count of double cache lines in a section
 
-cloop:	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
+cloop:	dec	cl					;; Decrement propagation count
+	jz	cloop_end				;; Exit carry propagation loop
+	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
 	mov	edx, [r12+rdx*4]			;; Load 4 big vs. little flags
 
 	shr	edx, 8
@@ -1226,15 +1216,10 @@ cloop:	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
 	jz	done				;; If carries not found then we're done
 
 	bump	rsi, 128			;; Next source pointer
-
 	mov	rdx, r12			;; If r12 has been been bumped by 4, we'll need to unbump r12 and bump rdi
 	shr	rdx, 3				;; Set carry if r12 is in +4 state
 	adc	rdi, 0				;; Increment (or not) the biglit table pointer
 	xor	r12, 4				;; Bump or unbump pointer into the compressed biglit table
-
-	dec	cl				;; Decrement propagation count
-	jz	short cloop_end			;; Exit carry propagation loop
-
 	dec	ebx				;; Test for end of section
 	jnz	cloop				;; Loop to next double cache lines within section
 	zrotate_carries_1d_zpad_cleanup exec
@@ -1280,12 +1265,14 @@ zrotate_carries_op_1d_zpad_cleanup MACRO ttp
 zadd_carry_op_1d_zpad_cleanup_nottp MACRO
 	LOCAL	rloop, cloop, cloop_end, done
 
-	mov	cl, 7				;; Spread carry over a max of 8 words
+	mov	cl, 8				;; Spread carry over a max of 8 words
 rloop:	mov	rsi, DESTARG			;; Start of first section
 	mov	ebx, addcount1			;; Count of double cache lines in a section
 
 	;; The following rounding code is simpler than zadd_carry_1d_zpad_nottp as low carry is zero
-cloop:	vaddpd	zmm9, zmm0, [rsi+r13]		; 2-5	;; x2 = carry1 + values2
+cloop:	dec	cl				;; Decrement propagation count
+	jz	cloop_end			;; Exit carry propagation loop
+	vaddpd	zmm9, zmm0, [rsi+r13]		; 2-5	;; x2 = carry1 + values2
 	vaddpd	zmm10, zmm1, [rsi+2*r13]	; 3-6	;; x3 = carry2 + values3
 	vaddpd	zmm11, zmm2, [rsi+r14]		; 4-7	;; x4 = carry3 + values4
 
@@ -1313,10 +1300,6 @@ cloop:	vaddpd	zmm9, zmm0, [rsi+r13]		; 2-5	;; x2 = carry1 + values2
 	jz	done				;; If carries not found then we're done
 
 	bump	rsi, 128			;; Next 1st source pointer
-
-	dec	cl				;; Decrement propagation count
-	jz	short cloop_end			;; Exit carry propagation loop
-
 	dec	ebx				;; Test for end of section
 	jnz	cloop				;; Loop to next double cache lines within section
 	zrotate_carries_op_1d_zpad_cleanup noexec
@@ -1342,14 +1325,16 @@ done:	mov	rsi, DESTARG			;; Start of first section
 zadd_carry_op_1d_zpad_cleanup_ttp MACRO
 	LOCAL	rloop, cloop, cloop_end, done
 
-	mov	cl, 7				;; Spread carry over a max of 8 words
+	mov	cl, 8				;; Spread carry over a max of 8 words
 rloop:	mov	rsi, DESTARG			;; Back to start of first section
 	mov	rdi, norm_biglit_array		;; pointer to big/lit flags
 	mov	r12, compressed_biglits		;; pointer to compressed biglit table
 	mov	ebx, addcount1			;; Count of double cache lines in a section
 
 	;; The following rounding code is simpler than zadd_carry_1d_zpad_ttp as low carry is zero
-cloop:	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
+cloop:	dec	cl					;; Decrement propagation count
+	jz	cloop_end				;; Exit carry propagation loop
+	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
 	mov	edx, [r12+rdx*4]			;; Load 4 big vs. little flags
 	shr	edx, 8					;; Skip flags for first section
 	kmovw	k2, edx				; 1	;; Load flags for second section
@@ -1392,15 +1377,10 @@ cloop:	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
 	jz	done				;; If carries not found then we're done
 
 	bump	rsi, 128			;; Next source pointer
-
 	mov	rdx, r12			;; If r12 has been been bumped by 4, we'll need to unbump r12 and bump rdi
 	shr	rdx, 3				;; Set carry if r12 is in +4 state
 	adc	rdi, 0				;; Increment (or not) the biglit table pointer
 	xor	r12, 4				;; Bump or unbump pointer into the compressed biglit table
-
-	dec	cl				;; Decrement propagation count
-	jz	short cloop_end			;; Exit carry propagation loop
-
 	dec	ebx				;; Test for end of section
 	jnz	cloop				;; Loop to next double cache lines within section
 	zrotate_carries_op_1d_zpad_cleanup exec
@@ -2769,7 +2749,7 @@ noncon:
 	ENDM
 
 zadd_carry_rows_zpad_nottp MACRO
-	LOCAL	cloop, done
+	LOCAL	cloop, cloop_end, done
 
 	vmovapd	zmm0, [rbp+0*128]		;; Load low carry word
 	vmovapd	zmm1, [rbp+1*128]		;; Load low carry word
@@ -2781,10 +2761,12 @@ zadd_carry_rows_zpad_nottp MACRO
 	vmovapd	zmm7, [rbp+3*128+64]		;; Load hi carry word
 
 	mov	r8, rsi				;; Save pointers
-	mov	al, 7				;; Spread carry over a max of 8 words
+	mov	al, 8				;; Spread carry over a max of 8 words
 
 	;; Proper carry propagation requires splitting the lower carry that has not been mul'ed-by-k or mul-by-const
-cloop:	vmovapd	zmm12, zmm0				;; Copy carry1+RNDVAL
+cloop:	dec	al					;; Decrement count of sets of 4 carries we've processed
+	jz	cloop_end				;; Exit carry propagation loop
+	vmovapd	zmm12, zmm0				;; Copy carry1+RNDVAL
 	zfmsubpd zmm0, zmm0, zmm28, zmm26	; 1-4	;; carry1_hi+RNDVAL = (carry1+RNDVAL) / base - (RNDVAL/base-RNDVAL) = rnd(carry1/base)+RNDVAL (next carry1)
 	vaddpd	zmm8, zmm4, [rsi]		; 1-4	;; x1+RNDVAL = carry5 + values1
 	vmovapd	zmm13, zmm1				;; Copy carry2+RNDVAL
@@ -2854,10 +2836,10 @@ cloop:	vmovapd	zmm12, zmm0				;; Copy carry1+RNDVAL
 	jz	done				;; If carries not found then we're done
 
 	add	rsi, pass2blkdst		;; Next FFT data ptr
-	sub	al, 1				;; Decrement count of sets of 4 carries we've processed
-	jne	cloop				;; Repeat carry propagation loop
+	jmp	cloop				;; Repeat carry propagation loop
 
 	;; Do eighth and last iteration without propagating carries out
+cloop_end:
 	vsubpd	zmm4, zmm4, zmm30		;; Remove RNDVAL from traditional carry
 	vsubpd	zmm5, zmm5, zmm30
 	vsubpd	zmm6, zmm6, zmm30
@@ -2902,7 +2884,7 @@ noncon:
 	ENDM
 
 zadd_carry_rows_zpad_ttp MACRO
-	LOCAL	cloop, done
+	LOCAL	cloop, cloop_end, done
 
 	vmovapd	zmm0, [rbp+0*128]		;; Load low carry word
 	vmovapd	zmm1, [rbp+1*128]		;; Load low carry word
@@ -2924,10 +2906,12 @@ zadd_carry_rows_zpad_ttp MACRO
 	push	rsi				;; Save pointers
 	push	rdi
 	push	r12
-	mov	al, 7				;; Spread carry over a max of 8 words
+	mov	al, 8				;; Spread carry over a max of 8 words
 	sub	r9, r9				;; Clear register used to alternate the increment of rdi
 
-cloop:	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
+cloop:	dec	al				;; Decrement count of sets of 4 carries we've processed
+	jz	cloop_end			;; Exit carry propagation loop
+	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
 	mov	edx, [r12+rdx*4]			;; Load 4 big vs. little flags
 	kmovw	k1, edx				; 1	;; Load 2 big vs. little flags (16-bit load - we use 8-bits)
 	vblendmpd zmm16 {k1}, zmm28, zmm26	; 2	;; Create (1/base) constant
@@ -3018,16 +3002,14 @@ cloop:	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
 	jz	done				;; If carries not found then we're done
 
 	add	rsi, pass2blkdst		;; Next FFT data ptr
-
 	mov	rdx, r12			;; If r12 has been been bumped by 4, we'll need to unbump r12 and bump rdi
 	shr	rdx, 3				;; Set carry if r12 is in +4 state
 	adc	rdi, 0				;; Increment (or not) the biglit table pointer
 	xor	r12, 4				;; Bump or unbump pointer into the compressed biglit table
-
-	sub	al, 1				;; Decrement count of sets of 4 carries we've processed
-	jne	cloop				;; Repeat carry propagation loop
+	jmp	cloop				;; Repeat carry propagation loop
 
 	;; Do eighth and last iteration without propagating carries out
+cloop_end:
 	vaddpd	zmm4, zmm4, [rsi]		;; carry + val1
 	vaddpd	zmm5, zmm5, [rsi+r13]		;; carry + val2
 	vaddpd	zmm6, zmm6, [rsi+2*r13]		;; carry + val3
@@ -3081,7 +3063,7 @@ zadd_carry_rows_op_zpad_nottp_preload MACRO
 	ENDM
 
 zadd_carry_rows_op_zpad_nottp MACRO
-	LOCAL	cloop, done
+	LOCAL	cloop, cloop_end, done
 
 	vmovapd	zmm0, [rbp+0*128]		;; Load low carry word
 	vmovapd	zmm1, [rbp+1*128]
@@ -3090,9 +3072,10 @@ zadd_carry_rows_op_zpad_nottp MACRO
 ;; BUG - assert high carry is zero???
 
 	mov	r8, rsi				;; Save pointers
-	mov	al, 7				;; Spread carry over a max of 8 words
+	mov	al, 8				;; Spread carry over a max of 8 words
 
-cloop:
+cloop:	dec	al				;; Decrement count of sets of 4 carries we've processed
+	jz	cloop_end			;; Exit carry propagation loop
 ;;; BUG -- pipeline code below
 
 	vaddpd	zmm8, zmm0, [rsi]		; 1-4	;; x1+RNDVAL = carry + values1
@@ -3130,11 +3113,10 @@ cloop:
 	jz	done				;; If carries not found then we're done
 
 	add	rsi, pass2blkdst		;; Next FFT data ptr
-	sub	al, 1				;; Decrement count of sets of 4 carries we've processed
-	jne	cloop				;; Repeat carry propagation loop
+	jmp	cloop				;; Repeat carry propagation loop
 
 	;; Do eighth and last iteration without propagating carries out
-
+cloop_end:
 	vsubpd	zmm0, zmm0, zmm30		;; Remove RNDVAL from carries
 	vsubpd	zmm1, zmm1, zmm30
 	vsubpd	zmm2, zmm2, zmm30
@@ -3149,7 +3131,6 @@ cloop:
 	zstore	[rsi+r14], zmm11
 
 done:	mov	rsi, r8				;; Restore pointers
-
 	zstore	[rbp+0*128], zmm30		;; Reset carries array to RNDVAL
 	zstore	[rbp+1*128], zmm30
 	zstore	[rbp+2*128], zmm30
@@ -3167,7 +3148,7 @@ zadd_carry_rows_op_zpad_ttp_preload MACRO
 	ENDM
 
 zadd_carry_rows_op_zpad_ttp MACRO
-	LOCAL	cloop, done
+	LOCAL	cloop, cloop_end, done
 
 	vmovapd	zmm0, [rbp+0*128]		;; Load low carry word
 	vmovapd	zmm1, [rbp+1*128]
@@ -3182,12 +3163,14 @@ zadd_carry_rows_op_zpad_ttp MACRO
 	push	rsi				;; Save pointers
 	push	rdi
 	push	r12
-	mov	al, 7				;; Spread carry over a max of 8 words
+	mov	al, 8				;; Spread carry over a max of 8 words
 	sub	r9, r9				;; Clear register used to alternate the increment of rdi
 
-cloop:
-	movzx	rdx, BYTE PTR [rdi]			;; Load index into compressed biglit table
-	mov	edx, [r12+rdx*4]			;; Load 4 big vs. little flags
+cloop:	dec	al				;; Decrement count of sets of 4 carries we've processed
+	jz	cloop_end			;; Exit carry propagation loop
+
+	movzx	rdx, BYTE PTR [rdi]		;; Load index into compressed biglit table
+	mov	edx, [r12+rdx*4]		;; Load 4 big vs. little flags
 
 	;; BUG -- pipeline below
 	vaddpd	zmm8, zmm0, [rsi]		; 1-4	;; x1 = carry1 + values1
@@ -3238,16 +3221,13 @@ cloop:
 	jz	done				;; If carries not found then we're done
 
 	add	rsi, pass2blkdst		;; Next FFT data ptr
-
 	xor	r12, 4				;; Bump or unbump pointer into the compressed biglit table
 	add	rdi, r9				;; Increment (or not) the biglit table pointer
 	xor	r9, 1				;; Alternate the increment for rdi
-
-	sub	al, 1				;; Decrement count of sets of 4 carries we've processed
-	jne	cloop				;; Repeat carry propagation loop
+	jmp	cloop				;; Repeat carry propagation loop
 
 	;; Do eighth and last iteration without propagating carries out
-
+cloop_end:
 	vaddpd	zmm8, zmm0, [rsi]		;; Values1 += carry
 	vaddpd	zmm9, zmm1, [rsi+r13]		;; Values2 += carry
 	vaddpd	zmm10, zmm2, [rsi+2*r13]	;; Values3 += carry
