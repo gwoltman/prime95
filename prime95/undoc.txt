@@ -310,11 +310,11 @@ small that multi-threading in stage 1 is not possible.  Therefore, you want to r
 However, a single worker running stage 2 on one core cannot keep up with 16 cores
 running stage 1.  Suppose 4-threaded stage 2 can keep up with 13 workers running stage 1.
 Set up prime95 to run 13 workers each using one core.  Set Stage2ExtraThreads=3.
-The first worker to reach stage 2 will grab the 3 extra workers to quickly finish stage 2.
+The first worker to reach stage 2 will grab the 3 extra threads to quickly finish stage 2.
 Other workers reaching stage 2 during this time will wait for the first worker to finish stage 2.
-Eventually, the 13 workers will stagger such that there workers are not often idle.
+Eventually, the 13 workers will stagger such that the workers are not often idle.
 The three cores used only in stage 2 will be used most of the time.  This is not a
-completely optimal solution, but it can be very, very effective.
+completely optimal solution, but it can be very effective.
 
 For P-1 and ECM stage 2 to accurately choose optimal B2 bounds as well as whether prime pairing
 stage 2 is more appropriate than polynomial multiplication stage 2, the program must

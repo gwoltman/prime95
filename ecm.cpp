@@ -1473,6 +1473,8 @@ uint64_t calc_new_first_relocatable (
 typedef struct {
 	gwhandle gwdata;	/* GWNUM handle */
 	int	thread_num;	/* Worker number */
+	int	stage1_threads;	/* Number of threads to use in stage 1 */
+	int	stage2_threads;	/* Number of threads to use in stage 2 */
 	struct work_unit *w;	/* Worktodo.txt entry */
 	FILE	*gmp_ecm_file;	/* File handle when running stage 2 on GMP-ECM's stage 1 */
 	uint32_t curve;		/* Curve # starting with 1 */
@@ -5822,12 +5824,14 @@ if (Ftree_polys_in_mem + more_Ftree_polys_in_mem > num_Ftree_polys - 1) more_Ftr
 		cost += cost_modinv;
 	}
 
-/* Save the final costs fudged by an auto-adjusting value */
+/* Save the final costs fudged by an auto-adjusting value.  If there are more stage 2 threads than stage 1, adjust the cost down.  Yes, the cost in terms */
+/* of transforms is not reduced by extra threads, but the time spent in stage 2 is reduced.  The user of Stage2ExtraThreads expects the reduced time spent */
+/* in stage 2 to result in a larger optimal B2.  Reducing the cost will make this happen. */
 
 	cost *= IniGetFloat (INI_FILE, "EcmStage2RatioAdjust", 1.0);
+	cost *= (double) cost_data->c.stage1_threads / (double) cost_data->c.stage2_threads;
 	cost_data->c.stage2_cost = cost;						// Raw cost of stage 2
-	cost_data->c.est_stage2_stage1_ratio = cost / cost_data->c.stage1_cost;		// Cost of stage 2 relative to stage 1
-	cost_data->c.est_stage2_stage1_ratio *= (double) cost_data->c.stage1_threads / (double) cost_data->c.stage2_threads;
+	cost_data->c.est_stage2_stage1_ratio = cost / cost_data->c.stage1_cost;		// Estimated time of stage 2 relative to stage 1
 	cost_data->c.total_cost = cost_data->c.stage1_cost + cost_data->c.stage2_cost + cost_data->c.gcd_cost;
 
 /* Calculate and return the efficiency which is ECM curve "value" divided by total cost of running the curve */
@@ -5876,8 +5880,8 @@ double ecm_stage2_impl_given_numvals (
 	cost_data.c.polydata = &ecmdata->polydata;
 	cost_data.c.stage1_fftlen = ecmdata->stage1_fftlen;
 	cost_data.c.stage2_fftlen = gwfftlen (&ecmdata->gwdata);
-	cost_data.c.stage1_threads = get_worker_num_threads (ecmdata->thread_num, HYPERTHREAD_LL);
-	cost_data.c.stage2_threads = cost_data.c.stage1_threads + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
+	cost_data.c.stage1_threads = ecmdata->stage1_threads;
+	cost_data.c.stage2_threads = ecmdata->stage2_threads;
 	init_gcd_costs (ecmdata->gwdata.bit_length, &cost_data);
 	for (int stage2_type = 0; stage2_type <= 1; stage2_type++) {	// Prime pairing vs. polymult
 
@@ -6751,6 +6755,8 @@ int ecm (
 
 	memset (&ecmdata, 0, sizeof (ecmhandle));
 	ecmdata.thread_num = thread_num;
+	ecmdata.stage1_threads = get_worker_num_threads (thread_num, HYPERTHREAD_LL);
+	ecmdata.stage2_threads = ecmdata.stage1_threads + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
 	ecmdata.w = w;
 	ecmdata.B = (uint64_t) w->B1;
 	ecmdata.C = (uint64_t) w->B2;
@@ -7111,7 +7117,7 @@ if (w->n == 604) {
 	gwset_bench_cores (&ecmdata.gwdata, HW_NUM_CORES);
 	gwset_bench_workers (&ecmdata.gwdata, NUM_WORKERS);
 	if (ERRCHK) gwset_will_error_check (&ecmdata.gwdata);
-	gwset_num_threads (&ecmdata.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
+	gwset_num_threads (&ecmdata.gwdata, ecmdata.stage1_threads);
 	gwset_thread_callback (&ecmdata.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&ecmdata.gwdata, sp_info);
 	gwset_safety_margin (&ecmdata.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
@@ -7738,7 +7744,7 @@ replan:	unsigned long best_fftlen;
 /* Initialize the polymult library (needed for calling polymult_mem_required).  Let user override polymult tuning parameters. */
 
 		polymult_init (&ecmdata.polydata, &ecmdata.gwdata);
-		polymult_set_max_num_threads (&ecmdata.polydata, get_worker_num_threads (thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0));
+		polymult_set_max_num_threads (&ecmdata.polydata, ecmdata.stage2_threads);
 		polymult_default_tuning (&ecmdata.polydata,
 					 IniGetInt (INI_FILE, "PolymultCacheSize", CPU_NUM_L2_CACHES > 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 256),
 					 IniGetInt (INI_FILE, "PolymultCacheSize2", CPU_NUM_L3_CACHES > 0 ? CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES : 6144));
@@ -7854,7 +7860,7 @@ OutputStr (thread_num, buf); }
 			gwset_bench_cores (&ecmdata.gwdata, HW_NUM_CORES);
 			gwset_bench_workers (&ecmdata.gwdata, NUM_WORKERS);
 			if (ERRCHK) gwset_will_error_check (&ecmdata.gwdata);
-			gwset_num_threads (&ecmdata.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
+			gwset_num_threads (&ecmdata.gwdata, ecmdata.stage2_threads);
 			gwset_thread_callback (&ecmdata.gwdata, SetAuxThreadPriority);
 			gwset_thread_callback_data (&ecmdata.gwdata, sp_info);
 			gwset_safety_margin (&ecmdata.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
@@ -9677,16 +9683,16 @@ start_timer_from_zero (timers, 0);
 	ecmdata.polydata.helper_callback = &ecm_helper;
 	ecmdata.polydata.helper_callback_data = &ecmdata;
 	ecmdata.helper_work = ECM_BUILD_GCDVAL;
-	memset (&ecmdata.polyGH[0], 0, ecmdata.polydata.num_threads * sizeof (gwnum));	// Needed only for ensuring a reproducible stage 2 result
+	memset (&ecmdata.polyGH[0], 0, ecmdata.stage2_threads * sizeof (gwnum));	// Needed only for ensuring a reproducible stage 2 result
 	polymult_launch_helpers (&ecmdata.polydata);	// Launch helper threads
 
 // Multiply together the output of each ecm_helper thread above.  Hopefully using gwnum's multi-threading.
 
-	for (int i = 1; i < ecmdata.polydata.num_threads; i++) {
+	for (int i = 1; i < ecmdata.stage2_threads; i++) {
 		if (ecmdata.polyGH[i] == NULL) continue;
 		if (ecmdata.polyGH[0] == NULL) ecmdata.polyGH[0] = ecmdata.polyGH[i];
 		else gwmul3 (&ecmdata.gwdata, ecmdata.polyGH[0], ecmdata.polyGH[i], ecmdata.polyGH[0],
-			     (i != ecmdata.polydata.num_threads - 1 || ecmdata.gg_binary != NULL) ? GWMUL_STARTNEXTFFT : 0);
+			     (i != ecmdata.stage2_threads - 1 || ecmdata.gg_binary != NULL) ? GWMUL_STARTNEXTFFT : 0);
 	}
 
 /* Now multiply in the accumulator read from a save file */
@@ -9807,7 +9813,7 @@ more_curves:
 	ecmdata.curve++;
 	if (w->curves_to_do == 0 || ecmdata.curve <= w->curves_to_do) {
 		// If necessary, switch back to the stage 1 FFT length
-		if (gwfftlen (&ecmdata.gwdata) != ecmdata.stage1_fftlen) {
+		if (gwfftlen (&ecmdata.gwdata) != ecmdata.stage1_fftlen || ecmdata.stage1_threads != ecmdata.stage2_threads) {
 			char	fft_desc[200];
 			gwdone (&ecmdata.gwdata);
 			gwinit (&ecmdata.gwdata);
@@ -9816,7 +9822,7 @@ more_curves:
 			gwset_bench_cores (&ecmdata.gwdata, HW_NUM_CORES);
 			gwset_bench_workers (&ecmdata.gwdata, NUM_WORKERS);
 			if (ERRCHK) gwset_will_error_check (&ecmdata.gwdata);
-			gwset_num_threads (&ecmdata.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
+			gwset_num_threads (&ecmdata.gwdata, ecmdata.stage1_threads);
 			gwset_thread_callback (&ecmdata.gwdata, SetAuxThreadPriority);
 			gwset_thread_callback_data (&ecmdata.gwdata, sp_info);
 			gwset_safety_margin (&ecmdata.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
@@ -10221,6 +10227,8 @@ int ecm_QA (
 typedef struct {
 	gwhandle gwdata;	/* GWNUM handle */
 	int	thread_num;	/* Worker number */
+	int	stage1_threads;	/* Number of threads to use in stage 1 */
+	int	stage2_threads;	/* Number of threads to use in stage 2 */
 	struct work_unit *w;	/* Worktodo.txt entry */
 	int	state;		/* One of the states listed above */
 	uint64_t B;		/* Bound #1 (a.k.a. B1) */
@@ -11032,12 +11040,14 @@ double pm1_stage2_cost (
 
 	cost += cost_data->c.modinv_cost;
 
-/* Save the final costs fudged by an auto-adjusting value */
+/* Save the final costs fudged by an auto-adjusting value.  If there are more stage 2 threads than stage 1, adjust the cost down.  Yes, the cost in terms */
+/* of transforms is not reduced by extra threads, but the time spent in stage 2 is reduced.  The user of Stage2ExtraThreads expects the reduced time spent */
+/* in stage 2 to result in a larger optimal B2.  Reducing the cost will make this happen. */
 
 	cost *= IniGetFloat (INI_FILE, "Pm1Stage2RatioAdjust", 1.0);
+	cost *= (double) cost_data->c.stage1_threads / (double) cost_data->c.stage2_threads;
 	cost_data->c.stage2_cost = cost;						// Raw cost of stage 2
-	cost_data->c.est_stage2_stage1_ratio = cost / cost_data->c.stage1_cost;		// Cost of stage 2 relative to stage 1
-	cost_data->c.est_stage2_stage1_ratio *= (double) cost_data->c.stage1_threads / (double) cost_data->c.stage2_threads;
+	cost_data->c.est_stage2_stage1_ratio = cost / cost_data->c.stage1_cost;		// Estimated time of stage 2 relative to stage 1
 	cost_data->c.total_cost = cost_data->c.stage1_cost + cost_data->c.stage2_cost + cost_data->c.gcd_cost;
 
 /* Calculate and return the efficiency which is the P-1 "value" divided by total cost of running P-1.  If TF depth known "value" is the factor probability, */
@@ -11079,8 +11089,8 @@ double pm1_stage2_impl_given_numvals (
 	cost_data.c.polydata = &pm1data->polydata;
 	cost_data.c.stage1_fftlen = pm1data->stage1_fftlen;
 	cost_data.c.stage2_fftlen = gwfftlen (&pm1data->gwdata);
-	cost_data.c.stage1_threads = get_worker_num_threads (pm1data->thread_num, HYPERTHREAD_LL);
-	cost_data.c.stage2_threads = cost_data.c.stage1_threads + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
+	cost_data.c.stage1_threads = pm1data->stage1_threads;
+	cost_data.c.stage2_threads = pm1data->stage2_threads;
 	init_gcd_costs (pm1data->gwdata.bit_length, &cost_data);
 	cost_data.sieve_depth = pm1data->w->sieve_depth;
 	cost_data.takeAwayBits = isMersenne (pm1data->w->k, pm1data->w->b, pm1data->w->n, pm1data->w->c) ? log2 (pm1data->w->n) + 1.0 :
@@ -11624,6 +11634,8 @@ int pminus1 (
 	pminus1_base = (w->b != 3 ? 3 : 5);
 	memset (&pm1data, 0, sizeof (pm1handle));
 	pm1data.thread_num = thread_num;
+	pm1data.stage1_threads = get_worker_num_threads (thread_num, HYPERTHREAD_LL);
+	pm1data.stage2_threads = pm1data.stage1_threads + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
 	pm1data.w = w;
 	pm1data.B = (uint64_t) w->B1;
 	pm1data.C = (uint64_t) w->B2;
@@ -11689,7 +11701,7 @@ restart:
 	gwset_bench_workers (&pm1data.gwdata, NUM_WORKERS);
 	if (ERRCHK) gwset_will_error_check (&pm1data.gwdata);
 	else gwset_will_error_check_near_limit (&pm1data.gwdata);
-	gwset_num_threads (&pm1data.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
+	gwset_num_threads (&pm1data.gwdata, pm1data.stage1_threads);
 	gwset_thread_callback (&pm1data.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&pm1data.gwdata, sp_info);
 	gwset_safety_margin (&pm1data.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
@@ -12017,7 +12029,7 @@ restart1:
 /* the default (if that's too slow one might should consider different work!).  A default of 40 should give calc_exp2 room to generate a temp that is */
 /* less than 64 bits which exponentiate can handle without any temporaries. */
 
-	stage1_batch_size = (int) ((double) IniGetInt (INI_FILE, "Stage1Batch4KMults", 150000) * pm1data.gwdata.num_threads / (pm1data.gwdata.FFTLEN / 4096.0));
+	stage1_batch_size = (int) ((double) IniGetInt (INI_FILE, "Stage1Batch4KMults", 150000) * pm1data.stage1_threads / (pm1data.gwdata.FFTLEN / 4096.0));
 	if (stage1_batch_size < IniGetInt (INI_FILE, "Stage1BatchSizeMin", 40)) stage1_batch_size = IniGetInt (INI_FILE, "Stage1BatchSizeMin", 40);
 
 /* Most likely we are working on small exponents where 100MB of memory gives us all the temporaries we could possibly want. */
@@ -12294,7 +12306,7 @@ replan:	unsigned long best_fftlen;
 /* Initialize the polymult library (needed for calling polymult_mem_required).  Let user override polymult tuning parameters. */
 
 		polymult_init (&pm1data.polydata, &pm1data.gwdata);
-		polymult_set_max_num_threads (&pm1data.polydata, get_worker_num_threads (thread_num, HYPERTHREAD_LL) + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0));
+		polymult_set_max_num_threads (&pm1data.polydata, pm1data.stage2_threads);
 		polymult_default_tuning (&pm1data.polydata,
 					 IniGetInt (INI_FILE, "PolymultCacheSize", CPU_NUM_L2_CACHES > 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 256),
 					 IniGetInt (INI_FILE, "PolymultCacheSize2", CPU_NUM_L3_CACHES > 0 ? CPU_TOTAL_L3_CACHE_SIZE / CPU_NUM_L3_CACHES : 6144));
@@ -12407,7 +12419,7 @@ OutputStr (thread_num, buf); }
 			gwset_bench_workers (&pm1data.gwdata, NUM_WORKERS);
 			if (ERRCHK) gwset_will_error_check (&pm1data.gwdata);
 			else gwset_will_error_check_near_limit (&pm1data.gwdata);
-			gwset_num_threads (&pm1data.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
+			gwset_num_threads (&pm1data.gwdata, pm1data.stage2_threads);
 			gwset_thread_callback (&pm1data.gwdata, SetAuxThreadPriority);
 			gwset_thread_callback_data (&pm1data.gwdata, sp_info);
 			gwset_minimum_fftlen (&pm1data.gwdata, next_fftlen);
@@ -13144,7 +13156,7 @@ pm1_polymult:
 //	use_polymult_multithreading = pm1data.polydata.num_threads > 1 && pm1data.poly2_size > 2*pm1data.polydata.num_threads &&
 //				      (int) gwfftlen (&pm1data.gwdata) <= IniGetInt (INI_FILE, "PolyThreadingFFTlength", 256) * 1024;
 //	if (use_polymult_multithreading) {
-		pm1data.helper_count = pm1data.polydata.num_threads;
+		pm1data.helper_count = pm1data.stage2_threads;
 //	} else
 //		pm1data.helper_count = 1;
 
@@ -14380,6 +14392,8 @@ int pfactor (
 typedef struct {
 	gwhandle gwdata;	/* GWNUM handle */
 	int	thread_num;	/* Worker number */
+	int	stage1_threads;	/* Number of threads to use in stage 1 */
+	int	stage2_threads;	/* Number of threads to use in stage 2 */
 	struct work_unit *w;	/* Worktodo.txt entry */
 	int	state;		/* One of the states listed above */
 	double	takeAwayBits;	/* Bits we get for free in smoothness of P+1 factor */
@@ -14779,8 +14793,8 @@ void pp1_choose_B2 (
 	cost_data.c.gwdata = &pp1data->gwdata;
 	cost_data.c.stage1_fftlen = pp1data->stage1_fftlen;
 	cost_data.c.stage2_fftlen = gwfftlen (&pp1data->gwdata);
-	cost_data.c.stage1_threads = gwget_num_threads (&pp1data->gwdata);
-	cost_data.c.stage2_threads = cost_data.c.stage1_threads + 0;
+	cost_data.c.stage1_threads = pp1data->stage1_threads;
+	cost_data.c.stage2_threads = pp1data->stage2_threads;
 #define p1eval(x,B2mult)	x.i = B2mult; \
 				if (x.i > max_B2mult) x.i = max_B2mult; \
 				x.B2_cost = best_stage2_impl (pp1data->B, pp1data->B, 0, 0, x.i * pp1data->B, numvals - 4, &pp1_stage2_cost, &cost_data); \
@@ -14940,8 +14954,8 @@ int pp1_stage2_impl (
 	cost_data.c.gwdata = &pp1data->gwdata;
 	cost_data.c.stage1_fftlen = pp1data->stage1_fftlen;
 	cost_data.c.stage2_fftlen = gwfftlen (&pp1data->gwdata);
-	cost_data.c.stage1_threads = gwget_num_threads (&pp1data->gwdata);
-	cost_data.c.stage2_threads = cost_data.c.stage1_threads + 0;
+	cost_data.c.stage1_threads = pp1data->stage1_threads;
+	cost_data.c.stage2_threads = pp1data->stage2_threads;
 	best_stage2_impl (pp1data->B, pp1data->first_relocatable, pp1data->last_relocatable, pp1data->C_done, pp1data->C, numvals - 4, &pp1_stage2_cost, &cost_data);
 
 /* If are continuing from a save file that was in stage 2 and the new plan doesn't look significant better than the old plan, then */
@@ -15359,6 +15373,8 @@ int pplus1 (
 
 	memset (&pp1data, 0, sizeof (pp1handle));
 	pp1data.thread_num = thread_num;
+	pp1data.stage1_threads = get_worker_num_threads (thread_num, HYPERTHREAD_LL);
+	pp1data.stage2_threads = pp1data.stage1_threads + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
 	pp1data.w = w;
 	pp1data.B = (uint64_t) w->B1;
 	pp1data.C = (uint64_t) w->B2;
@@ -15445,7 +15461,7 @@ restart:
 	gwset_bench_workers (&pp1data.gwdata, NUM_WORKERS);
 	if (ERRCHK) gwset_will_error_check (&pp1data.gwdata);
 	else gwset_will_error_check_near_limit (&pp1data.gwdata);
-	gwset_num_threads (&pp1data.gwdata, get_worker_num_threads (thread_num, HYPERTHREAD_LL));
+	gwset_num_threads (&pp1data.gwdata, pp1data.stage1_threads);
 	gwset_thread_callback (&pp1data.gwdata, SetAuxThreadPriority);
 	gwset_thread_callback_data (&pp1data.gwdata, sp_info);
 	gwset_safety_margin (&pp1data.gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
