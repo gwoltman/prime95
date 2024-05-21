@@ -2606,6 +2606,7 @@ int gwsetup_general_mod_giant (
 /* n values, but unless the modulus has small factors the GCD will not fail and the first test case we try will be acceptable. */
 
 	gwdata->use_benchmarks = FALSE;					// Benchmarking MMGW generic reduction is not supported
+	float saved_safety_margin = gwdata->safety_margin;		// save the safety margin
 	int saved_cpu_flags = gwdata->cpu_flags;			// gwinfo sometimes alters cpu_flags (like stripping AVX512F flag for FFT length 32)
 	int saved_minimum_fftlen = gwdata->minimum_fftlen;		// though not necessary, remember this option
 	int saved_larger_fftlen_count = gwdata->larger_fftlen_count;	// though not necessary, remember this option
@@ -2619,10 +2620,9 @@ int gwsetup_general_mod_giant (
 
 		// Find next potential FFT length.  Decrease the safety margin as we will use a rational FFT which has lower round off errors.
 		gwdata->cpu_flags = saved_cpu_flags;			// Restore CPU flags
-		gwdata->safety_margin -= 0.15f;
+		gwdata->safety_margin = saved_safety_margin - 0.15f;	// Reduce safety margin for rational FFTs
 		gwdata->required_pass2_size = 0;			// Allow any pass 2 size
 		error_code = gwinfo (gwdata, 1.0, 2, n, 1);
-		gwdata->safety_margin += 0.15f;
 		if (error_code) return (error_code);
 
 		// Get the potential FFT length and maximum exponent the FFT length can handle
@@ -2640,14 +2640,10 @@ int gwsetup_general_mod_giant (
 			// Verify that cyclic and negacyclic FFTs are available for this (n, fftlen) combination
 			gwdata->minimum_fftlen = fftlen;				 // Force selection of the already found fft length
 			gwdata->required_pass2_size = gwdata->PASS2_SIZE + gwdata->ARCH; // Force negacyclic and cyclic FFTs to use same pass 2 size & architecture
-			gwdata->safety_margin -= 0.15f;
 			error_code = gwinfo (gwdata, 1.0, 2, n, 1);
-			gwdata->safety_margin += 0.15f;
 			if (error_code) return (error_code);
 			if (gwdata->jmptab->fftlen != fftlen) break;
-			gwdata->safety_margin -= 0.15f;
 			error_code = gwinfo (gwdata, 1.0, 2, n, -1);
-			gwdata->safety_margin += 0.15f;
 			if (error_code == GWERROR_TOO_LARGE) break;			// This happens when no matching pass 2 size found
 			if (error_code) return (error_code);
 			if (gwdata->jmptab->fftlen != fftlen) break;
@@ -2676,6 +2672,7 @@ int gwsetup_general_mod_giant (
 		for (n = (safe_bits + 128) | 1; n < max_exponent; n += 2) {
 
 			// Verify that cyclic and negacyclic FFTs are available for this (n, fftlen) combination
+			gwdata->safety_margin = saved_safety_margin;			 // Restore safety margin for irrational FFTs
 			gwdata->minimum_fftlen = fftlen;				 // Force selection of the already found fft length
 			gwdata->required_pass2_size = gwdata->PASS2_SIZE + gwdata->ARCH; // Force negacyclic and cyclic FFTs to use same pass 2 size & architecture
 			error_code = gwinfo (gwdata, 1.0, 2, n, 1);
@@ -2707,6 +2704,7 @@ int gwsetup_general_mod_giant (
 
 	    // If no usable n value was found, switch to Barrett reduction
 	    if (Np == NULL) {
+		gwdata->safety_margin = saved_safety_margin;			// Restore safety margin
 		gwdata->cpu_flags = saved_cpu_flags;				// Restore CPU flags
 		gwdata->larger_fftlen_count = saved_larger_fftlen_count;	// Restore this option to its original setting
 		gwdata->minimum_fftlen = saved_minimum_fftlen;			// Restore this option to its original setting
@@ -2747,6 +2745,7 @@ int gwsetup_general_mod_giant (
 
 /* Restore saved settings */
 
+	gwdata->safety_margin = saved_safety_margin;			// restore safety margin to its original setting
 	gwdata->larger_fftlen_count = saved_larger_fftlen_count;	// though not necessary, restore this option to its original setting
 	gwdata->minimum_fftlen = saved_minimum_fftlen;			// though not necessary, restore this option to its original setting
 
@@ -11752,8 +11751,7 @@ void gwmul3_carefully (		/* Multiply two gwnums very carefully */
 	ASSERTG (unnorms (s2) >= 0.0f);
 	ASSERTG (FFT_state (s1) != FFTed_FOR_FMA && FFT_state (s2) != FFTed_FOR_FMA);
 	// Make sure not too many unnormalized adds prior to square or multiply
-	ASSERTG ((s1 == s2 && square_safe (gwdata, unnorms (s1))) ||
-		 (s1 != s2 && mul_safe (gwdata, unnorms (s1), unnorms (s2))));
+	ASSERTG ((s1 == s2 && square_safe (gwdata, unnorms (s1))) || (s1 != s2 && mul_safe (gwdata, unnorms (s1), unnorms (s2))));
 
 /* Clear flags that are impossible when a source is the same as the destination */
 
