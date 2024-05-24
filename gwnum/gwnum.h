@@ -1142,8 +1142,8 @@ struct gwhandle_struct {
 	gwnum	*gwnum_alloc;		/* Array of allocated gwnums */
 	unsigned int gwnum_alloc_count; /* Count of allocated gwnums */
 	unsigned int gwnum_alloc_array_size; /* Size of gwnum_alloc array */
-	gwnum	*gwnum_free;		/* Array of available gwnums */
-	unsigned int gwnum_free_count;	/* Count of available gwnums */
+	gwnum	gwnum_free;		/* Linked list of cached free gwnums */
+	unsigned int gwnum_free_count;	/* Count of cached free gwnums */
 	unsigned int gwnum_max_free_count; /* Count of free gwnums that should be cached (default is 10) */
 	gwarray	array_list;		/* List of arrays allocated by gwalloc_array */
 	size_t	GW_BIGBUF_SIZE;		/* Size of the optional buffer */
