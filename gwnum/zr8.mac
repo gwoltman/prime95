@@ -4049,8 +4049,6 @@ OPTIMIZING_ATTEMPT_zr8fs_sixteen_reals_first_fft MACRO srcreg,srcoff,srcinc,d1,d
 	vshuff64x2 zmm0, zmm10, zmm15, 01000100b;; I6_3 I6_2 I6_1 I6_0 I2_3 I2_2 I2_1 I2_0 (I26L)		; 59-70		n 
 	vshuff64x2 zmm10, zmm10, zmm15, 11101110b;; I6_7 I6_6 I6_5 I6_4 I2_7 I2_6 I2_5 I2_4 (I26H)		; 60-71		n 
 
-
-
 	bump	screg, scinc1
 
 	vshuff64x2 zmm1, zmm7, zmm11, 10001000b	;; R8_1 R8_0 R4_1 R4_0 R6_1 R6_0 R2_1 R2_0 (r2648LL)		; 61-62		n 
@@ -4125,7 +4123,6 @@ OPTIMIZING_ATTEMPT_zr8fs_sixteen_reals_first_fft MACRO srcreg,srcoff,srcinc,d1,d
 	zstore	[srcreg+d4+d1+64], zmm15	;; Store I6					; 66+4
 	bump	srcreg, srcinc
 	ENDM
-
 
 
 zr8s_sixteen_reals_last_unfft_preload MACRO
@@ -4634,8 +4631,6 @@ zr8_sixteen_reals_eight_complex_djbunfft_preload MACRO
 	zblendmpd_preload zmm25
 	ENDM
 zr8_sixteen_reals_eight_complex_djbunfft MACRO srcreg,srcinc,d1,d2,d4,screg,scinc,maxrpt,L1pt,L1pd
-
-;;GW - optimize this
 	vmovapd	zmm0, [srcreg+d1]		;; R2
 	vmovapd	zmm16, [srcreg+d1+64]		;; I2
 	vmovapd zmm24, [screg+3*128+64]		;; cosine/sine for R2/I2 (w^4)

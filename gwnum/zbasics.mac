@@ -19,12 +19,28 @@ zstore MACRO address, reg
 
 zblendmpd_preload MACRO zeroreg
 	zblendmpd_zeroreg EQU <&zeroreg>
-	vxorpd	zeroreg, zeroreg, zeroreg
-	ENDM	
+;;	vxorpd	zeroreg, zeroreg, zeroreg
+	ENDM
 zblendmpd MACRO dest, kreg, src1, src2
 	vblendmpd dest {kreg}, src1, src2
 ;;	vmovapd	dest, src1
 ;;	vaddpd	dest {kreg}, zblendmpd_zeroreg, src2
+	ENDM
+
+;; On Intel CPUs, kshiftrw is one clock on port 5 -- this is one uop better (but no faster) than shifting in the ALU and using kmovw.
+;; On AMD Zen4, kshiftrw can be slower than using the ALU to shift and then kmovw because Zen4's kshift competes with FPU FMA ops whereas
+;; kmov competes with FADD ops.
+;; This macro can be implemented as either a shifts of the already loaded kreg or a shift of an ALU reg having the same value as kreg and then a kmovw.
+;; The cpureg is then optionally shifted an additional amount.
+
+zkshiftrw MACRO kdest, ksrc, cpureg, shift, extrashift
+	shr	cpureg, shift
+	kmovw	kdest, cpureg
+;	kshiftrw kdest, ksrc, shift
+	IFNB <extrashift>
+	shr	cpureg, extrashift
+;	shr	cpureg, shift + extrashift
+	ENDIF
 	ENDM
 
 ;; Macros that try to make it easier to write code that works best on both Bulldozer 
