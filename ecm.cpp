@@ -1604,7 +1604,8 @@ void ecm_mini_cleanup (
 	free (ecmdata->Qx_binary), ecmdata->Qx_binary = NULL;
 	free (ecmdata->Qz_binary), ecmdata->Qz_binary = NULL;
 	free (ecmdata->gg_binary), ecmdata->gg_binary = NULL;
-	free (ecmdata->nQx), ecmdata->nQx = NULL;
+	if (ecmdata->stage2_type != ECM_STAGE2_POLYMULT) free (ecmdata->nQx);
+	ecmdata->nQx = NULL;
 	free (ecmdata->pairmap), ecmdata->pairmap = NULL;
 	free (ecmdata->factor), ecmdata->factor = NULL;
 	free (ecmdata->Ftree), ecmdata->Ftree = NULL;
@@ -2350,6 +2351,17 @@ __inline void free_xz (
 /* Macro to swap to xz structs */
 
 #define xzswap(a,b)	{ struct xz t; t = a; a = b; b = t; }
+
+/* This routine gwcopies an xz pair */
+
+__inline void gwcopy_xz (
+	ecmhandle *ecmdata,
+	struct xz *src,
+	struct xz *dst)
+{
+	gwcopy (&ecmdata->gwdata, src->x, dst->x);
+	gwcopy (&ecmdata->gwdata, src->z, dst->z);
+}
 
 /* Computes 2P=(out.x:out.z) from P=(in.x:in.z), uses the global variable Ad4. */
 /* Input arguments may be in FFTed state.  Out argument can be same as input argument. */
@@ -8718,11 +8730,11 @@ ecm_polymult:
 // We must outer loop at least twice, otherwise H(X) will be monic -- the current descent of Ftree code can't handle that.
 //GW:  Someday allow ecmdata.numDsections to be ecmdata.poly_size -- saves alloc mem for H(X)
 
-/* Allocate nQx array of pointers to relative prime gwnums.  Allocate an array large enough to hold x & z values for all relp. */
-/* This is much more than we will need once stage 2 init completes. */
+/* Allocate the nQx array of pointers to relative prime gwnums.  We must allocate the array with one call because Windows-or-malloc has some kind */
+/* of performance issue where freeing 100,000 individually allocated nQx gwnums was taking 6 minutes on my laptop. */
+//GW: use gwalloc_array in prime pairing too?  Make this code common with prime pairing?  Multithread using polymult tools?
 
-//GW: use gwalloc_array, carefully convert freeing nQx!  Make this code common with prime pairing?  Multithread using polymult tools?
-	ecmdata.nQx = (gwnum *) malloc (ecmdata.numrels * sizeof (gwnum));
+	ecmdata.nQx = gwalloc_array (&ecmdata.gwdata, ecmdata.numrels);
 	if (ecmdata.nQx == NULL) goto lowmem;
 
 /* Allocate some of the memory for modular inverse pooling */
@@ -8733,109 +8745,82 @@ ecm_polymult:
 
 /* This is a fast 1,5 mod 6 nQx initialization */
 
-start_timer_from_zero (timers, 0);
+	start_timer_from_zero (timers, 0);
 	ASSERTG (ecmdata.D % 3 == 0);
 	{
-		struct xz t1, t2, t3, t4, t5, t6;
-		struct xz *Q1, *Q2, *Q3, *Q5, *Q6, *Q7, *Q11, *Qnext_i;
+		struct xz t1, *Q1, *Q2, *Q3, *Q5, *Q6, *Q7, *Q11;
 		struct {
-			struct xz *Qi;
-			struct xz *Qi_minus6;
+			struct xz Qi;
+			struct xz Qi_minus6;
 			int	Qi_is_relp;
 			int	Qi_minus6_is_relp;
 		} Q1mod6, Q5mod6, *curr;
 		int	i_gap, have_QD;
-		uint32_t totrels;
+		uint32_t totrels = 0;
+
+#define Qmodhi_init(Qmod,xz,is_relp)	{ xz = &(Qmod)->Qi; \
+					  if (!alloc_xz (&ecmdata, xz)) goto lowmem; \
+					  (Qmod)->Qi_is_relp = is_relp; \
+					  if ((Qmod)->Qi_is_relp) { gwfree (&ecmdata.gwdata, xz->x); xz->x = ecmdata.nQx[totrels++]; } }
+#define Qmodlo_init(Qmod,xz,is_relp)	{ xz = &(Qmod)->Qi_minus6; \
+					  if (!alloc_xz (&ecmdata, xz)) goto lowmem; \
+					  (Qmod)->Qi_minus6_is_relp = is_relp; \
+					  if ((Qmod)->Qi_minus6_is_relp) { gwfree (&ecmdata.gwdata, xz->x); xz->x = ecmdata.nQx[totrels++]; } }
+#define normalize_or_free(xz,is_relp)	{ if (is_relp) { stop_reason = add_to_normalize_pool_ro (&ecmdata, (xz)->x, (xz)->z); \
+							 if (stop_reason) goto possible_lowmem; \
+							 (xz)->x = NULL; (xz)->z = NULL; is_relp = FALSE; } \
+					  else free_xz (&ecmdata, xz); }
 
 /* Allocate memory and init values for computing nQx.  We need Q^1, Q^5, Q^6, Q^7, Q^11. */
-/* We also need Q^4 to compute Q^D in the middle of the nQx init loop. */
 
+		Qmodlo_init (&Q1mod6, Q1, 1);
+		Qmodhi_init (&Q1mod6, Q7, relatively_prime (7, ecmdata.D));
+		Qmodlo_init (&Q5mod6, Q5, relatively_prime (5, ecmdata.D));
+		Qmodhi_init (&Q5mod6, Q11, relatively_prime (11, ecmdata.D));
 		if (!alloc_xz (&ecmdata, &t1)) goto lowmem;
-		if (!alloc_xz (&ecmdata, &t2)) goto lowmem;
-		if (!alloc_xz (&ecmdata, &t3)) goto lowmem;
-		if (!alloc_xz (&ecmdata, &t4)) goto lowmem;
-		if (!alloc_xz (&ecmdata, &t5)) goto lowmem;
+		Q6 = Q3 = &t1;
 
-/* Compute Q^2 and place in ecmdata.QD.  Q^2 will be replaced by Q^D later on in this loop. */
+/* Compute Q^2 and place in ecmdata.QD.  Q^2 will be replaced by Q^D later on.  Compute Q^3, Q^5, Q^6, Q^7, Q^11. */
 
-		ell_dbl_xz_scr (&ecmdata, &ecmdata.QD, &t1, &t5);		// Q2 = 2 * Q1, scratch = t5
-		xzswap (t1, ecmdata.QD);					// Move Q^1 from QD to t1
-		Q1 = &t1;							// Q^1
-		Q2 = &ecmdata.QD;
-
-/* Compute Q^5, Q^6, Q^7, Q^11 */
-
-		Q3 = &t2;
+		gwcopy_xz (&ecmdata, &ecmdata.QD, Q1);
+		ell_dbl_xz_scr (&ecmdata, Q1, Q2 = &ecmdata.QD, Q11);		// Q2 (stored in ecmdata.QD) = 2 * Q1, scratch = Q11
 		ell_add_xz (&ecmdata, Q2, Q1, Q1, Q3);				// Q3 = Q2 + Q1 (diff Q1)
-
-		Q5 = &t3;
 		ell_add_xz (&ecmdata, Q3, Q2, Q1, Q5);				// Q5 = Q3 + Q2 (diff Q1)
-
-		Q6 = Q3;
-		ell_dbl_xz_scr (&ecmdata, Q3, Q6, &t5);				// Q6 = 2 * Q3, scratch = t5, Q3 no longer needed
-
-		Q7 = &t4;
+		ell_dbl_xz_scr (&ecmdata, Q3, Q6, Q11);				// Q6 = 2 * Q3, scratch = Q11, Q3 no longer needed
 		ell_add_xz (&ecmdata, Q6, Q1, Q5, Q7);				// Q7 = Q6 + Q1 (diff Q5)
-
-		Q11 = &t5;
 		ell_add_xz (&ecmdata, Q6, Q5, Q1, Q11);				// Q11 = Q6 + Q5 (diff Q1)
-
-/* Init structures used in the loop below */
-
-		Q1mod6.Qi_minus6 = Q1;
-		Q1mod6.Qi_minus6_is_relp = 1;
-		Q5mod6.Qi_minus6 = Q5;
-		Q5mod6.Qi_minus6_is_relp = relatively_prime (5, ecmdata.D);
-		Q1mod6.Qi = Q7;
-		Q1mod6.Qi_is_relp = relatively_prime (7, ecmdata.D);
-		Q5mod6.Qi = Q11;
-		Q5mod6.Qi_is_relp = relatively_prime (11, ecmdata.D);
-
-/* For relprimes, we remember the .x value in the nQx pool.  In the loop below, we relinquish ownership of the .z value when we call add_to_normalize_pool_ro. */
-
-		ecmdata.nQx[0] = Q1->x; totrels = 1;
-		if (Q5mod6.Qi_minus6_is_relp) { ecmdata.nQx[totrels] = Q5->x; totrels++; }
-		if (Q1mod6.Qi_is_relp) { ecmdata.nQx[totrels] = Q7->x; totrels++; }
-		if (Q5mod6.Qi_is_relp) { ecmdata.nQx[totrels] = Q11->x; totrels++; }
-
-#define normalize_or_free(xz,is_relp)	{ if (is_relp) { stop_reason = add_to_normalize_pool_ro (&ecmdata, xz->x, xz->z); \
-							 if (stop_reason) goto possible_lowmem; \
-							 xz->x = NULL; xz->z = NULL; is_relp = FALSE; } \
-					  else free_xz (&ecmdata, xz); }
 
 /* Compute the rest of the nQx values below D (Q^i for i >= 7) */
 
-		Qnext_i = &t6;
 		have_QD = FALSE;
 		for (i = 7, i_gap = 4; ; i += i_gap, i_gap = 6 - i_gap) {
+			struct xz Qnext_i;
 			int	next_i_is_relp;
 
 /* Point to the i, i-6 pair to work on */
 
 			curr = (i_gap == 4) ? &Q1mod6 : &Q5mod6;
 
-/* See if we are about to compute the next relative prime */
+/* Allocate memory to compute the next Q^i */
 
+			if (!alloc_xz (&ecmdata, &Qnext_i)) goto lowmem;
 			next_i_is_relp = (relatively_prime (i+6, ecmdata.D) && totrels < ecmdata.numrels);
+			if (next_i_is_relp) { gwfree (&ecmdata.gwdata, Qnext_i.x); Qnext_i.x = ecmdata.nQx[totrels++]; }
 
 /* Get next i value.  Don't destroy Qi_minus6 in case it is an nQx value. */
 
-			if (!alloc_xz (&ecmdata, Qnext_i)) goto lowmem;
-			ell_add_xz (&ecmdata, curr->Qi, Q6, curr->Qi_minus6, Qnext_i);		// Next_Qi = Qi + Q6 (diff Q{i-6})
+			ell_add_xz (&ecmdata, &curr->Qi, Q6, &curr->Qi_minus6, &Qnext_i);	// Next_Qi = Qi + Q6 (diff Q{i-6})
 
 /* We no longer need Qi_minus6.  Normalize it or free it */
 
-			normalize_or_free (curr->Qi_minus6, curr->Qi_minus6_is_relp);
+			normalize_or_free (&curr->Qi_minus6, curr->Qi_minus6_is_relp);
 
 /* Shuffle i values along */
 
-			struct xz *shuffle;
-			shuffle = curr->Qi_minus6;
 			curr->Qi_minus6 = curr->Qi;
 			curr->Qi_minus6_is_relp = curr->Qi_is_relp;
 			curr->Qi = Qnext_i;
 			curr->Qi_is_relp = next_i_is_relp;
-			Qnext_i = shuffle;
 
 /* Compute Q^D which we will need in mQ_init.  Do this with a single ell_add_xz call when we reach two values that are 2 or 4 apart that add to D. */
 
@@ -8845,16 +8830,9 @@ start_timer_from_zero (timers, 0);
 				ASSERTG (Qgap == &ecmdata.QD);
 				if (!alloc_xz (&ecmdata, &tmp)) goto lowmem;
 				if (6 - i_gap == 4) ell_dbl_xz_scr (&ecmdata, Q2, Qgap, &tmp);		  // Qgap = Q4 = 2 * Q2, Q2 no longer needed
-				ell_add_xz_scr (&ecmdata, Q1mod6.Qi, Q5mod6.Qi, Qgap, &ecmdata.QD, &tmp); // QD = i+6 + i+i_gap (diff Qgap), Qgap no longer needed
+				ell_add_xz_scr (&ecmdata, &Q1mod6.Qi, &Q5mod6.Qi, Qgap, &ecmdata.QD, &tmp); // QD = i+6 + i+i_gap (diff Qgap), Qgap no longer needed
 				free_xz (&ecmdata, &tmp);
 				have_QD = TRUE;
-			}
-
-/* If the newly computed i is a relative prime, then remember .x for a later add_to_nomalize */
-
-			if (next_i_is_relp) {
-				ecmdata.nQx[totrels] = curr->Qi->x;
-				totrels++;
 			}
 
 /* Break out of loop when we have all our nQx values less than D */
@@ -8870,12 +8848,14 @@ start_timer_from_zero (timers, 0);
 
 /* Free memory used in computing nQx values */
 
-		normalize_or_free (Q1mod6.Qi, Q1mod6.Qi_is_relp);
-		normalize_or_free (Q1mod6.Qi_minus6, Q1mod6.Qi_minus6_is_relp);
-		normalize_or_free (Q5mod6.Qi, Q5mod6.Qi_is_relp);
-		normalize_or_free (Q5mod6.Qi_minus6, Q5mod6.Qi_minus6_is_relp);
+		normalize_or_free (&Q1mod6.Qi, Q1mod6.Qi_is_relp);
+		normalize_or_free (&Q1mod6.Qi_minus6, Q1mod6.Qi_minus6_is_relp);
+		normalize_or_free (&Q5mod6.Qi, Q5mod6.Qi_is_relp);
+		normalize_or_free (&Q5mod6.Qi_minus6, Q5mod6.Qi_minus6_is_relp);
 		free_xz (&ecmdata, Q6);
 	}
+	#undef Qmodhi_init
+	#undef Qmodlo_init
 	#undef normalize_or_free
 
 /* Add Q^D computed above to the D-multiples map */
@@ -9136,10 +9116,8 @@ start_timer_from_zero (timers, 0);
 
 // Free nQx array (if it was not saved in polyFtree)
 
-//	ecmdata.xz.x = ecmdata.nQx[0];
 	if (ecmdata.Ftree_polys_in_mem < 2) {
-		for (uint32_t i = 0; i < ecmdata.numrels; i++) gwfree (&ecmdata.gwdata, ecmdata.nQx[i]);
-		free (ecmdata.nQx); ecmdata.nQx = NULL;
+		gwfree_array (&ecmdata.gwdata, ecmdata.nQx); ecmdata.nQx = NULL;
 	}
 
 // Use Newton's method to compute 1/F(X), starting with an initial estimate of 1 - first_non_monic_term_of_F(X).
