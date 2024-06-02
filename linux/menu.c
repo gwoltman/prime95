@@ -1138,7 +1138,7 @@ void options_torture (void)
 	else if (mem >= 512) blendmemory = GetSuggestedMemory (mem - 256);
 	else if (mem >= 256) blendmemory = GetSuggestedMemory (mem / 2);
 	else blendmemory = 8;
-	if (blendmemory > (int) (0.99 * mem)) blendmemory = (int) (0.99 * mem);
+	if (blendmemory > (int) (0.9 * mem)) blendmemory = (int) (0.9 * mem);
 
 	// Get number of cores to test.  It will affect our FFT size calculations.
 	if (HW_NUM_CORES > 1)

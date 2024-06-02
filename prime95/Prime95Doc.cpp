@@ -859,7 +859,7 @@ void CPrime95Doc::OnTorture()
 		dlg.m_in_place = FALSE;
 	} else
 #endif
-	// These are the pre 29.5 (adjusted in 31.0 to match Linux) memory defaults.
+	// These are the pre 29.5 (adjusted in 30.19b20 to match Linux) memory defaults.
 	if (mem >= 2048) {
 		dlg.m_blendmemory = GetSuggestedMemory (mem - 512);
 		dlg.m_in_place = FALSE;
@@ -873,7 +873,7 @@ void CPrime95Doc::OnTorture()
 		dlg.m_blendmemory = 8;
 		dlg.m_in_place = TRUE;
 	}
-	if (dlg.m_blendmemory > (int) (0.99 * mem)) dlg.m_blendmemory = (int) (0.99 * mem);
+	if (dlg.m_blendmemory > (int) (0.9 * mem)) dlg.m_blendmemory = (int) (0.9 * mem);
 	dlg.m_memory = (float) round_to_tenth (dlg.m_blendmemory / 1024.0);
 	dlg.m_timefft = dlg.m_hyperthreading ? 6 : 3;
 	if (dlg.DoModal () == IDOK) {
