@@ -1510,6 +1510,7 @@ typedef struct {
 	uint32_t stage1_bitnum;	/* Edwards stage 1 bit number being processed in the exponent chunk */
 	uint32_t NAF_dictionary_size; /* Edwards stage 1 number of gwnums in the NAF dictionary */
 	struct ed *NAF_dictionary; /* Edwards stage 1 array of points used in ed_add calls during NAF exponentiation */
+	gwarray	NAF_gwnums;	/* Gwnums allocated for the NAF_dictionary. */
 
 	struct xz xz;		/* The stage 1 Montgomery value being computed */
 	struct ed dict_start;	/* The stage 1 Edwards value used to build the dictionary */
@@ -1880,7 +1881,7 @@ void ws_mul (
  *	Edwards ECM Functions
  **************************************************************/
 
-/* Macro to swap to xz structs */
+/* Macro to swap to ed structs */
 
 #define ed_swap(a,b)	{ struct ed t; t = a; a = b; b = t; }
 
@@ -1933,7 +1934,8 @@ bool ed_check (				/* Returns TRUE if point is on the Edwards curve */
 
 	gwsquare2 (&ecmdata->gwdata, in->x, t0, GWMUL_PRESERVE_S1);			// t0 = X * X
 	gwsquare2 (&ecmdata->gwdata, in->y, t1, GWMUL_PRESERVE_S1);			// t1 = Y * Y
-	gwsquare2 (&ecmdata->gwdata, in->z, t2, GWMUL_PRESERVE_S1);			// t2 = Z * Z
+	if (in->z != NULL) gwsquare2 (&ecmdata->gwdata, in->z, t2, GWMUL_PRESERVE_S1);	// t2 = Z * Z
+	else dbltogw (&ecmdata->gwdata, 1.0, t2);
 	gwmul3 (&ecmdata->gwdata, t0, t1, t3, 0);					// t3 = t0 * t1	(x^2y^2)
 	gwmul3 (&ecmdata->gwdata, t3, ecmdata->ed_d, t3, 0);				// t3 *= d	(dx^2y^2)
 	if (ecmdata->ed_a != NULL) gwmul3 (&ecmdata->gwdata, t0, ecmdata->ed_a, t0, 0);	// t0 *= a	(ax^2)
@@ -1981,6 +1983,8 @@ void create_ed_half (
 #define ED_FFT_S1Z		0x20	// For ed_add, FFT Z in first source arg.  Second source arg is always FFTed.
 #define ED_FFT_S1T		0x40	// For ed_add, FFT T in first source arg.  Second source arg is always FFTed.
 #define ED_SUBTRACT		0x80	// For ed_add, subtract instead of add.
+#define ED_FORCE_EXTEND		0x100	// For ed_extend, force extend computation using (or reusing) existing T buffer.
+#define ED_NO_GWALLOC		0x200	// For ed_dbl and ed_add called from NAF_dictionary_init.  Use in->t as for a temporary gwnum.
 
 /* Turn an (X:Y:Z) Edwards point into an extended (X:Y:T:Z) extended Edwards point */
 
@@ -1994,9 +1998,9 @@ void ed_extend (
 	ASSERTG (!e->alternate_format);
 
 	// Check if already using extended coordinates
-	if (e->t != NULL) return;
+	if (!(options & ED_FORCE_EXTEND) && e->t != NULL) return;
 	// Allocate a buffer for the new coordinate
-	e->t = gwalloc (&ecmdata->gwdata);
+	if (!(options & ED_FORCE_EXTEND)) e->t = gwalloc (&ecmdata->gwdata);
 	// Extend (X,Y,Z) to (XZ, YZ, XY, Z^2)
 	gwmul3 (&ecmdata->gwdata, e->x, e->y, e->t, GWMUL_FFT_S12 | mul_options);		// t = xy
 	if (e->z != NULL) {
@@ -2027,6 +2031,7 @@ void ed_add (
 	//ASSERTG (safe11 || !extended || FFT_state (in1->t) == NOT_FFTed || in2->z != NULL);	// FFTed in1->t and Z2=NULL is OK but triggers a gwunfft
 	//ASSERTG (safe11 || !extended || FFT_state (in2->t) == NOT_FFTed || in1->z != NULL);	// FFTed in2->t and Z1=NULL is OK but triggers a gwunfft
 	ASSERTG (ecmdata->ed_a == NULL || FFT_state (ecmdata->ed_a) == FULLY_FFTed);
+	ASSERTG (!(options & ED_NO_GWALLOC) || (in1 != out && in1->t != NULL && out->t != NULL));
 
 	// Extended coordinates are required
 	if (in1->t == NULL) ed_extend (ecmdata, in1, ED_STARTNEXTFFT);
@@ -2038,7 +2043,8 @@ void ed_add (
 	if (out->z == NULL) out->z = gwalloc (&ecmdata->gwdata);	// Do not use out->z until in1->z and in2->z are longer needed
 	if (out->t != NULL) tmp1 = out->t;				// Do not use tmp1 until in1->t and in2->t are longer needed
 	else tmp1 = gwalloc (&ecmdata->gwdata);
-	tmp2 = gwalloc (&ecmdata->gwdata);
+	if (options & ED_NO_GWALLOC) tmp2 = in1->t;
+	else tmp2 = gwalloc (&ecmdata->gwdata);
 
 	// Add algorithm from https://eprint.iacr.org/2021/1061, "Edwards curves and FFT-based multiplication" by Pavel Atnashev et.al.
 
@@ -2087,8 +2093,13 @@ void ed_add (
 	}
 
 	// Cleanup
-	gwfree (&ecmdata->gwdata, tmp1);
-	gwfree (&ecmdata->gwdata, tmp2);
+	if (options & ED_NO_GWALLOC) {
+		if (!extended) out->t = tmp2;
+		in1->t = tmp1;
+	} else {
+		gwfree (&ecmdata->gwdata, tmp1);
+		gwfree (&ecmdata->gwdata, tmp2);
+	}
 }
 
 /* Double an Edwards point (optionally twisted) */
@@ -2106,6 +2117,7 @@ void ed_dbl (
 	int	can_alternate_format = !(options & ED_XYZ) && !extended;
 
 	ASSERTG (ecmdata->ed_a == NULL || FFT_state (ecmdata->ed_a) == FULLY_FFTed);
+	ASSERTG (!(options & ED_NO_GWALLOC) || (in != out && in->t != NULL && out->t != NULL && extended));
 
 	// Get algorithm preference
 static	int algo5 = 2;		// FALSE = don't use algorithm 5, TRUE = use algorithm 5, 2 = not yet initialized
@@ -2122,7 +2134,8 @@ static	int algo7 = 2;		// FALSE = don't use algorithm 7, TRUE = use algorithm 7,
 	if (out->z == NULL) out->z = gwalloc (&ecmdata->gwdata);	// Do not use out->z until in->z is no longer needed
 	if (out->t != NULL) tmp1 = out->t, out->t = NULL;
 	else tmp1 = gwalloc (&ecmdata->gwdata);
-	tmp2 = gwalloc (&ecmdata->gwdata);
+	if (options & ED_NO_GWALLOC) tmp2 = in->t;
+	else tmp2 = gwalloc (&ecmdata->gwdata);
 	gwsetmulbyconst (&ecmdata->gwdata, 2);
 
 	// Select from double algorithms in https://eprint.iacr.org/2021/1061, "Edwards curves and FFT-based multiplication" by Pavel Atnashev et.al.
@@ -2316,8 +2329,12 @@ static	int algo7 = 2;		// FALSE = don't use algorithm 7, TRUE = use algorithm 7,
 	}
 
 	// Cleanup
-	gwfree (&ecmdata->gwdata, tmp1);
-	gwfree (&ecmdata->gwdata, tmp2);
+	if (options & ED_NO_GWALLOC)
+		in->t = (tmp1 != NULL ? tmp1 : tmp2);
+	else {
+		gwfree (&ecmdata->gwdata, tmp1);
+		gwfree (&ecmdata->gwdata, tmp2);
+	}
 }
 
 
@@ -4654,46 +4671,49 @@ void ecm_calc_exp (
 bool dict_normalize (
 	ecmhandle *ecmdata,
 	uint32_t first_index,		// Index of first dictionary entry to normalize
-	uint32_t last_index)		// Index of last dictionary entry to normalize
+	uint32_t last_index,		// Index of last dictionary entry to normalize
+	gwnum	**addr_of_next_available_gwnum)
 {
+	gwnum *next_available_gwnum = *addr_of_next_available_gwnum;
+
 	// Resuming from a save file will give us a first dictionary entry that is already normalized.  Adjust for that.
 	if (first_index == 0 && ecmdata->NAF_dictionary[0].z == NULL) first_index = 1;
 
-	// Allocate a temporary for each number to be normalized
-	gwarray temps = gwalloc_array (&ecmdata->gwdata, last_index - first_index + 1);
-	if (temps == NULL) return (FALSE);
+	// Use remainder of the pre-allocated NAF_gwnums for temporaries
+	gwarray temps = next_available_gwnum;
+	ASSERTG (temps + last_index - first_index + 1 <= ecmdata->NAF_gwnums + 3 * ecmdata->NAF_dictionary_size);
 
 	// Loop multiplying all the numbers together into temps
 	gwswap (ecmdata->NAF_dictionary[first_index].z, temps[0]);
 	for (uint32_t i = 1; i <= last_index - first_index; i++) {
-		gwmul3 (&ecmdata->gwdata, temps[i-1], ecmdata->NAF_dictionary[first_index+i].z, temps[i], GWMUL_FFT_S12 | GWMUL_STARTNEXTFFT);
+		int options = (i == last_index - first_index) ? 0 : GWMUL_STARTNEXTFFT;
+		gwmul3 (&ecmdata->gwdata, temps[i-1], ecmdata->NAF_dictionary[first_index+i].z, temps[i], GWMUL_FFT_S12 | options);
+		ASSERTG (ecmdata->NAF_dictionary[first_index+i].t == NULL);
 	}
 
 	// Invert the multiplied numbers
 	gwnum big_inverse = temps[last_index - first_index];
 	if (ecm_modinv (ecmdata, big_inverse)) return (FALSE);
 
-	// Work backwards creating each normalizing each dictionary entry
+	// Work backwards normalizing each dictionary entry
 	for (uint32_t i = last_index - first_index; i; i--) {
 		gwmul3 (&ecmdata->gwdata, big_inverse, temps[i-1], temps[i-1], GWMUL_FFT_S1 | GWMUL_STARTNEXTFFT);			// Compute this inverse
 		gwmul3 (&ecmdata->gwdata, big_inverse, ecmdata->NAF_dictionary[first_index+i].z, big_inverse, GWMUL_STARTNEXTFFT);	// Compute next big inverse
 		// Normalize x and y
 		gwmul3 (&ecmdata->gwdata, ecmdata->NAF_dictionary[first_index+i].x, temps[i-1], ecmdata->NAF_dictionary[first_index+i].x, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 		gwmul3 (&ecmdata->gwdata, ecmdata->NAF_dictionary[first_index+i].y, temps[i-1], ecmdata->NAF_dictionary[first_index+i].y, GWMUL_STARTNEXTFFT);
-		// Free z,t
-		gwfree (&ecmdata->gwdata, ecmdata->NAF_dictionary[first_index+i].z), ecmdata->NAF_dictionary[first_index+i].z = NULL;
-		gwfree (&ecmdata->gwdata, ecmdata->NAF_dictionary[first_index+i].t), ecmdata->NAF_dictionary[first_index+i].t = NULL;
+		// Free z
+		*--next_available_gwnum = ecmdata->NAF_dictionary[first_index+i].z, ecmdata->NAF_dictionary[first_index+i].z = NULL;
 	}
 	// First entry's inverse is big_inverse
 	gwmul3 (&ecmdata->gwdata, ecmdata->NAF_dictionary[first_index].x, big_inverse, ecmdata->NAF_dictionary[first_index].x, GWMUL_FFT_S2 | GWMUL_STARTNEXTFFT);
 	gwmul3 (&ecmdata->gwdata, ecmdata->NAF_dictionary[first_index].y, big_inverse, ecmdata->NAF_dictionary[first_index].y, GWMUL_STARTNEXTFFT);
-	// Swap first z back and free z,t
+	// Swap first z back and free z
 	gwswap (ecmdata->NAF_dictionary[first_index].z, temps[0]);
-	gwfree (&ecmdata->gwdata, ecmdata->NAF_dictionary[first_index].z), ecmdata->NAF_dictionary[first_index].z = NULL;
-	gwfree (&ecmdata->gwdata, ecmdata->NAF_dictionary[first_index].t), ecmdata->NAF_dictionary[first_index].t = NULL;
+	*--next_available_gwnum = ecmdata->NAF_dictionary[first_index].z, ecmdata->NAF_dictionary[first_index].z = NULL;
 
-	// Cleanup
-	gwfree_array (&ecmdata->gwdata, temps);
+	// Return new next_available_gwnum
+	*addr_of_next_available_gwnum = next_available_gwnum;
 	return (TRUE);
 }
 
@@ -4704,42 +4724,78 @@ bool NAF_dictionary_init (
 	int	*first_NAF_index,	// First NAF index to use to get the exponentiation started
 	uint64_t *num_doublings)	// Number of doubling that NAF exponentiation will need to perform
 {
-	// Allocate the dictionary array
+	// Allocate the dictionary and gwnums
 	ecmdata->NAF_dictionary = (struct ed *) malloc (ecmdata->NAF_dictionary_size * sizeof (struct ed));
 	if (ecmdata->NAF_dictionary == NULL) return (FALSE);
+	ecmdata->NAF_gwnums = gwalloc_array (&ecmdata->gwdata, 3 * ecmdata->NAF_dictionary_size);
+	if (ecmdata->NAF_gwnums == NULL) return (FALSE);
 	memset (ecmdata->NAF_dictionary, 0, ecmdata->NAF_dictionary_size * sizeof (struct ed));
+	gwnum	*next_available_gwnum = ecmdata->NAF_gwnums;
 
 // Build the dictionary
 
-	// Move start point to first dictionary entry
-	ed_swap (ecmdata->dict_start, ecmdata->NAF_dictionary[0]);
-
+	// Copy start point to first dictionary entry.  Free starting point.
+	ecmdata->NAF_dictionary[0].x = *next_available_gwnum++;
+	ecmdata->NAF_dictionary[0].y = *next_available_gwnum++;
+	ecmdata->NAF_dictionary[0].t = *next_available_gwnum++;
+	gwcopy (&ecmdata->gwdata, ecmdata->dict_start.x, ecmdata->NAF_dictionary[0].x);
+	gwcopy (&ecmdata->gwdata, ecmdata->dict_start.y, ecmdata->NAF_dictionary[0].y);
+	if (ecmdata->dict_start.z != NULL) {
+		ecmdata->NAF_dictionary[0].z = *next_available_gwnum++;
+		gwcopy (&ecmdata->gwdata, ecmdata->dict_start.z, ecmdata->NAF_dictionary[0].z);
+	}
+	ed_free (ecmdata, &ecmdata->dict_start);
+			
 	// Double first entry (use last dictionary entry as a temporary)
-	if (!ed_alloc (ecmdata, &ecmdata->NAF_dictionary[ecmdata->NAF_dictionary_size-1])) return (FALSE);
 	struct ed *two = &ecmdata->NAF_dictionary[ecmdata->NAF_dictionary_size-1];
-	ed_dbl (ecmdata, &ecmdata->NAF_dictionary[0], two, ED_FFT_S1 | ED_RESULT_FOR_ADD | ED_STARTNEXTFFT);
+	two->x = *next_available_gwnum++;
+	two->y = *next_available_gwnum++;
+	two->z = *next_available_gwnum++;
+	two->t = *next_available_gwnum++;
+	ed_dbl (ecmdata, &ecmdata->NAF_dictionary[0], two, ED_NO_GWALLOC | ED_FFT_S1 | ED_XYZ | ED_RESULT_FOR_ADD | ED_STARTNEXTFFT);
 
 	// Loop making next dictionary entry two more than previous entry.
 	// Do this while only using 3 gwnums for every dictionary entry!
+	ed_extend (ecmdata, &ecmdata->NAF_dictionary[0], ED_FORCE_EXTEND);
 	for (uint32_t i = 1; i < ecmdata->NAF_dictionary_size; i++) {
 		// Allocate gwnums for next dictionary entry
-		if (i != ecmdata->NAF_dictionary_size-1 && !ed_alloc (ecmdata, &ecmdata->NAF_dictionary[i])) return (FALSE);
-		// Next dictionary entry equals two more than previous entry
-		ed_add (ecmdata, &ecmdata->NAF_dictionary[i-1], two, &ecmdata->NAF_dictionary[i], ED_FFT_S1Z | ED_XYZ | ED_RESULT_FOR_ADD | ED_STARTNEXTFFT);
+		if (i != ecmdata->NAF_dictionary_size-1) {
+			ecmdata->NAF_dictionary[i].x = *next_available_gwnum++;
+			ecmdata->NAF_dictionary[i].y = *next_available_gwnum++;
+			ecmdata->NAF_dictionary[i].z = *next_available_gwnum++;
+			ecmdata->NAF_dictionary[i].t = *next_available_gwnum++;
+		}
+		// Next dictionary entry is two more than previous entry
+		int options = (i == ecmdata->NAF_dictionary_size / 2 || i == ecmdata->NAF_dictionary_size - 1) ? 0 : ED_RESULT_FOR_ADD;
+		ed_add (ecmdata, &ecmdata->NAF_dictionary[i-1], two, &ecmdata->NAF_dictionary[i], options | ED_NO_GWALLOC | ED_FFT_S1Z | ED_XYZ | ED_STARTNEXTFFT);
 		// Switch back from extended coordinates.  Extended coordinates will be generated again after normalization.
-		gwfree (&ecmdata->gwdata, ecmdata->NAF_dictionary[i-1].t), ecmdata->NAF_dictionary[i-1].t = NULL;
+		*--next_available_gwnum = ecmdata->NAF_dictionary[i-1].t, ecmdata->NAF_dictionary[i-1].t = NULL;
+		if (options == 0) *--next_available_gwnum = ecmdata->NAF_dictionary[i].t, ecmdata->NAF_dictionary[i].t = NULL;
 		// 50% of the way through the build, normalize the dictionary.  This will free up enough gwnums to safely do the rest of the dictionary.
 		// Also normalize two to save a few transforms for the remaining dictionary entries.
 		if (i == ecmdata->NAF_dictionary_size / 2) {
+			*--next_available_gwnum = two->t, two->t = NULL;	// Exit extended coordinates, will re-extend after normalization
 			ed_swap (*two, ecmdata->NAF_dictionary[i+1]);		// Put two next in the array
-			if (!dict_normalize (ecmdata, 0, i+1)) return (FALSE);
+			if (!dict_normalize (ecmdata, 0, i+1, &next_available_gwnum)) return (FALSE);
 			ed_swap (*two, ecmdata->NAF_dictionary[i+1]);		// Put two back at the end of the array
+			// Re-extend by force i-th entry and two
+			ecmdata->NAF_dictionary[i].t = *next_available_gwnum++;
+			ed_extend (ecmdata, &ecmdata->NAF_dictionary[i], ED_FORCE_EXTEND);
+			two->t = *next_available_gwnum++;
+			ed_extend (ecmdata, two, ED_FORCE_EXTEND);
 		}
 	}
-	gwfree (&ecmdata->gwdata, ecmdata->NAF_dictionary[ecmdata->NAF_dictionary_size-1].t), ecmdata->NAF_dictionary[ecmdata->NAF_dictionary_size-1].t = NULL;
 
 	// Normalize the remaining 50% of the dictionary, this will make adding dictionary entries one transform quicker
-	if (!dict_normalize (ecmdata, ecmdata->NAF_dictionary_size / 2 + 1, ecmdata->NAF_dictionary_size - 1)) return (FALSE);
+	if (!dict_normalize (ecmdata, ecmdata->NAF_dictionary_size / 2 + 1, ecmdata->NAF_dictionary_size - 1, &next_available_gwnum)) return (FALSE);
+
+	// Use rest of NAF_gwnums to compute extended coordinates
+	for (uint32_t i = 0; i < ecmdata->NAF_dictionary_size; i++) {
+		ASSERTG (ecmdata->NAF_dictionary[i].t == NULL && ecmdata->NAF_dictionary[i].z == NULL);
+		ASSERTG (next_available_gwnum < ecmdata->NAF_gwnums + 3 * ecmdata->NAF_dictionary_size);
+		ecmdata->NAF_dictionary[i].t = *next_available_gwnum++;
+		ed_extend (ecmdata, &ecmdata->NAF_dictionary[i], ED_FORCE_EXTEND);
+	}
 
 // Allocate a buffer for the NAF_codes
 
@@ -4823,8 +4879,7 @@ void NAF_dictionary_free (
 	ecmhandle *ecmdata)
 {
 	free (ecmdata->NAF_codes), ecmdata->NAF_codes = NULL;
-	if (ecmdata->NAF_dictionary == NULL) return;
-	for (uint32_t i = 0; i < ecmdata->NAF_dictionary_size; i++) ed_free (ecmdata, &ecmdata->NAF_dictionary[i]);
+	gwfree_array (&ecmdata->gwdata, ecmdata->NAF_gwnums), ecmdata->NAF_gwnums = NULL;
 	free (ecmdata->NAF_dictionary), ecmdata->NAF_dictionary = NULL;
 }
 
@@ -7153,7 +7208,7 @@ if (w->n == 604) {
 	gw_clear_fft_count (&ecmdata.gwdata);
 	first_iter_msg = TRUE;
 	calc_output_frequencies (&ecmdata.gwdata, &output_frequency, &output_title_frequency);
-	dictionary_memory = (uint64_t) IniGetInt (INI_FILE, "DictionaryMemory", 256) << 20;	// Default to 256MB dictionary memory
+	dictionary_memory = (uint64_t) IniGetInt (INI_FILE, "DictionaryMemory", 256) << 20;	// Default to 256MiB dictionary memory
 
 /* Optionally do a probable prime test */
 
