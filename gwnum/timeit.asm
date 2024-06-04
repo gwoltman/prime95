@@ -32,7 +32,7 @@ ENDIF
 SSE2_CASES	EQU	216
 AVX_CASES	EQU	300
 IFDEF X86_64
-AVX512_CASES	EQU	144
+AVX512_CASES	EQU	148
 ELSE
 AVX512_CASES	EQU	0
 ENDIF
@@ -1052,9 +1052,9 @@ hundredclocks512 MACRO
 	do10 tenclocks512
 	ENDM
 
-tenclocks512a MACRO				;; Test if 3 ops writing to register file every clock is possible (it isn't on Skylake-X)
+tenclocks512a MACRO				;; Test if 3 ops writing to register file every clock is possible (it isn't on Skylake-X), test for bubbles
 	vaddpd	zmm0, zmm0, zmm0		;; port 0
-	vaddpd	zmm1, zmm1, zmm1		;; port 1
+	vaddpd	zmm1, zmm1, zmm1		;; port 5
 	vshufpd zmm20, zmm20, zmm20, 11h	;; port 5
 	vaddpd	zmm2, zmm2, zmm2
 	vaddpd	zmm3, zmm3, zmm3
@@ -2393,8 +2393,14 @@ av512case15:	scatter_read_sequential_write8 1280*7680*8, 5 ; Read/write 78MB
 	zr8_csc_wpn_eight_complex_last_djbunfft_preload
 	avx512mac 1024, 16384, 0, zr8_csc_wpn_eight_complex_last_djbunfft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
 	avx512mac 1024, 262144, 0, zr8_csc_wpn_eight_complex_last_djbunfft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
+	zr8fs_eight_complex_first_fft_preload
+	avx512mac 1024, 16384, 0, zr8fs_eight_complex_first_fft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_CD8SCD4, rdx, 8*128, 1
+	avx512mac 1024, 262144, 0, zr8fs_eight_complex_first_fft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_CD8SCD4, rdx, 8*128, 1
+	zr8s_eight_complex_last_unfft_preload
+	avx512mac 1024, 16384, 0, zr8s_eight_complex_last_unfft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_CD8SCD4, 1
+	avx512mac 1024, 262144, 0, zr8s_eight_complex_last_unfft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_CD8SCD4, 1
 
-;;96
+;;100
 	zr8_wpn_sixteen_reals_first_fft_preload
 	avx512mac 1024, 16384, 0, zr8_wpn_sixteen_reals_first_fft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
 	avx512mac 1024, 262144, 0, zr8_wpn_sixteen_reals_first_fft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
@@ -2408,7 +2414,7 @@ av512case15:	scatter_read_sequential_write8 1280*7680*8, 5 ; Read/write 78MB
 	avx512mac 1024, 16384, 0, zr8s_sixteen_reals_last_unfft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_SCD7, 1
 	avx512mac 1024, 262144, 0, zr8s_sixteen_reals_last_unfft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_SCD7, 1
 
-;;104
+;;108
 	zr12_csc_wpn_twelve_complex_first_djbfft_preload
 	avx512mac 1536, 16384, 0, zr12_csc_wpn_twelve_complex_first_djbfft rsi, 12*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
 	avx512mac 1536, 262144, 0, zr12_csc_wpn_twelve_complex_first_djbfft rsi, 12*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
@@ -2416,7 +2422,7 @@ av512case15:	scatter_read_sequential_write8 1280*7680*8, 5 ; Read/write 78MB
 	avx512mac 1536, 16384, 0, zr12_csc_wpn_twelve_complex_last_djbunfft rsi, 12*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
 	avx512mac 1536, 262144, 0, zr12_csc_wpn_twelve_complex_last_djbunfft rsi, 12*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
 
-;;108
+;;112
 	zr12_wpn_twentyfour_reals_first_fft_preload
 	avx512mac 1536, 16384, 0, zr12_wpn_twentyfour_reals_first_fft rsi, 12*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
 	avx512mac 1536, 262144, 0, zr12_wpn_twentyfour_reals_first_fft rsi, 12*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
@@ -2424,7 +2430,7 @@ av512case15:	scatter_read_sequential_write8 1280*7680*8, 5 ; Read/write 78MB
 	avx512mac 1536, 16384, 0, zr12_wpn_twentyfour_reals_last_unfft rsi, 12*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
 	avx512mac 1536, 262144, 0, zr12_wpn_twentyfour_reals_last_unfft rsi, 12*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
 
-;;112
+;;116
 	avx512mac 1024, 8192, 0, zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rdx, 1024, r8, r9, r10, rdi, ZMM_SCD8, 1
 	avx512mac 1024, 262144, 0, zr8_rsc_wpn_sgreg_eight_complex_fft8 rsi, 1024, 128, 256, 512, rdx, 1024, r8, r9, r10, rdi, ZMM_SCD8, 1
 	avx512mac 1024, 8192, 0, zr8_rsc_wpn_sgreg_eight_complex_unfft8 rdx, 1024, r8, r9, r10, rsi, 1024, 128, 256, 512, rdi, ZMM_SCD8, 1
@@ -2434,7 +2440,7 @@ av512case15:	scatter_read_sequential_write8 1280*7680*8, 5 ; Read/write 78MB
 	avx512mac 1024, 8192, 0, zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rdx, 1024, r8, r9, r10, rsi, 1024, 128, 256, 512, rdi, 0, rdi, 0, rdi, ZMM_SCD8, 1
 	avx512mac 1024, 262144, 0, zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 rdx, 1024, r8, r9, r10, rsi, 1024, 128, 256, 512, rdi, 0, rdi, 0, rdi, ZMM_SCD8, 1
 
-;;120
+;;124
 	zsf_onepass_real_fft_wrapper_preload
 	avx512mac 1024, 16384, 0, zsf_onepass_real_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 14, rdx, 0, 1
 	avx512mac 1024, 262144, 0, zsf_onepass_real_fft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 14, rdx, 0, 1
@@ -2448,7 +2454,7 @@ av512case15:	scatter_read_sequential_write8 1280*7680*8, 5 ; Read/write 78MB
 	avx512mac 1024, 16384, 0, zs_onepass_complex_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, r15, 0, rdi, 14, 1
 	avx512mac 1024, 262144, 0, zs_onepass_complex_unfft_wrapper rsi, 8*128, 128, 2*128, 4*128, r15, 0, r15, 0, rdi, 14, 1
 
-;;128
+;;132
 	znorm_wpn_preload noexec, noexec, noexec	;; ttp, echk, const
 	avx512znormmac 1536, 16384, 0, znorm_wpn noexec, noexec, noexec
 	avx512znormmac 1536, 262144, 0, znorm_wpn noexec, noexec, noexec
@@ -2462,7 +2468,7 @@ av512case15:	scatter_read_sequential_write8 1280*7680*8, 5 ; Read/write 78MB
 	avx512znormmac 1536, 16384, 0, znorm_wpn noexec, exec, exec
 	avx512znormmac 1536, 262144, 0, znorm_wpn noexec, exec, exec
 
-;;136
+;;140
 	znorm_wpn_preload exec, noexec, noexec		;; ttp, echk, const
 	avx512znormmac 1536, 16384, 0, znorm_wpn exec, noexec, noexec
 	avx512znormmac 1536, 262144, 0, znorm_wpn exec, noexec, noexec
