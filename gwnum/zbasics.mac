@@ -16,9 +16,10 @@ zstore MACRO address, reg
 
 ;; A latency one vblendmpd instruction may introduce "bubbles" into a pipeline full af latency four adds and muls.
 ;; If so, using an vmovapd and vaddpd instruction might be faster even though it is more uops and longer latency.
+;; Benchmarking on Skylake-X suggests pipeline bubbles are not a problem
 
 zblendmpd_preload MACRO zeroreg
-	zblendmpd_zeroreg EQU <&zeroreg>
+;;	zblendmpd_zeroreg EQU <&zeroreg>
 ;;	vxorpd	zeroreg, zeroreg, zeroreg
 	ENDM
 zblendmpd MACRO dest, kreg, src1, src2
