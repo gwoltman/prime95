@@ -1,3 +1,9 @@
+New features in Version 31.0 of prime95.exe
+-------------------------------------------
+
+1) AVX-512 FFTs smaller than 8K are a little faster.  There are now more small AVX-512 FFTs
+   starting at length 128.  This is useful for ECM on small Mersenne numbers.
+
 New features in Version 30.19 of prime95.exe
 --------------------------------------------
 
