@@ -10313,7 +10313,7 @@ void createProofResiduesFile (
 
 	if (prefill) {
 		// Output a message
-		sprintf (buf, "Preallocating disk space for the proof interim residues file %s\n", ps->residues_filename);
+		sprintf (buf, "Allocating disk space for the proof interim residues file %s\n", ps->residues_filename);
 		OutputStr (ps->thread_num, buf);
 
 		// Create a buffer filled with random data
@@ -10330,7 +10330,7 @@ void createProofResiduesFile (
 		for (i = 0; i < (int) divide_rounding_up (total_size, sizeof (buf)); i++) {
 			if (_write (fd, buf, sizeof (buf)) != sizeof (buf)) {
 				int	num_residues, new_power, new_power_mult;
-				sprintf (buf, "Error pre-allocating proof interim residues file\n");
+				sprintf (buf, "Error allocating proof interim residues file\n");
 				OutputBoth (ps->thread_num, buf);
 				OutputBothErrno (ps->thread_num);
 
@@ -11986,50 +11986,65 @@ begin:	N = exp = NULL;
 		if (ps.max_emergency_allocs > (1 << ps.proof_power)) ps.max_emergency_allocs = (1 << ps.proof_power);
 		ps.emergency_allocs = (char **) malloc (ps.max_emergency_allocs * sizeof (char *));
 
-// Create and optionally prefill the proof interim residues file
+// Generate the proof residues file name
 
 		IniGetString (INI_FILE, "ProofResiduesDir", ps.residues_filename, sizeof (ps.residues_filename), NULL);
 		DirPlusFilename (ps.residues_filename, filename);
 		strcat (ps.residues_filename, ".residues");
-		if (ps.counter == 0)
-			createProofResiduesFile (&gwdata, &ps, IniGetInt (INI_FILE, "PreallocateDisk", 1));
+
+// James suggests creating and allocating the proof residues file after outputting a message letting the user know the file's size.
+// See https://www.mersenneforum.org/showthread.php?t=27905 post #977.  This requires a two pass approach in case the full file size cannot be allocated.
+
+		for (int pass = 1; ; pass++) {
 
 /* Calculate how many extra squarings are needed because of a version 1 PRP proof */
 
-		if (ps.proof_version == 1)
-			excess_squarings = round_up_to_multiple_of (w->n, ps.proof_power_mult << ps.proof_power) - w->n;
+			if (ps.proof_version == 1)
+				excess_squarings = round_up_to_multiple_of (w->n, ps.proof_power_mult << ps.proof_power) - w->n;
 
 /* Calculate the number of squarings in a full or partial proof and number of squarings that are handled outside of the proof */
 
-		ps.proof_num_iters = (w->n + excess_squarings) / ps.proof_power_mult;
-		initial_nonproof_iters = initiallog2k_iters + (w->n + excess_squarings) % ps.proof_power_mult;
+			ps.proof_num_iters = (w->n + excess_squarings) / ps.proof_power_mult;
+			initial_nonproof_iters = initiallog2k_iters + (w->n + excess_squarings) % ps.proof_power_mult;
 
 /* Map the current iteration (from the save file) into the next interim residue to output */
 
-		while (ps.counter >= initial_nonproof_iters + ps.proof_num_iters) initial_nonproof_iters += ps.proof_num_iters;
-		for (proof_next_interim_residue = 1; ; proof_next_interim_residue++) {
-			proof_next_interim_residue_iter = proofResidueIteration (&ps, proof_next_interim_residue);
-			if (ps.state == PRP_STATE_GERB_MID_BLOCK_MULT || ps.state == PRP_STATE_GERB_MID_BLOCK_MULT) {
-				if (ps.counter + 1 < initial_nonproof_iters + proof_next_interim_residue_iter) break;
-			} else if (ps.state == PRP_STATE_DCHK_PASS2) {
-				if (ps.end_counter < initial_nonproof_iters + proof_next_interim_residue_iter) break;
-			} else {
-				if (ps.counter < initial_nonproof_iters + proof_next_interim_residue_iter) break;
+			while (ps.counter >= initial_nonproof_iters + ps.proof_num_iters) initial_nonproof_iters += ps.proof_num_iters;
+			for (proof_next_interim_residue = 1; ; proof_next_interim_residue++) {
+				proof_next_interim_residue_iter = proofResidueIteration (&ps, proof_next_interim_residue);
+				if (ps.state == PRP_STATE_GERB_MID_BLOCK_MULT || ps.state == PRP_STATE_GERB_MID_BLOCK_MULT) {
+					if (ps.counter + 1 < initial_nonproof_iters + proof_next_interim_residue_iter) break;
+				} else if (ps.state == PRP_STATE_DCHK_PASS2) {
+					if (ps.end_counter < initial_nonproof_iters + proof_next_interim_residue_iter) break;
+				} else {
+					if (ps.counter < initial_nonproof_iters + proof_next_interim_residue_iter) break;
+				}
 			}
-		}
 
 /* Output a message detailing PRP proof resource usage */
 
-		disk_space = (double) (1 << ps.proof_power) * (double) (ps.residue_size + 16);
-		proof_file_size = (double) (ps.proof_power + 1) * (double) ps.residue_size * (double) ps.proof_power_mult;
-		if (ps.proof_power_mult == 1)
-			sprintf (buf, "PRP proof using power=%d and %d-bit hash size.\n", ps.proof_power, ps.hashlen);
-		else
-			sprintf (buf, "PRP proof using power=%dx%d and %d-bit hash size.\n", ps.proof_power, ps.proof_power_mult, ps.hashlen);
-		OutputStr (thread_num, buf);
-		sprintf (buf, "Proof requires %.1fGB of temporary disk space and uploading a %.0fMB proof file.\n",
-			 disk_space / 1.0e9, proof_file_size / 1.0e6);
-		OutputStr (thread_num, buf);
+			disk_space = (double) (1 << ps.proof_power) * (double) (ps.residue_size + 16);
+			proof_file_size = (double) (ps.proof_power + 1) * (double) ps.residue_size * (double) ps.proof_power_mult;
+			if (ps.proof_power_mult == 1)
+				sprintf (buf, "PRP proof using power=%d and %d-bit hash size.\n", ps.proof_power, ps.hashlen);
+			else
+				sprintf (buf, "PRP proof using power=%dx%d and %d-bit hash size.\n", ps.proof_power, ps.proof_power_mult, ps.hashlen);
+			OutputStr (thread_num, buf);
+			sprintf (buf, "Proof requires %.1fGB of temporary disk space and uploading a %.0fMB proof file.\n",
+				 disk_space / 1.0e9, proof_file_size / 1.0e6);
+			OutputStr (thread_num, buf);
+
+// Create and optionally fill the proof interim residues file.  If this is the second pass, the proof residues file was created on the first pass.
+// If creating the proof residues file is only partially successful, recalculate the numbers above using the new, smaller proof power.
+
+			if (pass == 1 && ps.counter == 0) {
+				int	orig_proof_power = ps.proof_power;
+				int	orig_proof_power_mult = ps.proof_power_mult;
+				createProofResiduesFile (&gwdata, &ps, IniGetInt (INI_FILE, "PreallocateDisk", 1));
+				if (ps.proof_power != orig_proof_power || ps.proof_power_mult != orig_proof_power_mult) continue;
+			}
+			break;
+		}
 	}
 
 /* Calculate the exponent we will use to do our left-to-right binary exponentiation */
