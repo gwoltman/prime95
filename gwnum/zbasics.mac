@@ -5,13 +5,34 @@
 ; These macros implement basic AVX-512 building blocks that will be used by all FFT types.
 ;
 
-;;
 ;; Store a 512-bit zmm register in memory.  In older (AMD?) architectures there was a difference
 ;; between using vmovaps and vmovapd.  We continue to use a store macro for those historical reasons. 
-;;
 
 zstore MACRO address, reg
 	vmovapd address, reg
+	ENDM
+
+;; Store 256-bits of a 512-bit zmm register
+
+zstorelo MACRO address, reg
+	vextractf64x4 YMMWORD PTR address, reg, 0
+	ENDM
+
+zstorehi MACRO address, reg
+	vextractf64x4 YMMWORD PTR address, reg, 1
+	ENDM
+
+;; Do a full permute using either vpermi2pd or vpermt2pd, neither mask nor src1 is overwritten
+
+zperm2pd MACRO dest, mask, src1, src2
+	IF @sizestr(dest) EQ @sizestr(mask) AND @instr(,dest,mask) EQ 1
+	vpermi2pd dest, src1, src2
+	ELSEIF @sizestr(dest) EQ @sizestr(src1) AND @instr(,dest,src1) EQ 1
+	vpermt2pd src1, mask, src2
+	ELSE
+	vmovapd	dest, mask		;; Copy the mask register
+	vpermi2pd dest, src1, src2
+	ENDIF
 	ENDM
 
 ;; A latency one vblendmpd instruction may introduce "bubbles" into a pipeline full af latency four adds and muls.
