@@ -8735,7 +8735,7 @@ OutputStr (thread_num, buf); }
 /* Write a save file when the user interrupts the calculation and every DISK_WRITE_TIME minutes. */
 
 		stop_reason = stopCheck (thread_num);
-		if (stop_reason || testSaveFilesFlag (thread_num)) {
+		if (stop_reason || (testSaveFilesFlag (thread_num) && IniGetInt (INI_FILE, "EcmSaveDuringStage2", 1))) {
 			ecm_save (&ecmdata);
 			if (stop_reason) goto exit;
 		}
