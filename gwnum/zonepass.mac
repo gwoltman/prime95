@@ -143,9 +143,8 @@ zsf_onepass_real_fft_wrapper MACRO srcreg,srcinc,d1,d2,d4,colreg,colinc,maskreg,
 	zfnmaddpd zmm6, zmm19, zmm23, zmm6	;; r4-r12*fudged_mult (new "I4")			; 30-33		n 35
 	vmovapd	zmm0, [srcreg+rbx+d4+64]	;; r13
 
-	vmovapd	zmm1, zmm9
-	vpermt2pd zmm1, zmm31, zmm5		;; r4_4 r3_4 r4_6 r3_6 r4_0 r3_0 r4_2 r3_2		; 31-33		n 39
-	vpermt2pd zmm9, zmm30, zmm5		;; r4_5 r3_5 r4_7 r3_7 r4_1 r3_1 r4_3 r3_3		; 32-34		n 41
+	zperm2pd zmm1, zmm31, zmm9, zmm5	;; r4_4 r3_4 r4_6 r3_6 r4_0 r3_0 r4_2 r3_2		; 31-33		n 39
+	zperm2pd zmm9, zmm30, zmm9, zmm5	;; r4_5 r3_5 r4_7 r3_7 r4_1 r3_1 r4_3 r3_3		; 32-34		n 41
 	vmovapd	zmm17, [srcreg+rbx+d4+d1+64]	;; r14
 
 	zfmaddpd zmm15, zmm0, zmm24, zmm16	;; r5+r13*fudged_mult (new "R5")			; 31-34		n 37
@@ -160,9 +159,8 @@ zsf_onepass_real_fft_wrapper MACRO srcreg,srcinc,d1,d2,d4,colreg,colinc,maskreg,
 	zfmaddpd zmm3, zmm18, zmm27, zmm4	;; r8+r16*fudged_mult (new "R8")			; 34-37		n 39
 	L1prefetch srcreg+d4+64+L1pd, L1pt
 
-	vmovapd	zmm2, zmm10
-	vpermt2pd zmm2, zmm31, zmm6		;; i4_4 i3_4 i4_6 i3_6 i4_0 i3_0 i4_2 i3_2		; 35-37		n 47
-	vpermt2pd zmm10, zmm30, zmm6		;; i4_5 i3_5 i4_7 i3_7 i4_1 i3_1 i4_3 i3_3		; 36-38		n 51
+	zperm2pd zmm2, zmm31, zmm10, zmm6	;; i4_4 i3_4 i4_6 i3_6 i4_0 i3_0 i4_2 i3_2		; 35-37		n 47
+	zperm2pd zmm10, zmm30, zmm10, zmm6	;; i4_5 i3_5 i4_7 i3_7 i4_1 i3_1 i4_3 i3_3		; 36-38		n 51
 	L1prefetch srcreg+d4+d1+L1pd, L1pt
 
 	zfnmaddpd zmm16, zmm0, zmm24, zmm16	;; r5-r13*fudged_mult (new "I5")			; 35-38		n 41
@@ -177,9 +175,8 @@ zsf_onepass_real_fft_wrapper MACRO srcreg,srcinc,d1,d2,d4,colreg,colinc,maskreg,
 	zfnmaddpd zmm4, zmm18, zmm27, zmm4	;; r8-r16*fudged_mult (new "I8")			; 38-41		n 43
 	L1prefetch srcreg+d4+d2+64+L1pd, L1pt
 
-	vmovapd zmm7, zmm11
-	vpermt2pd zmm7, zmm31, zmm3		;; r8_4 r7_4 r8_6 r7_6 r8_0 r7_0 r8_2 r7_2		; 39-41		n 43
-	vpermt2pd zmm11, zmm30, zmm3		;; r8_5 r7_5 r8_7 r7_7 r8_1 r7_1 r8_3 r7_3		; 40-42		n 45
+	zperm2pd zmm7, zmm31, zmm11, zmm3	;; r8_4 r7_4 r8_6 r7_6 r8_0 r7_0 r8_2 r7_2		; 39-41		n 43
+	zperm2pd zmm11, zmm30, zmm11, zmm3	;; r8_5 r7_5 r8_7 r7_7 r8_1 r7_1 r8_3 r7_3		; 40-42		n 45
 	L1prefetch srcreg+d4+d2+d1+L1pd, L1pt
 
 	vblendmpd zmm5{k7}, zmm1, zmm21		;; r4_4 r3_4 r2_4 r1_4 r4_0 r3_0 r2_0 r1_0		; 39		n 45
@@ -192,9 +189,8 @@ zsf_onepass_real_fft_wrapper MACRO srcreg,srcinc,d1,d2,d4,colreg,colinc,maskreg,
 	vblendmpd zmm1{k7}, zmm9, zmm13		;; r4_5 r3_5 r2_5 r1_5 r4_1 r3_1 r2_1 r1_1		; 41		n 49
 	vblendmpd zmm13{k7}, zmm13, zmm9	;; r2_7 r1_7 r4_7 r3_7 r2_3 r1_3 r4_3 r3_3		; 42		n 51
 
-	vmovapd zmm8, zmm12
-	vpermt2pd zmm8, zmm31, zmm4		;; i8_4 i7_4 i8_6 i7_6 i8_0 i7_0 i8_2 i7_2		; 43-45		n 49
-	vpermt2pd zmm12, zmm30, zmm4		;; i8_5 i7_5 i8_7 i7_7 i8_1 i7_1 i8_3 i7_3		; 44-46		n 59
+	zperm2pd zmm8, zmm31, zmm12, zmm4	;; i8_4 i7_4 i8_6 i7_6 i8_0 i7_0 i8_2 i7_2		; 43-45		n 49
+	zperm2pd zmm12, zmm30, zmm12, zmm4	;; i8_5 i7_5 i8_7 i7_7 i8_1 i7_1 i8_3 i7_3		; 44-46		n 59
 
 	vblendmpd zmm3{k7}, zmm7, zmm22		;; r8_4 r7_4 r6_4 r5_4 r8_0 r7_0 r6_0 r5_0		; 43		n 45
 	vblendmpd zmm22{k7}, zmm22, zmm7	;; r6_6 r5_6 r8_6 r7_6 r6_2 r5_2 r8_2 r7_2		; 44		n 47
@@ -642,9 +638,8 @@ zsf_onepass_complex_fft_wrapper MACRO srcreg,srcinc,d1,d2,d4,pmreg,pminc,maskreg
 	zfmaddpd zmm23, zmm23, zmm17, zmm6	;; I4 * cosine + R4 (new I4)				; 35-38		n 40
 	L1prefetch srcreg+d4+64+L1pd, L1pt
 
-	vmovapd	zmm3, zmm5
-	vpermt2pd zmm3, zmm31, zmm7		;; r4_4 r3_4 r4_6 r3_6 r4_0 r3_0 r4_2 r3_2		; 36-38		n 44
-	vpermt2pd zmm5, zmm30, zmm7		;; r4_5 r3_5 r4_7 r3_7 r4_1 r3_1 r4_3 r3_3		; 37-39		n 46
+	zperm2pd zmm3, zmm31, zmm5, zmm7	;; r4_4 r3_4 r4_6 r3_6 r4_0 r3_0 r4_2 r3_2		; 36-38		n 44
+	zperm2pd zmm5, zmm30, zmm5, zmm7	;; r4_5 r3_5 r4_7 r3_7 r4_1 r3_1 r4_3 r3_3		; 37-39		n 46
 	L1prefetch srcreg+d4+d1+L1pd, L1pt
 
 	zfmsubpd zmm6, zmm16, zmm0, zmm24	;; R5 * cosine - I5 (new R5)				; 36-39		n 42
@@ -659,9 +654,8 @@ zsf_onepass_complex_fft_wrapper MACRO srcreg,srcinc,d1,d2,d4,pmreg,pminc,maskreg
 	zfmsubpd zmm18, zmm4, zmm15, zmm27	;; R8 * cosine - I8 (new R8)				; 39-42		n 44
 	L1prefetch srcreg+d4+d2+64+L1pd, L1pt
 
-	vmovapd	zmm21, zmm22
-	vpermt2pd zmm21, zmm31, zmm23		;; i4_4 i3_4 i4_6 i3_6 i4_0 i3_0 i4_2 i3_2		; 40-42		n 52
-	vpermt2pd zmm22, zmm30, zmm23		;; i4_5 i3_5 i4_7 i3_7 i4_1 i3_1 i4_3 i3_3		; 41-43		n 56
+	zperm2pd zmm21, zmm31, zmm22, zmm23	;; i4_4 i3_4 i4_6 i3_6 i4_0 i3_0 i4_2 i3_2		; 40-42		n 52
+	zperm2pd zmm22, zmm30, zmm22, zmm23	;; i4_5 i3_5 i4_7 i3_7 i4_1 i3_1 i4_3 i3_3		; 41-43		n 56
 	L1prefetch srcreg+d4+d2+d1+L1pd, L1pt
 
 	zfmaddpd zmm24, zmm24, zmm0, zmm16	;; I5 * cosine + R5 (new I5)				; 40-43		n 46
@@ -674,9 +668,8 @@ zsf_onepass_complex_fft_wrapper MACRO srcreg,srcinc,d1,d2,d4,pmreg,pminc,maskreg
 	zfmaddpd zmm26, zmm26, zmm13, zmm12	;; I7 * cosine + R7 (new I7)				; 42-45		n 48
 	zfmaddpd zmm27, zmm27, zmm15, zmm4	;; I8 * cosine + R8 (new I8)				; 43-46		n 48
 
-	vmovapd zmm10, zmm14
-	vpermt2pd zmm10, zmm31, zmm18		;; r8_4 r7_4 r8_6 r7_6 r8_0 r7_0 r8_2 r7_2		; 44-46		n 48
-	vpermt2pd zmm14, zmm30, zmm18		;; r8_5 r7_5 r8_7 r7_7 r8_1 r7_1 r8_3 r7_3		; 45-47		n 50
+	zperm2pd zmm10, zmm31, zmm14, zmm18	;; r8_4 r7_4 r8_6 r7_6 r8_0 r7_0 r8_2 r7_2		; 44-46		n 48
+	zperm2pd zmm14, zmm30, zmm14, zmm18	;; r8_5 r7_5 r8_7 r7_7 r8_1 r7_1 r8_3 r7_3		; 45-47		n 50
 
 	vblendmpd zmm7{k7}, zmm3, zmm9		;; r4_4 r3_4 r2_4 r1_4 r4_0 r3_0 r2_0 r1_0		; 44		n 50
 	vblendmpd zmm9{k7}, zmm9, zmm3		;; r2_6 r1_6 r4_6 r3_6 r2_2 r1_2 r4_2 r3_2		; 45		n 52
@@ -687,9 +680,8 @@ zsf_onepass_complex_fft_wrapper MACRO srcreg,srcinc,d1,d2,d4,pmreg,pminc,maskreg
 	vblendmpd zmm3{k7}, zmm5, zmm1		;; r4_5 r3_5 r2_5 r1_5 r4_1 r3_1 r2_1 r1_1		; 46		n 54
 	vblendmpd zmm1{k7}, zmm1, zmm5		;; r2_7 r1_7 r4_7 r3_7 r2_3 r1_3 r4_3 r3_3		; 47		n 56
 
-	vmovapd zmm25, zmm26
-	vpermt2pd zmm25, zmm31, zmm27		;; i8_4 i7_4 i8_6 i7_6 i8_0 i7_0 i8_2 i7_2		; 48-50		n 54
-	vpermt2pd zmm26, zmm30, zmm27		;; i8_5 i7_5 i8_7 i7_7 i8_1 i7_1 i8_3 i7_3		; 49-51		n 64
+	zperm2pd zmm25, zmm31, zmm26, zmm27	;; i8_4 i7_4 i8_6 i7_6 i8_0 i7_0 i8_2 i7_2		; 48-50		n 54
+	zperm2pd zmm26, zmm30, zmm26, zmm27	;; i8_5 i7_5 i8_7 i7_7 i8_1 i7_1 i8_3 i7_3		; 49-51		n 64
 
 	vblendmpd zmm18{k7}, zmm10, zmm8	;; r8_4 r7_4 r6_4 r5_4 r8_0 r7_0 r6_0 r5_0		; 48		n 50
 	vblendmpd zmm8{k7}, zmm8, zmm10		;; r6_6 r5_6 r8_6 r7_6 r6_2 r5_2 r8_2 r7_2		; 49		n 52

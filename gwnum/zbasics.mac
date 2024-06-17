@@ -23,6 +23,7 @@ zstorehi MACRO address, reg
 	ENDM
 
 ;; Do a full permute using either vpermi2pd or vpermt2pd, neither mask nor src1 is overwritten
+;; This is not as flexible as using vpermt2pd directly (see znormal.mac for examples), but is more readble when used for swizzling.
 
 zperm2pd MACRO dest, mask, src1, src2
 	IF @sizestr(dest) EQ @sizestr(mask) AND @instr(,dest,mask) EQ 1
