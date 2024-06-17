@@ -915,7 +915,7 @@ lab:	mov	rbx, 0			;; Offset for some avx macros (s.b. non-zero for with_mult mac
 	mov	rbp, 524288+256		;; Offset for mulf avx macros
 	mov	r12, norm_grp_mults
 	mov	r13, r12
-	IF (avx512_case_num GE 108 AND avx512_case_num LT 116)
+	IF (avx512_case_num GE 116 AND avx512_case_num LT 124)
 	mov	r8, 128			;; d1reg for "rsc" macros
 	mov	r9, 384			;; d3reg for "rsc" macros
 	ELSE
@@ -2388,31 +2388,31 @@ av512case15:	scatter_read_sequential_write8 1280*7680*8, 5 ; Read/write 78MB
 
 ;;92
 	zr8_csc_wpn_eight_complex_first_djbfft_preload
-	avx512mac 1024, 16384, 0, zr8_csc_wpn_eight_complex_first_djbfft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
-	avx512mac 1024, 262144, 0, zr8_csc_wpn_eight_complex_first_djbfft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
+	avx512mac 8*128+16, 32768, 0, zr8_csc_wpn_eight_complex_first_djbfft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
+	avx512mac 8*128+16, 262144, 0, zr8_csc_wpn_eight_complex_first_djbfft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
 	zr8_csc_wpn_eight_complex_last_djbunfft_preload
-	avx512mac 1024, 16384, 0, zr8_csc_wpn_eight_complex_last_djbunfft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
-	avx512mac 1024, 262144, 0, zr8_csc_wpn_eight_complex_last_djbunfft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
+	avx512mac 8*128+16, 32768, 0, zr8_csc_wpn_eight_complex_last_djbunfft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
+	avx512mac 8*128+16, 262144, 0, zr8_csc_wpn_eight_complex_last_djbunfft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
 	zr8fs_eight_complex_first_fft_preload
-	avx512mac 1024, 16384, 0, zr8fs_eight_complex_first_fft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_CD8SCD4, rdx, 8*128, 1
-	avx512mac 1024, 262144, 0, zr8fs_eight_complex_first_fft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_CD8SCD4, rdx, 8*128, 1
+	avx512mac 8*128+ZMM_CD8SCD4+8*128, 32768, 0, zr8fs_eight_complex_first_fft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_CD8SCD4, rdx, 8*128, 1, L1PREFETCH_ALL
+	avx512mac 8*128+ZMM_CD8SCD4+8*128, 262144, 0, zr8fs_eight_complex_first_fft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_CD8SCD4, rdx, 8*128, 1, L1PREFETCH_ALL
 	zr8s_eight_complex_last_unfft_preload
-	avx512mac 1024, 16384, 0, zr8s_eight_complex_last_unfft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_CD8SCD4, 1
-	avx512mac 1024, 262144, 0, zr8s_eight_complex_last_unfft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_CD8SCD4, 1
+	avx512mac 8*128+ZMM_CD8SCD4, 32768, 0, zr8s_eight_complex_last_unfft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_CD8SCD4, 1, L1PREFETCH_ALL
+	avx512mac 8*128+ZMM_CD8SCD4, 262144, 0, zr8s_eight_complex_last_unfft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_CD8SCD4, 1, L1PREFETCH_ALL
 
 ;;100
 	zr8_wpn_sixteen_reals_first_fft_preload
-	avx512mac 1024, 16384, 0, zr8_wpn_sixteen_reals_first_fft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
-	avx512mac 1024, 262144, 0, zr8_wpn_sixteen_reals_first_fft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
+	avx512mac 8*128+16, 32768, 0, zr8_wpn_sixteen_reals_first_fft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
+	avx512mac 8*128+16, 262144, 0, zr8_wpn_sixteen_reals_first_fft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
 	zr8_wpn_sixteen_reals_last_unfft_preload
-	avx512mac 1024, 16384, 0, zr8_wpn_sixteen_reals_last_unfft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
-	avx512mac 1024, 262144, 0, zr8_wpn_sixteen_reals_last_unfft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
+	avx512mac 8*128+16, 32768, 0, zr8_wpn_sixteen_reals_last_unfft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
+	avx512mac 8*128+16, 262144, 0, zr8_wpn_sixteen_reals_last_unfft rsi, 8*128, 128, 2*128, 4*128, r15, 0, rdi, 16, rdx, 0, 1
 	zr8fs_sixteen_reals_first_fft_preload
-	avx512mac 1024, 16384, 0, zr8fs_sixteen_reals_first_fft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_SCD7, r15, 8*128, 1
-	avx512mac 1024, 262144, 0, zr8fs_sixteen_reals_first_fft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_SCD7, r15, 8*128, 1
+	avx512mac 8*128+ZMM_SCD7+8*128, 32768, 0, zr8fs_sixteen_reals_first_fft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_SCD7, rdx, 8*128, 1, L1PREFETCH_ALL
+	avx512mac 8*128+ZMM_SCD7+8*128, 262144, 0, zr8fs_sixteen_reals_first_fft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_SCD7, rdx, 8*128, 1, L1PREFETCH_ALL
 	zr8s_sixteen_reals_last_unfft_preload
-	avx512mac 1024, 16384, 0, zr8s_sixteen_reals_last_unfft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_SCD7, 1
-	avx512mac 1024, 262144, 0, zr8s_sixteen_reals_last_unfft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_SCD7, 1
+	avx512mac 8*128+ZMM_SCD7, 32768, 0, zr8s_sixteen_reals_last_unfft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_SCD7, 1, L1PREFETCH_ALL
+	avx512mac 8*128+ZMM_SCD7, 262144, 0, zr8s_sixteen_reals_last_unfft rsi, 8*128, 128, 2*128, 4*128, rdi, ZMM_SCD7, 1, L1PREFETCH_ALL
 
 ;;108
 	zr12_csc_wpn_twelve_complex_first_djbfft_preload
