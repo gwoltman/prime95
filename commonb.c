@@ -10313,7 +10313,7 @@ void createProofResiduesFile (
 
 	if (prefill) {
 		// Output a message
-		sprintf (buf, "Allocating disk space for the proof interim residues file %s\n", ps->residues_filename);
+		sprintf (buf, "Preallocating disk space for the proof interim residues file %s\n", ps->residues_filename);
 		OutputStr (ps->thread_num, buf);
 
 		// Create a buffer filled with random data
@@ -10330,7 +10330,7 @@ void createProofResiduesFile (
 		for (i = 0; i < (int) divide_rounding_up (total_size, sizeof (buf)); i++) {
 			if (_write (fd, buf, sizeof (buf)) != sizeof (buf)) {
 				int	num_residues, new_power, new_power_mult;
-				sprintf (buf, "Error allocating proof interim residues file\n");
+				sprintf (buf, "Error preallocating proof interim residues file\n");
 				OutputBoth (ps->thread_num, buf);
 				OutputBothErrno (ps->thread_num);
 
