@@ -376,9 +376,9 @@ x4klp:	movapd	xmm0, [rsi]
 	movapd	xmm3, [rsi+48]
 	andpd	xmm3, [rcx+48]
 	xstore	[rdi], xmm0		; Store destination data
-	xstore	[rdi+64], xmm1
-	xstore	[rdi+128], xmm2
-	xstore	[rdi+192], xmm3
+	xstore	[rdi+16], xmm1
+	xstore	[rdi+32], xmm2
+	xstore	[rdi+48], xmm3
 	bump	rsi, 64			; Next src ptr
 	bump	rcx, 64			; Next mask ptr
 	bump	rdi, 64			; Next dest ptr
