@@ -1252,9 +1252,9 @@ y4klp:	vmovapd	ymm0, [rsi]
 	vmovapd	ymm3, [rsi+96]
 	vandpd	ymm3, ymm3, [rcx+96]
 	ystore	[rdi], ymm0			; Store destination data
-	ystore	[rdi+64], ymm1
-	ystore	[rdi+128], ymm2
-	ystore	[rdi+192], ymm3
+	ystore	[rdi+32], ymm1
+	ystore	[rdi+64], ymm2
+	ystore	[rdi+96], ymm3
 	bump	rsi, 128			; Next src ptr
 	bump	rcx, 128			; Next mask ptr
 	bump	rdi, 128			; Next dest ptr
