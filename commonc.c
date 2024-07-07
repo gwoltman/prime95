@@ -2672,12 +2672,12 @@ int addToWorkUnitArray (
 		insertion_point = WORK_UNITS[tnum].last;
 		break;
 
-/* If add_to_front is set, add work unit to the front of the array after any comment lines. */
+/* If add_to_front is set, add work unit to the front of the array after any comment and CERT lines. */
 
 	case ADD_TO_FRONT:
 		if (WORK_UNITS[tnum].first != NULL && WORK_UNITS[tnum].first->work_type == WORK_NONE)
 			for (insertion_point = WORK_UNITS[tnum].first; insertion_point->next != NULL; insertion_point = insertion_point->next) {
-				if (insertion_point->next->work_type != WORK_NONE) break;
+				if (insertion_point->next->work_type != WORK_NONE && insertion_point->next->work_type != WORK_CERT) break;
 			}
 		else
 			insertion_point = NULL;
