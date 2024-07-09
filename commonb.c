@@ -11736,10 +11736,10 @@ int prp (
 				     (double) w->n > hashlen_adjust * 105e3 ? 5 : 0;
 		int	power_adjust;
 
-		// Default proof power based on disk space the worker is allowed to consume
+		// Default proof power based on disk space the worker is allowed to consume (CPU_WORKER_DISK_SPACE is in GiB, 1073741824 = 1024^3)
 		ps.proof_power = best_power;
 		double	disk_space = (double) (1 << ps.proof_power) * (double) (w->n / 8);
-		while (disk_space / 1.0e9 > CPU_WORKER_DISK_SPACE) ps.proof_power--, disk_space /= 2.0;
+		while (disk_space / 1073741824.0 > CPU_WORKER_DISK_SPACE) ps.proof_power--, disk_space /= 2.0;
 
 		// Provide two more (undocumented) ways for the user to override our default proof power.
 		ps.proof_power = IniGetInt (INI_FILE, "ProofPower", ps.proof_power);
