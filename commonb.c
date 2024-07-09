@@ -592,7 +592,7 @@ void SetPriority (
 		else if (bind_type == 1) sprintf (buf+strlen(buf), "logical CPU #%d (zero-based)\n", logical_CPU);
 #endif
 		else if (bind_type == 3) sprintf (buf+strlen(buf), "any performance core\n");
-		else sprintf (buf+strlen(buf), "logical CPUs %s (zero-based)\n", logical_CPU_substring);
+		else sprintf (buf+strlen(buf), "logical CPU%s %s (zero-based)\n", strchr (logical_CPU_substring, ',') == NULL ? "" : "s", logical_CPU_substring);
 		OutputStr (info->worker_num, buf);
 	}
 
