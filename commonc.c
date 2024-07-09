@@ -2669,6 +2669,7 @@ int addToWorkUnitArray (
 
 	switch (add_point) {
 	case ADD_TO_END:
+	case ADD_TO_END_NO_CHANGE:
 		insertion_point = WORK_UNITS[tnum].last;
 		break;
 
@@ -2725,7 +2726,7 @@ int addToWorkUnitArray (
 
 /* Set flag indicating worktodo needs writing */
 
-	WORKTODO_CHANGED = TRUE;
+	if (add_point != ADD_TO_END_NO_CHANGE) WORKTODO_CHANGED = TRUE;
 
 /* Return success */
 
@@ -3291,7 +3292,7 @@ int readWorkToDoFile (void)
 
 /* Grow the work_unit array if necessary and add this entry */
 
-	    rc = addToWorkUnitArray (tnum, w, ADD_TO_END);
+	    rc = addToWorkUnitArray (tnum, w, ADD_TO_END_NO_CHANGE);
 	    if (rc) goto retrc;
 	}
 
