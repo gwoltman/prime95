@@ -14687,7 +14687,7 @@ int pp1_restore (
 
 	if (pp1data->state >= PP1_STATE_MIDSTAGE && pp1data->state <= PP1_STATE_GCD) {
 		int	have_gg;
-		if (version == 4) have_gg = TRUE;				// 30.6 save files
+		if (version == 1) have_gg = TRUE;				// 30.6 save files
 		else if (! read_int (fd, &have_gg, &sum)) goto readerr;		// 30.7 save files
 		if (have_gg) {
 			pp1data->gg = gwalloc (&pp1data->gwdata);
