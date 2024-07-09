@@ -932,7 +932,7 @@ void options_resources (void)
 
 	m_disk = CPU_WORKER_DISK_SPACE;
 	m_upload_bandwidth = IniSectionGetFloat (INI_FILE, SEC_PrimeNet, KEY_UploadRateLimit, 0.25);
-	if (m_upload_bandwidth <= 0.0 || m_upload_bandwidth > 10000.0) m_upload_bandwidth = 10000.0;
+	if (m_upload_bandwidth < 0.0 || m_upload_bandwidth > 10000.0) m_upload_bandwidth = 10000.0;
 	IniSectionGetString (INI_FILE, SEC_PrimeNet, KEY_UploadStartTime, m_upload_start, sizeof (m_upload_start), "00:00");
 	if (strcmp (m_upload_start, "00:00") != 0) minutesToStr (strToMinutes (m_upload_start), m_upload_start);
 	IniSectionGetString (INI_FILE, SEC_PrimeNet, KEY_UploadEndTime, m_upload_end, sizeof (m_upload_end), "24:00");
@@ -964,7 +964,7 @@ void options_resources (void)
 		}
 	}
 	if (can_upload) {
-		askFloat ("Upload bandwidth limit in Mbps", &m_upload_bandwidth, 0.05, 10000.0);
+		askFloat ("Upload bandwidth limit in Mbps, zero = no limit", &m_upload_bandwidth, 0.0, 10000.0);
 		askStr ("Upload large files time period start", m_upload_start, 8);
 		askStr ("Upload large files time period end", m_upload_end, 8);
 	}

@@ -691,7 +691,8 @@ void CPrime95Doc::OnResources()
 	minutesToStr (day_end_time, timebuf);
 	dlg.m_end_time = timebuf;
 	dlg.m_upload_bandwidth = IniSectionGetFloat (INI_FILE, SEC_PrimeNet, KEY_UploadRateLimit, 0.25);
-	if (dlg.m_upload_bandwidth <= 0.0 || dlg.m_upload_bandwidth > 10000.0) dlg.m_upload_bandwidth = 10000.0;
+	if (dlg.m_upload_bandwidth < 0.0 || dlg.m_upload_bandwidth > 10000.0) dlg.m_upload_bandwidth = 10000.0;
+	if (dlg.m_upload_bandwidth == 0.0) dlg.m_no_limit = TRUE, dlg.m_upload_bandwidth = 0.25;
 	IniSectionGetString (INI_FILE, SEC_PrimeNet, KEY_UploadStartTime, timebuf, sizeof (timebuf), "00:00");
 	if (strcmp (timebuf, "00:00") != 0) minutesToStr (strToMinutes (timebuf), timebuf);
 	dlg.m_upload_start = timebuf;
@@ -726,6 +727,7 @@ void CPrime95Doc::OnResources()
 /* Write bandwidth settings */
 
 		if (dlg.m_can_upload) {
+			if (dlg.m_no_limit) dlg.m_upload_bandwidth = 0.0;
 			IniSectionWriteFloat (INI_FILE, SEC_PrimeNet, KEY_UploadRateLimit, dlg.m_upload_bandwidth);
 			IniSectionWriteString (INI_FILE, SEC_PrimeNet, KEY_UploadStartTime, (const char *) dlg.m_upload_start);
 			IniSectionWriteString (INI_FILE, SEC_PrimeNet, KEY_UploadEndTime, (const char *) dlg.m_upload_end);

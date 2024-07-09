@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------------
-| Copyright 2020-2023 Mersenne Research, Inc.  All rights reserved
+| Copyright 2020-2024 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines to upload one proof file to the Primenet server
 +--------------------------------------------------------------------------*/
@@ -131,7 +131,7 @@ void ProofUpload (char *filename)
 	if (bandwidth_rate_limit_flt < 0.0) bandwidth_rate_limit_flt = 0.0;
 	if (bandwidth_rate_limit_flt > 10000.0) bandwidth_rate_limit_flt = 10000.0;	// Max out at 10Gbps
 
-	if (bandwidth_rate_limit_flt == 0.0) max_chunk_size_flt = 7.0;			// Default chunk size based on rate limit
+	if (bandwidth_rate_limit_flt == 0.0 || bandwidth_rate_limit_flt >= 100.0) max_chunk_size_flt = 7.0;	// Default chunk size based on rate limit
 	else if (bandwidth_rate_limit_flt >= 8.0) max_chunk_size_flt = 4.0;
 	else if (bandwidth_rate_limit_flt >= 1.0) max_chunk_size_flt = 2.0;
 	else max_chunk_size_flt = 1.0;
