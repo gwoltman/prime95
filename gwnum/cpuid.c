@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2023 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2024 Mersenne Research, Inc.  All rights reserved
 | Author:  George Woltman
 | Email: woltman@alum.mit.edu
 |
@@ -397,21 +397,22 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 			if (((reg.ECX >> 28) & 0x1) && ((getbv_reg.EAX & 6) == 6)) CPU_FLAGS |= CPU_AVX;
 			if (((reg.ECX >> 12) & 0x1) && (CPU_FLAGS & CPU_AVX)) CPU_FLAGS |= CPU_FMA3;
 
-/* Get more feature flags.  Specifically the AVX2, AVX512F, AVX512PF and PREFETCHWT1 flags. */
+/* Get more feature flags.  Specifically the AVX2, AVX512F, AVX512VL, AVX512DQ, AVX512PF and PREFETCHWT1 flags. */
 
 			if (max_cpuid_value >= 7) {
 				reg.ECX = 0;
 				Cpuid (7, &reg);
 				if (((reg.EBX >> 5) & 0x1) && (CPU_FLAGS & CPU_AVX)) CPU_FLAGS |= CPU_AVX2;
 				if (((reg.EBX >> 16) & 0x1) && ((getbv_reg.EAX & 0xE0) == 0xE0)) CPU_FLAGS |= CPU_AVX512F;
+				if (((reg.EBX >> 17) & 0x1) && (CPU_FLAGS & CPU_AVX512F)) CPU_FLAGS |= CPU_AVX512DQ;
 				if (((reg.EBX >> 26) & 0x1) && (CPU_FLAGS & CPU_AVX512F)) CPU_FLAGS |= CPU_AVX512PF;
+				if (((reg.EBX >> 31) & 0x1) && (CPU_FLAGS & CPU_AVX512F)) CPU_FLAGS |= CPU_AVX512VL;
 				if (reg.ECX & 0x1) CPU_FLAGS |= CPU_PREFETCHWT1;
 			}
 		}
 	}
 
-/* Call CPUID with 0x80000000 argument.  It tells us how many extended CPU */
-/* functions are supported. */
+/* Call CPUID with 0x80000000 argument.  It tells us how many extended CPU functions are supported. */
 
 	Cpuid (0x80000000, &reg);
 	max_extended_cpuid_value = reg.EAX;
