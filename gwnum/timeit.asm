@@ -954,6 +954,7 @@ avx512znormmac MACRO	memused, memarea, rdi_incr, ops:vararg
 	ENDM
 avx512znormmac1 MACRO lab, memused, memarea, rdi_incr, ops:vararg
 	LOCAL	av00, av0a, av0b
+	AVX512DQ=1
 	inner_iters = memarea / (memused)
 	outer_iters = 10000 / inner_iters
 	odd_iters = 10000 - inner_iters * outer_iters

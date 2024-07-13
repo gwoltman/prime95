@@ -3285,6 +3285,7 @@ int internal_gwsetup (
 
 /* Copy values for asm code to use */
 
+	asm_data->CPU_FLAGS = gwdata->cpu_flags;
 	asm_data->FFTLEN = gwdata->FFTLEN;
 	asm_data->ZERO_PADDED_FFT = gwdata->ZERO_PADDED_FFT;
 	asm_data->NEGACYCLIC_FFT = gwdata->NEGACYCLIC_FFT;

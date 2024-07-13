@@ -49,7 +49,7 @@ struct gwasm_data {
 	void	*pass1_get_next_block;	/* Callback routine to get next block number for thread to process */
 
 	double	DBLARG;			/* Function argument */
-	uint32_t UNUSED_NUMARG;		/* Gwcopyzero assembly arg */
+	uint32_t CPU_FLAGS;		/* Copy of gwdata->cpu_flags */
 	uint32_t FFTLEN;		/* The FFT size we are using */
 	double	MAXERR;			/* Convolution error in a multiplication */
 	char	NEGACYCLIC_FFT;		/* True if doing a negacyclic FFT */

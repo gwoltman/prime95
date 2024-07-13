@@ -36,6 +36,24 @@ zperm2pd MACRO dest, mask, src1, src2
 	ENDIF
 	ENDM
 
+;; Perform max of abs value of two values
+
+zmaxabspd_preload MACRO absreg
+	IF AVX512DQ EQ 0
+	zmaxabspd_absreg EQU <&absreg>
+	vbroadcastsd absreg, ZMM_ABSVAL
+	ENDIF
+	ENDM
+zmaxabspd MACRO dest, src1, src2
+	IF AVX512DQ EQ 0
+	vandpd	src1, src1, zmaxabspd_absreg
+	vandpd	src2, src2, zmaxabspd_absreg
+	vmaxpd	dest, src1, src2
+	ELSE
+	vrangepd dest, src1, src2, 1011b
+	ENDIF
+	ENDM
+
 ;; A latency one vblendmpd instruction may introduce "bubbles" into a pipeline full af latency four adds and muls.
 ;; If so, using an vmovapd and vaddpd instruction might be faster even though it is more uops and longer latency.
 ;; Benchmarking on Skylake-X suggests pipeline bubbles are not a problem

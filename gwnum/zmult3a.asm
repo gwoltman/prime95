@@ -45,7 +45,7 @@ _TEXT SEGMENT
 ;; r14 = distance to fourth FFT section data
 
 inorm	MACRO	lab, ttp, echk, const
-	LOCAL	ilp1, ilp2, not8, done
+	LOCAL	ilp1, ilp2, ilp2dq, ilp2dn, not8, done
 	PROCFLP	lab
 	int_prolog 0,0,0
 
@@ -83,6 +83,25 @@ const ttp vsubpd zmm5, zmm5, zmm30
 const ttp vsubpd zmm6, zmm6, zmm30
 const ttp vsubpd zmm7, zmm7, zmm30
 
+;; Error checking uses AVX512DQ instructions available on most CPUs.  This section is for the rare CPU that does not support AVX512DQ.
+	AVX512DQ = 0			;; Disable use of AVX512DQ instructions
+echk	test	CPU_FLAGS, 0400000h	;; Test the AVX512DQ flag
+echk	jnz	ilp2			;; Go use the AVX512DQ instructions
+ilp2dq:					;; Copy the ilp2 loop
+echk	znorm_wpn ttp, echk, const	;; Normalize 64 values (4 simultaneous clmblks)
+echk	bump	rsi, 128		;; Next 1st source pointer
+echk ttp bump	rdi, 1			;; Next big/little flags
+echk	sub	r15, 1			;; Test clm loop counter
+echk	prefetchwt1 [rcx]		;; Prefetch with write intent FFT data for next pass 1 block
+echk	bump	rcx, 64			;; Tentatively compute next cache line to prefetch
+echk	lea	rax, [rcx+r8]		;; Tentatively compute next cache line to prefetch if it is time for a large stride
+echk	test	r15, rbx		;; Compare loop counter to the clm-1 mask
+echk	cmovz	rcx, rax		;; Every clm-th iteration use a large stride
+echk	test	r15, r15		;; Are we done with the 8*clm inner loop?
+echk	jnz	ilp2dq			;; Loop til done
+echk	jmp	ilp2dn
+
+	AVX512DQ = 1			;; Enable use of AVX512DQ instructions
 ilp2:	znorm_wpn ttp, echk, const	;; Normalize 64 values (4 simultaneous clmblks)
 	bump	rsi, 128		;; Next 1st source pointer
 ttp	bump	rdi, 1			;; Next big/little flags
@@ -96,6 +115,7 @@ ttp	bump	rdi, 1			;; Next big/little flags
 
 	test	r15, r15		;; Are we done with the 8*clm inner loop?
 	jnz	ilp2			;; Loop til done
+ilp2dn:
 
 const ttp vaddpd zmm0, zmm0, zmm30	;; Reapply RNDVAL for irrational mul-by-small-const normalization
 const ttp vaddpd zmm1, zmm1, zmm30

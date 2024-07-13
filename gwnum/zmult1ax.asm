@@ -950,7 +950,7 @@ ENDIF
 ;; rbp = available
 
 inorm	MACRO	lab, ttp, echk, const
-	LOCAL	ilp1, ilp2
+	LOCAL	ilp1, ilp2, ilp2dq, ilp2dn
 	PROCFLP	lab
 	int_prolog 0,0,0
 
@@ -995,6 +995,21 @@ const ttp vsubpd zmm5, zmm5, zmm30
 const ttp vsubpd zmm6, zmm6, zmm30
 const ttp vsubpd zmm7, zmm7, zmm30
 
+;; Error checking uses AVX512DQ instructions available on most CPUs.  This section is for the rare CPU that does not support AVX512DQ.
+	AVX512DQ = 0			;; Disable use of AVX512DQ instructions
+echk	test	CPU_FLAGS, 0400000h	;; Test the AVX512DQ flag
+echk	jnz	ilp2			;; Go use the AVX512DQ instructions
+ilp2dq:					;; Copy the ilp2 loop
+echk		znorm_1d ttp, echk, const	;; Normalize 64 values (4 simultaneous sections)
+echk		bump	rsi, 128		;; Next source pointer
+echk ttp	bump	r10, 4*128		;; Next set of inverse weights
+echk no ttp	bump	r10, 4*64		;; Rational negacyclics also need inverse weights due to delayed mul-by-sine
+echk ttp	bump	rdi, 1			;; Next big/little flags
+echk		dec	ecx			;; Are we done with the inner loop?
+echk		jnz	ilp2dq			;; Loop til done
+echk	jmp	ilp2dn
+
+	AVX512DQ = 1			;; Enable use of AVX512DQ instructions
 ilp2:	znorm_1d ttp, echk, const	;; Normalize 64 values (4 simultaneous sections)
 	bump	rsi, 128		;; Next source pointer
 ttp	bump	r10, 4*128		;; Next set of inverse weights
@@ -1002,6 +1017,7 @@ no ttp	bump	r10, 4*64		;; Rational negacyclics also need inverse weights due to 
 ttp	bump	rdi, 1			;; Next big/little flags
 	dec	ecx			;; Are we done with the inner loop?
 	jnz	ilp2			;; Loop til done
+ilp2dn:
 
 const ttp vaddpd zmm0, zmm0, zmm30	;; Reapply RNDVAL for irrational mul-by-small-const normalization
 const ttp vaddpd zmm1, zmm1, zmm30
