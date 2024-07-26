@@ -2785,10 +2785,10 @@ xjmptable DD	0
 	PRCENTRY2		xfft_r4delay_32M_13_1, 55648256
 	PRCENTRY2		xfft_hg_32M_13_2, 42639360
 	DD			0
-;; Only include this FFT for the server_proof_processor.  See also dwpn5.asm
-;;	PRCSTRT	1200000000, 78643200, 44.500
-;;	PRCENTRY2		xfft_r4dwpn_75M_25600_4, 123625472, I7
-;;	DD			0
+;; Only include this FFT for the server_proof_processor.  See also r4dwpn5.asm
+	PRCSTRT	1200000000, 78643200, 44.500
+	PRCENTRY2		xfft_r4dwpn_75M_25600_4, 123625472, I7
+	DD			0
 	DD	0
 
 xjmptablep DD	0
