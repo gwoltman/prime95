@@ -1214,6 +1214,12 @@ void PreLaunchCallback (
 			Sleep (delay * 1000);
 		}
 	}
+
+// Call Windows routine to prevent the OS going into sleep mode
+
+	int state = IniGetInt (INI_FILE, "SetThreadExecutionState", 0);
+	if (state == 1) SetThreadExecutionState (ES_SYSTEM_REQUIRED | ES_CONTINUOUS);
+	else if (state == 2) SetThreadExecutionState (ES_AWAYMODE_REQUIRED | ES_CONTINUOUS);
 }
 
 /* Do some work after workers have terminated */
@@ -1221,6 +1227,11 @@ void PreLaunchCallback (
 void PostLaunchCallback (
 	int	launch_type)
 {
+
+// Call Windows routine to resume the OS going into sleep mode
+
+	int state = IniGetInt (INI_FILE, "SetThreadExecutionState", 0);
+	if (state == 1 || state == 2) SetThreadExecutionState (ES_CONTINUOUS);
 }
 
 /* OSes that must poll for whether the ESC key was hit do it here. */

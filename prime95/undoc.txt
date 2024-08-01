@@ -22,13 +22,13 @@ At present, only Memory, MaxHighMemWorkers, PauseWhileRunning, LowMemWhileRunnin
 and PauseCheckInterval support this during/else syntax.  Also note you can
 no longer edit these options from the user interface.  To use this feature,
 you must manually edit the prime.txt file.  An example in prime.txt:
-	Memory=500 during 1-5/17:30-24:00,1-5/0:00-8:30,6-7/0:00-24:00 else 200
+	Memory=5000 during 1-5/17:30-24:00,1-5/0:00-8:30,6-7/0:00-24:00 else 1000
 The 1-5 and 6-7 refer to days of the week, with Monday=1 and Sunday=7.  The
 time portion refers to the hours of the day based on a 24-hour clock.
 You do not need to specify days of the week (e.g. 1-7/0:00-8:00
-is the same as 0:00-8:00).  The above example lets the program use 500MB
+is the same as 0:00-8:00).  The above example lets the program use 5GB
 during the week from 5:30PM to 8:30AM and all day on weekends.  Otherwise
-(weekdays from 8:30AM to 5:30PM), the program can use only 200MB.
+(weekdays from 8:30AM to 5:30PM), the program can use only 1GB.
 
 There are some additional PRP proof controls that are not available in the
 Resource Limits dialog box.  In prime.txt,
@@ -883,6 +883,13 @@ WINDOWS ONLY:  You can have prime95 pause when the battery level gets low.
 This will allow you to charge the battery faster.  Add the line
 	BatteryPercent=n
 to prime.txt, where n is a number from 0 to 100.  The default value is zero.
+
+If Windows is going into sleep mode when your computer is not being used the
+following setting may help.
+	SetThreadExecutionState=n	(default is 0)
+Google the SetThreadExecutionState Windows call.  Set n=1 for prime95 to call
+SetThreadExecutionState with ES_SYSTEM_REQUIRED | ES_CONTINUOUS.  Set n=2 for
+prime95 to call SetThreadExecutionState with ES_AWAYMODE_REQUIRED | ES_CONTINUOUS.
 
 LINUX/FREEBSD/APPLE ONLY: In prime.txt you can have set the nice level.  By
 default, on startup mprime automatically sets the program to nice priority.
