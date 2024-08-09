@@ -10884,6 +10884,14 @@ void cmn_gwmulmulop5 (		/* Calculate (s1 * s2) op (s3 * s4) */
 	if (s3 == d) options &= ~(GWMUL_FFT_S3 | GWMUL_PRESERVE_S3);
 	if (s4 == d) options &= ~(GWMUL_FFT_S4 | GWMUL_PRESERVE_S4);
 
+/* From Pavel, turn -1 * (s1*s2 - s3*s4) into (s3*s4 - s1*s2) */
+	
+	if (opcode == 4 && (options & GWMUL_MULBYCONST) && gwdata->mulbyconst == -1) {
+		gwswap (s1, s3);
+		gwswap (s2, s4);
+		options &= ~GWMUL_MULBYCONST;
+	}
+
 /* We may be able to save a read if adding and s1,s2 are fully FFTed and one of s3,s4 is not */
 
 	if (opcode == 3 && FFT_state (s1) == FULLY_FFTed && FFT_state (s2) == FULLY_FFTed) {
