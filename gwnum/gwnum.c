@@ -12237,6 +12237,7 @@ void multithread_op (
 			memmask (data.d1, data.s1, data.s2, copysize);
 			size -= copysize;
 			data.s1 = (gwnum) ((char *) data.s1 + copysize);
+			data.s2 = (gwnum) ((char *) data.s2 + copysize);
 			data.d1 = (gwnum) ((char *) data.d1 + copysize);
 		}
 
