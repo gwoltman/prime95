@@ -3673,7 +3673,7 @@ zfinish_unfft:
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	zloop_init  8			;; 8 iterations
 	zr8_sixteen_reals_eight_complex_djbunfft_preload
-c2b:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+c2b:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, c2b, -8*128		;; Test loop counter, restore source pointer, restore sin/cos pointer
 	end_timer 7
 
@@ -5521,7 +5521,7 @@ b3a:	zr8_sixteen_reals_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi
 
 	loops_reset			;; 1 more iter of 8
 	zr8rb_eight_complex_djbfft_preload
-b3b:	zr8rb_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+b3b:	zr8rb_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, b3b, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, next source pointer, restore sin/cos pointer
 	zloop	2, b3b, -2*64*128	;; Test loop counter, restore source pointer
 	end_timer 6
@@ -5617,12 +5617,12 @@ zfinish_unfft:
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	zloop_init  16			;; 2 iterations of 8
 	zr8_sixteen_reals_eight_complex_djbunfft_preload
-c3a:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+c3a:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, c3a, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, restore source pointer, restore sin/cos pointer
 
 	loops_reset			;; 1 more iter of 8
 	zr8rb_eight_complex_djbunfft_preload
-c3b:	zr8rb_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+c3b:	zr8rb_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, c3b, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, next source pointer, restore sin/cos pointer
 	zloop	2, c3b, -2*64*128, rdi, 8*ZMM_SCD7 ;; Test loop counter, restore source pointer, next sin/cos pointer
 	end_timer 8
@@ -7045,7 +7045,7 @@ b3a:	zr8_sixteen_reals_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi
 
 	loops_reset			;; 2 more iters of 8
 	zr8rb_eight_complex_djbfft_preload
-b3b:	zr8rb_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+b3b:	zr8rb_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_ALL, 8*128
 	zloop	8, b3b, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, next source pointer, restore sin/cos pointer
 	zloop	3, b3b, -3*64*128	;; Test loop counter, restore source pointer
 	end_timer 6
@@ -7141,12 +7141,12 @@ zfinish_unfft:
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	zloop_init  24			;; 3 iterations of 8
 	zr8_sixteen_reals_eight_complex_djbunfft_preload
-c3a:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+c3a:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, c3a, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, restore source pointer, restore sin/cos pointer
 
 	loops_reset			;; 2 more iters of 8
 	zr8rb_eight_complex_djbunfft_preload
-c3b:	zr8rb_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+c3b:	zr8rb_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, c3b, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, next source pointer, restore sin/cos pointer
 	zloop	3, c3b, -3*64*128, rdi, 8*ZMM_SCD7 ;; Test loop counter, restore source pointer, next sin/cos pointer
 	end_timer 8
@@ -8569,7 +8569,7 @@ b3a:	zr8_sixteen_reals_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi
 
 	loops_reset			;; 3 more iters of 8
 	zr8rb_eight_complex_djbfft_preload
-b3b:	zr8rb_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+b3b:	zr8rb_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, b3b, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, next source pointer, restore sin/cos pointer
 	zloop	4, b3b, -4*64*128	;; Test loop counter, restore source pointer
 	end_timer 6
@@ -8665,12 +8665,12 @@ zfinish_unfft:
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	zloop_init  32			;; 4 iterations of 8
 	zr8_sixteen_reals_eight_complex_djbunfft_preload
-c3a:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+c3a:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, c3a, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, restore source pointer, restore sin/cos pointer
 
 	loops_reset			;; 3 more iters of 8
 	zr8rb_eight_complex_djbunfft_preload
-c3b:	zr8rb_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+c3b:	zr8rb_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, c3b, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, next source pointer, restore sin/cos pointer
 	zloop	4, c3b, -4*64*128, rdi, 8*ZMM_SCD7 ;; Test loop counter, restore source pointer, next sin/cos pointer
 	end_timer 8
@@ -9585,7 +9585,7 @@ b3a:	zr8_sixteen_reals_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi
 
 	loops_reset			;; 4 more iters of 8
 	zr8rb_eight_complex_djbfft_preload
-b3b:	zr8rb_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+b3b:	zr8rb_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_ALL, 8*128
 	zloop	8, b3b, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, next source pointer, restore sin/cos pointer
 	zloop	5, b3b, -5*64*128	;; Test loop counter, restore source pointer
 	end_timer 6
@@ -9681,12 +9681,12 @@ zfinish_unfft:
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	zloop_init  40			;; 5 iterations of 8
 	zr8_sixteen_reals_eight_complex_djbunfft_preload
-c3a:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+c3a:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, c3a, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, restore source pointer, restore sin/cos pointer
 
 	loops_reset			;; 4 more iters of 8
 	zr8rb_eight_complex_djbunfft_preload
-c3b:	zr8rb_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+c3b:	zr8rb_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, c3b, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, next source pointer, restore sin/cos pointer
 	zloop	5, c3b, -5*64*128, rdi, 8*ZMM_SCD7 ;; Test loop counter, restore source pointer, next sin/cos pointer
 	end_timer 8
@@ -10601,7 +10601,7 @@ b3a:	zr8_sixteen_reals_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi
 
 	loops_reset			;; 5 more iters of 8
 	zr8rb_eight_complex_djbfft_preload
-b3b:	zr8rb_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+b3b:	zr8rb_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, b3b, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, next source pointer, restore sin/cos pointer
 	zloop	6, b3b, -6*64*128	;; Test loop counter, restore source pointer
 	end_timer 6
@@ -10697,12 +10697,12 @@ zfinish_unfft:
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	zloop_init  48			;; 6 iterations of 8
 	zr8_sixteen_reals_eight_complex_djbunfft_preload
-c3a:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+c3a:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, c3a, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, restore source pointer, restore sin/cos pointer
 
 	loops_reset			;; 5 more iters of 8
 	zr8rb_eight_complex_djbunfft_preload
-c3b:	zr8rb_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+c3b:	zr8rb_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, c3b, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, next source pointer, restore sin/cos pointer
 	zloop	6, c3b, -6*64*128, rdi, 8*ZMM_SCD7 ;; Test loop counter, restore source pointer, next sin/cos pointer
 	end_timer 8
@@ -11109,7 +11109,7 @@ b3a:	zr8_sixteen_reals_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi
 
 	loops_reset			;; 6 more iters of 8
 	zr8rb_eight_complex_djbfft_preload
-b3b:	zr8rb_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+b3b:	zr8rb_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_ALL, 8*128
 	zloop	8, b3b, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, next source pointer, restore sin/cos pointer
 	zloop	7, b3b, -7*64*128	;; Test loop counter, restore source pointer
 	end_timer 6
@@ -11205,12 +11205,12 @@ zfinish_unfft:
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	zloop_init  56			;; 7 iterations of 8
 	zr8_sixteen_reals_eight_complex_djbunfft_preload
-c3a:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+c3a:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, c3a, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, restore source pointer, restore sin/cos pointer
 
 	loops_reset			;; 6 more iters of 8
 	zr8rb_eight_complex_djbunfft_preload
-c3b:	zr8rb_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8
+c3b:	zr8rb_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, c3b, -8*128+64*128, rdi, -8*ZMM_SCD7 ;; Test loop counter, next source pointer, restore sin/cos pointer
 	zloop	7, c3b, -7*64*128, rdi, 8*ZMM_SCD7 ;; Test loop counter, restore source pointer, next sin/cos pointer
 	end_timer 8
@@ -11616,7 +11616,7 @@ b3a:	zr8_sixteen_reals_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi
 
 	loops_reset			;; 7 more iters of 8
 	zr8rb_eight_complex_djbfft_preload
-b3b:	zr8rb_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi, 8*ZMM_SCD7, 8
+b3b:	zr8rb_eight_complex_djbfft rsi, 128, 8*128, 16*128, 32*128, rdi, 8*ZMM_SCD7, 8, L1PREFETCH_ALL, 8*128
 	zloop	8, b3b, -8*128+64*128, rdi, -8*8*ZMM_SCD7 ;; Test loop counter, next source pointer, restore sin/cos pointer
 	zloop	8, b3b, -8*64*128	;; Test loop counter, restore source pointer
 	end_timer 6
@@ -11712,12 +11712,12 @@ zfinish_unfft:
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	zloop_init  64			;; 8 iterations of 8
 	zr8_sixteen_reals_eight_complex_djbunfft_preload
-c3a:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, 8*ZMM_SCD7, 8
+c3a:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, 8*ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, c3a, -8*128+64*128, rdi, -8*8*ZMM_SCD7 ;; Test loop counter, restore source pointer, restore sin/cos pointer
 
 	loops_reset			;; 7 more iters of 8
 	zr8rb_eight_complex_djbunfft_preload
-c3b:	zr8rb_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, 8*ZMM_SCD7, 8
+c3b:	zr8rb_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, 8*ZMM_SCD7, 8, L1PREFETCH_NONE
 	zloop	8, c3b, -8*128+64*128, rdi, -8*8*ZMM_SCD7 ;; Test loop counter, next source pointer, restore sin/cos pointer
 	zloop	8, c3b, -8*64*128	;; Test loop counter, restore source pointer
 	end_timer 8
@@ -11743,7 +11743,7 @@ c3b:	zr8rb_eight_complex_djbunfft rsi, 128, 8*128, 16*128, 32*128, rdi, 8*ZMM_SC
 	start_timer 9
 	zloop_init  64			;; 64 iterations
 	zr8_sixteen_reals_eight_complex_djbunfft_preload
-c2b:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 64*128, 128*128, 256*128, rdi, ZMM_SCD7, 64
+c2b:	zr8_sixteen_reals_eight_complex_djbunfft rsi, 128, 64*128, 128*128, 256*128, rdi, ZMM_SCD7, 64, L1PREFETCH_NONE
 	zloop	64, c2b, -64*128	;; Test loop counter, restore source pointer, restore sin/cos pointer
 	end_timer 9
 
