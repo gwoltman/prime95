@@ -8139,19 +8139,13 @@ zr8fs_eight_complex_first_fft MACRO srcreg,srcinc,d1,d2,d4,screg,scinc,wgtreg,wg
 	ENDM
 
 
-
-
-
 zr8s_eight_complex_last_unfft_preload MACRO
 	vbroadcastsd zmm31, ZMM_SQRTHALF
 	mov	r14d, 11110000b
 	kmovw	k6, r14d
 	knotw	k7, k6
 	ENDM
-;; Force L1PREFETCH_ALL until we bench & fix zonepass.mac
-;zr8s_eight_complex_last_unfft MACRO srcreg,srcinc,d1,d2,d4,screg,scinc,maxrpt,L1pt,L1pd
-;	zr8s_eight_complex_last_unfftA srcreg,srcinc,d1,d2,d4,screg,scinc,maxrpt,L1PREFETCH_ALL
-;	ENDM
+
 zr8s_eight_complex_last_unfft MACRO srcreg,srcinc,d1,d2,d4,screg,scinc,maxrpt,L1pt,L1pd
 	vmovapd	zmm0, [srcreg+d2]			;; d2_7	d2_6 d2_5 d2_4 d2_3 d2_2 d2_1 d2_0
 	vmovupd	zmm17, [srcreg+32]			;; (+64 d0_3 d0_2 d0_1 d0_0) d0_7 d0_6 d0_5 d0_4
@@ -8319,43 +8313,43 @@ zr8s_eight_complex_last_unfft MACRO srcreg,srcinc,d1,d2,d4,screg,scinc,maxrpt,L1
 	zfnmaddpd zmm11, zmm11, zmm27, zmm5		;; i2-- = (i2-i8) - (i4-i6) * sine			; 43-46		n 53
 	bump	screg, scinc
 
-	L1prefetchw srcreg+srcinc, L1pt
+	L1prefetchw srcreg+srcinc+d2, L1pt
 	zfmaddpd zmm5, zmm1, zmm27, zmm14		;; i2++ = (i2+i8) + (i4+i6) * sine			; 44-47		n 52
 	zfnmaddpd zmm1, zmm1, zmm27, zmm14		;; i2+- = (i2+i8) - (i4+i6) * sine			; 44-47		n 50
 
-	L1prefetchw srcreg+srcinc+64, L1pt
+	L1prefetchw srcreg+srcinc, L1pt
 	zfmaddpd zmm14, zmm16, zmm26, zmm3		;; r1++ = (r1+r5) + (r3+r7) * sine			; 45-48		n 51
 	zfnmaddpd zmm16, zmm16, zmm26, zmm3		;; r1+- = (r1+r5) - (r3+r7) * sine			; 45-48		n 53
 
-	L1prefetchw srcreg+srcinc+d1, L1pt
+	L1prefetchw srcreg+srcinc+64, L1pt
 	zfmaddpd zmm3, zmm0, zmm26, zmm12		;; i1++ = (i1+i5) + (i3+i7) * sine			; 46-49		n 52
 	zfnmaddpd zmm0, zmm0, zmm26, zmm12		;; i1+- = (i1+i5) - (i3+i7) * sine			; 46-49		n 54
 
-	L1prefetchw srcreg+srcinc+d1+64, L1pt
+	L1prefetchw srcreg+srcinc+d2+d1, L1pt
 	zfmaddpd zmm12, zmm15, zmm26, zmm7		;; r1-+ = (r1-r5) + (i3-i7) * sine			; 47-50		n 55
 	zfnmaddpd zmm15, zmm15, zmm26, zmm7		;; r1-- = (r1-r5) - (i3-i7) * sine			; 47-50		n 59
 
-	L1prefetchw srcreg+srcinc+d2, L1pt
+	L1prefetchw srcreg+srcinc+d1, L1pt
 	zfmaddpd zmm7, zmm6, zmm26, zmm10		;; i1-+ = (i1-i5) + (r3-r7) * sine			; 48-51		n 61
 	zfnmaddpd zmm6, zmm6, zmm26, zmm10		;; i1-- = (i1-i5) - (r3-r7) * sine			; 48-51		n 57
 
-	L1prefetchw srcreg+srcinc+d2+64, L1pt
+	L1prefetchw srcreg+srcinc+d1+64, L1pt
 	vaddpd	zmm10, zmm2, zmm8			;; r2+-+ = (r2+-) + (i2-+)				; 49-52		n 55
 	vsubpd	zmm2, zmm2, zmm8			;; r2+-- = (r2+-) - (i2-+)				; 49-52		n 59
 
-	L1prefetchw srcreg+srcinc+d2+d1, L1pt
+	L1prefetchw srcreg+srcinc+d4+d2, L1pt
 	vaddpd	zmm8, zmm13, zmm1			;; r2-++ = (r2-+) + (i2+-)				; 50-53		n 61
 	vsubpd	zmm13, zmm13, zmm1			;; r2-+- = (r2-+) - (i2+-)				; 50-53		n 57
 
-	L1prefetchw srcreg+srcinc+d2+d1+64, L1pt
+	L1prefetchw srcreg+srcinc+d4, L1pt
 	vaddpd	zmm1, zmm14, zmm9			;; R1 = (r1++) + (r2++)					; 51-54		n 56
 	vsubpd	zmm14, zmm14, zmm9			;; R5 = (r1++) - (r2++)					; 51-54		n 58
 
-	L1prefetchw srcreg+srcinc+d4, L1pt
+	L1prefetchw srcreg+srcinc+d4+64, L1pt
 	vaddpd	zmm9, zmm3, zmm5			;; I1 = (i1++) + (i2++)					; 52-55		n 56
 	vsubpd	zmm3, zmm3, zmm5			;; I5 = (i1++) - (i2++)					; 52-55		n 58
 
-	L1prefetchw srcreg+srcinc+d4+64, L1pt
+	L1prefetchw srcreg+srcinc+d4+d2+d1, L1pt
 	vaddpd	zmm5, zmm16, zmm11			;; R3 = (r1+-) + (i2--)					; 53-56		n 60
 	vsubpd	zmm16, zmm16, zmm11			;; R7 = (r1+-) - (i2--)					; 53-56		n 62
 
@@ -8367,15 +8361,15 @@ zr8s_eight_complex_last_unfft MACRO srcreg,srcinc,d1,d2,d4,screg,scinc,maxrpt,L1
 	zfmaddpd zmm4, zmm10, zmm31, zmm12		;; R2 = (r1-+) + .707*(r2+-+)				; 55-58		n 63
 	zfnmaddpd zmm10, zmm10, zmm31, zmm12		;; R6 = (r1-+) - .707*(r2+-+)				; 55-58		n 64
 
-	L1prefetchw srcreg+srcinc+d4+d2, L1pt
+	L1prefetchw srcreg+srcinc+d2+64, L1pt
 	zfmaddpd zmm12, zmm1, zmm20, zmm9		;; A1 = R1 * cosine + I1				; 56-59
 	zfmsubpd zmm9, zmm9, zmm20, zmm1		;; B1 = I1 * cosine - R1				; 56-59
 
-	L1prefetchw srcreg+srcinc+d4+d2+64, L1pt
+	L1prefetchw srcreg+srcinc+d2+d1+64, L1pt
 	zfnmaddpd zmm1, zmm13, zmm31, zmm6		;; I2 = (i1--) - .707*(r2-+-)				; 57-60		n 63
 	zfmaddpd zmm13, zmm13, zmm31, zmm6		;; I6 = (i1--) + .707*(r2-+-)				; 57-60		n 64
 
-	L1prefetchw srcreg+srcinc+d4+d2+d1, L1pt
+	L1prefetchw srcreg+srcinc+d4+d2+64, L1pt
 	zfmaddpd zmm6, zmm14, zmm18, zmm3		;; A5 = R5 * cosine + I5				; 58-61
 	zfmsubpd zmm3, zmm3, zmm18, zmm14		;; B5 = I5 * cosine - R5				; 58-61
 
