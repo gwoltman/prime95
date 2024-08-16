@@ -1187,7 +1187,7 @@ zfft128p MACRO type
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zr8fs_eight_complex_first_fft_preload
-	zr8fs_eight_complex_first_fft rsi, 0, 128, 2*128, 4*128, rdi, 0, r9, 0, 1
+	zr8fs_eight_complex_first_fft rsi, 0, 128, 2*128, 4*128, rdi, 0, r9, 0, 1, L1PREFETCH_NONE
 	end_timer 4
 
 ;; Do FFT levels 5,6,7
@@ -1488,7 +1488,7 @@ zfft256p MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  2			;; 2 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 2*128, 4*128, 8*128, rdi, ZMM_CD8SCD4, r9, 8*128, 2
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 2*128, 4*128, 8*128, rdi, ZMM_CD8SCD4, r9, 8*128, 2, L1PREFETCH_NONE
 	zloop	2, b1b, -2*128		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -1862,7 +1862,7 @@ zfft384p MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  3			;; 3 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 3*128, 6*128, 12*128, rdi, ZMM_CD8SCD4, r9, 8*128, 3
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 3*128, 6*128, 12*128, rdi, ZMM_CD8SCD4, r9, 8*128, 3, L1PREFETCH_NONE
 	zloop	3, b1b, -3*128		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -2241,7 +2241,7 @@ zfft512p MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  4			;; 4 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 4*128, 8*128, 16*128, rdi, ZMM_CD8SCD4, r9, 8*128, 4
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 4*128, 8*128, 16*128, rdi, ZMM_CD8SCD4, r9, 8*128, 4, L1PREFETCH_NONE
 	zloop	4, b1b, -4*128		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -2620,7 +2620,7 @@ zfft640p MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  5			;; 5 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 5*128, 10*128, 20*128, rdi, ZMM_CD8SCD4, r9, 8*128, 5
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 5*128, 10*128, 20*128, rdi, ZMM_CD8SCD4, r9, 8*128, 5, L1PREFETCH_NONE
 	zloop	5, b1b, -5*128		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -2996,7 +2996,7 @@ zfft768p MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  6			;; 5 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 6*128, 12*128, 24*128, rdi, ZMM_CD8SCD4, r9, 8*128, 6
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 6*128, 12*128, 24*128, rdi, ZMM_CD8SCD4, r9, 8*128, 6, L1PREFETCH_NONE
 	zloop	6, b1b, -6*128		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -3372,7 +3372,7 @@ zfft896p MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  7			;; 7 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 7*128, 14*128, 28*128, rdi, ZMM_CD8SCD4, r9, 8*128, 7
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 7*128, 14*128, 28*128, rdi, ZMM_CD8SCD4, r9, 8*128, 7, L1PREFETCH_NONE
 	zloop	7, b1b, -7*128		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -3751,7 +3751,7 @@ zfft1Kp MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  8			;; 8 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_CD8SCD4, r9, 8*128, 8
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 8*128, 16*128, 32*128, rdi, ZMM_CD8SCD4, r9, 8*128, 8, L1PREFETCH_NONE
 	zloop	8, b1b, -8*128		;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -4202,7 +4202,7 @@ zfft1280p MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  10			;; 10 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 10*128, 20*128, 40*128, rdi, ZMM_CD8SCD4, r9, 8*128, 10
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 10*128, 20*128, 40*128, rdi, ZMM_CD8SCD4, r9, 8*128, 10, L1PREFETCH_NONE
 	zloop	10, b1b, -10*128	;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -4710,7 +4710,7 @@ zfft1536p MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  12			;; 12 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 12*128, 24*128, 48*128, rdi, ZMM_CD8SCD4, r9, 8*128, 12
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 12*128, 24*128, 48*128, rdi, ZMM_CD8SCD4, r9, 8*128, 12, L1PREFETCH_ALL
 	zloop	12, b1b, -12*128	;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -5218,7 +5218,7 @@ zfft1792p MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  14			;; 14 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 14*128, 28*128, 56*128, rdi, ZMM_CD8SCD4, r9, 8*128, 14
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 14*128, 28*128, 56*128, rdi, ZMM_CD8SCD4, r9, 8*128, 14, L1PREFETCH_ALL
 	zloop	14, b1b, -14*128	;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -5726,7 +5726,7 @@ zfft2Kp MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  16			;; 16 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 16*128, 32*128, 64*128, rdi, ZMM_CD8SCD4, r9, 8*128, 16
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 16*128, 32*128, 64*128, rdi, ZMM_CD8SCD4, r9, 8*128, 16, L1PREFETCH_ALL
 	zloop	16, b1b, -16*128	;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -6234,7 +6234,7 @@ zfft2304p MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  18			;; 18 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 18*128, 36*128, 72*128, rdi, ZMM_CD8SCD4, r9, 8*128, 18
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 18*128, 36*128, 72*128, rdi, ZMM_CD8SCD4, r9, 8*128, 18, L1PREFETCH_ALL
 	zloop	18, b1b, -18*128	;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -6742,7 +6742,7 @@ zfft2560p MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  20			;; 20 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 20*128, 40*128, 80*128, rdi, ZMM_CD8SCD4, r9, 8*128, 20
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 20*128, 40*128, 80*128, rdi, ZMM_CD8SCD4, r9, 8*128, 20, L1PREFETCH_ALL
 	zloop	20, b1b, -20*128	;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -7250,7 +7250,7 @@ zfft3Kp MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  24			;; 24 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 24*128, 48*128, 96*128, rdi, ZMM_CD8SCD4, r9, 8*128, 24
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 24*128, 48*128, 96*128, rdi, ZMM_CD8SCD4, r9, 8*128, 24, L1PREFETCH_ALL
 	zloop	24, b1b, -24*128	;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -7758,7 +7758,7 @@ zfft3584p MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  28			;; 28 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 28*128, 56*128, 112*128, rdi, ZMM_CD8SCD4, r9, 8*128, 28
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 28*128, 56*128, 112*128, rdi, ZMM_CD8SCD4, r9, 8*128, 28, L1PREFETCH_ALL
 	zloop	28, b1b, -28*128	;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -8266,7 +8266,7 @@ zfft3840p MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  30			;; 30 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 30*128, 60*128, 120*128, rdi, ZMM_CD8SCD4, r9, 8*128, 30
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 30*128, 60*128, 120*128, rdi, ZMM_CD8SCD4, r9, 8*128, 30, L1PREFETCH_ALL
 	zloop	30, b1b, -30*128	;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -8774,7 +8774,7 @@ zfft4Kp MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  32			;; 32 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 32*128, 64*128, 128*128, rdi, ZMM_CD8SCD4, r9, 8*128, 32
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 32*128, 64*128, 128*128, rdi, ZMM_CD8SCD4, r9, 8*128, 32, L1PREFETCH_ALL
 	zloop	32, b1b, -32*128	;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -9282,7 +9282,7 @@ zfft4608p MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  36			;; 36 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 36*128, 72*128, 144*128, rdi, ZMM_CD8SCD4, r9, 8*128, 36
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 36*128, 72*128, 144*128, rdi, ZMM_CD8SCD4, r9, 8*128, 36, L1PREFETCH_ALL
 	zloop	36, b1b, -36*128	;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -9790,7 +9790,7 @@ zfft5Kp MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  40			;; 40 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 40*128, 80*128, 160*128, rdi, ZMM_CD8SCD4, r9, 8*128, 40
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 40*128, 80*128, 160*128, rdi, ZMM_CD8SCD4, r9, 8*128, 40, L1PREFETCH_ALL
 	zloop	40, b1b, -40*128	;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -10298,7 +10298,7 @@ zfft5376p MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  42			;; 42 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 42*128, 84*128, 168*128, rdi, ZMM_CD8SCD4, r9, 8*128, 42
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 42*128, 84*128, 168*128, rdi, ZMM_CD8SCD4, r9, 8*128, 42, L1PREFETCH_ALL
 	zloop	42, b1b, -42*128	;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -10806,7 +10806,7 @@ zfft6Kp MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  48			;; 48 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 48*128, 96*128, 192*128, rdi, ZMM_CD8SCD4, r9, 8*128, 48
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 48*128, 96*128, 192*128, rdi, ZMM_CD8SCD4, r9, 8*128, 48, L1PREFETCH_ALL
 	zloop	48, b1b, -48*128	;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -11314,7 +11314,7 @@ zfft7Kp MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  56			;; 56 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 56*128, 112*128, 224*128, rdi, ZMM_CD8SCD4, r9, 8*128, 56
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 56*128, 112*128, 224*128, rdi, ZMM_CD8SCD4, r9, 8*128, 56, L1PREFETCH_ALL
 	zloop	56, b1b, -56*128	;; Test loop counter, restore source pointer
 	end_timer 4
 
@@ -11821,7 +11821,7 @@ zfft8Kp MACRO type
 	mov	r9, norm_col_mults	;; Load weights pointer
 	zloop_init  64			;; 64 iterations
 	zr8fs_eight_complex_first_fft_preload
-b1b:	zr8fs_eight_complex_first_fft rsi, 128, 64*128, 128*128, 256*128, rdi, ZMM_CD8SCD4, r9, 8*128, 64
+b1b:	zr8fs_eight_complex_first_fft rsi, 128, 64*128, 128*128, 256*128, rdi, ZMM_CD8SCD4, r9, 8*128, 64, L1PREFETCH_ALL
 	zloop	64, b1b, -64*128	;; Test loop counter, restore source pointer
 	end_timer 4
 
