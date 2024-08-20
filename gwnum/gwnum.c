@@ -4166,10 +4166,8 @@ int internal_gwsetup (
 		asm_data->u.zmm.ZMM_PERMUTE2 = 0x0d050f0709010b03ULL;
 		asm_data->u.zmm.ZMM_PERMUTE3 = 0x060504030201000fULL;
 		asm_data->u.zmm.ZMM_PERMUTE4 = 0x0707060504030201ULL;
-		asm_data->u.zmm.ZMM_PERMUTE5 = 0x0d0c050409080100ULL;
-		asm_data->u.zmm.ZMM_PERMUTE6 = 0x0f0e07060b0a0302ULL;
-		asm_data->u.zmm.ZMM_PERMUTE7 = 0x0c0d040508090001ULL;
-		asm_data->u.zmm.ZMM_PERMUTE8 = 0x0e0f06070a0b0203ULL;
+		asm_data->u.zmm.ZMM_PERMUTE5 = 0x040508090c0d0001ULL;
+		asm_data->u.zmm.ZMM_PERMUTE6 = 0x06070a0b0e0f0203ULL;
 	    }
 
 /* Init constants for AVX FFT routines */
