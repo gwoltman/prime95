@@ -4110,6 +4110,7 @@ int internal_gwsetup (
 		asm_data->u.zmm.ZMM_TWO = 2.0;
 		asm_data->u.zmm.ZMM_ONE = 1.0;
 		asm_data->u.zmm.ZMM_SQRTHALF = sqrt (0.5);
+		asm_data->u.zmm.ZMM_NEGSQRTHALF = - asm_data->u.zmm.ZMM_SQRTHALF;
 		asm_data->u.zmm.ZMM_ABSVAL[0] = 0xFFFFFFFF;
 		asm_data->u.zmm.ZMM_ABSVAL[1] = 0x7FFFFFFF;
 		asm_data->u.zmm.ZMM_B = (double) b;
@@ -4168,6 +4169,8 @@ int internal_gwsetup (
 		asm_data->u.zmm.ZMM_PERMUTE4 = 0x0707060504030201ULL;
 		asm_data->u.zmm.ZMM_PERMUTE5 = 0x040508090c0d0001ULL;
 		asm_data->u.zmm.ZMM_PERMUTE6 = 0x06070a0b0e0f0203ULL;
+		asm_data->u.zmm.ZMM_PERMUTE7 = 0x0c0d080904050001ULL;
+		asm_data->u.zmm.ZMM_PERMUTE8 = 0x0e0f0a0b06070203ULL;
 	    }
 
 /* Init constants for AVX FFT routines */
