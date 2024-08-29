@@ -4149,10 +4149,6 @@ int internal_gwsetup (
 		asm_data->u.zmm.ZMM_P623_P975 = asm_values[39];
 		asm_data->u.zmm.ZMM_P223_P975 = asm_values[40];
 		asm_data->u.zmm.ZMM_P1_P975 = asm_values[41];
-		asm_data->u.zmm.ZMM_P901 = -asm_values[18];
-		asm_data->u.zmm.ZMM_P623 = asm_values[14];
-		asm_data->u.zmm.ZMM_P223 = -asm_values[17];
-		asm_data->u.zmm.ZMM_P975 = asm_values[11];
 		asm_data->u.zmm.ZMM_P259_P707 = asm_values[28];
 		asm_data->u.zmm.ZMM_P966_P707 = asm_values[29];
 		asm_data->u.zmm.ZMM_P924_P383 = asm_values[30];

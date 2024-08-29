@@ -248,10 +248,7 @@ struct gwasm_data {
 		double	ZMM_P223_P975;		/* Used in 7-complex, 14-real macros */
 		double	ZMM_P1_P975;		/* Used in 7-complex, 14-real macros */
 
-		double	ZMM_P901;		/* Used in 14-real-7-complex macros */
-		double	ZMM_P623;		/* Used in 14-real-7-complex macros */
-		double	ZMM_P223;		/* Used in 14-real-7-complex macros */
-		double	ZMM_P975;		/* Used in 14-real-7-complex macros */
+		double	UNUSED_DOUBLES[4];
 		int64_t	ZMM_PERMUTE1;		/* Permute indices for swizzling.  Used in one-pass wrapper, rsc macros */
 		int64_t	ZMM_PERMUTE2;		/* Permute indices for swizzling.  Used in one-pass wrapper, rsc macros */
 		int64_t	ZMM_PERMUTE3;		/* Permute indices for carry rotations */
