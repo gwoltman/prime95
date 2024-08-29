@@ -703,30 +703,6 @@ void gwcos1plusby (
 	END_x86_FIX
 }
 
-/* Special version for 3-complex macro, outputs sine and sine*0.866 */
-
-extern "C"
-void gwsincos1by_special3 (
-	unsigned long x,
-	unsigned long N,
-	double	*results,
-	int	incr)
-{
-	dd_real arg1, sine, cosine, sine866, tmp;
-
-	arg1 = dd_real::_2pi / 3.0;		// 2*PI / 3
-	sine866 = sin (arg1);			// sine (0.866)
-
-	x86_FIX
-	arg1 = dd_real::_2pi * (double) x / (double) N;
-	sincos (arg1, sine, cosine);
-	tmp = sine + epsilon;		/* Protect against divide by zero */
-	results[0] = tmp;
-	results[incr] = cosine / tmp;
-	results[incr*2] = tmp * sine866;
-	END_x86_FIX
-}
-
 /* Special version for 14-reals (and 7-complex) macro, multiplies sine values by 0.975 */
 
 extern "C"
@@ -762,6 +738,63 @@ void gwsincos123by_special7 (
 	tmp = sine3 + epsilon;		/* Protect against divide by zero */
 	results[0] = tmp * sine975;
 	results[incr] = cosine3 / tmp;
+	END_x86_FIX
+}
+
+extern "C"
+void gwsincos123456by_special7 (
+	unsigned long x,
+	unsigned long N,
+	double	*results,
+	int	incr)
+{
+	dd_real arg1, sine, cosine, sine2, cosine2, sine3, cosine3, sine4, cosine4, sine5, cosine5, cosine6, sine6, tmp;
+	dd_real sine975;
+
+	arg1 = dd_real::_2pi * 2.0 / 7.0;		// 2*PI * 2 / 7
+	sine975 = sin (arg1);				// sine (0.975)
+
+	x86_FIX
+	arg1 = dd_real::_2pi * (double) x / (double) N;
+	sincos (arg1, sine, cosine);
+	tmp = sine + epsilon;		/* Protect against divide by zero */
+	results[0] = tmp * sine975;
+	results[incr] = cosine / tmp;
+	results += incr + incr;
+
+	sine2 = sine * cosine * 2.0;
+	cosine2 = sqr (cosine) - sqr (sine);
+	tmp = sine2 + epsilon;		/* Protect against divide by zero */
+	results[0] = tmp * sine975;
+	results[incr] = cosine2 / tmp;
+	results += incr + incr;
+
+	sine3 = sine * cosine2 + sine2 * cosine;
+	cosine3 = cosine * cosine2 - sine * sine2;
+	tmp = sine3 + epsilon;		/* Protect against divide by zero */
+	results[0] = tmp * sine975;
+	results[incr] = cosine3 / tmp;
+	results += incr + incr;
+
+	sine4 = sine2 * cosine2 * 2.0;
+	cosine4 = sqr (cosine2) - sqr (sine2);
+	tmp = sine4 + epsilon;		/* Protect against divide by zero */
+	results[0] = tmp * sine975;
+	results[incr] = cosine4 / tmp;
+	results += incr + incr;
+
+	sine5 = sine2 * cosine3 + sine3 * cosine2;
+	cosine5 = cosine2 * cosine3 - sine2 * sine3;
+	tmp = sine5 + epsilon;		/* Protect against divide by zero */
+	results[0] = tmp * sine975;
+	results[incr] = cosine5 / tmp;
+	results += incr + incr;
+
+	sine6 = sine3 * cosine3 * 2.0;
+	cosine6 = sqr (cosine3) - sqr (sine3);
+	tmp = sine6 + epsilon;		/* Protect against divide by zero */
+	results[0] = tmp * sine975;
+	results[incr] = cosine6 / tmp;
 	END_x86_FIX
 }
 

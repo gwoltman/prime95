@@ -24,7 +24,6 @@ zfft_3_ret MACRO
 ;;
 
 ZMM_SCD1 = 128			;; Sizeof a small (radix-3) DJB sin/cos table entry
-ZMM_SSCD1 = 192			;; Sizeof a small (radix-3) DJB sin/cos/.866*sin table entry
 ZMM_SCD2 = 256			;; Sizeof a DJB sin/cos table entry
 ZMM_SCD3 = 384			;; Sizeof an eight_reals sin/cos table entry
 ZMM_SCD4 = 512			;; Sizeof an entry in premultiplier table
