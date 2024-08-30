@@ -8896,7 +8896,7 @@ ENDIF
 ;; Perform a 4K-element negacyclic FFT
 
 zfft4Kp MACRO type
-	LOCAL	b1b, b2b, b3b, b4a, b4b, b4c, b4d, c3b, c2b, c1b, zmid2p, zmid3p, zmid4p, zfinish_unfft
+	LOCAL	b1a, b1b, b2b, b3b, b4a, b4b, b4c, b4d, c3a, c3b, c2b, c1b, zmid2p, zmid3p, zmid4p, zfinish_unfft
 
 ;; Do a multiply with pre-FFTed inputs
 
@@ -8944,6 +8944,7 @@ zfft4Kp MACRO type
 ;;	distance between fft data elements is 32
 ;;	do 32 macros each processing 128 data values
 
+IFNDEF NEWWAY				;; No better despite better L1 cache locality
 IFDEF OLDWAY
 	start_timer 4
 	mov	rdi, sincos1		;; Load sin/cos pointer
@@ -9003,6 +9004,28 @@ b3b:	zr4b_four_complex_djbfft rsi, 128, 8*128, 16*128, rdi, ZMM_SCD2/8, 8
 	zloop	8, b3b, -8*128+32*128, rdi, -8*ZMM_SCD2/8 ;; Test loop counter, next source pointer, restore sin/cos pointer
 	zloop	8, b3b, -8*32*128	;; Test loop counter, restore source pointer
 	end_timer 6
+
+ELSE
+	start_timer 4
+	mov	rdi, sincos1		;; Load sin/cos pointer
+	lea	r12, [rdi+8*ZMM_SCD2/8]
+	lea	r10, [r12+32*ZMM_SCD4/8]
+	mov	r9, norm_col_mults	;; Load weights pointer
+	zloop_init  64			;; 4 or 8 iterations of 8
+b1a:	zr8fs_sixtyfour_complex_first_fft_preload
+b1b:	zr8fs_sixtyfour_complex_first_fft rsi, 8*128, 32*128, 64*128, 128*128, r10, 8*ZMM_CD8SCD4, r12, 8*ZMM_SCD4/8, r9, 8*8*128, 4, L1PREFETCH_ALL
+	zloop	4, b1b, -4*8*128	;; Test loop counter, restore source pointer
+	bump	r12, -4*8*ZMM_SCD4/8+ZMM_SCD4/8	;; Next sin/cos and weights pointers
+	bump	r10, -4*8*ZMM_CD8SCD4+ZMM_CD8SCD4
+	bump	r9, -4*8*8*128+8*128
+	loops_undo 4
+	zr4b_four_complex_djbfft_preload
+b3b:	zr4b_four_complex_djbfft rsi, 32*128, 8*128, 16*128, rdi, 0, 8
+	zloop	8, b3b, -8*32*128+128	;; Test loop counter, next outer loop source pointer
+	bump	rdi, ZMM_SCD2/8		;; Next sin/cos pointer
+	zloop	8, b1a, -8*128		;; Test outer loop counter, restore source pointer
+	end_timer 4
+ENDIF
 
 ;; Do FFT levels 10,11,12
 ;; On input and output the 128-byte cache line pairs hold these data values:
@@ -9081,6 +9104,7 @@ b4d:	zr8_eight_complex_with_mulf rsi, 8*128, 128, 2*128, 4*128
 ;;	do 64 macros each processing 64 data values
 
 zfinish_unfft:
+IFNDEF NEWWAY				;; No better despite better L1 cache locality
 	start_timer 8
 	mov	rdi, sincos1		;; Load sin/cos pointer
 	zloop_init  64			;; 8 iterations of 8
@@ -9152,6 +9176,26 @@ ELSE
 	zr8s_sixtyfour_complex_last_unfft_preload
 c1b:	zr8s_sixtyfour_complex_last_unfft rsi, 128, 32*128, 64*128, 128*128, rdi, ZMM_SCD4/8, r10, ZMM_CD8SCD4, 32, L1PREFETCH_ALL
 	zloop	32, c1b, -32*128	;; Test loop counter, restore source pointer
+	end_timer 10
+ENDIF
+
+ELSE
+	start_timer 10
+	mov	rdi, sincos1		;; Load sin/cos pointer
+	lea	r12, [rdi+8*ZMM_SCD2/8]
+	lea	r10, [r12+32*ZMM_SCD4/8]
+	zloop_init 64 			;; 8 or 4 iterations of 8
+c3a:	zr4b_four_complex_djbunfft_preload
+c3b:	zr4b_four_complex_djbunfft rsi, 32*128, 8*128, 16*128, rdi, 0, 8, L1PREFETCH_ALL
+	zloop	8, c3b, -8*32*128, rdi, ZMM_SCD2/8 ;; Test loop counter, restore source pointer, next sin/cos pointer
+	loops_undo 8
+	zloop_adjust 4			;; Do 4 rather than 8 iterations in this loop
+	zr8s_sixtyfour_complex_last_unfft_preload
+c1b:	zr8s_sixtyfour_complex_last_unfft rsi, 8*128, 32*128, 64*128, 128*128, r12, 8*ZMM_SCD4/8, r10, 8*ZMM_CD8SCD4, 4, L1PREFETCH_NONE
+	zloop	8, c1b, -4*8*128+128	;; 4 iterations!!! Test loop counter, next outer loop source pointer
+	bump	r12, -4*8*ZMM_SCD4/8+ZMM_SCD4/8	;; Next sin/cos pointers
+	bump	r10, -4*8*ZMM_CD8SCD4+ZMM_CD8SCD4
+	zloop	8, c3a, -8*128		;; Test outer loop counter, restore source pointer
 	end_timer 10
 ENDIF
 

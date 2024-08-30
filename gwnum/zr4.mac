@@ -59,7 +59,7 @@ zr4_4c_djbfft_cmn_preload MACRO
 zr4_4c_djbfft_cmn MACRO srcreg,srcinc,d1,d2,bcast,bcreg,bcsz,screg,scinc,maxrpt,L1pt,L1pd
 IF maxrpt MOD 2 EQ 0
 	IF scinc EQ 0
-	code a version that loads sin/cos values once
+;;	code a version that preloads sin/cos values once?
 	ENDIF
 	vmovapd	zmm2, [srcreg+0*srcinc]		;; R1
 	vmovapd	zmm6, [srcreg+0*srcinc+d2]	;; R3
@@ -323,7 +323,7 @@ zr4_4c_djbunfft_cmn_preload MACRO
 zr4_4c_djbunfft_cmn MACRO srcreg,srcinc,d1,d2,bcast,bcreg,bcsz,screg,scinc,maxrpt,L1pt,L1pd
 IF maxrpt MOD 2 EQ 0
 	IF scinc EQ 0
-	code a version that loads sin/cos values once
+;;	code a version that preloads sin/cos values once?
 	ENDIF
 no bcast vmovapd zmm8, [screg+0*scinc+1*128+64]	;; cosine/sine
 bcast	vbroadcastsd zmm8, Q [bcreg+0*scinc+1*bcsz++bcsz/2] ;; cosine/sine
