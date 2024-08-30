@@ -421,6 +421,7 @@ zloop_init MACRO count, first_completed, first_iters
 	zloop_prefetched_early = 0
 	zloop_unrolled_count = 0
 	zloop_adjustment = 0
+	zloop_must_emulate_first = 0
 	ENDM
 
 ; Predefined zloop prefetching rates
@@ -556,7 +557,7 @@ zloop MACRO iters, label1, incr_rsi, pm_incr_reg, pm_incr_amt, sc_incr_reg, sc_i
 		ENDIF
 
 	;; Otherwise, if unrolling then emulate the first loops call.
-	ELSEIF loops_completed EQ 0 AND zloop_unrolled_count GT 0
+	ELSEIF loops_completed EQ 0 AND zloop_must_emulate_first NE 0
 		zloop_emulate_first_loops_call
 	ENDIF
 
@@ -639,6 +640,8 @@ zloop_unrolled_one MACRO
 
 	;; Bump the count of unrolled building blocks
 	zloop_unrolled_count = zloop_unrolled_count + 1
+	;; Force emulating first incr
+	zloop_must_emulate_first = 1
 
 	;; If we're at a prefetch iteration, then prefetch
 	IF zloop_prefetch_iter GT 0
