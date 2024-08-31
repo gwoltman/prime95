@@ -918,7 +918,7 @@ ENDIF
 ;; Haswell FMA3 version
 ;; Abandoning all attempts at using add and subtract instructions.  We use FMA3 which requires a lot of register copies.
 
-IF (@INSTR(,%yarch,<FMA3>) NE 0)
+IF (@INSTR(,%yarch,<FORMERLY_BEST_FMA3>) NE 0)
 
 yr4_4c_djbfft_noswiz_unroll_preload MACRO
 	vmovapd	ymm15, YMM_ONE
@@ -1040,6 +1040,84 @@ y7	TEXTEQU	y13
 y13	TEXTEQU ytmp
 	ENDM
 
+ENDIF
+
+IF (@INSTR(,%yarch,<FMA3>) NE 0)
+yr4_4c_djbfft_noswiz_unroll_preload MACRO
+	vbroadcastsd ymm15, YMM_ONE
+	ENDM
+
+yr4_4c_djbfft_noswiz_cmn MACRO srcreg,srcinc,srcoff,d1,d2,bcast,screg1,screg2,scoff,screg,scinc,maxrpt,L1pt,L1pd
+	vmovapd	ymm1, [srcreg+srcoff]		;; R1
+	vmovapd	ymm8, [srcreg+srcoff+d2]	;; R3					; Haswell	Kaby
+	yfmsubpd ymm0, ymm1, ymm15, ymm8	;; R1 - R3 (new R3)			; 1-5		1-4
+	vmovapd	ymm3, [srcreg+srcoff+32]	;; I1
+	vmovapd	ymm9, [srcreg+srcoff+d2+32]	;; I3
+	yfmsubpd ymm2, ymm3, ymm15, ymm9	;; I1 - I3 (new I3)			; 1-5		1-4
+
+	yfmaddpd ymm1, ymm1, ymm15, ymm8	;; R1 + R3 (new R1)			; 2-6		2-5
+	yfmaddpd ymm3, ymm3, ymm15, ymm9	;; I1 + I3 (new I1)			; 2-6		2-5
+
+	vmovapd	ymm5, [srcreg+srcoff+d1+32]	;; I2
+	vmovapd	ymm8, [srcreg+srcoff+d2+d1+32]	;; I4
+	yfmaddpd ymm4, ymm5, ymm15, ymm8	;; I2 + I4 (new I2)			; 3-7		3-6
+	vmovapd	ymm7, [srcreg+srcoff+d1]	;; R2
+	vmovapd	ymm9, [srcreg+srcoff+d2+d1]	;; R4
+	yfmaddpd ymm6, ymm7, ymm15, ymm9	;; R2 + R4 (new R2)			; 3-7		3-6
+
+	yfmsubpd ymm5, ymm5, ymm15, ymm8	;; I2 - I4 (new I4)			; 4-8		4-7
+	yfmsubpd ymm7, ymm7, ymm15, ymm9	;; R2 - R4 (new R4)			; 4-8		4-7
+
+no bcast vmovapd ymm14, [screg1]		;; Sine
+bcast	vbroadcastsd ymm14, Q [screg1]		;; Sine					; n 6		n 5
+	vmulpd	ymm0, ymm0, ymm14		;; R3S = R3 * sine			; 6-10		5-8
+	vmulpd	ymm2, ymm2, ymm14		;; I3S = I3 * sine			; 6-10		5-8
+
+no bcast vmovapd ymm13, [screg2]		;; Sine
+bcast	vbroadcastsd ymm13, Q [screg2]		;; Sine					; n 13		n 11
+	yfmsubpd ymm8, ymm3, ymm15, ymm4	;; I1 - I2 (newer I2)			; 8-12		7-10
+	yfmsubpd ymm9, ymm1, ymm15, ymm6	;; R1 - R2 (newer R2)			; 8-12		7-10
+
+no bcast vmovapd ymm12, [screg1+32]		;; cosine/sine
+bcast	vbroadcastsd ymm12, Q [screg1+scoff]	;; cosine/sine				; n 16		n 13
+	yfmaddpd ymm3, ymm3, ymm15, ymm4	;; I1 + I2 (newer & final I1)		; 9-13		8-11
+	yfmaddpd ymm1, ymm1, ymm15, ymm6	;; R1 + R2 (newer & final R1)		; 9-13		8-11
+
+no bcast vmovapd ymm11, [screg2+32]		;; cosine/sine
+bcast	vbroadcastsd ymm11, Q [screg2+scoff]	;; cosine/sine				; n 18		n 15
+	yfnmaddpd ymm4, ymm5, ymm14, ymm0	;; A3 = R3S - I4 * sine (newer R3*sine)	; 11-15		9-12
+	yfmaddpd ymm6, ymm7, ymm14, ymm2	;; B3 = I3S + R4 * sine (newer I3*sine)	; 11-15		9-12
+	bump	screg, scinc
+
+	L1prefetchw srcreg+L1pd, L1pt
+	yfmaddpd ymm5, ymm5, ymm14, ymm0	;; A4 = R3S + I4 * sine (newer R4*sine)	; 12-16		10-13
+	yfnmaddpd ymm7, ymm7, ymm14, ymm2	;; B4 = I3S - R4 * sine (newer I4*sine)	; 12-16		10-13
+
+	L1prefetchw srcreg+d2+L1pd, L1pt
+	vmulpd	ymm9, ymm9, ymm13		;; R2s = R2 * sine			; 13-17		11-14
+	vmulpd	ymm8, ymm8, ymm13		;; I2s = I2 * sine			; 13-17		11-14
+	ystore	[srcreg], ymm1			;; Save R1				; 13		11
+
+	L1prefetchw srcreg+d1+L1pd, L1pt
+	yfmsubpd ymm1, ymm4, ymm12, ymm6	;; final R3 = A3 * cosine/sine - B3	; 16-20		13-16
+	yfmaddpd ymm6, ymm6, ymm12, ymm4	;; final I3 = B3 * cosine/sine + A3	; 16-20		13-16
+	ystore	[srcreg+32], ymm3		;; Save I1				; 14		12
+
+	L1prefetchw srcreg+d2+d1+L1pd, L1pt
+	yfmaddpd ymm4, ymm5, ymm12, ymm7	;; final R4 = A4 * cosine/sine + B4	; 17-21		14-17
+	yfmsubpd ymm7, ymm7, ymm12, ymm5	;; final I4 = B4 * cosine/sine - A4	; 17-21		14-17
+
+	yfmsubpd ymm5, ymm9, ymm11, ymm8	;; final R2 = R2 * cosine/sine - I2	; 18-22		15-18
+	yfmaddpd ymm8, ymm8, ymm11, ymm9	;; final I2 = I2 * cosine/sine + R2	; 18-22		15-18
+
+	ystore	[srcreg+d2], ymm1		;; Save R3
+	ystore	[srcreg+d2+32], ymm6		;; Save I3
+	ystore	[srcreg+d2+d1], ymm4		;; Save R4
+	ystore	[srcreg+d2+d1+32], ymm7		;; Save I4
+	ystore	[srcreg+d1], ymm5		;; Save R2
+	ystore	[srcreg+d1+32], ymm8		;; Save I2
+	bump	srcreg, srcinc
+	ENDM
 ENDIF
 
 
