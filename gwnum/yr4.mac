@@ -2202,7 +2202,7 @@ y4	TEXTEQU	ytmp
 ;; Haswell FMA3 version
 ;; Basic implementation originally written for Bulldozer.  13.6 clocks.
 
-IF (@INSTR(,%yarch,<FMA3>) NE 0)
+IF (@INSTR(,%yarch,<FORMERLY_BEST_FMA3>) NE 0)
 
 yr4_4c_djbunfft_noswiz_unroll_preload MACRO
 	vmovapd	ymm15, YMM_ONE
@@ -2318,6 +2318,79 @@ y10	TEXTEQU	ytmp
 
 ENDIF
 
+
+IF (@INSTR(,%yarch,<FMA3>) NE 0)
+
+yr4_4c_djbunfft_noswiz_unroll_preload MACRO
+	vmovapd	ymm15, YMM_ONE
+	ENDM
+
+yr4_4c_djbunfft_noswiz_cmn MACRO srcreg,srcinc,d1,d2,bcast,screg1,screg2,scoff,screg,scinc,maxrpt,L1pt,L1pd
+no bcast vmovapd ymm14, [screg2+32]		;; cosine/sine
+bcast	vbroadcastsd ymm14, Q [screg2+scoff]	;; cosine/sine
+	vmovapd	ymm8, [srcreg+d1]		;; R2
+	vmovapd	ymm1, [srcreg+d1+32]		;; I2					; Haswell	Kaby
+	yfmaddpd ymm0, ymm8, ymm14, ymm1	;; R2/sine = R2 * cosine/sine + I2	; 1-5		1-4
+	yfmsubpd ymm1, ymm1, ymm14, ymm8	;; I2/sine = I2 * cosine/sine - R2	; 1-5		1-4
+
+no bcast vmovapd ymm14, [screg1+32]		;; cosine/sine
+bcast	vbroadcastsd ymm14, Q [screg1+scoff]	;; cosine/sine
+	vmovapd	ymm8, [srcreg+d2]		;; R3
+	vmovapd	ymm3, [srcreg+d2+32]		;; I3
+	yfmaddpd ymm2, ymm8, ymm14, ymm3	;; R3/sine = R3 * cosine/sine + I3	; 2-6		2-5
+	vmovapd	ymm9, [srcreg+d2+d1]		;; R4
+	vmovapd	ymm5, [srcreg+d2+d1+32]		;; I4
+	yfmsubpd ymm4, ymm9, ymm14, ymm5	;; R4/sine = R4 * cosine/sine - I4	; 2-6		2-5
+
+	vmovapd	ymm6, [srcreg]			;; R1					; n 6		n 5
+	yfmsubpd ymm3, ymm3, ymm14, ymm8	;; I3/sine = I3 * cosine/sine - R3	; 3-7		3-6
+	yfmaddpd ymm5, ymm5, ymm14, ymm9	;; I4/sine = I4 * cosine/sine + R4	; 3-7		3-6
+
+no bcast vmovapd ymm13, [screg2]		;; Sine
+bcast	vbroadcastsd ymm13, Q [screg2]		;; Sine					; n 6		n 5
+	yfmaddpd ymm8, ymm0, ymm13, ymm6	;; R1 + R2/sine * sine (new R1)		; 6-10		5-8
+	yfnmaddpd ymm0, ymm0, ymm13, ymm6	;; R1 - R2/sine * sine (new R2)		; 6-10		5-8
+
+	vmovapd	ymm7, [srcreg+32]		;; I1					; n 8		n 7
+	yfmaddpd ymm6, ymm4, ymm15, ymm2	;; R4/sine + R3/sine (new R3/sine)	; 7-11		6-9
+	yfmsubpd ymm4, ymm4, ymm15, ymm2	;; R4/sine - R3/sine (new I4/sine)	; 7-11		6-9
+
+no bcast vmovapd ymm12, [screg1]		;; Sine
+bcast	vbroadcastsd ymm12, Q [screg1]		;; Sine					; n 12		n 10
+	yfnmaddpd ymm2, ymm1, ymm13, ymm7	;; I1 - I2/sine * sine (new I2)		; 8-12		7-10
+	yfmaddpd ymm1, ymm1, ymm13, ymm7	;; I1 + I2/sine * sine (new I1)		; 8-12		7-10
+	bump	screg, scinc
+
+	L1prefetchw srcreg+d1+L1pd, L1pt
+	yfmsubpd ymm7, ymm3, ymm15, ymm5	;; I3/sine - I4/sine (new R4/sine)	; 9-13		8-11
+	yfmaddpd ymm3, ymm3, ymm15, ymm5	;; I3/sine + I4/sine (new I3/sine)	; 9-13		8-11
+
+	L1prefetchw srcreg+d2+L1pd, L1pt
+	yfnmaddpd ymm5, ymm6, ymm12, ymm8	;; R1 - R3/sine * sine (final R3)	; 12-16		10-13
+	yfmaddpd ymm6, ymm6, ymm12, ymm8	;; R1 + R3/sine * sine (final R1)	; 12-16		10-13
+
+	L1prefetchw srcreg+d2+d1+L1pd, L1pt
+	yfnmaddpd ymm8, ymm4, ymm12, ymm2	;; I2 - I4/sine * sine (final I4)	; 13-17		11-14
+	yfmaddpd ymm4, ymm4, ymm12, ymm2	;; I2 + I4/sine * sine (final I2)	; 13-17		11-14
+
+	L1prefetchw srcreg+L1pd, L1pt
+	yfnmaddpd ymm2, ymm7, ymm12, ymm0	;; R2 - R4/sine * sine (final R4)	; 14-18		12-15
+	yfmaddpd ymm7, ymm7, ymm12, ymm0	;; R2 + R4/sine * sine (final R2)	; 14-18		12-15
+
+	yfnmaddpd ymm0, ymm3, ymm12, ymm1	;; I1 - I3/sine * sine (final I3)	; 15-19		13-16
+	yfmaddpd ymm3, ymm3, ymm12, ymm1	;; I1 + I3/sine * sine (final I1)	; 15-19		13-16
+
+	ystore	[srcreg+d2], ymm5		;; Save R3
+	ystore	[srcreg], ymm6			;; Save R1
+	ystore	[srcreg+d2+d1+32], ymm8		;; Save I4
+	ystore	[srcreg+d1+32], ymm4		;; Save I2
+	ystore	[srcreg+d2+d1], ymm2		;; Save R4
+	ystore	[srcreg+d1], ymm7		;; Save R2
+	ystore	[srcreg+d2+32], ymm0		;; Save I3
+	ystore	[srcreg+32], ymm3		;; Save I1
+	bump	srcreg, srcinc
+	ENDM
+ENDIF
 
 ;; Haswell FMA3 version
 ;; This is an untested FMA3 version that should be optimal.  Alas, it is no faster.  Timed at ~14 clocks.
