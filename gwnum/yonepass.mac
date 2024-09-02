@@ -1,4 +1,4 @@
-; Copyright 2011-2023 - Mersenne Research, Inc.  All rights reserved
+; Copyright 2011-2024 - Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -20,6 +20,14 @@
 ;; DIST_TO_FFTSRCARG = rbx = distance from rsi to source (zero for types 1, 2)
 ;; DIST_TO_MULSRCARG = distance from rsi to multiplier (zero for types 2, 3)
 
+;; August 2024, tried loop merging optimization for FMA3 CPUs only.  Little success.
+;; 16-complex-first-fft was slower on Haswell, slightly faster on KabyLake
+;; 16-complex-last-fft was slower on Haswell, and slower on KabyLake
+IF (@INSTR(,%yarch,<FMA3>) NE 0)
+	OLDWAY = 1
+ELSE
+	OLDWAY = 1
+ENDIF
 
 ;;;
 ;;;  First some utility macros
@@ -5313,15 +5321,6 @@ yfft1Kp MACRO type
 ;;	distance between fft data elements is 128
 ;;	do 32 macros each processing 32 data values
 
-	start_timer 4
-	mov	rdi, sincos1		;; Load sin/cos pointer
-	bump	rdi, 32*YMM_SCD2/4
-	yloop_init  32			;; 32 iterations
-	yr4_fs4cl_four_complex_first_djbfft_preload
-b1b:	yr4_fs4cl_four_complex_first_djbfft rsi, 64, dist32, 2*dist32, rdi, YMM_SCD4, 32
-	yloop	32, b1b, -32*64		;; Test loop counter, restore source pointer
-	end_timer 4
-
 ;; Do FFT levels 4,5
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0	+256	+256	+256	128	+256	+256	+256
@@ -5341,6 +5340,16 @@ b1b:	yr4_fs4cl_four_complex_first_djbfft rsi, 64, dist32, 2*dist32, rdi, YMM_SCD
 ;;	distance between fft data elements is 32
 ;;	do 32 macros each processing 32 data values
 
+IF OLDWAY EQ 1
+	start_timer 4
+	mov	rdi, sincos1		;; Load sin/cos pointer
+	bump	rdi, 32*YMM_SCD2/4
+	yloop_init  32			;; 32 iterations
+	yr4_fs4cl_four_complex_first_djbfft_preload
+b1b:	yr4_fs4cl_four_complex_first_djbfft rsi, 64, dist32, 2*dist32, rdi, YMM_SCD4, 32
+	yloop	32, b1b, -32*64		;; Test loop counter, restore source pointer
+	end_timer 4
+
 	start_timer 5
 	bump	rdi, -32*YMM_SCD4-32*YMM_SCD2/4 ;; Load sin/cos pointer
 	yloop_init  32			;; 32 iterations
@@ -5348,6 +5357,16 @@ b1b:	yr4_fs4cl_four_complex_first_djbfft rsi, 64, dist32, 2*dist32, rdi, YMM_SCD
 b2b:	yr4_b4cl_four_complex_djbfft rsi, 64, dist32, 2*dist32, rdi, YMM_SCD2/4, 32
 	yloop	32, b2b, -32*64, rdi, -32*YMM_SCD2/4 ;; Test loop counter, restore source pointer, restore sin/cos pointer
 	end_timer 5
+ELSE
+	start_timer 4
+	mov	rdi, sincos1		;; Load sin/cos pointers
+	lea	rdx, [rdi+32*YMM_SCD2/4]
+	yloop_init  32			;; 32 iterations
+	yr4_fs4cl_sixteen_complex_first_djbfft_preload
+b1b:	yr4_fs4cl_sixteen_complex_first_djbfft rsi, 64, dist32, 2*dist32, rdx, YMM_SCD4, rdi, YMM_SCD2/4, 32
+	yloop	32, b1b, -32*64, rdi, -32*YMM_SCD2/4 ;; Test loop counter, restore source pointer, restore sin/cos pointer
+	end_timer 4
+ENDIF
 
 ;; Do FFT levels 6,7
 ;; On input the 64-byte cache lines hold these data values:
@@ -5487,13 +5506,6 @@ c3b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 8*64, 16*64, rdi, 4*YMM_SCD2/4, 8
 ;;	distance between fft data elements is 32
 ;;	do 32 macros each processing 32 data values
 
-	start_timer 9
-	yloop_init  32			;; 32 iterations
-	yr4_b4cl_four_complex_djbunfft_preload
-c2b:	yr4_b4cl_four_complex_djbunfft rsi, 64, dist32, 2*dist32, rdi, YMM_SCD2/4, 32
-	yloop	32, c2b, -32*64		;; Test loop counter, restore source pointer
-	end_timer 9
-
 ;; Do inverse FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0	+256	+256	+256	128	+256	+256	+256
@@ -5521,12 +5533,29 @@ c2b:	yr4_b4cl_four_complex_djbunfft rsi, 64, dist32, 2*dist32, rdi, YMM_SCD2/4, 
 ;;	distance between fft data elements is 128
 ;;	do 32 macros each processing 32 data values
 
+IF OLDWAY EQ 1
+	start_timer 9
+	yloop_init  32			;; 32 iterations
+	yr4_b4cl_four_complex_djbunfft_preload
+c2b:	yr4_b4cl_four_complex_djbunfft rsi, 64, dist32, 2*dist32, rdi, YMM_SCD2/4, 32
+	yloop	32, c2b, -32*64		;; Test loop counter, restore source pointer
+	end_timer 9
+
 	start_timer 10
 	yloop_init  32			;; 32 iterations
 	yr4_s4cl_four_complex_last_unfft_preload
 c1b:	yr4_s4cl_four_complex_last_unfft rsi, 64, dist32, 2*dist32, rdi, YMM_SCD4, 32
 	yloop	32, c1b			;; Test loop counter
 	end_timer 10
+ELSE
+	start_timer 10
+	lea	rdx, [rdi+32*YMM_SCD2/4]
+	yloop_init  32			;; 32 iterations
+	yr4_s4cl_sixteen_complex_last_unfft_preload
+c1b:	yr4_s4cl_sixteen_complex_last_unfft rsi, 64, dist32, 2*dist32, rdi, YMM_SCD2/4, rdx, YMM_SCD4, 32
+	yloop	32, c1b			;; Test loop counter
+	end_timer 10
+ENDIF
 
 	ytwo_dest_adjust
 	yfft_3_ret
@@ -11383,16 +11412,6 @@ yfft8Kp MACRO type
 ;;	distance between fft data elements is 1024
 ;;	do 256 macros each processing 32 data values
 
-	start_timer 4
-	mov	rdi, sincos1		;; Load sin/cos pointer
-	bump	rdi, 256*YMM_SCD2/4
-	yloop_init  256			;; 256 iterations
-	yr4_fs4cl_four_complex_first_djbfft_preload
-b1b:	yr4_fs4cl_four_complex_first_djbfft rsi, 64, 4*dist64, 8*dist64, rdi, YMM_SCD4, 64
-	yloop	64, b1b, -64*64+dist64	;; Test loop counter, next source pointer
-	yloop	4, b1b, -4*dist64	;; Test loop counter, restore source pointer
-	end_timer 4
-
 ;; Do FFT levels 4,5
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0	2K	4K	6K	1K	+2K	+2K	+2K
@@ -11412,6 +11431,17 @@ b1b:	yr4_fs4cl_four_complex_first_djbfft rsi, 64, 4*dist64, 8*dist64, rdi, YMM_S
 ;;	distance between fft data elements is 256
 ;;	do 256 macros each processing 32 data values
 
+IF OLDWAY EQ 1
+	start_timer 4
+	mov	rdi, sincos1		;; Load sin/cos pointer
+	bump	rdi, 256*YMM_SCD2/4
+	yloop_init  256			;; 256 iterations
+	yr4_fs4cl_four_complex_first_djbfft_preload
+b1b:	yr4_fs4cl_four_complex_first_djbfft rsi, 64, 4*dist64, 8*dist64, rdi, YMM_SCD4, 64
+	yloop	64, b1b, -64*64+dist64	;; Test loop counter, next source pointer
+	yloop	4, b1b, -4*dist64	;; Test loop counter, restore source pointer
+	end_timer 4
+
 	start_timer 5
 	bump	rdi, -256*YMM_SCD4-256*YMM_SCD2/4 ;; Load sin/cos pointer
 	yloop_init  256			;; 256 iterations
@@ -11420,6 +11450,17 @@ b2b:	yr4_b4cl_four_complex_djbfft rsi, 64, 4*dist64, 8*dist64, rdi, YMM_SCD2/4, 
 	yloop	64, b2b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	4, b2b, -4*dist64, rdi, -256*YMM_SCD2/4 ;; Test loop counter, restore source pointer, restore sin/cos pointer
 	end_timer 5
+ELSE
+	start_timer 4
+	mov	rdi, sincos1		;; Load sin/cos pointers
+	lea	rdx, [rdi+256*YMM_SCD2/4]
+	yloop_init  256			;; 256 iterations
+	yr4_fs4cl_sixteen_complex_first_djbfft_preload
+b1b:	yr4_fs4cl_sixteen_complex_first_djbfft rsi, 64, 4*dist64, 8*dist64, rdx, YMM_SCD4, rdi, YMM_SCD2/4, 64
+	yloop	64, b1b, -64*64+dist64	;; Test loop counter, next source pointer
+	yloop	4, b1b, -4*dist64, rdi, -256*YMM_SCD2/4 ;; Test loop counter, restore source pointer, restore sin/cos pointer
+	end_timer 4
+ENDIF
 
 ;; Do FFT levels 6,7
 ;; On input the 64-byte cache lines hold these data values:
@@ -11689,14 +11730,6 @@ c3b:	yr4_b4cl_four_complex_djbunfft rsi, 4*64, dist64, 2*dist64, rdi, 4*4*YMM_SC
 ;;	distance between fft data elements is 256
 ;;	do 256 macros each processing 32 data values
 
-	start_timer 13
-	yloop_init  256			;; 256 iterations
-	yr4_b4cl_four_complex_djbunfft_preload
-c2b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 4*dist64, 8*dist64, rdi, YMM_SCD2/4, 64
-	yloop	64, c2b, -64*64+dist64	;; Test loop counter, next source pointer
-	yloop	4, c2b, -4*dist64	;; Test loop counter, restore source pointer
-	end_timer 13
-
 ;; Do inverse FFT levels 1,2,3
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0	2K	4K	6K	1024	+2K	+2K	+2K
@@ -11724,6 +11757,15 @@ c2b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 4*dist64, 8*dist64, rdi, YMM_SCD2/4
 ;;	distance between fft data elements is 1024
 ;;	do 256 macros each processing 32 data values
 
+IF OLDWAY EQ 1
+	start_timer 13
+	yloop_init  256			;; 256 iterations
+	yr4_b4cl_four_complex_djbunfft_preload
+c2b:	yr4_b4cl_four_complex_djbunfft rsi, 64, 4*dist64, 8*dist64, rdi, YMM_SCD2/4, 64
+	yloop	64, c2b, -64*64+dist64	;; Test loop counter, next source pointer
+	yloop	4, c2b, -4*dist64	;; Test loop counter, restore source pointer
+	end_timer 13
+
 	start_timer 14
 	yloop_init  256			;; 256 iterations
 	yr4_s4cl_four_complex_last_unfft_preload
@@ -11731,6 +11773,16 @@ c1b:	yr4_s4cl_four_complex_last_unfft rsi, 64, 4*dist64, 8*dist64, rdi, YMM_SCD4
 	yloop	64, c1b, -64*64+dist64	;; Test loop counter, next source pointer
 	yloop	4, c1b			;; Test loop counter
 	end_timer 14
+ELSE
+	start_timer 14
+	lea	rdx, [rdi+256*YMM_SCD2/4]
+	yloop_init  256			;; 256 iterations
+	yr4_s4cl_sixteen_complex_last_unfft_preload
+c1b:	yr4_s4cl_sixteen_complex_last_unfft rsi, 64, 4*dist64, 8*dist64, rdi, YMM_SCD2/4, rdx, YMM_SCD4, 64
+	yloop	64, c1b, -64*64+dist64	;; Test loop counter, next source pointer
+	yloop	4, c1b			;; Test loop counter
+	end_timer 14
+ENDIF
 
 	ytwo_dest_adjust
 	yfft_3_ret
