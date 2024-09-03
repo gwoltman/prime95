@@ -79,6 +79,8 @@ extern int CPU_L1_SET_ASSOCIATIVE;
 extern int CPU_L2_SET_ASSOCIATIVE;
 extern int CPU_L3_SET_ASSOCIATIVE;
 
+extern int CPU_FAMILY;			/* Intel or AMD family code*/
+extern int CPU_MODEL;			/* Intel or AMD model number */
 extern unsigned int CPU_SIGNATURE;	/* Vendor-specific family number, model number, stepping ID, etc. */
 
 #define CPU_ARCHITECTURE_PRE_SSE2	0

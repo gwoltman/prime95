@@ -1604,7 +1604,21 @@ next2:		jmptab = NEXT_SET_OF_JMPTABS (jmptab);
 
 		else {
 			best_impl_for = (jmptab->flags >> 13) & 0xF;
-			if (best_impl_for == desired_bif) break;
+			if (best_impl_for != desired_bif) goto next3;
+
+/* For FMA3 FFTs between 6K and 16K there are two matching best bif entries.  For Haswell and Broadwell, skip to the two-pass implementation. */
+/* For SkyLake/KabyLake and later, choose the one-pass implementation. */
+
+			if (gwdata->FFTLEN >= 6144 && gwdata->FFTLEN <= 16384 &&		// FFTLen between 6K and 16K
+			    (jmptab->flags & 0x0000001FF) == 0 &&				// One pass implementation
+			    arch == ARCH_FMA3 &&						// FMA3 implementation (not AVX-512)
+			    CPU_FAMILY == 6 &&							// Family/model indicates Haswell or Broadwell
+			    (CPU_MODEL == 60 || CPU_MODEL == 61 || CPU_MODEL == 69 || CPU_MODEL == 70 || CPU_MODEL == 71))
+				goto next3;							// Skip to two-pass implementation
+
+/* Use this implementation as the default */
+
+			break;
 		}
 
 /* Move onto the next FFT implementation */
