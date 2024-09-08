@@ -93,12 +93,14 @@ zonepass MACRO fftname, negacyclic
 	mov	rbx, DIST_TO_FFTSRCARG
 
 ;; To avoid 4KB distances we optimize the larger one-pass FFTs by inserting pad bytes after every 4, 8, 16, 32, or 64 cache lines.
-
-	dist4 = 4*64+64
-	dist8 = 8*64+64
-	dist16 = 16*64+64
-	dist32 = 32*64+64
-	dist64 = 64*64+64
+;; NOTE: Adding pad bytes to 4K and 8K negacyclic FFTs resulted in slight worse throughput on SkyLakeX.  For now, we are not implementing
+;; any padding on AVX-512 small FFTs.
+;;
+;;	dist4 = 4*128+64
+;;	dist8 = 8*128+64
+;;	dist16 = 16*128+64
+;;	dist32 = 32*128+64
+;;	dist64 = 64*128+64
 
 ;; Call the macro containing the guts of the FFT
 

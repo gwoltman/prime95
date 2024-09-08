@@ -1747,16 +1747,8 @@ next3:		prev_proc_ptrs[4] = prev_proc_ptrs[3];
 		}
 		// For one-pass FFTs, select the optimal padding frequency
 		if (gwdata->PASS2_SIZE == 0) {
-//GW			if (gwdata->FFTLEN == 1536 || gwdata->FFTLEN == 2560)
-//				gwdata->FOURKBGAPSIZE = 16;		/* Pad every 1KB */
-//			else if (gwdata->FFTLEN == 1024 || gwdata->FFTLEN == 3072 || gwdata->FFTLEN == 5120)
-//				gwdata->FOURKBGAPSIZE = 32;		/* Pad every 2KB */
-//			else if (gwdata->FFTLEN == 2048 || gwdata->FFTLEN == 4096 || gwdata->FFTLEN == 6144 || gwdata->FFTLEN == 8192 ||
-//				 gwdata->FFTLEN == 10240 || gwdata->FFTLEN == 12288 || gwdata->FFTLEN == 16384 || gwdata->FFTLEN == 18432 ||
-//				 gwdata->FFTLEN == 20480 || gwdata->FFTLEN == 24576 || gwdata->FFTLEN == 32768)
-//				gwdata->FOURKBGAPSIZE = 64;		/* Pad every 4KB */
-//			else
-//				gwdata->FOURKBGAPSIZE = 0;		/* No padding */
+			// Trying this on 4K and 8K negacyclic FFTs resulted in worse throughput.  Thus, we don't do any padding.
+			gwdata->FOURKBGAPSIZE = 0;
 		}
 	}
 	else if (gwdata->cpu_flags & CPU_AVX) {
@@ -4648,16 +4640,7 @@ int internal_gwsetup (
 
 		/* Tradittional one pass AVX-512 FFTs */
 		if (gwdata->PASS2_SIZE == 0) {
-//GW			asm_data->fourKBgapsize = gwdata->FOURKBGAPSIZE;
-//			asm_data->normblkdst = 0;		/* Small pass 1's with PFA have no padding every 8 clmblkdsts */
-//			asm_data->normblkdst4 = gwdata->FOURKBGAPSIZE;
-//			asm_data->normblkdst8 = 0;
 			asm_data->pass1blkdst = asm_data->addcount1 * 128; /* Distance between sections in carry propagate code */
-//			asm_data->pass2blkdst = 128;		/* Allows one-pass FFTs to use two-pass carry propagate code */
-//			asm_data->normval4 = 1;			/* Allows one-pass FFTs to use two-pass add/sub/addsub code */
-//			asm_data->normval2 = 1;			/* Allows one-pass FFTs to use two-pass add/sub/addsub code */
-//			asm_data->normval1 = 1;			/* Allows one-pass FFTs to use two-pass add/sub/addsub quick code */
-//			asm_data->pass2gapsize = 0;		/* Allows one-pass FFTs to use two-pass add/sub/addsub quick code */
 		}
 
 		/* Wrapper-based one pass AVX-512 FFTs use the same 4KB padding scheme as two-pass FFTs */
@@ -7366,8 +7349,6 @@ unsigned long addr_offset (
 			i = i / num_lines;
 			addr = ((section * num_lines) << 4) + (line << 4) + (top_bit << 3) + i;
 			addr = addr * sizeof (double);
-			/* Now optionally add 64 pad bytes every 4KB */
-			if (gwdata->FOURKBGAPSIZE) addr = addr + (addr / (gwdata->FOURKBGAPSIZE << 6)) * 64;
 		}
 
 /* Small one pass FFTs using wrapper before calling a pass2 routine are not very convoluted.  This example shows low-word/high-word pairs for a length 1280 FFT */
