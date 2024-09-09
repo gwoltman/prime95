@@ -76,6 +76,7 @@ buildfor SKX,	zonepass 5376, 0
 buildfor SKX,	zonepass 6K, 0
 buildfor SKX,	zonepass 7K, 0
 buildfor SKX,	zonepass 8K, 0
+buildfor SKX,	zonepass 9K, 0
 buildfor SKX,	zonepass 10K, 0
 buildfor SKX,	zonepass 12K, 0
 
@@ -103,6 +104,7 @@ buildfor SKX,	zonepass 5376, 1
 buildfor SKX,	zonepass 6K, 1
 buildfor SKX,	zonepass 7K, 1
 buildfor SKX,	zonepass 8K, 1
+buildfor SKX,	zonepass 9K, 1
 buildfor SKX,	zonepass 10K, 1
 buildfor SKX,	zonepass 12K, 1
 
