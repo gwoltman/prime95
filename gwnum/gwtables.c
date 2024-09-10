@@ -68,7 +68,7 @@ double *zr4_build_onepass_sincos_table (
 
 	int num_eights = 0;
 	while (size % 8 == 0) {
-		if (num_eights == 1 && size == 16) break;		// For 16K FFT
+		if (num_eights == 1 && (size == 16 || size == 24)) break;		// For 16K and 24K FFT
 		num_eights++;
 		size = size /= 8;
 	}
