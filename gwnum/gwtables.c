@@ -68,6 +68,7 @@ double *zr4_build_onepass_sincos_table (
 
 	int num_eights = 0;
 	while (size % 8 == 0) {
+		if (num_eights == 1 && size == 16) break;		// For 16K FFT
 		num_eights++;
 		size = size /= 8;
 	}
@@ -75,8 +76,10 @@ double *zr4_build_onepass_sincos_table (
 /* For the zr4_four_complex_djbfft building block levels, output the sin/cos values.  Be careful, sometimes we prefer to use zr6_six_complex. */
 
 	if (size % 4 == 0 && size % 9 != 0) {
-		N = N * 4;
-		size /= 4;
+		while (size % 4 == 0) {
+			N = N * 4;
+			size /= 4;
+		}
 
 /* For the zr4_eight_reals_four_complex_djbfft building block levels, output the sin/cos values needed. */
 /* The eight_reals doubles N because the real part of the FFT is one level behind the complex part of the FFT. */
