@@ -89,6 +89,7 @@ buildfor SKX,	zonepass 28K, 0
 buildfor SKX,	zonepass 30K, 0
 buildfor SKX,	zonepass 32K, 0
 buildfor SKX,	zonepass 35K, 0
+buildfor SKX,	zonepass 36K, 0
 
 buildfor SKX,	zonepass 128, 1
 buildfor SKX,	zonepass 256, 1
@@ -127,6 +128,7 @@ buildfor SKX,	zonepass 28K, 1
 buildfor SKX,	zonepass 30K, 1
 buildfor SKX,	zonepass 32K, 1
 buildfor SKX,	zonepass 35K, 1
+buildfor SKX,	zonepass 36K, 1
 
 _TEXT	ENDS
 END
