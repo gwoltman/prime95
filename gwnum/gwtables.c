@@ -75,7 +75,7 @@ double *zr4_build_onepass_sincos_table (
 
 /* For the zr4_four_complex_djbfft building block levels, output the sin/cos values.  Be careful, sometimes we prefer to use zr6_six_complex. */
 
-	if (size % 4 == 0 && size % 9 != 0) {
+	if (size % 4 == 0 && size != 36) {
 		while (size % 4 == 0) {
 			N = N * 4;
 			size /= 4;
@@ -117,7 +117,7 @@ double *zr4_build_onepass_sincos_table (
 
 /* For the zr2_two_complex_djbfft building block level, output the sin/cos values.  Be careful, sometimes we prefer to use zr6_six_complex. */
 
-	if (size % 2 == 0 && size % 3 != 0) {
+	if (size % 2 == 0 && size != 6 && size != 36) {
 		N = N * 2;
 		size /= 2;
 
@@ -145,9 +145,8 @@ double *zr4_build_onepass_sincos_table (
 	}
 
 /* For the zr6_six_complex_djbfft building block levels, output the sin/cos values. */
-/* This one is a bit tricky as 12 is best handled as 3*4. */
 
-	if (size % 6 == 0 && (size % 4 != 0 || size % 9 == 0)) {
+	if (size % 6 == 0) {
 		while ((size % 6) == 0) {
 			N = N * 6;
 			size /= 6;
