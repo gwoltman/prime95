@@ -102,6 +102,10 @@ step 2: 4 complex muls (w^1,2 and w^2,4)? = 4 * (2 muls + 2 fmas) = 8 + 8
 step 3:  18 + 18
 total:  36 adds, 8 muls, 44 fmas .....  fewer adds (80 vs 84?), fewer constants??   Worthwhile in AVX512 prime95??
 
+	above requires 8 more cmuls at end
+	existing 3 then 3, is 18+18, 6 complex muls, 18+18, 6 complex muls	
+	identical cost, of course saves on load/stores
+
 -.958R5 * -.5 = .479R5		.342R5 * -.866 = -.296R5
 .470R5 * -.5 = -.235R5		-.643R5 * .866 = -.557R5
 
@@ -153,7 +157,10 @@ for in-between complex muls use cos, cos/sin methods to allow more FMAs!
 ;;I5 = i1 -.500(i4+i7) -.940(i2+i9) +.766(i3+i8) +.174(i5+i6) +.342(r2-r9) -.643(r3-r8) +.866(r4-r7) -.985(r5-r6)
 ;;I6 = i1 -.500(i4+i7) -.940(i2+i9) +.766(i3+i8) +.174(i5+i6) -.342(r2-r9) +.643(r3-r8) -.866(r4-r7) +.985(r5-r6)
 
-16 adds, 8 adds, 2 adds, 2 adds, 6 fmas, 2 fmas, 12 fma, 12 fma, 18 fma, 12 fma = 28 adds, 62 fmas == worse!
+16 adds, 8 adds, 2 adds, 2 adds, 6 fmas,
+ 2 fmas, 12 fma, 6 fma,
+ 18 fma, 12 fma
+	= 28 adds, 56 fmas
 
 zr9_9c_djbfft_cmn_preload MACRO
 	vbroadcastsd zmm31, ZMM_P901		;; .901
