@@ -20,35 +20,102 @@ INCLUDE zr4dwpnpass1sc.mac
 
 _TEXT SEGMENT
 
-;; To reduce executable size, we call common code to do the very few real FFT words in the last FFT level
-
-PROCF	zreal_fft_final1
-	int_prolog 0,16,0
-	zr8_sixteen_reals_eight_complex_fft_final rsi, 8*128, 128, 2*128, 4*128
-	int_epilog 0,16,0
-zreal_fft_final1 ENDP
-
-PROCF	zreal_square1
-	int_prolog 0,16,0
-	zr8_sixteen_reals_eight_complex_with_square rsi, 8*128, 128, 2*128, 4*128
-	int_epilog 0,16,0
-zreal_square1 ENDP
-
-PROCF	zreal_mult1
-	int_prolog 0,16,0
-	zr8_sixteen_reals_eight_complex_with_mult rsi, 8*128, 128, 2*128, 4*128
-	int_epilog 0,16,0
-zreal_mult1 ENDP
-
-PROCF	zreal_mulf1
-	int_prolog 0,16,0
-	zr8_sixteen_reals_eight_complex_with_mulf rsi, 8*128, 128, 2*128, 4*128
-	int_epilog 0,16,0
-zreal_mulf1 ENDP
-
 EXTRN zcomplex_square_opcode:PROC
 EXTRN zcomplex_mult_opcode:PROC
 EXTRN zcomplex_mulf_opcode:PROC
+
+;; To reduce the executable size, a common routine handles the middle section of one pass FFTs
+;; On input and output the 128-byte cache line pairs hold these data values:
+;;	0	+incr	...	8	+incr	...
+;;	...
+;;	7
+;;	16	...
+;;	32	...
+;;	...
+;; rcx = number of FFT sections
+;; rsi = FFT data pointer (preserved or preserved with DEST2ARG added in)
+
+zreal_onepass_middle PROC
+	mov	rdi, rsi		;; Save source pointer
+	cmp	ffttype, 2		;; Case off of FFT type
+	je	type2r
+	ja	type34r
+
+	;; Type 1 FFT (forward FFT only)
+	zr8_sixteen_reals_eight_complex_fft_final rsi, 8*128, 128, 2*128, 4*128
+	zr8_eight_complex_fft_final_preload
+	jmp	loop1r			;; Jump to complex middle code
+
+	;; Type 2 FFT (squaring)
+type2r:	mov	r8, DEST2ARG
+	zr8_sixteen_reals_eight_complex_with_square rsi, 8*128, 128, 2*128, 4*128
+	zr8_eight_complex_with_square_preload
+	jmp	loop2r			;; Jump to complex middle code
+
+	;; FFT types 3 and 4
+type34r:mov	rbp, DIST_TO_MULSRCARG
+	cmp	ffttype, 4
+	je	type4r
+
+	;; Type 3 FFT (forward FFT and multiply)
+	mov	r8, DEST2ARG
+	zr8_sixteen_reals_eight_complex_with_mult rsi, 8*128, 128, 2*128, 4*128
+	zr8_eight_complex_with_mult_preload
+	jmp	loop3r			;; Jump to complex middle code
+
+	;; Type 4 FFT (forward FFT and multiply)
+type4r:	zr8_sixteen_reals_eight_complex_with_mulf rsi, 8*128, 128, 2*128, 4*128
+	zr8_eight_complex_with_mulf_preload
+	jmp	loop4r			;; Jump to complex middle code
+zreal_onepass_middle ENDP
+
+zcomplex_onepass_middle PROC
+	mov	rdi, rsi		;; Save source pointer
+	cmp	ffttype, 2		;; Case off of FFT type
+	je	type2c
+	ja	type34c
+
+	;; Type 1 FFT (forward FFT only)
+	zr8_eight_complex_fft_final_preload
+loop1c:	zr8_eight_complex_fft_final rsi, 8*128, 128, 2*128, 4*128
+loop1r:	dec	rcx			;; Test loop counter
+	jnz	loop1c
+	pop	rax			;; Ignore return address
+	zfft_1_ret
+
+	;; Type 2 FFT (squaring)
+type2c:	mov	r8, DEST2ARG
+	zr8_eight_complex_with_square_preload
+loop2c:	zr8_eight_complex_with_square rsi, 8*128, 128, 2*128, 4*128
+loop2r:	dec	rcx			;; Test loop counter
+	jnz	loop2c
+	lea	rsi, [rdi+r8]		;; Restore source pointer
+	mov	DESTARG, rsi
+	ret
+
+	;; FFT types 3 and 4
+type34c:mov	rbp, DIST_TO_MULSRCARG
+	cmp	ffttype, 4
+	je	type4c
+
+	;; Type 3 FFT (forward FFT and multiply)
+	mov	r8, DEST2ARG
+	zr8_eight_complex_with_mult_preload
+loop3c:	zr8_eight_complex_with_mult rsi, 8*128, 128, 2*128, 4*128
+loop3r:	dec	rcx			;; Test loop counter
+	jnz	loop3c
+	lea	rsi, [rdi+r8]		;; Restore source pointer
+	mov	DESTARG, rsi
+	ret
+
+	;; Type 4 FFT (forward FFT and multiply)
+type4c:	zr8_eight_complex_with_mulf_preload
+loop4c:	zr8_eight_complex_with_mulf rsi, 8*128, 128, 2*128, 4*128
+loop4r:	dec	rcx			;; Test loop counter
+	jnz	loop4c
+	mov	rsi, rdi		;; Restore source pointer
+	ret
+zcomplex_onepass_middle ENDP
 
 ;; Implement the small custom-coded one pass FFTs
 
