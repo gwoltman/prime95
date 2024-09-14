@@ -117,7 +117,7 @@ double *zr4_build_onepass_sincos_table (
 
 /* For the zr2_two_complex_djbfft building block level, output the sin/cos values.  Be careful, sometimes we prefer to use zr6_six_complex. */
 
-	if (size % 2 == 0 && size != 6 && size != 36) {
+	if (size % 2 == 0 && size % 6 != 0) {
 		N = N * 2;
 		size /= 2;
 
