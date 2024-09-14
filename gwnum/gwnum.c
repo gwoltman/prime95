@@ -9639,6 +9639,7 @@ int gwtogiant (
 /* Rather than a separate never-will-be-multithreaded giants call to mul-by-k, prepare to mul-by-k as we go (at least in the b=2 case). */
 
 	dbltog (gwdata->k, k);
+	uint64_t k64 = (uint64_t) gwdata->k;
 	uint32_t klo = k->n[0];
 	uint32_t khi = k->n[1];
 	bool k_is_small = (k->sign <= 1);
@@ -9742,7 +9743,7 @@ int gwtogiant (
 			}
 
 			// Are we done?  We need to process limit FFT words plus the outcarry.
-			if (gwiter_index (&iter) >= limit && ((accum == 0 && outcarry == 0) || (accum == -1 && accumbits <= 0))) break;
+			if (gwiter_index (&iter) >= limit && ((accum == 0 && outcarry == 0) || (accum == -1 && accumbits <= 0 && outcarry == k64-1))) break;
 		}
 		if (cached_zeros < 0) *outptr++ = 0xFFFFFFFFU;		// Output at least one of the leading -1s
 
