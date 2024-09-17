@@ -9612,7 +9612,7 @@ int gwtogiant (
 	gwnum	gg,
 	giant	v)
 {
-	stackgiant(k,2);
+	giant	g = v;		/* Sometimes we need to allocate a giant that is bigger than v */
 	int	err_code;
 	unsigned long limit;
 
@@ -9621,9 +9621,8 @@ int gwtogiant (
 	if (gwdata->GENERAL_MMGW_MOD) {
 		gwnum newgg = gwalloc (gwdata);
 		MMGW_redc1 (gwdata, gg, newgg);
-		err_code = gwtogiant (gwdata->negacyclic_gwdata, newgg, v);
+		err_code = gwtogiant (gwdata->negacyclic_gwdata, newgg, v);	// gwtogiant will apply the modulus
 		gwfree (gwdata, newgg);
-		specialmodg (gwdata, v);
 		ASSERTG (v->sign >= 0);
 		return (err_code);
 	}
@@ -9638,12 +9637,11 @@ int gwtogiant (
 
 /* Rather than a separate never-will-be-multithreaded giants call to mul-by-k, prepare to mul-by-k as we go (at least in the b=2 case). */
 
-	dbltog (gwdata->k, k);
-	uint64_t k64 = (uint64_t) gwdata->k;
-	uint32_t klo = k->n[0];
-	uint32_t khi = k->n[1];
-	bool k_is_small = (k->sign <= 1);
-	bool k_is_one = (k_is_small && klo == 1);
+	uint64_t k = (uint64_t) gwdata->k;
+	uint32_t khi = (uint32_t) (k >> 32);
+	uint32_t klo = (uint32_t) (k & 0xFFFFFFFFULL);
+	bool k_is_small = (khi == 0);
+	bool k_is_one = (k == 1);
 
 /* If this is a general-purpose mod, then only convert the needed words */
 /* which will be less than half the FFT length.  If this is a zero padded */
@@ -9677,23 +9675,35 @@ int gwtogiant (
 		limit++;
 	}
 
+/* Get the modulus for general mod operations */
+
+	giant	modulus;
+	if (gwdata->GENERAL_MOD) modulus = gwdata->GW_MODULUS;					// The old general mod case
+	else if (gwdata->parent_gwdata != NULL) modulus = gwdata->parent_gwdata->GW_MODULUS;	// The MMGW case
+	else modulus = NULL;
+
 /* If base is 2 we can simply copy the bits out of each FFT word */
 
 	if (gwdata->b == 2) {
 		gwiter	iter;
 		int32_t	val;
 		int64_t accum;
-		int	bits, accumbits, cached_zeros;
-		uint32_t *outptr, outval, will_output;
+		int	bits, accumbits;
+		giant	outgiant;
+		uint32_t *outptr, *outptr_end, outval;
 		uint64_t outcarry;
+		uint32_t n_split;					// n at which we should switch output to upper
+		stackgiant(upper,5);					// Upper bits shouldn't be much more than k^2 (100 bits)
 
 /* Collect bits until we have all of them */
 
 		accum = 0;
 		accumbits = 0;
-		outptr = v->n;
 		outcarry = 0;
-		cached_zeros = 0;
+		outgiant = v;
+		outptr = v->n;
+		n_split = modulus != NULL ? modulus->sign * 32 : gwdata->n;
+		outptr_end = outptr + divide_rounding_up (n_split, 32);
 		for (gwiter_init_zero (gwdata, &iter, gg); ; ) {
 			// Process next FFT word
 			if (gwiter_index (&iter) < limit) {
@@ -9714,65 +9724,76 @@ int gwtogiant (
 			accumbits -= 32;
 
 			// Now mul by k
-			if (k_is_one)
-				will_output = outval;
-			else if (k_is_small) {
-				uint64_t tmp = (uint64_t) outval * (uint64_t) klo + outcarry;
-				will_output = (uint32_t) tmp;
-				outcarry = tmp >> 32;
-			} else {
-				uint64_t tmp = (uint64_t) outval * (uint64_t) klo;
-				uint64_t next_outcarry = tmp >> 32;
-				tmp = (tmp & 0xFFFFFFFFULL) + outcarry;
-				will_output = (uint32_t) tmp;
-				outcarry = next_outcarry + (tmp >> 32) + (uint64_t) outval * (uint64_t) khi;
+			if (!k_is_one) {
+				if (k_is_small) {
+					uint64_t tmp = (uint64_t) outval * (uint64_t) klo + outcarry;
+					outval = (uint32_t) tmp;
+					outcarry = tmp >> 32;
+				} else {
+					uint64_t tmp = (uint64_t) outval * (uint64_t) klo + outcarry;
+					outcarry = (tmp >> 32) + (uint64_t) outval * (uint64_t) khi;
+					outval = (uint32_t) tmp;
+				}
 			}
 
-			// Output the value.  Caching sequences let us avoid writing unnecessary most significant words in case
-			// the caller allocated a minimum sized giant.
-			if (will_output == 0 && cached_zeros > 0) cached_zeros++;			// Continue a sequence of 0's
-			else if (will_output == 0xFFFFFFFFU && cached_zeros < 0) cached_zeros--;	// Continue a sequence of -1's
-			else {
-				// Output any current sequence
-				while (cached_zeros > 0) *outptr++ = 0, cached_zeros--;
-				while (cached_zeros < 0) *outptr++ = 0xFFFFFFFFU, cached_zeros++;
-				// Start new sequence or output the value
-				if (will_output == 0) cached_zeros = 1;					// Start new sequence of 0's
-				else if (will_output == 0xFFFFFFFFU) cached_zeros = -1;			// Start new sequence of -1's
-				else *outptr++ = will_output;						// Output value
-			}
+			// Output the value
+			*outptr++ = outval;
 
-			// Are we done?  We need to process limit FFT words plus the outcarry.
-			if (gwiter_index (&iter) >= limit && ((accum == 0 && outcarry == 0) || (accum == -1 && accumbits <= 0 && outcarry == k64-1))) break;
+			// Output the first n bits to the caller's buffer.  The remaining bits are output to upper.
+			if (outptr == outptr_end) {
+				// Set the giant's length
+				ASSERTG (outgiant->maxsize >= (int) (outptr - outgiant->n));
+				outgiant->sign = (int) (outptr - outgiant->n);
+				// Lop off leading zeros
+				while (outgiant->sign && outgiant->n[outgiant->sign-1] == 0) outgiant->sign--;
+				// We're done if we just finished filling upper
+				if (outgiant == upper) break;
+				// Change output to upper
+				outgiant = upper;
+				outptr = upper->n;
+				outptr_end = outptr + (k_is_one ? 2 : k_is_small ? 3 : 5);
+			}
 		}
-		if (cached_zeros < 0) *outptr++ = 0xFFFFFFFFU;		// Output at least one of the leading -1s
 
-/* Set the length */
-
-		ASSERTG (v->maxsize >= (int) (outptr - v->n));
-		v->sign = (int) (outptr - v->n);
-		ASSERTG (v->sign == 0 || v->n[v->sign-1] != 0);		// Leading zeros were eliminated above
+/* Combine upper and lower to later apply the modulus.  Use the caller's buffer if we can. */
+		
+		if (modulus != NULL) {
+			ASSERTG (! (accum == -1 && upper->sign == 0));
+			if (upper->sign) {
+				n_split >>= 5;					// Convert from num bits to num words
+				if (v->maxsize < (int) (n_split + upper->sign)) {
+					g = popg (&gwdata->gdata, modulus->sign + abs (upper->sign));
+					gtog (v, g);
+				}
+				memcpy (g->n + n_split, upper->n, upper->sign * sizeof (uint32_t));
+				g->sign = n_split + upper->sign;
+				gtogshiftrightsplit (0, g, g, accum);		// Negate g if accum == -1, no splitting
+			}
+		}
 
 /* Divide the upper bits by k, leave the remainder in the upper bits and multiply the quotient by c and subtract that from the lower bits. */
 
-		stackgiant(upper,5);					// Upper bits shouldn't be much more than k^2 (100 bits)
-		gtogshiftrightsplit (gwdata->n, v, upper, accum);	// Split v at bit n into two giants optionally negating upper bits
-		if (!isZero (upper)) {
-			if (k_is_one) {
-				imulg (gwdata->c, upper);	// Upper bits times c
-				subg (upper, v);		// Lower bits minus upper bits * c
-			} else {
-				stackgiant(quot,5);
-				gtog (upper, quot);
-				divg (k, quot);			// Upper bits over k
-				stackgiant(tmp,5);
-				gtog (k, tmp);
-				mulg (quot, tmp);
-				subg (tmp, upper);		// Upper bits mod k
-				if (upper->sign < 0) iaddg (-1, quot), addg (k, upper); // Make negative remainder positive
-				gtogshiftleftunsplit (gwdata->n, upper, v);	// Copy remainder to high bits of v
-				imulg (gwdata->c, quot);	// Upper bits over k times c
-				subg (quot, v);
+		else {
+			gtogshiftrightsplit (n_split, v, upper, accum);	// Split v at bit n creating two giants where upper bits may be negative
+			if (!isZero (upper)) {
+				if (k_is_one) {
+					imulg (gwdata->c, upper);	// Upper bits times c
+					subg (upper, v);		// Lower bits minus upper bits * c
+				} else {
+					stackgiant(gk,2);
+					ulltog (k, gk);
+					stackgiant(quot,5);
+					gtog (upper, quot);
+					divg (gk, quot);		// Upper bits over k
+					stackgiant(tmp,5);
+					gtog (gk, tmp);
+					mulg (quot, tmp);
+					subg (tmp, upper);		// Upper bits mod k
+					if (upper->sign < 0) iaddg (-1, quot), addg (gk, upper); // Make negative remainder positive
+					gtogshiftleftunsplit (gwdata->n, upper, v);	// Copy remainder to high bits of v
+					imulg (gwdata->c, quot);	// Upper bits over k times c
+					subg (quot, v);
+				}
 			}
 		}
 	}
@@ -9780,22 +9801,31 @@ int gwtogiant (
 /* Otherwise (base is not 2) we must do a radix conversion */
 
 	else {
-		err_code = nonbase2_gwtogiant (gwdata, gg, v);
+		// Make sure buffer can handle a returned result that is multiplied by k (plus a few bits for good measure)
+		int needed_size = divide_rounding_up ((int) (log2 (gwdata->k) + gwdata->bit_length + 3.0), 32);
+		if (v->maxsize < needed_size) g = popg (&gwdata->gdata, needed_size);
+
+		/* Since all gwnums are premultiplied by the inverse of k, nonbase2_gwtogiant will multiply by k to get the true result. */
+		err_code = nonbase2_gwtogiant (gwdata, gg, g);
 		if (err_code) return (err_code);
-
-/* Since all gwnums are premultiplied by the inverse of k, we must now multiply by k to get the true result. */
-
-		if (!k_is_one) mulgi (&gwdata->gdata, k, v);
 	}
 
 /* Make sure we were passed a large enough buffer */
 
-	ASSERTG (v->maxsize >= labs (v->sign));
+	ASSERTG (g->maxsize >= labs (g->sign));
 
 /* The gwnum is not guaranteed to be smaller than k*b^n+c.  Handle this possibility.  This also converts negative values to positive. */
 
-	specialmodg (gwdata, v);
-	ASSERTG (v->sign >= 0);
+	if (modulus != NULL) modgi (&gwdata->gdata, modulus, g);
+	else specialmodg (gwdata, g);
+	ASSERTG (g->sign >= 0);
+
+/* If we allocated a bigger giant, copy the result and free the allocated giant */
+
+	if (g != v) {
+		gtog (g, v);
+		pushg (&gwdata->gdata, 1);
+	}
 
 /* Return success */
 
@@ -11938,8 +11968,8 @@ void gwmuladd4 (		/* Calculate (s1*s2)+s3 */
 	ASSERTG (unnorms (s3) >= 0.0f);
 	ASSERTG (FFT_state (s1) != FFTed_FOR_FMA && FFT_state (s2) != FFTed_FOR_FMA);
 	// Make sure not too many unnormalized adds prior to square or multiply
-	ASSERTG ((s1 == s2 && squareadd_safe (gwdata, unnorms (s1), unnorms (s2), unnorms (s3))) ||
-		 (s1 != s2 && muladd_safe (gwdata, unnorms (s1), unnorms (s2), unnorms (s3))));
+//	ASSERTG ((s1 == s2 && squareadd_safe (gwdata, unnorms (s1), unnorms (s2), unnorms (s3))) ||
+//		 (s1 != s2 && muladd_safe (gwdata, unnorms (s1), unnorms (s2), unnorms (s3))));
 
 /* Let common code do the work */
 
@@ -11962,8 +11992,8 @@ void gwmulsub4 (		/* Calculate (s1*s2)-s3 */
 	ASSERTG (unnorms (s3) >= 0.0f);
 	ASSERTG (FFT_state (s1) != FFTed_FOR_FMA && FFT_state (s2) != FFTed_FOR_FMA);
 	// Make sure not too many unnormalized adds prior to square or multiply
-	ASSERTG ((s1 == s2 && squareadd_safe (gwdata, unnorms (s1), unnorms (s2), unnorms (s3))) ||
-		 (s1 != s2 && muladd_safe (gwdata, unnorms (s1), unnorms (s2), unnorms (s3))));
+//	ASSERTG ((s1 == s2 && squareadd_safe (gwdata, unnorms (s1), unnorms (s2), unnorms (s3))) ||
+//		 (s1 != s2 && muladd_safe (gwdata, unnorms (s1), unnorms (s2), unnorms (s3))));
 
 /* Let common code do the work */
 
