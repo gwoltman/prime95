@@ -2470,16 +2470,16 @@ znorm_addsub_wpn_zpad_ttp MACRO
 
 	vblendmpd zmm4 {k1}, zmm28, zmm26	; 5	;; Create (1 / base) constant used in next carry calculation
 	zfmaddpd zmm0, zmm8, zmm4, zmm30	; 5-8	;; y+RNDVAL = x / base + RNDVAL (next carry+RNDVAL)
-	zfmaddpd zmm4, zmm9, zmm4, zmm30	; 5-8	;; y+RNDVAL = x / base + RNDVAL (next carry+RNDVAL)
+	zfmaddpd zmm4, zmm12, zmm4, zmm30	; 5-8	;; y+RNDVAL = x / base + RNDVAL (next carry+RNDVAL)
 	vblendmpd zmm5 {k2}, zmm28, zmm26	; 6	;; Create (1 / base) constant used in next carry calculation
-	zfmaddpd zmm1, zmm10, zmm5, zmm30	; 6-9	;; y+RNDVAL = x / base + RNDVAL (next carry+RNDVAL)
-	zfmaddpd zmm5, zmm11, zmm5, zmm30	; 6-9	;; y+RNDVAL = x / base + RNDVAL (next carry+RNDVAL)
+	zfmaddpd zmm1, zmm9, zmm5, zmm30	; 6-9	;; y+RNDVAL = x / base + RNDVAL (next carry+RNDVAL)
+	zfmaddpd zmm5, zmm13, zmm5, zmm30	; 6-9	;; y+RNDVAL = x / base + RNDVAL (next carry+RNDVAL)
 	vblendmpd zmm6 {k3}, zmm28, zmm26	; 7	;; Create (1 / base) constant used in next carry calculation
-	zfmaddpd zmm2, zmm16, zmm6, zmm30	; 7-10	;; y+RNDVAL = x / base + RNDVAL (next carry+RNDVAL)
-	zfmaddpd zmm6, zmm17, zmm6, zmm30	; 7-10	;; y+RNDVAL = x / base + RNDVAL (next carry+RNDVAL)
+	zfmaddpd zmm2, zmm10, zmm6, zmm30	; 7-10	;; y+RNDVAL = x / base + RNDVAL (next carry+RNDVAL)
+	zfmaddpd zmm6, zmm14, zmm6, zmm30	; 7-10	;; y+RNDVAL = x / base + RNDVAL (next carry+RNDVAL)
 	vblendmpd zmm7 {k4}, zmm28, zmm26	; 8	;; Create (1 / base) constant used in next carry calculation
-	zfmaddpd zmm3, zmm18, zmm7, zmm30	; 8-11	;; y+RNDVAL = x / base + RNDVAL (next carry+RNDVAL)
-	zfmaddpd zmm7, zmm19, zmm7, zmm30	; 8-11	;; y+RNDVAL = x / base + RNDVAL (next carry+RNDVAL)
+	zfmaddpd zmm3, zmm11, zmm7, zmm30	; 8-11	;; y+RNDVAL = x / base + RNDVAL (next carry+RNDVAL)
+	zfmaddpd zmm7, zmm15, zmm7, zmm30	; 8-11	;; y+RNDVAL = x / base + RNDVAL (next carry+RNDVAL)
 
 	vsubpd	zmm0, zmm0, zmm30		; 9-12	;; y = rnd(x/base) = y - RNDVAL
 	vsubpd	zmm4, zmm4, zmm30		; 9-12	;; y = rnd(x/base) = y - RNDVAL

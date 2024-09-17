@@ -615,7 +615,7 @@ PROCFL	gwzaddsubzp3
 	mov	rbx, DESTARG			; Address of destination
 	mov	rbp, DEST2ARG		  	; Address of destination #2
 
-	znorm_addsub_wpn_zpad_preload exec		; Preload constants, init carry registers
+	znorm_addsub_wpn_zpad_preload exec	; Preload constants, init carry registers
 
 	mov	r13, pass1blkdst		; Distance to FFT source #2
 	lea	r14, [2*r13+r13]		; Distance to FFT source #4
