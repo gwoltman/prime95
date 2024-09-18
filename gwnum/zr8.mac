@@ -3493,28 +3493,6 @@ zr8_rsc_wpn_sgreg_2sc_sixteen_reals_unfft8 MACRO srcreg,srcinc,d1reg,d3reg,src4r
 ;; ************************************* Macros used in one pass FFTs ******************************************
 ;;
 
-;; Utility macro that lets us create and call common code to reduce executable size
-
-zr8_dispatch MACRO call_type,routine,d1,d2,d4
-IF	d1 EQ 128
-	call_type &routine&1
-ELSEIF	d1 EQ 4*128
-	call_type &routine&2
-ELSEIF	d1 EQ 16*128
-	call_type &routine&3
-ELSEIF	d1 EQ 64*64+64		;;dist64
-	call_type &routine&4
-ELSEIF	d1 EQ 64*64+128		;;dist64
-	call_type &routine&4a
-ELSEIF	d1 EQ 4*(64*64+64)	;;4*dist64
-	call_type &routine&5
-ELSEIF	d1 EQ 16*(64*64+64)	;;16*dist64
-	call_type &routine&6
-ELSE
-	UNSUPPORTED d1
-ENDIF
-	ENDM
-
 zr8fs_sixteen_reals_first_fft_preload MACRO
 	vbroadcastsd zmm31, ZMM_SQRTHALF
 	vbroadcastsd zmm30, ZMM_P924_P383
