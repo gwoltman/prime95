@@ -482,7 +482,7 @@ amd64\zmult1ax_skx.obj: zmult1ax.asm zmult.mac znormal.mac znormal_zpad.mac
     $(masm64) /DARCH=SKX /Foamd64\zmult1ax_skx.obj zmult1ax.asm
     strip amd64\zmult1ax_skx.obj
 
-amd64\zr4_skx.obj: zr4.asm zmult.mac zonepass.mac zr2.mac zr3.mac zr4.mac zr5.mac zr6.mac zr7.mac zr8.mac zr10.mac zr12.mac zr16.mac
+amd64\zr4_skx.obj: zr4.asm zmult.mac zonepass.mac zr2.mac zr3.mac zr4.mac zr5.mac zr6.mac zr7.mac zr8.mac zr10.mac zr12.mac zr15.mac zr16.mac
     $(masm64) /DARCH=SKX /Foamd64\zr4_skx.obj zr4.asm
     strip amd64\zr4_skx.obj
 
