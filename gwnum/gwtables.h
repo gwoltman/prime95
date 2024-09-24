@@ -228,19 +228,18 @@ struct gwasm_data {
 		double	ZMM_TWO;		/* 2.0 - used in 64-complex macros */
 		double	ZMM_HALF;		/* 0.5, used in 12-real, 12-complex, 24-real, 128-real macros */
 		double	ZMM_P924_P383;		/* Used in 128-real, 16-real, 16-complex, 32-real macros */
-		double	ZMM_P981_P195;		/* Used in 32-real macros */
+		double	UNUSED_DOUBLE;
 
-		double	ZMM_P195;		/* Used in 32-real macros */
-		double	ZMM_P831_P556;		/* Used in 32-real macros */
-		double	ZMM_P556_P195;		/* Used in 32-real macros */
-		double	ZMM_P866;		/* Used in 6-complex, 12-real, 12-complex, 24-real macros */
 		double	ZMM_P259_P707;		/* Used in 24-real macros */
 		double	ZMM_P966_P707;		/* Used in 24-real macros */
+		double	ZMM_P866;		/* Used in 3-complex, 6-complex, 12-real, 12-complex, 24-real macros */
+		double	ZMM_P809_P309;		/* Used in 15-complex macros */
 		double	ZMM_P309;		/* Used in 5-complex, 10-real, 10-complex, 20-real macros */
 		double	ZMM_P809;		/* Used in 5-complex, 10-real, 10-complex, 20-real macros */
-
 		double	ZMM_P951;		/* Used in 5-complex, 10-real, 10-complex, 20-real macros */
 		double	ZMM_P588_P951;		/* Used in 5-complex, 10-real, 10-complex, 20-real macros */
+
+		double	UNUSED_DOUBLES[2];
 		double	ZMM_P434_P975;		/* Used in 7-complex, 14-real macros */
 		double	ZMM_P782_P975;		/* Used in 7-complex, 14-real macros */
 		double	ZMM_P901_P975;		/* Used in 7-complex, 14-real macros */
@@ -248,7 +247,10 @@ struct gwasm_data {
 		double	ZMM_P223_P975;		/* Used in 7-complex, 14-real macros */
 		double	ZMM_P1_P975;		/* Used in 7-complex, 14-real macros */
 
-		double	UNUSED_DOUBLES[4];
+		double	ZMM_P981_P195;		/* Used in 32-real macros */
+		double	ZMM_P195;		/* Used in 32-real macros */
+		double	ZMM_P831_P556;		/* Used in 32-real macros */
+		double	ZMM_P556_P195;		/* Used in 32-real macros */
 		int64_t	ZMM_PERMUTE1;		/* Permute indices for swizzling.  Used in one-pass wrapper, rsc macros */
 		int64_t	ZMM_PERMUTE2;		/* Permute indices for swizzling.  Used in one-pass wrapper, rsc macros */
 		int64_t	ZMM_PERMUTE3;		/* Permute indices for carry rotations */
