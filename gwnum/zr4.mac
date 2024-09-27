@@ -474,8 +474,8 @@ bcast	vbroadcastsd zmm10, Q [bcreg+0*scinc+0*bcsz++bcsz/2] ;; cosine/sine
 	zfmsubpd zmm3, zmm2, zmm10, zmm4	;; A4 = R4 * cosine/sine - I4		; 3-6		n 7
 	zfmaddpd zmm4, zmm4, zmm10, zmm2	;; B4 = I4 * cosine/sine + R4		; 3-6		n 8
 
-no bcast vmovapd zmm9, [screg+0*scinc+0*scinc+1*128] ;; Sine
-bcast	vbroadcastsd zmm9, Q [bcreg+0*scinc+0*scinc+1*bcsz] ;; Sine
+no bcast vmovapd zmm9, [screg+0*scinc+1*128]	;; Sine
+bcast	vbroadcastsd zmm9, Q [bcreg+0*scinc+1*bcsz] ;; Sine
 
 	vmovapd	zmm2, [srcreg+0*srcinc]		;; R1
 	zfmaddpd zmm5, zmm6, zmm9, zmm2		;; R1 + R2*sine (new R1)		; 5-8		n 11
