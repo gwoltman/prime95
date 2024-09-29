@@ -14,32 +14,32 @@
 ;;
 
 ;; The standard version
-zr15_fifteen_complex_djbfft_preload MACRO
-	zr15_15c_djbfft_cmn_preload
+zr35_fifteen_complex_djbfft_preload MACRO
+	zr35_15c_djbfft_cmn_preload
 	ENDM
-zr15_fifteen_complex_djbfft MACRO srcreg,srcinc,d1,sc3reg,sc3gap,sc3inc,sc5reg,sc5gap,sc5inc,maxrpt,L1pt,L1pd
-	zr15_15c_djbfft_cmn srcreg,srcinc,d1,noexec,0,0,0,sc3reg,sc3gap,sc3inc,sc5reg,sc5gap,sc5inc,maxrpt,L1pt,L1pd
+zr35_fifteen_complex_djbfft MACRO srcreg,srcinc,d1,sc3reg,sc3gap,sc3inc,sc5reg,sc5gap,sc5inc,maxrpt,L1pt,L1pd
+	zr35_15c_djbfft_cmn srcreg,srcinc,d1,noexec,0,0,0,sc3reg,sc3gap,sc3inc,sc5reg,sc5gap,sc5inc,maxrpt,L1pt,L1pd
 	ENDM
 
 ; Like the standard version except vbroadcastsd is used to reduce sin/cos data
-zr15b_fifteen_complex_djbfft_preload MACRO
-	zr15_15c_djbfft_cmn_preload
+zr35b_fifteen_complex_djbfft_preload MACRO
+	zr35_15c_djbfft_cmn_preload
 	ENDM
-zr15b_fifteen_complex_djbfft MACRO srcreg,srcinc,d1,sc3reg,sc3gap,sc3inc,sc5reg,sc5gap,sc5inc,maxrpt,L1pt,L1pd
-	zr15_15c_djbfft_cmn srcreg,srcinc,d1,exec,sc3reg,sc5reg,16,sc3reg,sc3gap,sc3inc,sc5reg,sc5gap,sc5inc,maxrpt,L1pt,L1pd
-	ENDM
-
-; Like the zr15b version except sin/cos data is loaded from a larger ten-real/five-complex sin/cos table
-zr15rb_fifteen_complex_djbfft_preload MACRO
-	zr15_15c_djbfft_cmn_preload
-	ENDM
-zr15rb_fifteen_complex_djbfft MACRO srcreg,srcinc,d1,sc3reg,sc3gap,sc3inc,sc5reg,sc5gap,sc5inc,maxrpt,L1pt,L1pd
-	zr15_15c_djbfft_cmn srcreg,srcinc,d1,exec,sc3reg+8,sc5reg+8,128,sc3reg,sc3gap,sc3inc,sc5reg,sc5gap,sc5inc,maxrpt,L1pt,L1pd
+zr35b_fifteen_complex_djbfft MACRO srcreg,srcinc,d1,sc3reg,sc3gap,sc3inc,sc5reg,sc5gap,sc5inc,maxrpt,L1pt,L1pd
+	zr35_15c_djbfft_cmn srcreg,srcinc,d1,exec,sc3reg,sc5reg,16,sc3reg,sc3gap,sc3inc,sc5reg,sc5gap,sc5inc,maxrpt,L1pt,L1pd
 	ENDM
 
-zr15_15c_djbfft_cmn_preload MACRO
+; Like the zr35b version except sin/cos data is loaded from a larger ten-real/five-complex sin/cos table
+zr35rb_fifteen_complex_djbfft_preload MACRO
+	zr35_15c_djbfft_cmn_preload
 	ENDM
-zr15_15c_djbfft_cmn MACRO srcreg,srcinc,d1,bcast,bc3reg,bc5reg,bcsz,sc3reg,sc3gap,sc3inc,sc5reg,sc5gap,sc5inc,maxrpt,L1pt,L1pd
+zr35rb_fifteen_complex_djbfft MACRO srcreg,srcinc,d1,sc3reg,sc3gap,sc3inc,sc5reg,sc5gap,sc5inc,maxrpt,L1pt,L1pd
+	zr35_15c_djbfft_cmn srcreg,srcinc,d1,exec,sc3reg+8,sc5reg+8,128,sc3reg,sc3gap,sc3inc,sc5reg,sc5gap,sc5inc,maxrpt,L1pt,L1pd
+	ENDM
+
+zr35_15c_djbfft_cmn_preload MACRO
+	ENDM
+zr35_15c_djbfft_cmn MACRO srcreg,srcinc,d1,bcast,bc3reg,bc5reg,bcsz,sc3reg,sc3gap,sc3inc,sc5reg,sc5gap,sc5inc,maxrpt,L1pt,L1pd
 	IF sc5gap NE 0
 	need_code_for_non_zero_sc5gap
 	ENDIF
@@ -540,32 +540,32 @@ bcast	vbroadcastsd zmm28, Q [bc3reg+3*sc3gap]	;;33 sine								n 75
 ;;
 
 ;; The standard version
-zr15_fifteen_complex_djbunfft_preload MACRO
-	zr15_15c_djbunfft_cmn_preload
+zr35_fifteen_complex_djbunfft_preload MACRO
+	zr35_15c_djbunfft_cmn_preload
 	ENDM
-zr15_fifteen_complex_djbunfft MACRO srcreg,srcinc,d1,sc5reg,sc5gap,sc5inc,sc3reg,sc3gap,sc3inc,maxrpt,L1pt,L1pd
-	zr15_15c_djbunfft_cmn srcreg,srcinc,d1,noexec,0,0,0,sc5reg,sc5gap,sc5inc,sc3reg,sc3gap,sc3inc,maxrpt,L1pt,L1pd
+zr35_fifteen_complex_djbunfft MACRO srcreg,srcinc,d1,sc5reg,sc5gap,sc5inc,sc3reg,sc3gap,sc3inc,maxrpt,L1pt,L1pd
+	zr35_15c_djbunfft_cmn srcreg,srcinc,d1,noexec,0,0,0,sc5reg,sc5gap,sc5inc,sc3reg,sc3gap,sc3inc,maxrpt,L1pt,L1pd
 	ENDM
 
 ; Like the standard version except vbroadcastsd is used to reduce sin/cos data
-zr15b_fifteen_complex_djbunfft_preload MACRO
-	zr15_15c_djbunfft_cmn_preload
+zr35b_fifteen_complex_djbunfft_preload MACRO
+	zr35_15c_djbunfft_cmn_preload
 	ENDM
-zr15b_fifteen_complex_djbunfft MACRO srcreg,srcinc,d1,sc5reg,sc5gap,sc5inc,sc3reg,sc3gap,sc3inc,maxrpt,L1pt,L1pd
-	zr15_15c_djbunfft_cmn srcreg,srcinc,d1,exec,sc5reg,sc3reg,16,sc5reg,sc5gap,sc5inc,sc3reg,sc3gap,sc3inc,maxrpt,L1pt,L1pd
-	ENDM
-
-; Like the zr15b version except sin/cos data is loaded from a larger ten-real/five-complex sin/cos table
-zr15rb_fifteen_complex_djbunfft_preload MACRO
-	zr15_15c_djbunfft_cmn_preload
-	ENDM
-zr15rb_fifteen_complex_djbunfft MACRO srcreg,srcinc,d1,sc5reg,sc5gap,sc5inc,sc3reg,sc3gap,sc3inc,maxrpt,L1pt,L1pd
-	zr15_15c_djbunfft_cmn srcreg,srcinc,d1,exec,sc5reg+8,sc3reg+8,128,sc5reg,sc5gap,sc5inc,sc3reg,sc3gap,sc3inc,maxrpt,L1pt,L1pd
+zr35b_fifteen_complex_djbunfft MACRO srcreg,srcinc,d1,sc5reg,sc5gap,sc5inc,sc3reg,sc3gap,sc3inc,maxrpt,L1pt,L1pd
+	zr35_15c_djbunfft_cmn srcreg,srcinc,d1,exec,sc5reg,sc3reg,16,sc5reg,sc5gap,sc5inc,sc3reg,sc3gap,sc3inc,maxrpt,L1pt,L1pd
 	ENDM
 
-zr15_15c_djbunfft_cmn_preload MACRO
+; Like the zr35b version except sin/cos data is loaded from a larger ten-real/five-complex sin/cos table
+zr35rb_fifteen_complex_djbunfft_preload MACRO
+	zr35_15c_djbunfft_cmn_preload
 	ENDM
-zr15_15c_djbunfft_cmn MACRO srcreg,srcinc,d1,bcast,bc5reg,bc3reg,bcsz,sc5reg,sc5gap,sc5inc,sc3reg,sc3gap,sc3inc,maxrpt,L1pt,L1pd
+zr35rb_fifteen_complex_djbunfft MACRO srcreg,srcinc,d1,sc5reg,sc5gap,sc5inc,sc3reg,sc3gap,sc3inc,maxrpt,L1pt,L1pd
+	zr35_15c_djbunfft_cmn srcreg,srcinc,d1,exec,sc5reg+8,sc3reg+8,128,sc5reg,sc5gap,sc5inc,sc3reg,sc3gap,sc3inc,maxrpt,L1pt,L1pd
+	ENDM
+
+zr35_15c_djbunfft_cmn_preload MACRO
+	ENDM
+zr35_15c_djbunfft_cmn MACRO srcreg,srcinc,d1,bcast,bc5reg,bc3reg,bcsz,sc5reg,sc5gap,sc5inc,sc3reg,sc3gap,sc3inc,maxrpt,L1pt,L1pd
 	IF sc5gap NE 0
 	need_code_for_non_zero_sc5gap
 	ENDIF
