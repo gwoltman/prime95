@@ -11,6 +11,7 @@ INCLUDE zr5.mac
 INCLUDE zr6.mac
 INCLUDE zr7.mac
 INCLUDE zr8.mac
+INCLUDE zr9.mac
 INCLUDE zr10.mac
 INCLUDE zr12.mac
 INCLUDE zr15.mac

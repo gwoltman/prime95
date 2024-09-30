@@ -1329,7 +1329,7 @@ zr10_20r_unfft_cmn MACRO srcreg,srcinc,d1,screg1,scinc1,screg2,scinc2,maxrpt,L1p
 
 ;;
 ;; ************************************* One-pass variant of ten-complex-djbfft ******************************************
-;; Implements ten complex in four complex chunks.  Uses a two complex and five complex sin/cos table.
+;; Implements ten complex in five and two complex chunks.  Uses a two complex and five complex sin/cos table.
 ;; This lets one pass FFTs get much of the benefits of ten-complex without writing the difficult ten_complex_twenty_reals macros
 ;;
 
@@ -1643,7 +1643,7 @@ bcast	vbroadcastsd zmm27, Q [bc2reg]		;;20 sine
 
 ;;
 ;; ************************************* One-pass variant of ten-complex-djbunfft ******************************************
-;; Implements ten complex in four complex chunks.  Uses a two complex and five complex sin/cos table.
+;; Implements ten complex in two and five complex chunks.  Uses a two complex and five complex sin/cos table.
 ;; This lets one pass FFTs get much of the benefits of ten-complex without writing the difficult ten_complex_twenty_reals macros
 ;;
 
