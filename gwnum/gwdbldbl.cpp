@@ -147,6 +147,9 @@ void gwasm_constants (
 #define P223_P975		asm_values[40]
 #define P1_P975			asm_values[41]
 #define P782_P975		asm_values[42]
+#define P223_P623		asm_values[43]
+#define P901_P223		asm_values[44]
+#define P901_P623		asm_values[45]
 
 /* Do some initial setup */
 
@@ -214,6 +217,9 @@ void gwasm_constants (
 	P623_P975 = double (cosine1 / P975);
 	P223_P975 = double (-cosine2 / P975);
 	P1_P975 = 1.0 / P975;
+	P223_P623 = double (-cosine2 / cosine1); // Alternate radix-7 constants
+	P901_P223 = double (-cosine3 / -cosine2);
+	P901_P623 = double (-cosine3 / cosine1);
 
 /* Initialize the 24-reals sine-cosine data. */
 

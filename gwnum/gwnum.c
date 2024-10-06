@@ -4163,6 +4163,9 @@ int internal_gwsetup (
 		asm_data->u.zmm.ZMM_P195 = asm_values[33];
 		asm_data->u.zmm.ZMM_P831_P556 = asm_values[34];
 		asm_data->u.zmm.ZMM_P556_P195 = asm_values[37];
+		asm_data->u.zmm.ZMM_P223_P623 = asm_values[43];
+		asm_data->u.zmm.ZMM_P901_P223 = asm_values[44];
+		asm_data->u.zmm.ZMM_P901_P623 = asm_values[45];
 
 /* Swizzling indices used in vpermt2pd (zperm2pd) */
 

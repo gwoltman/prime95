@@ -238,7 +238,7 @@ void gen_data (gwhandle *gwdata, gwnum x, giant g)
 	mpz_init (__N);
 	gtompz (g, __N);
 	mpz_init_set_ui (__f, 3);
-//	mpz_invert (__f, __f, __N);
+	mpz_invert (__f, __f, __N);
 	mpztog (__f, g);
 	mpz_clear (__N);
 	mpz_clear (__f);
@@ -662,6 +662,7 @@ void test_it (
 			gwunfft (gwdata, x4, x);
 		} else
 			gwsquare (gwdata, x);
+//			gwsquare_carefully (gwdata, x);
 
 		/* Square number (and do add-in) using giants code */
 		squaregi (&gwdata->gdata, g);
