@@ -10594,19 +10594,23 @@ ELSE
 	start_timer 6
 	bump	rdi, -72*ZMM_SCD7-24*ZMM_SCD2
 	mov	r10, rdi
-	zloop_init 24			;; 24 iterations
-	zr3_six_reals_three_complex_djbfft_preload
-b3a:	zr3_six_reals_three_complex_djbfft rsi, 128, 24*128, r10, ZMM_SCD2, 24
-	zloop	24, b3a, -24*128, r10, -24*ZMM_SCD2 ;; Test loop counter, restore source pointer, restore sin/cos pointer
-	zloop_init 24			;; 3 iterations of 8
-	zr3_six_reals_three_complex_djbfft_preload
-b4a:	zr3_six_reals_three_complex_djbfft rsi, 128, 8*128, rdi, 3*ZMM_SCD2, 8
-	zloop	8, b4a, -8*128+24*128, rdi, -8*3*ZMM_SCD2 ;; Test loop counter, next source pointer, restore sin/cos pointer
-	loops_reset			;; 2 more iters of 8
-	zr3rb_three_complex_djbfft_preload
-b4b:	zr3rb_three_complex_djbfft rsi, 128, 8*128, rdi, 3*ZMM_SCD2, 8
-	zloop	8, b4b, -8*128+24*128, rdi, -8*3*ZMM_SCD2 ;; Test loop counter, next source pointer, restore sin/cos pointer
-	zloop	3, b4b, -3*24*128+72*128 ;; Test loop counter, next source pointer
+;	zloop_init 24			;; 24 iterations
+;	zr3_six_reals_three_complex_djbfft_preload
+;b3a:	zr3_six_reals_three_complex_djbfft rsi, 128, 24*128, r10, ZMM_SCD2, 24
+;	zloop	24, b3a, -24*128, r10, -24*ZMM_SCD2 ;; Test loop counter, restore source pointer, restore sin/cos pointer
+;	zloop_init 24			;; 3 iterations of 8
+;	zr3_six_reals_three_complex_djbfft_preload
+;b4a:	zr3_six_reals_three_complex_djbfft rsi, 128, 8*128, rdi, 3*ZMM_SCD2, 8
+;	zloop	8, b4a, -8*128+24*128, rdi, -8*3*ZMM_SCD2 ;; Test loop counter, next source pointer, restore sin/cos pointer
+;	loops_reset			;; 2 more iters of 8
+;	zr3rb_three_complex_djbfft_preload
+;b4b:	zr3rb_three_complex_djbfft rsi, 128, 8*128, rdi, 3*ZMM_SCD2, 8
+;	zloop	8, b4b, -8*128+24*128, rdi, -8*3*ZMM_SCD2 ;; Test loop counter, next source pointer, restore sin/cos pointer
+;	zloop	3, b4b, -3*24*128+72*128 ;; Test loop counter, next source pointer
+	zloop_init 8			;; 8 iterations
+	zr33_eighteen_reals_nine_complex_djbfft_preload
+b3a:	zr33_eighteen_reals_nine_complex_djbfft rsi, 128, 8*128, r10, 8*ZMM_SCD2, ZMM_SCD2, rdi, 0*3*ZMM_SCD2, 3*ZMM_SCD2, 8
+	zloop	8, b3a, -8*128+72*128, r10, -8*ZMM_SCD2, rdi, -8*3*ZMM_SCD2 ;; Test loop counter, next source pointer, restore sin/cos pointers
 	end_timer 6
 
 	start_timer 7
