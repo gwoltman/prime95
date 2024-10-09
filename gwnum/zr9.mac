@@ -2070,57 +2070,57 @@ zr33_eighteen_reals_nine_complex_djbunfft MACRO srcreg,srcinc,d1,scIIIreg,scIIIg
 	zfmsubpd zmm1, zmm1, zmm28, zmm18			;;31 B2 = I2 * cosine2/sine2 - R2		; 30-33		n 36
 	bump	sc3reg, sc3inc
 
-	L1prefetchw srcreg+srcinc+d1+L1pd, L1pt
+	L1prefetchw srcreg+srcinc+d1, L1pt
 	zfmaddpd zmm18, zmm13, zmm27, zmm14			;;31 A3 = R3 * cosine3/sine3 + I3		; 31-34		n 37
 	zfmsubpd zmm14, zmm14, zmm27, zmm13			;;31 B3 = I3 * cosine3/sine3 - R3		; 31-34		n 37
 
-	L1prefetchw srcreg+srcinc+d1+64+L1pd, L1pt
+	L1prefetchw srcreg+srcinc+d1+64, L1pt
 	zfmaddpd zmm13, zmm5, zmm26, zmm4			;;32 A2 = R2 * cosine2/sine2 + I2		; 32-35		n 38
 	zfmsubpd zmm4, zmm4, zmm26, zmm5			;;32 B2 = I2 * cosine2/sine2 - R2		; 32-35		n 38
 
-	L1prefetchw srcreg+srcinc+2*d1+L1pd, L1pt
+	L1prefetchw srcreg+srcinc+2*d1, L1pt
 	zfmaddpd zmm5, zmm9, zmm25, zmm8			;;32 A3 = R3 * cosine3/sine3 + I3		; 33-36		n 39
 	zfmsubpd zmm8, zmm8, zmm25, zmm9			;;32 B3 = I3 * cosine3/sine3 - R3		; 33-36		n 39
 
-	L1prefetchw srcreg+srcinc+2*d1+64+L1pd, L1pt
+	L1prefetchw srcreg+srcinc+2*d1+64, L1pt
 	vmulpd	zmm2, zmm2, zmm24				;;30 A2 = A2 * sine2 (R2)			; 34-37		n 40
 	vmulpd	zmm6, zmm6, zmm24				;;30 B2 = B2 * sine2 (I2)			; 34-37		n 40
 
-	L1prefetchw srcreg+srcinc+3*d1+d1+L1pd, L1pt
+	L1prefetchw srcreg+srcinc+3*d1+d1, L1pt
 	vmulpd	zmm12, zmm12, zmm22				;;30 A3 = A3 * sine3 (R3)			; 35-38		n 40
 	vmulpd	zmm10, zmm10, zmm22				;;30 B3 = B3 * sine3 (I3)			; 35-38		n 41
 
-	L1prefetchw srcreg+srcinc+3*d1+d1+64+L1pd, L1pt
+	L1prefetchw srcreg+srcinc+3*d1+d1+64, L1pt
 	vmulpd	zmm7, zmm7, zmm21				;;31 A2 = A2 * sine2 (R2)			; 36-39		n 42
 	vmulpd	zmm1, zmm1, zmm21				;;31 B2 = B2 * sine2 (I2)			; 36-39		n 42
 
-	L1prefetchw srcreg+srcinc+3*d1+2*d1+L1pd, L1pt
+	L1prefetchw srcreg+srcinc+3*d1+2*d1, L1pt
 	vmulpd	zmm18, zmm18, zmm23				;;31 A3 = A3 * sine3 (R3)			; 37-40		n 42
 	vmulpd	zmm14, zmm14, zmm23				;;31 B3 = B3 * sine3 (I3)			; 37-40		n 43
 
-	L1prefetchw srcreg+srcinc+3*d1+2*d1+64+L1pd, L1pt
+	L1prefetchw srcreg+srcinc+3*d1+2*d1+64, L1pt
 	vmulpd	zmm13, zmm13, zmm20				;;32 A2 = A2 * sine2 (R2)			; 38-41		n 44
 	vmulpd	zmm4, zmm4, zmm20				;;32 B2 = B2 * sine2 (I2)			; 38-41		n 44
 
-	L1prefetchw srcreg+srcinc+6*d1+d1+L1pd, L1pt
+	L1prefetchw srcreg+srcinc+6*d1+d1, L1pt
 	vmulpd	zmm5, zmm5, zmm19				;;32 A3 = A3 * sine3 (R3)			; 39-42		n 44
 	vmulpd	zmm8, zmm8, zmm19				;;32 B3 = B3 * sine3 (I3)			; 39-42		n 45
 
-	L1prefetchw srcreg+srcinc+6*d1+d1+64+L1pd, L1pt
+	L1prefetchw srcreg+srcinc+6*d1+d1+64, L1pt
 	vmovapd	zmm9, zmm6			;;30 not important		I2
 	vsubpd	zmm9 {k7}, zmm2, zmm12		;;30 r2- = R2 - R3		blend in I2			; 40-43		n 52
 	vaddpd	zmm12 {k7}, zmm2, zmm12		;;30 r2+ = R2 + R3		blend in R3			; 40-43		n 47
 
-	L1prefetchw srcreg+srcinc+6*d1+2*d1+L1pd, L1pt
+	L1prefetchw srcreg+srcinc+6*d1+2*d1, L1pt
 	vaddpd	zmm2 {k7}, zmm6, zmm10		;;30 i2+ = I2 + I3		blend in R2			; 41-44		n 46
 	vsubpd	zmm10 {k7}, zmm6, zmm10		;;30 i2- = I2 - I3		blend in I3			; 41-44		n 55
 
-	L1prefetchw srcreg+srcinc+6*d1+2*d1+64+L1pd, L1pt
+	L1prefetchw srcreg+srcinc+6*d1+2*d1+64, L1pt
 	vmovapd	zmm6, zmm1			;;31 not important		I2
 	vsubpd	zmm6 {k7}, zmm7, zmm18		;;31 r2- = R2 - R3		blend in I2			; 42-45		n 53
 	vaddpd	zmm18 {k7}, zmm7, zmm18		;;31 r2+ = R2 + R3		blend in R3			; 42-45		n 50
 
-	L1prefetchw srcreg+srcinc+3*d1+L1pd, L1pt
+	L1prefetchw srcreg+srcinc+3*d1, L1pt
 	vaddpd	zmm7 {k7}, zmm1, zmm14		;;31 i2+ = I2 + I3		blend in R2			; 43-46		n 48
 	vsubpd	zmm14 {k7}, zmm1, zmm14		;;31 i2- = I2 - I3		blend in I3			; 43-46		n 56
 
@@ -2130,23 +2130,23 @@ zr33_eighteen_reals_nine_complex_djbunfft MACRO srcreg,srcinc,d1,scIIIreg,scIIIg
 	vsubpd	zmm1 {k7}, zmm13, zmm5		;;32 r2- = R2 - R3		blend in I2			; 44-47		n 54
 	vaddpd	zmm5 {k7}, zmm13, zmm5		;;32 r2+ = R2 + R3		blend in R3			; 45-48		n 51
 
-	L1prefetchw srcreg+srcinc+3*d1+64+L1pd, L1pt
+	L1prefetchw srcreg+srcinc+3*d1+64, L1pt
 	vaddpd	zmm13 {k7}, zmm4, zmm8		;;32 i2+ = I2 + I3		blend in R2			; 45-48		n 49
 	vsubpd	zmm8 {k7}, zmm4, zmm8		;;32 i2- = I2 - I3		blend in I3			; 46-49		n 57
 
-	L1prefetchw srcreg+srcinc+6*d1+L1pd, L1pt
+	L1prefetchw srcreg+srcinc+6*d1, L1pt
 	vaddpd	zmm4, zmm17, zmm2		;;30 I1 = I1 + i2+		R4 = R1b + R2			; 46-49
 	zfnmaddpd zmm2, zmm2, zmm31, zmm17	;;30 i1- = I1 - .5i2+		R1b- = R1b - .5*R2		; 47-50		n 52
 
-	L1prefetchw srcreg+srcinc+6*d1+64+L1pd, L1pt
+	L1prefetchw srcreg+srcinc+6*d1+64, L1pt
 	vaddpd	zmm17, zmm16, zmm12		;;30 R1 = R1 + r2+		R1 = R1a + R3			; 47-50
 	zfnmaddpd zmm12, zmm12, zmm31, zmm16	;;30 r1- = R1 - .5r2+		R1a- = R1a - .5*R3		; 48-51		n 55
 
-	L1prefetchw srcreg+srcinc+L1pd, L1pt
+	L1prefetchw srcreg+srcinc, L1pt
 	vaddpd	zmm16, zmm15, zmm7		;;31 I1 = I1 + i2+		R4 = R1b + R2			; 48-51
 	zfnmaddpd zmm7, zmm7, zmm31, zmm15	;;31 i1- = I1 - .5i2+		R1b- = R1b - .5*R2		; 49-52		n 53
 
-	L1prefetchw srcreg+srcinc+64+L1pd, L1pt
+	L1prefetchw srcreg+srcinc+64, L1pt
 	vaddpd	zmm15, zmm11, zmm13		;;32 I1 = I1 + i2+		R4 = R1b + R2			; 49-52
 	zfnmaddpd zmm13, zmm13, zmm31, zmm11	;;32 i1- = I1 - .5i2+		R1b- = R1b - .5*R2		; 50-53		n 54
 	zstore	[srcreg+0*d1+64], zmm4		;;30 Save I1							; 50
