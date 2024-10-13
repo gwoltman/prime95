@@ -3438,20 +3438,6 @@ zmid:	start_timer 7
 ;;	distance between fft data elements is 8
 ;;	do 40 macros each processing 32 data values
 
-	start_timer 8
-	mov	rdi, sincos1		;; Load sin/cos pointer
-	zloop_init 40			;; 5 iterations of 8
-	zr2_four_reals_two_complex_djbunfft_preload
-c3a:	zr2_four_reals_two_complex_djbunfft rsi, 128, 8*128, rdi, ZMM_SCD1, 8
-	zloop	8, c3a, -8*128+16*128, rdi, -8*ZMM_SCD1 ;; Test loop counter, restore source pointer, restore sin/cos pointer
-
-	loops_reset			;; 4 more iters of 8
-	zr2rb_two_complex_djbunfft_preload
-c3b:	zr2rb_two_complex_djbunfft rsi, 128, 8*128, rdi, ZMM_SCD1, 8
-	zloop	8, c3b, -8*128+16*128, rdi, -8*ZMM_SCD1 ;; Test loop counter, next source pointer, restore sin/cos pointer
-	zloop	5, c3b, -5*16*128, rdi, 8*ZMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos pointer
-	end_timer 8
-
 ;; Do inverse FFT levels 5,6
 ;; On input the 64-byte cache lines hold these data values:
 ;;	0	+160	...	16	+160	...
@@ -3470,12 +3456,37 @@ c3b:	zr2rb_two_complex_djbunfft rsi, 128, 8*128, rdi, ZMM_SCD1, 8
 ;;	distance between fft data elements is 16
 ;;	do 16 macros each processing 80 data values
 
+IFDEF OLDWAY
+	start_timer 8
+	mov	rdi, sincos1		;; Load sin/cos pointer
+	zloop_init 40			;; 5 iterations of 8
+	zr2_four_reals_two_complex_djbunfft_preload
+c3a:	zr2_four_reals_two_complex_djbunfft rsi, 128, 8*128, rdi, ZMM_SCD1, 8
+	zloop	8, c3a, -8*128+16*128, rdi, -8*ZMM_SCD1 ;; Test loop counter, restore source pointer, restore sin/cos pointer
+
+	loops_reset			;; 4 more iters of 8
+	zr2rb_two_complex_djbunfft_preload
+c3b:	zr2rb_two_complex_djbunfft rsi, 128, 8*128, rdi, ZMM_SCD1, 8
+	zloop	8, c3b, -8*128+16*128, rdi, -8*ZMM_SCD1 ;; Test loop counter, next source pointer, restore sin/cos pointer
+	zloop	5, c3b, -5*16*128, rdi, 8*ZMM_SCD1 ;; Test loop counter, restore source pointer, next sin/cos pointer
+	end_timer 8
+
 	start_timer 9
 	zloop_init 16			;; 16 iterations
 	zr5_ten_reals_five_complex_djbunfft_preload
 c2b:	zr5_ten_reals_five_complex_djbunfft rsi, 128, 16*128, rdi, ZMM_SCD4, 16
 	zloop	16, c2b, -16*128	;; Test loop counter, restore source pointer
 	end_timer 9
+ELSE
+	start_timer 8
+	mov	rdi, sincos1		;; Load sin/cos pointers
+	lea	r10, [rdi+8*ZMM_SCD1]
+	zloop_init 8			;; 8 iterations
+	zr25_twenty_reals_ten_complex_djbunfft_preload
+c3b:	zr25_twenty_reals_ten_complex_djbunfft rsi, 128, 8*128, rdi, 0*ZMM_SCD1, ZMM_SCD1, r10, 8*ZMM_SCD4, ZMM_SCD4, 8
+	zloop	8, c3b, -8*128, rdi, 16*ZMM_SCD4 ;; Test loop counter, restore source pointer, next sin/cos pointer
+	end_timer 8
+ENDIF
 
 ;; Do inverse FFT levels 1,2,3,4
 ;; On input the 128-byte cache line pairs hold these data values:
@@ -11370,27 +11381,16 @@ ELSE
 	start_timer 9
 	mov	rdi, sincos1		;; Load sin/cos pointers
 	lea	r10, [rdi+8*ZMM_SCD1]
-	zloop_init 40			;; 5 iterations of 8
-	zr2_four_reals_two_complex_djbunfft_preload
-c4a:	zr2_four_reals_two_complex_djbunfft rsi, 128, 8*128, rdi, ZMM_SCD1, 8
-	zloop	8, c4a, -8*128+16*128, rdi, -8*ZMM_SCD1 ;; Test loop counter, next source pointer, restore sin/cos pointer
-	loops_reset			;; 4 more iters of 8
-	zr2rb_two_complex_djbunfft_preload
-c4b:	zr2rb_two_complex_djbunfft rsi, 128, 8*128, rdi, ZMM_SCD1, 8
-	zloop	8, c4b, -8*128+16*128, rdi, -8*ZMM_SCD1 ;; Test loop counter, next source pointer, restore sin/cos pointer
-	zloop	5, c4b, -5*16*128	;; Test loop counter, restore source pointer
-	zloop_init 16			;; 16 iterations
-	zr5_ten_reals_five_complex_djbunfft_preload
-c3a:	zr5_ten_reals_five_complex_djbunfft rsi, 128, 16*128, r10, ZMM_SCD4, 16
-	zloop	16, c3a, -16*128+80*128, r10, -16*ZMM_SCD4 ;; Test loop counter, next source pointer, restore sin/cos pointer
-	end_timer 9
-	start_timer 10
-	zloop_init 56			;; 7 more iterations of 8
+	zloop_init 64			;; 8 iterations of 8
+	zr25_twenty_reals_ten_complex_djbunfft_preload
+c3a:	zr25_twenty_reals_ten_complex_djbunfft rsi, 128, 8*128, rdi, 0*ZMM_SCD1, ZMM_SCD1, r10, 8*ZMM_SCD4, ZMM_SCD4, 8
+	zloop	8, c3a, -8*128+80*128, rdi, -8*ZMM_SCD1, r10, -8*ZMM_SCD4 ;; Test loop counter, next source pointer, restore sin/cos pointers
+	loops_reset			;; 7 more iters of 8
 	zr25rb_ten_complex_djbunfft_preload
 c3b:	zr25rb_ten_complex_djbunfft rsi, 128, 8*128, rdi, 0*ZMM_SCD1, ZMM_SCD1, r10, 8*ZMM_SCD4, ZMM_SCD4, 8
 	zloop	8, c3b, -8*128+80*128, rdi, -8*ZMM_SCD1, r10, -8*ZMM_SCD4 ;; Test loop counter, next source pointer, restore sin/cos pointers
-	zloop	7, c3b, -8*80*128, rdi, 8*ZMM_SCD1+16*ZMM_SCD4 ;; Test loop counter, restore source pointer, next sin/cos ptr
-	end_timer 10
+	zloop	8, c3b, -8*80*128, rdi, 8*ZMM_SCD1+16*ZMM_SCD4 ;; Test loop counter, restore source pointer, next sin/cos ptr
+	end_timer 9
 ENDIF
 
 ;; Do inverse FFT levels 5,6,7
