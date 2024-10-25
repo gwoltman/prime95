@@ -6513,8 +6513,8 @@ retry:
 /* Also, lots of work_units is not a typical setup -- may indicate a large worktodo.txt file with high costs reading and writing it.  Also, check */
 /* that this thread isn't stopped and provide a method of limiting CERT work to one specific worker. */
 
-	    if (can_get_cert_work && first_work_unit_interruptable && num_work_units < 20 && ACTIVE_WORKERS[tnum] &&
-		IniGetInt (INI_FILE, "CertWorker", tnum+1) == tnum+1) {
+	if (ACTIVE_WORKERS[tnum] && IniGetInt (INI_FILE, "CertWorker", tnum+1) == tnum+1 &&
+	    (IniGetInt (INI_FILE, "ForceGetCertWork", 0) || (can_get_cert_work && first_work_unit_interruptable && num_work_units < 20))) {
 		int	num_certs = 0;
 
 		can_get_cert_work = FALSE;	// Only one worker can get certification work
@@ -6696,6 +6696,10 @@ retry:
 			w.prp_base = pkt1.prp_base;
 			w.prp_residue_type = pkt1.prp_residue_type;
 			w.prp_dblchk = pkt1.prp_dblchk;
+			break;
+		case PRIMENET_WORK_TYPE_CERT:
+			w.work_type = WORK_CERT;
+			w.cert_squarings = pkt1.num_squarings;
 			break;
 		default:
 			sprintf (buf, "Received unknown work type: %lu.\n", (unsigned long) pkt1.work_type);
