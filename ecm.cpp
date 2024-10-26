@@ -6795,7 +6795,7 @@ int ecm (
 {
 	ecmhandle ecmdata;
 	uint64_t next_prime, last_output, last_output_t, dictionary_memory;
-	double	one_over_B, output_frequency, output_title_frequency;
+	double	one_over_B, output_adjustment, title_adjustment;
 	double	base_pct_complete, one_relp_pct;
 	int	i;
 	unsigned int memused;
@@ -7207,7 +7207,7 @@ if (w->n == 604) {
 	last_output = last_output_t = ecmdata.modinv_count = 0;
 	gw_clear_fft_count (&ecmdata.gwdata);
 	first_iter_msg = TRUE;
-	calc_output_frequencies (&ecmdata.gwdata, &output_frequency, &output_title_frequency);
+	calc_interval_adjustments (&ecmdata.gwdata, &output_adjustment, &title_adjustment);
 	dictionary_memory = (uint64_t) IniGetInt (INI_FILE, "DictionaryMemory", 256) << 20;	// Default to 256MiB dictionary memory
 
 /* Optionally do a probable prime test */
@@ -7452,7 +7452,7 @@ restart1:
 /* Output the title every so often */
 
 			if (first_iter_msg ||
-			    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
+			    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output_t + 2 * ITER_OUTPUT * title_adjustment)) {
 				sprintf (buf, "%.*f%% of %s ECM curve %" PRIu32 " stage 1",
 					 (int) PRECISION, trunc_percent (w->pct_complete), ecmdata.N_short_string_rep, ecmdata.curve);
 				title (thread_num, buf);
@@ -7462,7 +7462,7 @@ restart1:
 /* Print a message every so often */
 
 			if (first_iter_msg ||
-			    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
+			    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output + 2 * ITER_OUTPUT * output_adjustment)) {
 				sprintf (buf, "%s curve %" PRIu32 " stage 1 at prime %" PRIu64 " [%.*f%%].",
 					 ecmdata.N_short_string_rep, ecmdata.curve, ecmdata.stage1_prime, (int) PRECISION, trunc_percent (w->pct_complete));
 				end_timer (timers, 0);
@@ -7589,7 +7589,7 @@ restart1:
 /* Output the title every so often */
 
 				if (first_iter_msg ||
-				    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
+				    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output_t + 2 * ITER_OUTPUT * title_adjustment)) {
 					sprintf (buf, "%.*f%% of %s ECM curve %" PRIu32 " stage 1",
 						 (int) PRECISION, trunc_percent (w->pct_complete), ecmdata.N_short_string_rep, ecmdata.curve);
 					title (thread_num, buf);
@@ -7599,7 +7599,7 @@ restart1:
 /* Print a message every so often */
 
 				if (first_iter_msg ||
-				    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
+				    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output + 2 * ITER_OUTPUT * output_adjustment)) {
 					sprintf (buf, "%s curve %" PRIu32 " stage 1 at exponent bit %" PRIu32 " [%.*f%%].",
 						 ecmdata.N_short_string_rep, ecmdata.curve, ecmdata.stage1_bitnum,
 						 (int) PRECISION, trunc_percent (w->pct_complete));
@@ -8705,7 +8705,7 @@ OutputStr (thread_num, buf); }
 /* Output the title every so often */
 
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output_t + 2 * ITER_OUTPUT * title_adjustment)) {
 			sprintf (buf, "%.*f%% of %s ECM curve %" PRIu32 " stage 2 (using %uMB)",
 				 (int) PRECISION, trunc_percent (w->pct_complete), ecmdata.N_short_string_rep, ecmdata.curve, memused);
 			title (thread_num, buf);
@@ -8715,7 +8715,7 @@ OutputStr (thread_num, buf); }
 /* Print a message every so often */
 
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) >= last_output + 2 * ITER_OUTPUT * output_adjustment)) {
 			sprintf (buf, "%s curve %" PRIu32 " stage 2 at B2=%" PRIu64 " [%.*f%%].",
 				 ecmdata.N_short_string_rep, ecmdata.curve, ecmdata.B2_start + ecmdata.Dsection * ecmdata.D + ecmdata.D / 2,
 				 (int) PRECISION, trunc_percent (w->pct_complete));
@@ -9449,7 +9449,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);}
 //GW: The * 3 is a total guess to compensate for time spent in polymult
 #define ITER_FUDGE 3
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) * ITER_FUDGE >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) * ITER_FUDGE >= last_output_t + 2 * ITER_OUTPUT * title_adjustment)) {
 			sprintf (buf, "%.*f%% of %s ECM stage 2 (using %uMB)",
 				 (int) PRECISION, trunc_percent (w->pct_complete), ecmdata.N_short_string_rep, memused);
 			title (thread_num, buf);
@@ -9459,7 +9459,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);}
 /* Write out a message every now and then */
 
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) * ITER_FUDGE >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) * ITER_FUDGE >= last_output + 2 * ITER_OUTPUT * output_adjustment)) {
 			sprintf (buf, "%s stage 2 at B2=%" PRIu64 " [%.*f%%]",
 				 ecmdata.N_short_string_rep, ecmdata.B2_start + ecmdata.Dsection * ecmdata.D, (int) PRECISION, trunc_percent (w->pct_complete));
 			end_timer (timers, 0);
@@ -11634,7 +11634,7 @@ int pminus1 (
 	int	pminus1_base, res, stop_reason, saving, near_fft_limit, echk;
 	double	one_over_len, one_over_B, base_pct_complete, one_relp_pct;
 	uint64_t last_output, last_output_t, last_output_r;
-	double	allowable_maxerr, output_frequency, output_title_frequency;
+	double	allowable_maxerr, output_adjustment, title_adjustment;
 	int	first_iter_msg;
 	int	msglen;
 	char	*str, *msg;
@@ -11750,7 +11750,7 @@ restart:
 	last_output = last_output_t = last_output_r = 0;
 	gw_clear_fft_count (&pm1data.gwdata);
 	first_iter_msg = TRUE;
-	calc_output_frequencies (&pm1data.gwdata, &output_frequency, &output_title_frequency);
+	calc_interval_adjustments (&pm1data.gwdata, &output_adjustment, &title_adjustment);
 	clear_timers (timers, 2);
 
 /* Output message about the FFT length chosen */
@@ -11981,7 +11981,7 @@ restart0:
 /* Output the title every so often */
 
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output_t + 2 * ITER_OUTPUT * title_adjustment)) {
 			sprintf (buf, "%.*f%% of %s P-1 stage 1",
 				 (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&pm1data.gwdata));
 			title (thread_num, buf);
@@ -11991,7 +11991,7 @@ restart0:
 /* Every N squarings, output a progress report */
 
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output + 2 * ITER_OUTPUT * output_adjustment)) {
 			sprintf (buf, "%s stage 1 is %.*f%% complete.",
 				 gwmodulo_as_string (&pm1data.gwdata), (int) PRECISION, trunc_percent (w->pct_complete));
 			end_timer (timers, 0);
@@ -12093,7 +12093,7 @@ restart1:
 /* Output the title every so often */
 
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output_t + 2 * ITER_OUTPUT * title_adjustment)) {
 			sprintf (buf, "%.*f%% of %s P-1 stage 1",
 				 (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&pm1data.gwdata));
 			title (thread_num, buf);
@@ -12103,7 +12103,7 @@ restart1:
 /* Every N squarings, output a progress report */
 
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output + 2 * ITER_OUTPUT * output_adjustment)) {
 			sprintf (buf, "%s stage 1 is %.*f%% complete.",
 				 gwmodulo_as_string (&pm1data.gwdata), (int) PRECISION, trunc_percent (w->pct_complete));
 			end_timer (timers, 0);
@@ -12967,7 +12967,7 @@ OutputStr (thread_num, buf); }
 /* Output the title every so often */
 
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output_t + 2 * ITER_OUTPUT * title_adjustment)) {
 			sprintf (buf, "%.*f%% of %s P-1 stage 2 (using %uMB)",
 				 (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&pm1data.gwdata), memused);
 			title (thread_num, buf);
@@ -12977,7 +12977,7 @@ OutputStr (thread_num, buf); }
 /* Write out a message every now and then */
 
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) >= last_output + 2 * ITER_OUTPUT * output_adjustment)) {
 			sprintf (buf, "%s stage 2 is %.*f%% complete.",
 				 gwmodulo_as_string (&pm1data.gwdata), (int) PRECISION, trunc_percent (w->pct_complete));
 			end_timer (timers, 0);
@@ -13521,7 +13521,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);}
 //GW: The * 3 is a total guess to compensate for time spent in polymult
 #define ITER_FUDGE 3
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) * ITER_FUDGE >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) * ITER_FUDGE >= last_output_t + 2 * ITER_OUTPUT * title_adjustment)) {
 			sprintf (buf, "%.*f%% of %s P-1 stage 2 (using %uMB)",
 				 (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&pm1data.gwdata), memused);
 			title (thread_num, buf);
@@ -13531,7 +13531,7 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&pm1data.gwdata);}
 /* Write out a message every now and then */
 
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) * ITER_FUDGE >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pm1data.gwdata) * ITER_FUDGE >= last_output + 2 * ITER_OUTPUT * output_adjustment)) {
 			sprintf (buf, "%s stage 2 at B2=%" PRIu64 " [%.*f%%]",
 				 gwmodulo_as_string (&pm1data.gwdata), pm1data.B2_start + pm1data.Dsection * pm1data.D,
 				 (int) PRECISION, trunc_percent (w->pct_complete));
@@ -15375,7 +15375,7 @@ int pplus1 (
 	uint64_t sieve_start, next_prime;
 	double	one_over_B, base_pct_complete, one_relp_pct;
 	uint64_t last_output, last_output_t, last_output_r;
-	double	allowable_maxerr, output_frequency, output_title_frequency;
+	double	allowable_maxerr, output_adjustment, title_adjustment;
 	int	maxerr_restart_count = 0;
 	char	*str, *msg;
 	int	msglen;
@@ -15518,7 +15518,7 @@ restart:
 	last_output = last_output_t = last_output_r = 0;
 	gw_clear_fft_count (&pp1data.gwdata);
 	first_iter_msg = TRUE;
-	calc_output_frequencies (&pp1data.gwdata, &output_frequency, &output_title_frequency);
+	calc_interval_adjustments (&pp1data.gwdata, &output_adjustment, &title_adjustment);
 
 /* Output message about the FFT length chosen */
 
@@ -15729,7 +15729,7 @@ restart1:
 /* Output the title every so often */
 
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pp1data.gwdata) >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pp1data.gwdata) >= last_output_t + 2 * ITER_OUTPUT * title_adjustment)) {
 			sprintf (buf, "%.*f%% of %s P+1 stage 1",
 				 (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&pp1data.gwdata));
 			title (thread_num, buf);
@@ -15739,7 +15739,7 @@ restart1:
 /* Every N squarings, output a progress report */
 
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pp1data.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pp1data.gwdata) >= last_output + 2 * ITER_OUTPUT * output_adjustment)) {
 			sprintf (buf, "%s stage 1 is %.*f%% complete.",
 				 gwmodulo_as_string (&pp1data.gwdata), (int) PRECISION, trunc_percent (w->pct_complete));
 			end_timer (timers, 0);
@@ -16318,7 +16318,7 @@ replan:	{
 /* Output the title every so often */
 
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pp1data.gwdata) >= last_output_t + 2 * ITER_OUTPUT * output_title_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pp1data.gwdata) >= last_output_t + 2 * ITER_OUTPUT * title_adjustment)) {
 			sprintf (buf, "%.*f%% of %s P+1 stage 2 (using %uMB)",
 				 (int) PRECISION, trunc_percent (w->pct_complete), gwmodulo_as_string (&pp1data.gwdata), memused);
 			title (thread_num, buf);
@@ -16328,7 +16328,7 @@ replan:	{
 /* Write out a message every now and then */
 
 		if (first_iter_msg ||
-		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pp1data.gwdata) >= last_output + 2 * ITER_OUTPUT * output_frequency)) {
+		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&pp1data.gwdata) >= last_output + 2 * ITER_OUTPUT * output_adjustment)) {
 			sprintf (buf, "%s stage 2 is %.*f%% complete.",
 				 gwmodulo_as_string (&pp1data.gwdata), (int) PRECISION, trunc_percent (w->pct_complete));
 			end_timer (timers, 0);

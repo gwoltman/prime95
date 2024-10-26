@@ -2675,10 +2675,10 @@ int SleepFive (
 /* has used some undoc.txt settings to change how often the title is output or to */
 /* make the frequency roughly the same in all windows even if using different FFT sizes. */
 
-void calc_output_frequencies (
+void calc_interval_adjustments (
 	gwhandle *gwdata,		/* Handle to the gwnum code */
-	double	*output_frequency,	/* Calculated adjustment to ITER_OUTPUT */
-	double	*output_title_frequency)/* Calculated adjustment to ITER_OUTPUT for title */
+	double	*output_adjustment,	/* Calculated adjustment to ITER_OUTPUT */
+	double	*title_adjustment)	/* Calculated adjustment to ITER_OUTPUT for title */
 {
 	int	scaled_freq, title_freq;
 	double	exp, temp;
@@ -2688,27 +2688,27 @@ void calc_output_frequencies (
 	/* should be 1.0 if testing M50000000). */
 	scaled_freq = (int) IniGetInt (INI_FILE, "ScaleOutputFrequency", 0);
 	if (!scaled_freq) {
-		*output_frequency = 1.0;
+		*output_adjustment = 1.0;
 	} else {
-		*output_frequency = gwmap_to_timing (1.0, 2, 50000000, -1) / gwmap_to_timing (gwdata->k, gwdata->b, gwdata->n, gwdata->c);
+		*output_adjustment = gwmap_to_timing (1.0, 2, 50000000, -1) / gwmap_to_timing (gwdata->k, gwdata->b, gwdata->n, gwdata->c);
 		if (gwget_num_threads (gwdata) > 1 && NUM_WORKERS < HW_NUM_CORES)
-			*output_frequency /= 1.8 * (gwget_num_threads (gwdata) - 1);
+			*output_adjustment *= 1.8 * (gwget_num_threads (gwdata) - 1);
 		/* For prettier output (outputs likely to be a multiple of a power of 10), round the */
-		/* output frequency to the nearest (10,15,20,25,30,40,...90) times a power of ten */
-		exp = floor (_log10 (*output_frequency));
-		temp = *output_frequency * pow (10.0, -exp);
+		/* output interval to the nearest (10,15,20,25,30,40,...90) times a power of ten */
+		exp = floor (_log10 (*output_adjustment));
+		temp = *output_adjustment * pow (10.0, -exp);
 		if (temp < 1.25) temp = 1.0;
-		else if (temp <1.75) temp = 1.5;
+		else if (temp < 1.75) temp = 1.5;
 		else if (temp < 2.25) temp = 2.0;
 		else if (temp < 2.75) temp = 2.5;
 		else temp = floor (temp + 0.5);
-		*output_frequency = temp * pow (10.0, exp);
+		*output_adjustment = temp * pow (10.0, exp);
 	}
 
-	/* Calculate the title frequency as a fraction of the output frequency */
+	/* Calculate the title interval as a fraction of the output interval */
 	title_freq = (int) IniGetInt (INI_FILE, "TitleOutputFrequency", 1);
 	if (title_freq < 1) title_freq = 1;
-	*output_title_frequency = *output_frequency / (double) title_freq;
+	*title_adjustment = *output_adjustment / (double) title_freq;
 }
 
 /* Truncate a percentage to the requested number of digits. */
@@ -6478,7 +6478,7 @@ int prime (
 	unsigned long last_counter = 0xFFFFFFFF;	/* Iteration of last error */
 	int	maxerr_recovery_mode = 0;		/* Big roundoff err rerun */
 	double	last_maxerr = 0.0;
-	double	allowable_maxerr, output_frequency, output_title_frequency;
+	double	allowable_maxerr, output_adjustment, title_adjustment;
 	int	error_count_messages;
 
 /* Initialize */
@@ -6641,7 +6641,7 @@ begin:	gwinit (&lldata.gwdata);
 	strcpy (w->stage, "LL");
 	inverse_p = 1.0 / (double) p;
 	w->pct_complete = (double) counter * inverse_p;
-	calc_output_frequencies (&lldata.gwdata, &output_frequency, &output_title_frequency);
+	calc_interval_adjustments (&lldata.gwdata, &output_adjustment, &title_adjustment);
 
 /* Start off with the 1st Lucas number - four (ATH requested making the starting value overriddable). */
 /* Note we do something a little strange here.  We actually set the first number to 4 but shifted by */
@@ -6886,7 +6886,7 @@ begin:	gwinit (&lldata.gwdata);
 
 /* Output the title every so often */
 
-		actual_frequency = (int) (ITER_OUTPUT * output_title_frequency);
+		actual_frequency = (int) (ITER_OUTPUT * title_adjustment);
 		if (actual_frequency < 1) actual_frequency = 1;
 		if (counter % actual_frequency == 0 || first_iter_msg) {
 			sprintf (buf, "%.*f%% of LL M%ld", (int) PRECISION, trunc_percent (w->pct_complete), p);
@@ -6895,7 +6895,7 @@ begin:	gwinit (&lldata.gwdata);
 
 /* Print a message every so often */
 
-		actual_frequency = (int) (ITER_OUTPUT * output_frequency);
+		actual_frequency = (int) (ITER_OUTPUT * output_adjustment);
 		if (actual_frequency < 1) actual_frequency = 1;
 		if (counter % actual_frequency == 0 || first_iter_msg) {
 			sprintf (buf, "Iteration: %ld / %ld [%.*f%%]", counter, p, (int) PRECISION, trunc_percent (w->pct_complete));
@@ -11558,7 +11558,7 @@ int prp (
 	unsigned long last_counter = 0xFFFFFFFF;/* Iteration of last error */
 	int	maxerr_recovery_mode = 0;	/* Big roundoff err rerun */
 	double	last_maxerr = 0.0;
-	double	allowable_maxerr, output_frequency, output_title_frequency;
+	double	allowable_maxerr, output_adjustment, title_adjustment;
 	char	string_rep[80];
 	int	string_rep_truncated;
 	int	error_count_messages;
@@ -12112,7 +12112,7 @@ begin:	N = exp = NULL;
 	strcpy (w->stage, "PRP");
 	inverse_explen = 1.0 / (double) final_counter;
 	w->pct_complete = (double) ps.counter * inverse_explen;
-	calc_output_frequencies (&gwdata, &output_frequency, &output_title_frequency);
+	calc_interval_adjustments (&gwdata, &output_adjustment, &title_adjustment);
 
 /* If we are near the maximum exponent this fft length can test, then we */
 /* will error check all iterations */
@@ -12476,7 +12476,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 
 /* Output the title every so often */
 
-		actual_frequency = (int) (ITER_OUTPUT * output_title_frequency);
+		actual_frequency = (int) (ITER_OUTPUT * title_adjustment);
 		if (actual_frequency < 1) actual_frequency = 1;
 		if (ps.counter % actual_frequency == 0 || first_iter_msg) {
 			sprintf (buf, "%.*f%% of PRP %s", (int) PRECISION, trunc_percent (w->pct_complete), string_rep);
@@ -12485,7 +12485,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 
 /* Print a message every so often */
 
-		actual_frequency = (int) (ITER_OUTPUT * output_frequency);
+		actual_frequency = (int) (ITER_OUTPUT * output_adjustment);
 		if (actual_frequency < 1) actual_frequency = 1;
 		if ((ps.counter % actual_frequency == 0 && ps.state != PRP_STATE_GERB_MID_BLOCK_MULT &&
 		     ps.state != PRP_STATE_GERB_END_BLOCK && ps.state != PRP_STATE_GERB_END_BLOCK_MULT &&
