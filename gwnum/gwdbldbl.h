@@ -152,6 +152,7 @@ double gwfft_weight_inverse_sloppy (void *, unsigned long);
 double gwfft_weight_inverse_over_fftlen (void *, unsigned long);
 void gwfft_weights3 (void *, unsigned long, double *, double *, double *);
 void gwfft_weights_over_weights3 (void *, unsigned long, unsigned long, double *, double *, double *);
+void gwfft_weight_minus1 (void *, unsigned long, double	*);
 void gwfft_weights3_times_sine (void *, unsigned long, unsigned long, unsigned long, double *, double *, double *);
 double gwfft_weight_exponent (void *, unsigned long);
 double gwfft_weight_no_c (void *, unsigned long);

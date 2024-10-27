@@ -577,6 +577,9 @@ double *zr4_build_onepass_weights_table (
 		// Three special divided weights for zr8fs_sixteen_reals_first_fft
 		else if (k && j && j <= (int) (3*gwdata->FFTLEN/16))
 			gwfft_weights_over_weights3 (gwdata->dd_data, i+j+k+l, i+j+l, table, NULL, NULL);
+		// Output more accurate weight-1 in some cases
+		else if (k == 0 && (j == 0 || (j >= (int) (4*gwdata->FFTLEN/16) && j <= (int) (7*gwdata->FFTLEN/16))))
+			gwfft_weight_minus1 (gwdata->dd_data, i+j+k+l, table);
 		// Finally, output a simple weight
 		else
 			gwfft_weights3 (gwdata->dd_data, i+j+k+l, table, NULL, NULL);

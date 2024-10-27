@@ -1215,6 +1215,23 @@ void gwfft_weights_over_weights3 (
 	END_x86_FIX
 }
 
+// This computes the FFT weights minus one.  This is more accurate than weight and can be applied with one FMA instruction.
+
+extern "C"
+void gwfft_weight_minus1 (
+	void	*dd_data_arg,
+	unsigned long j,
+	double	*fft_weight_minus1)
+{
+	dd_real bpower, weight;
+
+	x86_FIX
+	bpower = map_to_weight_power (dd_data_arg, j);
+	weight = exp (dd_data->gw__logb * bpower);
+	*fft_weight_minus1 = double (weight - 1.0);
+	END_x86_FIX
+}
+
 // Returns logb(fft_weight).  This is used in determining the FFT weight
 // fudge factor in two-pass FFTs.  This is much faster than computing the
 // fft_weight because it eliminates a call to the double-double exp routine.

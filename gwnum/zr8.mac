@@ -3505,17 +3505,17 @@ zr8fs_sixteen_reals_first_fft_preload MACRO
 
 zr8fs_sixteen_reals_first_fft MACRO srcreg,srcinc,d1,d2,d4,screg,scinc,wgtreg,wgtinc,maxrpt,L1pt,L1pd
 	vmovapd	zmm4, [srcreg+d4+d2+d1][rbx]	;; R8
-	vmulpd	zmm4, zmm4, [wgtreg+7*128]	;; apply weights to R8						; 1-4		n 6
+	zfmaddpd zmm4, zmm4, [wgtreg+7*128], zmm4 ;; apply weight-1 to R8					; 1-4		n 6
 	vmovapd	zmm8, [srcreg+d4+d1][rbx]	;; R6
-	vmulpd	zmm8, zmm8, [wgtreg+5*128]	;; apply weights to R6						; 1-4		n 7
+	zfmaddpd zmm8, zmm8, [wgtreg+5*128], zmm8 ;; apply weight-1 to R6					; 1-4		n 7
 
 	vmovapd	zmm14, [srcreg][rbx]		;; R1
-	vmulpd	zmm14, zmm14, [wgtreg]		;; apply weights to R1						; 2-5		n 8
+	zfmaddpd zmm14, zmm14, [wgtreg], zmm14	;; apply weight-1 to R1						; 2-5		n 8
 	vmovapd	zmm16, [srcreg+d4][rbx]		;; R5
-	vmulpd	zmm16, zmm16, [wgtreg+4*128]	;; apply weights to R5						; 2-5		n 8
+	zfmaddpd zmm16, zmm16, [wgtreg+4*128], zmm16 ;; apply weights to R5					; 2-5		n 8
 
 	vmovapd	zmm12, [srcreg+d4+d2][rbx]	;; R7
-	vmulpd	zmm12, zmm12, [wgtreg+6*128]	;; apply weights to R7						; 3-6		n 10
+	zfmaddpd zmm12, zmm12, [wgtreg+6*128], zmm12 ;; apply weight-1 to R7					; 3-6		n 10
 						;; to ease counting clocks, assume there is a 1/2 clock stall	; 3-6		but really there is no stall
 
 	vmovapd	zmm2, [srcreg+d1][rbx]		;; R2
@@ -9306,17 +9306,17 @@ zr8fs_hundredtwentyeight_reals_first_fft_preload MACRO
 
 zr8fs_hundredtwentyeight_reals_first_fft MACRO srcreg,srcinc,d1,d2,d4,screg,scinc,sc2reg,sc2inc,wgtreg,wgtinc,maxrpt,L1pt,L1pd
 	vmovapd	zmm4, [srcreg+d4+d2+d1][rbx]	;; R8
-	vmulpd	zmm4, zmm4, [wgtreg+7*128]	;; apply weights to R8						; 1-4		n 6
+	zfmaddpd zmm4, zmm4, [wgtreg+7*128], zmm4 ;; apply weight-1 to R8					; 1-4		n 6
 	vmovapd	zmm8, [srcreg+d4+d1][rbx]	;; R6
-	vmulpd	zmm8, zmm8, [wgtreg+5*128]	;; apply weights to R6						; 1-4		n 7
+	zfmaddpd zmm8, zmm8, [wgtreg+5*128], zmm8 ;; apply weight-1 to R6					; 1-4		n 7
 
 	vmovapd	zmm14, [srcreg][rbx]		;; R1
-	vmulpd	zmm14, zmm14, [wgtreg]		;; apply weights to R1						; 2-5		n 8
+	zfmaddpd zmm14, zmm14, [wgtreg], zmm14	;; apply weight-1 to R1						; 2-5		n 8
 	vmovapd	zmm16, [srcreg+d4][rbx]		;; R5
-	vmulpd	zmm16, zmm16, [wgtreg+4*128]	;; apply weights to R5						; 2-5		n 8
+	zfmaddpd zmm16, zmm16, [wgtreg+4*128], zmm16 ;; apply weight-1 to R5					; 2-5		n 8
 
 	vmovapd	zmm12, [srcreg+d4+d2][rbx]	;; R7
-	vmulpd	zmm12, zmm12, [wgtreg+6*128]	;; apply weights to R7						; 3-6		n 10
+	zfmaddpd zmm12, zmm12, [wgtreg+6*128], zmm12 ;; apply weight-1 to R7					; 3-6		n 10
 						;; to ease counting clocks, assume there is a 1/2 clock stall	; 3-6		but really there is no stall
 
 	vmovapd	zmm2, [srcreg+d1][rbx]		;; R2
