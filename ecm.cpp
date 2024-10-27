@@ -14232,7 +14232,6 @@ void guess_pminus1_bounds (
 	gwdata.c = c;
 	gwdata.FFTLEN = (unsigned long) (g.cost_data.c.stage1_fftlen * 1.10);
 	gwdata.cpu_flags = CPU_FLAGS;
-	if (gwdata.FFTLEN < 1024 && gwdata.cpu_flags & CPU_AVX512F) gwdata.cpu_flags &= ~CPU_AVX512F;
 	gwdata.num_threads = g.cost_data.c.stage2_threads;
 	polymult_init (&g.polydata, &gwdata);
 	polymult_default_tuning (&g.polydata,
