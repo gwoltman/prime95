@@ -7377,7 +7377,7 @@ restart0:
 		ecmdata.sigma = w->curve;
 		w->curves_to_do = 1;
 	}
-	default_sigma_type = (IniGetInt (INI_FILE, "DictionarySize", (int) (dictionary_memory / (3 * gwnum_size (&ecmdata.gwdata)))) < 4) ? 1 : 0;
+	default_sigma_type = (IniGetInt (INI_FILE, "DictionarySize", (int) (dictionary_memory / (3 * gwnum_size (&ecmdata.gwdata)))) < 7) ? 1 : 0;
 	ecmdata.sigma_type = IniGetInt (INI_FILE, "MontgSigma", default_sigma_type);
 	ecmdata.montg_stage1 = IniGetInt(INI_FILE, "MontgStage1", ecmdata.sigma_type == 1);
 	curve_start_msg (&ecmdata);
@@ -7532,7 +7532,7 @@ restart1:
 				ecmdata.NAF_dictionary_size = (uint32_t) (dictionary_memory / (3 * gwnum_size (&ecmdata.gwdata)));
 				if (ecmdata.NAF_dictionary_size > best_size) ecmdata.NAF_dictionary_size = best_size;
 				ecmdata.NAF_dictionary_size = IniGetInt (INI_FILE, "DictionarySize", ecmdata.NAF_dictionary_size);  // User override
-				if (ecmdata.NAF_dictionary_size < 4) ecmdata.NAF_dictionary_size = 4;		// Not sure what the minimum is, 2 crashes
+				if (ecmdata.NAF_dictionary_size < 7) ecmdata.NAF_dictionary_size = 7;		// Minimum size that does not crash
 			}
 			sprintf (buf, "%sxponent length is %" PRIu64 ", best dictionary size is %" PRIu32 ", actual dictionary size is %" PRIu32 "\n",
 				 ecmdata.stage1_prime <= ecmdata.B ? "Partial e" : "E",
