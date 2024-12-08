@@ -690,7 +690,7 @@ void CPrime95Doc::OnResources()
 	dlg.m_start_time = timebuf;
 	minutesToStr (day_end_time, timebuf);
 	dlg.m_end_time = timebuf;
-	dlg.m_upload_bandwidth = IniSectionGetFloat (INI_FILE, SEC_PrimeNet, KEY_UploadRateLimit, 0.25);
+	dlg.m_upload_bandwidth = IniSectionGetFloat (INI_FILE, SEC_PrimeNet, KEY_UploadRateLimit, 1.0);
 	if (dlg.m_upload_bandwidth < 0.0 || dlg.m_upload_bandwidth > 10000.0) dlg.m_upload_bandwidth = 10000.0;
 	if (dlg.m_upload_bandwidth == 0.0) dlg.m_no_limit = TRUE, dlg.m_upload_bandwidth = 0.25;
 	IniSectionGetString (INI_FILE, SEC_PrimeNet, KEY_UploadStartTime, timebuf, sizeof (timebuf), "00:00");

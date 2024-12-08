@@ -127,7 +127,7 @@ void ProofUpload (char *filename)
 
 // Get bandwidth rate limit (default 0.25Mbps) and max_chunk_size (default 1/2/4/7MB)
 
-	bandwidth_rate_limit_flt = IniSectionGetFloat (INI_FILE, SEC_PrimeNet, KEY_UploadRateLimit, 0.25);	// Rate limit in Mbps
+	bandwidth_rate_limit_flt = IniSectionGetFloat (INI_FILE, SEC_PrimeNet, KEY_UploadRateLimit, 1.0);	// Rate limit in Mbps
 	if (bandwidth_rate_limit_flt < 0.0) bandwidth_rate_limit_flt = 0.0;
 	if (bandwidth_rate_limit_flt > 10000.0) bandwidth_rate_limit_flt = 10000.0;	// Max out at 10Gbps
 

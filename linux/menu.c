@@ -931,7 +931,7 @@ void options_resources (void)
 	outputLongLine ("Consult readme.txt prior to changing any of these settings.\n\n");
 
 	m_disk = CPU_WORKER_DISK_SPACE;
-	m_upload_bandwidth = IniSectionGetFloat (INI_FILE, SEC_PrimeNet, KEY_UploadRateLimit, 0.25);
+	m_upload_bandwidth = IniSectionGetFloat (INI_FILE, SEC_PrimeNet, KEY_UploadRateLimit, 1.0);
 	if (m_upload_bandwidth < 0.0 || m_upload_bandwidth > 10000.0) m_upload_bandwidth = 10000.0;
 	IniSectionGetString (INI_FILE, SEC_PrimeNet, KEY_UploadStartTime, m_upload_start, sizeof (m_upload_start), "00:00");
 	if (strcmp (m_upload_start, "00:00") != 0) minutesToStr (strToMinutes (m_upload_start), m_upload_start);
