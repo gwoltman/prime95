@@ -9460,8 +9460,9 @@ OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);}
 
 		if (first_iter_msg ||
 		    (ITER_OUTPUT != 999999999 && gw_get_fft_count (&ecmdata.gwdata) * ITER_FUDGE >= last_output + 2 * ITER_OUTPUT * output_adjustment)) {
-			sprintf (buf, "%s stage 2 at B2=%" PRIu64 " [%.*f%%]",
-				 ecmdata.N_short_string_rep, ecmdata.B2_start + ecmdata.Dsection * ecmdata.D, (int) PRECISION, trunc_percent (w->pct_complete));
+			sprintf (buf, "%s curve %" PRIu32 " stage 2 at B2=%" PRIu64 " [%.*f%%]",
+				 ecmdata.N_short_string_rep, ecmdata.curve, ecmdata.B2_start + ecmdata.Dsection * ecmdata.D,
+				 (int) PRECISION, trunc_percent (w->pct_complete));
 			end_timer (timers, 0);
 			if (first_iter_msg) {
 				strcat (buf, "\n");
@@ -14360,8 +14361,8 @@ int pfactor (
 	OutputStr (thread_num, buf);
 	if (w->known_factors != NULL) {
 		OutputStr (thread_num, "Skipping known factors: ");
-		OutputStr (thread_num, w->known_factors);
-		OutputStr (thread_num, "\n");
+		OutputStrNoTimeStamp (thread_num, w->known_factors);
+		OutputStrNoTimeStamp (thread_num, "\n");
 	}
 	sprintf (buf, "Assuming no%s factors below 2^%.2g and %.2g primality test%s saved if a factor is found.\n",
 		 w->known_factors != NULL ? " other" : "", w->sieve_depth, w->tests_saved, w->tests_saved == 1.0 ? "" : "s");
