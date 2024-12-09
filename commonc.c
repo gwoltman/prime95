@@ -5545,15 +5545,6 @@ void readMessage (
 
 		if (*msgType == -1) continue;
 
-/* Patch pre-v30.8 spool files where B1/B2 was stored as a double rather than a uint64_t. */
-/* If top bit is on, assume the data is a double and convert it to a uint64_t. */
-
-		if (*msgType == PRIMENET_ASSIGNMENT_RESULT) {
-			struct primenetAssignmentResult *ar_msg = (struct primenetAssignmentResult *) msg;
-			if (ar_msg->B1 >> 63) ar_msg->B1 = (uint64_t) *((double *) &ar_msg->B1);
-			if (ar_msg->B2 >> 63) ar_msg->B2 = (uint64_t) *((double *) &ar_msg->B2);
-		}
-
 /* Return if msgType is one we expected. */
 
 		if (*msgType == PRIMENET_ASSIGNMENT_PROGRESS ||
