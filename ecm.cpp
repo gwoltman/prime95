@@ -10,7 +10,7 @@
  *	Other important ideas courtesy of Peter Montgomery, Alex Kruppa, Mihai Preda, Pavel Atnashev.
  *
  *	c. 1997 Perfectly Scientific, Inc.
- *	c. 1998-2024 Mersenne Research, Inc.
+ *	c. 1998-2025 Mersenne Research, Inc.
  *	All Rights Reserved.
  *
  *************************************************************/
@@ -11190,10 +11190,10 @@ int pm1_choose_B2 (
 
 	if (forced_stage2_type == 99 && numvals >= 150) forced_stage2_type = 1;
 
-// Since Kruppa_adjust cannot be used to compare "curves" with different B1 values, we'll just optimize based on an assumed TF level of 67 bits
+// Since Kruppa_adjust cannot be used to compare "curves" with different B1 values, we'll just optimize based on an assumed TF level of TJAOI 68.2 bits
 
 	saved_sieve_depth = pm1data->w->sieve_depth;
-	if (saved_sieve_depth == 0.0) pm1data->w->sieve_depth = 67.0;
+	if (saved_sieve_depth == 0.0) pm1data->w->sieve_depth = 68.2;
 
 // Cost out a B2 value.  Then compare it to the next larger B2 to determine if investing more time in larger B1 or larger B2 would be better.
 	max_B2mult = IniGetInt (INI_FILE, "MaxOptimalB2Multiplier", (int) (numvals < 100000 ? numvals * 100 : 10000000));
