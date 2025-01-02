@@ -11434,7 +11434,7 @@ double pm1_stage2_impl (
 	// With trial factoring done to 2^69, optimal B2 is 5*B1 = 125000000.
 	// The problem is the caller is comparing how efficiently factors are found rather than maximizing the chance of finding a factor.  Unlike ECM where
 	// one can run another maximally efficient curve, in P-1 we want to make the most of our one chance at running P-1.
-	return (B2_was_chosen ? cost_data.factor_probability : cost_data.c.efficiency);
+	return (B2_was_chosen && cost_data.factor_probability != 0.0 ? cost_data.factor_probability : cost_data.c.efficiency);
 }
 
 
