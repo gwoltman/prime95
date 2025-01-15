@@ -1220,6 +1220,7 @@ void PreLaunchCallback (
 	int state = IniGetInt (INI_FILE, "SetThreadExecutionState", 0);
 	if (state == 1) SetThreadExecutionState (ES_SYSTEM_REQUIRED | ES_CONTINUOUS);
 	else if (state == 2) SetThreadExecutionState (ES_AWAYMODE_REQUIRED | ES_CONTINUOUS);
+	else if (state == 3) SetThreadExecutionState (ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED | ES_CONTINUOUS);
 }
 
 /* Do some work after workers have terminated */

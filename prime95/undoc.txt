@@ -888,8 +888,9 @@ If Windows is going into sleep mode when your computer is not being used the
 following setting may help.
 	SetThreadExecutionState=n	(default is 0)
 Google the SetThreadExecutionState Windows call.  Set n=1 for prime95 to call
-SetThreadExecutionState with ES_SYSTEM_REQUIRED | ES_CONTINUOUS.  Set n=2 for
-prime95 to call SetThreadExecutionState with ES_AWAYMODE_REQUIRED | ES_CONTINUOUS.
+SetThreadExecutionState with ES_SYSTEM_REQUIRED | ES_CONTINUOUS.  Set n=2 for prime95
+to call SetThreadExecutionState with ES_AWAYMODE_REQUIRED | ES_CONTINUOUS. Set n=3 to
+call SetThreadExecutionState with ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED | ES_CONTINUOUS.
 
 LINUX/FREEBSD/APPLE ONLY: In prime.txt you can have set the nice level.  By
 default, on startup mprime automatically sets the program to nice priority.
