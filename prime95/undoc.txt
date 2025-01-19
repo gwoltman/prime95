@@ -892,6 +892,11 @@ SetThreadExecutionState with ES_SYSTEM_REQUIRED | ES_CONTINUOUS.  Set n=2 for pr
 to call SetThreadExecutionState with ES_AWAYMODE_REQUIRED | ES_CONTINUOUS. Set n=3 to
 call SetThreadExecutionState with ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED | ES_CONTINUOUS.
 
+You can try Windows 11 EcoMode.  It promises to run prime95 at lower CPU speeds.
+In prime.txt:
+	EcoMode=n			(default is 0)
+Set n to 1 to try EcoMode.
+
 LINUX/FREEBSD/APPLE ONLY: In prime.txt you can have set the nice level.  By
 default, on startup mprime automatically sets the program to nice priority.
 This isn't really necessary since workers are usually set to run at a much
