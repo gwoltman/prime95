@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2024 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2025 Mersenne Research, Inc.  All rights reserved
 | Author:  George Woltman
 | Email: woltman@alum.mit.edu
 |
@@ -1329,7 +1329,7 @@ static	char *	BRAND_NAMES[] = {	/* From Intel Ap-485 */
 
 		if (! (CPU_FLAGS & CPU_SSE2))
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_PRE_SSE2;
-		else if (CPU_FAMILY == 23 || CPU_FAMILY == 25)
+		else if (CPU_FAMILY == 23 || CPU_FAMILY == 25 || CPU_FAMILY == 26)
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_AMD_ZEN;
 		else if (CPU_FAMILY >= 24)				// Future AMD processors
 			CPU_ARCHITECTURE = CPU_ARCHITECTURE_AMD_OTHER;
