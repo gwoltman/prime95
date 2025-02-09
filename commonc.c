@@ -37,7 +37,7 @@ int volatile ERRCHK = 0;
 unsigned int PRIORITY = 1;
 unsigned int NUM_WORKERS = 1;		/* Number of workers to launch */
 unsigned int WORK_PREFERENCE[MAX_NUM_WORKERS] = {0};
-unsigned int CORES_PER_TEST[MAX_NUM_WORKERS] = {1}; /* Number of cores gwnum can use in computations. */
+unsigned int CORES_PER_WORKER[MAX_NUM_WORKERS] = {1}; /* Number of cores gwnum can use in computations */
 int	HYPERTHREAD_TF = 1;		/* TRUE if trial factoring should use hyperthreads */
 int	HYPERTHREAD_LL = 0;		/* TRUE if FFTs (LL, P-1, ECM, PRP) should use hyperthreads */
 int	MANUAL_COMM = 0;
@@ -1617,10 +1617,10 @@ int good_default_for_num_workers (void)
 	return (HW_NUM_COMPUTE_THREADING_NODES * (cores_per_node <= 6 ? 1 : divide_rounding_up (cores_per_node, 4)));
 }
 
-/* Read CoresPerTest values.  This may require upgrading ThreadsPerTest to CoresPerTest. */
-/* This INI setting changed from threads to cores in version 29.1. */
+/* Read CoresPerWorker values.  This may require upgrading ThreadsPerTest or CoresPerTest to CoresPerWorker. */
+/* This INI setting changed from threads to cores in version 29.1 and from Test to Worker in 31.0. */
 
-void read_cores_per_test (void)
+void read_cores_per_worker (void)
 {
 	int	i, all_the_same;
 	unsigned int temp[MAX_NUM_WORKERS];
@@ -1654,25 +1654,47 @@ void read_cores_per_test (void)
 			if (i && temp[i] != temp[i-1]) all_the_same = FALSE;
 		}
 		// Write out the new settings
-		memset (CORES_PER_TEST, 0xFF, sizeof (CORES_PER_TEST));
+		memset (CORES_PER_WORKER, 0xFF, sizeof (CORES_PER_WORKER));
 		if (all_the_same)
-			PTOSetAll (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, temp[0]);
+			PTOSetAll (INI_FILE, "CoresPerWorker", NULL, CORES_PER_WORKER, temp[0]);
 		else for (i = 0; i < (int) NUM_WORKERS; i++)
-			PTOSetOne (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, temp[i]);
+			PTOSetOne (INI_FILE, "CoresPerWorker", NULL, CORES_PER_WORKER, i, temp[i]);
 		// Clear old settings
 		PTOSetAll (INI_FILE, "ThreadsPerTest", NULL, temp, 0);
 		IniWriteString (INI_FILE, "ThreadsPerTest", NULL);
 	}
 
-/* Read in the CoresPerTest values that we support as of version 29.1 */
+/* Read in the CoresPerTest values that we supported as of version 29.1 */
 
-	PTOGetAll (INI_FILE, "CoresPerTest", CORES_PER_TEST, 0);
+	PTOGetAll (INI_FILE, "CoresPerTest", temp, 0);
+
+/* If we found some old settings then delete them from the INI file and write out the new settings */
+
+	if (temp[0] != 0) {
+		// See if each worker has the same number of cores
+		for (i = 0, all_the_same = TRUE; i < (int) NUM_WORKERS; i++) {
+			if (i && temp[i] != temp[i-1]) all_the_same = FALSE;
+		}
+		// Write out the new settings
+		memset (CORES_PER_WORKER, 0xFF, sizeof (CORES_PER_WORKER));
+		if (all_the_same)
+			PTOSetAll (INI_FILE, "CoresPerWorker", NULL, CORES_PER_WORKER, temp[0]);
+		else for (i = 0; i < (int) NUM_WORKERS; i++)
+			PTOSetOne (INI_FILE, "CoresPerWorker", NULL, CORES_PER_WORKER, i, temp[i]);
+		// Clear old settings
+		PTOSetAll (INI_FILE, "CoresPerTest", NULL, temp, 0);
+		IniWriteString (INI_FILE, "CoresPerTest", NULL);
+	}
+
+/* Read in the CoresPerTest values that we support as of version 31.0 */
+
+	PTOGetAll (INI_FILE, "CoresPerWorker", CORES_PER_WORKER, 0);
 
 /* If we did not find any settings, use hwloc's information to give us a good default setting. */
 /* For example, consider a dual CPU Xeon system with 9 cores per CPU.  A good setting for four workers */
 /* would be 4 cores, 5 cores, 4 cores, 5 cores.  That way, we do not have a PRP/LL test spanning across CPUs. */
 
-	if (CORES_PER_TEST[0] == 0) {
+	if (CORES_PER_WORKER[0] == 0) {
 		int	cores, workers, node;
 
 /* Decide how many workers will run on each compute node.  Then distribute the cores among those workers. */
@@ -1705,16 +1727,16 @@ void read_cores_per_test (void)
 		}
 		// Write out the new settings
 		if (all_the_same)
-			PTOSetAll (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, temp[0]);
+			PTOSetAll (INI_FILE, "CoresPerWorker", NULL, CORES_PER_WORKER, temp[0]);
 		else for (i = 0; i < (int) NUM_WORKERS; i++)
-			PTOSetOne (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, temp[i]);
+			PTOSetOne (INI_FILE, "CoresPerWorker", NULL, CORES_PER_WORKER, i, temp[i]);
 	}
 
-/* Sanity check the CoresPerTest.  In case user hand-edited prime.txt */
+/* Sanity check CoresPerWorker.  In case user hand-edited prime.txt */
 
 	for (i = 0; i < (int) NUM_WORKERS; i++) {
-		if (CORES_PER_TEST[i] < 1) CORES_PER_TEST[i] = 1;
-		if (CORES_PER_TEST[i] > HW_NUM_CORES) CORES_PER_TEST[i] = HW_NUM_CORES;
+		if (CORES_PER_WORKER[i] < 1) CORES_PER_WORKER[i] = 1;
+		if (CORES_PER_WORKER[i] > HW_NUM_CORES) CORES_PER_WORKER[i] = HW_NUM_CORES;
 	}
 }
 
@@ -1821,7 +1843,7 @@ int readIniFiles (void)
 		spoolMessage (PRIMENET_PROGRAM_OPTIONS, NULL);
 		IniSectionWriteInt (INI_FILE, SEC_Internals, KEY_V30OptionsConverted, 1);
 	}
-	read_cores_per_test ();		// Get CORES_PER_TEST array, may require upgrading old INI settings
+	read_cores_per_worker ();	// Get CORES_PER_WORKER array, may require upgrading old INI settings
 	HYPERTHREAD_TF = IniGetInt (INI_FILE, "HyperthreadTF", OS_CAN_SET_AFFINITY);
 	HYPERTHREAD_LL = IniGetInt (INI_FILE, "HyperthreadLL", 0);
 	MANUAL_COMM = (int) IniGetInt (INI_FILE, "ManualComm", 0);
@@ -4041,11 +4063,11 @@ double work_estimate (
 /* reduces the time by a factor of 1.9.  Also assume each additional CPU */
 /* is less beneficial.  Trial factoring is an exception -- it scales quite nicely. */
 
-	if (can_use_multiple_threads && CORES_PER_TEST[thread_num] > 1) {
+	if (can_use_multiple_threads && CORES_PER_WORKER[thread_num] > 1) {
 		double	effective_num_cpus, cpu_value;
 		effective_num_cpus = 0.0;
 		cpu_value = 1.0;
-		for (i = 0; i < CORES_PER_TEST[thread_num]; i++) {
+		for (i = 0; i < CORES_PER_WORKER[thread_num]; i++) {
 			effective_num_cpus += cpu_value;
 			cpu_value *= (w->work_type == WORK_FACTOR ? 1.0 : 0.9);
 		}
@@ -4055,7 +4077,7 @@ double work_estimate (
 /* If the user unwisely oversubscribed the CPU cores, then increase the time estimate */
 
 	total_cores = 0;
-	for (i = 0; i < NUM_WORKERS; i++) total_cores += CORES_PER_TEST[i];
+	for (i = 0; i < NUM_WORKERS; i++) total_cores += CORES_PER_WORKER[i];
 	if (total_cores > HW_NUM_CORES) est *= (double) total_cores / (double) HW_NUM_CORES;
 
 /* Return the total estimated time in seconds */

@@ -1,5 +1,5 @@
 /*----------------------------------------------------------------------
-| Copyright 1995-2024 Mersenne Research, Inc.  All rights reserved
+| Copyright 1995-2025 Mersenne Research, Inc.  All rights reserved
 |
 | This file contains routines and global variables that are common for
 | all operating systems the program has been ported to.  It is included
@@ -333,7 +333,7 @@ uint32_t get_worker_num_threads (
 	bool	hyperthreading)		/* TRUE if the gwnum FFT should use hyperthreading if available on each core */
 {
 	// No hyperthreading is the easy case - one thread per cores to use.
-	if (!hyperthreading) return (CORES_PER_TEST[worker_num]);
+	if (!hyperthreading) return (CORES_PER_WORKER[worker_num]);
 
 	// Mimic the code in SetPriority for SET_PRIORITY_NORMAL_WORK.  We want to total up the hyperthreads available on the
 	// core(s) this worker will be assigned to.  
@@ -353,14 +353,14 @@ uint32_t get_worker_num_threads (
 	uint32_t worker_core_count, cores_used_by_lower_workers, base_core_num;
 	worker_core_count = cores_used_by_lower_workers = 0;
 	for (uint32_t i = 0; i < NUM_WORKERS; i++) {
-		worker_core_count += CORES_PER_TEST[i];
-		if (i < worker_num) cores_used_by_lower_workers += CORES_PER_TEST[i];
+		worker_core_count += CORES_PER_WORKER[i];
+		if (i < worker_num) cores_used_by_lower_workers += CORES_PER_WORKER[i];
 	}
 	if (worker_core_count < HW_NUM_COMPUTE_CORES && HW_NUM_COMPUTE_CORES == HW_NUM_CORES) base_core_num = cores_used_by_lower_workers + 1;
 	else if (worker_core_count <= HW_NUM_CORES) base_core_num = cores_used_by_lower_workers;
 	else base_core_num = cores_used_by_lower_workers % HW_NUM_CORES;
 	// Now return the sum of threads available in these core(s)
-	return (get_ranked_num_threads (base_core_num, CORES_PER_TEST[worker_num], hyperthreading));
+	return (get_ranked_num_threads (base_core_num, CORES_PER_WORKER[worker_num], hyperthreading));
 }
 
 /* Return the number of cores in the specified threading node */
@@ -492,7 +492,7 @@ void SetPriority (
 
 /* Set P-1 and ECM Stage2ExtraThreads to run on any performance core */
 
-		if (info->aux_polymult && info->aux_thread_num >= CORES_PER_TEST[info->worker_num] * (info->normal_work_hyperthreading ? 2 : 1)) {
+		if (info->aux_polymult && info->aux_thread_num >= CORES_PER_WORKER[info->worker_num] * (info->normal_work_hyperthreading ? 2 : 1)) {
 			bind_type = 3;
 			break;
 		}
@@ -502,8 +502,8 @@ void SetPriority (
 		uint32_t worker_core_count, cores_used_by_lower_workers;
 		worker_core_count = cores_used_by_lower_workers = 0;
 		for (uint32_t i = 0; i < NUM_WORKERS; i++) {
-			worker_core_count += CORES_PER_TEST[i];
-			if (i < info->worker_num) cores_used_by_lower_workers += CORES_PER_TEST[i];
+			worker_core_count += CORES_PER_WORKER[i];
+			if (i < info->worker_num) cores_used_by_lower_workers += CORES_PER_WORKER[i];
 		}
 
 /* If total num worker cores < num compute cores we will give each worker its own CPU.  There is some weak anecdotal */
@@ -9733,7 +9733,7 @@ void autoBench (void)
 		num_cores = BENCH_NUM_CORES;		/* Use gwnum.txt override or default to all cores in use */
 	else {
 		//num_cores = 0;
-		//for (i = 0; i < (int) NUM_WORKERS; i++) num_cores += CORES_PER_TEST[i];
+		//for (i = 0; i < (int) NUM_WORKERS; i++) num_cores += CORES_PER_WORKER[i];
 		//if (num_cores > (int) HW_NUM_CORES)
 		// Always auto-bench using all the cores.  Prime95 always calls gwset_bench_cores with HW_NUM_CORES.
 		num_cores = HW_NUM_CORES;

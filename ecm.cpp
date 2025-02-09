@@ -14210,7 +14210,7 @@ void guess_pminus1_bounds (
 	if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 2) g.cost_data.c.poly_compression *= 0.875;
 	if (IniGetInt (INI_FILE, "Poly1Compress", 2) == 0) g.cost_data.c.poly_compression = 1.0;
 	g.cost_data.c.stage1_fftlen = gwmap_to_fftlen (k, b, n, c);
-	g.cost_data.c.stage1_threads = CORES_PER_TEST[thread_num];
+	g.cost_data.c.stage1_threads = CORES_PER_WORKER[thread_num];
 	g.cost_data.c.stage2_threads = g.cost_data.c.stage1_threads + IniGetInt (INI_FILE, "Stage2ExtraThreads", 0);
 	init_gcd_costs ((n * log ((double) b) + log (k)) / log (2.0), &g.cost_data);
 

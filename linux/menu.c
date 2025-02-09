@@ -1,4 +1,4 @@
-/* Copyright 1995-2024 Mersenne Research, Inc. */
+/* Copyright 1995-2025 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -465,7 +465,7 @@ void test_workers (void)
 	m_num_thread = NUM_WORKERS;
 	for (i = 0; i < NUM_WORKERS; i++) {
 		m_work_pref[i] = WORK_PREFERENCE[i];
-		m_numcpus[i] = CORES_PER_TEST[i];
+		m_numcpus[i] = CORES_PER_WORKER[i];
 	}
 	for ( ; i < MAX_NUM_WORKERS; i++) {
 		m_work_pref[i] = WORK_PREFERENCE[i];
@@ -592,12 +592,12 @@ again:	if (max_num_workers () > 1)
 			}
 		}
 
-/* If the user changed any of the cores_per_test record it in the INI file */
+/* If the user changed any of the cores_per_worker record it in the INI file */
 
 		if (AreAllTheSame (m_numcpus, m_num_thread))
-			PTOSetAll (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, m_numcpus[0]);
+			PTOSetAll (INI_FILE, "CoresPerWorker", NULL, CORES_PER_WORKER, m_numcpus[0]);
 		else for (i = 0; i < (int) NUM_WORKERS; i++)
-			PTOSetOne (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, m_numcpus[i]);
+			PTOSetOne (INI_FILE, "CoresPerWorker", NULL, CORES_PER_WORKER, i, m_numcpus[i]);
 
 /* Write the new CertWork setting */
 

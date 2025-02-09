@@ -1,4 +1,4 @@
-/* Copyright 1995-2024 Mersenne Research, Inc.  All rights reserved */
+/* Copyright 1995-2025 Mersenne Research, Inc.  All rights reserved */
 
 #ifndef _COMMONC_H
 #define _COMMONC_H
@@ -155,7 +155,7 @@ extern int DIAL_UP;			/* TRUE if we're dialing into */
 extern unsigned int NUM_WORKERS;	/* Number of workers to launch */
 extern unsigned int WORK_PREFERENCE[MAX_NUM_WORKERS];
 					/* Type of work (factoring, testing, etc.) to get from the server. */
-extern unsigned int CORES_PER_TEST[MAX_NUM_WORKERS];
+extern unsigned int CORES_PER_WORKER[MAX_NUM_WORKERS];
 					/* Number of cores gwnum can use in computations */
 extern int HYPERTHREAD_TF;		/* TRUE if trial factoring should use hyperthreads */
 extern int HYPERTHREAD_LL;		/* TRUE if FFTs (LL, P-1, ECM, PRP) should use hyperthreads */

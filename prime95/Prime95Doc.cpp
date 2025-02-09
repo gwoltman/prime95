@@ -1,6 +1,6 @@
 // Prime95Doc.cpp : implementation of the CPrime95Doc class
 //
-// Copyright 1995-2024 Mersenne Research, Inc.  All rights reserved
+// Copyright 1995-2025 Mersenne Research, Inc.  All rights reserved
 //
 
 #include "stdafx.h"
@@ -324,7 +324,7 @@ void CPrime95Doc::OnWorkers()
 	dlg.m_num_workers = NUM_WORKERS;
 	for (i = 0; i < MAX_NUM_WORKERS; i++) {
 		dlg.m_work_pref[i] = WORK_PREFERENCE[i];
-		dlg.m_numcpus[i] = CORES_PER_TEST[i];
+		dlg.m_numcpus[i] = CORES_PER_WORKER[i];
 	}
 	dlg.m_cert_work = IniGetInt (INI_FILE, "CertWork", 1);
 
@@ -392,12 +392,12 @@ again:	if (dlg.DoModal () == IDOK) {
 			}
 		}
 
-/* If user changed any of the cores_per_test, then record it in the INI file */
+/* If user changed any of the cores_per_worker, then record it in the INI file */
 
 		if (dlg.AreAllTheSame (dlg.m_numcpus))
-			PTOSetAll (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, dlg.m_numcpus[0]);
+			PTOSetAll (INI_FILE, "CoresPerWorker", NULL, CORES_PER_WORKER, dlg.m_numcpus[0]);
 		else for (i = 0; i < (int) NUM_WORKERS; i++)
-			PTOSetOne (INI_FILE, "CoresPerTest", NULL, CORES_PER_TEST, i, dlg.m_numcpus[i]);
+			PTOSetOne (INI_FILE, "CoresPerWorker", NULL, CORES_PER_WORKER, i, dlg.m_numcpus[i]);
 
 /* Write the new CertWork setting */
 
