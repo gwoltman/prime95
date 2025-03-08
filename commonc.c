@@ -1769,7 +1769,7 @@ int readIniFiles (void)
 	DAYS_OF_WORK = (unsigned int) IniGetInt (INI_FILE, "DaysOfWork", 3);
 	if (DAYS_OF_WORK > 180) DAYS_OF_WORK = 180;
 
-	CPU_WORKER_DISK_SPACE = IniGetFloat (INI_FILE, "WorkerDiskSpace", 6.0);
+	CPU_WORKER_DISK_SPACE = IniGetFloat (INI_FILE, "WorkerDiskSpace", 10.0);
 	if (CPU_WORKER_DISK_SPACE < 0.0) CPU_WORKER_DISK_SPACE = 0.0;
 	if (CPU_WORKER_DISK_SPACE > 1000.0) CPU_WORKER_DISK_SPACE = 1000.0;
 
