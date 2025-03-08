@@ -188,33 +188,30 @@ and exponents.
 
 Proof                              Temp disk space / Proof file size
 Power         Exponent=100,000,000         Exponent=200,000,000            Exponent=332,000,000
-7               1.6GB / 200MB*                 3.2GB / 400MB*                 5.3GB / 664MB*
+7               1.6GB / 100MB                  3.2GB / 200MB                  5.3GB / 332MB
 8               3.2GB / 113MB                  6.4GB / 225MB                  10.6GB / 373MB
 9               6.4GB / 125MB                  12.8GB / 250MB                 21.2GB / 415MB
 10             12.8GB / 138MB                  25.6GB / 275MB                 42.4GB / 457MB
 
 After the proof is uploaded to the server it is pre-processed creating a smaller file that
 must be downloaded by users doing proof certification work.  Proof certification work is
-very fast (256, 512, or 1024 times faster than the original PRP test depending on proof
+very fast (128, 256, 512, or 1024 times faster than the original PRP test depending on proof
 power).  By default, your computer is signed up for occasional proof certification work.
-
-*For proof power 7, it is possible to cut the proof file size in half but this doubles the
-work required by the user doing the certification.  See undoc.txt.
 
 Temporary disk usage
 --------------------
 
 This setting limits the amount of temporary disk space used BY EACH WORKER doing PRP work.
 See the table above for how that affects proof power.  A proof power of 8 or more is desirable,
-but a proof power of 7 is acceptable.  The default limit of 6GB will use a proof power of 8
+but a proof power of 7 is acceptable.  The default limit of 10GB will use a proof power of 9
 for exponents you are likely to be assigned for first time tests over the next several years.
 
 Upload bandwidth limit
 ----------------------
 
 For most home users, download speed is faster than upload speed.  If upload speed is not limited,
-it can seriously impact download speeds.  I recommend not using more than 10% of your upload bandwidth.
-The default setting is 0.25Mbps.  This uploads a 100MB proof file in about an hour.  If the upload
+it can impact download speeds.  I recommend not using more than 10% of your upload bandwidth.
+The default setting is 1.0Mbps.  This uploads a 100MB proof file in about an hour.  If the upload
 is interrupted, it will automatically resume from where it left off at a later time.
 
 Upload time period
