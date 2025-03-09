@@ -11702,7 +11702,6 @@ int prp (
 	if (echk == 3) ps.error_check_type = PRP_ERRCHK_DBLCHK;
 
 /* Set the PRP proof power.  PRP proofs are only possible when b = 2. */
-/* For simplicity we also restrict proofs to the preferred residue types 1 or 5. */
 
 /* When using a 64-bit hash, proof power 8 and proof power 9 do roughly the same number */
 /* squarings when n=11M, power 9 and 10 do the same number at roughly 45M, and 10,11 */
@@ -11727,7 +11726,7 @@ int prp (
 	// Turn on storing MD5 hash of interim residues.  Versions 30.1 and 30.2 did not do this.
 	ps.md5_residues = TRUE;
 
-	if (ps.two_power_opt && (ps.residue_type == PRIMENET_PRP_TYPE_FERMAT || ps.residue_type == PRIMENET_PRP_TYPE_COFACTOR)) {
+	if (ps.two_power_opt) {
 		double	hashlen_adjust = ps.hashlen / 64.0;
 		int	best_power = (double) w->n > hashlen_adjust * 414.2e6 ? 11 :
 				     (double) w->n > hashlen_adjust * 106.5e6 ? 10 :
@@ -12941,6 +12940,19 @@ pushg(&gwdata.gdata, 2);}
 		restart_counter = -1;			/* rollback to any save file */
 		sleep5 = FALSE;
 		goto restart;
+	}
+
+/* A type-4 PRP with proof needs to do one more squaring to get the final residue for the proof file */
+
+	if (ps.proof_power && proof_next_interim_residue_iter == ps.counter + 1) {
+		gwsquare (&gwdata, ps.x);
+		ps.units_bit <<= 1;
+		if (ps.units_bit >= w->n) ps.units_bit -= w->n;
+		tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
+		gwtogiant (&gwdata, ps.x, tmp);
+		rotateg (tmp, w->n, ps.units_bit, &gwdata.gdata);
+		outputProofResidue (&gwdata, &ps, proof_next_interim_residue, tmp);
+		pushg (&gwdata.gdata, 1);
 	}
 
 // Free memory in case proof generation needs it
