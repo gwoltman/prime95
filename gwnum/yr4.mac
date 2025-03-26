@@ -918,7 +918,7 @@ ENDIF
 ;; Haswell FMA3 version
 ;; Abandoning all attempts at using add and subtract instructions.  We use FMA3 which requires a lot of register copies.
 
-IF (@INSTR(,%yarch,<FORMERLY_BEST_FMA3>) NE 0)
+IF (@INSTR(,%yarch,<FMA3>) NE 0)
 
 yr4_4c_djbfft_noswiz_unroll_preload MACRO
 	vmovapd	ymm15, YMM_ONE
@@ -2123,7 +2123,7 @@ y4	TEXTEQU	ytmp
 ;; Haswell FMA3 version
 ;; Basic implementation originally written for Bulldozer.  13.6 clocks.
 
-IF (@INSTR(,%yarch,<FORMERLY_BEST_FMA3>) NE 0)
+IF (@INSTR(,%yarch,<FMA3>) NE 0)
 
 yr4_4c_djbunfft_noswiz_unroll_preload MACRO
 	vmovapd	ymm15, YMM_ONE
