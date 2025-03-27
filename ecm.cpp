@@ -6031,9 +6031,10 @@ int ecm_choose_B2 (
 
 /* Handle case where midpoint has worse efficiency than the start point.  The search code requires best[1] is better than best[0] and best[2]. */
 /* There is an edge case where max_safe_poly_size returns a very small value and there is no case where best[1] is better than best[0]. */
-/* Thus, the test for best[0].i > 1.  We'll eventually use a larger FFT size with a larger safe poly_size. */
+/* Thus, the test for best[0].i== 1.  We'll eventually use a larger stage 2 FFT size with a larger safe poly_size. */
 
-	while (best[0].efficiency > best[1].efficiency && best[0].i > 1) {
+	while (best[0].efficiency > best[1].efficiency) {
+		if (best[0].i == 1) return (FALSE);	// Edge case - no B2 works.
 		best[2] = best[1];
 		best[1] = best[0];
 		kruppa (best[0], best[0].i / 2);
@@ -6047,6 +6048,11 @@ int ecm_choose_B2 (
 		best[1] = best[2];
 		kruppa (best[2], best[1].i * 5);
 	}
+
+/* There are cases where 
+	
+		ASSERTG (best[1].efficiency >= best[0].efficiency);
+		ASSERTG (best[1].efficiency >= best[2].efficiency);
 
 /* Find the best B2.  We use a binary-like search to speed things up (new in version 30.3b3). */
 
