@@ -3139,6 +3139,11 @@ int parseWorkToDoLine (
 /* Make sure this line of work from the file makes sense. The exponent should be a prime number, bounded by values we can handle, and we */
 /* should never be asked to factor a number more than we are capable of. */
 
+	if (w->k < 1.0 || w->b < 2 || w->c == 0) {
+		sprintf (buf, "Error: Illegal number in worktodo.txt file, k < 1 or b < 2, or c = 0\n");
+		OutputBoth (MAIN_THREAD_NUM, buf);
+		goto illegal_line;
+	}
 	if (w->k == 1.0 && w->b == 2 && !isPrime (w->n) && w->c == -1 && w->known_factors == NULL &&
 	    w->work_type != WORK_ECM && w->work_type != WORK_PMINUS1 && w->work_type != WORK_PPLUS1 &&
 	    !(w->work_type == WORK_PRP && IniGetInt (INI_FILE, "PhiExtensions", 0))) {
