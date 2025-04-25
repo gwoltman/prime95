@@ -10075,6 +10075,7 @@ bingo:	stage = (ecmdata.state > ECM_STATE_MIDSTAGE) ? 2 : (ecmdata.state > ECM_S
 
 	if (continueECM) {
 		w->curves_to_do -= ecmdata.curve;
+		w->skip_curves += ecmdata.curve;
 		char *new_known_factors = addNewKnownFactor (w, str);
 		free (w->known_factors);
 		w->known_factors = new_known_factors;
