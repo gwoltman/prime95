@@ -788,8 +788,7 @@ Run main worker on logical CPUs #3, #5, & #7, run aux thread on logical CPUs #4 
 	Affinity=[3,5-7],(4,6)
 Run main worker on logical CPUs #3, #5, #6, & #7, run aux thread on logical CPUs #4 & #6
 
-In the prime.txt file, the DaysBetweenCheckin value can be set to any value
-between 0.04 and 7.0.  Some SeventeenOrBust users want to send updates hourly.
+In the prime.txt file, the DaysBetweenCheckins value can be set to any value between 0.04 and 7.0.
 
 To attempt using 2MB pages under Windows and Linux, add this line to prime.txt:
 	UseLargePages=1
