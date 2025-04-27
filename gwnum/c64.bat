@@ -20,7 +20,8 @@ REM call "c:\program files\microsoft visual studio 10.0\vc\bin\amd64\vcvarsamd64
 REM goto makeit
 REM :x64_8
 REM call "c:\program files\microsoft visual studio 8\vc\bin\amd64\vcvarsamd64"
-call "c:\program files (x86)\microsoft visual studio\2019\Professional\VC\Auxiliary\build\vcvarsall" x64
+REM call "c:\program files (x86)\microsoft visual studio\2019\Professional\VC\Auxiliary\build\vcvarsall" x64
+call "c:\program files\microsoft visual studio\2022\Professional\VC\Auxiliary\build\vcvarsall" x64
 :makeit
 @set path=c:\uasm_248;%path%
 nmake /f compil64
