@@ -9806,7 +9806,7 @@ int gwtogiant (
 
 	else {
 		// Make sure buffer can handle a returned result that is multiplied by k (plus a few bits for good measure)
-		int needed_size = divide_rounding_up ((int) (log2 (gwdata->k) + gwdata->bit_length + 3.0), 32);
+		int needed_size = divide_rounding_up ((int) (log2 (gwdata->k) + gwdata->bit_length), 32) + 1;
 		if (v->maxsize < needed_size) g = popg (&gwdata->gdata, needed_size);
 
 		/* Since all gwnums are premultiplied by the inverse of k, nonbase2_gwtogiant will multiply by k to get the true result. */
