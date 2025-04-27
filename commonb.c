@@ -11480,6 +11480,7 @@ void basemulg (
 /* Compare the final giant in a PRP run.  Different PRP residue types check for different final values */
 
 int isPRPg (
+	gwhandle *gwdata,		/* gwnum handle */
 	giant	v,			/* Final result of PRP powering */
 	giant	N,			/* Number we are PRPing, (k*b^n+c)/known_factors */
 	struct work_unit *w,		/* Number being tested */
@@ -11512,7 +11513,7 @@ int isPRPg (
 /* Handle the cofactor case.  We calculated v = a^(N*KF-1) mod (N*KF).  We have a PRP if (v mod N) = (a^(KF-1)) mod N */
 
 	if (prp_residue_type == PRIMENET_PRP_TYPE_COFACTOR) {
-		mpz_t	kbnc, known_factors, reduced_v;
+		mpz_t	kbnc, known_factors;
 		// Calculate k*b^n+c
 		mpz_init (kbnc);
 		mpz_ui_pow_ui (kbnc, w->b, w->n);
@@ -11522,16 +11523,21 @@ int isPRPg (
 		mpz_init (known_factors);
 		mpz_divexact (known_factors, kbnc, mpz_N);
 		mpz_clear (kbnc);
-		// Compare val = base^(known_factors - 1) mod N
+		// Compare_val = base^(known_factors - 1) mod N.  For speed, use gwnum's mod N*KF routines then reduce
+		gwnum tmp = gwalloc (gwdata);
+		u64togw (gwdata, prp_base, tmp);
 		mpz_sub_ui (known_factors, known_factors, 1);
-		mpz_set_ui (compare_val, prp_base);
-		mpz_powm (compare_val, compare_val, known_factors, mpz_N);
+		exponentiate_mpz (gwdata, tmp, known_factors);
 		mpz_clear (known_factors);
-		// Reduce v mod N  and compare
-		mpz_init (reduced_v);
-		mpz_mod (reduced_v, mpz_v, mpz_N);
-		result = mpz_eq (reduced_v, compare_val);
-		mpz_clear (reduced_v);
+		giant tmpg = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 5);
+		gwtogiant (gwdata, tmp, tmpg);
+		gwfree (gwdata, tmp);
+		gtompz (tmpg, compare_val);
+		pushg (&gwdata->gdata, 1);
+		mpz_mod (compare_val, compare_val, mpz_N);
+		// Reduce v mod N and compare
+		mpz_mod (mpz_v, mpz_v, mpz_N);
+		result = mpz_eq (mpz_v, compare_val);
 	}
 
 /* Handle the weird cases -- Fermat and SPRP variants, one of which gpuOwl uses */
@@ -12635,7 +12641,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 				rotateg (tmp, w->n, ps.units_bit, &gwdata.gdata);
 				if (mul_final) basemulg (tmp, w, ps.prp_base, mul_final);
 				if (w->known_factors && ps.residue_type != PRIMENET_PRP_TYPE_COFACTOR) modg (N, tmp);
-				ps.isProbablePrime = isPRPg (tmp, N, w, ps.prp_base, ps.residue_type);
+				ps.isProbablePrime = isPRPg (&gwdata, tmp, N, w, ps.prp_base, ps.residue_type);
 				if (!ps.isProbablePrime) {
 					sprintf (ps.res64, "%08lX%08lX", (unsigned long) (tmp->sign > 1 ? tmp->n[1] : 0), (unsigned long) tmp->n[0]);
 					ps.have_res2048 = (tmp->sign > 64);
@@ -12665,7 +12671,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 				rotateg (tmp, w->n, ps.alt_units_bit, &gwdata.gdata);
 				if (mul_final) basemulg (tmp, w, ps.prp_base, mul_final);
 				if (w->known_factors && ps.residue_type != PRIMENET_PRP_TYPE_COFACTOR) modg (N, tmp);
-				alt_isProbablePrime = isPRPg (tmp, N, w, ps.prp_base, ps.residue_type);
+				alt_isProbablePrime = isPRPg (&gwdata, tmp, N, w, ps.prp_base, ps.residue_type);
 				alt_match = (ps.isProbablePrime == alt_isProbablePrime);
 				if (alt_match && !alt_isProbablePrime) {
 					char	alt_res64[17];
