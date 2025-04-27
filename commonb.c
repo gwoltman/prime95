@@ -10863,22 +10863,25 @@ int generateProofFile (
 		MD5Update (&context, buf, (unsigned int) strlen (buf));
 
 		// Output number.  Enclose non-Mersennes with known factors in parentheses.  Append known factors.
-		sprintf (buf, "NUMBER=");
-		if ((w->k != 1.0 || w->c != -1) && w->known_factors != NULL) strcat (buf, "(");
-		strcat (buf, gwmodulo_as_string (gwdata));
-		if ((w->k != 1.0 || w->c != -1) && w->known_factors != NULL) strcat (buf, ")");
+		char *bigbuf = (char *) buf;
+		if (w->known_factors != NULL) bigbuf = (char *) malloc (512 + strlen (w->known_factors));
+		sprintf (bigbuf, "NUMBER=");
+		if ((w->k != 1.0 || w->c != -1) && w->known_factors != NULL) strcat (bigbuf, "(");
+		strcat (bigbuf, gwmodulo_as_string (gwdata));
+		if ((w->k != 1.0 || w->c != -1) && w->known_factors != NULL) strcat (bigbuf, ")");
 		if (w->known_factors != NULL) {		// Output known factors list
 			char	*p;
-			sprintf (buf + strlen (buf), "/%s", w->known_factors);
-			while ((p = strchr (buf, ',')) != NULL) *p = '/';
+			sprintf (bigbuf + strlen (bigbuf), "/%s", w->known_factors);
+			while ((p = strchr (bigbuf, ',')) != NULL) *p = '/';
 		}
-		strcat (buf, "\n");
-		if (_write (fdout, buf, (unsigned int) strlen (buf)) != (int) strlen (buf)) {
+		strcat (bigbuf, "\n");
+		if (_write (fdout, bigbuf, (unsigned int) strlen (bigbuf)) != (int) strlen (bigbuf)) {
 			OutputBoth (ps->thread_num, "Error writing proof file header.\n");
 			OutputBothErrno (ps->thread_num);
 			goto pfail;
 		}
-		MD5Update (&context, buf, (unsigned int) strlen (buf));
+		MD5Update (&context, bigbuf, (unsigned int) strlen (bigbuf));
+		if (w->known_factors != NULL) free (bigbuf);
 
 		// Get the header size
 		proof_header_size = _lseeki64 (fdout, 0, SEEK_CUR);
