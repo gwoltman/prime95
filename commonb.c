@@ -11379,6 +11379,37 @@ void good_news_prp (void *arg)
 	free (arg);
 }
 
+/* Calculate k*b^n+c mod prp_base.  Used to detect PRP tests that are divisible by the PRP base. */
+
+unsigned int kbnc_mod (
+	struct work_unit *w,		/* Number being tested */
+	unsigned int prp_base)		/* PRP base */
+{
+	mpz_t	modulus, tmp, k;
+	unsigned int result;
+
+/* Calculate b^n mod prp_base */
+
+	mpz_init_set_ui (modulus, prp_base);
+	mpz_init_set_ui (tmp, w->b);
+	mpz_powm_ui (tmp, tmp, (unsigned int) w->n, modulus);
+
+/* Final result is k * tmp + c mod prp_base */
+
+	mpz_init_set_d (k, w->k);
+	mpz_mul (tmp, k, tmp);
+	mpz_add_si (tmp, tmp, w->c);
+	mpz_mod (tmp, tmp, modulus);
+	result = mpz_get_ui (tmp);
+
+/* Cleanup and return */
+
+	mpz_clear (modulus);
+	mpz_clear (tmp);
+	mpz_clear (k);
+	return (result);
+}
+
 /* Compare two (possibly shifted) gwnums for equality.  Used in PRP error-checking. */
 
 int areTwoPRPValsEqual (
@@ -11663,9 +11694,18 @@ int prp (
 
 /* Set flag if we will perform power-of-two optimizations.  These optimizations reduce the number of mul-by-small constants */
 /* by computing a^(k*2^n) which gives us a long run of simple squarings.  These squarings let us do Gerbicz error checking. */
+/* Note: If the PRP base divides the number we are testing, then we cannot compute the inverse of prp_base and "backup" to get */
+/* the final residue (see mul_final and basemulg). */
 
 	ps.two_power_opt = (!IniGetInt (INI_FILE, "PRPStraightForward", 0) && w->b == 2 &&
 			    (w->known_factors == NULL || ps.residue_type == PRIMENET_PRP_TYPE_COFACTOR));
+	if (ps.two_power_opt && kbnc_mod (w, ps.prp_base) == 0) {
+		char	string_rep[80];
+		gw_as_string (string_rep, w->k, w->b, w->n, w->c);
+		sprintf (buf, "Gerbicz error checking will not be performed because PRP base divides %s\n", string_rep);
+		OutputStr (thread_num, buf);
+		ps.two_power_opt = FALSE;
+	}
 	if (!ps.two_power_opt) {
 		if (ps.residue_type == PRIMENET_PRP_TYPE_FERMAT_VAR) ps.residue_type = PRIMENET_PRP_TYPE_FERMAT;
 		else if (ps.residue_type == PRIMENET_PRP_TYPE_SPRP_VAR) ps.residue_type = PRIMENET_PRP_TYPE_SPRP;
