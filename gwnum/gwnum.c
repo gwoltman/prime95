@@ -10651,7 +10651,7 @@ void gwunfft2 (
 
 #ifdef X86_64
 	if (FFT_state (s) == FFTed_FOR_FMA) {
-		ASSERTG (gwdata->k != 1.0);
+		ASSERTG (gwdata->k != 1.0 || gwdata->parent_gwdata != NULL);
 		ASSERTG (gwdata->cpu_flags & (CPU_AVX512F | CPU_FMA3 | CPU_AVX));
 
 		// Special faster unfft code for most 64-bit architectures that does not need any extra variables.
