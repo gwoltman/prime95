@@ -6622,6 +6622,7 @@ void ecm_helper (
 
 		// Initialize a polymult structure that uses the cloned gwdata
 		polymult_init (&pmdata, gwdata);
+		polymult_set_cpu_flags (&pmdata, CPU_FLAGS);					// Allow AVX-512 polymults on FMA3 FFTs
 
 		// Loop working on length 2, 3, or 4 polys
 		gwarray source_poly = ecmdata->poly1;
@@ -6687,6 +6688,7 @@ void ecm_helper (
 
 		// Initialize a polymult structure that uses the cloned gwdata
 		polymult_init (&pmdata, gwdata);
+		polymult_set_cpu_flags (&pmdata, CPU_FLAGS);					// Allow AVX-512 polymults on FMA3 FFTs
 
 		// Loop working on length 2, 3, or 4 polys
 		gwarray polyG = ecmdata->polyGH;
@@ -7817,6 +7819,7 @@ replan:	unsigned long best_fftlen;
 /* Initialize the polymult library (needed for calling polymult_mem_required).  Let user override polymult tuning parameters. */
 
 		polymult_init (&ecmdata.polydata, &ecmdata.gwdata);
+		polymult_set_cpu_flags (&ecmdata.polydata, CPU_FLAGS);		// Allow AVX-512 polymults on FMA3 FFTs
 		polymult_set_max_num_threads (&ecmdata.polydata, ecmdata.stage2_threads);
 		polymult_default_tuning (&ecmdata.polydata,
 					 IniGetInt (INI_FILE, "PolymultCacheSize", CPU_NUM_L2_CACHES > 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 256),
@@ -7908,12 +7911,18 @@ OutputStr (thread_num, buf); }
 		if (best_poly_efficiency != 0.0) best_fails++;
 		if (best_fails == 3) found_best = TRUE;
 
-		// Switch to next larger or confirmed best FFT length
-		for ( ; ; ) {
-			unsigned long next_fftlen = gwfftlen (&ecmdata.gwdata) + 1;  // Try next larger FFT length
+		// Switch to next larger or confirmed best FFT length.  For small AVX-512 FFTs, we may try also try smaller FMA3 FFT lengths
+		// to obtain more temporaries and higher degree polynomials.
+		for (bool first_loop = TRUE; ; first_loop = FALSE) {
+			unsigned long next_fftlen = gwfftlen (&ecmdata.gwdata) + 1;  // By default, try next larger FFT length
+			// Hack in a search for smaller FMA3 FFTs (lengths 32, 64, 96, 160, 192, 320) on AVX-512 CPUs.
+			if (CPU_FLAGS & CPU_AVX512F &&
+			    gwfftlen (&ecmdata.gwdata) == ecmdata.stage1_fftlen && ecmdata.stage1_fftlen <= 384 && first_loop &&
+			    IniGetInt (INI_FILE, "SearchFMA3FFTs", 1))
+				next_fftlen = ecmdata.stage1_fftlen - 127;
+			// Other overrides for next_fftlen
 			if (next_fftlen < maxerr_fftlen) next_fftlen = maxerr_fftlen;
 			if (found_best) next_fftlen = best_fftlen;
-			msgbuf[0] = 0;
 			// Detect when no FFT length change is necessary (e.g. prime pairing selected and memory is very tight)
 			if (next_fftlen == gwfftlen (&ecmdata.gwdata)) break;
 			// Save Ad4, terminate current FFT size.
@@ -7925,9 +7934,15 @@ OutputStr (thread_num, buf); }
 			}
 			polymult_done (&ecmdata.polydata);
 			gwdone (&ecmdata.gwdata);
-			// Re-init gwnum with a larger FFT
+			// Re-init gwnum with next FFT length to cost
+			msgbuf[0] = 0;
 			gwinit (&ecmdata.gwdata);
 			if (next_fftlen != best_fftlen) gwset_information_only (&ecmdata.gwdata);
+			if (CPU_FLAGS & CPU_AVX512F &&
+			    (next_fftlen <= 96 || (next_fftlen > 128 && next_fftlen <= 192) || (next_fftlen > 256 && next_fftlen <= 320)) &&
+			    IniGetInt (INI_FILE, "SearchFMA3FFTs", 1)) {
+				ecmdata.gwdata.cpu_flags &= ~CPU_AVX512F;
+			}
 			if (IniGetInt (INI_FILE, "UseLargePages", 0)) gwset_use_large_pages (&ecmdata.gwdata);
 			if (HYPERTHREAD_LL) sp_info->normal_work_hyperthreading = TRUE, gwset_will_hyperthread (&ecmdata.gwdata, 2);
 			gwset_bench_cores (&ecmdata.gwdata, HW_NUM_CORES);
@@ -7952,6 +7967,7 @@ OutputStr (thread_num, buf); }
 				stop_reason = STOP_FATAL_ERROR;
 				goto exit;
 			}
+			if (!found_best && gwfftlen (&ecmdata.gwdata) == ecmdata.stage1_fftlen) continue;  // Can happen when trying to find smaller FMA3 FFTs
 			gwerror_checking (&ecmdata.gwdata, ERRCHK || near_fft_limit);
 			if (gwfftlen (&ecmdata.gwdata) != ecmdata.stage1_fftlen) {
 				char	fft_desc[200];
@@ -9165,7 +9181,7 @@ start_timer_from_zero (timers, 0);
 if (IniGetInt (INI_FILE, "PolyVerbose", 0)) {
 end_timer (timers, 0);
 double poly_size = ecmdata.poly_size / pow (2.0, log2_num_polys);
-if (poly_size < 2.0) sprintf (buf, "Round off: %.10g, avg poly_size: %g, EB: %g, SM: %g, Time:", gw_get_maxerr (&ecmdata.gwdata), poly_size, ecmdata.gwdata.EXTRA_BITS, ecmdata.gwdata.safety_margin);
+if (poly_size < 2.0) sprintf (buf, "Round off: %.10g, avg poly_size: %g, EB: %g, SM: %g, Time: ", gw_get_maxerr (&ecmdata.gwdata), poly_size, ecmdata.gwdata.EXTRA_BITS, ecmdata.gwdata.safety_margin);
 else sprintf (buf, "Round off: %.10g, avg poly_size: %g, Time: ", gw_get_maxerr (&ecmdata.gwdata), poly_size);
 print_timer (timers, 0, buf, TIMER_NL);
 OutputStr (thread_num, buf); gw_clear_maxerr (&ecmdata.gwdata);
@@ -12340,6 +12356,7 @@ replan:	unsigned long best_fftlen;
 /* Initialize the polymult library (needed for calling polymult_mem_required).  Let user override polymult tuning parameters. */
 
 		polymult_init (&pm1data.polydata, &pm1data.gwdata);
+		polymult_set_cpu_flags (&pm1data.polydata, CPU_FLAGS);		// Allow AVX-512 polymults on FMA3 FFTs
 		polymult_set_max_num_threads (&pm1data.polydata, pm1data.stage2_threads);
 		polymult_default_tuning (&pm1data.polydata,
 					 IniGetInt (INI_FILE, "PolymultCacheSize", CPU_NUM_L2_CACHES > 0 ? CPU_TOTAL_L2_CACHE_SIZE / CPU_NUM_L2_CACHES : 256),
