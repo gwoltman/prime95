@@ -4384,6 +4384,10 @@ void tempFileName (
 	} else
 		sprintf (buf, "p%ld", p);
 
+/* If skip_curves is set (multiple workers doing ECM on the same GMP_ECM stage 1 results) then use that value to make file name unique */
+
+	if (w->work_type == WORK_ECM && w->skip_curves) sprintf (buf + strlen (buf), "_%u", w->skip_curves);
+
 /* Use different first letters for different work types.  This isn't */
 /* completely compatible with v24 (the -An extension and P-1 and ECM when c=1 */
 
