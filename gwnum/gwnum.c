@@ -10610,7 +10610,7 @@ void gwunfft2 (
 		gwnum c = cyclic_gwnum (gwdata, s);
 		gwnum n = negacyclic_gwnum (gwdata, s);
 		/* Unfft the two gwnums, but not with the FFTed_FOR_FMA flag.  The mul by 1 that produced the FFTed_FOR_FMA result was done */
-		/* on the MMGW value -- leave that in place for the MMGW_redc. */
+		/* on the MMGW value -- leave that in place for MMGW_redc4. */
 		FFT_state (c) = FULLY_FFTed;
 		FFT_state (n) = FULLY_FFTed;
 		unnorms (n) = 0.0f;				// Polymult did not set this value.  This avoids ASSERTs.
@@ -10620,7 +10620,6 @@ void gwunfft2 (
 		gwfft (gwdata->negacyclic_gwdata, n, n);
 		FFT_state (n) = FFTed_FOR_FMA;
 		MMGW_redc4 (gwdata, d, n);			// Do the reduction that polymult did not do
-//		MMGW_redc (gwdata, d, n);			// Do the reduction that polymult did not do
 		return;
 	}
 
