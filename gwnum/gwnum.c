@@ -9170,6 +9170,14 @@ void MMGW_redc (gwhandle *gwdata, gwnum T_R, gwnum T_Q)
 	gwsub3o (gwdata->negacyclic_gwdata, T_R, T_Q, T_R, GWADD_FORCE_NORMALIZE);	// T_R = T_R - T_Q
 }
 
+/* Special version for polymult of Montgomery-McLaughlin-Gallot-Woltman reduction that uses gwmulsub4 to save one transform */
+void MMGW_redc4 (gwhandle *gwdata, gwnum T_R, gwnum T_Q)
+{
+	gwmul3 (gwdata->cyclic_gwdata, T_R, gwdata->Np_R, T_R, 0);			// T_R = T_R * Np_R mod R
+	*T_R += 2.0;									// T_R += 2
+	gwmulsub4 (gwdata->negacyclic_gwdata, T_R, gwdata->N_Q, T_Q, T_R, 0);		// T_R = T_R * N_Q - T_Q mod Q
+}
+
 /* Special version of Montgomery-McLaughlin-Gallot-Woltman reduction that uses gwmulmulsub5 to save one transform */
 void MMGW_redc5 (gwhandle *gwdata, gwnum T_R, gwnum s1_Q, gwnum s2_Q)
 {
@@ -10590,9 +10598,29 @@ void gwunfft2 (
 	}
 
 /* MMGW general mod is easy.  Undo what gwfft did, simply unfft the cyclic FFT data. */
+/* However, if FFTed_FOR_FMA the gwnum is probably the result of a polymult.  In that case, we'll need to do a MMGW_redc.  But first, unfft the */
+/* cyclic and negacyclic gwnums so that the multiplies done by MMGW_redc to generate round offf errors. */
 
 	if (gwdata->GENERAL_MMGW_MOD) {
-		gwunfft2 (gwdata->cyclic_gwdata, cyclic_gwnum (gwdata, s), cyclic_gwnum (gwdata, d), options);
+		if (FFT_state (s) != FFTed_FOR_FMA) {
+			gwunfft2 (gwdata->cyclic_gwdata, cyclic_gwnum (gwdata, s), cyclic_gwnum (gwdata, d), options);
+			return;
+		}
+		ASSERTG (! (options & (GWMUL_ADDINCONST | GWMUL_MULBYCONST)));		/* We could figure out how to emulate this if ever needed */
+		gwnum c = cyclic_gwnum (gwdata, s);
+		gwnum n = negacyclic_gwnum (gwdata, s);
+		/* Unfft the two gwnums, but not with the FFTed_FOR_FMA flag.  The mul by 1 that produced the FFTed_FOR_FMA result was done */
+		/* on the MMGW value -- leave that in place for the MMGW_redc. */
+		FFT_state (c) = FULLY_FFTed;
+		FFT_state (n) = FULLY_FFTed;
+		unnorms (n) = 0.0f;				// Polymult did not set this value.  This avoids ASSERTs.
+		gwunfft2 (gwdata->cyclic_gwdata, c, d, GWMUL_STARTNEXTFFT);
+		gwunfft2 (gwdata->negacyclic_gwdata, n, n, GWMUL_STARTNEXTFFT);
+		// Restore the negacyclic gwnum to FFTed_FOR_FMA state so that we can use MMGW_redc4
+		gwfft (gwdata->negacyclic_gwdata, n, n);
+		FFT_state (n) = FFTed_FOR_FMA;
+		MMGW_redc4 (gwdata, d, n);			// Do the reduction that polymult did not do
+//		MMGW_redc (gwdata, d, n);			// Do the reduction that polymult did not do
 		return;
 	}
 
@@ -10651,7 +10679,7 @@ void gwunfft2 (
 
 #ifdef X86_64
 	if (FFT_state (s) == FFTed_FOR_FMA) {
-		ASSERTG (gwdata->k != 1.0 || gwdata->parent_gwdata != NULL);
+		ASSERTG (gwdata->k != 1.0);
 		ASSERTG (gwdata->cpu_flags & (CPU_AVX512F | CPU_FMA3 | CPU_AVX));
 
 		// Special faster unfft code for most 64-bit architectures that does not need any extra variables.

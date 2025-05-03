@@ -5684,8 +5684,8 @@ void polymult_post_unfft (
 			     (!(options & POLYMULT_INVEC1_MONIC) != !(options & POLYMULT_INVEC2_MONIC) && // Monic * non-monic (or vice-versa)
 			      plan->planpart[i].circular_size == plan->planpart[i].true_outvec_size &&	// Not doing a circular multiply
 			      plan->planpart[i].MSWs_skipped == 0))) {					// Top coefficient of monic * non-monic is output
-				float	unnorms1 = plan->unnorms1;		// Unnormalized add count of top invec1 coefficient
-				float	unnorms2 = plan->planpart[i].unnorms2;	// Unnormalized add count of top invec2 coefficient
+				float	unnorms1 = plan->unnorms1;				// Unnormalized add count of top invec1 coefficient
+				float	unnorms2 = plan->planpart[i].unnorms2;			// Unnormalized add count of top invec2 coefficient
 				// This optimization requires gwset_polymult_safety_margin was called with the output of polymult_safety_margin.
 				ASSERTG (gwdata->polymult_safety_margin > 0.0);
 				if (! (options & POLYMULT_INVEC2_MONIC))			// Invec1 monic, returning 1 * invec2's top
