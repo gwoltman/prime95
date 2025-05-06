@@ -7357,6 +7357,9 @@ restart0:
 		curve_start_msg (&ecmdata);
 		stop_reason = init_curve (&ecmdata);
 		if (stop_reason) goto exit;
+		// Since there isn't a good place to create a save file when stage 2 completes, create a save file here so that we don't redo a
+		// previously completed curve in case of a power failure.
+		if (ecmdata.curve != 1) ecm_save (&ecmdata);
 		goto restart3;
 	}
 
