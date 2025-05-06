@@ -2,7 +2,7 @@
 /* so that they can be included in both the command-line mprime version as */
 /* well as the Mac OS X GUI version. */
 
-/* Copyright 1995-2023 Mersenne Research, Inc. */
+/* Copyright 1995-2025 Mersenne Research, Inc. */
 /* Author:  George Woltman */
 /* Email: woltman@alum.mit.edu */
 
@@ -427,7 +427,7 @@ int LoadPrimeNet (void)
 	}
 	fclose(fd);
 #elif defined (__FreeBSD__) || defined (__APPLE__) || defined (__WATCOMC__) || defined (__HAIKU__) || defined (__EMX__)
-	/* The /proc/net/route test is only really meaningfulunder linux. */
+	/* The /proc/net/route test is only really meaningful under linux. */
 	/* For other OSes, there doesn't seem to be any meaningful test to see whether the */
 	/* computer is connected to the Internet at the time using a non- */
 	/* invasive test (which wouldn't, say, activate diald or ppp or */
@@ -435,6 +435,7 @@ int LoadPrimeNet (void)
 	return TRUE;
 #endif
 	OutputStr (COMM_THREAD_NUM, "You are not connected to the Internet.\n");
+	if (!DIAL_UP) return (TRUE);
 	return FALSE;
 }
 
