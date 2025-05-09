@@ -204,12 +204,6 @@ An LL test on M50,000,000 will not scale at all, ECM on a small number will
 scale to a much larger value and an LL test on a 100 million digit number
 will scale to a much smaller value.
 
-The program normally will not start any calculation until 90 seconds after
-a reboot.  This is done so that your normal boot up procedure can be as
-fast as possible.  You can control how long this delay is by adding this
-line to prime.txt, where n is the number of seconds to sleep:
-	BootDelay=n
-
 Some machines report much better timings if the workers stagger
 their starts.  This was first noticed on Core i7 machines running Windows.
 Presumably staggering starts improves timings due to each worker allocating
@@ -554,6 +548,12 @@ WINDOWS ONLY:  When Tray Icon or No Icon is selected the "X" at the right of
 the title bar will minimize rather than exit.  You can make the program exit
 if you prefer.  In prime.txt set:
 	ExitOnX=1
+
+WINDOWS ONLY:  The program normally will not start any calculation until 90 seconds after
+a reboot.  This is done so that your normal boot up procedure can be as
+fast as possible.  You can control how long this delay is by adding this
+line to prime.txt, where n is the number of seconds to sleep:
+	BootDelay=n
 
 Most FFT sizes have several implementations.  The program uses throughput benchmark
 data to select the fastest FFT implementation.  The program assumes all CPU cores
