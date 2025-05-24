@@ -1146,7 +1146,8 @@ void read_mem_info (void)
 /* Get the maximum number of workers that can use lots of memory.  Default is one.  If not using timers, do not allow zero max high mem workers. */
 
 	MAX_HIGH_MEM_WORKERS = IniGetTimedInt (INI_FILE, "MaxHighMemWorkers", 1, &seconds);
-	if (seconds == 0 && MAX_HIGH_MEM_WORKERS < 1) MAX_HIGH_MEM_WORKERS = 1;
+	// Someone found a use for MaxHighMemWorkers=0.  They wanted one machine to do stage 1 to copy the result to a high memory machine for stage 2.
+	// if (seconds == 0 && MAX_HIGH_MEM_WORKERS < 1) MAX_HIGH_MEM_WORKERS = 1;
 	if (seconds && (seconds_until_reread == 0 || seconds < seconds_until_reread)) seconds_until_reread = seconds;
 
 /* Add the event that fires when the memory settings expire. */
