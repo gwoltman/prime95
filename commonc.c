@@ -3139,7 +3139,7 @@ int parseWorkToDoLine (
 /* Make sure this line of work from the file makes sense. The exponent should be a prime number, bounded by values we can handle, and we */
 /* should never be asked to factor a number more than we are capable of. */
 
-	if (w->k < 1.0 || w->b < 2 || w->n < 1 || w->c == 0) {
+	if (w->k < 1.0 || w->b < 2 || (w->gmp_ecm_file == NULL && w->n < 1) || w->c == 0) {
 		sprintf (buf, "Error: Illegal number in worktodo.txt file, k < 1 or b < 2 or n < 1 or c = 0\n");
 		OutputBoth (MAIN_THREAD_NUM, buf);
 		goto illegal_line;
