@@ -688,6 +688,9 @@ void getCpuInfo (void)
 	temp = IniGetInt (INI_FILE, "CpuSupportsAVX512F", 99);
 	if (temp == 0) CPU_FLAGS &= ~CPU_AVX512F;
 	if (temp == 1) CPU_FLAGS |= CPU_AVX512F;
+	temp = IniGetInt (INI_FILE, "CpuSupportsAVX512DQ", 99);
+	if (temp == 0) CPU_FLAGS &= ~CPU_AVX512DQ;
+	if (temp == 1) CPU_FLAGS |= CPU_AVX512DQ;
 
 /* Let the user override the L1/L2/L3/L4 cache size in prime.txt file */
 
