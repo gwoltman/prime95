@@ -7906,6 +7906,9 @@ OutputStr (thread_num, buf); }
 		// If forced_stage2_type is prime pairing, then we do not need to try larger FFT lengths
 		if (best_fftlen && forced_stage2_type == 0) found_best = TRUE;
 
+		// If we used all (or nearly all) of the available numvals in a poly, then a larger FFT will be worse due to fewer available numvals
+		if (best_poly_efficiency && ecmdata.stage2_numvals >= (int) cvt_mem_to_gwnums_adj (&ecmdata.gwdata, memory, -10.0)) found_best = TRUE;
+
 		// Small optimization: Skip costing larger FFT lengths if there are less than 60 numvals
 		if (best_fftlen && (double) memory * 1000000.0 / (double) array_gwnum_size (&ecmdata.gwdata) < 60.0) found_best = TRUE;
 
@@ -7927,7 +7930,7 @@ OutputStr (thread_num, buf); }
 			if (next_fftlen < maxerr_fftlen) next_fftlen = maxerr_fftlen;
 			if (found_best) next_fftlen = best_fftlen;
 			// Detect when no FFT length change is necessary (e.g. prime pairing selected and memory is very tight)
-			if (next_fftlen == gwfftlen (&ecmdata.gwdata)) break;
+			if (next_fftlen == gwfftlen (&ecmdata.gwdata) && next_fftlen == ecmdata.stage1_fftlen) break;
 			// Save Ad4, terminate current FFT size.
 			if (ecmdata.Ad4 != NULL) {
 				ecmdata.Ad4_binary = allocgiant (((int) ecmdata.gwdata.bit_length >> 5) + 10);
@@ -9930,6 +9933,7 @@ no_more_curves:
 	if (ecmdata.sigma_type == 0) sprintf (JSONbuf+strlen(JSONbuf), ", \"Edwards\":{}");
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", ecmdata.stage1_fftlen);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, ecmdata.B, ecmdata.average_B2));
+	if (w->gmp_ecm_file != NULL) sprintf (JSONbuf+strlen(JSONbuf), ", \"program-stage1\":\"GMP-ECM\"");
 	JSONaddProgramTimestamp (JSONbuf);
 	JSONaddExponentKnownFactors (JSONbuf, w);
 	JSONaddUserComputerAID (JSONbuf, w);
@@ -11241,10 +11245,11 @@ int pm1_choose_B2 (
 				} else x.actual_i = x.i, x.compared_to_next_i = -100.0;
 
 // Return TRUE if x is better than y.
-// Each D value has its own breakeven point.  Higher D values are always more efficient than lower D values.
+// Each D value has its own breakeven point.  Significantly higher D values ought to be more efficient than lower D values.
 // Prime pairing also has its own breakeven point.
-#define p1compare(x,y)	(((x.D && y.D) && (x.D > y.D || (x.D == y.D && x.compared_to_next_i > y.compared_to_next_i))) ||	\
-			 ((x.D == 0 || y.D == 0) && (x.compared_to_next_i > y.compared_to_next_i)))
+#define p1compare(x,y)	((x.D && y.D && x.D > y.D + (y.D >> 2)) ||		/* x.D is 25% larger than y.D */	\
+			 (!(x.D && y.D && y.D > x.D + (x.D >> 2)) &&		/* y.D is not 25% larger than x.D (i.e. D values are close) */	\
+			  x.compared_to_next_i > y.compared_to_next_i))		/* and x is closer to the breakeven point */
 
 /* Look for the best B2 which is likely between 5*B1 and 10000*B1.  If optimal is not between these bounds, don't worry we'll locate the optimal spot anyway. */
 
@@ -12443,6 +12448,9 @@ OutputStr (thread_num, buf); }
 		// If forced_stage2_type is prime pairing, then we do not need to try larger FFT lengths
 		if (best_fftlen && forced_stage2_type == 0) found_best = TRUE;
 
+		// If we used all (or nearly all) of the available numvals in a poly, then a larger FFT will be worse due to fewer available numvals
+		if (best_poly_efficiency && pm1data.stage2_numvals >= (int) cvt_mem_to_gwnums_adj (&pm1data.gwdata, memory, -10.0)) found_best = TRUE;
+
 		// Small optimization: Skip costing larger FFT lengths if there are less than 60 numvals
 		if (best_fftlen && (double) memory * 1000000.0 / (double) array_gwnum_size (&pm1data.gwdata) < 60.0) found_best = TRUE;
 
@@ -12458,7 +12466,7 @@ OutputStr (thread_num, buf); }
 			if (found_best) next_fftlen = best_fftlen;
 			msgbuf[0] = 0;
 			// Detect when no FFT length change is necessary (e.g. prime pairing selected and memory is very tight)
-			if (next_fftlen == gwfftlen (&pm1data.gwdata)) break;
+			if (next_fftlen == gwfftlen (&pm1data.gwdata) && next_fftlen == pm1data.stage1_fftlen) break;
 			// Terminate current FFT size
 			polymult_done (&pm1data.polydata);
 			gwdone (&pm1data.gwdata);
