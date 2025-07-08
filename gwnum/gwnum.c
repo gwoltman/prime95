@@ -3490,7 +3490,7 @@ int internal_gwsetup (
 			else tables += gwdata->PASS1_SIZE;				// Pass 1 size - each needs a carry
 			tables = round_to_cache_line (tables);
 
-/* Build the group muliplier normalization table.  Keep this table contiguous with other data used in pass 1. */
+/* Build the group multiplier normalization table.  Keep this table contiguous with other data used in pass 1. */
 
 			ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 			asm_data->norm_grp_mults = tables;
@@ -3599,7 +3599,7 @@ int internal_gwsetup (
 				tables += (8 - (tables - gwdata->gwnum_memory)) & 7;
 			}
 
-/* Build the group muliplier normalization table.  Keep this table contiguous with other data used in pass 1. */
+/* Build the group multiplier normalization table.  Keep this table contiguous with other data used in pass 1. */
 
 			ASSERTG (((tables - gwdata->gwnum_memory) & 7) == 0);
 			asm_data->norm_grp_mults = tables;
@@ -3686,8 +3686,7 @@ int internal_gwsetup (
 				tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 			}
 
-/* Build the group muliplier normalization table.  Keep this table */
-/* contiguous with other data used in pass 1. */
+/* Build the group multiplier normalization table.  Keep this table contiguous with other data used in pass 1. */
 
 			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 			asm_data->norm_grp_mults = tables;
@@ -3755,8 +3754,7 @@ int internal_gwsetup (
 				tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 			}
 
-/* Build the group muliplier normalization table.  Keep this table */
-/* contiguous with other data used in pass 1. */
+/* Build the group multiplier normalization table.  Keep this table contiguous with other data used in pass 1. */
 
 			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 			asm_data->norm_grp_mults = tables;
@@ -3903,8 +3901,7 @@ int internal_gwsetup (
 				tables += (16 - (tables - gwdata->gwnum_memory)) & 15;
 			}
 
-/* Build the group muliplier normalization table.  Keep this table */
-/* contiguous with other data used in pass 1. */
+/* Build the group multiplier normalization table.  Keep this table contiguous with other data used in pass 1. */
 
 			ASSERTG (((tables - gwdata->gwnum_memory) & 15) == 0);
 			asm_data->norm_grp_mults = tables;
@@ -3992,8 +3989,7 @@ int internal_gwsetup (
 		if (gwdata->SCRATCH_SIZE)
 			tables = (double *) ((char *) tables + gwdata->SCRATCH_SIZE);
 
-/* Build the group muliplier normalization table.  Keep this table */
-/* contiguous with other data used in pass 1. */
+/* Build the group multiplier normalization table.  Keep this table contiguous with other data used in pass 1. */
 
 		asm_data->norm_grp_mults = tables;
 		tables = x87_build_norm_table (gwdata, tables, 0);
@@ -4642,7 +4638,7 @@ int internal_gwsetup (
 
 	if (gwdata->cpu_flags & CPU_AVX512F) {
 
-		/* Tradittional one pass AVX-512 FFTs */
+		/* Traditional one pass AVX-512 FFTs */
 		if (gwdata->PASS2_SIZE == 0) {
 			asm_data->pass1blkdst = asm_data->addcount1 * 128; /* Distance between sections in carry propagate code */
 		}

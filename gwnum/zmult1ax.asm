@@ -1,4 +1,4 @@
-; Copyright 2024 Mersenne Research, Inc.  All rights reserved
+; Copyright 2024-2025 Mersenne Research, Inc.  All rights reserved
 ; Author:  George Woltman
 ; Email: woltman@alum.mit.edu
 ;
@@ -1081,7 +1081,7 @@ ttp	mov	r12, compressed_biglits	;; Get pointer to compressed biglit table
 	vmovapd zmm2, zmm30
 	vmovapd zmm3, zmm30
 no ttp	vmovapd zmm4, zmm30
-ttp	vxorpd	zmm4, zmm4, zmm4	;; Remove RNDVAL from high carries for irrational normalization
+ttp	vzero	zmm4			;; Remove RNDVAL from high carries for irrational normalization
 	vmovapd zmm5, zmm4
 	vmovapd zmm6, zmm4
 	vmovapd zmm7, zmm4
