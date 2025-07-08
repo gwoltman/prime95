@@ -318,14 +318,14 @@ znorm_1d_zpad_echk_nottp MACRO const, khi
 	zfnmaddpd zmm23, [rsi+r14+64], zmm23, zmm3	; 12-15	;; err = tmp - value*inv_weight
 
 	vbroadcastsd zmm0, ZMM_ABSVAL
-	vandpd	zmm16, zmm16, zmm0			; 13	;; err = abs(err)
-	vandpd	zmm17, zmm17, zmm0			; 13	;; err = abs(err)
-	vandpd	zmm18, zmm18, zmm0			; 14	;; err = abs(err)
-	vandpd	zmm19, zmm19, zmm0			; 14	;; err = abs(err)
-	vandpd	zmm20, zmm20, zmm0			; 15	;; err = abs(err)
-	vandpd	zmm21, zmm21, zmm0			; 15	;; err = abs(err)
-	vandpd	zmm22, zmm22, zmm0			; 16	;; err = abs(err)
-	vandpd	zmm23, zmm23, zmm0			; 16	;; err = abs(err)
+	vpandq	zmm16, zmm16, zmm0			; 13	;; err = abs(err)
+	vpandq	zmm17, zmm17, zmm0			; 13	;; err = abs(err)
+	vpandq	zmm18, zmm18, zmm0			; 14	;; err = abs(err)
+	vpandq	zmm19, zmm19, zmm0			; 14	;; err = abs(err)
+	vpandq	zmm20, zmm20, zmm0			; 15	;; err = abs(err)
+	vpandq	zmm21, zmm21, zmm0			; 15	;; err = abs(err)
+	vpandq	zmm22, zmm22, zmm0			; 16	;; err = abs(err)
+	vpandq	zmm23, zmm23, zmm0			; 16	;; err = abs(err)
 
 ;; BUG - Is there a better grouping available (use regs zmm16 up and interleave with the / base FMA instructions
 ;; Use more maxerr accumulators?
@@ -1682,14 +1682,14 @@ znorm_wpn_zpad_echk_nottp MACRO const, khi
 	vsubpd	zmm23, zmm23, [rsi+r14+64] 	; 12-15	;; err = rnd(value) - value
 
 	vbroadcastsd zmm0, ZMM_ABSVAL
-	vandpd	zmm16, zmm16, zmm0		; 13	;; err = abs(err)
-	vandpd	zmm17, zmm17, zmm0		; 13	;; err = abs(err)
-	vandpd	zmm18, zmm18, zmm0		; 14	;; err = abs(err)
-	vandpd	zmm19, zmm19, zmm0		; 14	;; err = abs(err)
-	vandpd	zmm20, zmm20, zmm0		; 15	;; err = abs(err)
-	vandpd	zmm21, zmm21, zmm0		; 15	;; err = abs(err)
-	vandpd	zmm22, zmm22, zmm0		; 16	;; err = abs(err)
-	vandpd	zmm23, zmm23, zmm0		; 16	;; err = abs(err)
+	vpandq	zmm16, zmm16, zmm0		; 13	;; err = abs(err)
+	vpandq	zmm17, zmm17, zmm0		; 13	;; err = abs(err)
+	vpandq	zmm18, zmm18, zmm0		; 14	;; err = abs(err)
+	vpandq	zmm19, zmm19, zmm0		; 14	;; err = abs(err)
+	vpandq	zmm20, zmm20, zmm0		; 15	;; err = abs(err)
+	vpandq	zmm21, zmm21, zmm0		; 15	;; err = abs(err)
+	vpandq	zmm22, zmm22, zmm0		; 16	;; err = abs(err)
+	vpandq	zmm23, zmm23, zmm0		; 16	;; err = abs(err)
 
 ;; BUG - Is there a better grouping available (use regs zmm16 up and interleave with the / base FMA instructions
 ;; Use more maxerr accumulators?
@@ -1967,14 +1967,14 @@ znorm_wpn_zpad_echk_ttp MACRO const, khi
 	zfnmaddpd zmm23, [rsi+r14+64], zmm23, zmm15	; 12-15	;; err = rnd(value) - rnd(value*inv_grp_mult)
 
 	vbroadcastsd zmm0, ZMM_ABSVAL
-	vandpd	zmm16, zmm16, zmm0			; 13	;; err = abs(err)
-	vandpd	zmm17, zmm17, zmm0			; 13	;; err = abs(err)
-	vandpd	zmm18, zmm18, zmm0			; 14	;; err = abs(err)
-	vandpd	zmm19, zmm19, zmm0			; 14	;; err = abs(err)
-	vandpd	zmm20, zmm20, zmm0			; 15	;; err = abs(err)
-	vandpd	zmm21, zmm21, zmm0			; 15	;; err = abs(err)
-	vandpd	zmm22, zmm22, zmm0			; 16	;; err = abs(err)
-	vandpd	zmm23, zmm23, zmm0			; 16	;; err = abs(err)
+	vpandq	zmm16, zmm16, zmm0			; 13	;; err = abs(err)
+	vpandq	zmm17, zmm17, zmm0			; 13	;; err = abs(err)
+	vpandq	zmm18, zmm18, zmm0			; 14	;; err = abs(err)
+	vpandq	zmm19, zmm19, zmm0			; 14	;; err = abs(err)
+	vpandq	zmm20, zmm20, zmm0			; 15	;; err = abs(err)
+	vpandq	zmm21, zmm21, zmm0			; 15	;; err = abs(err)
+	vpandq	zmm22, zmm22, zmm0			; 16	;; err = abs(err)
+	vpandq	zmm23, zmm23, zmm0			; 16	;; err = abs(err)
 
 	vmaxpd	zmm20, zmm20, zmm16			; 17-20	;; accumulate maxerr
 	vmaxpd	zmm21, zmm21, zmm17			; 17-20	;; accumulate maxerr

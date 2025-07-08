@@ -52,8 +52,8 @@ zmaxabspd_preload MACRO absreg
 	ENDM
 zmaxabspd MACRO dest, src1, src2
 	IF AVX512DQ EQ 0
-	vandpd	src1, src1, zmaxabspd_absreg
-	vandpd	src2, src2, zmaxabspd_absreg
+	vpandq	src1, src1, zmaxabspd_absreg
+	vpandq	src2, src2, zmaxabspd_absreg
 	vmaxpd	dest, src1, src2
 	ELSE
 	vrangepd dest, src1, src2, 1011b
