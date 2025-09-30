@@ -6423,7 +6423,7 @@ int jacobi_test (
 /* Free giants, compute the Jacobi symbol (a-2|Mp) */
 
 	silent_Jacobi = IniGetInt (INI_FILE, "SilentJacobi", 0);
-	if (!silent_Jacobi) OutputStr (thread_num, "Running Jacobi error check.  ");
+	if (!silent_Jacobi) OutputStr (thread_num, "Running Jacobi error check.\n");
 	mpz_sub_ui (a, a, 2);
 	if (mpz_sgn (a) < 0) mpz_add (a, a, b);
 	Jacobi_symbol = mpz_jacobi (a, b);
@@ -6431,8 +6431,8 @@ int jacobi_test (
 /* End the timer, print out PASS/FAIL message along with time taken */
 
 	end_timer (timers, 0);
-	sprintf (buf, "%s.  Time: %6.3f sec.\n", Jacobi_symbol == -1 ? "Passed" : "Failed", timer_value (timers, 0));
-	if (!silent_Jacobi) OutputStrNoTimeStamp (thread_num, buf);
+	sprintf (buf, "Jacobi error check %s.  Time: %6.3f sec.\n", Jacobi_symbol == -1 ? "passed" : "failed", timer_value (timers, 0));
+	if (!silent_Jacobi) OutputStr (thread_num, buf);
 	else if (Jacobi_symbol != -1) OutputStr (thread_num, "Jacobi error-check failed\n");
 
 /* Cleanup and return */
