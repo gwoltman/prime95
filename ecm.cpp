@@ -6344,6 +6344,7 @@ void ecm_save (
 
 /* Write the checksum, we're done */
 
+	if (! write_footer (fd, w)) goto writeerr;
 	if (! write_checksum (fd, sum)) goto writeerr;
 
 	closeWriteSaveFile (&ecmdata->write_save_file_state, fd);
@@ -6583,6 +6584,7 @@ int ecm_restore (			/* For version 30.4 and later save files */
 /* Read and compare the checksum */
 
 	if (filesum != sum) goto readerr;
+	if (!read_footer (fd, w)) goto readerr;
 	_close (fd);
 	return (TRUE);
 
@@ -10567,6 +10569,7 @@ void pm1_save (
 
 /* Write the checksum, we're done */
 
+	if (! write_footer (fd, w)) goto writeerr;
 	if (! write_checksum (fd, sum)) goto writeerr;
 
 	closeWriteSaveFile (&pm1data->write_save_file_state, fd);
@@ -10835,6 +10838,7 @@ int pm1_restore (			/* For version 30.4 and later save files */
 /* Read and compare the checksum */
 
 	if (filesum != sum) goto readerr;
+	if (!read_footer (fd, w)) goto readerr;
 	_close (fd);
 
 /* All done */
@@ -14605,6 +14609,7 @@ void pp1_save (
 
 /* Write the checksum, we're done */
 
+	if (! write_footer (fd, w)) goto writeerr;
 	if (! write_checksum (fd, sum)) goto writeerr;
 
 	closeWriteSaveFile (&pp1data->write_save_file_state, fd);
@@ -14745,6 +14750,7 @@ int pp1_restore (
 /* Read and compare the checksum */
 
 	if (filesum != sum) goto readerr;
+	if (!read_footer (fd, w)) goto readerr;
 	_close (fd);
 
 /* All done */

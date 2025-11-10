@@ -2482,6 +2482,7 @@ void JSONaddUserComputerAID (
 	if (USERID[0]) sprintf (JSONbuf+strlen(JSONbuf), ", \"user\":\"%s\"", USERID);
 	if (COMPID[0]) sprintf (JSONbuf+strlen(JSONbuf), ", \"computer\":\"%s\"", COMPID);
 	if (w != NULL && w->assignment_uid[0]) sprintf (JSONbuf+strlen(JSONbuf), ", \"aid\":\"%s\"", w->assignment_uid);
+	if (w != NULL && w->morejsoninfo != NULL) strcat (JSONbuf, w->morejsoninfo);
 }
 
 /****************************************************************************/
@@ -3272,6 +3273,7 @@ int readWorkToDoFile (void)
 			free (w->gmp_ecm_file);
 			free (w->known_factors);
 			free (w->comment);
+			free (w->morejsoninfo);
 			free (w);
 		}
 		WORK_UNITS[tnum].first = NULL;
@@ -4896,6 +4898,48 @@ int write_checksum (
 	return (TRUE);
 }
 
+int read_footer (
+	int	fd,
+	struct work_unit *w)
+{
+// James proposed this optional footer containing data to append to JSON results
+//    16char magic MOREINFOJSONDATA
+//    32bit dword chunk size
+//    32bit dword version
+//    32bit dword data crc32
+//    <chunk size - 8> bytes JSON data
+	char magic[16];
+	uint32_t chunk_size;
+	uint32_t version;
+	uint32_t crc32;
+	if (!read_array (fd, magic, 16, NULL)) return (TRUE);
+	if (memcmp (magic, "MOREINFOJSONDATA", 16) != 0) return (FALSE);
+	if (!read_uint32 (fd, &chunk_size, NULL)) return (FALSE);
+	if (!read_uint32 (fd, &version, NULL)) return (FALSE);
+	if (version != 1) return (FALSE);
+	if (!read_uint32 (fd, &crc32, NULL)) return (FALSE);
+	w->morejsoninfo = (char *) malloc (chunk_size - 8 + 1);
+	if (w->morejsoninfo == NULL) return (FALSE);
+	if (!read_array (fd, w->morejsoninfo, chunk_size - 8, NULL)) return (FALSE);
+	w->morejsoninfo[chunk_size - 8] = 0;
+	return (TRUE);
+}
+
+int write_footer (
+	int	fd,
+	struct work_unit *w)
+{
+	if (w->morejsoninfo == NULL) return (TRUE);
+	if (!write_array (fd, "MOREINFOJSONDATA", 16, NULL)) return (FALSE);
+	uint32_t chunk_size = (uint32_t) strlen (w->morejsoninfo) + 8;
+	if (!write_uint32 (fd, chunk_size, NULL)) return (FALSE);
+	uint32_t version = 1;
+	if (!write_uint32 (fd, version, NULL)) return (FALSE);
+	uint32_t crc32 = 0;
+	if (!write_uint32 (fd, crc32, NULL)) return (FALSE);
+	if (!write_array (fd, w->morejsoninfo, chunk_size - 8, NULL)) return (FALSE);
+	return (TRUE);
+}
 
 
 /* Format a message for writing to the results file and sending to the */

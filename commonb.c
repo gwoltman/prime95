@@ -5396,6 +5396,7 @@ begin:	factor_found = 0;
 			    read_long (fd, &facmsw, NULL) &&
 			    read_long (fd, &endpthi, NULL) &&
 			    read_long (fd, &endptlo, NULL) &&
+			    read_footer (fd, w) &&
 			    (fachsw < endpthi || (fachsw == endpthi && facmsw < endptlo))) {
 				facdata.asm_data->FACHSW = fachsw;
 				facdata.asm_data->FACMSW = facmsw;
@@ -5632,7 +5633,8 @@ begin:	factor_found = 0;
 				    write_long (fd, facdata.asm_data->FACHSW, NULL) &&
 				    write_long (fd, facdata.asm_data->FACMSW, NULL) &&
 				    write_long (fd, endpthi, NULL) &&
-				    write_long (fd, endptlo, NULL))
+				    write_long (fd, endptlo, NULL) &&
+				    write_footer (fd, w))
 					closeWriteSaveFile (&write_save_file_state, fd);
 				else {
 					sprintf (buf, WRITEFILEERR, filename);
@@ -6004,6 +6006,7 @@ int writeLLSaveFile (
 	if (!write_long (fd, lldata->units_bit, &sum)) goto err;
 	if (!write_gwnum (fd, &lldata->gwdata, lldata->lldata, &sum)) goto err;
 
+	if (!write_footer (fd, w)) goto err;
 	if (!write_checksum (fd, sum)) goto err;
 
 	closeWriteSaveFile (write_save_file_state, fd);
@@ -6079,6 +6082,7 @@ int readLLSaveFile (
 	if (!read_gwnum (fd, &lldata->gwdata, lldata->lldata, &sum)) goto err;
 
 	if (filesum != sum) goto err;
+	if (!read_footer (fd, w)) goto err;
 	_close (fd);
 	return (TRUE);
 err:	_close (fd);
@@ -11206,6 +11210,7 @@ int writePRPSaveFile (			// Returns TRUE if successful
 		}
 	}
 
+	if (!write_footer (fd, w)) goto writeerr;
 	if (!write_checksum (fd, sum)) goto writeerr;
 
 	closeWriteSaveFile (write_save_file_state, fd);
@@ -11360,6 +11365,7 @@ int readPRPSaveFile (
 
 	// Validate checksum and return
 	if (filesum != sum) goto err;
+	if (!read_footer (fd, w)) goto err;
 	_close (fd);
 	return (TRUE);
 err:	_close (fd);
