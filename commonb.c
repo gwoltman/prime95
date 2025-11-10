@@ -418,9 +418,11 @@ void SetPriority (
 
 	if (! IniGetInt (INI_FILE, "EnableSetAffinity", 1)) return;
 
-/* Skip setting affinity if OS does not support it.  At present time, that is Apple. */
+/* Skip setting affinity if OS does not support it.  At present time, that is Apple.  2025-11-10: John Shaffer provided a way for Apple to set affinity. */
 
+#ifndef __APPLE__
  	if (!OS_CAN_SET_AFFINITY) return;
+#endif
 
 /* Pick from one of several methodologies to determine affinity setting */
 
