@@ -847,6 +847,7 @@ int is_fft_implemented (
 /* Once we have throughput data from the benchmark database, make sure a slightly larger */
 /* FFT length will not offer even more throughput. */
 
+		float next_FFT_threshold = IniGetFloat (GWNUMINI_FILE, "NextFFTThreshold", 1.07f);
 		for (i = 0; i <= 1; i++) {
 			const struct gwasm_jmptab *next_jmptab;
 			int	error_check, impl, next_impl;
@@ -861,7 +862,7 @@ int is_fft_implemented (
 
 			for (next_jmptab = NEXT_SET_OF_JMPTABS(jmptab); ; next_jmptab = NEXT_SET_OF_JMPTABS(next_jmptab)) {
 				if (next_jmptab->fftlen == 0 ||				/* There is no next FFT length */
-				    next_jmptab->fftlen > 1.03 * jmptab->fftlen) {	/* Next FFT length is much bigger (and therefore slower) */
+				    next_jmptab->fftlen > next_FFT_threshold * jmptab->fftlen) { /* Next FFT length is much bigger (and therefore slower) */
 					*best_impl_id = impl;
 					return (TRUE);
 				}
