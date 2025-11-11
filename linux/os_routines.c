@@ -508,7 +508,7 @@ void mallocFreeForOS () {
 #endif
 }
 
-// Affinity code courtesy of John Shaffer
+// Affinity code courtesy of Mingye Wang
 
 #ifdef __APPLE__
 #include <sys/types.h>
