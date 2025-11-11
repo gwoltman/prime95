@@ -12,6 +12,6 @@ REM call "c:\program files (x86)\microsoft visual studio 9.0\vc\bin\vcvars32"
 REM goto makeit
 REM :x64_8
 REM call "c:\program files (x86)\microsoft visual studio 8\vc\bin\vcvars32"
-call "c:\program files (x86)\microsoft visual studio\2019\Professional\VC\Auxiliary\build\vcvarsall" x86
+call "c:\program files (x86)\microsoft visual studio\2022\Professional\VC\Auxiliary\build\vcvarsall" x86
 :makeit
 nmake /f compile
