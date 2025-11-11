@@ -1321,13 +1321,15 @@ void nameAndReadIniFiles (
 	hwloc_topology_init (&hwloc_topology);
 	hwloc_topology_load (hwloc_topology);
 
-/* See if setting CPU affinity is supported */
+/* See if setting CPU affinity is supported.  2025-11-10: Mingye Wang provided a way for Apple CPUs to set affinity. */
 
 	{
 		const struct hwloc_topology_support *support;
 		OS_CAN_SET_AFFINITY = 1;
+#ifndef __APPLE__
 		support = hwloc_topology_get_support (hwloc_topology);
 		if (support == NULL || ! support->cpubind->set_thread_cpubind) OS_CAN_SET_AFFINITY = 0;
+#endif
 	}
 
 /* Initialize mutexes */
