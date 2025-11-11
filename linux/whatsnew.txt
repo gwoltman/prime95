@@ -1,4 +1,4 @@
-New features in Version 31.0 of mprime
+New features in Version 31.1 of mprime
 --------------------------------------
 
 1) AVX-512 FFTs smaller than 32K are faster.  There are now more small AVX-512 FFTs
