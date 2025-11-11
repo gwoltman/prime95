@@ -418,11 +418,9 @@ void SetPriority (
 
 	if (! IniGetInt (INI_FILE, "EnableSetAffinity", 1)) return;
 
-/* Skip setting affinity if OS does not support it.  At present time, that is Apple.  2025-11-10: John Shaffer provided a way for Apple to set affinity. */
+/* Skip setting affinity if OS does not support it.  At present time, that was Apple. */
 
-#ifndef __APPLE__
  	if (!OS_CAN_SET_AFFINITY) return;
-#endif
 
 /* Pick from one of several methodologies to determine affinity setting */
 
@@ -1676,6 +1674,16 @@ int avail_mem (
 /* Return clean stop code */
 
 	return (0);
+}
+
+/* Routine to check if worker is already waiting for more memory.  This is used when a worker tries to run stage 2 and there isn't enough memory. */
+/* The worker then start looking ahead for work that does not require a lot of memory.  If that work also tries to run stage 2 we call this routine */
+/* to skip expensive stage 2 planning that is highly likely to conclude it doesn't have enough memory. */
+
+int is_worker_waiting_for_more_memory (
+	int thread_num)
+{
+	return (MEM_RESTART_FLAGS[thread_num]);
 }
 
 /* Routine to notify all workers the day/night memory settings have changed.  This is called when the memory change timer fires OR */

@@ -7819,6 +7819,15 @@ replan:	unsigned long best_fftlen;
 	best_fails = 0;
 	best_poly_efficiency = 0.0;
 	msgbuf[0] = 0;
+
+// If this worker is already waiting for more memory (i.e. looking for work that does not use a lot of memory), then wove on to the next worktodo.txt entry */
+
+	if (is_worker_waiting_for_more_memory (thread_num)) {
+		if (ecmdata.state == ECM_STATE_MIDSTAGE) ecm_save (&ecmdata);
+		stop_reason = STOP_NOT_ENOUGH_MEM;
+		goto exit;
+	}
+
 	for (bool found_best = FALSE; ; ) {
 
 /* Initialize the polymult library (needed for calling polymult_mem_required).  Let user override polymult tuning parameters. */
@@ -12362,6 +12371,15 @@ replan:	unsigned long best_fftlen;
 	best_fails = 0;
 	best_poly_efficiency = 0.0;
 	msgbuf[0] = 0;
+
+// If this worker is already waiting for more memory (i.e. looking for work that does not use a lot of memory), then wove on to the next worktodo.txt entry */
+
+	if (is_worker_waiting_for_more_memory (thread_num)) {
+		if (pm1data.state == PM1_STATE_MIDSTAGE) pm1_save (&pm1data);
+		stop_reason = STOP_NOT_ENOUGH_MEM;
+		goto exit;
+	}
+
 //GW: Can we get here (old save files) with V set and one of x or invx not set?  If so, switching is an issue unless we convert V to binary.
 	for (bool found_best = FALSE; ; ) {
 
@@ -15918,6 +15936,14 @@ replan:	{
 			pp1data.C = pp1data.B_done;
 			goto restart4;
 		}
+	}
+
+// If this worker is already waiting for more memory (i.e. looking for work that does not use a lot of memory), then wove on to the next worktodo.txt entry */
+
+	if (is_worker_waiting_for_more_memory (thread_num)) {
+		if (pp1data.state == PP1_STATE_MIDSTAGE) pp1_save (&pp1data);
+		stop_reason = STOP_NOT_ENOUGH_MEM;
+		goto exit;
 	}
 
 /* Choose the best plan implementation given the currently available memory. */
