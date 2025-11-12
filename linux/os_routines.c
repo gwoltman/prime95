@@ -524,6 +524,7 @@ int mach_set_thread_cpubind(pthread_t thread, int cpu) {
 #include <sys/sysctl.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <mach/vm_types.h>
 #include <mach/thread_policy.h>
 #include <mach/thread_act.h>
 #include <errno.h>
