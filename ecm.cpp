@@ -7900,12 +7900,12 @@ OutputStr (thread_num, buf); }
 				best_fftlen = gwfftlen (&ecmdata.gwdata);
 				best_stage2_type = ecmdata.stage2_type;
 				best_efficiency = efficiency;
-			}
 
-			// Remember the most efficient poly found thusfar
-			if (ecmdata.stage2_type == ECM_STAGE2_POLYMULT && efficiency > best_poly_efficiency) {
-				best_poly_efficiency = efficiency;
-				best_fails = 0;
+				// Remember the most efficient poly found thusfar
+				if (ecmdata.stage2_type == ECM_STAGE2_POLYMULT && efficiency > best_poly_efficiency) {
+					best_poly_efficiency = efficiency;
+					best_fails = 0;
+				}
 			}
 		}
 
@@ -12466,12 +12466,12 @@ OutputStr (thread_num, buf); }
 				best_fftlen = gwfftlen (&pm1data.gwdata);
 				best_stage2_type = pm1data.stage2_type;
 				best_efficiency = efficiency;
-			}
 
-			// Remember the most efficient poly found thusfar
-			if (pm1data.stage2_type == PM1_STAGE2_POLYMULT && efficiency > best_poly_efficiency) {
-				best_poly_efficiency = efficiency;
-				best_fails = 0;
+				// Remember the most efficient poly found thusfar
+				if (pm1data.stage2_type == PM1_STAGE2_POLYMULT && efficiency > best_poly_efficiency) {
+					best_poly_efficiency = efficiency;
+					best_fails = 0;
+				}
 			}
 		}
 
