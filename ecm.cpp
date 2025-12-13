@@ -14292,6 +14292,7 @@ void guess_pminus1_bounds (
 
 	gwhandle gwdata;
 	memset (&gwdata, 0, sizeof (gwdata));
+	gwdata.information_only = TRUE;
 	gwdata.k = k;
 	gwdata.b = b;
 	gwdata.n = n;
