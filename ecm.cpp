@@ -12478,9 +12478,6 @@ OutputStr (thread_num, buf); }
 		// If forced_stage2_type is prime pairing, then we do not need to try larger FFT lengths
 		if (best_fftlen && forced_stage2_type == 0) found_best = TRUE;
 
-		// If we used all (or nearly all) of the available numvals in a poly, then a larger FFT will be worse due to fewer available numvals
-		if (best_poly_efficiency && pm1data.stage2_numvals >= (int) cvt_mem_to_gwnums_adj (&pm1data.gwdata, memory, -10.0)) found_best = TRUE;
-
 		// Small optimization: Skip costing larger FFT lengths if there are less than 60 numvals
 		if (best_fftlen && (double) memory * 1000000.0 / (double) array_gwnum_size (&pm1data.gwdata) < 60.0) found_best = TRUE;
 
