@@ -6748,7 +6748,6 @@ retry:
 			w.B2 = pkt1.B2;
 			break;
 		case PRIMENET_WORK_TYPE_ECM:
-			unsigned int max_curves;
 			w.work_type = WORK_ECM;
 			w.k = pkt1.k;
 			w.b = pkt1.b;
@@ -6756,8 +6755,10 @@ retry:
 			w.B1 = pkt1.B1;
 			w.B2 = pkt1.B2;
 			w.curves_to_do = pkt1.curves;
-			max_curves = IniGetInt (INI_FILE, "MaxECMCurves", 0);
-			if (max_curves && w.curves_to_do > max_curves) w.curves_to_do = max_curves;
+			{
+				unsigned int max_curves = IniGetInt (INI_FILE, "MaxECMCurves", 0);
+				if (max_curves && w.curves_to_do > max_curves) w.curves_to_do = max_curves;
+			}
 			break;
 		case PRIMENET_WORK_TYPE_PRP:
 			w.work_type = WORK_PRP;
