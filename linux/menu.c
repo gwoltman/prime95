@@ -618,7 +618,7 @@ again:	if (max_num_workers () > 1)
 
 void test_status (void)
 {
-	char	buf[4000];
+	char	buf[8000];
 
 	rangeStatusMessage (buf, sizeof (buf));
 	strcat (buf, "\n");
