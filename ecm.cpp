@@ -10,7 +10,7 @@
  *	Other important ideas courtesy of Peter Montgomery, Alex Kruppa, Mihai Preda, Pavel Atnashev.
  *
  *	c. 1997 Perfectly Scientific, Inc.
- *	c. 1998-2025 Mersenne Research, Inc.
+ *	c. 1998-2026 Mersenne Research, Inc.
  *	All Rights Reserved.
  *
  *************************************************************/
@@ -10070,6 +10070,7 @@ bingo:	stage = (ecmdata.state > ECM_STATE_MIDSTAGE) ? 2 : (ecmdata.state > ECM_S
 	if (ecmdata.optimal_B2 && ecmdata.average_B2 != ecmdata.C) sprintf (JSONbuf+strlen(JSONbuf), ", \"average-b2\":%" PRIu64, ecmdata.average_B2);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"fft-length\":%lu", ecmdata.stage1_fftlen);
 	sprintf (JSONbuf+strlen(JSONbuf), ", \"security-code\":\"%08lX\"", SEC5 (w->n, ecmdata.B, ecmdata.C));
+	if (w->gmp_ecm_file != NULL) sprintf (JSONbuf+strlen(JSONbuf), ", \"program-stage1\":\"GMP-ECM\"");
 	JSONaddProgramTimestamp (JSONbuf);
 	JSONaddExponentKnownFactors (JSONbuf, w);
 	JSONaddUserComputerAID (JSONbuf, w);

@@ -122,8 +122,8 @@ freadstrn (FILE *fd, char *s, char delim, unsigned int len)
 
 void my_mpz_inp_str (mpz_t x, FILE *fd, int base)
 {
-	char *buf = (char *) malloc (4000000);
-	freadstrn (fd, buf, ';', 4000000);
+	char *buf = (char *) malloc (40000000);
+	freadstrn (fd, buf, ';', 40000000);
 	mpz_set_str (x, buf, 0);
 	free (buf);
 }
