@@ -2771,7 +2771,7 @@ int gwsetup_general_mod_giant (
 	gwdata->GENERAL_MMGW_MOD = TRUE;		// Set flag indicating general-purpose MMGW modulo operations are in force
 	gwdata->GENERAL_MOD = FALSE;
 	gwdata->FFTLEN = cyclic_gwdata->FFTLEN;
-	gwdata->RATIONAL_FFT = TRUE; ASSERTG ((gwdata->cpu_flags & CPU_AVX512F) || (cyclic_gwdata->RATIONAL_FFT && negacyclic_gwdata->RATIONAL_FFT));
+	gwdata->RATIONAL_FFT = cyclic_gwdata->RATIONAL_FFT; ASSERTG ((gwdata->cpu_flags & CPU_AVX512F) || (cyclic_gwdata->RATIONAL_FFT && negacyclic_gwdata->RATIONAL_FFT));
 	gwdata->avg_num_b_per_word = cyclic_gwdata->avg_num_b_per_word;
 	gwdata->NUM_B_PER_SMALL_WORD = cyclic_gwdata->NUM_B_PER_SMALL_WORD;
 	gwdata->fft_max_bits_per_word = negacyclic_gwdata->fft_max_bits_per_word;
