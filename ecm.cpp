@@ -4933,7 +4933,7 @@ uint32_t NAF_best_size (	// Return the best size for the dictionary
 void curve_start_msg (
 	ecmhandle *ecmdata)
 {
-	char	buf[120];
+	char	buf[256];
 
 	// Replace gwnum's "A n-bit number" text with something a bit more meaningful
 	if (ecmdata->N_short_string_rep == NULL) {
@@ -5167,7 +5167,7 @@ int mQ_next (
 				// Allocate memory for nextQm2
 				nextQm2.x = ecmdata->mQx[i+ecmdata->E/2];
 				nextQm2.z = gwalloc (&ecmdata->gwdata);
-				if (nextQm.z == NULL) return (OutOfMemory (ecmdata->thread_num));
+				if (nextQm2.z == NULL) return (OutOfMemory (ecmdata->thread_num));
 
 				// Calc next mQx[i+E/2] = next mQx[i] + QD*E/2, diff mQx[i+E/2]
 				ell_add_xz_2norm (ecmdata, &nextQm, ecmdata->QD_Eover2.x, ecmdata->mQx[i+ecmdata->E/2], &nextQm2);
@@ -10252,7 +10252,7 @@ int ecm_QA (
 /* Read a line from the file */
 
 		n = 0;
-		(void) fscanf (fd, "%lf,%lu,%lu,%ld,%" PRIu64 ",%lu,%lu,%s\n", &k, &b, &n, &c, &sigma, &B1, &B2, fac_str);
+		(void) fscanf (fd, "%lf,%lu,%lu,%ld,%" PRIu64 ",%lu,%lu,%79s\n", &k, &b, &n, &c, &sigma, &B1, &B2, fac_str);
 		if (n == 0) break;
 
 /* If b is 1, set QA_TYPE */
@@ -14032,7 +14032,7 @@ int pminus1_QA (
 /* Read a line from the file */
 
 		n = 0;
-		(void) fscanf (fd, "%lf,%lu,%lu,%ld,%lu,%lu,%s\n", &k, &b, &n, &c, &B1, &B2, fac_str);
+		(void) fscanf (fd, "%lf,%lu,%lu,%ld,%lu,%lu,%79s\n", &k, &b, &n, &c, &B1, &B2, fac_str);
 		if (n == 0) break;
 
 /* If p is 1, set QA_TYPE */
@@ -16789,7 +16789,7 @@ int pplus1_QA (
 /* Read a line from the file */
 
 		n = 0;
-		(void) fscanf (fd, "%lf,%lu,%lu,%ld,%lu,%lu,%lu,%s\n", &k, &b, &n, &c, &B1, &B2, &start, fac_str);
+		(void) fscanf (fd, "%lf,%lu,%lu,%ld,%lu,%lu,%lu,%79s\n", &k, &b, &n, &c, &B1, &B2, &start, fac_str);
 		if (n == 0) break;
 
 /* If p is 1, set QA_TYPE */

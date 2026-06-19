@@ -12,7 +12,7 @@ extern "C" {
 /* Constants */
 
 #define VERSION		"31.5"
-#define BUILD_NUM	"1"
+#define BUILD_NUM	"2"
 /* The list of assigned OS ports follows: */
 /* Win9x (prime95) #1 */
 /* Linux (mprime)  #2 */
@@ -557,7 +557,7 @@ void proofUploader (void *);
 int LoadPrimeNet (void);
 void UnloadPrimeNet (void);
 int PRIMENET (short, void *);
-int ProofFileNames (char filenames[50][255]);
+int ProofFileNames (char filenames[50][512]);
 void ProofUpload (char *);
 int ProofGetData (char *, void *, int, char *);
 char getDirectorySeparator ();
