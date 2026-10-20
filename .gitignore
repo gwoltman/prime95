@@ -1,0 +1,5 @@
+# Private security modules needed for official builds.  Never commit these.
+# Builds without them work; see commonb.h, primenet.c and linux/makefile.
+/secure5.c
+/security.h
+/security.c
