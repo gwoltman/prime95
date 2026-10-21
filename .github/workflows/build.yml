@@ -44,6 +44,7 @@ jobs:
   linux64:
     name: Linux 64-bit
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
@@ -102,18 +103,19 @@ jobs:
   windows:
     name: Windows
     runs-on: windows-2022
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
       - name: Get UASM and objconv
         shell: pwsh
         run: |
-          Invoke-WebRequest "$env:UASM_URL/uasm-2.58-gw1-windows-x64.zip" -OutFile uasm.zip
+          curl.exe -fsSL --retry 3 -o uasm.zip "$env:UASM_URL/uasm-2.58-gw1-windows-x64.zip"
           if ((Get-FileHash uasm.zip -Algorithm SHA256).Hash -ne $env:UASM_WINDOWS_SHA256) { throw "uasm.zip checksum mismatch" }
           Expand-Archive uasm.zip -DestinationPath uasm-tmp
           New-Item -ItemType Directory -Force c:\uasm_258gw1 | Out-Null
           Copy-Item uasm-tmp\uasm-2.58-gw1-windows-x64\uasm64.exe c:\uasm_258gw1\
-          Invoke-WebRequest $env:OBJCONV_URL -OutFile objconv.zip
+          curl.exe -fsSL --retry 3 -o objconv.zip $env:OBJCONV_URL
           if ((Get-FileHash objconv.zip -Algorithm SHA256).Hash -ne $env:OBJCONV_SHA256) { throw "objconv.zip checksum mismatch" }
           Expand-Archive objconv.zip -DestinationPath c:\objconv
           Remove-Item -Recurse uasm-tmp, uasm.zip, objconv.zip
@@ -129,9 +131,13 @@ jobs:
       - name: Get GMP, cURL, hwloc and Boost
         shell: pwsh
         run: |
+          # curl.exe, because Invoke-WebRequest is very slow on large files
           function Get-Checked($url, $file, $sha) {
-            Invoke-WebRequest $url -OutFile $file
+            $t = Get-Date
+            curl.exe -fsSL --retry 3 -o $file $url
+            if ($LASTEXITCODE -ne 0) { throw "download of $url failed" }
             if ((Get-FileHash $file -Algorithm SHA256).Hash -ne $sha) { throw "$file checksum mismatch" }
+            Write-Host ("{0}: {1:N1} MB in {2:N0} s" -f $file, ((Get-Item $file).Length / 1MB), ((Get-Date) - $t).TotalSeconds)
           }
           New-Item -ItemType Directory -Force C:\deps | Out-Null
           Set-Location C:\deps
@@ -144,9 +150,14 @@ jobs:
           foreach ($z in 'gmp64', 'gmp32', 'curl64', 'curl32', 'hwloc64', 'hwloc32') {
             Expand-Archive "$z.zip" -DestinationPath . ; Remove-Item "$z.zip"
           }
-          if (-not (Test-Path boost_1_76_0\boost\version.hpp)) {
+          if (Test-Path boost_1_76_0\boost\version.hpp) {
+            Write-Host "Boost headers restored from cache"
+          } else {
             Get-Checked $env:BOOST_URL boost.tar.bz2 $env:BOOST_SHA256
+            $t = Get-Date
             tar -xjf boost.tar.bz2 boost_1_76_0/boost
+            if ($LASTEXITCODE -ne 0) { throw "unpacking Boost failed" }
+            Write-Host ("Boost headers unpacked in {0:N0} s" -f ((Get-Date) - $t).TotalSeconds)
             Remove-Item boost.tar.bz2
           }
           @("P95_GMP64_DIR=C:\deps\gmp64", "P95_GMP32_DIR=C:\deps\gmp32",
