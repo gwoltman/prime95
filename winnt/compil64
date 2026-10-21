@@ -3,8 +3,23 @@
 cl64=cl /GF /W3 /MT /D_CRT_SECURE_NO_DEPRECATE /O2 /DPORT=5 /c
 cl64d=cl /GF /W3 /MT /D_CRT_SECURE_NO_DEPRECATE /DGDEBUG /Zi /DPORT=5 /c
 
+# Library locations.  Set environment variables with these names (the same
+# ones prime95\deps.props uses) to use other locations.
+!IFNDEF P95_GMP64_DIR
+P95_GMP64_DIR=\gmp64
+!ENDIF
+!IFNDEF P95_HWLOC64_DIR
+P95_HWLOC64_DIR=\hwloc-win64-build-2.8.0
+!ENDIF
+!IFNDEF P95_CURL64_DIR
+P95_CURL64_DIR=\curl-8.5.0-win64-mingw
+!ENDIF
+!IFNDEF P95_BOOST_DIR
+P95_BOOST_DIR=\boost_1_76_0
+!ENDIF
+
 # Standard options
-copt=/I.. /I..\gwnum /Ic:\curl-7.70.0-win64-mingw\include\curl /Ic:\hwloc-win64-build-2.8.0\include /Ic:\gmp64 /Ic:\boost_1_76_0 /EHsc
+copt=/I.. /I..\gwnum "/I$(P95_CURL64_DIR)\include\curl" "/I$(P95_HWLOC64_DIR)\include" "/I$(P95_GMP64_DIR)" "/I$(P95_BOOST_DIR)" /EHsc
 
 # This line allows NMAKE to work as well
 
@@ -39,5 +54,5 @@ amd64\prime.obj: prime.c prime95.h ..\commonc.c ..\commonb.c
 # Update the executable file
 
 ntprime64.exe: amd64\main.obj amd64\prime.obj amd64\service.obj amd64\cJSON.obj amd64\ecm.obj amd64\exponentiate.obj amd64\pair.obj amd64\pm1prob.obj
-    link @main64.lnk
+    link /incremental:no /largeaddressaware /out:ntprime64.exe /machine:x64 amd64\*.obj ..\prime95\amd64\factor64.obj ..\gwnum\gwnum64.lib ..\gwnum\polymult64.lib "$(P95_CURL64_DIR)\lib\libcurl.dll.a" "$(P95_HWLOC64_DIR)\lib\libhwloc.lib" "$(P95_GMP64_DIR)\libgmp-gw1.lib" libcmt.lib kernel32.lib user32.lib gdi32.lib ws2_32.lib advapi32.lib wininet.lib winmm.lib psapi.lib
 

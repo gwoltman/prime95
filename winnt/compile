@@ -3,8 +3,23 @@
 cl=cl /GF /W3 /MT /D_CRT_SECURE_NO_DEPRECATE /O2 /DPORT=5 /c
 cld=cl /GF /W3 /MT /D_CRT_SECURE_NO_DEPRECATE /DGDEBUG /Zi /DPORT=5 /c
 
+# Library locations.  Set environment variables with these names (the same
+# ones prime95\deps.props uses) to use other locations.
+!IFNDEF P95_GMP32_DIR
+P95_GMP32_DIR=c:\gmp32
+!ENDIF
+!IFNDEF P95_HWLOC32_DIR
+P95_HWLOC32_DIR=c:\hwloc-win32-build-2.8.0
+!ENDIF
+!IFNDEF P95_CURL32_DIR
+P95_CURL32_DIR=\curl-8.5.0-win32-mingw
+!ENDIF
+!IFNDEF P95_BOOST_DIR
+P95_BOOST_DIR=\boost_1_76_0
+!ENDIF
+
 # Standard options
-copt=/I.. /I..\gwnum /Ic:\curl-7.70.0-win32-mingw\include\curl /Ic:\hwloc-win32-build-2.8.0\include /Ic:\gmp32 /Ic:\boost_1_76_0 /EHsc
+copt=/I.. /I..\gwnum "/I$(P95_CURL32_DIR)\include\curl" "/I$(P95_HWLOC32_DIR)\include" "/I$(P95_GMP32_DIR)" "/I$(P95_BOOST_DIR)" /EHsc
 
 # This line allows NMAKE to work as well
 
@@ -39,4 +54,4 @@ prime.obj: prime.c prime95.h ..\commonc.c ..\commonb.c
 # Update the executable file
 
 ntprime.exe: main.obj prime.obj service.obj cJSON.obj ecm.obj exponentiate.obj pair.obj pm1prob.obj
-    link @main.lnk
+    link /incremental:no /largeaddressaware /out:ntprime.exe *.obj ..\prime95\factor32.obj ..\gwnum\gwnum.lib ..\gwnum\polymult.lib "$(P95_CURL32_DIR)\lib\libcurl.dll.a" "$(P95_HWLOC32_DIR)\lib\libhwloc.lib" "$(P95_GMP32_DIR)\libgmp-gw1.lib" libcmt.lib kernel32.lib user32.lib gdi32.lib ws2_32.lib advapi32.lib wininet.lib winmm.lib

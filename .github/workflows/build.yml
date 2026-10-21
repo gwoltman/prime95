@@ -1,8 +1,8 @@
 # Build gwnum and prime95 on every push and pull request.
 #
 # Linux:   everything, then a quick PRP test of a known Mersenne prime.
-# Windows: gwnum (32- and 64-bit), the factoring objects, and prime95.exe in
-#          all four configurations.
+# Windows: gwnum (32- and 64-bit), the factoring objects, prime95.exe in all
+#          four configurations, and the 32- and 64-bit Windows services.
 #
 # UASM comes from the prebuilt v2.58-gw1 release of
 # https://github.com/gwoltman/UASM-2.58-gw1, objconv from agner.org, the
@@ -219,3 +219,13 @@ jobs:
           }
           Get-Item prime95\x64\Release\prime95.exe, prime95\Release\prime95.exe,
                    prime95\x64\Debug\prime95.exe, prime95\Debug\prime95.exe | Format-Table FullName, Length
+
+      - name: Build the Windows services (ntprime64.exe, ntprime.exe)
+        shell: cmd
+        run: |
+          cd winnt
+          call c64.bat
+          if errorlevel 1 exit /b 1
+          call c.bat
+          if errorlevel 1 exit /b 1
+          dir ntprime64.exe ntprime.exe
