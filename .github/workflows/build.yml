@@ -1,14 +1,17 @@
 # Build gwnum and prime95 on every push and pull request.
 #
 # Linux:   everything, then a quick PRP test of a known Mersenne prime.
-# Windows: gwnum (32- and 64-bit) and the factoring objects.  prime95.exe
-#          itself is not linked: it needs the special libgmp-gw1 build of GMP.
+# Windows: gwnum (32- and 64-bit), the factoring objects, and prime95.exe in
+#          all four configurations.
 #
 # UASM comes from the prebuilt v2.58-gw1 release of
-# https://github.com/gwoltman/UASM-2.58-gw1 and objconv from agner.org.  Both
-# downloads are checked against known SHA-256 hashes.  agner.org only serves
-# the latest objconv; if its hash changes, check the new version produces the
-# same objects (see BUILDING.md) before updating OBJCONV_SHA256.
+# https://github.com/gwoltman/UASM-2.58-gw1, objconv from agner.org, the
+# Windows builds of GMP (libgmp-gw1) and cURL 8.5.0 from the v1 release of
+# https://github.com/gwoltman/prime95-windows-deps, and hwloc and Boost from
+# their own sites.  Every download is checked against a known SHA-256 hash.
+# agner.org only serves the latest objconv; if its hash changes, check the new
+# version produces the same objects (see BUILDING.md) before updating
+# OBJCONV_SHA256.
 
 name: Build
 
@@ -26,6 +29,16 @@ env:
   UASM_WINDOWS_SHA256: 6a7a13a39b7d78296f525f94619d52e6044877c74c25890ed35e548bd50ceda6
   OBJCONV_URL: https://www.agner.org/optimize/objconv.zip
   OBJCONV_SHA256: 0f604f93f97f689afd7615c86176eb15bc95001eadf8317f17ebd099c50c59e1
+  DEPS_URL: https://github.com/gwoltman/prime95-windows-deps/releases/download/v1
+  GMP64_SHA256: a3c7d199c6904f0936a127c1654820caedce69e21cc8a7c0e23bb2ddc1e58c91
+  GMP32_SHA256: ea3257ac92cbfb19e9120f95f934c6f88f81351b539dd873c26acd6826fd286f
+  CURL64_SHA256: 04d932a888233b1d9eade87cfe657baec2708fd2887eca518f92a5e54013bb01
+  CURL32_SHA256: 32256da3e0dffce6454a7879e678be54c29da3e661d7a562be3bb8ac401d4c24
+  HWLOC_URL: https://download.open-mpi.org/release/hwloc/v2.8
+  HWLOC64_SHA256: baf509622b63de8237c8f39ca70217bc568c5e79f1746bde3174d8ed886311f5
+  HWLOC32_SHA256: ffbda20426c0b74188f6cf5098c75f3c532d4b537e60206212d00d3f75c7435c
+  BOOST_URL: https://archives.boost.io/release/1.76.0/source/boost_1_76_0.tar.bz2
+  BOOST_SHA256: f0397ba6e982c4450f27bf32a2a83292aba035b827a5623a14636ea583318c41
 
 jobs:
   linux64:
@@ -87,7 +100,7 @@ jobs:
           grep -q '"status":"P", "exponent":86243' results.json.txt
 
   windows:
-    name: Windows gwnum and factoring code
+    name: Windows
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v7
@@ -104,6 +117,42 @@ jobs:
           if ((Get-FileHash objconv.zip -Algorithm SHA256).Hash -ne $env:OBJCONV_SHA256) { throw "objconv.zip checksum mismatch" }
           Expand-Archive objconv.zip -DestinationPath c:\objconv
           Remove-Item -Recurse uasm-tmp, uasm.zip, objconv.zip
+
+      # Only Boost's headers are used; unpacking them takes a while, so keep
+      # them between runs
+      - name: Cache Boost headers
+        uses: actions/cache@v6
+        with:
+          path: C:\deps\boost_1_76_0
+          key: boost-1.76.0-headers
+
+      - name: Get GMP, cURL, hwloc and Boost
+        shell: pwsh
+        run: |
+          function Get-Checked($url, $file, $sha) {
+            Invoke-WebRequest $url -OutFile $file
+            if ((Get-FileHash $file -Algorithm SHA256).Hash -ne $sha) { throw "$file checksum mismatch" }
+          }
+          New-Item -ItemType Directory -Force C:\deps | Out-Null
+          Set-Location C:\deps
+          Get-Checked "$env:DEPS_URL/libgmp-gw1-6.2.0-win64.zip" gmp64.zip $env:GMP64_SHA256
+          Get-Checked "$env:DEPS_URL/libgmp-gw1-6.2.0-win32.zip" gmp32.zip $env:GMP32_SHA256
+          Get-Checked "$env:DEPS_URL/curl-8.5.0-win64-mingw.zip" curl64.zip $env:CURL64_SHA256
+          Get-Checked "$env:DEPS_URL/curl-8.5.0-win32-mingw.zip" curl32.zip $env:CURL32_SHA256
+          Get-Checked "$env:HWLOC_URL/hwloc-win64-build-2.8.0.zip" hwloc64.zip $env:HWLOC64_SHA256
+          Get-Checked "$env:HWLOC_URL/hwloc-win32-build-2.8.0.zip" hwloc32.zip $env:HWLOC32_SHA256
+          foreach ($z in 'gmp64', 'gmp32', 'curl64', 'curl32', 'hwloc64', 'hwloc32') {
+            Expand-Archive "$z.zip" -DestinationPath . ; Remove-Item "$z.zip"
+          }
+          if (-not (Test-Path boost_1_76_0\boost\version.hpp)) {
+            Get-Checked $env:BOOST_URL boost.tar.bz2 $env:BOOST_SHA256
+            tar -xjf boost.tar.bz2 boost_1_76_0/boost
+            Remove-Item boost.tar.bz2
+          }
+          @("P95_GMP64_DIR=C:\deps\gmp64", "P95_GMP32_DIR=C:\deps\gmp32",
+            "P95_CURL64_DIR=C:\deps\curl-8.5.0-win64-mingw", "P95_CURL32_DIR=C:\deps\curl-8.5.0-win32-mingw",
+            "P95_HWLOC64_DIR=C:\deps\hwloc-win64-build-2.8.0", "P95_HWLOC32_DIR=C:\deps\hwloc-win32-build-2.8.0",
+            "P95_BOOST_DIR=C:\deps\boost_1_76_0") | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
       - name: Build 64-bit gwnum
         shell: cmd
@@ -138,3 +187,20 @@ jobs:
           $missing = $files | Where-Object { -not (Test-Path $_) }
           if ($missing) { throw "Missing: $missing" }
           Get-Item $files | Format-Table Name, Length
+
+      # Without the private security files, this is the "Untrusted Prime95"
+      # build; the project creates empty placeholders for them.
+      - name: Build prime95.exe
+        shell: pwsh
+        run: |
+          $msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\amd64\MSBuild.exe' | Select-Object -First 1
+          foreach ($cfg in 'Release|x64', 'Release|Win32', 'Debug|x64', 'Debug|Win32') {
+            $c, $p = $cfg -split '\|'
+            Write-Host "::group::$cfg"
+            & $msbuild prime95\prime95.sln -nologo -v:minimal -m "-p:Configuration=$c" "-p:Platform=$p"
+            $rc = $LASTEXITCODE
+            Write-Host "::endgroup::"
+            if ($rc -ne 0) { throw "prime95.sln $cfg failed" }
+          }
+          Get-Item prime95\x64\Release\prime95.exe, prime95\Release\prime95.exe,
+                   prime95\x64\Debug\prime95.exe, prime95\Debug\prime95.exe | Format-Table FullName, Length

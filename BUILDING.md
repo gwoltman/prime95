@@ -13,9 +13,9 @@ up to date.
 | Visual Studio 2019 or later (any edition) with the *Desktop development with C++* workload and the *C++ MFC* component for x86 and x64 | found automatically | |
 | UASM 2.58 with the fix from [gwoltman/UASM-2.58-gw1](https://github.com/gwoltman/UASM-2.58-gw1) (see below), as `uasm64.exe` | `c:\uasm_258gw1` | `UASM_DIR` |
 | [objconv](https://www.agner.org/optimize/#objconv) | `c:\objconv\objconv.exe` | `OBJCONV` (full path, without `.exe`) |
-| GMP, specially built as `libgmp-gw1` (`gmp.h`, `libgmp-gw1.lib`) | `\gmp64`, `c:\gmp32` | `P95_GMP64_DIR`, `P95_GMP32_DIR` |
+| GMP 6.2.0 built as `libgmp-gw1` (`gmp.h`, `libgmp-gw1.dll`, `libgmp-gw1.lib`), from the [prime95-windows-deps release](https://github.com/gwoltman/prime95-windows-deps/releases/tag/v1) | `\gmp64`, `c:\gmp32` | `P95_GMP64_DIR`, `P95_GMP32_DIR` |
 | [hwloc](https://www.open-mpi.org/projects/hwloc/) 2.8.0 Windows builds | `\hwloc-win64-build-2.8.0`, `c:\hwloc-win32-build-2.8.0` | `P95_HWLOC64_DIR`, `P95_HWLOC32_DIR` |
-| [cURL](https://curl.se/windows/) 8.5.0 mingw builds | `\curl-8.5.0-win64-mingw`, `\curl-8.5.0-win32-mingw` | `P95_CURL64_DIR`, `P95_CURL32_DIR` |
+| cURL 8.5.0 mingw builds (curl-for-win), from the [prime95-windows-deps release](https://github.com/gwoltman/prime95-windows-deps/releases/tag/v1) | `\curl-8.5.0-win64-mingw`, `\curl-8.5.0-win32-mingw` | `P95_CURL64_DIR`, `P95_CURL32_DIR` |
 | [Boost](https://www.boost.org/) 1.76.0 headers | `\boost_1_76_0` | `P95_BOOST_DIR` |
 
 A location starting with `\` is at the root of the drive holding the source.
@@ -216,10 +216,11 @@ The result is `linux/mprime`.
 ## Continuous integration
 
 `.github/workflows/build.yml` builds on GitHub on every push and pull request:
-everything on 64-bit Linux, followed by a PRP test of M86243, and gwnum plus
-the factoring objects on Windows.  It downloads UASM from the v2.58-gw1
-release and objconv from agner.org, checking both against known SHA-256
-hashes.
+everything on 64-bit Linux, followed by a PRP test of M86243, and everything
+on Windows, including `prime95.exe` in all four configurations.  It downloads
+UASM from the v2.58-gw1 release, objconv from agner.org, GMP (`libgmp-gw1`)
+and cURL 8.5.0 from the prime95-windows-deps release, and hwloc and Boost from
+their own sites, checking each against a known SHA-256 hash.
 
 agner.org serves only the latest objconv.  Version 2.57 converts every object
 to ELF (32- and 64-bit) and to 32-bit Mach-O exactly as 2.51 did, but its
