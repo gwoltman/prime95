@@ -1,27 +1,23 @@
 setlocal
-REM if exist "c:\program files (x86)" goto x64
-REM if exist "c:\program files\microsoft visual studio 10.0" goto x32_10
-REM if exist "c:\program files\microsoft visual studio 8" goto x32_8
-REM call "c:\program files\microsoft visual studio 9.0\vc\bin\x86_amd64\vcvarsx86_amd64"
-REM goto makeit
-REM :x32_10
-REM call "c:\program files\microsoft visual studio 10.0\vc\bin\x86_amd64\vcvarsx86_amd64"
-REM goto makeit
-REM :x32_8
-REM call "c:\program files\microsoft visual studio 8\vc\bin\x86_amd64\vcvarsx86_amd64"
-REM goto makeit
-REM :x64
-REM if exist "c:\program files (x86)\microsoft visual studio 10.0" goto x64_10
-REM if exist "c:\program files\microsoft visual studio 8" goto x64_8
-REM call "c:\program files\microsoft visual studio 9.0\vc\bin\amd64\vcvarsamd64"
-REM goto makeit
-REM :x64_10
-REM call "c:\program files\microsoft visual studio 10.0\vc\bin\amd64\vcvarsamd64"
-REM goto makeit
-REM :x64_8
-REM call "c:\program files\microsoft visual studio 8\vc\bin\amd64\vcvarsamd64"
-call "c:\program files (x86)\microsoft visual studio\2019\Professional\VC\Auxiliary\build\vcvarsall" x64
-:makeit
-@set path=c:\uasm_252;%path%
+
+REM Set up the Visual Studio command line environment (any edition, 2019 or later).
+REM Skipped if already running in a x64 Developer Command Prompt.
+
+if "%VSCMD_ARG_TGT_ARCH%"=="x64" goto vsready
+set VSDIR=
+for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set VSDIR=%%i
+if not defined VSDIR (echo Visual Studio with the C++ tools was not found & exit /b 1)
+call "%VSDIR%\VC\Auxiliary\Build\vcvarsall.bat" x64
+:vsready
+
+REM Directory containing uasm.  Set UASM_DIR to use a different version.
+
+if not defined UASM_DIR set UASM_DIR=c:\uasm_252
+@set path=%UASM_DIR%;%path%
+
+REM Create the output directories the makefile writes to
+
+for %%d in (amd64 linux64 macosx64) do if not exist %%d mkdir %%d
+
 nmake /f compil64
 endlocal

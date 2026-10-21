@@ -89,6 +89,13 @@
     <IntDir>x64\$(Configuration)\</IntDir>
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
+  <ItemDefinitionGroup>
+    <PreBuildEvent>
+      <Command>if not exist "$(ProjectDir)..\security.h" type nul &gt; "$(ProjectDir)..\security.h"
+if not exist "$(ProjectDir)..\secure5.c" type nul &gt; "$(ProjectDir)..\secure5.c"</Command>
+      <Message>Creating empty security.h and secure5.c if missing (official builds supply the real ones)</Message>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Midl>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
