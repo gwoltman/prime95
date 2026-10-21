@@ -229,3 +229,16 @@ jobs:
           call c.bat
           if errorlevel 1 exit /b 1
           dir ntprime64.exe ntprime.exe
+
+      # The gwnum package for programs that build on gwnum (see
+      # gwnum\package.ps1), available from each run's Artifacts
+      - name: Package gwnum
+        shell: pwsh
+        run: .\gwnum\package.ps1 -OutDir "$env:RUNNER_TEMP\gwnum-package"
+
+      - name: Upload the gwnum package
+        uses: actions/upload-artifact@v7
+        with:
+          name: gwnum-package
+          path: ${{ runner.temp }}\gwnum-package\*.zip
+          retention-days: 30

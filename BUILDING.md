@@ -251,11 +251,30 @@ make -f makemac64
 `make -f makeasm64 mac` builds `gwnum/macosx64/gwnum.a` and
 `prime95/macosx64/factor64.o`.  The result is `linux/mprime`.
 
+## The gwnum package
+
+`gwnum\package.ps1` packages gwnum for programs that build on it, so they
+need neither UASM nor objconv: gwnum's C sources, headers, Unix makefiles and
+`tutorial.txt`, the complete Windows libraries, the pre-assembled
+`linux64/gwnum.a`, `linux/gwnum.a` and `macosx64/gwnum.a`, and the qd and
+SQLite sources gwnum's C code needs.  Users compile gwnum's C code with the
+usual makefile (for example `make -f make64`) or link the Windows libraries
+directly.  Run it after `gwnum\c64.bat` and `gwnum\c.bat`:
+
+```
+powershell -ExecutionPolicy Bypass -File gwnum\package.ps1
+```
+
+It writes `p95v<version>b<build>.gwnum.zip`, named from `VERSION` and
+`BUILD_NUM` in `commonc.h`.  CI builds it on every run too, as a downloadable
+artifact.
+
 ## Continuous integration
 
 `.github/workflows/build.yml` builds on GitHub on every push and pull request:
 everything on 64-bit Linux, followed by a PRP test of M86243, and everything
-on Windows, including `prime95.exe` in all four configurations.  It downloads
+on Windows, including `prime95.exe` in all four configurations, the two
+Windows services and the gwnum package.  It downloads
 UASM from the v2.58-gw1 release, objconv from agner.org, GMP (`libgmp-gw1`)
 and cURL 8.5.0 from the prime95-windows-deps release, and hwloc and Boost from
 their own sites, checking each against a known SHA-256 hash.
