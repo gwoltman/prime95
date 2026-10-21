@@ -24,8 +24,11 @@
 CC = gcc
 CFLAGS = -I.. -I../gwnum -I/usr/local/include -std=gnu99 -Wno-unused-result -march=i486 -malign-double -O2 -DPORT=2
 
+# Boost headers.  Override with:  make BOOST=/path/to/boost
+BOOST = ../../boost_1_76_0
+
 CPP = g++
-CPPFLAGS = -I.. -I../gwnum -I../../boost_1_76_0 -Wno-unused-result -march=i486 -malign-double -std=c++11 -O2 -DPORT=2
+CPPFLAGS = -I.. -I../gwnum -I$(BOOST) -Wno-unused-result -march=i486 -malign-double -std=c++11 -O2 -DPORT=2
 
 LFLAGS = -Wl,-M -Wl,-L/usr/local/lib
 #LIBS = ../gwnum/gwnum.a ../gwnum/polymult.a -lm -lpthread -Wl,-Bstatic -lhwloc -Wl,-Bstatic -lcurl -Wl,-Bdynamic -lrt -lstdc++ -lz -lxml2 -ldl -lgmp -latomic
@@ -47,6 +50,10 @@ security:
 
 clean:
 	rm -f $(EXE) $(EXE2) $(LINUXOBJS)
+
+# Built by prime95/makeasm32
+$(FACTOROBJ): ../prime95/linux/factor32.o
+	cp ../prime95/linux/factor32.o $(FACTOROBJ)
 
 cJSON.o:
 	$(CC) $(CFLAGS) -c ../cJSON.c

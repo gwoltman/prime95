@@ -1,0 +1,96 @@
+# Makefile for gwnum's 32-bit assembly code on Linux and FreeBSD
+#
+# Builds linux/gwnum.a, the archive makefile starts from.  It does what the
+# linux rules in compile do on Windows: uasm assembles each file to a 32-bit
+# COFF object (the same object the Windows build uses), and objconv converts
+# it to ELF.
+#
+# Needs uasm 2.58 with the fix from https://github.com/gwoltman/UASM-2.58-gw1,
+# and objconv.  See BUILDING.md.  Set UASM and OBJCONV to use them from
+# somewhere other than the PATH:
+#	make -f makeasm32 UASM=~/tools/uasm OBJCONV=~/tools/objconv
+
+UASM = uasm
+OBJCONV = objconv
+# uasm reads extra command line arguments from an environment variable named
+# UASM, so don't pass this variable to the commands below
+unexport UASM
+UASMFLAGS = -c -nologo -coff -safeseh
+
+OUT = linux
+
+# Objects named NAME_arch are assembled from NAME.asm with ARCH set to match
+SUFFIXOBJS = xmult2a_core xmult2a_k8 xmult3a_core xmult3a_k8 \
+	     hg_blend hg_core hg_p4 hg_p4tp hg_k8 hg_k10 \
+	     r4_core r4_p4 r4_p4tp r4_k8 r4_k10 \
+	     r4delay_p4tp r4delay5_p4tp \
+	     r4dwpn_core r4dwpn_p4 r4dwpn_p4tp r4dwpn_k8 r4dwpn_k10 \
+	     r4dwpn3_core r4dwpn3_p4 r4dwpn3_p4tp r4dwpn3_k8 r4dwpn3_k10 \
+	     r4dwpn5_core r4dwpn5_p4 r4dwpn5_p4tp r4dwpn5_k8 r4dwpn5_k10 \
+	     ymult1ax_core yr4_core ymult3a_core \
+	     yr4dwpn_core yr4dwpn3_core yr4dwpn4_core yr4dwpn5_core
+# Objects assembled from the same-named .asm with ARCH=BLEND
+BLENDOBJS = xmult1ax xmult2 xmult2ax xmult3 xmult3ax ymult3 ymult3ax
+# Objects assembled from the same-named .asm with PPRO defined
+PPROOBJS = mult1 mult2 mult3 mult3a mult4
+# NAMEp objects are assembled from NAME.asm with PPRO and PFETCH defined
+PFETCHOBJS = mult2p mult3p mult3ap mult4p
+# Objects that take no defines
+PLAINOBJS = mult mult1aux mult2a mult2aux gianthlp cpuidhlp hyperhlp
+
+OBJS = $(PLAINOBJS) $(PPROOBJS) $(PFETCHOBJS) $(BLENDOBJS) $(SUFFIXOBJS) timeit
+ELFOBJS = $(addprefix $(OUT)/,$(addsuffix .o,$(OBJS)))
+
+# Any change to a macro file reassembles everything
+MACS = $(wildcard *.mac)
+
+#########################################################################
+
+all:	$(OUT)/gwnum.a
+
+$(OUT)/gwnum.a: $(ELFOBJS)
+	rm -f $@
+	ar rcs $@ $(ELFOBJS)
+
+$(OUT)/%.o: $(OUT)/%.obj
+	$(OBJCONV) -felf32 $< $@
+
+$(OUT)/%_blend.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DARCH=BLEND -Fo$@ $<
+$(OUT)/%_core.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DARCH=CORE -Fo$@ $<
+$(OUT)/%_p4.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DARCH=P4 -Fo$@ $<
+$(OUT)/%_p4tp.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DARCH=P4TP -Fo$@ $<
+$(OUT)/%_k8.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DARCH=K8 -Fo$@ $<
+$(OUT)/%_k10.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DARCH=K10 -Fo$@ $<
+
+$(addprefix $(OUT)/,$(addsuffix .obj,$(BLENDOBJS))): $(OUT)/%.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DARCH=BLEND -Fo$@ $<
+
+$(addprefix $(OUT)/,$(addsuffix .obj,$(PPROOBJS))): $(OUT)/%.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DPPRO -Fo$@ $<
+
+$(addprefix $(OUT)/,$(addsuffix .obj,$(PFETCHOBJS))): $(OUT)/%p.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DPPRO -DPFETCH -Fo$@ $<
+
+$(addprefix $(OUT)/,$(addsuffix .obj,$(PLAINOBJS))): $(OUT)/%.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -Fo$@ $<
+
+$(OUT)/timeit.obj: timeit.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DARCH=CORE -Fo$@ $<
+
+$(OUT):
+	mkdir -p $(OUT)
+
+clean:
+	rm -f $(OUT)/*.obj $(OUT)/*.o
+
+distclean: clean
+	rm -f $(OUT)/gwnum.a
+
+.PHONY: all clean distclean
+.SECONDARY:

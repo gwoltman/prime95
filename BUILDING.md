@@ -1,7 +1,8 @@
 # Building Prime95 and gwnum
 
-This covers Windows with Microsoft Visual C++ and 64-bit Linux.  FreeBSD and
-macOS instructions will be added as those builds are brought up to date.
+This covers Windows with Microsoft Visual C++, and 64-bit and 32-bit Linux.
+FreeBSD and macOS instructions will be added as those builds are brought up
+to date.
 
 ## Windows
 
@@ -123,7 +124,9 @@ distributions too (an executable linked against a newer glibc will not).
   make -f Makefile-Linux-GCC-64.mak
   ```
 
-  This builds `GccUnixR/uasm`.
+  This builds `GccUnixR/uasm`.  With an older gcc that defaults to C89,
+  such as gcc 4.8 on 32-bit CentOS 7, add C99 mode:
+  `make -f Makefile-Linux-GCC-64.mak extra_c_flags="-DNDEBUG -O2 -funsigned-char -Wwrite-strings -std=gnu99"`.
 - [objconv](https://www.agner.org/optimize/#objconv), built from its
   `source.zip`: `g++ -O2 -o objconv *.cpp`.
 
@@ -148,3 +151,24 @@ make -f make64
 `gwnum/make64` adds the C code to make `gwnum/gwnum.a` and
 `gwnum/polymult.a`.  `prime95/makeasm64` builds the factoring code,
 `prime95/linux64/factor64.o`.  The result is `linux/mprime`.
+
+## Linux (32-bit)
+
+This build is tested on 32-bit CentOS 7, whose gcc 4.8 is new enough: the
+32-bit code has no AVX-512.  The prerequisites are otherwise the
+same as for 64-bit Linux, and so is UASM (built as a 32-bit program on a
+32-bit system).  The steps use the 32-bit makefiles:
+
+```
+cd gwnum
+make -f makeasm32 UASM=~/tools/uasm OBJCONV=~/tools/objconv
+make -f makefile
+cd ../prime95
+make -f makeasm32 UASM=~/tools/uasm OBJCONV=~/tools/objconv
+cd ../linux
+make -f makefile
+```
+
+`gwnum/makeasm32` builds `gwnum/linux/gwnum.a` from the same 32-bit objects
+the Windows build uses, and `prime95/makeasm32` builds
+`prime95/linux/factor32.o`.  The result is `linux/mprime`.
