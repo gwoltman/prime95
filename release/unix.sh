@@ -1,14 +1,16 @@
 #!/bin/sh
-# Build the official Linux release of mprime, on the build machine itself.
+# Build an official Unix release of mprime, on the build machine itself.
 #
 # Produces, in the output directory (default: prime95-release-<version> next
 # to the source tree):
 #   p95v<version>.linux64.tar.gz   on 64-bit Linux
 #   p95v<version>.linux32.tar.gz   on 32-bit Linux
+#   p95v<version>.FreeBSD64.tar.gz on 64-bit FreeBSD
+#   p95v<version>.MacOSX.tar.gz    on Intel macOS
 #   SHA256SUMS                     (added to, if it already exists)
 # where <version> comes from commonc.h, for example 3107b02.  Each tarball
-# holds mprime, the GMP shared library it was linked against and the text
-# files.
+# holds mprime, the GMP shared library it was linked against (except on
+# macOS, where GMP is linked statically) and the text files.
 #
 # It builds the source tree it is in, which should be fresh: a new clone, or
 # what release/vm.ps1 sends.  It adds the private security files, builds
@@ -16,8 +18,8 @@
 # version, and packages it.  The security files are deleted from the tree
 # when it exits.
 #
-# Needs everything BUILDING.md lists for Linux; uasm and objconv must be on
-# PATH.
+# Needs everything BUILDING.md lists for the platform; uasm and objconv (and
+# gmake on FreeBSD) must be on PATH.
 #
 #   release/unix.sh [-s security-dir] [-o output-dir] [-b boost-dir] [-g gmp-lib-dir]
 #
@@ -46,15 +48,32 @@ done
 step() { echo "== $*"; }
 die() { echo "release/unix.sh: $*" >&2; exit 1; }
 
+# For each platform: the name mprime -v reports, the make commands for the
+# gwnum assembly, gwnum C code, factor and mprime, and how the GMP library is
+# shipped (links: the library file and its links, as installed; copies: the
+# library under each name; none: linked statically)
 case $(uname -s)-$(uname -m) in
-Linux-x86_64)	platform=linux64; appname=Linux64; asm=makeasm64; gwmake=make64; mprimemake=make64 ;;
-Linux-i?86)	platform=linux32; appname=Linux; asm=makeasm32; gwmake=makefile; mprimemake=makefile ;;
-*)		die "no release build is defined for $(uname -s) $(uname -m)" ;;
+Linux-x86_64)
+	platform=linux64; appname=Linux64; gmp=links
+	gwasm="make -f makeasm64"; gwc="make -f make64"; factor="make -f makeasm64"; main="make -f make64" ;;
+Linux-i?86)
+	platform=linux32; appname=Linux; gmp=links
+	gwasm="make -f makeasm32"; gwc="make -f makefile"; factor="make -f makeasm32"; main="make -f makefile" ;;
+FreeBSD-amd64)
+	platform=FreeBSD64; appname="FreeBSD 64-bit"; gmp=copies
+	gwasm="gmake -f makeasm64"; gwc="make -f makebsd64"; factor="gmake -f makeasm64"; main="make -f makebsd64" ;;
+Darwin-x86_64)
+	platform=MacOSX; appname="Mac OS X 64-bit"; gmp=none
+	gwasm="make -f makeasm64 mac"; gwc="make -f makemac"; factor="make -f makeasm64 mac"; main="make -f makemac64" ;;
+*)
+	die "no release build is defined for $(uname -s) $(uname -m)" ;;
 esac
-command -v uasm > /dev/null || die "uasm is not on PATH"
-command -v objconv > /dev/null || die "objconv is not on PATH"
+for t in uasm objconv ${gwasm%% *}; do
+	command -v $t > /dev/null || die "$t is not on PATH"
+done
 [ -f "$boost/boost/version.hpp" ] || die "Boost headers not found in $boost (use -b)"
-[ -f "$gmplib/libgmp.so" ] || die "libgmp.so not found in $gmplib (use -g)"
+[ $gmp = none ] || [ -f "$gmplib/libgmp.so" ] || die "libgmp.so not found in $gmplib (use -g)"
+if command -v sha256sum > /dev/null; then sha256="sha256sum"; else sha256="shasum -a 256"; fi
 
 # Security files
 secfiles="security.h security.c secure5.c"
@@ -84,13 +103,13 @@ log=$tree/release/build-$platform.log
 : > "$log"
 run() {
 	dir=$1; shift
-	step "$dir: make $*"
-	(cd "$tree/$dir" && make "$@") >> "$log" 2>&1 || { tail -30 "$log"; die "make $* in $dir failed (see $log)"; }
+	step "$dir: $*"
+	(cd "$tree/$dir" && "$@") >> "$log" 2>&1 || { tail -30 "$log"; die "$* in $dir failed (see $log)"; }
 }
-run gwnum -j"$jobs" -f $asm
-run gwnum -j"$jobs" -f $gwmake
-run prime95 -f $asm
-run linux -j"$jobs" -f $mprimemake BOOST="$boost"
+run gwnum $gwasm -j"$jobs"
+run gwnum $gwc -j"$jobs"
+run prime95 $factor
+run linux $main -j"$jobs" BOOST="$boost"
 
 # Check that mprime is a trusted build of this version
 mprime=$tree/linux/mprime
@@ -111,16 +130,18 @@ rm -rf "$stage"
 mkdir "$stage"
 cp "$mprime" "$stage/"
 chmod 755 "$stage/mprime"
-# The real library file and its symbolic links, as installed
-real=$(cd "$gmplib" && ls -l libgmp.so | sed 's/.* -> //')
-case $real in
-libgmp.so.*) ;;
-*) die "$gmplib/libgmp.so is not a link to libgmp.so.<version>" ;;
-esac
-cp "$gmplib/$real" "$stage/"
-chmod 755 "$stage/$real"
-ln -s "$real" "$stage/libgmp.so"
-ln -s "$real" "$stage/libgmp.so.10"
+if [ $gmp != none ]; then
+	real=$(cd "$gmplib" && ls -l libgmp.so | sed 's/.* -> //')
+	case $real in
+	libgmp.so.*) ;;
+	*) die "$gmplib/libgmp.so is not a link to libgmp.so.<version>" ;;
+	esac
+	cp "$gmplib/$real" "$stage/"
+	chmod 755 "$stage/$real"
+	for f in libgmp.so libgmp.so.10; do
+		if [ $gmp = links ]; then ln -s "$real" "$stage/$f"; else cp "$stage/$real" "$stage/$f"; fi
+	done
+fi
 # The text files.  prime95's have always shipped with CRLF line endings;
 # linux/whatsnew.txt is the Linux list of changes.
 for f in license.txt readme.txt stress.txt undoc.txt; do
@@ -129,11 +150,12 @@ done
 cp "$tree/linux/whatsnew.txt" "$stage/"
 chmod 644 "$stage"/*.txt
 tarball=p95v$ver.$platform.tar.gz
-(cd "$stage" && tar -czf "$outdir/$tarball" $(ls | sort))
+# (COPYFILE_DISABLE stops macOS tar adding ._ files of extended attributes)
+(cd "$stage" && COPYFILE_DISABLE=1 tar -czf "$outdir/$tarball" $(ls | sort))
 rm -rf "$stage"
 (cd "$outdir" && {
 	[ ! -f SHA256SUMS ] || grep -v "  $tarball\$" SHA256SUMS > SHA256SUMS.new || true
-	sha256sum "$tarball" >> SHA256SUMS.new
+	$sha256 "$tarball" >> SHA256SUMS.new
 	sort -k 2 SHA256SUMS.new > SHA256SUMS
 	rm SHA256SUMS.new
 })

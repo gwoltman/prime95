@@ -267,16 +267,17 @@ It refuses to package an executable that is still an "Untrusted Prime95"
 build, writes a `SHA256SUMS`, and deletes the security files from its work
 directory when done.
 
-## Official Linux releases
+## Official Linux, FreeBSD and macOS releases
 
-`release/unix.sh` builds `p95v<version>.linux64.tar.gz` or
-`.linux32.tar.gz`, depending on the machine it runs on.  It builds the tree
-it is in, which must be fresh, adds the security files (`-s`, by default a
-`prime95-security` directory next to the tree), checks that mprime is a
-trusted build of the version in `commonc.h`, and packages mprime with the
-GMP library it was linked against (`-g`, default `/usr/local/lib`) and the
-text files.  uasm and objconv must be on `PATH`; `-b` gives the Boost
-directory (default `~/boost_1_76_0`).
+`release/unix.sh` builds `p95v<version>.linux64.tar.gz`, `.linux32.tar.gz`,
+`.FreeBSD64.tar.gz` or `.MacOSX.tar.gz`, depending on the machine it runs
+on.  It builds the tree it is in, which must be fresh, adds the security
+files (`-s`, by default a `prime95-security` directory next to the tree),
+checks that mprime is a trusted build of the version in `commonc.h`, and
+packages mprime with the text files and, except on macOS where GMP is linked
+statically, the GMP library it was linked against (`-g`, default
+`/usr/local/lib`).  uasm and objconv (and gmake on FreeBSD) must be on
+`PATH`; `-b` gives the Boost directory (default `~/boost_1_76_0`).
 
 From Windows, `release\vm.ps1` does all of this on a build machine over SSH:
 it exports the commit or tag, copies it and the security files there, runs
@@ -287,10 +288,15 @@ files from the build machine:
 ```
 powershell -ExecutionPolicy Bypass -File release\vm.ps1 -Target george@127.0.0.1 -Port 2222 -Ref <tag or commit>
 powershell -ExecutionPolicy Bypass -File release\vm.ps1 -Target george@127.0.0.1 -Port 2223 -Ref <tag or commit>
+powershell -ExecutionPolicy Bypass -File release\vm.ps1 -Target george@127.0.0.1 -Port 2224 -Ref <tag or commit>
+powershell -ExecutionPolicy Bypass -File release\vm.ps1 -Target george@192.168.0.39 -Ref <tag or commit>
 ```
 
-Official Linux builds are made on CentOS 7 (glibc 2.17), so they run on old
-distributions too, with GMP 6.2 built from source in `/usr/local/lib`.
+(the 64-bit and 32-bit CentOS VMs, the FreeBSD VM and the Mac).  Official
+Linux builds are made on CentOS 7 (glibc 2.17), so they run on old
+distributions too, with GMP 6.2 built from source in `/usr/local/lib`;
+FreeBSD builds on FreeBSD 12, and Mac builds on macOS 12 for macOS 10.9 and
+later.
 
 ## The gwnum package
 
