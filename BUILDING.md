@@ -1,7 +1,7 @@
 # Building Prime95 and gwnum
 
-This covers Windows with Microsoft Visual C++.  Linux, FreeBSD and macOS
-instructions will be added as those builds are brought up to date.
+This covers Windows with Microsoft Visual C++ and 64-bit Linux.  FreeBSD and
+macOS instructions will be added as those builds are brought up to date.
 
 ## Windows
 
@@ -80,4 +80,55 @@ Builds made from this repository identify themselves to PrimeNet as
 "Untrusted Prime95".  Official builds also need the private `security.h`,
 `security.c` and `secure5.c`, copied into the top-level directory.  They are
 listed in `.gitignore` and must never be committed.  Without them, the build
-creates empty placeholders.
+creates empty placeholders.  The same applies to the Linux build below.
+
+## Linux (64-bit)
+
+Official Linux builds are made on CentOS 7, so that mprime runs on older Linux
+distributions too (an executable linked against a newer glibc will not).
+
+### Prerequisites
+
+- gcc and g++ new enough for AVX-512 (`-mavx512f`).  On CentOS 7, use
+  devtoolset-8: `source /opt/rh/devtoolset-8/enable`.
+- GNU make.
+- GMP, hwloc and libcurl, installed in `/usr/local`.  hwloc and libcurl are
+  linked statically; `linux/make64` has the configure options used.
+- Boost 1.76.0 headers.  By default `linux/make64` looks for them in
+  `../../boost_1_76_0`, next to this repository; pass `BOOST=/path/to/boost`
+  to use another location.
+- UASM, built from <https://github.com/gwoltman/UASM-2.58-gw1> (branch
+  `fix-stale-evex-decorators`): UASM 2.58 with a fix that gwnum's AVX-512 code
+  needs.  Unmodified UASM 2.57 and 2.58 fail on `zr4.asm` and `timeit.asm`.
+
+  ```
+  git clone -b fix-stale-evex-decorators https://github.com/gwoltman/UASM-2.58-gw1.git
+  cd UASM-2.58-gw1
+  make -f Makefile-Linux-GCC-64.mak
+  ```
+
+  This builds `GccUnixR/uasm`.
+- [objconv](https://www.agner.org/optimize/#objconv), built from its
+  `source.zip`: `g++ -O2 -o objconv *.cpp`.
+
+The assembly code is assembled exactly as on Windows: uasm writes a COFF
+object, and objconv converts it to ELF.  uasm's own ELF output is not used.
+
+### Build steps
+
+Pass `UASM` and `OBJCONV` if the tools are not on your PATH.
+
+```
+cd gwnum
+make -f makeasm64 UASM=~/tools/uasm OBJCONV=~/tools/objconv
+make -f make64
+cd ../prime95
+make -f makeasm64 UASM=~/tools/uasm OBJCONV=~/tools/objconv
+cd ../linux
+make -f make64
+```
+
+`gwnum/makeasm64` builds `gwnum/linux64/gwnum.a` (the assembly code) and
+`gwnum/make64` adds the C code to make `gwnum/gwnum.a` and
+`gwnum/polymult.a`.  `prime95/makeasm64` builds the factoring code,
+`prime95/linux64/factor64.o`.  The result is `linux/mprime`.

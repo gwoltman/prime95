@@ -1,0 +1,94 @@
+# Makefile for gwnum's 64-bit assembly code on Linux and FreeBSD
+#
+# Builds linux64/gwnum.a, the archive make64 and makebsd64 start from.  It does
+# what the linux64 rules in compil64 do on Windows: uasm assembles each file to
+# a COFF object with LINUX64 defined, and objconv converts it to ELF.  The
+# resulting objects are identical to those built on Windows.
+#
+# Do not switch to uasm's -elf64 output.  uasm 2.48 mis-assembles some
+# RIP-relative data references in that mode.
+#
+# Needs uasm 2.48 (newer versions miscompile gwnum) and objconv.  See BUILDING.md.
+# Set UASM and OBJCONV to use them from somewhere other than the PATH:
+#	make -f makeasm64 UASM=~/tools/uasm OBJCONV=~/tools/objconv
+
+UASM = uasm
+OBJCONV = objconv
+# uasm reads extra command line arguments from an environment variable named
+# UASM, so don't pass this variable to the commands below
+unexport UASM
+UASMFLAGS = -c -nologo -DX86_64 -DLINUX64 -win64 -safeseh
+
+OUT = linux64
+
+# Objects named NAME_arch are assembled from NAME.asm with ARCH set to match
+SUFFIXOBJS = xmult2a_core xmult2a_k8 xmult3a_core xmult3a_k8 \
+	     hg_blend hg_core hg_p4 hg_k8 hg_k10 \
+	     r4_core r4_p4 r4_k8 r4_k10 \
+	     r4delay_core r4delay_p4 r4delay_k8 r4delay_k10 \
+	     r4delay3_core r4delay3_p4 r4delay3_k8 r4delay3_k10 \
+	     r4delay5_core r4delay5_p4 r4delay5_k8 r4delay5_k10 \
+	     r4dwpn_core r4dwpn_p4 r4dwpn_k8 r4dwpn_k10 \
+	     r4dwpn3_core r4dwpn3_p4 r4dwpn3_k8 r4dwpn3_k10 \
+	     r4dwpn5_core r4dwpn5_p4 r4dwpn5_k8 r4dwpn5_k10 \
+	     ymult1ax_core ymult1ax_fma3 yr4_core yr4_fma3 ymult3a_core ymult3a_fma3 \
+	     yr4dwpn_core yr4dwpn_fma3 yr4dwpn3_core yr4dwpn3_fma3 \
+	     yr4dwpn4_core yr4dwpn4_fma3 yr4dwpn5_core yr4dwpn5_fma3 \
+	     zmult1ax_skx zr4_skx zmult3a_skx zr4dwpn_skx zr4dwpn2_skx
+# Objects assembled from the same-named .asm with ARCH=BLEND
+BLENDOBJS = xmult1ax xmult2 xmult2ax xmult3 xmult3ax ymult3 ymult3ax zmult3 zmult3ax
+# Objects that take no ARCH
+PLAINOBJS = cpuidhlp hyperhlp mult gianthlp
+
+OBJS = $(SUFFIXOBJS) $(BLENDOBJS) $(PLAINOBJS) timeit
+ELFOBJS = $(addprefix $(OUT)/,$(addsuffix .o,$(OBJS)))
+
+# Any change to a macro file reassembles everything
+MACS = $(wildcard *.mac)
+
+#########################################################################
+
+all:	$(OUT)/gwnum.a
+
+$(OUT)/gwnum.a: $(ELFOBJS)
+	rm -f $@
+	ar rcs $@ $(ELFOBJS)
+
+$(OUT)/%.o: $(OUT)/%.obj
+	$(OBJCONV) -felf64 $< $@
+
+$(OUT)/%_blend.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DARCH=BLEND -Fo$@ $<
+$(OUT)/%_core.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DARCH=CORE -Fo$@ $<
+$(OUT)/%_p4.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DARCH=P4 -Fo$@ $<
+$(OUT)/%_k8.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DARCH=K8 -Fo$@ $<
+$(OUT)/%_k10.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DARCH=K10 -Fo$@ $<
+$(OUT)/%_fma3.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DARCH=FMA3 -Fo$@ $<
+$(OUT)/%_skx.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DARCH=SKX -Fo$@ $<
+
+$(addprefix $(OUT)/,$(addsuffix .obj,$(BLENDOBJS))): $(OUT)/%.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DARCH=BLEND -Fo$@ $<
+
+$(addprefix $(OUT)/,$(addsuffix .obj,$(PLAINOBJS))): $(OUT)/%.obj: %.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -Fo$@ $<
+
+$(OUT)/timeit.obj: timeit.asm $(MACS) | $(OUT)
+	$(UASM) $(UASMFLAGS) -DARCH=FMA3 -Fo$@ $<
+
+$(OUT):
+	mkdir -p $(OUT)
+
+clean:
+	rm -f $(OUT)/*.obj $(OUT)/*.o
+
+distclean: clean
+	rm -f $(OUT)/gwnum.a
+
+.PHONY: all clean distclean
+.SECONDARY:

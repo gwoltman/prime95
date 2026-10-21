@@ -1,0 +1,41 @@
+# Makefile for prime95's 64-bit factoring code on Linux and FreeBSD
+#
+# Builds linux64/factor64.o, which linux/make64 and linux/makebsd64 link with.
+# It does what the linux64 rule in compil64 does on Windows: uasm assembles
+# factor64.asm to a COFF object with LINUX64 defined, and objconv converts it
+# to ELF.  Do not switch to uasm's -elf64 output: uasm 2.48 mis-assembles
+# factor64's RIP-relative data references in that mode.
+#
+# Needs uasm 2.48 and objconv.  See BUILDING.md.
+#	make -f makeasm64 UASM=~/tools/uasm OBJCONV=~/tools/objconv
+
+UASM = uasm
+OBJCONV = objconv
+# uasm reads extra command line arguments from an environment variable named
+# UASM, so don't pass this variable to the commands below
+unexport UASM
+UASMFLAGS = -c -nologo -DX86_64 -DLINUX64 -DARCH=FMA3 -I../gwnum -win64 -safeseh
+
+OUT = linux64
+
+#########################################################################
+
+all:	$(OUT)/factor64.o
+
+$(OUT)/factor64.o: $(OUT)/factor64.obj
+	$(OBJCONV) -felf64 $< $@
+
+$(OUT)/factor64.obj: factor64.asm factor64.mac ../gwnum/unravel.mac | $(OUT)
+	$(UASM) $(UASMFLAGS) -Fo$@ factor64.asm
+
+$(OUT):
+	mkdir -p $(OUT)
+
+clean:
+	rm -f $(OUT)/factor64.obj
+
+distclean: clean
+	rm -f $(OUT)/factor64.o
+
+.PHONY: all clean distclean
+.SECONDARY:

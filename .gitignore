@@ -20,7 +20,9 @@
 *.lastbuildstate
 *.recipe
 *.exe
+/linux/mprime
 *.chm
+*.err
 /prime95/hlp/HTMLDefines.h
 /gwnum/amd64/
 /gwnum/debug/

@@ -20,6 +20,7 @@ prime95/compil64  text eol=crlf
 # so a tree copied from Windows to Linux, FreeBSD or macOS still builds
 linux/make*       text eol=lf
 gwnum/make*       text eol=lf
+prime95/makeasm64 text eol=lf
 *.sh              text eol=lf
 
 # Binary files

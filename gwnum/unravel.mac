@@ -26,7 +26,11 @@ ENDIF
 OPTION PROC:NONE
 IFDEF	X86_64
 OPTION	EVEX:1
+;; ksamd64.inc (from the Windows SDK) defines the push_reg, save_xmm128 and
+;; alloc_stack unwind macros.  Only the Windows code uses them.
+IFDEF	WINDOWS64
 INCLUDE ksamd64.inc
+ENDIF
 ENDIF
 
 ;; Macros to use with Intel Code Analyzer
