@@ -8,6 +8,13 @@
 # We staticly link the C++ library because we are using gcc and FreeBSD now defaults to clang (with a clang C++ library installed).
 # A clang build of mprime crashes instantly.
 
+# Where packages are installed.  The ports system sets this; default it for
+# a plain "make -f makebsd64".
+LOCALBASE ?= /usr/local
+
+# Boost headers.  Override with:  make -f makebsd64 BOOST=/path/to/boost
+BOOST = ../../boost_1_76_0
+
 #CC ?= cc
 CC = gcc
 #CFLAGS += -I.. -I../gwnum -I$(LOCALBASE)/include -DX86_64 -O2 -DPORT=12
@@ -15,7 +22,7 @@ CFLAGS += -I.. -I../gwnum -I$(LOCALBASE)/include -std=gnu99 -DX86_64 -Wno-unused
 
 #CXX ?= cc
 CXX = g++
-CXXFLAGS += -I.. -I../gwnum -I$(LOCALBASE)/include -I../../boost_1_76_0 -DX86_64 -O2 -std=c++11 -DPORT=12
+CXXFLAGS += -I.. -I../gwnum -I$(LOCALBASE)/include -I$(BOOST) -DX86_64 -O2 -std=c++11 -DPORT=12
 
 LDFLAGS += -fpie -L$(LOCALBASE)/lib -Wl,-M
 #LIBS += ../gwnum/gwnum.a ../gwnum/polymult.a -lm -lpthread -lhwloc -lcurl -lstdc++ -lcompat -lgmp
@@ -37,6 +44,10 @@ security:
 
 clean:
 	rm -f $(EXE) $(EXE2) $(OBJS)
+
+# Built by prime95/makeasm64
+$(FACTOROBJ): ../prime95/linux64/factor64.o
+	cp ../prime95/linux64/factor64.o $(FACTOROBJ)
 
 cJSON.o:
 	$(CC) $(CFLAGS) -c ../cJSON.c

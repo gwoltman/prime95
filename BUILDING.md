@@ -1,8 +1,8 @@
 # Building Prime95 and gwnum
 
-This covers Windows with Microsoft Visual C++, and 64-bit and 32-bit Linux.
-FreeBSD and macOS instructions will be added as those builds are brought up
-to date.
+This covers Windows with Microsoft Visual C++, 64-bit and 32-bit Linux, and
+64-bit FreeBSD.  macOS instructions will be added when that build is brought
+up to date.
 
 ## Windows
 
@@ -172,3 +172,34 @@ make -f makefile
 `gwnum/makeasm32` builds `gwnum/linux/gwnum.a` from the same 32-bit objects
 the Windows build uses, and `prime95/makeasm32` builds
 `prime95/linux/factor32.o`.  The result is `linux/mprime`.
+
+## FreeBSD (64-bit)
+
+FreeBSD uses the same assembly objects as Linux; only the C code and the
+final link differ.  This build is tested on FreeBSD 12.3.
+
+### Prerequisites
+
+- gcc and g++ from ports or packages (`lang/gcc`).  `linux/makebsd64` uses
+  gcc rather than the system clang, because a clang build of mprime crashes.
+- GNU make (`devel/gmake`), for the assembly makefiles and for building UASM.
+  The other makefiles use FreeBSD's own make.
+- GMP and curl packages, and hwloc built as described in `linux/makebsd64`.
+  These are expected in `/usr/local`; set `LOCALBASE` for another location.
+- Boost 1.76.0 headers, by default in `../../boost_1_76_0` (or pass `BOOST=`).
+- UASM and objconv, built as for Linux, using `gmake` for UASM:
+  `gmake -f Makefile-Linux-GCC-64.mak`.
+
+### Build steps
+
+```
+cd gwnum
+gmake -f makeasm64 UASM=~/tools/uasm OBJCONV=~/tools/objconv
+make -f makebsd64
+cd ../prime95
+gmake -f makeasm64 UASM=~/tools/uasm OBJCONV=~/tools/objconv
+cd ../linux
+make -f makebsd64
+```
+
+The result is `linux/mprime`.

@@ -1,6 +1,10 @@
 # Makefile for FreeBSD 12.3 64-bit gwnum library
 #
 
+# Where packages are installed.  The ports system sets this; default it for
+# a plain "make -f makebsd64".
+LOCALBASE ?= /usr/local
+
 #CC ?= cc
 CC = gcc
 CFLAGS += -I.. -I../sqlite-amalgamation-3420000 -I$(LOCALBASE)/include -std=gnu99 -DX86_64 -O2
