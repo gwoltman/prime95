@@ -23,14 +23,19 @@ A location starting with `\` is at the root of the drive holding the source.
 SQLite 3.42.0, cJSON, QD and the other small libraries prime95 uses are
 included in this repository.
 
-### Building UASM
+### Getting UASM
 
 Unmodified UASM 2.57 and 2.58 fail on gwnum's `zr4.asm` and `timeit.asm`, and
-2.52 and older mis-assemble part of `factor64.asm`.  Build the fixed version
-from a Developer Command Prompt and copy it into place:
+2.52 and older mis-assemble part of `factor64.asm`.  Use the fixed version:
+download `uasm-2.58-gw1-windows-x64.zip` from the
+[v2.58-gw1 release](https://github.com/gwoltman/UASM-2.58-gw1/releases/tag/v2.58-gw1)
+and copy `uasm64.exe` to `c:\uasm_258gw1`.  Release builds for Linux and
+FreeBSD are there too.
+
+Or build it from a Developer Command Prompt and copy it into place:
 
 ```
-git clone -b fix-stale-evex-decorators https://github.com/gwoltman/UASM-2.58-gw1.git
+git clone -b v2.58-gw1 https://github.com/gwoltman/UASM-2.58-gw1.git
 cd UASM-2.58-gw1
 msbuild UASM.vcxproj -p:Configuration=Release -p:Platform=x64
 mkdir c:\uasm_258gw1
@@ -114,12 +119,14 @@ distributions too (an executable linked against a newer glibc will not).
 - Boost 1.76.0 headers.  By default `linux/make64` looks for them in
   `../../boost_1_76_0`, next to this repository; pass `BOOST=/path/to/boost`
   to use another location.
-- UASM, built from <https://github.com/gwoltman/UASM-2.58-gw1> (branch
-  `fix-stale-evex-decorators`): UASM 2.58 with a fix that gwnum's AVX-512 code
-  needs.  Unmodified UASM 2.57 and 2.58 fail on `zr4.asm` and `timeit.asm`.
+- UASM 2.58 with a fix that gwnum's AVX-512 code needs (unmodified UASM 2.57
+  and 2.58 fail on `zr4.asm` and `timeit.asm`).  Download
+  `uasm-2.58-gw1-linux-x86_64.tar.gz` (or `-linux-i686` for 32-bit) from the
+  [v2.58-gw1 release](https://github.com/gwoltman/UASM-2.58-gw1/releases/tag/v2.58-gw1),
+  or build it from source:
 
   ```
-  git clone -b fix-stale-evex-decorators https://github.com/gwoltman/UASM-2.58-gw1.git
+  git clone -b v2.58-gw1 https://github.com/gwoltman/UASM-2.58-gw1.git
   cd UASM-2.58-gw1
   make -f Makefile-Linux-GCC-64.mak
   ```
@@ -187,8 +194,10 @@ final link differ.  This build is tested on FreeBSD 12.3.
 - GMP and curl packages, and hwloc built as described in `linux/makebsd64`.
   These are expected in `/usr/local`; set `LOCALBASE` for another location.
 - Boost 1.76.0 headers, by default in `../../boost_1_76_0` (or pass `BOOST=`).
-- UASM and objconv, built as for Linux, using `gmake` for UASM:
-  `gmake -f Makefile-Linux-GCC-64.mak`.
+- UASM: `uasm-2.58-gw1-freebsd-x86_64.tar.gz` from the
+  [v2.58-gw1 release](https://github.com/gwoltman/UASM-2.58-gw1/releases/tag/v2.58-gw1),
+  or built as for Linux using `gmake -f Makefile-Linux-GCC-64.mak`.
+- objconv, built as for Linux.
 
 ### Build steps
 
@@ -203,3 +212,16 @@ make -f makebsd64
 ```
 
 The result is `linux/mprime`.
+
+## Continuous integration
+
+`.github/workflows/build.yml` builds on GitHub on every push and pull request:
+everything on 64-bit Linux, followed by a PRP test of M86243, and gwnum plus
+the factoring objects on Windows.  It downloads UASM from the v2.58-gw1
+release and objconv from agner.org, checking both against known SHA-256
+hashes.
+
+agner.org serves only the latest objconv.  Version 2.57 converts every object
+to ELF (32- and 64-bit) and to 32-bit Mach-O exactly as 2.51 did, but its
+64-bit Mach-O output differs; the macOS build has not been checked against it
+yet.

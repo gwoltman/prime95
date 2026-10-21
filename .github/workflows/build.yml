@@ -1,0 +1,140 @@
+# Build gwnum and prime95 on every push and pull request.
+#
+# Linux:   everything, then a quick PRP test of a known Mersenne prime.
+# Windows: gwnum (32- and 64-bit) and the factoring objects.  prime95.exe
+#          itself is not linked: it needs the special libgmp-gw1 build of GMP.
+#
+# UASM comes from the prebuilt v2.58-gw1 release of
+# https://github.com/gwoltman/UASM-2.58-gw1 and objconv from agner.org.  Both
+# downloads are checked against known SHA-256 hashes.  agner.org only serves
+# the latest objconv; if its hash changes, check the new version produces the
+# same objects (see BUILDING.md) before updating OBJCONV_SHA256.
+
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  UASM_URL: https://github.com/gwoltman/UASM-2.58-gw1/releases/download/v2.58-gw1
+  UASM_LINUX_SHA256: 7790bb12c86027b9b3f79f86a3300a41d90342393b9c2c13f9b0dc5fcee69e16
+  UASM_WINDOWS_SHA256: 6a7a13a39b7d78296f525f94619d52e6044877c74c25890ed35e548bd50ceda6
+  OBJCONV_URL: https://www.agner.org/optimize/objconv.zip
+  OBJCONV_SHA256: 0f604f93f97f689afd7615c86176eb15bc95001eadf8317f17ebd099c50c59e1
+
+jobs:
+  linux64:
+    name: Linux 64-bit
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgmp-dev libhwloc-dev libcurl4-openssl-dev libboost-dev
+
+      - name: Get UASM and objconv
+        run: |
+          mkdir -p ~/tools && cd ~/tools
+          curl -fsSL -o uasm.tar.gz "$UASM_URL/uasm-2.58-gw1-linux-x86_64.tar.gz"
+          echo "$UASM_LINUX_SHA256  uasm.tar.gz" | sha256sum -c
+          tar xzf uasm.tar.gz
+          cp uasm-2.58-gw1-linux-x86_64/uasm .
+          curl -fsSL -o objconv.zip "$OBJCONV_URL"
+          echo "$OBJCONV_SHA256  objconv.zip" | sha256sum -c
+          unzip -q objconv.zip source.zip
+          mkdir objconv-src && cd objconv-src && unzip -q ../source.zip
+          g++ -O2 -o ../objconv *.cpp
+
+      - name: Assemble gwnum
+        run: make -C gwnum -f makeasm64 -j4 UASM=$HOME/tools/uasm OBJCONV=$HOME/tools/objconv
+
+      - name: Build gwnum
+        run: make -C gwnum -f make64 -j4
+
+      - name: Assemble factor64
+        run: make -C prime95 -f makeasm64 UASM=$HOME/tools/uasm OBJCONV=$HOME/tools/objconv
+
+      # Official builds link hwloc and curl statically (see linux/make64);
+      # Ubuntu's static libraries need more dependencies, so link them
+      # dynamically here, and skip the link map.
+      - name: Build mprime
+        run: >
+          make -C linux -f make64 -j4 BOOST=/usr/include
+          LFLAGS="-Wl,-L/usr/local/lib"
+          LIBS="../gwnum/gwnum.a ../gwnum/polymult.a -lm -lpthread -lhwloc -lcurl -lstdc++ -ldl -lgmp"
+
+      - name: PRP test of M86243 (a known Mersenne prime)
+        run: |
+          mkdir test && cd test
+          printf 'UsePrimenet=0\nStressTester=0\nV5UserID=ANONYMOUS\nComputerID=ci\n' > prime.txt
+          echo 'PRP=1,2,86243,-1' > worktodo.txt
+          ../linux/mprime -d -w"$PWD" > mprime.log 2>&1 &
+          pid=$!
+          for i in $(seq 1 60); do
+            grep -q '"exponent":86243' results.json.txt 2>/dev/null && break
+            sleep 10
+          done
+          kill $pid || true
+          cat mprime.log
+          cat results.json.txt
+          grep -q '"status":"P", "exponent":86243' results.json.txt
+
+  windows:
+    name: Windows gwnum and factoring code
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get UASM and objconv
+        shell: pwsh
+        run: |
+          Invoke-WebRequest "$env:UASM_URL/uasm-2.58-gw1-windows-x64.zip" -OutFile uasm.zip
+          if ((Get-FileHash uasm.zip -Algorithm SHA256).Hash -ne $env:UASM_WINDOWS_SHA256) { throw "uasm.zip checksum mismatch" }
+          Expand-Archive uasm.zip -DestinationPath uasm-tmp
+          New-Item -ItemType Directory -Force c:\uasm_258gw1 | Out-Null
+          Copy-Item uasm-tmp\uasm-2.58-gw1-windows-x64\uasm64.exe c:\uasm_258gw1\
+          Invoke-WebRequest $env:OBJCONV_URL -OutFile objconv.zip
+          if ((Get-FileHash objconv.zip -Algorithm SHA256).Hash -ne $env:OBJCONV_SHA256) { throw "objconv.zip checksum mismatch" }
+          Expand-Archive objconv.zip -DestinationPath c:\objconv
+          Remove-Item -Recurse uasm-tmp, uasm.zip, objconv.zip
+
+      - name: Build 64-bit gwnum
+        shell: cmd
+        run: |
+          cd gwnum
+          call c64.bat
+          if errorlevel 1 exit /b 1
+
+      - name: Build 32-bit gwnum
+        shell: cmd
+        run: |
+          cd gwnum
+          call c.bat
+          if errorlevel 1 exit /b 1
+
+      - name: Assemble factoring code
+        shell: cmd
+        run: |
+          cd prime95
+          call c64.bat
+          if errorlevel 1 exit /b 1
+          call c.bat
+          if errorlevel 1 exit /b 1
+
+      - name: Check outputs
+        shell: pwsh
+        run: |
+          $files = 'gwnum\gwnum64.lib', 'gwnum\gwnum64d.lib', 'gwnum\polymult64.lib', 'gwnum\polymult64d.lib',
+                   'gwnum\gwnum.lib', 'gwnum\gwnumd.lib', 'gwnum\polymult.lib', 'gwnum\polymultd.lib',
+                   'gwnum\linux64\gwnum.a', 'gwnum\linux\gwnum.a',
+                   'prime95\amd64\factor64.obj', 'prime95\factor32.obj'
+          $missing = $files | Where-Object { -not (Test-Path $_) }
+          if ($missing) { throw "Missing: $missing" }
+          Get-Item $files | Format-Table Name, Length
