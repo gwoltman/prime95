@@ -1,8 +1,7 @@
 # Building Prime95 and gwnum
 
-This covers Windows with Microsoft Visual C++, 64-bit and 32-bit Linux, and
-64-bit FreeBSD.  macOS instructions will be added when that build is brought
-up to date.
+This covers Windows with Microsoft Visual C++, 64-bit and 32-bit Linux,
+64-bit FreeBSD, and mprime on Intel macOS.
 
 ## Windows
 
@@ -213,6 +212,45 @@ make -f makebsd64
 
 The result is `linux/mprime`.
 
+## macOS (Intel, command-line mprime)
+
+Only mprime is built for macOS, not the Prime95 GUI.  It uses the same 64-bit
+assembly as Linux, converted to Mach-O.  This build is tested on macOS 12.1
+(Intel) with Apple clang 11 from the Command Line Tools.
+
+### Prerequisites
+
+- The Xcode Command Line Tools (`xcode-select --install`): clang, which
+  answers to `gcc`/`g++`, and GNU make 3.81.
+- GMP and hwloc as static libraries in `/usr/local/lib` (see the notes at the
+  top of `linux/makemac64`), and libcurl.
+- Boost 1.76.0 headers, by default in `../../boost_1_76_0` (or pass `BOOST=`).
+- UASM, built from source as for Linux.  Its macOS makefile compiles in C89
+  mode, which current UASM no longer supports, so pass C99 instead:
+
+  ```
+  git clone -b v2.58-gw1 https://github.com/gwoltman/UASM-2.58-gw1.git
+  cd UASM-2.58-gw1
+  make -f Makefile-OSX-Clang-64.mak extra_c_flags="-DNDEBUG -O2 -std=gnu99 -funsigned-char -fwritable-strings"
+  ```
+
+- objconv, built from its `source.zip`: `clang++ -O2 -o objconv *.cpp`.
+
+### Build steps
+
+```
+cd gwnum
+make -f makeasm64 mac UASM=~/tools/uasm OBJCONV=~/tools/objconv
+make -f makemac
+cd ../prime95
+make -f makeasm64 mac UASM=~/tools/uasm OBJCONV=~/tools/objconv
+cd ../linux
+make -f makemac64
+```
+
+`make -f makeasm64 mac` builds `gwnum/macosx64/gwnum.a` and
+`prime95/macosx64/factor64.o`.  The result is `linux/mprime`.
+
 ## Continuous integration
 
 `.github/workflows/build.yml` builds on GitHub on every push and pull request:
@@ -223,6 +261,5 @@ and cURL 8.5.0 from the prime95-windows-deps release, and hwloc and Boost from
 their own sites, checking each against a known SHA-256 hash.
 
 agner.org serves only the latest objconv.  Version 2.57 converts every object
-to ELF (32- and 64-bit) and to 32-bit Mach-O exactly as 2.51 did, but its
-64-bit Mach-O output differs; the macOS build has not been checked against it
-yet.
+exactly as 2.51 did, except that in 64-bit Mach-O output it writes a different
+value into the header's unused `reserved` field.

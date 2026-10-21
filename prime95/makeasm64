@@ -1,12 +1,13 @@
-# Makefile for prime95's 64-bit factoring code on Linux and FreeBSD
+# Makefile for prime95's 64-bit factoring code on Linux, FreeBSD and macOS
 #
-# Builds linux64/factor64.o, which linux/make64 and linux/makebsd64 link with.
-# It does what the linux64 rule in compil64 does on Windows: uasm assembles
-# factor64.asm to a COFF object with LINUX64 defined, and objconv converts it
-# to ELF.  Do not switch to uasm's -elf64 output: uasm 2.48 mis-assembles
-# factor64's RIP-relative data references in that mode.
+# "make -f makeasm64" builds linux64/factor64.o, which linux/make64 and
+# linux/makebsd64 link with; "make -f makeasm64 mac" builds
+# macosx64/factor64.o, which linux/makemac64 links with.  This does what the
+# factor64 rule in compil64 does on Windows: uasm assembles factor64.asm to a
+# COFF object with LINUX64 defined, and objconv converts it to ELF or Mach-O.
 #
-# Needs uasm 2.48 and objconv.  See BUILDING.md.
+# Needs uasm 2.58 with the fix from https://github.com/gwoltman/UASM-2.58-gw1,
+# and objconv.  See BUILDING.md.
 #	make -f makeasm64 UASM=~/tools/uasm OBJCONV=~/tools/objconv
 
 UASM = uasm
@@ -17,25 +18,32 @@ unexport UASM
 UASMFLAGS = -c -nologo -DX86_64 -DLINUX64 -DARCH=FMA3 -I../gwnum -win64 -safeseh
 
 OUT = linux64
+MACOUT = macosx64
 
 #########################################################################
 
 all:	$(OUT)/factor64.o
 
+mac:	$(MACOUT)/factor64.o
+
 $(OUT)/factor64.o: $(OUT)/factor64.obj
 	$(OBJCONV) -felf64 $< $@
+
+# -nu+ adds the leading underscore macOS symbol names need
+$(MACOUT)/factor64.o: $(OUT)/factor64.obj | $(MACOUT)
+	$(OBJCONV) -fmacho64 -nu+ $< $@
 
 $(OUT)/factor64.obj: factor64.asm factor64.mac ../gwnum/unravel.mac | $(OUT)
 	$(UASM) $(UASMFLAGS) -Fo$@ factor64.asm
 
-$(OUT):
-	mkdir -p $(OUT)
+$(OUT) $(MACOUT):
+	mkdir -p $@
 
 clean:
 	rm -f $(OUT)/factor64.obj
 
 distclean: clean
-	rm -f $(OUT)/factor64.o
+	rm -f $(OUT)/factor64.o $(MACOUT)/factor64.o
 
-.PHONY: all clean distclean
+.PHONY: all mac clean distclean
 .SECONDARY:

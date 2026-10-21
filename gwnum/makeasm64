@@ -1,15 +1,15 @@
-# Makefile for gwnum's 64-bit assembly code on Linux and FreeBSD
+# Makefile for gwnum's 64-bit assembly code on Linux, FreeBSD and macOS
 #
-# Builds linux64/gwnum.a, the archive make64 and makebsd64 start from.  It does
-# what the linux64 rules in compil64 do on Windows: uasm assembles each file to
-# a COFF object with LINUX64 defined, and objconv converts it to ELF.  The
-# resulting objects are identical to those built on Windows.
+# "make -f makeasm64" builds linux64/gwnum.a, the archive make64 and makebsd64
+# start from.  "make -f makeasm64 mac" builds macosx64/gwnum.a, the archive
+# makemac starts from.  This does what the linux64 and macosx64 rules in
+# compil64 do on Windows: uasm assembles each file to a COFF object with
+# LINUX64 defined, and objconv converts it to ELF or Mach-O.  The resulting
+# objects are the same as those built on Windows.
 #
-# Do not switch to uasm's -elf64 output.  uasm 2.48 mis-assembles some
-# RIP-relative data references in that mode.
-#
-# Needs uasm 2.48 (newer versions miscompile gwnum) and objconv.  See BUILDING.md.
-# Set UASM and OBJCONV to use them from somewhere other than the PATH:
+# Needs uasm 2.58 with the fix from https://github.com/gwoltman/UASM-2.58-gw1,
+# and objconv.  See BUILDING.md.  Set UASM and OBJCONV to use them from
+# somewhere other than the PATH:
 #	make -f makeasm64 UASM=~/tools/uasm OBJCONV=~/tools/objconv
 
 UASM = uasm
@@ -42,6 +42,11 @@ PLAINOBJS = cpuidhlp hyperhlp mult gianthlp
 
 OBJS = $(SUFFIXOBJS) $(BLENDOBJS) $(PLAINOBJS) timeit
 ELFOBJS = $(addprefix $(OUT)/,$(addsuffix .o,$(OBJS)))
+
+# The macOS library leaves out the K8 and K10 objects, and uses a mult.obj
+# assembled with APPLE defined
+MACOUT = macosx64
+MACHOOBJS = $(addprefix $(MACOUT)/,$(addsuffix .o,$(filter-out %_k8 %_k10,$(OBJS))))
 
 # Any change to a macro file reassembles everything
 MACS = $(wildcard *.mac)
@@ -81,14 +86,30 @@ $(addprefix $(OUT)/,$(addsuffix .obj,$(PLAINOBJS))): $(OUT)/%.obj: %.asm $(MACS)
 $(OUT)/timeit.obj: timeit.asm $(MACS) | $(OUT)
 	$(UASM) $(UASMFLAGS) -DARCH=FMA3 -Fo$@ $<
 
-$(OUT):
-	mkdir -p $(OUT)
+mac:	$(MACOUT)/gwnum.a
+
+$(MACOUT)/gwnum.a: $(MACHOOBJS)
+	rm -f $@
+	ar rcs $@ $(MACHOOBJS)
+
+# -nu+ adds the leading underscore macOS symbol names need
+$(MACOUT)/mult.o: $(MACOUT)/mult.obj
+	$(OBJCONV) -fmacho64 -wd1050 -nu+ $< $@
+
+$(MACOUT)/%.o: $(OUT)/%.obj | $(MACOUT)
+	$(OBJCONV) -fmacho64 -wd1050 -nu+ $< $@
+
+$(MACOUT)/mult.obj: mult.asm $(MACS) | $(MACOUT)
+	$(UASM) $(UASMFLAGS) -DAPPLE -Fo$@ $<
+
+$(OUT) $(MACOUT):
+	mkdir -p $@
 
 clean:
-	rm -f $(OUT)/*.obj $(OUT)/*.o
+	rm -f $(OUT)/*.obj $(OUT)/*.o $(MACOUT)/*.obj $(MACOUT)/*.o
 
 distclean: clean
-	rm -f $(OUT)/gwnum.a
+	rm -f $(OUT)/gwnum.a $(MACOUT)/gwnum.a
 
-.PHONY: all clean distclean
+.PHONY: all mac clean distclean
 .SECONDARY:

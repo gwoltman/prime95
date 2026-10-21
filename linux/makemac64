@@ -13,11 +13,14 @@
 
 ENVP= MACOSX_DEPLOYMENT_TARGET=10.9
 
+# Boost headers.  Override with:  make -f makemac64 BOOST=/path/to/boost
+BOOST = ../../boost_1_76_0
+
 CC = gcc
 CFLAGS = -I.. -I../gwnum -I../linux -std=gnu99 -O2 -DX86_64 -DCOMMAND_LINE_MPRIME -m64 -DPORT=10
 
 CPP = g++
-CPPFLAGS = -I.. -I../gwnum -I../linux -I../../boost_1_76_0 -std=c++11 -O2 -DX86_64 -DCOMMAND_LINE_MPRIME -m64 -DPORT=10
+CPPFLAGS = -I.. -I../gwnum -I../linux -I$(BOOST) -std=c++11 -O2 -DX86_64 -DCOMMAND_LINE_MPRIME -m64 -DPORT=10
 
 LFLAGS = -m64 -Wl,-no_pie -L/usr/local/lib
 LIBS   = ../gwnum/gwnum.a ../gwnum/polymult.a -lm -lpthread /usr/local/lib/libhwloc.a /usr/local/lib/libgmp.a -lcurl -framework IOKit -framework CoreFoundation -lc++
