@@ -155,7 +155,8 @@ jobs:
           } else {
             Get-Checked $env:BOOST_URL boost.tar.bz2 $env:BOOST_SHA256
             $t = Get-Date
-            tar -xjf boost.tar.bz2 boost_1_76_0/boost
+            # Windows' own bsdtar: the "tar" first on the runner's PATH hung here
+            & "$env:SystemRoot\System32\tar.exe" -xjf boost.tar.bz2 boost_1_76_0/boost
             if ($LASTEXITCODE -ne 0) { throw "unpacking Boost failed" }
             Write-Host ("Boost headers unpacked in {0:N0} s" -f ((Get-Date) - $t).TotalSeconds)
             Remove-Item boost.tar.bz2
