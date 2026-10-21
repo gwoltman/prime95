@@ -1,7 +1,9 @@
 # Assembler command lines
 #
 # Uasm is a MASM-compatible assembler that is supported much better than MASM.
-# It can be downloaded at http://www.terraspace.co.uk/uasm.html
+# Use UASM 2.58 with the fix from https://github.com/gwoltman/UASM-2.58-gw1
+# (see BUILDING.md).  Unmodified 2.57 and 2.58 fail on zr4.asm and timeit.asm;
+# 2.52 and older mis-assemble some of factor64.asm.
 #
 # objconv comes courtesy of Agner Fog.  Download available at
 # http://www.agner.org/optimize/#objconv

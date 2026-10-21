@@ -10,7 +10,7 @@ macOS instructions will be added as those builds are brought up to date.
 | What | Default location | Override |
 |---|---|---|
 | Visual Studio 2019 or later (any edition) with the *Desktop development with C++* workload and the *C++ MFC* component for x86 and x64 | found automatically | |
-| [UASM](http://www.terraspace.co.uk/uasm.html) 2.48 for gwnum, 2.52 and 2.49 for prime95's 64-bit and 32-bit factoring code | `c:\uasm_248`, `c:\uasm_252`, `c:\uasm_249` | `UASM_DIR` |
+| UASM 2.58 with the fix from [gwoltman/UASM-2.58-gw1](https://github.com/gwoltman/UASM-2.58-gw1) (see below), as `uasm64.exe` | `c:\uasm_258gw1` | `UASM_DIR` |
 | [objconv](https://www.agner.org/optimize/#objconv) | `c:\objconv\objconv.exe` | `OBJCONV` (full path, without `.exe`) |
 | GMP, specially built as `libgmp-gw1` (`gmp.h`, `libgmp-gw1.lib`) | `\gmp64`, `c:\gmp32` | `P95_GMP64_DIR`, `P95_GMP32_DIR` |
 | [hwloc](https://www.open-mpi.org/projects/hwloc/) 2.8.0 Windows builds | `\hwloc-win64-build-2.8.0`, `c:\hwloc-win32-build-2.8.0` | `P95_HWLOC64_DIR`, `P95_HWLOC32_DIR` |
@@ -21,6 +21,22 @@ A location starting with `\` is at the root of the drive holding the source.
 
 SQLite 3.42.0, cJSON, QD and the other small libraries prime95 uses are
 included in this repository.
+
+### Building UASM
+
+Unmodified UASM 2.57 and 2.58 fail on gwnum's `zr4.asm` and `timeit.asm`, and
+2.52 and older mis-assemble part of `factor64.asm`.  Build the fixed version
+from a Developer Command Prompt and copy it into place:
+
+```
+git clone -b fix-stale-evex-decorators https://github.com/gwoltman/UASM-2.58-gw1.git
+cd UASM-2.58-gw1
+msbuild UASM.vcxproj -p:Configuration=Release -p:Platform=x64
+mkdir c:\uasm_258gw1
+copy x64\Release\UASM.exe c:\uasm_258gw1\uasm64.exe
+```
+
+The same 64-bit `uasm64.exe` assembles both the 64-bit and 32-bit code.
 
 ### Using other locations
 

@@ -12,7 +12,7 @@ call "%VSDIR%\VC\Auxiliary\Build\vcvarsall.bat" x64
 
 REM Directory containing uasm.  Set UASM_DIR to use a different version.
 
-if not defined UASM_DIR set UASM_DIR=c:\uasm_252
+if not defined UASM_DIR set UASM_DIR=c:\uasm_258gw1
 @set path=%UASM_DIR%;%path%
 
 REM Create the output directories the makefile writes to
