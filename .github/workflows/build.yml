@@ -7,8 +7,8 @@
 # UASM comes from the prebuilt v2.58-gw1 release of
 # https://github.com/gwoltman/UASM-2.58-gw1, objconv from agner.org, the
 # Windows builds of GMP (libgmp-gw1) and cURL 8.5.0 from the v1 release of
-# https://github.com/gwoltman/prime95-windows-deps, and hwloc and Boost from
-# their own sites.  Every download is checked against a known SHA-256 hash.
+# https://github.com/gwoltman/prime95-windows-deps, and hwloc and Boost's
+# headers from their own sites.  Every download is checked against a known SHA-256 hash.
 # agner.org only serves the latest objconv; if its hash changes, check the new
 # version produces the same objects (see BUILDING.md) before updating
 # OBJCONV_SHA256.
@@ -37,8 +37,8 @@ env:
   HWLOC_URL: https://download.open-mpi.org/release/hwloc/v2.8
   HWLOC64_SHA256: baf509622b63de8237c8f39ca70217bc568c5e79f1746bde3174d8ed886311f5
   HWLOC32_SHA256: ffbda20426c0b74188f6cf5098c75f3c532d4b537e60206212d00d3f75c7435c
-  BOOST_URL: https://archives.boost.io/release/1.76.0/source/boost_1_76_0.tar.bz2
-  BOOST_SHA256: f0397ba6e982c4450f27bf32a2a83292aba035b827a5623a14636ea583318c41
+  BOOST_URL: https://archives.boost.io/release/1.76.0/source/boost_1_76_0.tar.gz
+  BOOST_SHA256: 7bd7ddceec1a1dfdcbdb3e609b60d01739c38390a5f956385a12f3122049f0ca
 
 jobs:
   linux64:
@@ -120,15 +120,7 @@ jobs:
           Expand-Archive objconv.zip -DestinationPath c:\objconv
           Remove-Item -Recurse uasm-tmp, uasm.zip, objconv.zip
 
-      # Only Boost's headers are used; unpacking them takes a while, so keep
-      # them between runs
-      - name: Cache Boost headers
-        uses: actions/cache@v6
-        with:
-          path: C:\deps\boost_1_76_0
-          key: boost-1.76.0-headers
-
-      - name: Get GMP, cURL, hwloc and Boost
+      - name: Get GMP, cURL and hwloc
         shell: pwsh
         run: |
           # curl.exe, because Invoke-WebRequest is very slow on large files
@@ -150,21 +142,32 @@ jobs:
           foreach ($z in 'gmp64', 'gmp32', 'curl64', 'curl32', 'hwloc64', 'hwloc32') {
             Expand-Archive "$z.zip" -DestinationPath . ; Remove-Item "$z.zip"
           }
-          if (Test-Path boost_1_76_0\boost\version.hpp) {
-            Write-Host "Boost headers restored from cache"
-          } else {
-            Get-Checked $env:BOOST_URL boost.tar.bz2 $env:BOOST_SHA256
-            $t = Get-Date
-            # Windows' own bsdtar: the "tar" first on the runner's PATH hung here
-            & "$env:SystemRoot\System32\tar.exe" -xjf boost.tar.bz2 boost_1_76_0/boost
-            if ($LASTEXITCODE -ne 0) { throw "unpacking Boost failed" }
-            Write-Host ("Boost headers unpacked in {0:N0} s" -f ((Get-Date) - $t).TotalSeconds)
-            Remove-Item boost.tar.bz2
-          }
           @("P95_GMP64_DIR=C:\deps\gmp64", "P95_GMP32_DIR=C:\deps\gmp32",
             "P95_CURL64_DIR=C:\deps\curl-8.5.0-win64-mingw", "P95_CURL32_DIR=C:\deps\curl-8.5.0-win32-mingw",
             "P95_HWLOC64_DIR=C:\deps\hwloc-win64-build-2.8.0", "P95_HWLOC32_DIR=C:\deps\hwloc-win32-build-2.8.0",
             "P95_BOOST_DIR=C:\deps\boost_1_76_0") | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      # pair.cpp needs only boost/circular_buffer.hpp and the 151 headers it
+      # pulls in, listed in .github/boost-headers.txt; unpack just those from
+      # the .tar.gz (the .tar.bz2 took far too long to decompress on the runner).
+      # If prime95 starts using more of Boost, regenerate the list from
+      # "cl /showIncludes" output for the files that include Boost headers.
+      - name: Get Boost headers
+        shell: pwsh
+        timeout-minutes: 5
+        run: |
+          Set-Location C:\deps
+          $t = Get-Date
+          curl.exe -fsSL --retry 3 -o boost.tar.gz $env:BOOST_URL
+          if ($LASTEXITCODE -ne 0) { throw "download of $env:BOOST_URL failed" }
+          if ((Get-FileHash boost.tar.gz -Algorithm SHA256).Hash -ne $env:BOOST_SHA256) { throw "boost.tar.gz checksum mismatch" }
+          Write-Host ("boost.tar.gz downloaded in {0:N0} s" -f ((Get-Date) - $t).TotalSeconds)
+          $t = Get-Date
+          & "$env:SystemRoot\System32\tar.exe" -xvzf boost.tar.gz -T "$env:GITHUB_WORKSPACE\.github\boost-headers.txt"
+          if ($LASTEXITCODE -ne 0) { throw "unpacking Boost failed" }
+          $n = (Get-ChildItem -Recurse -File boost_1_76_0).Count
+          Write-Host ("{0} Boost headers unpacked in {1:N0} s" -f $n, ((Get-Date) - $t).TotalSeconds)
+          Remove-Item boost.tar.gz
 
       - name: Build 64-bit gwnum
         shell: cmd

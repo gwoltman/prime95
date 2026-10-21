@@ -23,6 +23,8 @@ gwnum/make*       text eol=lf
 prime95/makeasm64 text eol=lf
 prime95/makeasm32 text eol=lf
 *.sh              text eol=lf
+# A file list for tar -T, read on Windows too
+.github/boost-headers.txt text eol=lf
 
 # Binary files
 *.png             binary
