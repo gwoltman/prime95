@@ -1,0 +1,30 @@
+# Text files are stored in the repository with LF line endings.  Git converts
+# them to each platform's convention on checkout (CRLF on Windows when
+# core.autocrlf is true, LF elsewhere).
+* text=auto
+
+# Windows-only build files always get CRLF, whatever platform checks them out
+*.bat             text eol=crlf
+*.sln             text eol=crlf
+*.vcxproj         text eol=crlf
+*.props           text eol=crlf
+*.rc              text eol=crlf
+*.rc2             text eol=crlf
+*.lnk             text eol=crlf
+gwnum/compile     text eol=crlf
+gwnum/compil64    text eol=crlf
+prime95/compile   text eol=crlf
+prime95/compil64  text eol=crlf
+
+# Unix makefiles and scripts always get LF, even in a Windows checkout,
+# so a tree copied from Windows to Linux, FreeBSD or macOS still builds
+linux/make*       text eol=lf
+gwnum/make*       text eol=lf
+*.sh              text eol=lf
+
+# Binary files
+*.png             binary
+*.ico             binary
+*.cur             binary
+*.icns            binary
+*.strings         binary
