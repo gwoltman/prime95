@@ -267,6 +267,31 @@ It refuses to package an executable that is still an "Untrusted Prime95"
 build, writes a `SHA256SUMS`, and deletes the security files from its work
 directory when done.
 
+## Official Linux releases
+
+`release/unix.sh` builds `p95v<version>.linux64.tar.gz` or
+`.linux32.tar.gz`, depending on the machine it runs on.  It builds the tree
+it is in, which must be fresh, adds the security files (`-s`, by default a
+`prime95-security` directory next to the tree), checks that mprime is a
+trusted build of the version in `commonc.h`, and packages mprime with the
+GMP library it was linked against (`-g`, default `/usr/local/lib`) and the
+text files.  uasm and objconv must be on `PATH`; `-b` gives the Boost
+directory (default `~/boost_1_76_0`).
+
+From Windows, `release\vm.ps1` does all of this on a build machine over SSH:
+it exports the commit or tag, copies it and the security files there, runs
+`unix.sh`, fetches the tarball into the same output directory that
+`release\windows.ps1` uses, adds it to `SHA256SUMS`, and deletes the security
+files from the build machine:
+
+```
+powershell -ExecutionPolicy Bypass -File release\vm.ps1 -Target george@127.0.0.1 -Port 2222 -Ref <tag or commit>
+powershell -ExecutionPolicy Bypass -File release\vm.ps1 -Target george@127.0.0.1 -Port 2223 -Ref <tag or commit>
+```
+
+Official Linux builds are made on CentOS 7 (glibc 2.17), so they run on old
+distributions too, with GMP 6.2 built from source in `/usr/local/lib`.
+
 ## The gwnum package
 
 `gwnum\package.ps1` packages gwnum for programs that build on it, so they

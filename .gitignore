@@ -46,3 +46,5 @@
 *.suo
 *.aps
 /prime95/deps.user.props
+release/build-*.log
+release/stage-*/
