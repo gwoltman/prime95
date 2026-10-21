@@ -14,7 +14,11 @@ masm64=uasm64 /c /DX86_64 /DWINDOWS64 -win64 -safeseh
 masm64lx=uasm64 /c /DX86_64 /DLINUX64 -win64 -safeseh
 #masm64lx=uasm64 /c /DX86_64 /DLINUX64 /Fl /Sf /Sa -win64 -safeseh
 #masm64lx=ml64 /c /DX86_64 /DLINUX64
-objconv=c:\objconv\objconv
+# Set OBJCONV in the environment to use objconv from another location
+!IFNDEF OBJCONV
+OBJCONV=c:\objconv\objconv
+!ENDIF
+objconv=$(OBJCONV)
 
 # Use the 64-bit C compiler
 

@@ -26,6 +26,7 @@
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <Import Project="deps.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <PlatformToolset>v143</PlatformToolset>
@@ -106,7 +107,7 @@ if not exist "$(ProjectDir)..\secure5.c" type nul &gt; "$(ProjectDir)..\secure5.
     </Midl>
     <ClCompile>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
-      <AdditionalIncludeDirectories>..;..\gwnum;\curl-8.5.0-win32-mingw\include\curl;\hwloc-win32-build-2.8.0\include;\gmp32;\boost_1_76_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;..\gwnum;$(P95_CURL32_DIR)\include\curl;$(P95_HWLOC32_DIR)\include;$(P95_GMP32_DIR);$(P95_BOOST_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>PORT=1;WIN32;PSAPI_VERSION=1;NDEBUG;_WINDOWS;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -114,10 +115,10 @@ if not exist "$(ProjectDir)..\secure5.c" type nul &gt; "$(ProjectDir)..\secure5.
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <FunctionLevelLinking>false</FunctionLevelLinking>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderOutputFile>c:\temp\prime95.release32.pch</PrecompiledHeaderOutputFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
       <AssemblerListingLocation>.\Release/</AssemblerListingLocation>
       <ObjectFileName>.\Release/</ObjectFileName>
-      <ProgramDataBaseFileName>c:\temp\prime95.release32.pdb</ProgramDataBaseFileName>
+      <ProgramDataBaseFileName>$(IntDir)vc$(PlatformToolsetVersion).pdb</ProgramDataBaseFileName>
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat />
@@ -129,7 +130,7 @@ if not exist "$(ProjectDir)..\secure5.c" type nul &gt; "$(ProjectDir)..\secure5.
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>factor32.obj;..\gwnum\gwnum.lib;..\gwnum\polymult.lib;wininet.lib;ws2_32.lib;nafxcw.lib;\curl-8.5.0-win32-mingw\lib\libcurl.dll.a;c:\hwloc-win32-build-2.8.0\lib\libhwloc.lib;c:\gmp32\libgmp-gw1.lib;winmm.lib;libcmt.lib;kernel32.lib;psapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>factor32.obj;..\gwnum\gwnum.lib;..\gwnum\polymult.lib;wininet.lib;ws2_32.lib;nafxcw.lib;$(P95_CURL32_DIR)\lib\libcurl.dll.a;$(P95_HWLOC32_DIR)\lib\libhwloc.lib;$(P95_GMP32_DIR)\libgmp-gw1.lib;winmm.lib;libcmt.lib;kernel32.lib;psapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>.\Release/prime95.exe</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DelayLoadDLLs>oleacc.dll;ole32.dll;oleaut32.dll;advapi32.dll;wininet.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
@@ -153,7 +154,7 @@ if not exist "$(ProjectDir)..\secure5.c" type nul &gt; "$(ProjectDir)..\secure5.
     </Midl>
     <ClCompile>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
-      <AdditionalIncludeDirectories>..;..\gwnum;\gmp64;\curl-8.5.0-win64-mingw\include\curl;\hwloc-win64-build-2.8.0\include;\boost_1_76_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;..\gwnum;$(P95_GMP64_DIR);$(P95_CURL64_DIR)\include\curl;$(P95_HWLOC64_DIR)\include;$(P95_BOOST_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>PORT=4;WIN32;PSAPI_VERSION=1;NDEBUG;_WINDOWS;ADD_UNDERSCORES;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -161,10 +162,10 @@ if not exist "$(ProjectDir)..\secure5.c" type nul &gt; "$(ProjectDir)..\secure5.
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <FunctionLevelLinking>false</FunctionLevelLinking>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderOutputFile>c:\temp\prime95.release64.pch</PrecompiledHeaderOutputFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
       <AssemblerListingLocation>.\x64\Release/</AssemblerListingLocation>
       <ObjectFileName>.\x64\Release/</ObjectFileName>
-      <ProgramDataBaseFileName>c:\temp\prime95.release64.pdb</ProgramDataBaseFileName>
+      <ProgramDataBaseFileName>$(IntDir)vc$(PlatformToolsetVersion).pdb</ProgramDataBaseFileName>
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
@@ -177,7 +178,7 @@ if not exist "$(ProjectDir)..\secure5.c" type nul &gt; "$(ProjectDir)..\secure5.
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>amd64\factor64.obj;..\gwnum\gwnum64.lib;..\gwnum\polymult64.lib;\hwloc-win64-build-2.8.0\lib\libhwloc.lib;\gmp64\libgmp-gw1.lib;\curl-8.5.0-win64-mingw\lib\libcurl.dll.a;wininet.lib;nafxcw.lib;libcmt.lib;kernel32.lib;psapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>amd64\factor64.obj;..\gwnum\gwnum64.lib;..\gwnum\polymult64.lib;$(P95_HWLOC64_DIR)\lib\libhwloc.lib;$(P95_GMP64_DIR)\libgmp-gw1.lib;$(P95_CURL64_DIR)\lib\libcurl.dll.a;wininet.lib;nafxcw.lib;libcmt.lib;kernel32.lib;psapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>.\x64\Release/prime95.exe</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DelayLoadDLLs>wininet.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
@@ -201,17 +202,17 @@ if not exist "$(ProjectDir)..\secure5.c" type nul &gt; "$(ProjectDir)..\secure5.
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..;..\gwnum;\curl-8.5.0-win32-mingw\include\curl;\hwloc-win32-build-2.8.0\include;\gmp32;\boost_1_76_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;..\gwnum;$(P95_CURL32_DIR)\include\curl;$(P95_HWLOC32_DIR)\include;$(P95_GMP32_DIR);$(P95_BOOST_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>PORT=1;WIN32;PSAPI_VERSION=1;_DEBUG;_WINDOWS;GDEBUG;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <BufferSecurityCheck>true</BufferSecurityCheck>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderOutputFile>c:\temp\prime95.debug32.pch</PrecompiledHeaderOutputFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
       <AssemblerOutput />
       <AssemblerListingLocation>.\Debug/</AssemblerListingLocation>
       <ObjectFileName>.\Debug/</ObjectFileName>
-      <ProgramDataBaseFileName>c:\temp\prime95.debug32.pdb</ProgramDataBaseFileName>
+      <ProgramDataBaseFileName>$(IntDir)vc$(PlatformToolsetVersion).pdb</ProgramDataBaseFileName>
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
@@ -223,12 +224,12 @@ if not exist "$(ProjectDir)..\secure5.c" type nul &gt; "$(ProjectDir)..\secure5.
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>factor32.obj;..\gwnum\gwnumd.lib;..\gwnum\polymultd.lib;ws2_32.lib;wininet.lib;\curl-8.5.0-win32-mingw\lib\libcurl.dll.a;c:\hwloc-win32-build-2.8.0\lib\libhwloc.lib;c:\gmp32\libgmp-gw1.lib;winmm.lib;kernel32.lib;psapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>factor32.obj;..\gwnum\gwnumd.lib;..\gwnum\polymultd.lib;ws2_32.lib;wininet.lib;$(P95_CURL32_DIR)\lib\libcurl.dll.a;$(P95_HWLOC32_DIR)\lib\libhwloc.lib;$(P95_GMP32_DIR)\libgmp-gw1.lib;winmm.lib;kernel32.lib;psapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>.\Debug\prime95.exe</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <IgnoreSpecificDefaultLibraries>libcmt;msvcrt;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <ProgramDatabaseFile>c:\temp\prime95.debug32.pdb</ProgramDatabaseFile>
+      <ProgramDatabaseFile>.\Debug/prime95.pdb</ProgramDatabaseFile>
       <GenerateMapFile>false</GenerateMapFile>
       <MapFileName>.\debug\prime95.map</MapFileName>
       <SubSystem>Windows</SubSystem>
@@ -247,17 +248,17 @@ if not exist "$(ProjectDir)..\secure5.c" type nul &gt; "$(ProjectDir)..\secure5.
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..;..\gwnum;\gmp64;\curl-8.5.0-win64-mingw\include\curl;\hwloc-win64-build-2.8.0\include;\boost_1_76_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;..\gwnum;$(P95_GMP64_DIR);$(P95_CURL64_DIR)\include\curl;$(P95_HWLOC64_DIR)\include;$(P95_BOOST_DIR);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>PORT=4;WIN32;PSAPI_VERSION=1;_DEBUG;_WINDOWS;GDEBUG;ADD_UNDERSCORES;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <BufferSecurityCheck>true</BufferSecurityCheck>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderOutputFile>c:\temp\prime95.debug64.pch</PrecompiledHeaderOutputFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
       <AssemblerOutput />
       <AssemblerListingLocation>.\x64\Debug/</AssemblerListingLocation>
       <ObjectFileName>.\x64\Debug/</ObjectFileName>
-      <ProgramDataBaseFileName>c:\temp\prime95.debug64.pdb</ProgramDataBaseFileName>
+      <ProgramDataBaseFileName>$(IntDir)vc$(PlatformToolsetVersion).pdb</ProgramDataBaseFileName>
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
@@ -269,7 +270,7 @@ if not exist "$(ProjectDir)..\secure5.c" type nul &gt; "$(ProjectDir)..\secure5.
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>amd64\factor64.obj;..\gwnum\gwnum64d.lib;..\gwnum\polymult64d.lib;\hwloc-win64-build-2.8.0\lib\libhwloc.lib;\gmp64\libgmp-gw1.lib;\curl-8.5.0-win64-mingw\lib\libcurl.dll.a;wininet.lib;kernel32.lib;psapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>amd64\factor64.obj;..\gwnum\gwnum64d.lib;..\gwnum\polymult64d.lib;$(P95_HWLOC64_DIR)\lib\libhwloc.lib;$(P95_GMP64_DIR)\libgmp-gw1.lib;$(P95_CURL64_DIR)\lib\libcurl.dll.a;wininet.lib;kernel32.lib;psapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>.\x64\Debug/prime95.exe</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>

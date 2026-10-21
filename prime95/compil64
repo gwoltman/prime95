@@ -17,7 +17,11 @@ masm64lx=uasm64 /c /DX86_64 /DLINUX64 /DARCH=FMA3 /I..\gwnum -win64 -safeseh
 
 cl64=cl /GF /W3 /MT /DX86_64 /D_CRT_SECURE_NO_DEPRECATE /c
 cl64d=cl /GF /W3 /MT /DX86_64 /D_CRT_SECURE_NO_DEPRECATE /DGDEBUG /Zi /c
-objconv=c:\objconv\objconv
+# Set OBJCONV in the environment to use objconv from another location
+!IFNDEF OBJCONV
+OBJCONV=c:\objconv\objconv
+!ENDIF
+objconv=$(OBJCONV)
 
 # List of all buildables in this makefile
 

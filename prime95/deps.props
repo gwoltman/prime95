@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Locations of the third-party libraries prime95.vcxproj builds with.
+
+  To use other locations, either set an environment variable with the same
+  name (for example P95_GMP64_DIR=D:\libs\gmp64) before starting Visual Studio
+  or MSBuild, or create deps.user.props next to this file.  deps.user.props is
+  not committed; copy this file's PropertyGroup into it and edit the values.
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildThisFileDirectory)deps.user.props" Condition="Exists('$(MSBuildThisFileDirectory)deps.user.props')" />
+  <PropertyGroup>
+    <!-- GMP, built specially as libgmp-gw1 -->
+    <P95_GMP64_DIR Condition="'$(P95_GMP64_DIR)'==''">\gmp64</P95_GMP64_DIR>
+    <P95_GMP32_DIR Condition="'$(P95_GMP32_DIR)'==''">c:\gmp32</P95_GMP32_DIR>
+    <!-- hwloc 2.8.0 Windows builds from https://www.open-mpi.org/projects/hwloc/ -->
+    <P95_HWLOC64_DIR Condition="'$(P95_HWLOC64_DIR)'==''">\hwloc-win64-build-2.8.0</P95_HWLOC64_DIR>
+    <P95_HWLOC32_DIR Condition="'$(P95_HWLOC32_DIR)'==''">c:\hwloc-win32-build-2.8.0</P95_HWLOC32_DIR>
+    <!-- cURL 8.5.0 mingw builds from https://curl.se/windows/ -->
+    <P95_CURL64_DIR Condition="'$(P95_CURL64_DIR)'==''">\curl-8.5.0-win64-mingw</P95_CURL64_DIR>
+    <P95_CURL32_DIR Condition="'$(P95_CURL32_DIR)'==''">\curl-8.5.0-win32-mingw</P95_CURL32_DIR>
+    <!-- Boost 1.76.0 headers -->
+    <P95_BOOST_DIR Condition="'$(P95_BOOST_DIR)'==''">\boost_1_76_0</P95_BOOST_DIR>
+  </PropertyGroup>
+</Project>

@@ -17,7 +17,11 @@ masm=uasm64 /c -coff -safeseh
 cl=cl /GF /W3 /MT /D_CRT_SECURE_NO_DEPRECATE /O2 /c
 cld=cl /GF /W3 /MTd /D_CRT_SECURE_NO_DEPRECATE /DGDEBUG /Z7 /c
 cldo=cl /GF /W3 /MTd /D_CRT_SECURE_NO_DEPRECATE /DGDEBUG /Z7 /O2 /c
-objconv=c:\objconv\objconv
+# Set OBJCONV in the environment to use objconv from another location
+!IFNDEF OBJCONV
+OBJCONV=c:\objconv\objconv
+!ENDIF
+objconv=$(OBJCONV)
 
 # List of all buildables in this makefile
 

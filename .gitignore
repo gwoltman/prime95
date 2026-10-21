@@ -43,3 +43,4 @@
 *.user
 *.suo
 *.aps
+/prime95/deps.user.props
