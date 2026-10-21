@@ -251,6 +251,22 @@ make -f makemac64
 `make -f makeasm64 mac` builds `gwnum/macosx64/gwnum.a` and
 `prime95/macosx64/factor64.o`.  The result is `linux/mprime`.
 
+## Official Windows releases
+
+`release\windows.ps1` builds the four official Windows zips
+(`p95v<version>.win64.zip`, `.win32.zip`, `.win64.service.zip` and
+`.win32.service.zip`) from a fresh clone of a commit or tag, with the private
+security files from the `prime95-security` repository (by default a
+`prime95-security` checkout next to this one):
+
+```
+powershell -ExecutionPolicy Bypass -File release\windows.ps1 -Ref <tag or commit> -OutDir <where the zips go>
+```
+
+It refuses to package an executable that is still an "Untrusted Prime95"
+build, writes a `SHA256SUMS`, and deletes the security files from its work
+directory when done.
+
 ## The gwnum package
 
 `gwnum\package.ps1` packages gwnum for programs that build on it, so they
