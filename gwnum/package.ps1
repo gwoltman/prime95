@@ -6,7 +6,8 @@
 #   - the Windows libraries (gwnum64.lib, gwnum.lib, polymult64.lib, ... and
 #     their debug versions), complete;
 #   - linux64/gwnum.a, linux/gwnum.a and macosx64/gwnum.a, the assembled code
-#     that make64, makefile, makebsd64 and makemac start from;
+#     gwnum/Makefile starts from (with no .asm files in the package, it uses
+#     these instead of assembling);
 #   - third_party/qd and third_party/sqlite, which gwnum's C code includes.
 #
 # Run it after gwnum\c64.bat and gwnum\c.bat have built everything.  It writes
@@ -32,7 +33,7 @@ $zipPath = Join-Path $OutDir "p95v$ver.gwnum.zip"
 # Committed source files, so no build leftovers get in
 $tracked = git -C $root ls-files gwnum third_party/qd third_party/sqlite
 if ($LASTEXITCODE -ne 0) { throw 'git ls-files failed' }
-$wanted = '\.(c|cpp|h|cc)$|^gwnum/(make64|makefile|makebsd64|makemac|makehaiku|makemsys|tutorial\.txt)$'
+$wanted = '\.(c|cpp|h|cc)$|^gwnum/(Makefile|BSDmakefile|platform\.mk|makehaiku|makemsys|tutorial\.txt)$'
 $files = @($tracked | Where-Object { $_ -match $wanted })
 
 # The assembled code, from the Windows build
@@ -57,14 +58,12 @@ Windows (Microsoft Visual C++)
   polymultd.lib are debug versions built with /MTd.
 
 Linux, FreeBSD and macOS
-  Compile gwnum's C code, which adds it to the assembled code, by running
-  one of these in the gwnum directory:
-      make -f make64        64-bit Linux
-      make -f makefile      32-bit Linux
-      make -f makebsd64     64-bit FreeBSD
-      make -f makemac       macOS (Intel)
-  This produces gwnum.a and polymult.a; link with both.  On macOS, also link
-  with -Wl,-no_pie: the assembly code uses absolute addresses.
+  Run make in the gwnum directory.  It compiles gwnum's C code for this
+  machine (64-bit or 32-bit Linux, 64-bit FreeBSD, or an Intel Mac) and adds
+  it to the assembled code, producing gwnum.a and polymult.a; link with both.
+  "make BITS=32" builds for 32-bit Linux on 64-bit Linux.  On FreeBSD, make
+  runs GNU make, which must be installed (pkg install gmake).  On macOS, also
+  link with -Wl,-no_pie: the assembly code uses absolute addresses.
 
 Building gwnum from scratch, including the assembly code, needs the full
 prime95 source and the tools described in its BUILDING.md.

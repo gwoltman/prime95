@@ -66,23 +66,15 @@ jobs:
           mkdir objconv-src && cd objconv-src && unzip -q ../source.zip
           g++ -O2 -o ../objconv *.cpp
 
-      - name: Assemble gwnum
-        run: make -C gwnum -f makeasm64 -j4 UASM=$HOME/tools/uasm OBJCONV=$HOME/tools/objconv
+      # A plain "make", as a user would type it: it assembles and builds
+      # gwnum, then mprime, linking the shared hwloc and curl libraries
+      - name: Build gwnum and mprime
+        run: make -j4 UASM=$HOME/tools/uasm OBJCONV=$HOME/tools/objconv
 
-      - name: Build gwnum
-        run: make -C gwnum -f make64 -j4
-
-      - name: Assemble factor64
-        run: make -C prime95 -f makeasm64 UASM=$HOME/tools/uasm OBJCONV=$HOME/tools/objconv
-
-      # Official builds link hwloc and curl statically (see linux/make64);
-      # Ubuntu's static libraries need more dependencies, so link them
-      # dynamically here, and skip the link map.
-      - name: Build mprime
-        run: >
-          make -C linux -f make64 -j4 BOOST=/usr/include
-          LFLAGS="-Wl,-L/usr/local/lib"
-          LIBS="../gwnum/gwnum.a ../gwnum/polymult.a -lm -lpthread -lhwloc -lcurl -lstdc++ -ldl -lgmp"
+      - name: Check that a second make does nothing
+        run: |
+          make UASM=$HOME/tools/uasm OBJCONV=$HOME/tools/objconv | tee make2.log
+          ! grep -E '^(gcc|g\+\+|ar|cp|touch|\S*uasm|\S*objconv) ' make2.log
 
       - name: PRP test of M86243 (a known Mersenne prime)
         run: |

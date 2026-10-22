@@ -103,24 +103,52 @@ Builds made from this repository identify themselves to PrimeNet as
 listed in `.gitignore` and must never be committed.  Without them, the build
 creates empty placeholders.  The same applies to the Linux build below.
 
-## Linux (64-bit)
+## Linux, FreeBSD and macOS
 
-Official Linux builds are made on CentOS 7, so that mprime runs on older Linux
-distributions too (an executable linked against a newer glibc will not).
+mprime builds on 64-bit and 32-bit x86 Linux, 64-bit FreeBSD and Intel Macs
+(command-line mprime only, not the Prime95 GUI).  Once the prerequisites
+below are installed, the build is the same everywhere, in the top-level
+directory:
 
-### Prerequisites
+```
+make
+```
 
-- gcc and g++ new enough for AVX-512 (`-mavx512f`).  On CentOS 7, use
-  devtoolset-8: `source /opt/rh/devtoolset-8/enable`.
-- GNU make.
-- GMP, hwloc and libcurl, installed in `/usr/local`.  hwloc and libcurl are
-  linked statically; `linux/make64` has the configure options used.
-- Boost 1.76.0 headers.  By default `linux/make64` looks for them in
-  `../../boost_1_76_0`, next to this repository; pass `BOOST=/path/to/boost`
-  to use another location.
+This assembles gwnum's and factor's assembly code, builds gwnum
+(`gwnum/gwnum.a` and `gwnum/polymult.a`), and then builds `linux/mprime`.
+`make` works out the platform itself.  Running it again rebuilds only what
+changed, including after a header change.  `make` in `gwnum/` builds just
+gwnum, and `make` in `linux/` does the same as at the top level.
+
+Options, given on the `make` command line:
+
+| Option | Effect |
+|---|---|
+| `BOOST=/path/to/boost` | Where the Boost headers are, if not in `../../boost_1_76_0` (next to this repository) or where the compiler looks already |
+| `UASM=/path/to/uasm`, `OBJCONV=/path/to/objconv` | The assembler tools, if they are not on `PATH` |
+| `BITS=32` | Build 32-bit Linux mprime on 64-bit Linux (gcc then needs its 32-bit support, for example the `gcc-multilib` package) |
+| `RELEASE=1` | Link the way official releases do (see below) |
+| `-j4` | Run 4 compiles at a time |
+
+`make clean` deletes what was built, except the assembled code;
+`make distclean` deletes that too.
+
+The assembly code is assembled exactly as on Windows: uasm writes a COFF
+object, and objconv converts it to ELF or Mach-O.  uasm's own ELF and Mach-O
+output is not used.  FreeBSD uses the same assembled code as 64-bit Linux.
+
+By default mprime links with the shared hwloc and curl libraries, so it
+builds with the libraries a distribution provides.  `RELEASE=1` links them
+statically, as official releases do, so that mprime runs on more systems; that
+needs static builds of them (the notes at the top of `linux/Makefile` give
+the configure options used).  It also prints a link map.
+
+### Prerequisites on every platform
+
 - UASM 2.58 with a fix that gwnum's AVX-512 code needs (unmodified UASM 2.57
   and 2.58 fail on `zr4.asm` and `timeit.asm`).  Download
-  `uasm-2.58-gw1-linux-x86_64.tar.gz` (or `-linux-i686` for 32-bit) from the
+  `uasm-2.58-gw1-linux-x86_64.tar.gz`, `-linux-i686` or
+  `-freebsd-x86_64.tar.gz` from the
   [v2.58-gw1 release](https://github.com/gwoltman/UASM-2.58-gw1/releases/tag/v2.58-gw1),
   or build it from source:
 
@@ -133,100 +161,51 @@ distributions too (an executable linked against a newer glibc will not).
   This builds `GccUnixR/uasm`.  With an older gcc that defaults to C89,
   such as gcc 4.8 on 32-bit CentOS 7, add C99 mode:
   `make -f Makefile-Linux-GCC-64.mak extra_c_flags="-DNDEBUG -O2 -funsigned-char -Wwrite-strings -std=gnu99"`.
+  On FreeBSD use `gmake`; for macOS see below.
 - [objconv](https://www.agner.org/optimize/#objconv), built from its
-  `source.zip`: `g++ -O2 -o objconv *.cpp`.
+  `source.zip`: `g++ -O2 -o objconv *.cpp` (`clang++` on macOS).
+- GMP, hwloc and libcurl, with their development headers.
+- The Boost headers (1.76.0 is what official builds use).  A distribution's
+  Boost package (such as Debian's `libboost-dev`) works too.
+- GNU make.
 
-The assembly code is assembled exactly as on Windows: uasm writes a COFF
-object, and objconv converts it to ELF.  uasm's own ELF output is not used.
+The gwnum package (see [The gwnum package](#the-gwnum-package)) comes with
+the assembly code already assembled, so building gwnum from it needs neither
+UASM nor objconv.
 
-### Build steps
+### Linux
 
-Pass `UASM` and `OBJCONV` if the tools are not on your PATH.
+- gcc and g++ new enough for AVX-512 (`-mavx512f`), which gcc 8 is.  On CentOS
+  7, use devtoolset-8: `source /opt/rh/devtoolset-8/enable`.  32-bit builds
+  have no AVX-512 code, and 32-bit CentOS 7's gcc 4.8 is enough.
+- On Debian or Ubuntu, the libraries are
+  `apt install libgmp-dev libhwloc-dev libcurl4-openssl-dev libboost-dev`.
 
-```
-cd gwnum
-make -f makeasm64 UASM=~/tools/uasm OBJCONV=~/tools/objconv
-make -f make64
-cd ../prime95
-make -f makeasm64 UASM=~/tools/uasm OBJCONV=~/tools/objconv
-cd ../linux
-make -f make64
-```
+Official Linux builds are made on CentOS 7, so that mprime runs on older Linux
+distributions too (an executable linked against a newer glibc will not), with
+GMP, hwloc and libcurl built from source in `/usr/local`.
 
-`gwnum/makeasm64` builds `gwnum/linux64/gwnum.a` (the assembly code) and
-`gwnum/make64` adds the C code to make `gwnum/gwnum.a` and
-`gwnum/polymult.a`.  `prime95/makeasm64` builds the factoring code,
-`prime95/linux64/factor64.o`.  The result is `linux/mprime`.
+### FreeBSD
 
-## Linux (32-bit)
+- gcc and g++ from ports or packages (`lang/gcc`): mprime is built with gcc
+  rather than the system clang, because a clang build of mprime crashes.
+- GNU make (`pkg install gmake`).  The makefiles need GNU make; a small
+  `BSDmakefile` beside each makes FreeBSD's own `make` run `gmake`, so plain
+  `make` still works.
+- The GMP, curl and hwloc packages, in `/usr/local` (set `LOCALBASE` for
+  another location).
 
-This build is tested on 32-bit CentOS 7, whose gcc 4.8 is new enough: the
-32-bit code has no AVX-512.  The prerequisites are otherwise the
-same as for 64-bit Linux, and so is UASM (built as a 32-bit program on a
-32-bit system).  The steps use the 32-bit makefiles:
+Official FreeBSD builds are made on FreeBSD 12.
 
-```
-cd gwnum
-make -f makeasm32 UASM=~/tools/uasm OBJCONV=~/tools/objconv
-make -f makefile
-cd ../prime95
-make -f makeasm32 UASM=~/tools/uasm OBJCONV=~/tools/objconv
-cd ../linux
-make -f makefile
-```
-
-`gwnum/makeasm32` builds `gwnum/linux/gwnum.a` from the same 32-bit objects
-the Windows build uses, and `prime95/makeasm32` builds
-`prime95/linux/factor32.o`.  The result is `linux/mprime`.
-
-## FreeBSD (64-bit)
-
-FreeBSD uses the same assembly objects as Linux; only the C code and the
-final link differ.  This build is tested on FreeBSD 12.3.
-
-### Prerequisites
-
-- gcc and g++ from ports or packages (`lang/gcc`).  `linux/makebsd64` uses
-  gcc rather than the system clang, because a clang build of mprime crashes.
-- GNU make (`devel/gmake`), for the assembly makefiles and for building UASM.
-  The other makefiles use FreeBSD's own make.
-- GMP and curl packages, and hwloc built as described in `linux/makebsd64`.
-  These are expected in `/usr/local`; set `LOCALBASE` for another location.
-- Boost 1.76.0 headers, by default in `../../boost_1_76_0` (or pass `BOOST=`).
-- UASM: `uasm-2.58-gw1-freebsd-x86_64.tar.gz` from the
-  [v2.58-gw1 release](https://github.com/gwoltman/UASM-2.58-gw1/releases/tag/v2.58-gw1),
-  or built as for Linux using `gmake -f Makefile-Linux-GCC-64.mak`.
-- objconv, built as for Linux.
-
-### Build steps
-
-```
-cd gwnum
-gmake -f makeasm64 UASM=~/tools/uasm OBJCONV=~/tools/objconv
-make -f makebsd64
-cd ../prime95
-gmake -f makeasm64 UASM=~/tools/uasm OBJCONV=~/tools/objconv
-cd ../linux
-make -f makebsd64
-```
-
-The result is `linux/mprime`.
-
-## macOS (Intel, command-line mprime)
-
-Only mprime is built for macOS, not the Prime95 GUI.  It uses the same 64-bit
-assembly as Linux, converted to Mach-O.  This build is tested on macOS 12.1
-(Intel) with Apple clang 11 from the Command Line Tools.
-
-### Prerequisites
+### macOS (Intel)
 
 - The Xcode Command Line Tools (`xcode-select --install`): clang, which
   answers to `gcc`/`g++`, and GNU make 3.81.
-- GMP and hwloc as static libraries in `/usr/local/lib` (see the notes at the
-  top of `linux/makemac64`), and libcurl.
-- Boost 1.76.0 headers, by default in `../../boost_1_76_0` (or pass `BOOST=`).
-- UASM, built from source as for Linux.  Its macOS makefile compiles in C89
-  mode, which current UASM no longer supports, so pass C99 instead:
+- GMP, hwloc and libcurl in `/usr/local` (Homebrew's work too).  Official
+  builds link GMP and hwloc statically from `/usr/local/lib/libgmp.a` and
+  `libhwloc.a`.
+- UASM built from source.  Its macOS makefile compiles in C89 mode, which
+  current UASM no longer supports, so pass C99 instead:
 
   ```
   git clone -b v2.58-gw1 https://github.com/gwoltman/UASM-2.58-gw1.git
@@ -234,22 +213,8 @@ assembly as Linux, converted to Mach-O.  This build is tested on macOS 12.1
   make -f Makefile-OSX-Clang-64.mak extra_c_flags="-DNDEBUG -O2 -std=gnu99 -funsigned-char -fwritable-strings"
   ```
 
-- objconv, built from its `source.zip`: `clang++ -O2 -o objconv *.cpp`.
-
-### Build steps
-
-```
-cd gwnum
-make -f makeasm64 mac UASM=~/tools/uasm OBJCONV=~/tools/objconv
-make -f makemac
-cd ../prime95
-make -f makeasm64 mac UASM=~/tools/uasm OBJCONV=~/tools/objconv
-cd ../linux
-make -f makemac64
-```
-
-`make -f makeasm64 mac` builds `gwnum/macosx64/gwnum.a` and
-`prime95/macosx64/factor64.o`.  The result is `linux/mprime`.
+mprime runs on macOS 10.9 and later.  This build is tested on macOS 12.1
+(Intel) with Apple clang 11 from the Command Line Tools.
 
 ## Official Windows releases
 
@@ -323,9 +288,10 @@ the script; `-Only windows,linux64` builds just some of them.
 need neither UASM nor objconv: gwnum's C sources, headers, Unix makefiles and
 `tutorial.txt`, the complete Windows libraries, the pre-assembled
 `linux64/gwnum.a`, `linux/gwnum.a` and `macosx64/gwnum.a`, and the QD and
-SQLite sources gwnum's C code needs (`third_party/qd` and `third_party/sqlite`).  Users compile gwnum's C code with the
-usual makefile (for example `make -f make64`) or link the Windows libraries
-directly.  Run it after `gwnum\c64.bat` and `gwnum\c.bat`:
+SQLite sources gwnum's C code needs (`third_party/qd` and
+`third_party/sqlite`).  On Linux, FreeBSD and macOS, users run `make` in its
+gwnum directory, which compiles gwnum's C code onto the pre-assembled code;
+on Windows they link the libraries directly.  Run it after `gwnum\c64.bat` and `gwnum\c.bat`:
 
 ```
 powershell -ExecutionPolicy Bypass -File gwnum\package.ps1

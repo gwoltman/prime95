@@ -38,6 +38,8 @@ $repo = Split-Path -Parent $PSScriptRoot
 if (-not $SecurityDir) { $SecurityDir = Join-Path (Split-Path -Parent $repo) 'prime95-security' }
 $builds = @('windows') + $machines.Keys
 if ($Only) {
+    # From "powershell -File", -Only a,b arrives as the single string "a,b"
+    $Only = $Only -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
     foreach ($o in $Only) { if ($o -notin $builds) { throw "Unknown build $o (builds: $($builds -join ', '))" } }
     $builds = $builds | Where-Object { $_ -in $Only }
 }

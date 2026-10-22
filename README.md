@@ -16,8 +16,9 @@ programs can build on it; see [The gwnum package](BUILDING.md#the-gwnum-package)
 
 ## Building
 
-[BUILDING.md](BUILDING.md) explains how to build on Windows, Linux (64-bit and
-32-bit), FreeBSD and macOS, and how the official releases are made.
+On Linux, FreeBSD and macOS, install the prerequisites and type `make`.
+[BUILDING.md](BUILDING.md) lists the prerequisites, explains the Windows
+build, and describes how the official releases are made.
 
 Builds from this repository identify themselves to PrimeNet as "Untrusted
 Prime95": the code that marks a build as official is kept private.  They are
@@ -30,7 +31,7 @@ otherwise complete.
 | (top level) | Code shared by Prime95 and mprime: work scheduling, PrimeNet communication, ECM, P-1, proofs |
 | `gwnum/` | The gwnum library |
 | `prime95/` | The Windows GUI, the trial factoring assembly code, and the text files shipped with every release |
-| `linux/` | mprime, with makefiles for Linux, FreeBSD and macOS |
+| `linux/` | mprime, for Linux, FreeBSD and macOS |
 | `winnt/` | The Windows service version (ntprime) |
 | `macosx/` | The old macOS GUI (not currently built) |
 | `release/` | The scripts that build the official releases |

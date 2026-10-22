@@ -48,27 +48,19 @@ done
 step() { echo "== $*"; }
 die() { echo "release/unix.sh: $*" >&2; exit 1; }
 
-# For each platform: the name mprime -v reports, the make commands for the
-# gwnum assembly, gwnum C code, factor and mprime, and how the GMP library is
+# For each platform: the name mprime -v reports, and how the GMP library is
 # shipped (links: the library file and its links, as installed; copies: the
-# library under each name; none: linked statically)
+# library under each name; none: linked statically).  linux/Makefile works
+# out the rest itself.
+tools="uasm objconv"
 case $(uname -s)-$(uname -m) in
-Linux-x86_64)
-	platform=linux64; appname=Linux64; gmp=links
-	gwasm="make -f makeasm64"; gwc="make -f make64"; factor="make -f makeasm64"; main="make -f make64" ;;
-Linux-i?86)
-	platform=linux32; appname=Linux; gmp=links
-	gwasm="make -f makeasm32"; gwc="make -f makefile"; factor="make -f makeasm32"; main="make -f makefile" ;;
-FreeBSD-amd64)
-	platform=FreeBSD64; appname="FreeBSD 64-bit"; gmp=copies
-	gwasm="gmake -f makeasm64"; gwc="make -f makebsd64"; factor="gmake -f makeasm64"; main="make -f makebsd64" ;;
-Darwin-x86_64)
-	platform=MacOSX; appname="Mac OS X 64-bit"; gmp=none
-	gwasm="make -f makeasm64 mac"; gwc="make -f makemac"; factor="make -f makeasm64 mac"; main="make -f makemac64" ;;
-*)
-	die "no release build is defined for $(uname -s) $(uname -m)" ;;
+Linux-x86_64)	platform=linux64; appname=Linux64; gmp=links ;;
+Linux-i?86)	platform=linux32; appname=Linux; gmp=links ;;
+FreeBSD-amd64)	platform=FreeBSD64; appname="FreeBSD 64-bit"; gmp=copies; tools="$tools gmake" ;;
+Darwin-x86_64)	platform=MacOSX; appname="Mac OS X 64-bit"; gmp=none ;;
+*)		die "no release build is defined for $(uname -s) $(uname -m)" ;;
 esac
-for t in uasm objconv ${gwasm%% *}; do
+for t in $tools; do
 	command -v $t > /dev/null || die "$t is not on PATH"
 done
 [ -f "$boost/boost/version.hpp" ] || die "Boost headers not found in $boost (use -b)"
@@ -106,10 +98,7 @@ run() {
 	step "$dir: $*"
 	(cd "$tree/$dir" && "$@") >> "$log" 2>&1 || { tail -30 "$log"; die "$* in $dir failed (see $log)"; }
 }
-run gwnum $gwasm -j"$jobs"
-run gwnum $gwc -j"$jobs"
-run prime95 $factor
-run linux $main -j"$jobs" BOOST="$boost"
+run linux make -j"$jobs" RELEASE=1 BOOST="$boost"
 
 # Check that mprime is a trusted build of this version
 mprime=$tree/linux/mprime
