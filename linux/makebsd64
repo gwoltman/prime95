@@ -50,7 +50,7 @@ $(FACTOROBJ): ../prime95/linux64/factor64.o
 	cp ../prime95/linux64/factor64.o $(FACTOROBJ)
 
 cJSON.o:
-	$(CC) $(CFLAGS) -c ../cJSON.c
+	$(CC) $(CFLAGS) -c ../third_party/cjson/cJSON.c
 
 ecm.o:
 	$(CXX) $(CXXFLAGS) -c ../ecm.cpp

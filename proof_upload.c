@@ -4,7 +4,7 @@
 | This file contains routines to upload one proof file to the Primenet server
 +--------------------------------------------------------------------------*/
 
-#include "cJSON.h"
+#include "third_party/cjson/cJSON.h"
 
 /* This routine archives or deletes a proof file */
 

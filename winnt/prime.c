@@ -14,7 +14,7 @@
 
 #include "common.h"
 #include "pm1prob.h"
-#include "md5.c"
+#include "third_party/md5/md5.c"
 #include "commona.c"
 #include "commonb.c"
 #include "commonc.c"

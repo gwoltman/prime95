@@ -12,10 +12,10 @@
 # copy /boot/system/develop/headers/posix/arch/x86/* to ./arch, and add -I. to compiler flags.
 
 CC = gcc
-CFLAGS = -I. -I.. -I../sqlite-amalgamation-3420000 -O2 -march=i586 -malign-double -std=gnu99 -Wno-unused-result
+CFLAGS = -I. -I.. -O2 -march=i586 -malign-double -std=gnu99 -Wno-unused-result
 
 CPP = g++
-CPPFLAGS = -I. -I.. -I../qd -O2 -march=i586 -malign-double -std=c++11
+CPPFLAGS = -I. -I.. -O2 -march=i586 -malign-double -std=c++11
 
 AR = ar
 

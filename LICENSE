@@ -12,16 +12,20 @@ Third-party software
 --------------------
 
 This repository also contains software written by others, each under its own
-terms, given in full in the files themselves:
+terms, given in full in the files themselves.  Most of it is in
+third_party/:
 
-  cJSON.c, cJSON.h               cJSON, by Dave Gamble and cJSON contributors
+  third_party/cjson/             cJSON, by Dave Gamble and cJSON contributors
                                  (MIT license)
-  sqlite-amalgamation-3420000/   SQLite 3.42.0 (public domain)
-  qd/                            the QD double-double library, from Lawrence
+  third_party/sqlite/            SQLite 3.42.0 (public domain)
+  third_party/qd/                the QD double-double library, from Lawrence
                                  Berkeley National Laboratory
-  md5.c                          the RSA Data Security, Inc. MD5 Message-Digest
+  third_party/md5/               the RSA Data Security, Inc. MD5 Message-Digest
                                  Algorithm
-  sha3.c, sha3.h                 SHA-3, by Markku-Juhani O. Saarinen
+  third_party/sha3/              SHA-3, by Markku-Juhani O. Saarinen
+
+and two parts of gwnum are derived from others' work:
+
   gwnum/fftsg.c                  derived from Takuya Ooura's FFT package
   gwnum/giants.c, giants.h       derived from the giants library,
                                  copyright 1997-1998 Perfectly Scientific, Inc.

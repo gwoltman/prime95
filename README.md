@@ -34,7 +34,7 @@ otherwise complete.
 | `winnt/` | The Windows service version (ntprime) |
 | `macosx/` | The old macOS GUI (not currently built) |
 | `release/` | The scripts that build the official releases |
-| `qd/`, `sqlite-amalgamation-3420000/` | Third-party libraries |
+| `third_party/` | Code by others: cJSON, SQLite, QD, MD5 and SHA-3 |
 
 ## License
 

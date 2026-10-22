@@ -5,8 +5,8 @@
 +---------------------------------------------------------------------*/
 
 #include "memory.h"
-#include "sha3.h"
-#include "sha3.c"
+#include "third_party/sha3/sha3.h"
+#include "third_party/sha3/sha3.c"
 
 typedef unsigned char hash256_t[32];		// A 256-bit hash value
 

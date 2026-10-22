@@ -285,7 +285,7 @@ if not exist "$(ProjectDir)..\secure5.c" type nul &gt; "$(ProjectDir)..\secure5.
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\cJSON.c" />
+    <ClCompile Include="..\third_party\cjson\cJSON.c" />
     <ClCompile Include="..\ecm.cpp" />
     <ClCompile Include="..\exponentiate.c" />
     <ClCompile Include="..\pair.cpp" />

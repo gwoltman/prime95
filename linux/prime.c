@@ -108,7 +108,7 @@ char pidfile[256];
 
 /* Common code */
 
-#include "md5.c"
+#include "third_party/md5/md5.c"
 #include "commona.c"
 #include "commonb.c"
 #include "commonc.c"

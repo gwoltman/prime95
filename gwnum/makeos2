@@ -18,12 +18,12 @@
 # I use the pentium4 architecture for RPM/YUM, it'll be a pain to switch to i686 if necessary, so I'll keep it like this for now.
 
 CC = gcc
-CFLAGS = -Zomf -Zbin-files -I.. -I../sqlite-amalgamation-3420000 -I/usr/local/include -std=gnu99 -Wno-unused-result -march=pentium4 -malign-double -O2
-#CFLAGS = -g -Zomf -Zbin-files -I.. -I../sqlite-amalgamation-3420000 -I/usr/local/include -std=gnu99 -Wno-unused-result -march=pentium4 -malign-double -DGDEBUG -O2
+CFLAGS = -Zomf -Zbin-files -I.. -I/usr/local/include -std=gnu99 -Wno-unused-result -march=pentium4 -malign-double -O2
+#CFLAGS = -g -Zomf -Zbin-files -I.. -I/usr/local/include -std=gnu99 -Wno-unused-result -march=pentium4 -malign-double -DGDEBUG -O2
 
 CPP = g++
-CPPFLAGS = -Zomf -Zbin-files -I.. -I../qd -std=c++11 -O2 -march=pentium4 -malign-double
-#CPPFLAGS = -g -Zomf -Zbin-files -I.. -I../qd -std=c++11 -O2 -march=pentium4 -malign-double -DGDEBUG
+CPPFLAGS = -Zomf -Zbin-files -I.. -std=c++11 -O2 -march=pentium4 -malign-double
+#CPPFLAGS = -g -Zomf -Zbin-files -I.. -std=c++11 -O2 -march=pentium4 -malign-double -DGDEBUG
 
 AR = ar
 EMXOMFAR = emxomfar

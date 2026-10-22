@@ -5,16 +5,16 @@
 ENVP= MACOSX_DEPLOYMENT_TARGET=10.9
 
 CC = gcc
-CFLAGS = -I.. -I../sqlite-amalgamation-3420000 -O2 -m32 -std=gnu99 -march=i686 -fno-exceptions
-CFLAGSD = -I.. -I../sqlite-amalgamation-3420000 -g -DGDEBUG -std=gnu99 -m32 -march=i686 -fno-exceptions
-CFLAGS64 = -I.. -I../sqlite-amalgamation-3420000 -O2 -std=gnu99 -DX86_64 -m64 -fno-exceptions
-CFLAGS64D = -I.. -I../sqlite-amalgamation-3420000 -g -DGDEBUG -std=gnu99 -DX86_64 -m64 -fno-exceptions
+CFLAGS = -I.. -O2 -m32 -std=gnu99 -march=i686 -fno-exceptions
+CFLAGSD = -I.. -g -DGDEBUG -std=gnu99 -m32 -march=i686 -fno-exceptions
+CFLAGS64 = -I.. -O2 -std=gnu99 -DX86_64 -m64 -fno-exceptions
+CFLAGS64D = -I.. -g -DGDEBUG -std=gnu99 -DX86_64 -m64 -fno-exceptions
 
 CPP = g++
-CPPFLAGS = -I.. -I../qd -O2 -std=c++11 -m32 -march=i686 -fno-exceptions -fno-rtti -Wno-stdlibcxx-not-found
-CPPFLAGSD = -I.. -I../qd -g -DGDEBUG -std=c++11 -m32 -march=i686 -fno-exceptions -fno-rtti -Wno-stdlibcxx-not-found
-CPPFLAGS64 = -I.. -I../qd -O2 -DX86_64 -std=c++11 -m64 -fno-exceptions -fno-rtti -Wno-stdlibcxx-not-found
-CPPFLAGS64D = -I.. -I../qd -g -DGDEBUG -DX86_64 -std=c++11 -m64 -fno-exceptions -fno-rtti -Wno-stdlibcxx-not-found
+CPPFLAGS = -I.. -O2 -std=c++11 -m32 -march=i686 -fno-exceptions -fno-rtti -Wno-stdlibcxx-not-found
+CPPFLAGSD = -I.. -g -DGDEBUG -std=c++11 -m32 -march=i686 -fno-exceptions -fno-rtti -Wno-stdlibcxx-not-found
+CPPFLAGS64 = -I.. -O2 -DX86_64 -std=c++11 -m64 -fno-exceptions -fno-rtti -Wno-stdlibcxx-not-found
+CPPFLAGS64D = -I.. -g -DGDEBUG -DX86_64 -std=c++11 -m64 -fno-exceptions -fno-rtti -Wno-stdlibcxx-not-found
 
 AR = ar
 

@@ -37,7 +37,7 @@ clean:
 	rm -f $(EXE) $(HAIKUOBJS)
 
 cJSON.o:
-	$(CC) $(CFLAGS) -c ../cJSON.c
+	$(CC) $(CFLAGS) -c ../third_party/cjson/cJSON.c
 
 ecm.o:
 	$(CPP) $(CPPFLAGS) -c ../ecm.cpp

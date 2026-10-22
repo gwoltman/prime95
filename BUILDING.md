@@ -20,7 +20,7 @@ This covers Windows with Microsoft Visual C++, 64-bit and 32-bit Linux,
 A location starting with `\` is at the root of the drive holding the source.
 
 SQLite 3.42.0, cJSON, QD and the other small libraries prime95 uses are
-included in this repository.
+included in this repository, in `third_party/`.
 
 ### Getting UASM
 
@@ -322,8 +322,8 @@ the script; `-Only windows,linux64` builds just some of them.
 `gwnum\package.ps1` packages gwnum for programs that build on it, so they
 need neither UASM nor objconv: gwnum's C sources, headers, Unix makefiles and
 `tutorial.txt`, the complete Windows libraries, the pre-assembled
-`linux64/gwnum.a`, `linux/gwnum.a` and `macosx64/gwnum.a`, and the qd and
-SQLite sources gwnum's C code needs.  Users compile gwnum's C code with the
+`linux64/gwnum.a`, `linux/gwnum.a` and `macosx64/gwnum.a`, and the QD and
+SQLite sources gwnum's C code needs (`third_party/qd` and `third_party/sqlite`).  Users compile gwnum's C code with the
 usual makefile (for example `make -f make64`) or link the Windows libraries
 directly.  Run it after `gwnum\c64.bat` and `gwnum\c.bat`:
 

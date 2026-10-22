@@ -33,7 +33,7 @@ clean:
 	rm -f $(EXE) $(EXE2) $(OBJS)
 
 cJSON.o:
-	$(CC) $(CFLAGS) -c ../cJSON.c
+	$(CC) $(CFLAGS) -c ../third_party/cjson/cJSON.c
 
 ecm.o:
 	$(CXX) $(CXXFLAGS) -c ../ecm.cpp

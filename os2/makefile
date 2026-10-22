@@ -5,7 +5,7 @@
 
 CC = wcc386
 CPP = wpp386
-CFLAGS = /ox /d0 /I..;..\linux;..\gwnum;..\qd /5s /D__IBMC__ /DTCPV40HDRS
+CFLAGS = /ox /d0 /I..;..\linux;..\gwnum /5s /D__IBMC__ /DTCPV40HDRS
 LINK = wlink
 LFLAGS = LIBPath ..\prime95;..\linux;..\gwnum op m import DosQuerySysState DOSCALLS.368
 

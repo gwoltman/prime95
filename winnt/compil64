@@ -27,8 +27,8 @@ all: ntprime64.exe
 
 # Update the object files if necessary
 
-amd64\cJSON.obj: ..\cJSON.c
-    $(cl64) $(copt) /Foamd64\cJSON.obj ..\cJSON.c
+amd64\cJSON.obj: ..\third_party\cjson\cJSON.c
+    $(cl64) $(copt) /Foamd64\cJSON.obj ..\third_party\cjson\cJSON.c
 
 amd64\ecm.obj: ..\ecm.cpp
     $(cl64) $(copt) /Foamd64\ecm.obj ..\ecm.cpp

@@ -7,13 +7,13 @@ LOCALBASE ?= /usr/local
 
 #CC ?= cc
 CC = gcc
-CFLAGS += -I.. -I../sqlite-amalgamation-3420000 -I$(LOCALBASE)/include -std=gnu99 -DX86_64 -O2
-#CFLAGS += -g -I.. -I../sqlite-amalgamation-3420000 -I$(LOCALBASE)/include -std=gnu99 -DX86_64 -DGDEBUG -O2
+CFLAGS += -I.. -I$(LOCALBASE)/include -std=gnu99 -DX86_64 -O2
+#CFLAGS += -g -I.. -I$(LOCALBASE)/include -std=gnu99 -DX86_64 -DGDEBUG -O2
 
 #CXX ?= cc
 CXX = g++
-CXXFLAGS += -I.. -I../qd -std=c++11 -DX86_64 -O2
-#CXXFLAGS += -g -I.. -I../qd -std=c++11 -DX86_64 -DGDEBUG -O2
+CXXFLAGS += -I.. -std=c++11 -DX86_64 -O2
+#CXXFLAGS += -g -I.. -std=c++11 -DX86_64 -DGDEBUG -O2
 
 AR ?= ar
 

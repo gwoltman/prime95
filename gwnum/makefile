@@ -2,12 +2,12 @@
 #
 
 CC = gcc
-CFLAGS = -I.. -I../sqlite-amalgamation-3420000 -I/usr/local/include -std=gnu99 -Wno-unused-result -march=i486 -malign-double -O2
-#CFLAGS = -g -I.. -I../sqlite-amalgamation-3420000 -I/usr/local/include -std=gnu99 -Wno-unused-result -march=i486 -malign-double -DGDEBUG -O2
+CFLAGS = -I.. -I/usr/local/include -std=gnu99 -Wno-unused-result -march=i486 -malign-double -O2
+#CFLAGS = -g -I.. -I/usr/local/include -std=gnu99 -Wno-unused-result -march=i486 -malign-double -DGDEBUG -O2
 
 CPP = g++
-CPPFLAGS = -I.. -I../qd -std=c++11 -O2 -march=i486 -malign-double
-#CPPFLAGS = -g -I.. -I../qd -std=c++11 -O2 -march=i486 -malign-double -DGDEBUG
+CPPFLAGS = -I.. -std=c++11 -O2 -march=i486 -malign-double
+#CPPFLAGS = -g -I.. -std=c++11 -O2 -march=i486 -malign-double -DGDEBUG
 
 AR = ar
 

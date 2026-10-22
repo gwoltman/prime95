@@ -7,7 +7,7 @@
 #     their debug versions), complete;
 #   - linux64/gwnum.a, linux/gwnum.a and macosx64/gwnum.a, the assembled code
 #     that make64, makefile, makebsd64 and makemac start from;
-#   - qd and the SQLite amalgamation, which gwnum's C code includes.
+#   - third_party/qd and third_party/sqlite, which gwnum's C code includes.
 #
 # Run it after gwnum\c64.bat and gwnum\c.bat have built everything.  It writes
 # p95v<version>b<build>.gwnum.zip (for example p95v3107b02.gwnum.zip) to the
@@ -30,7 +30,7 @@ $ver = '{0}{1:D2}b{2:D2}' -f $v.Groups[1].Value, [int]$v.Groups[2].Value, [int]$
 $zipPath = Join-Path $OutDir "p95v$ver.gwnum.zip"
 
 # Committed source files, so no build leftovers get in
-$tracked = git -C $root ls-files gwnum qd sqlite-amalgamation-3420000
+$tracked = git -C $root ls-files gwnum third_party/qd third_party/sqlite
 if ($LASTEXITCODE -ne 0) { throw 'git ls-files failed' }
 $wanted = '\.(c|cpp|h|cc)$|^gwnum/(make64|makefile|makebsd64|makemac|makehaiku|makemsys|tutorial\.txt)$'
 $files = @($tracked | Where-Object { $_ -match $wanted })

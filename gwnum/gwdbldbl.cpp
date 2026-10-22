@@ -34,7 +34,7 @@
 /* Use Hida, Li & Bailey's QD doubledouble C++ package. */
 
 #ifdef QD
-#include "dd.cc"
+#include "third_party/qd/dd.cc"
 #endif
 
 /* Use Keith Briggs' doubledouble C++ package.  I find the QD package a better choice. */

@@ -87,7 +87,7 @@
 //#define SQLITE_OMIT_XFER_OPT 1
 //#define SQLITE_UNTESTABLE 1
 ////#define SQLITE_ZERO_MALLOC 1
-#include "sqlite3.c"
+#include "third_party/sqlite/sqlite3.c"
 
 /* Defines */
 

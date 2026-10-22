@@ -27,8 +27,8 @@ all: ntprime.exe
 
 # Update the object files if necessary
 
-cJSON.obj: ../cJSON.c
-    $(cl) $(copt) ..\cJSON.c
+cJSON.obj: ../third_party/cjson/cJSON.c
+    $(cl) $(copt) ..\third_party\cjson\cJSON.c
 
 ecm.obj: ../ecm.cpp
     $(cl) $(copt) ..\ecm.cpp

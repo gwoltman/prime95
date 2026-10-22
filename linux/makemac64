@@ -43,7 +43,7 @@ clean:
 	rm -f $(EXE) $(EXE2) $(OBJS)
 
 cJSON.o:
-	$(ENVP) $(CC) $(CFLAGS) -c ../cJSON.c
+	$(ENVP) $(CC) $(CFLAGS) -c ../third_party/cjson/cJSON.c
 
 ecm.o:
 	$(ENVP) $(CPP) $(CPPFLAGS) -c ../ecm.cpp
