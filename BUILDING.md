@@ -298,6 +298,25 @@ distributions too, with GMP 6.2 built from source in `/usr/local/lib`;
 FreeBSD builds on FreeBSD 12, and Mac builds on macOS 12 for macOS 10.9 and
 later.
 
+## Making a release
+
+Set `VERSION` and `BUILD_NUM` in `commonc.h`, commit, and tag the commit
+`v<version>b<build>`, for example `v31.7b2` for version 31.7 build 2.  The
+release scripts refuse a tag of that form that does not match `commonc.h`.
+Then build everything at once:
+
+```
+powershell -ExecutionPolicy Bypass -File release\all.ps1 -Ref v31.7b2
+```
+
+`release\all.ps1` runs `release\windows.ps1` and a `release\vm.ps1` for each
+Unix build machine at the same time, starting the VirtualBox VMs that are
+powered off (and shutting them down afterwards, unless `-KeepVMs`).  It
+leaves the eight release files and one `SHA256SUMS` in
+`prime95-release-<version>` next to this repository, with the build logs in
+`%TEMP%\prime95-release-logs`.  The build machines are listed at the top of
+the script; `-Only windows,linux64` builds just some of them.
+
 ## The gwnum package
 
 `gwnum\package.ps1` packages gwnum for programs that build on it, so they

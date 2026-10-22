@@ -1,0 +1,35 @@
+Copyright 1995-2026 Mersenne Research, Inc.  All rights reserved.
+
+Prime95, mprime and the gwnum library are the software of the Great Internet
+Mersenne Prime Search (GIMPS).  Their use is governed by the GIMPS terms at
+https://www.mersenne.org/legal/ and by the end user license agreement in
+prime95/license.txt, which is shipped with every release.  Those terms
+include the rules for distributing prize money for new Mersenne primes found
+with this software.
+
+
+Third-party software
+--------------------
+
+This repository also contains software written by others, each under its own
+terms, given in full in the files themselves:
+
+  cJSON.c, cJSON.h               cJSON, by Dave Gamble and cJSON contributors
+                                 (MIT license)
+  sqlite-amalgamation-3420000/   SQLite 3.42.0 (public domain)
+  qd/                            the QD double-double library, from Lawrence
+                                 Berkeley National Laboratory
+  md5.c                          the RSA Data Security, Inc. MD5 Message-Digest
+                                 Algorithm
+  sha3.c, sha3.h                 SHA-3, by Markku-Juhani O. Saarinen
+  gwnum/fftsg.c                  derived from Takuya Ooura's FFT package
+  gwnum/giants.c, giants.h       derived from the giants library,
+                                 copyright 1997-1998 Perfectly Scientific, Inc.
+
+Prime95 also contains distributed computing software licensed from
+Entropia.com, Inc.
+
+The official releases link against GMP (https://gmplib.org, LGPL), hwloc
+(https://www.open-mpi.org/projects/hwloc/, BSD license), libcurl
+(https://curl.se, curl license), and all builds use the Boost headers
+(https://www.boost.org, Boost Software License).

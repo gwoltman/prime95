@@ -45,13 +45,18 @@ $h = (git -C $repo show "${Ref}:commonc.h") -join "`n"
 $v = [regex]::Match($h, '#define\s+VERSION\s+"(\d+)\.(\d+)"')
 $b = [regex]::Match($h, '#define\s+BUILD_NUM\s+"(\d+)"')
 if (-not $v.Success -or -not $b.Success) { throw 'VERSION or BUILD_NUM not found in commonc.h' }
+# A release tag (v31.7b2 for version 31.7 build 2) must name the version it builds
+$t = [regex]::Match($Ref, '^v(\d+)\.(\d+)b(\d+)$')
+if ($t.Success -and ([int]$t.Groups[1].Value -ne [int]$v.Groups[1].Value -or [int]$t.Groups[2].Value -ne [int]$v.Groups[2].Value -or [int]$t.Groups[3].Value -ne [int]$b.Groups[1].Value)) {
+    throw "Tag $Ref does not match commonc.h, which says version $($v.Groups[1].Value).$($v.Groups[2].Value) build $($b.Groups[1].Value)"
+}
 $ver = '{0}{1:D2}b{2:D2}' -f $v.Groups[1].Value, [int]$v.Groups[2].Value, [int]$b.Groups[1].Value
 if (-not $OutDir) { $OutDir = Join-Path (Split-Path -Parent $repo) "prime95-release-$ver" }
 Write-Host "Version $($v.Groups[1].Value).$($v.Groups[2].Value) build $($b.Groups[1].Value) ($ver), commit $commit, on $Target port $Port"
 
 # The source, with Unix line endings whatever this checkout uses
-$tar = Join-Path $env:TEMP "prime95-$commit.tar"
-$runSh = Join-Path $env:TEMP "prime95-$commit-run.sh"
+$tar = Join-Path $env:TEMP "prime95-$commit-$PID.tar"
+$runSh = Join-Path $env:TEMP "prime95-$commit-$PID-run.sh"
 Step "Exporting $Ref"
 git -C $repo -c core.autocrlf=false -c core.eol=lf archive --format=tar --prefix=prime95/ -o $tar $commit
 if ($LASTEXITCODE -ne 0) { throw 'git archive failed' }
