@@ -31,6 +31,7 @@ static const char ERRMSG6[] = "ERROR: Comparing PRP double-check values failed. 
 static const char ERRMSG7[] = "ERROR: Comparing Gerbicz checksum values failed.  Rolling back to iteration %lu.\n";
 static const char ERRMSG8[] = "ERROR: Invalid FFT data.  Restarting from last save file.\n";
 static const char ERRMSG9[] = "ERROR: Invalid PRP state.  Restarting from last save file.\n";
+static const char ERRMSG10[] = "ERROR: PRP value or iteration count is corrupt.  Restarting from last save file.\n";
 static const char ERROK[] = "Disregard last error.  Result is reproducible and thus not a hardware problem.\n";
 static const char READFILEERR[] = "Error reading intermediate file: %s\n";
 static const char WRITEFILEERR[] = "Error writing intermediate file: %s\n";
@@ -10422,6 +10423,8 @@ struct prp_state {
 	unsigned long start_counter;	/* Counter at start of current Gerbicz or double-check block */
 	unsigned long next_mul_counter;	/* Counter when next Gerbicz multiply takes place */
 	unsigned long end_counter;	/* Counter when current Gerbicz or double-check block ends */
+	unsigned long x_iters;		/* Number of squarings applied to x.  Gerbicz error checking does not protect counter, x_iters lets us check it. */
+	unsigned long initial_units_bit; /* Shift count of the starting value.  Lets us check units_bit, which Gerbicz error checking does not protect. */
 	unsigned long proof_num_iters;	/* Number of squarings that make up a (could be partial) proof */
 	int	proof_version;		/* 1 = early v30 with excess squarings, 2 = later versions with no excess squarings */
 	int	proof_power;		/* PRP proof power (see Mihai's documents) */
@@ -11268,13 +11271,18 @@ pfail:		if (fd >= 0) _close (fd);
 /*	char[16]	res64 (version number >= 5) */
 /*	u32		proof power multiplier (version number >= 6) */
 /*	u32		md5_residues flag (version number >= 6) */
+/*	u32		proof version (version number >= 7) */
+/*	u32		squarings applied to x (version number >= 8) */
+/*	u32		initial shift count (version number >= 8) */
 /*	gwnum		FFT data for x (u32 len, array u32s) */
 /*	gwnum		FFT data for alt_x (u32 len, array u32s) (version number >= 3) */
 /*	gwnum		FFT data for u0 (u32 len, array u32s) (version number >= 3) */
 /*	gwnum		FFT data for d (u32 len, array u32s) (version number >= 3) */
 
 #define PRP_MAGICNUM		0x87f2a91b
-#define PRP_VERSION		7
+#define PRP_VERSION		8
+
+#define PRP_UNKNOWN_SHIFT	0xFFFFFFFF	/* initial_units_bit value when restoring a pre-version 8 save file */
 
 /* Return the iteration x is at.  In some states the counter lags x.  A Gerbicz checksum multiply backs the counter up by one.  Double-check */
 /* pass 2 and the end of a Gerbicz block (computing checksum #2 from alt_x and the final checksum #1 multiply) rewind the counter while x */
@@ -11287,6 +11295,74 @@ unsigned long prpXCounter (
 	if (ps->state == PRP_STATE_DCHK_PASS2 || ps->state == PRP_STATE_GERB_END_BLOCK ||
 	    ps->state == PRP_STATE_GERB_END_BLOCK_MULT || ps->state == PRP_STATE_GERB_FINAL_MULT) return (ps->end_counter);
 	return (ps->counter);
+}
+
+/* Gerbicz error checking protects the FFT data, but not the iteration counter or the shift count.  A memory error in either produces a wrong */
+/* result that passes every Gerbicz check.  Validate both against independently maintained values: the count of squarings applied to x and */
+/* the starting shift count (units_bit must be initial_units_bit * 2^x_iters mod n). */
+
+int prpBookkeepingOK (
+	struct prp_state *ps,
+	struct work_unit *w)
+{
+	if (ps->x_iters != prpXCounter (ps)) return (FALSE);
+	if (ps->initial_units_bit != PRP_UNKNOWN_SHIFT) {
+		uint64_t expected = ps->initial_units_bit % w->n;
+		uint64_t two_power = 2;
+		for (unsigned long e = ps->x_iters; e; e >>= 1) {
+			if (e & 1) expected = (expected * two_power) % w->n;
+			two_power = (two_power * two_power) % w->n;
+		}
+		if (w->n > 1 && expected != ps->units_bit) return (FALSE);
+	}
+	return (TRUE);
+}
+
+/* Compare a (possibly shifted) gwnum to prp_base^power mod k*b^n+c.  Used to check values that are not protected by error checking. */
+
+int isPRPValBasePower (
+	gwhandle *gwdata,
+	struct work_unit *w,
+	gwnum	val,			/* Value to check */
+	unsigned long units_bit,	/* Shift count of val */
+	unsigned int prp_base,		/* PRP base */
+	double	power)			/* Desired power of the PRP base */
+{
+	giant	tmp;
+	mpz_t	modulus, expected, actual;
+	int	err_code, match;
+
+	tmp = popg (&gwdata->gdata, ((unsigned long) gwdata->bit_length >> 5) + 5);
+	err_code = gwtogiant (gwdata, val, tmp);
+	rotateg (tmp, w->n, units_bit, &gwdata->gdata);
+
+	mpz_init (modulus);
+	mpz_ui_pow_ui (modulus, w->b, w->n);
+	mpz_init_set_d (expected, w->k);
+	mpz_mul (modulus, modulus, expected);
+	mpz_add_si (modulus, modulus, w->c);
+	mpz_set_d (expected, power);
+	mpz_init_set_ui (actual, prp_base);
+	mpz_powm (expected, actual, expected, modulus);
+	gtompz (tmp, actual);
+	match = (err_code == 0 && mpz_cmp (actual, expected) == 0);
+
+	mpz_clear (modulus);
+	mpz_clear (expected);
+	mpz_clear (actual);
+	pushg (&gwdata->gdata, 1);
+	return (match);
+}
+
+/* A checksum of the binary exponent.  Both passes of a double-check read the same exponent, so a memory error in the exponent goes */
+/* unnoticed unless we check it. */
+
+uint64_t expChecksum (
+	giant	exp)
+{
+	uint64_t sum = (uint64_t) exp->sign;
+	for (int i = 0; i < exp->sign; i++) sum = sum * 0x100000001B3ULL + exp->n[i];
+	return (sum);
 }
 
 int writePRPSaveFile (			// Returns TRUE if successful
@@ -11344,6 +11420,8 @@ int writePRPSaveFile (			// Returns TRUE if successful
 	if (!write_long (fd, ps->proof_power_mult, &sum)) goto writeerr;
 	if (!write_long (fd, ps->md5_residues, &sum)) goto writeerr;
 	if (!write_long (fd, ps->proof_version, &sum)) goto writeerr;
+	if (!write_long (fd, ps->x_iters, &sum)) goto writeerr;
+	if (!write_long (fd, ps->initial_units_bit, &sum)) goto writeerr;
 	if (!write_gwnum (fd, gwdata, ps->x, &sum)) {
 		sprintf (buf, "Error writing FFT data named x, state %d, to PRP save file %s\n", ps->state, write_save_file_state->base_filename);
 		OutputBoth (ps->thread_num, buf);
@@ -11503,6 +11581,15 @@ int readPRPSaveFile (
 		ps->proof_version = savefile_proof_version;
 	} else {
 		ps->proof_version = 1;
+	}
+
+	// Read in fields introduced in version 8.  Older save files cannot have their shift count checked.
+	if (version >= 8) {
+		if (!read_long (fd, &ps->x_iters, &sum)) goto err;
+		if (!read_long (fd, &ps->initial_units_bit, &sum)) goto err;
+	} else {
+		ps->x_iters = prpXCounter (ps);
+		ps->initial_units_bit = PRP_UNKNOWN_SHIFT;
 	}
 
 	// In version 3, we did not delay the final multiply in calculation of checksum #1.
@@ -11790,6 +11877,7 @@ int prp (
 	int	proof_next_interim_residue;	/* The next interim residue to output */
 	unsigned long proof_next_interim_residue_iter; /* The iteration where the next interim residue occurs */
 	unsigned long initiallog2k_iters, initial_nonproof_iters, final_residue_counter;
+	uint64_t exp_checksum;			/* Checksum of exp to catch memory errors in exp */
 	int	proof_residue;			/* True if this iteration must output a PRP proof residue */
 	char	proof_hash[33];			/* 128-bit MD5 hash of the proof file */
 
@@ -12317,6 +12405,7 @@ begin:	N = exp = NULL;
 /* Get the exact bit length of the binary exponent.  We will perform bitlen(exp)-1 squarings for the PRP test. */
 
 	explen = bitlen (exp);
+	exp_checksum = expChecksum (exp);
 	final_counter = explen - 1;
 	final_residue_counter = final_counter - excess_squarings;
 
@@ -12430,6 +12519,23 @@ begin:	N = exp = NULL;
 				ps.state = PRP_STATE_GERB_START_BLOCK;
 			}
 		}
+
+/* Init the values used to check the iteration counter and shift count */
+
+		ps.x_iters = 0;
+		ps.initial_units_bit = ps.units_bit;
+
+/* Error checking compares x and alt_x, which are copies of the starting value.  A memory error before the copy would corrupt both and */
+/* go undetected.  Check that both are the starting value. */
+
+		if (!isPRPValBasePower (&gwdata, w, ps.x, ps.units_bit, ps.prp_base, 1.0) ||
+		    (ps.error_check_type != PRP_ERRCHK_NONE && !isPRPValBasePower (&gwdata, w, ps.alt_x, ps.alt_units_bit, ps.prp_base, 1.0))) {
+			OutputBoth (thread_num, ERRMSG10);
+			inc_error_count (7, &ps.error_count);
+			restart_counter = -1;			/* rollback to any save file */
+			sleep5 = FALSE;
+			goto restart;
+		}
 	}
 
 /* Get setting for verbosity of hardware error messages.  Force output of "confidence is excellent" when error checking. */
@@ -12461,8 +12567,20 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 /* If there aren't many iterations left, revert to simple double-checking. */
 
 		if (ps.state == PRP_STATE_GERB_START_BLOCK) {
-			int	iters_left = final_counter - ps.counter;
+			int	iters_left;
+			// Gerbicz checks a block of squarings relative to its start.  A corrupt counter or shift count here would go undetected.
+			if (!prpBookkeepingOK (&ps, w)) {
+				OutputBoth (thread_num, ERRMSG10);
+				inc_error_count (7, &ps.error_count);
+				restart_counter = -1;			/* rollback to any save file */
+				sleep5 = FALSE;
+				goto restart;
+			}
+			iters_left = final_counter - ps.counter;
 			iters_left = one_based_modulo (iters_left, ps.proof_num_iters);	// End partial proofs on a Gerbicz verified iter
+			// The final residue is always computed in double-checked iterations, which compute it from both x and alt_x and compare.
+			// Gerbicz blocks end before the final residue iteration (see below), the last few iterations up to it are double-checked.
+			if (ps.counter < final_residue_counter && final_residue_counter - ps.counter < 49) iters_left = final_residue_counter - ps.counter;
 			if (iters_left < 49) {
 				ps.state = PRP_STATE_DCHK_PASS1;
 				ps.start_counter = ps.counter;
@@ -12483,6 +12601,9 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 				if (gerbicz_block_size < 25) gerbicz_block_size = 25;
 				if (gerbicz_block_size > iters_left) gerbicz_block_size = iters_left;
 				ps.L = (unsigned long) sqrt ((double) gerbicz_block_size);
+				// Never end a Gerbicz block at or after the final residue iteration.  At least 49 iterations remain, so L is at least 6.
+				if (ps.counter < final_residue_counter && ps.counter + ps.L * ps.L >= final_residue_counter)
+					ps.L = (unsigned long) sqrt ((double) (final_residue_counter - ps.counter - 1));
 				ps.start_counter = ps.counter;
 				ps.next_mul_counter = ps.counter + ps.L;
 				ps.end_counter = ps.counter + ps.L * ps.L;
@@ -12611,6 +12732,7 @@ echk=1;
 
 			*units_bit <<= 1;
 			if (*units_bit >= w->n) *units_bit -= w->n;
+			if (x == ps.x) ps.x_iters++;
 
 #ifdef CHECK_ITER
 (void) gwtogiant (&gwdata, ps.x, t2);
@@ -12804,6 +12926,17 @@ OutputStr (thread_num, "Iteration failed.\n");
 
 		if (ps.counter == final_residue_counter) {
 			if (ps.state == PRP_STATE_NORMAL || ps.state == PRP_STATE_GERB_MID_BLOCK || ps.state == PRP_STATE_DCHK_PASS1) {
+				// Make sure x has had the right number of squarings, the shift count is right, and the exponent is not corrupt
+				if (!prpBookkeepingOK (&ps, w) || expChecksum (exp) != exp_checksum ||
+				    (ps.two_power_opt && final_residue_counter != (unsigned long) floor (log2 (w->k)) +
+							(ps.residue_type == PRIMENET_PRP_TYPE_FERMAT || ps.residue_type == PRIMENET_PRP_TYPE_FERMAT_VAR ||
+							 ps.residue_type == PRIMENET_PRP_TYPE_COFACTOR ? w->n : w->n - 1))) {
+					OutputBoth (thread_num, ERRMSG10);
+					inc_error_count (7, &ps.error_count);
+					restart_counter = -1;			/* rollback to any save file */
+					sleep5 = FALSE;
+					goto restart;
+				}
 				tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
 				if (gwtogiant (&gwdata, ps.x, tmp)) {
 					pushg (&gwdata.gdata, 1);
@@ -12889,6 +13022,17 @@ OutputStr (thread_num, "Iteration failed.\n");
 					OutputBoth (thread_num, buf);
 					inc_error_count (7, &ps.error_count);
 					restart_counter = ps.start_counter;		/* rollback to this iteration */
+					sleep5 = FALSE;
+					goto restart;
+				}
+				/* Both passes read the same exponent bits.  Make sure a memory error did not corrupt the exponent.  When Gerbicz */
+				/* error checking, the first double-checked block computes prp_base^k.  Since k comes from the exponent, check it independently. */
+				if (expChecksum (exp) != exp_checksum ||
+				    (ps.error_check_type == PRP_ERRCHK_GERBICZ && ps.start_counter == 0 && w->k != 1.0 &&
+				     !isPRPValBasePower (&gwdata, w, ps.x, ps.units_bit, ps.prp_base, w->k))) {
+					OutputBoth (thread_num, ERRMSG10);
+					inc_error_count (7, &ps.error_count);
+					restart_counter = -1;			/* rollback to any save file */
 					sleep5 = FALSE;
 					goto restart;
 				}
@@ -13046,6 +13190,14 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* Write results to a file every DISK_WRITE_TIME minutes */
 
 		if (saving) {
+			// Do not save a corrupt counter or shift count, especially to a save file marked as verified
+			if (!prpBookkeepingOK (&ps, w)) {
+				OutputBoth (thread_num, ERRMSG10);
+				inc_error_count (7, &ps.error_count);
+				restart_counter = -1;			/* rollback to any save file */
+				sleep5 = FALSE;
+				goto restart;
+			}
 			if (writePRPSaveFile (&gwdata, &write_save_file_state, w, &ps)) {
 				// Mark save files that contain verified computations.  This will keep the save file
 				// for a longer period of time (i.e. will not be replaced by a save file that does
@@ -13172,6 +13324,7 @@ pushg(&gwdata.gdata, 2);}
 		gwsquare (&gwdata, ps.x);
 		ps.units_bit <<= 1;
 		if (ps.units_bit >= w->n) ps.units_bit -= w->n;
+		ps.x_iters++;
 		tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
 		gwtogiant (&gwdata, ps.x, tmp);
 		rotateg (tmp, w->n, ps.units_bit, &gwdata.gdata);
