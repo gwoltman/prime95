@@ -11407,10 +11407,10 @@ double pm1_stage2_impl (
 			pm1data->last_relocatable = 0;
 		}
 	}
-	if (pm1data->state >= PM1_STATE_STAGE2 && pm1data->stage2_type == PM1_STAGE2_POLYMULT) {
-		pm1data->first_relocatable = pm1data->C_done > pm1data->B ? pm1data->C_done : pm1data->B;
-		pm1data->last_relocatable = 0;
-	}
+	// Polymult moved the small primes between B1 and B2_start to multiples of first_missing_prime.  Some may not have been processed yet.
+	// A new polymult plan handles these with required_missing.  A new prime pairing plan must relocate them, so tell the costing code that
+	// B1 to the save file's last_relocatable (the polymult plan's B2_start) remain to be relocated.
+	if (pm1data->state >= PM1_STATE_STAGE2 && pm1data->stage2_type == PM1_STAGE2_POLYMULT) pm1data->first_relocatable = pm1data->B;
 
 /* If are continuing from a save file that was in stage 2, check to see if we currently have enough memory to continue with the save file's */
 /* stage 2 implementation.  Also check if we now have significantly more memory available and stage 2 is not near complete such that a new */
