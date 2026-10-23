@@ -287,6 +287,10 @@ And P+1 can also override the B2 value in worktodo.txt.  Turn this feature off i
 prime.txt with:
 	Pplus1BestB2=0
 
+P+1 stage 2 can use prime pairing or polynomial multiplication.  The program chooses the
+faster one.  You can force one or the other in prime.txt with:
+	ForcePp1Stage2Type=n	(0 = prime pairing, 1 = polynomial multiplication, 99 = either)
+
 You can increase the ECM B1 value assigned by the server using this prime.txt setting:
 	ECMBoundsMultiplier=n		(default is 1)
 Ordinarily a B1 value significantly larger than suggested is a little less efficient
@@ -324,8 +328,12 @@ with two adjustments in prime.txt:
 	Pm1PolyRatioAdjust=n	(default is 1.0)
 	EcmPairRatioAdjust=n	(default is 1.0)
 	EcmPolyRatioAdjust=n	(default is 1.0)
+	Pp1PairRatioAdjust=n	(default is 1.0)
+	Pp1PolyRatioAdjust=n	(default is 1.0)
 One adjustment is for stage 2 using prime pairing and the other is for stage 2 using
-polynomial multiplication.  When P-1 starts stage 2 the estimated stage 2 vs. stage 1
+polynomial multiplication.  P+1 outputs its estimated ratio only when Stage2Estimates=1 is
+set in prime.txt.  P+1 also uses Pp1TransformCost (default 1.502) and Pp1PolymultCostAdjust
+(default 1.0), the P+1 counterparts of P-1's Pm1TransformCost and Pm1PolymultCostAdjust.  When P-1 starts stage 2 the estimated stage 2 vs. stage 1
 runtime is output (example: "Estimated stage 2 vs. stage 1 runtime ratio: 1.034").
 Set Pm1____RatioAdjust to the actual ratio divided by the estimated ratio times the
 current RatioAdjust setting.  For example, if stage 1 took 5000 seconds and stage 2 took
