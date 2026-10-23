@@ -11276,6 +11276,19 @@ pfail:		if (fd >= 0) _close (fd);
 #define PRP_MAGICNUM		0x87f2a91b
 #define PRP_VERSION		7
 
+/* Return the iteration x is at.  In some states the counter lags x.  A Gerbicz checksum multiply backs the counter up by one.  Double-check */
+/* pass 2 and the end of a Gerbicz block (computing checksum #2 from alt_x and the final checksum #1 multiply) rewind the counter while x */
+/* waits at end_counter. */
+
+unsigned long prpXCounter (
+	struct prp_state *ps)
+{
+	if (ps->state == PRP_STATE_GERB_MID_BLOCK_MULT) return (ps->counter + 1);
+	if (ps->state == PRP_STATE_DCHK_PASS2 || ps->state == PRP_STATE_GERB_END_BLOCK ||
+	    ps->state == PRP_STATE_GERB_END_BLOCK_MULT || ps->state == PRP_STATE_GERB_FINAL_MULT) return (ps->end_counter);
+	return (ps->counter);
+}
+
 int writePRPSaveFile (			// Returns TRUE if successful
 	gwhandle *gwdata,
 	writeSaveFileState *write_save_file_state,
@@ -12224,18 +12237,13 @@ begin:	N = exp = NULL;
 			ps.proof_num_iters = (w->n + excess_squarings) / ps.proof_power_mult;
 			initial_nonproof_iters = initiallog2k_iters + (w->n + excess_squarings) % ps.proof_power_mult;
 
-/* Map the current iteration (from the save file) into the next interim residue to output */
+/* Map the current iteration (from the save file) into the next interim residue to output.  Interim residues are output from x, */
+/* so use the iteration x is at -- in some states the counter lags x. */
 
 			while (ps.counter >= initial_nonproof_iters + ps.proof_num_iters) initial_nonproof_iters += ps.proof_num_iters;
 			for (proof_next_interim_residue = 1; ; proof_next_interim_residue++) {
 				proof_next_interim_residue_iter = proofResidueIteration (&ps, proof_next_interim_residue);
-				if (ps.state == PRP_STATE_GERB_MID_BLOCK_MULT || ps.state == PRP_STATE_GERB_MID_BLOCK_MULT) {
-					if (ps.counter + 1 < initial_nonproof_iters + proof_next_interim_residue_iter) break;
-				} else if (ps.state == PRP_STATE_DCHK_PASS2) {
-					if (ps.end_counter < initial_nonproof_iters + proof_next_interim_residue_iter) break;
-				} else {
-					if (ps.counter < initial_nonproof_iters + proof_next_interim_residue_iter) break;
-				}
+				if (prpXCounter (&ps) < initial_nonproof_iters + proof_next_interim_residue_iter) break;
 			}
 
 /* Output a message detailing PRP proof resource usage */
