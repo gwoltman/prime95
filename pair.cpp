@@ -961,6 +961,10 @@ int fill_pairmap (			/* Generate a pairing map */
 				// but I worry about an aberrant "clump" of relocs right at the start of the window.
 				if (WINDOWED && !last_window && prime_window_base + WINDOW_SIZE * D < B2_end &&
 				    relocs_added >= 10 && relocs_added > (prime - first_prime) * reloc_fill_rate) continue;
+				// Never let optional relocatables fill the prime window.  True primes and last relocations must be added.  When B2 is much
+				// larger than B1, many base primes have their last relocation in the same prime window, which the rate limit above does not
+				// account for.  The prime window is a circular buffer -- overfilling it overwrites primes still in use.
+				if (!last_window && primes.size () >= (size_t) (capacity - capacity / 16)) continue;
 				relocs_added++;
 
 				// Set must_pair if we are certain the relocatable is only in the primes window once
@@ -968,6 +972,12 @@ int fill_pairmap (			/* Generate a pairing map */
 				must_pair = !have_base_primes_in_window && last_window;
 				// If last_window is set, make sure the prime generator does not spit out more multiples of the base prime.
 				if (last_window && (prime + 2 * base_prime < B2_end_reloc)) pgen.remove_recycled (prime, base_prime);
+			}
+
+			// Inserting into a full circular buffer would overwrite a prime that is still in use.  This should not happen.
+			if (primes.size () == (size_t) capacity) {
+				OutputBoth (thread_num, "Prime pairing window is full.\n");
+				goto oom;
 			}
 
 			// Add prime and its data to the primes window (use hint to insert before the end)
