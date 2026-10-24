@@ -4313,6 +4313,10 @@ int internal_gwsetup (
 		asm_data->u.ymm.YMM_P975_P434[2] = asm_data->u.ymm.YMM_P975_P434[3] = asm_values[24];
 		asm_data->u.ymm.YMM_P782_P434[0] = asm_data->u.ymm.YMM_P782_P434[1] =
 		asm_data->u.ymm.YMM_P782_P434[2] = asm_data->u.ymm.YMM_P782_P434[3] = asm_values[25];
+		asm_data->u.ymm.YMM_P846[0] = asm_data->u.ymm.YMM_P846[1] =
+		asm_data->u.ymm.YMM_P846[2] = asm_data->u.ymm.YMM_P846[3] = asm_values[48];
+		asm_data->u.ymm.YMM_P678[0] = asm_data->u.ymm.YMM_P678[1] =
+		asm_data->u.ymm.YMM_P678[2] = asm_data->u.ymm.YMM_P678[3] = asm_values[49];
 		asm_data->u.ymm.YMM_P259[0] = asm_data->u.ymm.YMM_P259[1] =
 		asm_data->u.ymm.YMM_P259[2] = asm_data->u.ymm.YMM_P259[3] = asm_values[26];
 		asm_data->u.ymm.YMM_P966[0] = asm_data->u.ymm.YMM_P966[1] =

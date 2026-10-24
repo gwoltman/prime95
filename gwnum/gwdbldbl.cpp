@@ -152,6 +152,8 @@ void gwasm_constants (
 #define P901_P623		asm_values[45]
 #define P846_P975		asm_values[46]
 #define P678_P975		asm_values[47]
+#define P846			asm_values[48]
+#define P678			asm_values[49]
 
 /* Do some initial setup */
 
@@ -221,6 +223,8 @@ void gwasm_constants (
 	P1_P975 = 1.0 / P975;
 	P846_P975 = double ((cosine1 - cosine2) / P975);	// (.623 + .223) / .975
 	P678_P975 = double ((cosine2 - cosine3) / P975);	// (.901 - .223) / .975
+	P846 = double (cosine1 - cosine2);			// .623 + .223
+	P678 = double (cosine2 - cosine3);			// .901 - .223
 	P223_P623 = double (-cosine2 / cosine1); // Alternate radix-7 constants
 	P901_P223 = double (-cosine3 / -cosine2);
 	P901_P623 = double (-cosine3 / cosine1);

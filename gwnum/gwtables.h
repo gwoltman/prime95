@@ -290,7 +290,7 @@ struct gwasm_data {
 		double	YMM_HALF[4];	/* 0.5 */
 
 		double	YMM_SQRTHALF[4];/* SQRT(0.5) */
-		double	YMM_UNUSED_DOUBLES1[4];
+		double	YMM_P678[4];	/* Used in FMA version of radix-28 macros */
 
 		double	YMM_MAXERR[4];	/* Used in normalization macros */
 		int32_t	YMM_ABSVAL[8];	/* Used to compute absolute values */
@@ -311,7 +311,7 @@ struct gwasm_data {
 		char	YMM_FIRST_BIGLIT_VALUES[8];  /* Big/lit flags for first 8 values */
 		double	UNUSED_YMM_DOUBLES[3];
 
-		double	UNUSED_YMM_DOUBLES2[4];
+		double	YMM_P846[4];	/* Used in FMA version of radix-28 macros */
 		double	YMM_P924_P383[4]; /* Used in FMA versions of 16-reals macros */
 
 		double	YMM_P383[4];	/* Used in one-pass negacyclic premultipliers */
