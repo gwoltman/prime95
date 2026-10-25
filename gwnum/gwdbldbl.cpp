@@ -154,6 +154,7 @@ void gwasm_constants (
 #define P678_P975		asm_values[47]
 #define P846			asm_values[48]
 #define P678			asm_values[49]
+#define P1118			asm_values[50]
 
 /* Do some initial setup */
 
@@ -180,6 +181,7 @@ void gwasm_constants (
 
 	M809 = double (cosine2);
 	M382 = double (cosine1 / M809);		// 0.309 / -0.809
+	P1118 = double (cosine1 - cosine2);	// .309 + .809 = sqrt(5)/2
 
 /* Initialize the six_reals sine-cosine data. */
 

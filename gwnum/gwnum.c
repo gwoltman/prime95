@@ -3213,7 +3213,7 @@ int internal_gwsetup (
 	unsigned long mem_needed;
 	double	*tables;		/* Pointer tables we are building */
 	unsigned long pass1_size;
-	double	small_word, big_word, temp, asm_values[50];
+	double	small_word, big_word, temp, asm_values[52];
 
 /* Sanity check some setup parameters */
 
@@ -4147,6 +4147,7 @@ int internal_gwsetup (
 		asm_data->u.zmm.ZMM_P309 = asm_values[2];
 		asm_data->u.zmm.ZMM_P809 = -asm_values[6];
 		asm_data->u.zmm.ZMM_P809_P309 = -asm_values[3];
+		asm_data->u.zmm.ZMM_P1118 = asm_values[50];
 		asm_data->u.zmm.ZMM_P866 = asm_values[8];
 		asm_data->u.zmm.ZMM_P383 = asm_values[21];
 		asm_data->u.zmm.ZMM_P434_P975 = asm_values[12];
