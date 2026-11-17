@@ -11488,6 +11488,9 @@ int readPRPSaveFile (
 	int	fd;
 	unsigned long savefile_prp_base;
 	uint32_t version, sum, filesum;
+	// Settings chosen before save files are read.  A save file replaces them; restore them if the save file cannot be used.
+	int	entry_error_check_type = ps->error_check_type, entry_proof_power = ps->proof_power, entry_hashlen = ps->hashlen;
+	int	entry_proof_power_mult = ps->proof_power_mult, entry_md5_residues = ps->md5_residues, entry_proof_version = ps->proof_version;
 
 	// Open the save file
 	fd = _open (filename, _O_BINARY | _O_RDONLY);
@@ -11629,6 +11632,12 @@ int readPRPSaveFile (
 	_close (fd);
 	return (TRUE);
 err:	_close (fd);
+	ps->error_check_type = entry_error_check_type;
+	ps->proof_power = entry_proof_power;
+	ps->hashlen = entry_hashlen;
+	ps->proof_power_mult = entry_proof_power_mult;
+	ps->md5_residues = entry_md5_residues;
+	ps->proof_version = entry_proof_version;
 	return (FALSE);
 }
 

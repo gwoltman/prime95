@@ -6451,6 +6451,9 @@ int ecm_old_restore (			/* For version 25 save files */
 /* An error occurred.  Cleanup and return FALSE. */
 
 readerr:
+	free_xz (ecmdata, &ecmdata->xz);
+	free (ecmdata->Qx_binary), ecmdata->Qx_binary = NULL;
+	free (ecmdata->gg_binary), ecmdata->gg_binary = NULL;
 	_close (fd);
 	return (FALSE);
 }
@@ -6462,6 +6465,7 @@ int ecm_restore (			/* For version 30.4 and later save files */
 	struct work_unit *w = ecmdata->w;
 	uint32_t version, sum = 0, filesum;
 	uint64_t savefile_B;
+	uint64_t entry_B = ecmdata->B, entry_C = ecmdata->C;	// Restored if this save file cannot be used
 
 /* Open the intermediate file */
 
@@ -6630,9 +6634,15 @@ int ecm_restore (			/* For version 30.4 and later save files */
 
 readerr:
 	free_xz (ecmdata, &ecmdata->xz);
+	ed_free (ecmdata, &ecmdata->dict_start);
+	ed_free (ecmdata, &ecmdata->e);
 	free (ecmdata->Qx_binary), ecmdata->Qx_binary = NULL;
 	free (ecmdata->Qz_binary), ecmdata->Qz_binary = NULL;
 	free (ecmdata->gg_binary), ecmdata->gg_binary = NULL;
+	free (ecmdata->pairmap), ecmdata->pairmap = NULL;
+	gwfree (&ecmdata->gwdata, ecmdata->gg), ecmdata->gg = NULL;
+	ecmdata->B = entry_B;
+	ecmdata->C = entry_C;
 	_close (fd);
 err:
 	return (FALSE);
@@ -10755,6 +10765,8 @@ int pm1_old_restore (
 
 readerr:
 	_close (fd);
+	gwfree (&pm1data->gwdata, pm1data->x), pm1data->x = NULL;
+	gwfree (&pm1data->gwdata, pm1data->gg), pm1data->gg = NULL;
 	return (FALSE);
 }
 
@@ -10926,6 +10938,7 @@ readerr:
 	gwfree (&pm1data->gwdata, pm1data->x), pm1data->x = NULL;
 	free (pm1data->invx_binary), pm1data->invx_binary = NULL;
 	free (pm1data->gg_binary), pm1data->gg_binary = NULL;
+	free (pm1data->pairmap), pm1data->pairmap = NULL;
 err:
 	return (FALSE);
 }
@@ -14882,6 +14895,7 @@ bad_nth_run:
 readerr:
 	_close (fd);
 	gwfree (&pp1data->gwdata, pp1data->gg), pp1data->gg = NULL;
+	free (pp1data->pairmap), pp1data->pairmap = NULL;
 err:
 	return (FALSE);
 }
