@@ -10506,7 +10506,7 @@ void createProofResiduesFile (
 
 				// Calculate a new proof power based on the size we were able to allocate
 				num_residues = (int) ((uint64_t) i * (uint64_t) sizeof (buf) / (uint64_t) (ps->residue_size + 16));
-				if (num_residues <= 31) new_power = 0;	// We couldn't allocate enough disk space for a proof power of 5
+				if (num_residues <= 31) new_power = 0, new_power_mult = 1;	// We couldn't allocate enough disk space for a proof power of 5
 				else if (num_residues <= 63) new_power = 5, new_power_mult = 3;
 				else if (num_residues <= 127) new_power = 6, new_power_mult = 2;
 				else if (num_residues <= 255) new_power = 7, new_power_mult = 2;
