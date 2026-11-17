@@ -4848,7 +4848,7 @@ int read_header (
 
 	stage[9] = 0;
 	strcpy (w->stage, stage);
-	if (pct_complete < 0.0) pct_complete = 0.0;
+	if (! (pct_complete >= 0.0)) pct_complete = 0.0;		// Also catches a NaN
 	if (pct_complete > 1.0) pct_complete = 1.0;
 	w->pct_complete = pct_complete;
 
