@@ -36,9 +36,9 @@ GWLIBS = ../gwnum/gwnum.a ../gwnum/polymult.a
 
 ifeq ($(PLATFORM),linux64)
 CC = gcc
-CFLAGS = -I.. -I../gwnum -I/usr/local/include -std=gnu99 -DX86_64 -Wno-unused-result -O2 -DPORT=8
+CFLAGS = -I.. -I../gwnum -I/usr/local/include -std=gnu99 -DX86_64 -Wall -Wextra -Wno-unused-result -O2 -DPORT=8
 CXX = g++
-CXXFLAGS = -I.. -I../gwnum -I$(BOOST) -DX86_64 -std=c++11 -O2 -DPORT=8
+CXXFLAGS = -I.. -I../gwnum -I$(BOOST) -DX86_64 -std=c++11 -Wall -Wextra -O2 -DPORT=8
 LDFLAGS = -Wl,-L/usr/local/lib
 ifdef RELEASE
 LDFLAGS = -Wl,-M -Wl,-L/usr/local/lib

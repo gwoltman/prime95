@@ -327,7 +327,7 @@ uint32_t get_ranked_num_threads (
 {
 	if (!hyperthreading) return (num_cores);
 	uint32_t num_threads = 0;
-	for (uint32_t core = base_core_num; core < (int) HW_NUM_CORES && core < base_core_num + num_cores; core++)
+	for (uint32_t core = base_core_num; core < HW_NUM_CORES && core < base_core_num + num_cores; core++)
 		num_threads += HW_CORES[get_ranked_core(core)].num_threads;
 	return (num_threads);
 }
@@ -412,7 +412,7 @@ void SetPriority (
 #endif
 	char	logical_CPU_string[255];
 	char	logical_CPU_substring[255];
-	char	buf[255];
+	char	buf[400];		/* Large enough for a message prefix plus a full logical_CPU_string */
 
 /* Call OS-specific routine to set the priority */
 
@@ -2721,6 +2721,7 @@ void implementThrottle (
 	int	thread_num)
 {
 	int	totaltime;
+	(void) thread_num;		/* Unused, but part of the timed event interface */
 
 /* Every 0.1 seconds see if we should resume processing.  We check */
 /* frequently so that we can be responsive to an ESC or terminate command. */
@@ -2946,7 +2947,7 @@ int LaunchWorkers (
 	ld->num_threads = NUM_WORKERS;
 	LAUNCH_TYPE = LD_CONTINUE;
 	create_worker_windows (NUM_WORKERS);
-	ld->num_to_mark_active = (thread_num == ALL_WORKERS ? NUM_WORKERS : -thread_num);
+	ld->num_to_mark_active = (thread_num == ALL_WORKERS ? (int) NUM_WORKERS : -thread_num);
 	if (wait_flag) {
 		gwthread_create_waitable (&thread_handle, &Launcher, ld);
 		gwthread_wait_for_exit (&thread_handle);
@@ -3237,7 +3238,7 @@ again:	clearThreadHandleArray ();
 void LauncherDispatch (void *arg)
 {
 	struct LaunchData *ld;
-	int	stop_reason;
+	int	stop_reason = 0;
 
 	ld = (struct LaunchData *) arg;
 
@@ -3792,7 +3793,7 @@ void saveFileBad (
 	readSaveFileState *state)
 {
 	char	buf[256];
-	char	filename[256];
+	char	filename[96];		/* base_filename is [80]; leave room for the appended suffix */
 	int	i, maxbad;
 
 /* Print an error message indicating failure to read the save file */
@@ -4378,7 +4379,7 @@ void factor_auxiliary_thread (void *arg)
 
 		gwmutex_lock (&facdata->thread_lock);
 		facdata->num_active_threads++;
-		if (facdata->num_active_threads == facdata->num_threads - 1) {
+		if (facdata->num_active_threads == (unsigned int) (facdata->num_threads - 1)) {
 			gwevent_reset (&facdata->thread_work_to_do);
 			gwevent_signal (&facdata->all_threads_started);
 		}
@@ -4584,7 +4585,7 @@ memerr:		OutputStr (thread_num, "Error allocating memory for trial factoring.\n"
 		for (num_small_primes = 0; num_small_primes < estimated_num_primes; ) {
 			prime = (int) sieve (sieve_info);
 			if (prime > maxprime) break;
-			if (prime == p) continue;				// Rare case: TF where exponent <= maxprime
+			if ((unsigned long) prime == p) continue;		// Rare case: TF where exponent <= maxprime
 			if (num_siever_groups % prime == 0) continue;		// Don't add primes that are handled by facdist
 			if (facdata->initsieve_primes % prime == 0) continue;	// Don't add primes that are handled by initsieve
 			*primearray++ = prime;	// Save the small prime
@@ -4777,6 +4778,7 @@ int factorPassSetup (
 	struct facasm_data *asm_data = facdata->asm_data;
 	uint32_t fachsw, facmsw;
 	unsigned int i, j, bits_in_factor;
+	(void) thread_num;		/* Unused, but the other factoring routines take a thread number */
 
 /* Save the factoring pass */
 
@@ -5184,7 +5186,7 @@ int factorChunkMultithreaded (		/* Return TRUE when there is no more work to do 
 
 		else {
 			int	i, best_siever;
-			uint64_t score, best_score_thusfar;
+			uint64_t score, best_score_thusfar = 0;	/* Only read once best_siever is set */
 
 			// Mark our old siever unassigned if the siever was assigned to this thread
 			if (siever->last_thread_used == aux_thread_num) siever->state = SIEVER_INACTIVE;
@@ -5376,7 +5378,7 @@ void factorFindSmallestNotTFed (
 	fachandle *facdata)		/* Handle returned by factorSetup */
 {
 	int	i, j;
-	uint64_t smallest, temp;
+	uint64_t smallest = 0xFFFFFFFFFFFFFFFFULL, temp;
 	struct facasm_data *asm_data = facdata->asm_data;
 
 /* Search for the smallest sieved area.  If there are no sieved areas, we'll end up */
@@ -5386,7 +5388,7 @@ void factorFindSmallestNotTFed (
 	for (i = 0; i < facdata->num_sievers; i++) {
 		temp = (facdata->sievers[i].next_sieve_first_factor[0] << 32) +
 		       (facdata->sievers[i].next_sieve_first_factor[1] >> 32);
-		if (i == 0 || temp < smallest) smallest = temp;
+		if (temp < smallest) smallest = temp;
 	}
 	for (i = 0; i < facdata->num_pools; i++) {
 		for (j = 0; j < facdata->num_sieve_areas_per_pool; j++) {
@@ -5441,7 +5443,8 @@ int primeFactor (
 	unsigned long test_bits;	/* How far to factor to */
 	long	factor_found;		/* Returns true if factor found */
 	int	fd;			/* Continuation file handle or zero */
-	int	first_iter_msg, continuation, stop_reason, find_smaller_factor;
+	int	first_iter_msg, continuation, stop_reason;
+	int	find_smaller_factor = FALSE;	/* Only read once factor_found is TRUE */
 	unsigned long endpthi, endptlo;
 	double	endpt, startpt;		/* For computing percent complete */
 	unsigned long pass;		/* Factoring pass 0 through 15 */
@@ -7190,7 +7193,7 @@ begin:	gwinit (&lldata.gwdata);
 /* Write a save file every INTERIM_FILES iterations. */
 
 		if (interim_file) {
-			char	interimfile[32];
+			char	interimfile[64];	/* filename is [32]; leave room for the appended suffix */
 			writeSaveFileState state;
 			sprintf (interimfile, "%s.%03ld", filename, counter / INTERIM_FILES);
 			writeSaveFileStateInit (&state, interimfile, 0);
@@ -7718,7 +7721,7 @@ int selfTestInternal (
 	llhandle lldata;
 	unsigned long k, limit;
 	unsigned int i, iter;
-	char	buf[256], addl_msg[80];
+	char	buf[400], addl_msg[80];	/* buf must hold a message plus a 200 character FFT description */
 //	char	iniName[32];
 	time_t	start_time, current_time;
 	int	alternate_in_place, in_place, stop_reason;
@@ -8168,7 +8171,7 @@ int tortureTest (
 	int	data_index[500];	/* Last exponent tested for each FFT length */
 	int	test_time, disabled_cpu_flags;
 	int	tests_completed, self_test_errors, self_test_warnings;
-	int	i, run_indefinitely, stop_reason;
+	int	i, stop_reason;
 	unsigned long fftlen, min_fft, max_fft, max_small_fftlen;
 	time_t	start_time;
 	unsigned int memory;		/* Memory this worker can use during torture test */
@@ -8222,11 +8225,9 @@ int tortureTest (
 /* each FFT length.  If we ever decide to resupport this option, add */
 /* a run_indefinitely argument and change the output message below. */
 
-loop:	run_indefinitely = TRUE;
-
 /* Output a torture test starting message */
 
-	OutputStr (thread_num, TORTURE1);
+loop:	OutputStr (thread_num, TORTURE1);
 	OutputStr (thread_num, TORTURE2);
 
 /* Determine fft lengths we should run and allocate a big block of memory to test. */
@@ -8585,7 +8586,7 @@ int primeSieveTest (
 	int	thread_num)
 {
 	fachandle facdata;
-	char	buf[500];
+	char	buf[600];		/* Large enough for a message plus a 480 character factor */
 	FILE	*fd;
 	unsigned long p;
 	int	stop_reason;
@@ -9214,7 +9215,7 @@ int factorBench (
 	double	best_time;
 	char	buf[512];
 	int	bit_lengths[] = {61, 62, 63, 64, 65, 66, 67, 75, 76, 77};
-	int	res, stop_reason;
+	int	stop_reason;
 	double	timers[2];
 
 /* Keep the other CPU cores busy.  This should prevent "turbo boost" from kicking in. */
@@ -9264,7 +9265,7 @@ int factorBench (
 
 /* Do one "iteration" untimed, to prime the caches. */
 
-		res = factorChunk (&facdata);
+		(void) factorChunk (&facdata);
 		(void) factorChunksProcessed (&facdata);
 
 /* Time 10 iterations. Take best time. */
@@ -9280,7 +9281,7 @@ int factorBench (
 			}
 			clear_timers (timers, sizeof (timers) / sizeof (timers[0]));
 			start_timer (timers, 0);
-			res = factorChunk (&facdata);
+			(void) factorChunk (&facdata);
 			end_timer (timers, 0);
 			if (j == 0 || timers[0] < best_time) best_time = timers[0] / factorChunksProcessed (&facdata);
 		}
@@ -9527,7 +9528,7 @@ int primeBenchMultipleWorkersInternal (
 		    for (hypercpus = 1; hypercpus <= 2; hypercpus++) {
 			if (hypercpus > 1 && (HW_NUM_CORES == HW_NUM_THREADS || !bench_hyperthreading)) break;
 			/* If the OS cannot set affinity, then we can only bench hyperthreading on all CPUs */
-			if (!OS_CAN_SET_AFFINITY && hypercpus > 1 && cpus != HW_NUM_CORES) continue;
+			if (!OS_CAN_SET_AFFINITY && hypercpus > 1 && cpus != (int) HW_NUM_CORES) continue;
 			for (workers = min_workers; workers <= cpus && workers <= max_workers; workers += incr_workers) {
 			    int	nodes_left, workers_left, node, worker_num, cores_left, core_num;
 			    int efficiency_workers, unused_cores_left;
@@ -9581,7 +9582,7 @@ int primeBenchMultipleWorkersInternal (
 			    worker_num = 0;
 			    node = 0;
 			    while (workers_left) {
-				int	nodes_to_use, cores_this_nodeset, unused_cores_this_nodeset, workers_this_nodeset, nodesets_left;
+				int	nodes_to_use, cores_this_nodeset, unused_cores_this_nodeset = 0, workers_this_nodeset, nodesets_left;
 
 				// Calculate the number of cores in this set of threading nodes.  Multiple nodes occur when there are fewer
 				// workers left than nodes left.  One or more workers must use multiple nodes.
@@ -9610,7 +9611,7 @@ int primeBenchMultipleWorkersInternal (
 
 					// If we've reached the first efficiency node, add back in the number of efficiency cores and workers
 					// so that we now divide efficiency cores as evenly as possible amongst the efficiency nodes.
-					if (node == HW_NUM_COMPUTE_THREADING_NODES) {
+					if (node == (int) HW_NUM_COMPUTE_THREADING_NODES) {
 						nodes_left += HW_NUM_THREADING_NODES - HW_NUM_COMPUTE_THREADING_NODES;
 						cores_left += HW_NUM_CORES - HW_NUM_COMPUTE_CORES;
 						if (cpus > (int) HW_NUM_COMPUTE_CORES) unused_cores_left += HW_NUM_CORES - cpus;
@@ -9731,7 +9732,7 @@ int primeBenchMultipleWorkersInternal (
 /* all-cores timings for FFT lengths from 1M on up.  These timings should prove more useful in */
 /* comparing which CPUs are the most powerful. */
 
-			    if (!all_bench && is_a_5678 && !plus1 && cpus == HW_NUM_CORES && hypercpus == 1 && fftlen / 1024 >= 1024)
+			    if (!all_bench && is_a_5678 && !plus1 && cpus == (int) HW_NUM_CORES && hypercpus == 1 && fftlen / 1024 >= 1024)
 				add_bench_data_to_pkt (pkt, "TP%luK", fftlen, throughput, FALSE);
 
 /* Benchmark next FFT */
@@ -9904,7 +9905,7 @@ void autoBench (void)
 		// Always auto-bench using all the cores.  Prime95 always calls gwset_bench_cores with HW_NUM_CORES.
 		num_cores = HW_NUM_CORES;
 	}
-	num_workers = BENCH_NUM_WORKERS ? BENCH_NUM_WORKERS : NUM_WORKERS; /* Use gwnum.txt override or default to all workers */
+	num_workers = BENCH_NUM_WORKERS ? BENCH_NUM_WORKERS : (int) NUM_WORKERS; /* Use gwnum.txt override or default to all workers */
 
 /* Get some ini file overrides for autobenching criteria. */
 
@@ -10197,9 +10198,9 @@ int primeBench (
 	    if (hypercpu > 1 && !bench_hyperthreading) break;
 	    if (hypercpu > 1 && HW_NUM_CORES == HW_NUM_THREADS) break;
 	    /* Only bench hyperthreading on one core and all cores */
-	    if (hypercpu > 1 && cores != 1 && cores != HW_NUM_COMPUTE_CORES && cores != HW_NUM_CORES) continue;
+	    if (hypercpu > 1 && cores != 1 && cores != (int) HW_NUM_COMPUTE_CORES && cores != (int) HW_NUM_CORES) continue;
 	    /* If the OS cannot set affinity, then we can only bench hyperthreading on all cores */
-	    if (!OS_CAN_SET_AFFINITY && hypercpu > 1 && cores != HW_NUM_CORES) continue;
+	    if (!OS_CAN_SET_AFFINITY && hypercpu > 1 && cores != (int) HW_NUM_CORES) continue;
 	    /* Output a message if using multi-threaded FFT */
 	    if (cores > 1 || hypercpu > 1) {
 	      if (! (CPU_FLAGS & CPU_SSE2)) continue;  // Only SSE2 and later code supports multi-threaded FFTs
@@ -10365,7 +10366,7 @@ int primeBench (
 /* timings for FFT lengths from 1M on up.  These timings should prove more useful in */
 /* comparing which CPU is are most powerful. */
 
-		  if (!all_bench && is_a_5678 && !plus1 && cores == HW_NUM_COMPUTE_CORES && hypercpu == 1 && fftlen / 1024 >= 1024)
+		  if (!all_bench && is_a_5678 && !plus1 && cores == (int) HW_NUM_COMPUTE_CORES && hypercpu == 1 && fftlen / 1024 >= 1024)
 			add_bench_data_to_pkt (&pkt, "AC%luK", fftlen, timer_value (timers, 0), TRUE);
 
 /* Time next FFT */
@@ -10467,6 +10468,7 @@ void createProofResiduesFile (
 	int	fd, i, j;
 	uint64_t total_size, randomizer, *p;
 	char	buf[65536];
+	(void) gwdata;			/* Unused, but the other proof file routines take a gwhandle */
 
 // Create the file to hold the interim proof residues
 
@@ -10488,7 +10490,7 @@ void createProofResiduesFile (
 
 		// Create a buffer filled with random data
 		srand ((unsigned) time (NULL));
-		for (i = 0; i < sizeof (buf); i++) buf[i] = rand() & 0xFF;
+		for (i = 0; i < (int) sizeof (buf); i++) buf[i] = rand() & 0xFF;
 
 		// Calculate how much disk space we need to fill
 		if (!ps->md5_residues)
@@ -10506,7 +10508,7 @@ void createProofResiduesFile (
 
 				// Calculate a new proof power based on the size we were able to allocate
 				num_residues = (int) ((uint64_t) i * (uint64_t) sizeof (buf) / (uint64_t) (ps->residue_size + 16));
-				if (num_residues <= 31) new_power = 0;	// We couldn't allocate enough disk space for a proof power of 5
+				if (num_residues <= 31) new_power = 0, new_power_mult = 1;	// We couldn't allocate enough disk space for a proof power of 5
 				else if (num_residues <= 63) new_power = 5, new_power_mult = 3;
 				else if (num_residues <= 127) new_power = 6, new_power_mult = 2;
 				else if (num_residues <= 255) new_power = 7, new_power_mult = 2;
@@ -10536,7 +10538,7 @@ void createProofResiduesFile (
 			// More randomizing the data
 			p = (uint64_t *) buf;
 			randomizer = p[i & (sizeof (buf) / 8 - 1)] << 1;
-			for (j = 0; j < sizeof (buf) / 8; j++) *p++ ^= randomizer;
+			for (j = 0; j < (int) (sizeof (buf) / 8); j++) *p++ ^= randomizer;
 		}
 	}
 
@@ -10933,7 +10935,8 @@ int generateProofFile (
 	char	proof_hash[33])		/* Returned MD5 hash of the entire proof file */
 {
 	int	proofgen_waits;
-	char	buf[512], filename[32], proof_filename[500], tmp_proof_filename[504];
+	char	buf[1100];		/* Large enough for a message naming two proof filenames */
+	char	filename[32], proof_filename[500], tmp_proof_filename[504];
 
 // Mihai's explanation for how a proof construction works for proof power N:
 //	Hashes must all be derived from the final residue B
@@ -10984,6 +10987,7 @@ int generateProofFile (
 
 		fd = -1;
 		fdout = -1;
+		proof_file_start_offset = -1;	/* Not positioned yet.  A failure this early must leave any existing proof file alone. */
 		MD5Init (&context);
 		M = gwalloc (gwdata);
 		if (M == NULL) {
@@ -11032,7 +11036,7 @@ int generateProofFile (
 
 		// Output number.  Enclose non-Mersennes with known factors in parentheses.  Append known factors.
 		char *bigbuf = (char *) buf;
-		if (w->known_factors != NULL) bigbuf = (char *) malloc (512 + strlen (w->known_factors));
+		if (w->known_factors != NULL) bigbuf = (char *) malloc (sizeof (buf) + strlen (w->known_factors));
 		sprintf (bigbuf, "NUMBER=");
 		if ((w->k != 1.0 || w->c != -1) && w->known_factors != NULL) strcat (bigbuf, "(");
 		strcat (bigbuf, gwmodulo_as_string (gwdata));
@@ -11180,7 +11184,9 @@ pfail_wont_get_better:
 		if (proofgen_waits > 2) proofgen_waits = 2;
 pfail:		if (fd >= 0) _close (fd);
 		if (fdout >= 0) {
-			_chsize_s (fdout, proof_file_start_offset);
+			// Discard what this attempt wrote.  If we failed before positioning the file we wrote nothing but the header, and the
+			// file may hold earlier partial proofs (or a complete proof) whose interim residues are gone -- leave it untouched.
+			if (proof_file_start_offset >= 0) _chsize_s (fdout, proof_file_start_offset);
 			_close (fdout);
 			if (proof_file_start_offset == 0) _unlink (tmp_proof_filename);
 		}
@@ -11511,7 +11517,7 @@ int readPRPSaveFile (
 		if (!read_long (fd, &savefile_two_power_opt, &sum)) goto err;
 		// This test causes PRP test to restart from scratch if PRPStraightForward option is changed.
 		// Alternatively we could re-init PRP code with two_power_opt toggled.
-		if (ps->two_power_opt != savefile_two_power_opt) goto err;
+		if ((unsigned long) ps->two_power_opt != savefile_two_power_opt) goto err;
 	} else {
 		savefile_prp_base = 3;
 		ps->units_bit = 0;
@@ -11526,11 +11532,11 @@ int readPRPSaveFile (
 		unsigned long savefile_state, savefile_residue_type, savefile_error_check_type;
 		// We might be able to handle some mismatched residue types, for now don't since this should never happen
 		if (!read_long (fd, &savefile_residue_type, &sum)) goto err;
-		if (savefile_residue_type != ps->residue_type) goto err;
+		if (savefile_residue_type != (unsigned long) ps->residue_type) goto err;
 		// We could handle some mismatched error check types by looking at the state
 		// variable, for now don't since this should never happen
 		if (!read_long (fd, &savefile_error_check_type, &sum)) goto err;
-		if (savefile_error_check_type != ps->error_check_type) goto err;
+		if (savefile_error_check_type != (unsigned long) ps->error_check_type) goto err;
 		if (!read_long (fd, &savefile_state, &sum)) goto err;
 		ps->state = savefile_state;
 		if (!read_long (fd, &ps->alt_units_bit, &sum)) goto err;
@@ -11874,9 +11880,9 @@ int prp (
 	unsigned long restart_error_count = 0;	/* On a restart, use this error count rather than the one from a save file */
 	long	restart_counter = -1;		/* On a restart, this specifies how far back to rollback save files */
 	unsigned long excess_squarings;		/* Number of extra squarings we are doing in order to generate a PRP proof */
-	int	proof_next_interim_residue;	/* The next interim residue to output */
-	unsigned long proof_next_interim_residue_iter; /* The iteration where the next interim residue occurs */
-	unsigned long initiallog2k_iters, initial_nonproof_iters, final_residue_counter;
+	int	proof_next_interim_residue = 0;	/* The next interim residue to output */
+	unsigned long proof_next_interim_residue_iter = 0; /* The iteration where the next interim residue occurs */
+	unsigned long initiallog2k_iters, initial_nonproof_iters = 0, final_residue_counter;
 	uint64_t exp_checksum;			/* Checksum of exp to catch memory errors in exp */
 	int	proof_residue;			/* True if this iteration must output a PRP proof residue */
 	char	proof_hash[33];			/* 128-bit MD5 hash of the proof file */
@@ -12557,7 +12563,7 @@ rotateg (t1, w->n, ps.units_bit, &gwdata.gdata);
 	iters = 0;
 	while (ps.counter < final_counter) {
 		gwnum	x;			/* Pointer to number to square */
-		unsigned long *units_bit;	/* Pointer to units_bit to update */
+		unsigned long *units_bit = &ps.units_bit;	/* Pointer to units_bit to update */
 		int	saving, saving_highly_reliable, sending_residue, interim_residue, interim_file;
 		int	actual_frequency;
 
@@ -13276,7 +13282,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 /* Write a save file every INTERIM_FILES iterations. */
 
 		if (interim_file) {
-			char	interimfile[32];
+			char	interimfile[64];	/* filename is [32]; leave room for the appended suffix */
 			writeSaveFileState state;
 			sprintf (interimfile, "%s.%03ld", filename, ps.counter / INTERIM_FILES);
 			writeSaveFileStateInit (&state, interimfile, 0);

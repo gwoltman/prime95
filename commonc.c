@@ -1394,7 +1394,7 @@ void nameAndReadIniFiles (
 				if (line[0] == 0) continue;
 				// Locate section headers
 				if (line[0] == '[') {
-					snprintf (section, sizeof (section), "%s", line+1);
+					truncated_strcpy (section, sizeof (section), line+1);
 					if (strchr (section, ']') != NULL) *strchr (section, ']') = 0;
 					continue;
 				}
@@ -1870,10 +1870,10 @@ int readIniFiles (void)
 	night_memory = IniGetInt (INI_FILE, "NightMemory", 0);
 	if (day_memory || night_memory) {
 		int	day_start_time, day_end_time;
-		day_memory = (day_memory < 0) ? physical_memory () + day_memory : day_memory;
+		day_memory = (day_memory < 0) ? (int) physical_memory () + day_memory : day_memory;
 		if (day_memory < 8) day_memory = 8;
 		if ((unsigned long) day_memory > physical_memory () - 8) day_memory = physical_memory () - 8;
-		night_memory = (night_memory < 0) ? physical_memory () + night_memory : night_memory;
+		night_memory = (night_memory < 0) ? (int) physical_memory () + night_memory : night_memory;
 		if (night_memory < 8) night_memory = 8;
 		if ((unsigned long) night_memory > physical_memory () - 8) night_memory = physical_memory () - 8;
 		day_start_time = IniGetInt (INI_FILE, "DayStartTime", 450);
@@ -2014,7 +2014,6 @@ static	int	worktodo_add_disabled = FALSE;
 	tnum = 0;
 	while (fgets (line, sizeof (line), fd)) {
 		struct work_unit *w;
-		int	rc;
 
 /* Remove trailing CRLFs */
 
@@ -2373,7 +2372,7 @@ void OutputStr (
 /* Format a timestamp.  Prefix every line in the input buffer with the timestamp. */
 
 	if (TIMESTAMPING) {
-		char	tmpbuf[200], fmtbuf[202];
+		char	tmpbuf[200], fmtbuf[204];	/* fmtbuf holds tmpbuf wrapped in "[] " */
 
 		timestamp (tmpbuf, 0);
 		sprintf (fmtbuf, "[%s] ", tmpbuf);
@@ -2390,7 +2389,7 @@ void OutputStr (
 			while (buf != eol) {
 				int	len;
 				len = (int) (eol - buf);
-				if (len >= sizeof (tmpbuf)) len = sizeof (tmpbuf) - 1;
+				if (len >= (int) sizeof (tmpbuf)) len = sizeof (tmpbuf) - 1;
 				memcpy (tmpbuf, buf, len);
 				tmpbuf[len] = 0;
 				OutputStrInternal (thread_num, tmpbuf);
@@ -2686,7 +2685,7 @@ int addToWorkUnitArray (
 	struct work_unit *w,	/* Work unit to add to array */
 	int	add_point)	/* Three possible insertion points */
 {
-	struct work_unit *insertion_point;
+	struct work_unit *insertion_point = NULL;	/* Insert at the head if add_point is not one of the cases below */
 
 /* When there are more worker sections than workers (as can happen when the user shrinks the */
 /* number of worker windows), redistribute lines from those worker sections to the active sections. */
@@ -3775,6 +3774,7 @@ int updateWorkToDoLine (
 	int	tnum,		/* Worker to process this work unit */
 	struct work_unit *w)	/* Type of work */
 {
+	(void) tnum, (void) w;	/* Unused, but part of the work unit interface */
 
 /* Set flag indicating worktodo needs writing */
 
@@ -4299,7 +4299,7 @@ void adjust_rolling_average (void)
 /* Make sure hash codes match.  This protects us against making incorrect */
 /* rolling average adjustments when user manually edits worktodo.txt. */
 
-	if (hash != IniSectionGetInt (INI_FILE, SEC_Internals, KEY_RollingHash, 0)) goto no_update;
+	if (hash != (unsigned long) IniSectionGetInt (INI_FILE, SEC_Internals, KEY_RollingHash, 0)) goto no_update;
 
 /* Now compute the rolling average for this time period.  For example, if */
 /* the time-to-complete decreased 5 hours over the last 6 hours of elapsed */
@@ -4502,7 +4502,7 @@ int read_array (
 	size_t	i;
 	unsigned char *ubuf;
 
-	if (__read (fd, buf, len) != len) return (FALSE);
+	if (__read (fd, buf, len) != (int64_t) len) return (FALSE);
 	ubuf = (unsigned char *) buf;
 	if (sum != NULL) for (i = 0; i < len; i++) *sum += (uint32_t) ubuf[i];
 	return (TRUE);
@@ -4518,7 +4518,7 @@ int write_array (
 	unsigned char *ubuf;
 
 	if (len == 0) return (TRUE);
-	if (__write (fd, buf, len) != len) return (FALSE);
+	if (__write (fd, buf, len) != (int64_t) len) return (FALSE);
 	ubuf = (unsigned char *) buf;
 	if (sum != NULL) for (i = 0; i < len; i++) *sum += (uint32_t) ubuf[i];
 	return (TRUE);
@@ -4537,7 +4537,7 @@ int read_giant (
 	if (len == 0) return (FALSE);
 
 	bytes = len * sizeof (uint32_t);
-	if (_read (fd, g->n, bytes) != bytes) return (FALSE);
+	if (_read (fd, g->n, bytes) != (int64_t) bytes) return (FALSE);
 	if (len && g->n[len-1] == 0) return (FALSE);
 	g->sign = len;
 	*sum += (uint32_t) len;
@@ -4562,7 +4562,7 @@ int write_giant (
 		return (FALSE);
 	}
 	bytes = len * sizeof (uint32_t);
-	if (_write (fd, g->n, bytes) != bytes) {
+	if (_write (fd, g->n, bytes) != (int64_t) bytes) {
 		char	buf[200];
 		sprintf (buf, "In write_giant, unexpected write failure len = %lu\n", len);
 		OutputBoth (MAIN_THREAD_NUM, buf);
@@ -5845,7 +5845,7 @@ int getProgramOptions (void)
 		}
 
 		if (pkt.dayMemory != -1) {
-			if (day_memory != pkt.dayMemory) {
+			if (day_memory != (unsigned int) pkt.dayMemory) {
 				day_memory = pkt.dayMemory;
 				mem_changed = TRUE;
 			}
@@ -5853,7 +5853,7 @@ int getProgramOptions (void)
 		}
 
 		if (pkt.nightMemory != -1) {
-			if (night_memory != pkt.nightMemory) {
+			if (night_memory != (unsigned int) pkt.nightMemory) {
 				night_memory = pkt.nightMemory;
 				mem_changed = TRUE;
 			}
@@ -5861,7 +5861,7 @@ int getProgramOptions (void)
 		}
 
 		if (pkt.dayStartTime != -1) {
-			if (day_start_time != pkt.dayStartTime) {
+			if (day_start_time != (unsigned int) pkt.dayStartTime) {
 				day_start_time = pkt.dayStartTime;
 				mem_changed = TRUE;
 			}
@@ -5869,7 +5869,7 @@ int getProgramOptions (void)
 		}
 
 		if (pkt.nightStartTime != -1) {
-			if (day_end_time != pkt.nightStartTime) {
+			if (day_end_time != (unsigned int) pkt.nightStartTime) {
 				day_end_time = pkt.nightStartTime;
 				mem_changed = TRUE;
 			}
@@ -6070,9 +6070,10 @@ static	int	send_message_retry_count = 0;
 	double	est, work_to_get, unreserve_threshold;
 	int	rc, stop_reason;
 	int	talked_to_server = FALSE;
-	int	can_get_cert_work, can_get_small_cert_work, sent_prp_result;
+	int	can_get_cert_work, can_get_small_cert_work = FALSE, sent_prp_result;
 	int	server_options_counter, retry_count;
 	char	buf[1000];
+	(void) arg;			/* Unused, but this is a thread entry point */
 
 /* If we got an obsolete client error code earlier, then do not attempt */
 /* any more communication with the server. */
@@ -7056,7 +7057,7 @@ void salvageCorruptSpoolFile (void)
 				if (! isprint (*in) && *in != '\n') continue;
 				*out++ = *in;
 				if (*in == '\n');
-				else if ((int) (out - pkt.message) < sizeof (pkt.message) - 1) continue;
+				else if ((int) (out - pkt.message) < (int) (sizeof (pkt.message) - 1)) continue;
 				else *out++ = '\n';
 				*out++ = 0;
 				if ((int) (out - pkt.message) > 20) {
@@ -7157,6 +7158,7 @@ void timed_events_scheduler (void *arg)
 	int	i;
 	time_t	wake_up_time;
 	int	there_are_active_events;
+	(void) arg;			/* Unused, but this is a thread entry point */
 
 /* Loop forever, sleeping until next event fires up */
 
@@ -7338,6 +7340,7 @@ void proofUploader (void *arg)
 {
 	char	proof_files[50][512];		// We can send up to 50 proof files
 	int	i, minutes_to_wait, minutes_to_start, num_proof_files;
+	(void) arg;				/* Unused, but this is a thread entry point */
 
 /* Init event that triggers proof uploads without waiting for next hourly check */
 

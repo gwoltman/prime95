@@ -358,10 +358,10 @@ public:
 	}
 	void validate_final () {ASSERTG (validation_map.size() == 0);}
 #else
-	void validate_insert (uint64_t p) {}
-	void validate_prime (uint64_t p, uint64_t base_prime) {}
-	void validate_pairing (uint64_t p1, uint64_t p2, int D, int ALT_D, int ALT_D_OFFSET, uint64_t B2_start, uint64_t B2_end, std::vector<int> &relps) {}
-	void validate_adjust (std::vector<int> &relps) {}
+	void validate_insert (uint64_t) {}
+	void validate_prime (uint64_t, uint64_t) {}
+	void validate_pairing (uint64_t, uint64_t, int, int, int, uint64_t, uint64_t, std::vector<int> &) {}
+	void validate_adjust (std::vector<int> &) {}
 	void validate_final () {}
 #endif
 
@@ -539,6 +539,7 @@ void output_pair (
 	uint64_t  Dblock;
 	int	relp;
 	ASSERTG (ALT_D == 0);  // Not supported yet
+	(void) ALT_D, (void) ALT_D_OFFSET;	// Only ASSERTG uses ALT_D, and an alternate D is not supported yet
 	Dblock = (p1 + p2) / 2;
 	relp = abs ((int) (p1 - Dblock));
 	Dblock = (Dblock - (B2_start + D / 2)) / D;
@@ -577,6 +578,7 @@ int fill_pairmap (			/* Generate a pairing map */
 	std::vector<int> relps;		/* A set of all possible positive relative primes */
 	bool	WINDOWED;		/* True if faster prime window will be used, reduces prime pairing a little bit */
 	int	WINDOW_REDUCTION_SIZE;	/* Number of D rows to process in the prime window */
+	(void) sieve_info;		/* Unused, the primes for the pairmap are sieved by prime_generator */
 
 /* Do some prep work for windowed vs. non-windowed pairing */
 
@@ -636,7 +638,7 @@ int fill_pairmap (			/* Generate a pairing map */
 			if (relp_sets[i] >= 0) relp = relp_sets[i] * D + relps[j];
 			else relp = - relp_sets[i] * D - relps[numrels - 1 - j];
 			relps.push_back (relp);
-			if (relps.size() == totrels) break;
+			if (relps.size() == (size_t) totrels) break;
 		}
 	}
 	std::sort (relps.begin(), relps.end());
@@ -666,7 +668,7 @@ int fill_pairmap (			/* Generate a pairing map */
 
 	B2_start = round_down_to_multiple_of (B2_start - D / 2, D) + D / 2;
 	B2_end = round_up_to_multiple_of (B2 + D / 2, D) - D / 2;
-	if (max_relp > B2_start + D / 2) B2_start_reloc = 0;
+	if ((uint64_t) max_relp > B2_start + D / 2) B2_start_reloc = 0;
 	else B2_start_reloc = B2_start + D / 2 - max_relp;
 	if (B2_start_reloc < first_relocatable) B2_start_reloc = first_relocatable;
 	numDsections = (B2_end - B2_start) / D;
@@ -746,7 +748,7 @@ int fill_pairmap (			/* Generate a pairing map */
 		}
 		// Insert prime into the map
 		void insert (uint64_t prime) { map[(uint32_t)prime/2 & mask] = prime_count++; prime_count &= mask; }
-		void faux_insert (uint64_t prime) { prime_count++; prime_count &= mask; }
+		void faux_insert (uint64_t) { prime_count++; prime_count &= mask; }
 		// Find index into prime_window circular buffer.  Returns NOT_IN_PRIME_MAP if value is not in the prime window.
 		uint32_t find (uint64_t value) {
 			auto x = map[(uint32_t)value/2 & mask];
@@ -821,6 +823,7 @@ int fill_pairmap (			/* Generate a pairing map */
 		cpt_links = (int) (capacity * (double) totrels / (double) numrels * est_cpt_density);
 	}
 	if (ALT_D) cpt_links *= 2;
+	(void) cpt_links;			// Only read when ON_THE_FLY_CAN_PAIR_TO is undefined
 
 	prime_window primes(capacity);			// For each prime in the "pairing window", maintain data for prime pairing
 	prime_map primes_map(window_size);		// Create a map for quick lookup of primes in the prime window
@@ -1073,7 +1076,7 @@ int fill_pairmap (			/* Generate a pairing map */
 			// Start the queue off with the original unpaired prime
 			unexamined.push (&*it);
 
-			int	best_rank;
+			int	best_rank = 0;		// Only read once p_best_pairing is set
 			prime_data *p_best_pairing, *p_best_chain_end;
 
 			// Examine the unexamined queue hoping one entry will provide a link to an unpaired prime that let's us create a new pairing.
@@ -1371,8 +1374,8 @@ if (FIRST_EXIT && WINDOWED && next_prime != 0 && p_best_pairing != NULL) break;
 			// Validate the single
 			pgen.validate_prime (it->prime, it->base_prime);
 			// Generate a fake pairing being extra careful to find a valid pairing when the single is past B2_end.
-			int pairing_set, prime_relp;
-			uint64_t pairing_Dblock;
+			int pairing_set = 0, prime_relp = 0;
+			uint64_t pairing_Dblock = 0;
 			for (i = 0; i < int_multiplier; i++) {
 				pairing_set = relp_sets[i];
 				prime_relp = it->relp;
@@ -1444,6 +1447,7 @@ if (FIRST_EXIT && WINDOWED && next_prime != 0 && p_best_pairing != NULL) break;
 	// Perform a few final checks.  But first adjust for relocatables that we hoped to pair but did not.
 	pgen.validate_adjust (relps);
 	ASSERTG (pgen.get_numprimes () == tot_pairs * 2 + tot_singles);
+	(void) tot_singles, (void) reloc_singles;	// Only read by ASSERTG and the debugging code below
 	pgen.validate_final ();
 
 /* Output an informational message on our pairing efficiency */

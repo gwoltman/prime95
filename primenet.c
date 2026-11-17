@@ -69,7 +69,7 @@ static const char szFILE[] = "/v5server/?";		/* HTTP GET string */
 
 char SCRAMBLE_STRING[] = "/cgi-bin/pnHttp.exe";
 
-void scramble (char *s)
+void scramble (char *s)		/* s must hold 100 bytes: the scrambled text is twice as long as the input */
 {
 	char	out[100];
 	char	*p = s, *z = out;
@@ -140,16 +140,22 @@ void getProxyInfo (
 /* Secure proxy - get username and password to negotiate access */
 
 	IniSectionGetString (INI_FILE, SEC_PrimeNet, KEY_ProxyUser, szProxyUser, PROXY_USER_BUFSIZE, NULL);
-	IniSectionGetString (INI_FILE, SEC_PrimeNet, KEY_ProxyPass, szProxyPassword, PROXY_PASSWORD_BUFSIZE, NULL);
 
-/* Scramble or unscramble the password as necessary */
+/* Scramble or unscramble the password as necessary.  The scrambled form is two hex characters per password */
+/* character, so it is read and scrambled in a buffer twice the size of the password buffer. */
 
-	if (!IniSectionGetInt (INI_FILE, SEC_PrimeNet, KEY_ProxyMask, 0)) {
-		scramble (szProxyPassword);
-		IniSectionWriteString (INI_FILE, SEC_PrimeNet, KEY_ProxyPass, szProxyPassword);
-		IniSectionWriteInt (INI_FILE, SEC_PrimeNet, KEY_ProxyMask, 1);
+	{
+		char	scrambled[2 * PROXY_PASSWORD_BUFSIZE];
+		IniSectionGetString (INI_FILE, SEC_PrimeNet, KEY_ProxyPass, scrambled, sizeof (scrambled), NULL);
+		if (!IniSectionGetInt (INI_FILE, SEC_PrimeNet, KEY_ProxyMask, 0)) {
+			scrambled[PROXY_PASSWORD_BUFSIZE-1] = 0;	/* Plain text password is limited to the password buffer size */
+			scramble (scrambled);
+			IniSectionWriteString (INI_FILE, SEC_PrimeNet, KEY_ProxyPass, scrambled);
+			IniSectionWriteInt (INI_FILE, SEC_PrimeNet, KEY_ProxyMask, 1);
+		}
+		unscramble (scrambled);				/* Result is at most PROXY_PASSWORD_BUFSIZE-1 characters */
+		strcpy (szProxyPassword, scrambled);
 	}
-	unscramble (szProxyPassword);
 }
 
 /*///////////////////////////////////////////////////////////////////////////
@@ -194,6 +200,7 @@ int curl_trace (
 	char	*text;
 	char	buf[4096];
 	int	len, i, binary_data;
+	(void) handle, (void) userp;	/* Unused, but part of the cURL debug callback interface */
 
 	switch (type) {
 	case CURLINFO_TEXT:
@@ -272,6 +279,7 @@ int pnHttpServerCURL (char *pbuf, unsigned cbuf, char* postargs)
 	char	szProxyUser[PROXY_USER_BUFSIZE];
 	char	szProxyPassword[PROXY_PASSWORD_BUFSIZE];
 	unsigned short nProxyPort;
+	(void) cbuf;			/* Unused -- WriteMemoryCallback hardcodes the 4096 byte pbuf size */
 
 /* Get debug logging flag */
 
@@ -286,7 +294,7 @@ int pnHttpServerCURL (char *pbuf, unsigned cbuf, char* postargs)
 
 		curl = curl_easy_init ();
 		if (curl == NULL) return (PRIMENET_ERROR_CURL_INIT);
-		curl_easy_setopt (curl, CURLOPT_NOPROGRESS, 1);
+		curl_easy_setopt (curl, CURLOPT_NOPROGRESS, 1L);
 
 /* Give curl library the HTTP string to send */
 
@@ -331,15 +339,15 @@ int pnHttpServerCURL (char *pbuf, unsigned cbuf, char* postargs)
 			curl_easy_setopt (curl, CURLOPT_DEBUGFUNCTION, curl_trace);
 			curl_easy_setopt (curl, CURLOPT_DEBUGDATA, NULL);
 			/* the DEBUGFUNCTION has no effect until we enable VERBOSE */
-			curl_easy_setopt (curl, CURLOPT_VERBOSE, 1);
+			curl_easy_setopt (curl, CURLOPT_VERBOSE, 1L);
 		}
 
 /* Send the URL request */
 
-		curl_easy_setopt (curl, CURLOPT_FOLLOWLOCATION, 1);
-		curl_easy_setopt (curl, CURLOPT_NOSIGNAL, 1);
-		curl_easy_setopt (curl, CURLOPT_CONNECTTIMEOUT, 180);
-		curl_easy_setopt (curl, CURLOPT_TIMEOUT, 180);
+		curl_easy_setopt (curl, CURLOPT_FOLLOWLOCATION, 1L);
+		curl_easy_setopt (curl, CURLOPT_NOSIGNAL, 1L);
+		curl_easy_setopt (curl, CURLOPT_CONNECTTIMEOUT, 180L);
+		curl_easy_setopt (curl, CURLOPT_TIMEOUT, 180L);
 		curl_easy_setopt (curl, CURLOPT_ERRORBUFFER, errbuf);
 		res = curl_easy_perform (curl);
 		if (res != CURLE_OK) {
@@ -957,7 +965,8 @@ int primenet_parse_page (char *response_buf, short operation, void *pkt)
 
 {
 	char	*s;
-	char	buf[4096], errtxt[4096];
+	char	errtxt[4096];
+	char	buf[sizeof (errtxt) + 2];	/* Large enough to hold errtxt plus a newline */
 	int32_t	res;
 
 /* Get result code, which is always first */
@@ -987,7 +996,6 @@ int primenet_parse_page (char *response_buf, short operation, void *pkt)
 		;  // Fail get cert work silently
 	}
 	else if (res) {
-		char	buf[2000];
 		char	*resmsg;
 
 /* Convert the error number to text */
@@ -1059,7 +1067,7 @@ int primenet_parse_page (char *response_buf, short operation, void *pkt)
 
 		sprintf (buf, "PrimeNet error %d: %s\n", res, resmsg);
 		LogMsg (buf);
-		sprintf (buf, "%s\n", errtxt);
+		snprintf (buf, sizeof (buf), "%s\n", errtxt);	/* errtxt is server-supplied, up to 4095 chars */
 		LogMsg (buf);
 	}
 
@@ -1068,7 +1076,7 @@ int primenet_parse_page (char *response_buf, short operation, void *pkt)
 
 	else if (strcmp (errtxt, "SUCCESS")) {
 		LogMsg ("PrimeNet success code with additional info:\n");
-		sprintf (buf, "%s\n", errtxt);
+		snprintf (buf, sizeof (buf), "%s\n", errtxt);	/* errtxt is server-supplied, up to 4095 chars */
 		LogMsg (buf);
 	}
 

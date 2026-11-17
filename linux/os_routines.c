@@ -21,6 +21,7 @@ int	activity_is_set = FALSE;
 void PreLaunchCallback (
 	int	launch_type)
 {
+	(void) launch_type;
 #ifdef __APPLE__
 #ifndef COMMAND_LINE_MPRIME
 	if (DEFEAT_POWER_SAVE) {
@@ -38,6 +39,7 @@ void PreLaunchCallback (
 void PostLaunchCallback (
 	int	launch_type)
 {
+	(void) launch_type;
 #ifdef __APPLE__
 #ifndef COMMAND_LINE_MPRIME
 	if (activity_is_set) {
@@ -55,6 +57,7 @@ void PostLaunchCallback (
 void stopCheckCallback (
 	int	thread_num)
 {
+	(void) thread_num;
 }
 
 /* Routine to get the current load average */
@@ -306,7 +309,7 @@ void setOsThreadPriority (
 		       0);
 #endif
 #ifdef __linux__
-	int	linux_priority, errcode;
+	int	linux_priority;
 	pid_t	thread_id;
 
 /* I couldn't get the standard syscall0 declaration of gettid to */
@@ -319,7 +322,7 @@ void setOsThreadPriority (
 /* 0 (linux's normal priority). */
 
 	linux_priority = (8 - (int) priority) * 19 / 7;
-	errcode = setpriority (PRIO_PROCESS, thread_id, linux_priority);
+	(void) setpriority (PRIO_PROCESS, thread_id, linux_priority);
 #endif
 
 #if defined (__APPLE__) || defined (__FreeBSD__)
@@ -394,7 +397,6 @@ int LoadPrimeNet (void)
 	/* 99:	Default.  Use case 2 above but if cannot open /proc/net/route*/
 	/*	then assume you are connected (we probably do not have read */
 	/*	permission or this is a funny Linux setup). */
-	int	lines = 0;
 	FILE	*fd;
 	char	buffer[4096];
 	int	RtReq = IniSectionGetInt (INI_FILE, SEC_PrimeNet, "RouteRequired", 99);

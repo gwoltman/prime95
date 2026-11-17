@@ -236,6 +236,7 @@ int cert (
 	char	string_rep[80];
 	int	error_count_messages;
 	hash256_t hash;
+	(void) pass;			/* Unused, but part of the primeContinue interface */
 
 /* We only expect certifications on Mersenne numbers from the primenet server */
 
@@ -566,7 +567,7 @@ begin:	memset (&cs, 0, sizeof (cs));
 
 			gwstartnextfft (&cs.gwdata,
 					!saving && !maxerr_recovery_mode && cs.counter != cs.next_mul_counter-1 &&
-					cs.counter != cs.end_counter-1 && cs.counter != w->cert_squarings-1);
+					cs.counter != cs.end_counter-1 && cs.counter != (unsigned long) w->cert_squarings - 1);
 			gwsetnormroutine (&cs.gwdata, 0, echk, 0);
 
 /* Square carefully during an error recovery.  This will protect us from roundoff errors up to (1.0 - 0.40625). */
