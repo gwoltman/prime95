@@ -11296,7 +11296,7 @@ int pm1_choose_B2 (
 				  uint64_t altB2 = altB1 + (uint64_t) (0.99 * (x.B2 - pm1data->B)); \
 				  x.compared_to_next_i = pm1prob (takeAwayBits, pm1data->w->sieve_depth, altB1,altB2) - cost_data.factor_probability; \
 				  x.compared_to_next_i = - fabs (x.compared_to_next_i); \
-				} else x.actual_i = x.i, x.compared_to_next_i = -100.0;
+				} else x.actual_i = x.i, x.compared_to_next_i = -100.0, x.D = 0, x.fac_pct = 0.0;
 
 // Return TRUE if x is better than y.
 // Each D value has its own breakeven point.  Significantly higher D values ought to be more efficient than lower D values.
@@ -15238,7 +15238,7 @@ int pp1_choose_B2 (
 				  uint64_t altB2 = altB1 + (uint64_t) (0.99 * (x.B2 - pp1data->B)); \
 				  x.compared_to_next_i = pp1prob (altB1, altB2) - cost_data.factor_probability; \
 				  x.compared_to_next_i = - fabs (x.compared_to_next_i); \
-				} else x.actual_i = x.i, x.compared_to_next_i = -100.0;
+				} else x.actual_i = x.i, x.compared_to_next_i = -100.0, x.D = 0, x.fac_pct = 0.0;
 
 // Return TRUE if x is better than y.
 // Each D value has its own breakeven point.  Significantly higher D values ought to be more efficient than lower D values.
