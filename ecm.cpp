@@ -6853,6 +6853,7 @@ int ecm (
 	char	*str, *msg;
 	double	stage1_timer, stage2_timer, timers[10];
 	bool	near_fft_limit, saving, default_sigma_type;
+	bool	bad_point_in_save_file = FALSE;	// A save file's Edwards point was not on its curve
 	double	allowable_maxerr;
 	int	maxerr_restart_count = 0;
 	unsigned long maxerr_fftlen = 0;
@@ -7290,7 +7291,10 @@ if (w->n == 604) {
 	readSaveFileStateInit (&ecmdata.read_save_file_state, thread_num, filename);
 	writeSaveFileStateInit (&ecmdata.write_save_file_state, filename, 0);
 	for ( ; ; ) {
-		if (! saveFileExists (&ecmdata.read_save_file_state)) {
+		/* If we restarted because a save file's point was not on its curve, that file is now a .badN file.  Do not try */
+		/* .badN files again, doing so would restart from the same bad file forever. */
+		if (! saveFileExists (&ecmdata.read_save_file_state) ||
+		    (bad_point_in_save_file && ecmdata.read_save_file_state.read_attempt >= 50)) {
 			/* If there were save files, they are all bad.  Report a message and temporarily abandon the work unit.  We do this in hopes that we */
 			/* can successfully read one of the bad save files at a later time.  This sounds crazy, but has happened when OSes get in a funky state. */
 			if (ecmdata.read_save_file_state.a_non_bad_save_file_existed) {
@@ -7340,8 +7344,10 @@ if (w->n == 604) {
 			stop_reason = init_curve (&ecmdata);
 			if (stop_reason) goto exit;
 			if (ecmdata.factor != NULL) goto bingo;				// Can't happen
-			if (!ecmdata.montg_stage1 && !ed_check (&ecmdata, &ecmdata.e)) {
+			// Check the dictionary start point too.  A bad one corrupts stage 1, which fails a later ed_check and restarts from this file.
+			if (!ecmdata.montg_stage1 && (!ed_check (&ecmdata, &ecmdata.e) || !ed_check (&ecmdata, &ecmdata.dict_start))) {
 				saveFileBad (&ecmdata.read_save_file_state);		/* Close and rename the bad save file */
+				bad_point_in_save_file = TRUE;
 				goto ed_err;
 			}
 			goto restart1;
