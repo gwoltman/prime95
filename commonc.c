@@ -3313,6 +3313,7 @@ int readWorkToDoFile (void)
 			     "Too many sections in worktodo.txt.  Moving work from section #%u to #%u.\n",
 			     tnum + 1, tnum % NUM_WORKERS + 1);
 		    OutputSomewhere (MAIN_THREAD_NUM, buf);
+		    line[sizeof (line) - 10] = 0;	/* Make room for the 9-character prefix */
 		    safe_strcpy (line + 9, line);
 		    memcpy (line, ";;MOVED;;", 9);
 		    WORKTODO_CHANGED = TRUE;
