@@ -6070,7 +6070,7 @@ static	int	send_message_retry_count = 0;
 	double	est, work_to_get, unreserve_threshold;
 	int	rc, stop_reason;
 	int	talked_to_server = FALSE;
-	int	can_get_cert_work, can_get_small_cert_work, sent_prp_result;
+	int	can_get_cert_work, can_get_small_cert_work = FALSE, sent_prp_result;
 	int	server_options_counter, retry_count;
 	char	buf[1000];
 
