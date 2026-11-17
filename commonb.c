@@ -11940,6 +11940,21 @@ int prp (
 	if (w->prp_base) ps.prp_base = w->prp_base;
 	else ps.prp_base = IniGetInt (INI_FILE, "PRPBase", 3);
 
+/* Gwnum's mul-by-const code takes an int.  Larger PRP bases give wrong results or endless restarts. */
+
+	if (ps.prp_base > 0x7FFFFFFF) {
+		if (w->prp_base) {
+			char	string_rep[80];
+			gw_as_string (string_rep, w->k, w->b, w->n, w->c);
+			sprintf (buf, "PRP base %u for %s is too large, the maximum is 2147483647.  Skipping this work unit.\n", ps.prp_base, string_rep);
+			OutputBoth (thread_num, buf);
+			return (STOP_WORK_UNIT_COMPLETE);
+		}
+		sprintf (buf, "PRPBase=%u is too large, the maximum is 2147483647.  Using PRP base 3.\n", ps.prp_base);
+		OutputBoth (thread_num, buf);
+		ps.prp_base = 3;
+	}
+
 /* If the Primenet server has not specified a PRP residue type (for double-checking), then by default we */
 /* return a standard Fermat PRP residue on k*b^n+c (i.e. calculate base^(k*b^n+c-1)) */
 
@@ -12445,7 +12460,6 @@ begin:	N = exp = NULL;
 	if (ps.counter == 0) {
 		/* For Mersenne numbers we support FFT data shifting */
 		if (w->k == 1.0 && w->b == 2 && w->n > 1000 && w->c == -1) {
-			unsigned long word, bit_in_word;
 			// Generate a random initial shift count
 			srand ((unsigned) time (NULL));
 			ps.units_bit = (rand () << 16) + rand ();
@@ -12454,11 +12468,12 @@ begin:	N = exp = NULL;
 			ps.units_bit = IniGetInt (INI_FILE, "InitialShiftCount", ps.units_bit);
 			// Initial shift count can't be larger than n-64 (the -64 avoids wraparound in setting intial value)
 			ps.units_bit = ps.units_bit % (w->n - 64);
-			// Perform the initial shift, putting at most 24-bits in a word (should be safe)
-			dbltogw (&gwdata, 0.0, ps.x);
-			bitaddr (&gwdata, ps.units_bit, &word, &bit_in_word);
-			set_fft_value (&gwdata, ps.x, word, (ps.prp_base << bit_in_word) & 0xFFFFFF);
-			set_fft_value (&gwdata, ps.x, word+1, ps.prp_base >> (24 - bit_in_word));
+			// Perform the initial shift
+			giant	tmp = popg (&gwdata.gdata, ((unsigned long) gwdata.bit_length >> 5) + 5);
+			ultog (ps.prp_base, tmp);
+			gshiftleft (ps.units_bit, tmp);
+			gianttogw (&gwdata, tmp, ps.x);
+			pushg (&gwdata.gdata, 1);
 		} else {
 			ps.units_bit = 0;
 			dbltogw (&gwdata, (double) ps.prp_base, ps.x);
