@@ -4910,20 +4910,29 @@ int read_footer (
 //    32bit dword version
 //    32bit dword data crc32
 //    <chunk size - 8> bytes JSON data
+// The JSON data is appended to result JSON messages, which are built in 4000-byte buffers and sent to the server in a
+// 2000-byte field.  The largest result (PRP with a res2048) is about 1300 bytes without the footer, so limit the footer's size.
+#define MAX_MOREINFOJSON_SIZE	500
 	char magic[16];
 	uint32_t chunk_size;
 	uint32_t version;
 	uint32_t crc32;
+	// Forget any footer from a save file read earlier (for example, one that was later found to be bad)
+	free (w->morejsoninfo), w->morejsoninfo = NULL;
 	if (!read_array (fd, magic, 16, NULL)) return (TRUE);
 	if (memcmp (magic, "MOREINFOJSONDATA", 16) != 0) return (FALSE);
 	if (!read_uint32 (fd, &chunk_size, NULL)) return (FALSE);
 	if (chunk_size < 8) return (FALSE);	// A valid footer always emits chunk_size = strlen(json) + 8 >= 8; reject underflow
+	if (chunk_size - 8 > MAX_MOREINFOJSON_SIZE) return (FALSE);
 	if (!read_uint32 (fd, &version, NULL)) return (FALSE);
 	if (version != 1) return (FALSE);
 	if (!read_uint32 (fd, &crc32, NULL)) return (FALSE);
 	w->morejsoninfo = (char *) malloc (chunk_size - 8 + 1);
 	if (w->morejsoninfo == NULL) return (FALSE);
-	if (!read_array (fd, w->morejsoninfo, chunk_size - 8, NULL)) return (FALSE);
+	if (!read_array (fd, w->morejsoninfo, chunk_size - 8, NULL)) {
+		free (w->morejsoninfo), w->morejsoninfo = NULL;
+		return (FALSE);
+	}
 	w->morejsoninfo[chunk_size - 8] = 0;
 	return (TRUE);
 }
