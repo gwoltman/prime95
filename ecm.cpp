@@ -4728,7 +4728,7 @@ bool NAF_dictionary_init (
 	// Allocate the dictionary and gwnums
 	ecmdata->NAF_dictionary = (struct ed *) malloc (ecmdata->NAF_dictionary_size * sizeof (struct ed));
 	if (ecmdata->NAF_dictionary == NULL) return (FALSE);
-	ecmdata->NAF_gwnums = gwalloc_array (&ecmdata->gwdata, 3 * ecmdata->NAF_dictionary_size);
+	ecmdata->NAF_gwnums = gwalloc_array (&ecmdata->gwdata, 3 * (uint64_t) ecmdata->NAF_dictionary_size);
 	if (ecmdata->NAF_gwnums == NULL) return (FALSE);
 	memset (ecmdata->NAF_dictionary, 0, ecmdata->NAF_dictionary_size * sizeof (struct ed));
 	gwnum	*next_available_gwnum = ecmdata->NAF_gwnums;
@@ -7603,7 +7603,7 @@ restart1:
 			OutputStr (thread_num, buf);
 			ecm_stage1_memory_usage (thread_num, &ecmdata);
 			if (ecmdata.stage1_bitnum == 0) ed_swap (ecmdata.e, ecmdata.dict_start);
-			NAF_dictionary_init (&ecmdata, &NAF_index, &num_doublings);
+			if (! NAF_dictionary_init (&ecmdata, &NAF_index, &num_doublings)) goto oom;
 			if (ecmdata.factor != NULL) goto bingo;			// Highly unlikely that the modinv in dictionary init found a factor
 
 /* Init variables used in calculating percent complete. */
