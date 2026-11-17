@@ -414,8 +414,14 @@ begin:	memset (&cs, 0, sizeof (cs));
 		}
 		array[arraylen-1] = 0;		// Zero-pad the top few bytes
 
-/* Contact PrimeNet for the starting residue */
+/* Contact PrimeNet for the starting residue.  Without PrimeNet communication we cannot get it, skip this work unit for now. */
 
+		if (!USE_PRIMENET) {
+			OutputStr (thread_num, "Cannot get CERT starting value when not communicating with PrimeNet (UsePrimenet=0).\n");
+			free (array);
+			stop_reason = STOP_RETRY_LATER;
+			goto exit;
+		}
 		if (ProofGetData (w->assignment_uid, array, residue_size, md5) != PRIMENET_NO_ERROR || !isHex (md5)) {
 			OutputBoth (thread_num, "Error getting CERT starting value.\n");
 			free (array);
