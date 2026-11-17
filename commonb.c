@@ -10984,6 +10984,7 @@ int generateProofFile (
 
 		fd = -1;
 		fdout = -1;
+		proof_file_start_offset = -1;	/* Not positioned yet.  A failure this early must leave any existing proof file alone. */
 		MD5Init (&context);
 		M = gwalloc (gwdata);
 		if (M == NULL) {
@@ -11180,7 +11181,9 @@ pfail_wont_get_better:
 		if (proofgen_waits > 2) proofgen_waits = 2;
 pfail:		if (fd >= 0) _close (fd);
 		if (fdout >= 0) {
-			_chsize_s (fdout, proof_file_start_offset);
+			// Discard what this attempt wrote.  If we failed before positioning the file we wrote nothing but the header, and the
+			// file may hold earlier partial proofs (or a complete proof) whose interim residues are gone -- leave it untouched.
+			if (proof_file_start_offset >= 0) _chsize_s (fdout, proof_file_start_offset);
 			_close (fdout);
 			if (proof_file_start_offset == 0) _unlink (tmp_proof_filename);
 		}
