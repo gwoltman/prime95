@@ -6507,6 +6507,10 @@ int ecm_restore (			/* For version 30.4 and later save files */
 		goto readerr;
 	}
 
+/* Bound #2 is never below bound #1 (stage 2 of a GMP-ECM resume file picks bound #2 later) */
+
+	if (w->gmp_ecm_file == NULL && ecmdata->C < savefile_B) goto readerr;
+
 /* Handle the case where we are doing stage 2 only, use the B1 value from the save file */
 
 	if (ecmdata->B == 0) ecmdata->B = savefile_B;
@@ -6526,11 +6530,13 @@ int ecm_restore (			/* For version 30.4 and later save files */
 	else if (ecmdata->state == ECM_STATE_STAGE1) {
 		if (ecmdata->montg_stage1) {
 			if (! read_uint64 (fd, &ecmdata->stage1_prime, &sum)) goto readerr;
+			if (ecmdata->stage1_prime > savefile_B) goto readerr;		// Stage 1 saves are made before passing bound #1
 			if (! alloc_xz (ecmdata, &ecmdata->xz)) goto readerr;
 			if (! read_gwnum (fd, &ecmdata->gwdata, ecmdata->xz.x, &sum)) goto readerr;
 			if (! read_gwnum (fd, &ecmdata->gwdata, ecmdata->xz.z, &sum)) goto readerr;
 		} else {
 			if (! read_uint64 (fd, &ecmdata->stage1_start_prime, &sum)) goto readerr;
+			if (ecmdata->stage1_start_prime > savefile_B) goto readerr;	// Stage 1 saves are made before passing bound #1
 			if (! read_uint32 (fd, &ecmdata->stage1_exp_buffer_size, &sum)) goto readerr;
 			if (! read_uint32 (fd, &ecmdata->stage1_bitnum, &sum)) goto readerr;
 			if (! read_uint32 (fd, &ecmdata->NAF_dictionary_size, &sum)) goto readerr;
@@ -14764,6 +14770,7 @@ int pp1_restore (
 		if (! read_uint64 (fd, &pp1data->B_done, &sum)) goto readerr;
 		if (! read_uint64 (fd, &pp1data->interim_B, &sum)) goto readerr;
 		if (! read_uint64 (fd, &pp1data->stage1_prime, &sum)) goto readerr;
+		if (pp1data->stage1_prime > pp1data->interim_B) goto readerr;	// Stage 1 saves are made before passing bound #1
 	}
 
 	else if (pp1data->state == PP1_STATE_MIDSTAGE) {
