@@ -80,7 +80,7 @@ giant 	allocgiant(int count);
 int 	bitlen(giant n);
 
 /* Returns the value of the pos bit of g. */
-#define bitval(g,pos)	((g)->n[(pos)>>5] & (1 << ((pos)&31)))
+#define bitval(g,pos)	((g)->n[(pos)>>5] & (1U << ((pos)&31)))
 
 /* Returns whether g is zero. */
 #define isZero(g)	((g)->sign == 0)

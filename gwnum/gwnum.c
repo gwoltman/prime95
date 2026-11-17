@@ -5266,7 +5266,7 @@ int internal_gwsetup (
 		gwiter_get_fft_value (&iter, &val2);
 		ASSERTG (val2 == -123456789);
 	}
-	unsigned long rand_start = ((rand () << 16) + rand ()) % gwdata->FFTLEN;
+	unsigned long rand_start = (((uint32_t) rand () << 16) + rand ()) % gwdata->FFTLEN;
 	gwiter_init (gwdata, &iter, g, rand_start);
 	for (unsigned long i = rand_start; i < gwdata->FFTLEN; i++, gwiter_next (&iter)) {
 		ASSERTG (gwiter_index (&iter) == i);

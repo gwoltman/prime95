@@ -449,7 +449,7 @@ begin:	memset (&cs, 0, sizeof (cs));
 		// Generate a random initial shift count.  Initial shift count can't be larger than n.
 		// Perform the initial rotate left.
 		srand ((unsigned) time (NULL));
-		cs.units_bit = ((rand () << 16) + rand ()) % w->n;
+		cs.units_bit = (((uint32_t) rand () << 16) + rand ()) % w->n;
 		gwrotate_left (&cs.gwdata, cs.x, cs.units_bit);
 
 		// Gerbicz error checking expects alt_x to be a copy of x at the start of a block

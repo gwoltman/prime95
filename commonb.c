@@ -6831,7 +6831,7 @@ begin:	gwinit (&lldata.gwdata);
 			uint32_t hi, lo;
 			// Generate a random initial shift count
 			srand ((unsigned) time (NULL));
-			lldata.units_bit = (rand () << 16) + rand ();
+			lldata.units_bit = ((uint32_t) rand () << 16) + rand ();
 			if (CPU_FLAGS & CPU_RDTSC) { rdtsc(&hi,&lo); lldata.units_bit += lo; }
 			// Let user override random initial shift count
 			lldata.units_bit = IniGetInt (INI_FILE, "InitialShiftCount", lldata.units_bit);
@@ -8458,7 +8458,7 @@ int lucas_QA (
 
 		if (lldata.units_bit >= p) {
 			uint32_t hi, lo;
-			lldata.units_bit = (rand () << 16) + rand ();
+			lldata.units_bit = ((uint32_t) rand () << 16) + rand ();
 			if (CPU_FLAGS & CPU_RDTSC) {
 				rdtsc (&hi, &lo);
 				lldata.units_bit += lo;
@@ -12448,7 +12448,7 @@ begin:	N = exp = NULL;
 			unsigned long word, bit_in_word;
 			// Generate a random initial shift count
 			srand ((unsigned) time (NULL));
-			ps.units_bit = (rand () << 16) + rand ();
+			ps.units_bit = ((uint32_t) rand () << 16) + rand ();
 			if (CPU_FLAGS & CPU_RDTSC) { uint32_t hi,lo; rdtsc(&hi,&lo); ps.units_bit += lo; }
 			// Let user override random initial shift count
 			ps.units_bit = IniGetInt (INI_FILE, "InitialShiftCount", ps.units_bit);
