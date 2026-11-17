@@ -12081,6 +12081,10 @@ int prp (
 		// processing load somewhat and reduce the bandwidth required for obtaining proof files.  We hope to never use this option.
 		ps.proof_power = IniSectionGetInt (INI_FILE, SEC_PrimeNet, KEY_ProofPower, ps.proof_power);
 		ps.proof_power_mult = IniSectionGetInt (INI_FILE, SEC_PrimeNet, KEY_ProofPowerMult, ps.proof_power_mult);
+		if (ps.proof_power < 5) ps.proof_power = 0;
+		if (ps.proof_power > best_power) ps.proof_power = best_power;
+		if (ps.proof_power_mult < 1) ps.proof_power_mult = 1;
+		if (ps.proof_power_mult > 4) ps.proof_power_mult = 4;
 	}
 
 /* Init the write save file state.  This remembers which save files are Gerbicz-checked.  Do this initialization */
