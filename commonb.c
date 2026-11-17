@@ -11987,7 +11987,10 @@ int prp (
 		if (ps.residue_type == PRIMENET_PRP_TYPE_FERMAT_VAR) ps.residue_type = PRIMENET_PRP_TYPE_FERMAT;
 		else if (ps.residue_type == PRIMENET_PRP_TYPE_SPRP_VAR) ps.residue_type = PRIMENET_PRP_TYPE_SPRP;
 	}
-	initiallog2k_iters = (int) floor (log2 (w->k));
+	// This is floor (log2 (k)).  Do not use log2, it rounds up to an integer for some k just below 2^50 through 2^53.
+	int	k_exponent;
+	(void) frexp (w->k, &k_exponent);
+	initiallog2k_iters = k_exponent - 1;
 
 /* If k=1,b=2 and we are doing a traditional Fermat PRP implementation, then interim residues are output based on the bit */
 /* representation of N = 2^n + c - 1.  N looks like this:
@@ -12928,7 +12931,7 @@ OutputStr (thread_num, "Iteration failed.\n");
 			if (ps.state == PRP_STATE_NORMAL || ps.state == PRP_STATE_GERB_MID_BLOCK || ps.state == PRP_STATE_DCHK_PASS1) {
 				// Make sure x has had the right number of squarings, the shift count is right, and the exponent is not corrupt
 				if (!prpBookkeepingOK (&ps, w) || expChecksum (exp) != exp_checksum ||
-				    (ps.two_power_opt && final_residue_counter != (unsigned long) floor (log2 (w->k)) +
+				    (ps.two_power_opt && final_residue_counter != initiallog2k_iters +
 							(ps.residue_type == PRIMENET_PRP_TYPE_FERMAT || ps.residue_type == PRIMENET_PRP_TYPE_FERMAT_VAR ||
 							 ps.residue_type == PRIMENET_PRP_TYPE_COFACTOR ? w->n : w->n - 1))) {
 					OutputBoth (thread_num, ERRMSG10);
