@@ -13113,6 +13113,9 @@ OutputStr (thread_num, buf); }
 	for (i = 0; i < pm1data.totrels; i++) gwfree (&pm1data.gwdata, pm1data.nQx[i]);
 	free (pm1data.nQx), pm1data.nQx = NULL;
 	free (pm1data.pairmap), pm1data.pairmap = NULL;
+	gwfree (&pm1data.gwdata, pm1data.V), pm1data.V = NULL;
+	gwfree (&pm1data.gwdata, pm1data.Vn), pm1data.Vn = NULL;
+	gwfree (&pm1data.gwdata, pm1data.Vn1), pm1data.Vn1 = NULL;
 
 /* Check for the rare cases where we need to do even more stage 2.  This happens when continuing a save file in the middle of stage 2 and */
 /* the save file's target bound #2 is smaller than our target bound #2. */
