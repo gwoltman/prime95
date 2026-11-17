@@ -6391,6 +6391,21 @@ writeerr:
 	deleteWriteSaveFile (&ecmdata->write_save_file_state, fd);
 }
 
+/* Return TRUE if at least len more bytes can be read from a save file.  Used to check a length read from a save file */
+/* before allocating that much memory. */
+
+int savefile_has_bytes (
+	int	fd,
+	uint64_t len)
+{
+	int64_t	cur, end;
+
+	cur = _lseeki64 (fd, 0, SEEK_CUR);
+	end = _lseeki64 (fd, 0, SEEK_END);
+	if (cur < 0 || end < cur || _lseeki64 (fd, cur, SEEK_SET) != cur) return (FALSE);
+	return ((uint64_t) (end - cur) >= len);
+}
+
 int ecm_old_restore (			/* For version 25 save files */
 	ecmhandle *ecmdata,
 	int	fd,
@@ -6588,6 +6603,7 @@ int ecm_restore (			/* For version 30.4 and later save files */
 			if (! read_int32 (fd, &ecmdata->relp, &sum)) goto readerr;
 			if (! read_array (fd, (char *) ecmdata->relp_sets, 32 * sizeof (int16_t), &sum)) goto readerr;
 			if (! read_uint64 (fd, &ecmdata->pairmap_size, &sum)) goto readerr;
+			if (! savefile_has_bytes (fd, ecmdata->pairmap_size)) goto readerr;
 			ecmdata->pairmap = (uint8_t *) malloc ((size_t) ecmdata->pairmap_size);
 			if (ecmdata->pairmap == NULL) goto readerr;
 			if (! read_array (fd, (char *) ecmdata->pairmap, (size_t) ecmdata->pairmap_size, &sum)) goto readerr;
@@ -10686,9 +10702,14 @@ int pm1_old_restore (
 	if (! read_long (fd, &unused, &sum)) goto readerr;		// rels_done
 	if (! read_long (fd, &bitarray_len, &sum)) goto readerr;
 	if (bitarray_len) {
-		char *bitarray = (char *) malloc (bitarray_len);
+		char *bitarray;
+		if (! savefile_has_bytes (fd, bitarray_len)) goto readerr;
+		bitarray = (char *) malloc (bitarray_len);
 		if (bitarray == NULL) goto readerr;
-		if (! read_array (fd, bitarray, (size_t) bitarray_len, &sum)) goto readerr;
+		if (! read_array (fd, bitarray, (size_t) bitarray_len, &sum)) {
+			free (bitarray);
+			goto readerr;
+		}
 		free (bitarray);
 	}
 	if (! read_uint64 (fd, &unused64, &sum)) goto readerr;		// bitarray_first_number
@@ -10845,6 +10866,7 @@ int pm1_restore (			/* For version 30.4 and later save files */
 			if (! read_int (fd, &pm1data->relp, &sum)) goto readerr;
 			if (! read_array (fd, (char *) pm1data->relp_sets, 32 * sizeof (int16_t), &sum)) goto readerr;
 			if (! read_uint64 (fd, &pm1data->pairmap_size, &sum)) goto readerr;
+			if (! savefile_has_bytes (fd, pm1data->pairmap_size)) goto readerr;
 			pm1data->pairmap = (uint8_t *) malloc ((size_t) pm1data->pairmap_size);
 			if (pm1data->pairmap == NULL) goto readerr;
 			if (! read_array (fd, (char *) pm1data->pairmap, (size_t) pm1data->pairmap_size, &sum)) goto readerr;
@@ -14811,15 +14833,22 @@ int pp1_restore (
 			if (bitarray_numDsections > bitarraymaxDsections) bitarray_numDsections = bitarraymaxDsections;
 			bitarray_len = divide_rounding_up (bitarray_numDsections * pp1data->totrels, 8);
 			bitarray_start = divide_rounding_down ((pp1data->Dsection - bitarrayfirstDsection) * pp1data->totrels, 8);
-			bitarray = (char *) malloc ((size_t) bitarray_len);
+			// Only the bit array from bitarray_start on was saved.  Check that it is in the file before allocating space to read it.
+			if (bitarrayfirstDsection > pp1data->Dsection || bitarray_start > bitarray_len) goto readerr;
+			if (! savefile_has_bytes (fd, bitarray_len - bitarray_start)) goto readerr;
+			bitarray = (char *) malloc ((size_t) (bitarray_len - bitarray_start));
 			if (bitarray == NULL) goto readerr;
-			if (! read_array (fd, bitarray, (size_t) (bitarray_len - bitarray_start), &sum)) goto readerr;
+			if (! read_array (fd, bitarray, (size_t) (bitarray_len - bitarray_start), &sum)) {
+				free (bitarray);
+				goto readerr;
+			}
 			free (bitarray);
 		} else {				// 30.7 save files
 			if (! read_uint64 (fd, &pp1data->max_pairmap_Dsections, &sum)) goto readerr;
 			if (! read_int (fd, &pp1data->relp, &sum)) goto readerr;
 			if (! read_array (fd, (char *) pp1data->relp_sets, 32 * sizeof (int16_t), &sum)) goto readerr;
 			if (! read_uint64 (fd, &pp1data->pairmap_size, &sum)) goto readerr;
+			if (! savefile_has_bytes (fd, pp1data->pairmap_size)) goto readerr;
 			pp1data->pairmap = (uint8_t *) malloc ((size_t) pp1data->pairmap_size);
 			if (pp1data->pairmap == NULL) goto readerr;
 			if (! read_array (fd, (char *) pp1data->pairmap, (size_t) pp1data->pairmap_size, &sum)) goto readerr;
