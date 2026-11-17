@@ -198,6 +198,9 @@ int readCertSaveFile (			/* Returns TRUE if succsessful */
 		}
 	}
 
+	// Shift counts are less than n
+	if (cs->units_bit >= w->n || cs->alt_units_bit >= w->n) goto err;
+
 	// Validate checksum and return
 	if (filesum != sum) goto err;
 	if (!read_footer (fd, w)) goto err;

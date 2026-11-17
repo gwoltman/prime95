@@ -11518,8 +11518,9 @@ int readPRPSaveFile (
 		if (ps->two_power_opt) goto err;		// Alternatively we could re-init PRP code with two_power_opt off
 	}
 
-	// Validate save file's PRP base is the desired PRP base
+	// Validate save file's PRP base is the desired PRP base, and the shift count (which is less than n)
 	if (savefile_prp_base != ps->prp_base) goto err;
+	if (ps->units_bit >= w->n) goto err;
 
 	// Read in fields introduced in version 3
 	if (version >= 3) {
@@ -11534,6 +11535,7 @@ int readPRPSaveFile (
 		if (!read_long (fd, &savefile_state, &sum)) goto err;
 		ps->state = savefile_state;
 		if (!read_long (fd, &ps->alt_units_bit, &sum)) goto err;
+		if (ps->alt_units_bit >= w->n) goto err;
 		if (!read_long (fd, &ps->L, &sum)) goto err;
 		if (!read_long (fd, &ps->start_counter, &sum)) goto err;
 		if (!read_long (fd, &ps->next_mul_counter, &sum)) goto err;
