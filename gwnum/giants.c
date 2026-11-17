@@ -1370,7 +1370,7 @@ void gmaskbits (	/* keep rightmost bits. Equivalent to g = g%2^bits. */
 	if (size <= words) return;
 
 	if (rem) {
-		g->n[words] &= ((1 << rem) - 1);
+		g->n[words] &= ((1U << rem) - 1);
 		words++;
 	}
 	g->sign = (g->sign < 0) ? -words : words;
@@ -1918,7 +1918,8 @@ void pushg (
 int bitlen (
 	giant	g)
 {
-	int 	b = 32, c = 1<<31, w, size;
+	int 	b = 32, size;
+	uint32_t c = 1U << 31, w;
 
 	ASSERTG (g->sign == 0 || g->n[abs(g->sign)-1] != 0);
 
@@ -2281,7 +2282,7 @@ void gsetlength (	/* Set the length of g to n bits (g = g mod 2^n) */
 	ASSERTG (g->sign >= (n >> 5));
 
 	size = (n + 31) >> 5;
-	if (n & 31) g->n[size-1] &= (1 << (n & 31)) - 1;
+	if (n & 31) g->n[size-1] &= (1U << (n & 31)) - 1;
 	while (size && g->n[size-1] == 0) size--;
 	g->sign = size;
 }
