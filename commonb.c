@@ -12111,6 +12111,32 @@ begin:	N = exp = NULL;
 	gwset_use_spin_wait (&gwdata, IniGetInt (INI_FILE, "SpinWait", 0));
 	res = gwsetup (&gwdata, w->k, w->b, w->n, w->c);
 
+/* The PRP base is passed to gwnum as the maximum mul-by-const.  For some small numbers no FFT can handle a large base. */
+/* If the default mul-by-const would work, the base is the problem.  Skip the work unit or fall back to base 3. */
+
+	if (res && res != GWERROR_TOO_SMALL && ps.prp_base > 3) {
+		gwhandle test_gwdata;
+		int	test_res;
+		gwinit (&test_gwdata);
+		gwset_minimum_fftlen (&test_gwdata, w->minimum_fftlen);
+		gwset_safety_margin (&test_gwdata, IniGetFloat (INI_FILE, "ExtraSafetyMargin", 0.0));
+		test_res = gwsetup (&test_gwdata, w->k, w->b, w->n, w->c);
+		gwdone (&test_gwdata);
+		if (test_res == 0) {
+			gw_as_string (string_rep, w->k, w->b, w->n, w->c);
+			gwdone (&gwdata);
+			if (w->prp_base) {
+				sprintf (buf, "PRP base %u is too large for the FFT code to handle on %s.  Skipping this work unit.\n", ps.prp_base, string_rep);
+				OutputBoth (thread_num, buf);
+				return (STOP_WORK_UNIT_COMPLETE);
+			}
+			sprintf (buf, "PRPBase=%u is too large for the FFT code to handle on %s.  Using PRP base 3.\n", ps.prp_base, string_rep);
+			OutputBoth (thread_num, buf);
+			ps.prp_base = 3;
+			goto begin;
+		}
+	}
+
 /* If we were unable to init the FFT code, then print an error message */
 /* and return an error code. */
 
