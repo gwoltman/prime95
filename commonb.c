@@ -10430,6 +10430,7 @@ struct prp_state {
 	int	proof_power;		/* PRP proof power (see Mihai's documents) */
 	int	proof_power_mult;	/* Run the proof power multiple times to simulate a higher power */
 	int	hashlen;		/* Size (in bits) of proof hashes.  Must be between 32 and 64 inclusive */
+#define MAX_PROOF_POWER	21		/* Largest proof power generateProofFile can handle */
 	int	isProbablePrime;	/* True is PRP test found a probable prime */
 	int	have_res2048;		/* True if a 2048-bit residue is available */
 	char	residues_filename[500];	/* Filename for the proof interim residues */
@@ -10973,7 +10974,7 @@ int generateProofFile (
 	for ( ; ; ) {
 		int	fd, fdout, rc, i, stop_reason;
 		int64_t	proof_header_size, proof_residues_size, proof_file_size, proof_file_start_offset;
-		uint64_t h[20];
+		uint64_t h[MAX_PROOF_POWER-1];
 		hash256_t rooth, *prevh, thish;
 		gwnum	M;
 		MD5_CTX context;
@@ -11547,8 +11548,11 @@ int readPRPSaveFile (
 	if (version >= 5) {
 		unsigned long savefile_proof_power, savefile_hashlen, savefile_isProbablePrime, savefile_have_res2048;
 		if (!read_long (fd, &savefile_proof_power, &sum)) goto err;
-		ps->proof_power = savefile_proof_power;
 		if (!read_long (fd, &savefile_hashlen, &sum)) goto err;
+		// Reject proof settings the proof code cannot handle (before they replace the settings used if this file is rejected)
+		if (savefile_proof_power > MAX_PROOF_POWER) goto err;
+		if (savefile_proof_power && (savefile_hashlen < 32 || savefile_hashlen > 64)) goto err;
+		ps->proof_power = savefile_proof_power;
 		ps->hashlen = savefile_hashlen;
 		if (!read_long (fd, &savefile_isProbablePrime, &sum)) goto err;
 		ps->isProbablePrime = savefile_isProbablePrime;
@@ -11566,6 +11570,9 @@ int readPRPSaveFile (
 	if (version >= 6) {
 		unsigned long savefile_proof_power_mult, savefile_md5_residues;
 		if (!read_long (fd, &savefile_proof_power_mult, &sum)) goto err;
+		// The proof code divides the test's squarings by proof_power_mult and computes proof_power_mult << proof_power in an int
+		if (savefile_proof_power_mult < 1 || savefile_proof_power_mult > w->n ||
+		    savefile_proof_power_mult > (unsigned long) (INT_MAX >> ps->proof_power)) goto err;
 		ps->proof_power_mult = savefile_proof_power_mult;
 		if (!read_long (fd, &savefile_md5_residues, &sum)) goto err;
 		ps->md5_residues = savefile_md5_residues;
@@ -11578,6 +11585,7 @@ int readPRPSaveFile (
 	if (version >= 7) {
 		unsigned long savefile_proof_version;
 		if (!read_long (fd, &savefile_proof_version, &sum)) goto err;
+		if (savefile_proof_version != 1 && savefile_proof_version != 2) goto err;
 		ps->proof_version = savefile_proof_version;
 	} else {
 		ps->proof_version = 1;
