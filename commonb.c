@@ -11318,6 +11318,42 @@ int prpBookkeepingOK (
 	return (TRUE);
 }
 
+/* Check the state and iteration counters read from a PRP save file.  Save files are written after the PRP loop's state machine */
+/* has run, so the next iteration must pass the loop's "Can't happen" checks and prpBookkeepingOK.  No counter can be past the */
+/* end of the test: about log2(k*b^n) squarings plus (for version 1 proofs) fewer than proof_power_mult << proof_power more. */
+
+int prpSaveFileCountersOK (
+	struct prp_state *ps,
+	struct work_unit *w)
+{
+	double	max_counter = (double) w->n * log2 ((double) w->b) + log2 (w->k) + 64.0 + ldexp ((double) ps->proof_power_mult, ps->proof_power);
+
+	if ((double) ps->counter > max_counter || (double) prpXCounter (ps) > max_counter) return (FALSE);
+	switch (ps->state) {
+	case PRP_STATE_NORMAL:
+	case PRP_STATE_GERB_START_BLOCK:
+	case PRP_STATE_GERB_FINAL_MULT:
+		break;
+	case PRP_STATE_DCHK_PASS1:
+	case PRP_STATE_DCHK_PASS2:
+	case PRP_STATE_GERB_END_BLOCK:
+		if (ps->counter < ps->start_counter || ps->counter >= ps->end_counter) return (FALSE);
+		break;
+	case PRP_STATE_GERB_MID_BLOCK:
+		if (ps->counter < ps->start_counter || ps->counter >= ps->next_mul_counter || ps->next_mul_counter > ps->end_counter) return (FALSE);
+		break;
+	case PRP_STATE_GERB_MID_BLOCK_MULT:
+		if (ps->counter < ps->start_counter || ps->counter + 1 >= ps->end_counter) return (FALSE);
+		break;
+	case PRP_STATE_GERB_END_BLOCK_MULT:
+		if (ps->counter + 1 != ps->end_counter) return (FALSE);
+		break;
+	default:
+		return (FALSE);
+	}
+	return (prpBookkeepingOK (ps, w));
+}
+
 /* Compare a (possibly shifted) gwnum to prp_base^power mod k*b^n+c.  Used to check values that are not protected by error checking. */
 
 int isPRPValBasePower (
@@ -11591,6 +11627,10 @@ int readPRPSaveFile (
 		ps->x_iters = prpXCounter (ps);
 		ps->initial_units_bit = PRP_UNKNOWN_SHIFT;
 	}
+
+	// Reject states and iteration counters that a PRP test cannot have written.  The PRP loop checks them after each iteration
+	// and, finding them impossible, restarts from the last save file -- which would be this same save file, forever.
+	if (!prpSaveFileCountersOK (ps, w)) goto err;
 
 	// In version 3, we did not delay the final multiply in calculation of checksum #1.
 	// We must ignore some save files because the version 3 and version 4 states are subtly different.
@@ -12243,9 +12283,10 @@ begin:	N = exp = NULL;
 				OutputBoth (thread_num, ALLSAVEBAD_MSG);
 				return (0);
 			}
-			/* No save files existed, start from scratch. */
+			/* No save files existed, start from scratch.  Do not use the state of a save file that was rejected. */
 			ps.counter = 0;
 			ps.error_count = 0;
+			ps.state = PRP_STATE_NORMAL;
 			first_iter_msg = FALSE;
 			break;
 		}
