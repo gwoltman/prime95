@@ -11873,6 +11873,7 @@ int prp (
 	int	error_count_messages;
 	unsigned long restart_error_count = 0;	/* On a restart, use this error count rather than the one from a save file */
 	long	restart_counter = -1;		/* On a restart, this specifies how far back to rollback save files */
+	int	skip_bad_save_files = FALSE;	/* Set when a save file was renamed .badN because its counters made no sense */
 	unsigned long excess_squarings;		/* Number of extra squarings we are doing in order to generate a PRP proof */
 	int	proof_next_interim_residue;	/* The next interim residue to output */
 	unsigned long proof_next_interim_residue_iter; /* The iteration where the next interim residue occurs */
@@ -12231,9 +12232,10 @@ begin:	N = exp = NULL;
 	readSaveFileStateInit (&read_save_file_state, thread_num, filename);
 	for ( ; ; ) {
 
-/* If there are no more save files, start off with the 1st PRP squaring. */
+/* If there are no more save files, start off with the 1st PRP squaring.  After renaming a save file whose counters */
+/* made no sense, do not try .badN files again (that file is one of them). */
 
-		if (! saveFileExists (&read_save_file_state)) {
+		if (! saveFileExists (&read_save_file_state) || (skip_bad_save_files && read_save_file_state.read_attempt >= 50)) {
 			/* If there were save files, they are all bad.  Report a message */
 			/* and temporarily abandon the work unit.  We do this in hopes that */
 			/* we can successfully read one of the bad save files at a later time. */
@@ -12243,9 +12245,10 @@ begin:	N = exp = NULL;
 				OutputBoth (thread_num, ALLSAVEBAD_MSG);
 				return (0);
 			}
-			/* No save files existed, start from scratch. */
+			/* No save files existed, start from scratch.  Do not use the state of a save file that was rejected. */
 			ps.counter = 0;
 			ps.error_count = 0;
+			ps.state = PRP_STATE_NORMAL;
 			first_iter_msg = FALSE;
 			break;
 		}
@@ -12330,6 +12333,16 @@ begin:	N = exp = NULL;
 
 			while (ps.counter >= initial_nonproof_iters + ps.proof_num_iters) initial_nonproof_iters += ps.proof_num_iters;
 			for (proof_next_interim_residue = 1; ; proof_next_interim_residue++) {
+				// x is never past the end of the current partial proof, so this is at most the 2^proof_power+1-th residue.  If it
+				// is not, the save file's counters are inconsistent and this would loop forever.  Treat the save file as bad.
+				if (proof_next_interim_residue > (1 << ps.proof_power) + 1) {
+					saveFileBad (&read_save_file_state);
+					skip_bad_save_files = TRUE;
+					ps.error_count = restart_error_count;	/* Do not keep the bad save file's error count */
+					restart_counter = -1;			/* rollback to any save file */
+					sleep5 = FALSE;
+					goto restart;
+				}
 				proof_next_interim_residue_iter = proofResidueIteration (&ps, proof_next_interim_residue);
 				if (prpXCounter (&ps) < initial_nonproof_iters + proof_next_interim_residue_iter) break;
 			}
