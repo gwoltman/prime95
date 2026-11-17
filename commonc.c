@@ -4535,6 +4535,7 @@ int read_giant (
 
 	if (!read_long (fd, &len, sum)) return (FALSE);
 	if (len == 0) return (FALSE);
+	if (len > (unsigned long) g->maxsize) return (FALSE);	/* Corrupt length, would overflow g */
 
 	bytes = len * sizeof (uint32_t);
 	if (_read (fd, g->n, bytes) != bytes) return (FALSE);
