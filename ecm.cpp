@@ -6499,6 +6499,11 @@ int ecm_restore (			/* For version 30.4 and later save files */
 		ecmdata->montg_stage1 = tmp;
 	}
 
+/* Sigma types are 0 (Edwards), 1 (Montgomery), or 3 (GMP-ECM param3, where we only do stage 2) */
+
+	if (ecmdata->sigma_type != 0 && ecmdata->sigma_type != 1 && ecmdata->sigma_type != 3) goto readerr;
+	if (ecmdata->sigma_type == 3 && ecmdata->state <= ECM_STATE_STAGE1) goto readerr;
+
 /* Handle the case where we have a save file with a smaller bound #1 than the bound #1 we are presently working on. */
 /* Restart the curve (and curve counts) from scratch. */
 
@@ -6534,6 +6539,11 @@ int ecm_restore (			/* For version 30.4 and later save files */
 			if (! read_uint32 (fd, &ecmdata->stage1_exp_buffer_size, &sum)) goto readerr;
 			if (! read_uint32 (fd, &ecmdata->stage1_bitnum, &sum)) goto readerr;
 			if (! read_uint32 (fd, &ecmdata->NAF_dictionary_size, &sum)) goto readerr;
+			// The exponent buffer is 1MB to 128MB in 1MB steps (see ECMStage1ExpBufferSize).  Dictionaries smaller than 7 crash.
+			// NAF_dictionary_init allocates 3 gwnums per dictionary entry using an int count.
+			if (ecmdata->stage1_exp_buffer_size < (1 << 20) || ecmdata->stage1_exp_buffer_size > (128 << 20) ||
+			    (ecmdata->stage1_exp_buffer_size & ((1 << 20) - 1))) goto readerr;
+			if (ecmdata->NAF_dictionary_size < 7 || ecmdata->NAF_dictionary_size > INT_MAX / 3) goto readerr;
 			if (! ed_alloc (ecmdata, &ecmdata->dict_start)) goto readerr;
 			if (! read_gwnum (fd, &ecmdata->gwdata, ecmdata->dict_start.x, &sum)) goto readerr;
 			if (! read_gwnum (fd, &ecmdata->gwdata, ecmdata->dict_start.y, &sum)) goto readerr;
