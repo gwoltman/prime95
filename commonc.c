@@ -2679,6 +2679,128 @@ void addKnownFermatFactors (
 	}
 }	    
 
+/* Strict parsing of numeric worktodo.txt fields.  A field may start with white space and must end with optional white */
+/* space followed by a comma or the end of the line.  These return FALSE if the field is empty, malformed or out of range. */
+/* Unlike atoi, atof and sscanf they do not accept trailing garbage, negative values for unsigned fields, or NaN. */
+
+#define WTD_MAX_FLOAT	3.0e38			/* Largest sieve depth, factoring limit or tests_saved accepted.  It must fit in a float. */
+#define WTD_MAX_BOUND	18446744073709549568.0	/* Largest double that fits in a uint64_t */
+
+int endOfWorkToDoField (
+	const char *p)
+{
+	while (*p == ' ' || *p == '\t') p++;
+	return (*p == ',' || *p == 0);
+}
+
+int getUnsignedField (
+	const char *p,
+	uint64_t maxval,
+	uint64_t *val)
+{
+	uint64_t v;
+
+	while (*p == ' ' || *p == '\t') p++;
+	if (*p == '+') p++;
+	if (! isdigit ((unsigned char) *p)) return (FALSE);
+	for (v = 0; isdigit ((unsigned char) *p); p++) {
+		unsigned int digit = *p - '0';
+		if (v > maxval / 10 || digit > maxval - v * 10) return (FALSE);
+		v = v * 10 + digit;
+	}
+	if (! endOfWorkToDoField (p)) return (FALSE);
+	*val = v;
+	return (TRUE);
+}
+
+int getSignedField (
+	const char *p,
+	int64_t	maxabs,
+	int64_t	*val)
+{
+	uint64_t v;
+	int	negative;
+
+	while (*p == ' ' || *p == '\t') p++;
+	negative = (*p == '-');
+	if (*p == '-' || *p == '+') p++;
+	if (! isdigit ((unsigned char) *p)) return (FALSE);
+	if (! getUnsignedField (p, (uint64_t) maxabs, &v)) return (FALSE);
+	*val = negative ? - (int64_t) v : (int64_t) v;
+	return (TRUE);
+}
+
+int getDoubleField (
+	const char *p,
+	double	minval,
+	double	maxval,
+	double	*val)
+{
+	char	*end;
+	double	v;
+
+	v = strtod (p, &end);
+	if (end == p || ! endOfWorkToDoField (end)) return (FALSE);
+	if (! (v >= minval && v <= maxval)) return (FALSE);	/* This also rejects NaN */
+	*val = v;
+	return (TRUE);
+}
+
+/* Parse a B1 or B2 bound.  These are often written in floating point notation (e.g. 1e9). */
+
+int getBoundField (
+	const char *p,
+	uint64_t *val)
+{
+	double	v;
+
+	if (! getDoubleField (p, 0.0, WTD_MAX_BOUND, &v)) return (FALSE);
+	*val = (uint64_t) v;
+	return (TRUE);
+}
+
+/* Parse the n[,how_far_factored[,flag]] fields of Test=, DoubleCheck= and old-style Pfactor= lines.  Fields that are not */
+/* present leave the passed-in defaults unchanged. */
+
+int getNSieveFlagFields (
+	const char *p,
+	unsigned long *n,
+	float	*sieve_depth,
+	int	*flag)
+{
+	uint64_t u;
+	double	d;
+
+	if (! getUnsignedField (p, (uint64_t) ~0UL, &u)) return (FALSE);
+	*n = (unsigned long) u;
+	if ((p = strchr (p, ',')) == NULL) return (TRUE);
+	if (! getDoubleField (p+1, 0.0, WTD_MAX_FLOAT, &d)) return (FALSE);
+	*sieve_depth = (float) d;
+	if ((p = strchr (p+1, ',')) == NULL) return (TRUE);
+	if (! getUnsignedField (p+1, 2147483647, &u)) return (FALSE);
+	*flag = (int) u;
+	return (TRUE);
+}
+
+/* Parse the k,b,n,c fields at the start of many worktodo.txt lines.  The range of each value is checked later. */
+
+int getKBNCFields (
+	const char *p,
+	struct work_unit *w)
+{
+	uint64_t u;
+	int64_t	s;
+
+	if (! getDoubleField (p, -HUGE_VAL, HUGE_VAL, &w->k)) return (FALSE);
+	if ((p = strchr (p, ',')) == NULL || ! getUnsignedField (p+1, (uint64_t) ~0UL, &u)) return (FALSE);
+	w->b = (unsigned long) u;
+	if ((p = strchr (p+1, ',')) == NULL || ! getUnsignedField (p+1, (uint64_t) ~0UL, &u)) return (FALSE);
+	w->n = (unsigned long) u;
+	if ((p = strchr (p+1, ',')) == NULL || ! getSignedField (p+1, (int64_t) (~0UL >> 1), &s)) return (FALSE);
+	w->c = (long) s;
+	return (TRUE);
+}
+
 /* Add a work_unit to the work_unit array.  Grow the work_unit array if necessary */
 
 int addToWorkUnitArray (
@@ -2859,7 +2981,7 @@ int parseWorkToDoLine (
 		w->work_type = WORK_TEST;
 		sieve_depth = 99.0;
 		w->pminus1ed = 1;
-		sscanf (value, "%lu,%f,%d", &w->n, &sieve_depth, &w->pminus1ed);
+		if (! getNSieveFlagFields (value, &w->n, &sieve_depth, &w->pminus1ed)) goto illegal_line;
 		w->sieve_depth = sieve_depth;
 		w->tests_saved = 1.3;
 	}
@@ -2868,7 +2990,7 @@ int parseWorkToDoLine (
 		w->work_type = WORK_DBLCHK;
 		sieve_depth = 99.0;
 		w->pminus1ed = 1;
-		sscanf (value, "%lu,%f,%d", &w->n, &sieve_depth, &w->pminus1ed);
+		if (! getNSieveFlagFields (value, &w->n, &sieve_depth, &w->pminus1ed)) goto illegal_line;
 		w->sieve_depth = sieve_depth;
 		w->tests_saved = 1.0;
 	}
@@ -2877,8 +2999,10 @@ int parseWorkToDoLine (
 /*	AdvancedTest=exponent */
 
 	else if (strcmp (keyword, "ADVANCEDTEST") == 0) {
+		uint64_t u;
 		w->work_type = WORK_ADVANCEDTEST;
-		sscanf (value, "%lu", &w->n);
+		if (! getUnsignedField (value, (uint64_t) ~0UL, &u)) goto illegal_line;
+		w->n = (unsigned long) u;
 	}
 
 /* Handle Factor= lines.  Old style is:					*/
@@ -2888,10 +3012,22 @@ int parseWorkToDoLine (
 
 	else if (strcmp (keyword, "FACTOR") == 0) {
 		float	sieve_depth, factor_to;
+		uint64_t u;
+		double	d;
+		char	*q;
 		w->work_type = WORK_FACTOR;
 		sieve_depth = 0.0;
 		factor_to = 0.0;
-		sscanf (value, "%lu,%f,%f", &w->n, &sieve_depth, &factor_to);
+		if (! getUnsignedField (value, (uint64_t) ~0UL, &u)) goto illegal_line;
+		w->n = (unsigned long) u;
+		if ((q = strchr (value, ',')) != NULL) {
+			if (! getDoubleField (q+1, 0.0, WTD_MAX_FLOAT, &d)) goto illegal_line;
+			sieve_depth = (float) d;
+			if ((q = strchr (q+1, ',')) != NULL) {
+				if (! getDoubleField (q+1, 0.0, WTD_MAX_FLOAT, &d)) goto illegal_line;
+				factor_to = (float) d;
+			}
+		}
 		w->sieve_depth = sieve_depth;
 		w->factor_to = factor_to;
 	}
@@ -2910,11 +3046,16 @@ int parseWorkToDoLine (
 		if (countCommas (value) > 3) {		/* New style */
 			char	*q;
 			float	tests_saved;
+			double	d;
 			tests_saved = 0.0;
-			w->k = atof (value);
+			if (! getKBNCFields (value, w)) goto illegal_line;
 			if ((q = strchr (value, ',')) == NULL) goto illegal_line;
-			sscanf (q+1, "%lu,%lu,%ld,%f,%f", &w->b, &w->n, &w->c, &sieve_depth, &tests_saved);
-			for (i = 1; i <= 4; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+			for (i = 1; i <= 3; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+			if (! getDoubleField (q+1, 0.0, WTD_MAX_FLOAT, &d)) goto illegal_line;
+			sieve_depth = (float) d;
+			if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+			if (! getDoubleField (q+1, 0.0, WTD_MAX_FLOAT, &d)) goto illegal_line;
+			tests_saved = (float) d;
 			q = strchr (q+1, ',');
 			w->sieve_depth = sieve_depth;
 			w->tests_saved = tests_saved;
@@ -2924,8 +3065,8 @@ int parseWorkToDoLine (
 				strcpy (w->known_factors, q+2);
 			}
 		} else {				/* Old style */
-			int	dblchk;
-			sscanf (value, "%lu,%f,%d", &w->n, &sieve_depth, &dblchk);
+			int	dblchk = 0;
+			if (! getNSieveFlagFields (value, &w->n, &sieve_depth, &dblchk)) goto illegal_line;
 			w->sieve_depth = sieve_depth;
 			w->tests_saved = dblchk ? 1.0 : 1.3;
 		}
@@ -2946,9 +3087,8 @@ int parseWorkToDoLine (
 		else if (strcmp (keyword, "ECMSTAGE2N") == 0) ecm_type = 2;
 		else goto illegal_line;
 		if (ecm_type != 2) {					// Get required k,b,n,c for ECM= and ECMSTAGE2=
-			w->k = atof (value);
+			if (! getKBNCFields (value, w)) goto illegal_line;
 			if ((q = strchr (value, ',')) == NULL) goto illegal_line;
-			sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
 			for (i = 1; i <= 3; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
 		}
 		if (ecm_type != 0) {					// Get required filename for ECMSTAGE2= and ECMSTAGE2N=
@@ -2971,24 +3111,28 @@ int parseWorkToDoLine (
 			q = strchr (q + len, ',');
 		}
 		if (ecm_type == 0) {					// Get required B1 for ECM=
-			w->B1 = (uint64_t) atof (q+1);
+			if (! getBoundField (q+1, &w->B1)) goto illegal_line;
 			q = strchr (q+1, ',');
 		}
 		if (q != NULL && q[1] != '"') {				// Get optional B2 for all ECM types
-			w->B2 = (uint64_t) atof (q+1);
+			if (! getBoundField (q+1, &w->B2)) goto illegal_line;
 			q = strchr (q+1, ',');
 		}
 		if (q != NULL && q[1] != '"' && ecm_type != 0) {	// Get optional first curve (line number) for ECMSTAGE2= and ECMSTAGE2N=
-			w->skip_curves = (uint64_t) atoi (q+1);
+			uint64_t u;
+			if (! getUnsignedField (q+1, 2147483647, &u)) goto illegal_line;
+			w->skip_curves = (unsigned int) u;
 			q = strchr (q+1, ',');
 		}
 		if (ecm_type == 0) w->curves_to_do = 100;		// Default to 100 curves for ECM=
 		if (q != NULL && q[1] != '"') {				// Get optional num_curves (num lines) for all ECM types
-			w->curves_to_do = atoi (q+1);
+			uint64_t u;
+			if (! getUnsignedField (q+1, 2147483647, &u)) goto illegal_line;
+			w->curves_to_do = (unsigned int) u;
 			q = strchr (q+1, ',');
 		}
 		if (q != NULL && q[1] != '"' && ecm_type == 0) {	// Get optional sigma for ECM=
-			w->curve = atoll (q+1);
+			if (! getUnsignedField (q+1, (uint64_t) 0xFFFFFFFFFFFFFFFFULL, &w->curve)) goto illegal_line;
 			q = strchr (q+1, ',');
 		}
 		if (q != NULL && q[1] == '"') {				// Get optional known factors for all ECM types
@@ -3004,24 +3148,24 @@ int parseWorkToDoLine (
 	else if (strcmp (keyword, "PMINUS1") == 0) {
 		char	*q;
 		w->work_type = WORK_PMINUS1;
-		w->k = atof (value);
+		if (! getKBNCFields (value, w)) goto illegal_line;
 		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
-		sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
 		for (i = 1; i <= 3; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		w->B1 = (uint64_t) atof (q+1);
+		if (! getBoundField (q+1, &w->B1)) goto illegal_line;
 		if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		w->B2 = (uint64_t) atof (q+1);
+		if (! getBoundField (q+1, &w->B2)) goto illegal_line;
 		q = strchr (q+1, ',');
 		w->sieve_depth = 0.0;
 		if (q != NULL && q[1] != '"') {
-			double j = atof (q+1);
+			double j;
+			if (! getDoubleField (q+1, 0.0, HUGE_VAL, &j)) goto illegal_line;
 			if (j <= 300.0) w->sieve_depth = j;
 			q = strchr (q+1, ',');
 		}
 		w->B2_start = 0;
 		if (q != NULL && q[1] != '"') {
 			uint64_t j;
-			j = (uint64_t) atof (q+1);
+			if (! getBoundField (q+1, &j)) goto illegal_line;
 			if (j > w->B1) w->B2_start = j;
 			q = strchr (q+1, ',');
 		}
@@ -3039,23 +3183,24 @@ int parseWorkToDoLine (
 	else if (strcmp (keyword, "PPLUS1") == 0) {
 		char	*q;
 		w->work_type = WORK_PPLUS1;
-		w->k = atof (value);
+		if (! getKBNCFields (value, w)) goto illegal_line;
 		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
-		sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
 		for (i = 1; i <= 3; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		w->B1 = (uint64_t) atof (q+1);
+		if (! getBoundField (q+1, &w->B1)) goto illegal_line;
 		if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-		w->B2 = (uint64_t) atof (q+1);
+		if (! getBoundField (q+1, &w->B2)) goto illegal_line;
 		q = strchr (q+1, ',');
 		w->nth_run = 1;
 		if (q != NULL && q[1] != '"') {
-			int nth_run = atoi (q+1);
-			if (nth_run >= 1 && nth_run <= 3) w->nth_run = nth_run;
+			int64_t nth_run;
+			if (! getSignedField (q+1, 2147483647, &nth_run)) goto illegal_line;
+			if (nth_run >= 1 && nth_run <= 3) w->nth_run = (int) nth_run;
 			q = strchr (q+1, ',');
 		}
 		w->sieve_depth = 0.0;
 		if (q != NULL && q[1] != '"') {
-			double j = atof (q+1);
+			double j;
+			if (! getDoubleField (q+1, 0.0, HUGE_VAL, &j)) goto illegal_line;
 			if (j <= 300.0) w->sieve_depth = j;
 			q = strchr (q+1, ',');
 		}
@@ -3077,9 +3222,8 @@ int parseWorkToDoLine (
 
 		w->work_type = WORK_PRP;
 		w->prp_dblchk = (keyword[3] != 0);
-		w->k = atof (value);
+		if (! getKBNCFields (value, w)) goto illegal_line;
 		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
-		sscanf (q+1, "%lu,%lu,%ld", &w->b, &w->n, &w->c);
 		for (i = 1; i <= 2; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
 		q = strchr (q+1, ',');
 
@@ -3088,14 +3232,18 @@ int parseWorkToDoLine (
 		w->prp_base = 0;
 		w->prp_residue_type = 0;
 		if (q != NULL && q[1] != '"') {
-			w->sieve_depth = atof (q+1);
+			if (! getDoubleField (q+1, 0.0, WTD_MAX_FLOAT, &w->sieve_depth)) goto illegal_line;
 			if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-			w->tests_saved = atof (q+1);
+			if (! getDoubleField (q+1, 0.0, WTD_MAX_FLOAT, &w->tests_saved)) goto illegal_line;
 			q = strchr (q+1, ',');
 			if (q != NULL && q[1] != '"') {
-				w->prp_base = atoi (q+1);
+				uint64_t u;
+				if (! getUnsignedField (q+1, 0xFFFFFFFFUL, &u)) goto illegal_line;
+				w->prp_base = (unsigned int) u;
 				if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
-				w->prp_residue_type = atoi (q+1);
+				// Zero selects the default residue type, otherwise it must be one of the types defined in primenet.h
+				if (! getUnsignedField (q+1, PRIMENET_PRP_TYPE_COFACTOR, &u)) goto illegal_line;
+				w->prp_residue_type = (int) u;
 				q = strchr (q+1, ',');
 			}
 		}
@@ -3111,12 +3259,14 @@ int parseWorkToDoLine (
 
 	else if (strcmp (keyword, "CERT") == 0) {
 		char	*q;
+		uint64_t u;
 
 		w->work_type = WORK_CERT;
-		w->k = atof (value);
+		if (! getKBNCFields (value, w)) goto illegal_line;
 		if ((q = strchr (value, ',')) == NULL) goto illegal_line;
-		sscanf (q+1, "%lu,%lu,%ld,%d", &w->b, &w->n, &w->c, &w->cert_squarings);
 		for (i = 1; i <= 3; i++) if ((q = strchr (q+1, ',')) == NULL) goto illegal_line;
+		if (! getUnsignedField (q+1, 2147483647, &u) || u < 1) goto illegal_line;
+		w->cert_squarings = (int) u;
 	}
 
 /* Uh oh.  We have a worktodo.txt line we cannot process. */
