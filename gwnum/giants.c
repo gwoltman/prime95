@@ -2155,7 +2155,7 @@ void addsignal (
 		m2 = (int) (f + TWO24PLUSHALF) + carry;
 		carry = (m2 >> 16) - 256;
 
-		value = ((m2 & 0xFFFF) << 16) + (m1 & 0xFFFF);
+		value = (int) (((uint32_t) (m2 & 0xFFFF) << 16) + (uint32_t) (m1 & 0xFFFF));	// Shift unsigned, the top half can set bit 31
 		if (++j == size) break;
 		x->n[j-1] = value;
 	}

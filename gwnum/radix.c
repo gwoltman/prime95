@@ -838,7 +838,7 @@ int nonbase2_gwtogiant (	/* Returns an error code or zero for success */
 				if (err_code) goto err;
 				bits = work_gwdata->NUM_B_PER_SMALL_WORD;
 				if (gwiter_is_big_word (&iter)) bits++;
-				accum += ((int64_t) val) << accumbits;
+				accum += (int64_t) ((uint64_t) (int64_t) val << accumbits);	// val can be negative, so shift it unsigned
 				accumbits += bits;
 				gwiter_next (&iter);
 				if (accumbits < 32) continue;

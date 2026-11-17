@@ -9509,7 +9509,7 @@ void gianttogw (
 				// Process top word without sign extension, otherwise grab bits with sign extension.
 				// Special case zero bits as shift left 64 may be undefined.
 				bits = (gwiter_index (&iter) == limit - 1) ? 32 : gwiter_is_big_word (&iter) ? bits2 : bits1;
-				value = bits ? (accum << (64 - bits)) >> (64 - bits) : 0;
+				value = bits ? (int64_t) ((uint64_t) accum << (64 - bits)) >> (64 - bits) : 0;	// Shift unsigned, left-shifting a signed value can overflow
 				gwiter_set_fft_value (&iter, (int32_t) value);
 				accum = (accum - value) >> bits;
 				accumbits -= bits;
@@ -9729,7 +9729,7 @@ int gwtogiant (
 				if (err_code) return (err_code);
 				bits = gwdata->NUM_B_PER_SMALL_WORD;
 				if (gwiter_is_big_word (&iter)) bits++;
-				accum += ((int64_t) val) << accumbits;
+				accum += (int64_t) ((uint64_t) (int64_t) val << accumbits);	// val can be negative, so shift it unsigned
 				accumbits += bits;
 				gwiter_next (&iter);
 				// See if we have 32-bits to output
