@@ -10874,6 +10874,7 @@ int pm1_restore (			/* For version 30.4 and later save files */
 		int	have_x;
 		if (version == 4) have_x = TRUE;				// 30.4 save files
 		else if (! read_int (fd, &have_x, &sum)) goto readerr;		// 30.7 save files
+		if (! have_x && pm1data->state <= PM1_STATE_MIDSTAGE) goto readerr;	// Stage 1 and stage 2 init need x
 		if (have_x) {
 			pm1data->x_binary = allocgiant (((int) pm1data->gwdata.bit_length >> 5) + 10);
 			if (pm1data->x_binary == NULL) goto readerr;
