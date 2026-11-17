@@ -6409,6 +6409,8 @@ int ecm_old_restore (			/* For version 25 save files */
 	if (! read_uint64 (fd, &savefile_B, &sum)) goto readerr;
 	if (! read_uint64 (fd, &ecmdata->stage1_prime, &sum)) goto readerr;
 	if (! read_uint64 (fd, &unused64, &sum)) goto readerr;	// C_processed
+	ecmdata->sigma_type = 1;				// Old save files are always Suyama sigma, Montgomery stage 1
+	ecmdata->montg_stage1 = TRUE;
 
 /* Handle the should-never-happen case where we have a save file with a smaller bound #1 than the bound #1 we are presently working on. */
 /* Restart the curve (and curve counts) from scratch. */
