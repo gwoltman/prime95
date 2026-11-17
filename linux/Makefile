@@ -39,9 +39,13 @@ CC = gcc
 CFLAGS = -I.. -I../gwnum -I/usr/local/include -std=gnu99 -DX86_64 -Wno-unused-result -O2 -DPORT=8
 CXX = g++
 CXXFLAGS = -I.. -I../gwnum -I$(BOOST) -DX86_64 -std=c++11 -O2 -DPORT=8
-LDFLAGS = -Wl,-L/usr/local/lib
+# PIEFLAG is empty by default, which leaves the choice of PIE or non-PIE to the compiler's default.
+# "make PIEFLAG=-no-pie" (gcc 6 or later) links a non-PIE executable, which silences the two ld warnings
+# about relocations in the read-only code of gwnum.a's assembly objects, at the cost of ASLR for the executable.
+PIEFLAG =
+LDFLAGS = -Wl,-L/usr/local/lib $(PIEFLAG)
 ifdef RELEASE
-LDFLAGS = -Wl,-M -Wl,-L/usr/local/lib
+LDFLAGS = -Wl,-M -Wl,-L/usr/local/lib $(PIEFLAG)
 LIBS = -lm -lpthread -Wl,-Bstatic -lhwloc -Wl,-Bstatic -lcurl -Wl,-Bdynamic -lrt -lstdc++ -ldl -lgmp
 else
 LIBS = -lm -lpthread -lhwloc -lcurl -lrt -lstdc++ -ldl -lgmp
