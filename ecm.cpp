@@ -13119,6 +13119,12 @@ OutputStr (thread_num, buf); }
 
 	if (pm1data.C > pm1data.C_done) {
 		pm1data.state = PM1_STATE_MIDSTAGE;
+		// Stage 2 init expects gg in binary.  Converting it also keeps it safe from the gwdone calls made when costing other FFT lengths.
+		ASSERTG (pm1data.gg_binary == NULL);
+		pm1data.gg_binary = allocgiant (((int) pm1data.gwdata.bit_length >> 5) + 10);
+		if (pm1data.gg_binary == NULL) goto oom;
+		gwtogiant (&pm1data.gwdata, pm1data.gg, pm1data.gg_binary);
+		gwfree (&pm1data.gwdata, pm1data.gg), pm1data.gg = NULL;
 		goto more_C;
 	}
 
