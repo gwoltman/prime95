@@ -1974,6 +1974,37 @@ void incorporateIniAddFiles (void)
 	}
 }
 
+/* Read one line of worktodo.txt or worktodo.add.  Returns FALSE at end of file.  The trailing LF or CRLF is removed. */
+/* Unlike fgets, the whole line is always consumed.  If a line does not fit in the buffer, the rest of it is discarded */
+/* rather than returned as the next line.  A line that was too long or contained a NUL character is turned into a */
+/* comment, so that a partial line is never mistaken for work. */
+
+int readWorkToDoLine (
+	FILE	*fd,
+	char	*line,
+	int	linesize)
+{
+	int	ch, len, bad_line;
+
+	ch = getc (fd);
+	if (ch == EOF) return (FALSE);
+	for (len = 0, bad_line = FALSE; ch != EOF && ch != '\n'; ch = getc (fd)) {
+		if (ch == 0) bad_line = TRUE;
+		else if (len < linesize - 2) line[len++] = (char) ch;	/* Leave room to prepend a comment character */
+		else bad_line = TRUE;
+	}
+	if (len && line[len-1] == '\r') len--;
+	line[len] = 0;
+	if (bad_line && isalpha ((unsigned char) line[0])) {
+		char	buf[200];
+		sprintf (buf, "Illegal line in worktodo.txt file (too long or contains a NUL): %.80s\n", line);
+		OutputSomewhere (MAIN_THREAD_NUM, buf);
+		memmove (line + 1, line, len + 1);
+		line[0] = ';';
+	}
+	return (TRUE);
+}
+
 /* Merge worktodo.add file into the worktodo.txt file */
 
 int incorporateWorkToDoAddFile (void)
@@ -1984,7 +2015,7 @@ static	int	worktodo_add_disabled = FALSE;
 	int	rc;
 	FILE	*fd;
 	unsigned int tnum;
-	char	line[2048];
+	char	line[16384];
 
 /* If add files have been disabled (see below) then we're all done */
 
@@ -2012,14 +2043,10 @@ static	int	worktodo_add_disabled = FALSE;
 
 	gwmutex_lock (&WORKTODO_MUTEX);
 	tnum = 0;
-	while (fgets (line, sizeof (line), fd)) {
+	while (readWorkToDoLine (fd, line, sizeof (line))) {
 		struct work_unit *w;
 		int	rc;
 
-/* Remove trailing CRLFs */
-
-		if (line[0] && line[strlen(line)-1] == '\n') line[strlen(line)-1] = 0;
-		if (line[0] && line[strlen(line)-1] == '\r') line[strlen(line)-1] = 0;
 		if (line[0] == 0) continue;
 
 /* If this is a section header find the matching section header in worktodo.txt.  If no match is found, add this to the */
@@ -2810,9 +2837,11 @@ int parseWorkToDoLine (
 	}
 
 /* Parse the FFT length to use.  The syntax is FFT_length for x87 cpus and FFT2_length for SSE2 machines.  We support two syntaxes so that an */
-/* assignment moved from an x87 to-or-from an SSE2 machine will recalculate the soft FFT crossover. */
+/* assignment moved from an x87 to-or-from an SSE2 machine will recalculate the soft FFT crossover.  Check for the '=' so that we never */
+/* skip past the end of the line. */
 
-	if (toupper (value[0]) == 'F' && toupper (value[1]) == 'F' && toupper (value[2]) == 'T') {
+	if (toupper (value[0]) == 'F' && toupper (value[1]) == 'F' && toupper (value[2]) == 'T' &&
+	    (value[3] == '=' || (value[3] == '2' && value[4] == '='))) {
 		int	sse2;
 		unsigned long fftlen;
 		char	*p;
@@ -3289,13 +3318,9 @@ int readWorkToDoFile (void)
 
 	tnum = 0;
 	linenum = 0;
-	while (fgets (line, sizeof (line), fd)) {
+	while (readWorkToDoLine (fd, line, sizeof (line))) {
 	    struct work_unit *w;
 
-/* Remove trailing CRLFs */
-
-	    if (line[0] && line[strlen(line)-1] == '\n') line[strlen(line)-1] = 0;
-	    if (line[0] && line[strlen(line)-1] == '\r') line[strlen(line)-1] = 0;
 	    linenum++;
 
 /* Allocate a work unit structure */
