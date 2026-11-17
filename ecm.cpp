@@ -11900,6 +11900,11 @@ restart:
 /* Handle stage 1 save files.  If the save file that had a higher B1 target then we can reduce the target B1 to the desired B1. */
 
 		if (pm1data.state == PM1_STATE_STAGE1) {
+			if (pm1data.B < pm1data.B_done) {
+				pm1data.B = pm1data.B_done;
+				sprintf (buf, "Ignoring suggested B1 value, using B1=%" PRIu64 " from the save file\n", pm1data.B);
+				OutputStr (thread_num, buf);
+			}
 			if (pm1data.interim_B > pm1data.B) pm1data.interim_B = pm1data.B;
 			goto restart1;
 		}
