@@ -1864,9 +1864,9 @@ giant popg (
 
 	ASSERTG (size >= 0);
 
-/* Malloc our giant */
+/* Malloc our giant.  Round the size up so that the next giant allocated from this block is properly aligned. */
 
-	memsize = sizeof (gstacknode) + sizeof (giantstruct) + size * sizeof (uint32_t);
+	memsize = (unsigned long) round_up_to_multiple_of (sizeof (gstacknode) + sizeof (giantstruct) + size * sizeof (uint32_t), sizeof (void *));
 	if (memsize > gdata->blksize) {
 		s = (gstacknode *) malloc (memsize);
 		memmove (s, &gdata->stack, sizeof (gstacknode));
