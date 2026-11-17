@@ -699,6 +699,28 @@ int map_polyD_to_index (int D)
 
 // Return minimum number of relprimes for a D (same as number of relative primes less than D/2)
 #define map_D_to_numrels(D)	D_data[map_D_to_index(D)].numrels
+
+// Validate prime pairing values read from a save file.  They size and index the stage 2 arrays.  D must be in the D_data table.
+// relp_sets holds three counts followed by that many relp sets.  The totrels relps fill all permanent relp sets but the last,
+// which can be partial (see process_relp_sets).
+bool pairing_save_values_ok (
+	int	D,
+	int	totrels,
+	int	relp,
+	int16_t *relp_sets,
+	uint64_t Dsection,
+	uint64_t numDsections)
+{
+	int	i, numrels;
+	for (i = 0; i < (int) NUM_D; i++) if (D_data[i].D == D) break;
+	if (i == (int) NUM_D) return (FALSE);
+	numrels = D_data[i].numrels;
+	if (relp_sets[0] < 1 || relp_sets[1] < 0 || relp_sets[2] < 0 || 3 + relp_sets[0] + relp_sets[1] + relp_sets[2] > 32) return (FALSE);
+	if (totrels <= (relp_sets[0] - 1) * numrels || totrels > relp_sets[0] * numrels) return (FALSE);
+	if (relp < -1 || relp >= totrels) return (FALSE);
+	if (Dsection >= numDsections) return (FALSE);		// Stage 2 only saves while D sections remain
+	return (TRUE);
+}
 // Return first_missing_prime for a poly D
 #define map_polyD_to_first_missing_prime(D)	poly_D_data[map_polyD_to_index(D)].first_missing_prime
 
@@ -6587,6 +6609,9 @@ int ecm_restore (			/* For version 30.4 and later save files */
 			if (! read_uint64 (fd, &ecmdata->max_pairmap_Dsections, &sum)) goto readerr;
 			if (! read_int32 (fd, &ecmdata->relp, &sum)) goto readerr;
 			if (! read_array (fd, (char *) ecmdata->relp_sets, 32 * sizeof (int16_t), &sum)) goto readerr;
+			if (! pairing_save_values_ok (ecmdata->D, ecmdata->totrels, ecmdata->relp, ecmdata->relp_sets, ecmdata->Dsection, ecmdata->numDsections)) goto readerr;
+			if (ecmdata->TWO_FFT_STAGE2 != 0 && ecmdata->TWO_FFT_STAGE2 != 1) goto readerr;
+			if (ecmdata->pool_type < POOL_3MULT || ecmdata->pool_type > POOL_N_SQUARED) goto readerr;
 			if (! read_uint64 (fd, &ecmdata->pairmap_size, &sum)) goto readerr;
 			ecmdata->pairmap = (uint8_t *) malloc ((size_t) ecmdata->pairmap_size);
 			if (ecmdata->pairmap == NULL) goto readerr;
@@ -10844,6 +10869,8 @@ int pm1_restore (			/* For version 30.4 and later save files */
 			if (! read_uint64 (fd, &pm1data->max_pairmap_Dsections, &sum)) goto readerr;
 			if (! read_int (fd, &pm1data->relp, &sum)) goto readerr;
 			if (! read_array (fd, (char *) pm1data->relp_sets, 32 * sizeof (int16_t), &sum)) goto readerr;
+			if (! pairing_save_values_ok (pm1data->D, pm1data->totrels, pm1data->relp, pm1data->relp_sets, pm1data->Dsection, pm1data->numDsections)) goto readerr;
+			if (pm1data->numrels != map_D_to_numrels (pm1data->D)) goto readerr;
 			if (! read_uint64 (fd, &pm1data->pairmap_size, &sum)) goto readerr;
 			pm1data->pairmap = (uint8_t *) malloc ((size_t) pm1data->pairmap_size);
 			if (pm1data->pairmap == NULL) goto readerr;
@@ -14819,6 +14846,7 @@ int pp1_restore (
 			if (! read_uint64 (fd, &pp1data->max_pairmap_Dsections, &sum)) goto readerr;
 			if (! read_int (fd, &pp1data->relp, &sum)) goto readerr;
 			if (! read_array (fd, (char *) pp1data->relp_sets, 32 * sizeof (int16_t), &sum)) goto readerr;
+			if (! pairing_save_values_ok (pp1data->D, pp1data->totrels, pp1data->relp, pp1data->relp_sets, pp1data->Dsection, pp1data->numDsections)) goto readerr;
 			if (! read_uint64 (fd, &pp1data->pairmap_size, &sum)) goto readerr;
 			pp1data->pairmap = (uint8_t *) malloc ((size_t) pp1data->pairmap_size);
 			if (pp1data->pairmap == NULL) goto readerr;
