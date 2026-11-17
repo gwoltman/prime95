@@ -7295,7 +7295,8 @@ if (w->n == 604) {
 			/* can successfully read one of the bad save files at a later time.  This sounds crazy, but has happened when OSes get in a funky state. */
 			if (ecmdata.read_save_file_state.a_non_bad_save_file_existed) {
 				OutputBoth (thread_num, ALLSAVEBAD_MSG);
-				return (0);
+				stop_reason = 0;
+				goto exit;
 			}
 			/* No save files existed, start from scratch. */
 			break;
@@ -11874,7 +11875,8 @@ restart:
 			/* This sounds crazy, but has happened when OSes get in a funky state. */
 			if (pm1data.read_save_file_state.a_non_bad_save_file_existed) {
 				OutputBoth (thread_num, ALLSAVEBAD_MSG);
-				return (0);
+				stop_reason = 0;
+				goto exit;
 			}
 			/* No save files existed, start from scratch. */
 			break;
@@ -16140,7 +16142,8 @@ restart:
 			/* This sounds crazy, but has happened when OSes get in a funky state. */
 			if (pp1data.read_save_file_state.a_non_bad_save_file_existed) {
 				OutputBoth (thread_num, ALLSAVEBAD_MSG);
-				return (0);
+				stop_reason = 0;
+				goto exit;
 			}
 			/* No save files existed, start from scratch. */
 			break;

@@ -5533,6 +5533,7 @@ begin:	factor_found = 0;
 			/* This sounds crazy, but has happened when OSes get in a funky state. */
 			if (read_save_file_state.a_non_bad_save_file_existed) {
 				OutputBoth (thread_num, ALLSAVEBAD_MSG);
+				factorDone (&facdata);
 				return (0);
 			}
 			/* No save files existed, start from scratch. */
@@ -6752,6 +6753,7 @@ begin:	gwinit (&lldata.gwdata);
 			if (read_save_file_state.a_non_bad_save_file_existed ||
 			    (pass == 3 && read_save_file_state.a_save_file_existed)) {
 				OutputBoth (thread_num, ALLSAVEBAD_MSG);
+				lucasDone (&lldata);
 				return (0);
 			}
 			/* No save files existed, start from scratch. */
@@ -12241,7 +12243,8 @@ begin:	N = exp = NULL;
 			if (read_save_file_state.a_non_bad_save_file_existed ||
 			    (pass == 3 && read_save_file_state.a_save_file_existed)) {
 				OutputBoth (thread_num, ALLSAVEBAD_MSG);
-				return (0);
+				stop_reason = 0;
+				goto exit;
 			}
 			/* No save files existed, start from scratch. */
 			ps.counter = 0;
