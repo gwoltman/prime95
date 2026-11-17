@@ -164,6 +164,17 @@ int16_t *relp_set_selection (int L) {
 	return relp_set_easy20;
 }
 
+/* Copy one of the relp_sets above into a handle's 32-entry relp_sets array.  The tables above are shorter than 32 entries, */
+/* so copy only the entries the table has and zero the rest. */
+
+void copy_relp_sets (
+	int16_t	*dest,			/* A handle's 32-entry relp_sets array */
+	int16_t	*src)			/* A relp_set returned by relp_set_selection */
+{
+	memset (dest, 0, 32 * sizeof (int16_t));
+	memcpy (dest, src, (3 + src[0] + src[1] + src[2]) * sizeof (int16_t));
+}
+
 /* Return the maximum relp_set from the array of relp_sets */
 
 int16_t get_max_relp_set (
@@ -6229,7 +6240,7 @@ double ecm_stage2_impl (
 		ecmdata->TWO_FFT_STAGE2 = cost_data.TWO_FFT_STAGE2;
 		ecmdata->E = cost_data.E;
 		ecmdata->totrels = (int) cost_data.c.totrels;
-		memcpy (ecmdata->relp_sets, cost_data.c.relp_sets, sizeof (ecmdata->relp_sets));
+		copy_relp_sets (ecmdata->relp_sets, cost_data.c.relp_sets);
 		ecmdata->max_pairmap_Dsections = cost_data.c.max_pairmap_Dsections;
 		if (ecmdata->state < ECM_STATE_STAGE2 || ecmdata->last_relocatable > ecmdata->B2_start) ecmdata->last_relocatable = ecmdata->B2_start;
 	} else {
@@ -11489,7 +11500,7 @@ double pm1_stage2_impl (
 	pm1data->stage2_type = cost_data.stage2_type;
 	if (pm1data->stage2_type == PM1_STAGE2_PAIRING) {
 		pm1data->totrels = cost_data.c.totrels;
-		memcpy (pm1data->relp_sets, cost_data.c.relp_sets, sizeof (pm1data->relp_sets));
+		copy_relp_sets (pm1data->relp_sets, cost_data.c.relp_sets);
 		pm1data->max_pairmap_Dsections = cost_data.c.max_pairmap_Dsections;
 	} else {
 		pm1data->poly1_size = cost_data.c.numrels;
@@ -15432,7 +15443,7 @@ double pp1_stage2_impl (
 	pp1data->stage2_type = cost_data.stage2_type;
 	if (pp1data->stage2_type == PP1_STAGE2_PAIRING) {
 		pp1data->totrels = (int) cost_data.c.totrels;
-		memcpy (pp1data->relp_sets, cost_data.c.relp_sets, sizeof (pp1data->relp_sets));
+		copy_relp_sets (pp1data->relp_sets, cost_data.c.relp_sets);
 		pp1data->max_pairmap_Dsections = cost_data.c.max_pairmap_Dsections;
 	} else {
 		pp1data->poly1_size = cost_data.c.numrels;
