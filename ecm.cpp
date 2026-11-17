@@ -6420,6 +6420,7 @@ int ecm_old_restore (			/* For version 25 save files */
 
 // Convert old state values into new state values.  Restart stage 2 for curves that were in the middle of stage 2. */
 
+	if (state != 0 && state != 1) goto readerr;
 	if (state == 0) {
 		ecmdata->state = ECM_STATE_STAGE1;
 		if (! alloc_xz (ecmdata, &ecmdata->xz)) goto readerr;
@@ -6498,6 +6499,7 @@ int ecm_restore (			/* For version 30.4 and later save files */
 		if (! read_uint32 (fd, &tmp, &sum)) goto readerr;
 		ecmdata->montg_stage1 = tmp;
 	}
+	if (ecmdata->state > ECM_STATE_GCD) goto readerr;		// Unknown state
 
 /* Handle the case where we have a save file with a smaller bound #1 than the bound #1 we are presently working on. */
 /* Restart the curve (and curve counts) from scratch. */
@@ -10701,6 +10703,7 @@ int pm1_old_restore (
 /* In stage 2, only B_done is useful.  We cannot continue an old stage 2. */
 /* When done, only B_done and C_done are meaningful. */
 
+	if (state > 3) goto readerr;			// Unknown state
 	if (state == 3) {				// PM1_STATE_STAGE0
 		pm1data->state = PM1_STATE_STAGE0;
 		pm1data->interim_B = B;
@@ -10783,6 +10786,7 @@ int pm1_restore (			/* For version 30.4 and later save files */
 /* Read the first part of the save file */
 
 	if (! read_int (fd, &pm1data->state, &sum)) goto readerr;
+	if (pm1data->state < PM1_STATE_STAGE0 || pm1data->state > PM1_STATE_DONE) goto readerr;	// Unknown state
 
 /* Read state dependent data */
 
@@ -14748,6 +14752,7 @@ int pp1_restore (
 /* Read the first part of the save file */
 
 	if (! read_int (fd, &pp1data->state, &sum)) goto readerr;
+	if (pp1data->state < PP1_STATE_STAGE1 || pp1data->state > PP1_STATE_DONE) goto readerr;	// Unknown state
 	if (! read_int (fd, &numerator, &sum)) goto readerr;
 	if (! read_int (fd, &denominator, &sum)) goto readerr;
 	if (numerator != pp1data->numerator || denominator != pp1data->denominator) {
