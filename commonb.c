@@ -12243,9 +12243,10 @@ begin:	N = exp = NULL;
 				OutputBoth (thread_num, ALLSAVEBAD_MSG);
 				return (0);
 			}
-			/* No save files existed, start from scratch. */
+			/* No save files existed, start from scratch.  Do not use the state of a save file that was rejected. */
 			ps.counter = 0;
 			ps.error_count = 0;
+			ps.state = PRP_STATE_NORMAL;
 			first_iter_msg = FALSE;
 			break;
 		}
