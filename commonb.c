@@ -5554,6 +5554,7 @@ begin:	factor_found = 0;
 			    read_long (fd, &endpthi, NULL) &&
 			    read_long (fd, &endptlo, NULL) &&
 			    read_footer (fd, w) &&
+			    pass < 16 && bits < 96 &&		// There are 16 passes and factors are below 2^96 (FACHSW holds bits 64-95)
 			    (fachsw < endpthi || (fachsw == endpthi && facmsw < endptlo))) {
 				facdata.asm_data->FACHSW = fachsw;
 				facdata.asm_data->FACMSW = facmsw;
