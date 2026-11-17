@@ -14,6 +14,7 @@
 #include "common.h"
 #include "gwnum.h"
 #include "hwloc.h"
+#include "commonb.h"
 #include "commonc.h"
 #include "pair.h"
 
@@ -861,6 +862,16 @@ int fill_pairmap (			/* Generate a pairing map */
 		uint64_t first_prime = pgen.peek ();
 		int	relocs_added = 0;
 		double reloc_fill_rate;
+
+		// Generating a large pairing map can take minutes.  Check for user interrupt or other stop request before each prime window.
+		// Return an empty pairing map.
+		int stop_reason = stopCheck (thread_num);
+		if (stop_reason) {
+			free (*pairmap);
+			*pairmap = NULL;
+			*pairmap_size = 0;
+			return (stop_reason);
+		}
 
 		// Figure out how fast we can add relocatables without exceeeding the maximum
 		if (WINDOWED) {

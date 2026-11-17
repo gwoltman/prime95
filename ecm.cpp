@@ -6588,9 +6588,13 @@ int ecm_restore (			/* For version 30.4 and later save files */
 			if (! read_int32 (fd, &ecmdata->relp, &sum)) goto readerr;
 			if (! read_array (fd, (char *) ecmdata->relp_sets, 32 * sizeof (int16_t), &sum)) goto readerr;
 			if (! read_uint64 (fd, &ecmdata->pairmap_size, &sum)) goto readerr;
-			ecmdata->pairmap = (uint8_t *) malloc ((size_t) ecmdata->pairmap_size);
-			if (ecmdata->pairmap == NULL) goto readerr;
-			if (! read_array (fd, (char *) ecmdata->pairmap, (size_t) ecmdata->pairmap_size, &sum)) goto readerr;
+			// An empty pairmap means stage 2 stopped while generating the next pairmap.  Leave pairmap NULL so that a new stage 2 plan is made.
+			ecmdata->pairmap = NULL;
+			if (ecmdata->pairmap_size) {
+				ecmdata->pairmap = (uint8_t *) malloc ((size_t) ecmdata->pairmap_size);
+				if (ecmdata->pairmap == NULL) goto readerr;
+				if (! read_array (fd, (char *) ecmdata->pairmap, (size_t) ecmdata->pairmap_size, &sum)) goto readerr;
+			}
 			ecmdata->pairmap_ptr = ecmdata->pairmap;
 			ecmdata->Qx_binary = allocgiant (((int) ecmdata->gwdata.bit_length >> 5) + 10);
 			if (ecmdata->Qx_binary == NULL) goto readerr;
@@ -8757,6 +8761,7 @@ OutputStr (thread_num, buf); }
 						    ecmdata.C_done, ecmdata.C, ecmdata.max_pairmap_Dsections, &ecmdata.pairmap, &ecmdata.pairmap_size);
 			if (stop_reason) {
 //GW:				is save possible here with no pairmap generated?
+				ecmdata.pairmap_ptr = ecmdata.pairmap;
 				ecm_save (&ecmdata);
 				goto exit;
 			}
@@ -10845,9 +10850,13 @@ int pm1_restore (			/* For version 30.4 and later save files */
 			if (! read_int (fd, &pm1data->relp, &sum)) goto readerr;
 			if (! read_array (fd, (char *) pm1data->relp_sets, 32 * sizeof (int16_t), &sum)) goto readerr;
 			if (! read_uint64 (fd, &pm1data->pairmap_size, &sum)) goto readerr;
-			pm1data->pairmap = (uint8_t *) malloc ((size_t) pm1data->pairmap_size);
-			if (pm1data->pairmap == NULL) goto readerr;
-			if (! read_array (fd, (char *) pm1data->pairmap, (size_t) pm1data->pairmap_size, &sum)) goto readerr;
+			// An empty pairmap means stage 2 stopped while generating the next pairmap.  Leave pairmap NULL so that a new stage 2 plan is made.
+			pm1data->pairmap = NULL;
+			if (pm1data->pairmap_size) {
+				pm1data->pairmap = (uint8_t *) malloc ((size_t) pm1data->pairmap_size);
+				if (pm1data->pairmap == NULL) goto readerr;
+				if (! read_array (fd, (char *) pm1data->pairmap, (size_t) pm1data->pairmap_size, &sum)) goto readerr;
+			}
 			pm1data->pairmap_ptr = pm1data->pairmap;
 		} else {
 			if (version <= 7) {		// Version 30.8 did not write this field (a bug).  Compute it assuming stage 2 was no
@@ -13038,6 +13047,7 @@ OutputStr (thread_num, buf); }
 						    pm1data.C_done, pm1data.C, pm1data.max_pairmap_Dsections, &pm1data.pairmap, &pm1data.pairmap_size);
 			if (stop_reason) {
 //GW:				is save possible here with no pairmap generated?
+				pm1data.pairmap_ptr = pm1data.pairmap;
 				pm1_save (&pm1data);
 				goto exit;
 			}
@@ -14820,9 +14830,13 @@ int pp1_restore (
 			if (! read_int (fd, &pp1data->relp, &sum)) goto readerr;
 			if (! read_array (fd, (char *) pp1data->relp_sets, 32 * sizeof (int16_t), &sum)) goto readerr;
 			if (! read_uint64 (fd, &pp1data->pairmap_size, &sum)) goto readerr;
-			pp1data->pairmap = (uint8_t *) malloc ((size_t) pp1data->pairmap_size);
-			if (pp1data->pairmap == NULL) goto readerr;
-			if (! read_array (fd, (char *) pp1data->pairmap, (size_t) pp1data->pairmap_size, &sum)) goto readerr;
+			// An empty pairmap means stage 2 stopped while generating the next pairmap.  Leave pairmap NULL so that a new stage 2 plan is made.
+			pp1data->pairmap = NULL;
+			if (pp1data->pairmap_size) {
+				pp1data->pairmap = (uint8_t *) malloc ((size_t) pp1data->pairmap_size);
+				if (pp1data->pairmap == NULL) goto readerr;
+				if (! read_array (fd, (char *) pp1data->pairmap, (size_t) pp1data->pairmap_size, &sum)) goto readerr;
+			}
 			pp1data->pairmap_ptr = pp1data->pairmap;
 		}
 	}
@@ -17120,6 +17134,7 @@ OutputStr (thread_num, buf); }
 						    pp1data.C_done, pp1data.C, pp1data.max_pairmap_Dsections, &pp1data.pairmap, &pp1data.pairmap_size);
 			if (stop_reason) {
 //GW:				is save possible here with no pairmap generated?
+				pp1data.pairmap_ptr = pp1data.pairmap;
 				pp1_save (&pp1data);
 				goto exit;
 			}
