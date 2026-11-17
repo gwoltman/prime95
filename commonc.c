@@ -2768,13 +2768,21 @@ int parseWorkToDoLine (
 	struct work_unit *w)
 {
 	char	keyword[20], buf[200];
-	char	*value;
+	char	*value, *orig_line;
 	int	i;
 
 /* All lines other than keyword=value are saved as comment lines. */
 
 	memset (w, 0, sizeof (struct work_unit));
+	orig_line = NULL;
 	if (((line[0] < 'A' || line[0] > 'Z') && (line[0] < 'a' || line[0] > 'z'))) goto comment;
+
+/* Parsing strips the assignment ID and other prefixes from line.  Save a copy so that a line we cannot process is kept */
+/* exactly as it was read. */
+
+	orig_line = (char *) malloc (strlen (line) + 1);
+	if (orig_line == NULL) goto nomem;
+	strcpy (orig_line, line);
 
 /* Otherwise, parse keyword=value lines */
 
@@ -3207,21 +3215,25 @@ int parseWorkToDoLine (
 
 // Return success
 
+	free (orig_line);
 	return (0);
 
 // Handle error conditions
 
 illegal_line:
-	sprintf (buf, "Illegal line in worktodo.txt file: %.80s\n", line);
+	sprintf (buf, "Illegal line in worktodo.txt file: %.80s\n", orig_line);
 	OutputSomewhere (MAIN_THREAD_NUM, buf);
 
 comment:w->work_type = WORK_NONE;
+	if (orig_line != NULL) strcpy (line, orig_line);
 	w->comment = (char *) malloc (strlen (line) + 1);
 	if (w->comment == NULL) goto nomem;
 	strcpy (w->comment, line);
+	free (orig_line);
 	return (0);
 
-nomem:	return (OutOfMemory (MAIN_THREAD_NUM));
+nomem:	free (orig_line);
+	return (OutOfMemory (MAIN_THREAD_NUM));
 }
 
 /* Read the entire worktodo.txt file into memory.  Return error_code if we have a memory or file I/O error. */
