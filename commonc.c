@@ -3136,6 +3136,12 @@ int parseWorkToDoLine (
 		w->known_factors[i] = 0;
 		for (i = 0; i < (int) strlen (w->known_factors); i++)
 			if (!isdigit (w->known_factors[i])) w->known_factors[i] = ',';
+		// An empty list or an empty entry in the list cannot be parsed as a factor
+		if (w->known_factors[0] == 0 || w->known_factors[0] == ',' || strstr (w->known_factors, ",,") != NULL) {
+			sprintf (buf, "Error: Worktodo.txt file contained an empty known factor\n");
+			OutputBoth (MAIN_THREAD_NUM, buf);
+			goto illegal_line;
+		}
 	}
 
 /* If this is ECM or P-1 on a Fermat number, then automatically add known Fermat factors */
