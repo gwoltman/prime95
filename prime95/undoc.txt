@@ -548,6 +548,12 @@ P-1 stage 2 can compress data to create bigger polynomials.  In prime.txt, set
 where 0 is no compression, 1 is quick compression gaining about 1.6%, 2 is serious
 compression gaining about 12%.
 
+P-1 and P+1 stage 2 normally compute the next poly #2 coefficients and accumulate the
+evaluated points one gwnum at a time using all of the worker's threads.  On CPUs with a large
+L3 cache this keeps much of each operation's data in the cache.  To instead have each thread
+work on its own gwnums single-threaded, as earlier versions did, set in prime.txt:
+	Stage2ThreadedPhases=0
+
 LINUX/FREEBSD ONLY:  When mprime runs out of work to do, it normally loops waiting for the
 server to assign more work.  This prime.txt option can be used to have mprime exit
 when all workers runs out of work.  Note this probably only makes sense when UsePrimenet=0
