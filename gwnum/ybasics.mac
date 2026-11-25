@@ -270,6 +270,79 @@ yfnmsubpd MACRO dest, mulval1, mulval2, addval, which_arg_to_copy
 	ENDIF
 	ENDM
 
+;; FMA where the second multiplier is 1.0: a plain add or subtract written as an FMA.
+;;
+;; Haswell and Broadwell run vaddpd on one port but FMA on two, so doing adds as FMAs balances the ports there.
+;; Later CPUs are the other way round: Golden Cove and its successors have adders with half the latency of an
+;; FMA, one of them on a port FMA does not use, and every Zen has separate add units from its FMA units.  There
+;; an FMA by 1.0 crowds all the floating point work onto the FMA units.
+;;
+;; These macros take the same arguments as yfmaddpd, yfmsubpd and yfnmaddpd.  When the assembler symbol
+;; YREALADDS is non-zero (the default) they emit vaddpd or vsubpd, which gives the same result bit for bit.
+;; Otherwise they emit the FMA exactly as before (assemble with -DYREALADDS=0 to get that).  If the operands
+;; do not suit vaddpd/vsubpd (the first source must be a register) the FMA is emitted.
+;;
+;; ONLY USE THESE WHERE THE SECOND MULTIPLIER REALLY IS 1.0.  Defining YONE_CHECK adds a run-time check at each
+;; use that the low double of the register is 1.0 (ud2 if it is not).
+
+IFNDEF YREALADDS
+YREALADDS = 1
+ENDIF
+
+ycheck_one MACRO one
+	IFDEF YONE_CHECK
+	IF (OPATTR (one)) AND 10000b
+%	ycheck_one_reg one
+	ENDIF
+	ENDIF
+	ENDM
+ycheck_one_reg MACRO physreg
+	LOCAL	okone
+	pushfq
+	vucomisd @CatStr(<x>,@SubStr(<&physreg>,2)), Q [UNION_BASE+16*SZPTR+104*8]	;; YMM_ONE
+	jp	short @F			;; NaN compares "equal" in ZF
+	je	short okone
+@@:	ud2
+okone:	popfq
+	ENDM
+
+yfmaddpd_by1 MACRO dest, mulval1, one, addval, which_arg_to_copy	;; dest = mulval1 + addval
+	ycheck_one one
+	IF YREALADDS NE 0
+		IF (OPATTR (mulval1)) AND 10000b
+			vaddpd dest, mulval1, addval
+			EXITM
+		ENDIF
+		IF (OPATTR (addval)) AND 10000b
+			vaddpd dest, addval, mulval1
+			EXITM
+		ENDIF
+	ENDIF
+	yfmaddpd dest, mulval1, one, addval, which_arg_to_copy
+	ENDM
+
+yfmsubpd_by1 MACRO dest, mulval1, one, addval, which_arg_to_copy	;; dest = mulval1 - addval
+	ycheck_one one
+	IF YREALADDS NE 0
+		IF (OPATTR (mulval1)) AND 10000b
+			vsubpd dest, mulval1, addval
+			EXITM
+		ENDIF
+	ENDIF
+	yfmsubpd dest, mulval1, one, addval, which_arg_to_copy
+	ENDM
+
+yfnmaddpd_by1 MACRO dest, mulval1, one, addval, which_arg_to_copy	;; dest = addval - mulval1
+	ycheck_one one
+	IF YREALADDS NE 0
+		IF (OPATTR (addval)) AND 10000b
+			vsubpd dest, addval, mulval1
+			EXITM
+		ENDIF
+	ENDIF
+	yfnmaddpd dest, mulval1, one, addval, which_arg_to_copy
+	ENDM
+
 yfmaddsd MACRO dest, mulval1, mulval2, addval
 	IFIDNI <&dest>, <&addval>
 		IF (OPATTR (mulval1)) AND 10000b
